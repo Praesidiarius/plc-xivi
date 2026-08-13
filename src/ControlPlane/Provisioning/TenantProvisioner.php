@@ -9,6 +9,7 @@ use App\ControlPlane\Entity\TenantStatus;
 use App\ControlPlane\Repository\TenantRepository;
 use App\Tenancy\Dbal\TenantDsnParser;
 use App\Tenancy\Migration\TenantMigrator;
+use App\Tenancy\Security\PasswordGenerator;
 use App\Tenancy\Security\TenantSecretCipher;
 use App\Tenancy\TenantResolver;
 use App\Tenancy\TenantSwitcher;
@@ -86,7 +87,7 @@ final readonly class TenantProvisioner
         }
 
         $objectName = self::OBJECT_PREFIX . $slug;
-        $password = self::generatePassword();
+        $password = PasswordGenerator::machine();
 
         $tenant = new Tenant($slug, $name, $dsn ?? $this->dsnFor($objectName), $plan);
         $tenant->setEncryptedDatabasePassword($this->cipher->encrypt($password));
@@ -218,9 +219,4 @@ final readonly class TenantProvisioner
         return $connection->getDatabasePlatform()->quoteSingleIdentifier($identifier);
     }
 
-    /** 32 bytes from the CSPRNG, base64url so it needs no escaping anywhere. */
-    private static function generatePassword(): string
-    {
-        return rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
-    }
 }

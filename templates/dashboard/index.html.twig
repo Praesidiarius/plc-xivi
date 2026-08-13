@@ -1,0 +1,20 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ tenant.name }}{% endblock %}
+
+{% block body %}
+	<div class="shell">
+		<div class="topbar">
+			<strong>{{ tenant.name }}</strong>
+			<form method="post" action="{{ path('logout') }}">
+				<button type="submit">Sign out {{ app.user.email }}</button>
+			</form>
+		</div>
+
+		<h1>Signed in</h1>
+		<p class="muted">
+			Nothing to show yet — the engine has no modules. This page exists so that
+			signing in has somewhere to arrive.
+		</p>
+	</div>
+{% endblock %}

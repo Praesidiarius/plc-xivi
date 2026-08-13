@@ -2,18 +2,42 @@
 
 declare(strict_types=1);
 
-// Gives phpstan-doctrine a real entity manager, so DQL and repository generics
-// are checked rather than assumed. The control plane is the manager with the
-// mapped entities; the tenant manager shares the same configuration.
+/*
+ * Gives phpstan-doctrine an entity manager, so DQL, repository generics and
+ * entity property assignments are checked rather than guessed at.
+ *
+ * It cannot be one of the application's managers. The control plane and the
+ * tenant databases have disjoint mappings, and the extension takes a single
+ * manager: handing it the control one leaves every tenant entity looking like a
+ * plain object, which reports Doctrine-assigned ids as "never assigned" and
+ * lifecycle-written properties as "only written".
+ *
+ * So this builds an analysis-only manager that maps both trees. It never
+ * connects to anything — metadata is all the extension reads.
+ */
 
-use App\Kernel;
-use Symfony\Component\Dotenv\Dotenv;
+use Doctrine\DBAL\DriverManager;
+use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\ORMSetup;
 
 require __DIR__ . '/../vendor/autoload.php';
 
-(new Dotenv())->bootEnv(__DIR__ . '/../.env');
+$config = ORMSetup::createAttributeMetadataConfiguration(
+    paths: [
+        __DIR__ . '/../src/ControlPlane/Entity',
+        __DIR__ . '/../src/Tenant/Entity',
+    ],
+    isDevMode: true,
+);
 
-$kernel = new Kernel($_SERVER['APP_ENV'] ?? 'dev', (bool) ($_SERVER['APP_DEBUG'] ?? true));
-$kernel->boot();
+// PHPStan runs this file inside its own scoped runtime, where symfony/var-exporter
+// is not visible; PHP 8.4+ native lazy objects avoid needing it at all.
+$config->enableNativeLazyObjects(true);
 
-return $kernel->getContainer()->get('doctrine')->getManager('control');
+// Lazy by construction: no query is ever run through it.
+$connection = DriverManager::getConnection(
+    ['driver' => 'pdo_pgsql', 'host' => 'database', 'dbname' => 'static-analysis', 'serverVersion' => '18'],
+    $config,
+);
+
+return new EntityManager($connection, $config);

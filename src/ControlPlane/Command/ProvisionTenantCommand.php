@@ -8,6 +8,8 @@ use App\ControlPlane\Entity\TenantStatus;
 use App\ControlPlane\Provisioning\ProvisioningFailed;
 use App\ControlPlane\Provisioning\TenantProvisioner;
 use App\Tenancy\Dbal\TenantDsnParser;
+use App\Tenant\Security\UserAlreadyExists;
+use App\Tenant\Security\UserCreator;
 use Symfony\Component\Console\Attribute\Argument;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Attribute\Option;
@@ -23,6 +25,7 @@ final readonly class ProvisionTenantCommand
     public function __construct(
         private TenantProvisioner $provisioner,
         private TenantDsnParser $dsnParser,
+        private UserCreator $users,
     ) {
     }
 
@@ -43,6 +46,10 @@ final readonly class ProvisionTenantCommand
         string $plan = 'standard',
         #[Option(description: 'Status once provisioned', name: 'status')]
         TenantStatus $status = TenantStatus::Active,
+        #[Option(description: 'Email of the first admin user; a password is generated and shown once')]
+        ?string $adminEmail = null,
+        #[Option(description: 'Display name for that admin; defaults to the email')]
+        ?string $adminName = null,
     ): int {
         try {
             $tenant = $this->provisioner->provision(
@@ -70,6 +77,30 @@ final readonly class ProvisionTenantCommand
             ['Database' => $this->dsnParser->databaseName($tenant->getDatabaseDsn())],
             ['Role' => $this->dsnParser->userName($tenant->getDatabaseDsn()) ?? '(none)'],
         );
+
+        if ($adminEmail !== null) {
+            try {
+                $password = $this->users->create(
+                    $tenant,
+                    $adminEmail,
+                    $adminName ?? $adminEmail,
+                    roles: ['ROLE_ADMIN'],
+                );
+            } catch (UserAlreadyExists $e) {
+                // The tenant itself is fine; only the user step failed.
+                $io->error($e->getMessage());
+
+                return Command::FAILURE;
+            }
+
+            $io->writeln(sprintf(' Admin: <info>%s</info>', $adminEmail));
+            CreateTenantUserCommand::writePassword($io, $password);
+        } else {
+            $io->note(sprintf(
+                'No users yet. Create one with: tenant:user:create %s <email> --admin',
+                $tenant->getSlug(),
+            ));
+        }
 
         return Command::SUCCESS;
     }

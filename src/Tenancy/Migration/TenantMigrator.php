@@ -5,11 +5,9 @@ declare(strict_types=1);
 namespace App\Tenancy\Migration;
 
 use App\Tenancy\TenantContext;
-use Doctrine\Migrations\Configuration\Configuration;
 use Doctrine\Migrations\Configuration\EntityManager\ExistingEntityManager;
-use Doctrine\Migrations\Configuration\Migration\ExistingConfiguration;
+use Doctrine\Migrations\Configuration\Migration\ConfigurationArray;
 use Doctrine\Migrations\DependencyFactory;
-use Doctrine\Migrations\Metadata\Storage\TableMetadataStorageConfiguration;
 use Doctrine\Migrations\MigratorConfiguration;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -92,20 +90,16 @@ final readonly class TenantMigrator
 
     private function createDependencyFactory(): DependencyFactory
     {
-        $configuration = new Configuration();
-        $configuration->addMigrationsDirectory(self::NAMESPACE, $this->projectDir . '/migrations/tenant');
-        $configuration->setAllOrNothing(true);
-        $configuration->setCheckDatabasePlatform(true);
-
-        $storage = new TableMetadataStorageConfiguration();
-        $storage->setTableName('doctrine_migration_versions');
-        $configuration->setMetadataStorageConfiguration($storage);
+        // The same file the console reads when generating a tenant migration, so
+        // "which migrations are the tenant ones" has exactly one answer.
+        /** @var array<string, mixed> $config */
+        $config = require $this->projectDir . '/config/migrations/tenant.php';
 
         // Built per call rather than cached: the factory holds on to the schema
         // and metadata storage of the database it first saw, which under a
         // long-running worker would be the previous tenant's (docs/architecture.md §7.4).
         return DependencyFactory::fromEntityManager(
-            new ExistingConfiguration($configuration),
+            new ConfigurationArray($config),
             new ExistingEntityManager($this->entityManager),
             $this->logger,
         );

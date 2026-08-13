@@ -1,0 +1,30 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Sign in{% endblock %}
+
+{% block body %}
+	<main class="centered">
+		<div class="card">
+			<h1>Sign in</h1>
+			<p class="muted">{{ app.request.host }}</p>
+
+			{% if error %}
+				{# messageKey is readable English on its own; symfony/translation is not
+				   installed yet, so no |trans filter exists to run it through. #}
+				<p class="alert" role="alert">{{ error.messageKey }}</p>
+			{% endif %}
+
+			<form method="post" action="{{ path('login') }}">
+				<label for="email">Email</label>
+				<input type="email" id="email" name="email" value="{{ last_email }}" autocomplete="username" required autofocus>
+
+				<label for="password">Password</label>
+				<input type="password" id="password" name="password" autocomplete="current-password" required>
+
+				<input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+				<button type="submit">Sign in</button>
+			</form>
+		</div>
+	</main>
+{% endblock %}
