@@ -1,0 +1,23 @@
+parameters:
+    level: 8
+    paths:
+        - src
+        - tests
+    treatPhpDocTypesAsCertain: false
+
+    # Lets the Doctrine and Symfony extensions reason about the real container
+    # and entity manager instead of guessing.
+    symfony:
+        containerXmlPath: var/cache/dev/App_KernelDevDebugContainer.xml
+    doctrine:
+        objectManagerLoader: tests/object-manager.php
+
+    ignoreErrors:
+        # Called by Symfony through reflection when APP_ENV is validated.
+        -
+            message: '#Method App\\Kernel::getAllowedEnvs\(\) is unused#'
+            path: src/Kernel.php
+        # Part of the Flex skeleton's bootstrap; kept as shipped.
+        -
+            message: '#Call to function method_exists\(\) with .*Dotenv.*bootEnv.* will always evaluate to true#'
+            path: tests/bootstrap.php

@@ -1,0 +1,35 @@
+---
+# Development environment override
+services:
+  php:
+    image: ${IMAGES_PREFIX:-}oneplace-php-dev
+    build:
+      context: .
+      target: frankenphp_dev
+    volumes:
+      - ./:/app
+      - ./frankenphp/Caddyfile:/etc/frankenphp/Caddyfile:ro
+      - ./frankenphp/conf.d/20-app.dev.ini:/usr/local/etc/php/app.conf.d/20-app.dev.ini:ro
+      # Keep var/ off the bind-mount for faster I/O on Mac/Windows; comment to inspect from the host.
+      - /app/var
+    environment:
+      # Note: Caddy site addresses allow one wildcard label only, so *.localhost
+      # matches acme.localhost but not www.acme.localhost. Dev tenant hostnames
+      # are therefore one label deep (as are production ones: customer1.1plc.ch).
+      #
+      # Worker mode is off; see the comment in frankenphp/Caddyfile for why.
+      # See https://xdebug.org/docs/all_settings#mode
+      XDEBUG_MODE: "${XDEBUG_MODE:-develop}"
+      APP_ENV: "${APP_ENV:-dev}"
+    extra_hosts:
+      # Ensure that host.docker.internal is correctly defined on Linux
+      - host.docker.internal:host-gateway
+    tty: true
+
+###> doctrine/doctrine-bundle ###
+  database:
+    ports:
+      # Fixed host port so external tools (PhpStorm's DB panel, psql) have a
+      # predictable DSN. Per-tenant databases all live on this same server.
+      - "5432:5432"
+###< doctrine/doctrine-bundle ###

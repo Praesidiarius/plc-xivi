@@ -1,0 +1,44 @@
+{
+	skip_install_trust
+
+	{$CADDY_GLOBAL_OPTIONS}
+
+	frankenphp {
+		{$FRANKENPHP_CONFIG}
+	}
+}
+
+{$CADDY_EXTRA_CONFIG}
+
+{$SERVER_NAME:localhost} {
+	log {
+		{$CADDY_SERVER_LOG_OPTIONS}
+	}
+
+	root /app/public
+	encode zstd br gzip
+
+	{$CADDY_SERVER_EXTRA_DIRECTIVES}
+
+	@phpRoute {
+		not file {path}
+	}
+	rewrite @phpRoute index.php
+
+	# Classic mode, deliberately: no `worker` block.
+	#
+	# Every request boots the kernel and tears it down again, so no PHP state can
+	# survive from one tenant's request into the next one's. That makes the
+	# docs/architecture.md §7.4 leakage class structurally impossible for web requests, at a
+	# cost of a few milliseconds per request that this workload does not notice.
+	# It does NOT cover shared caches (APCu, Redis, cache pools) — those are
+	# shared under any runtime and still have to be namespaced per tenant.
+	@frontController path index.php
+	php @frontController {
+		{$FRANKENPHP_SITE_CONFIG}
+	}
+
+	file_server {
+		hide *.php
+	}
+}
