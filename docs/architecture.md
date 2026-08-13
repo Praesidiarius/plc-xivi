@@ -1,7 +1,8 @@
-# onePlace v2 — Architecture Brief
+# Xivi 17 — Architecture Brief
 
 Metadata-driven CRM/ERP engine in Symfony, plus a working CRM built on top of it.
-Ground-up rebuild of a prior system (v1). Solo project.
+Ground-up rebuild of its predecessor, called **v1** throughout this document — the
+version numbers are not a sequence. Solo project.
 
 This file is the authoritative context for design decisions. When a decision here
 conflicts with a convenient shortcut, follow this file or raise the conflict explicitly.

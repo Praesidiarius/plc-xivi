@@ -1,8 +1,8 @@
 {
-    "name": "oneplace/app",
+    "name": "xivi/app",
     "type": "project",
     "license": "MIT",
-    "description": "onePlace v2 — metadata-driven CRM/ERP engine",
+    "description": "Xivi 17 — metadata-driven CRM/ERP engine",
     "minimum-stability": "stable",
     "prefer-stable": true,
     "require": {

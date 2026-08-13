@@ -2,7 +2,7 @@
 # Development environment override
 services:
   php:
-    image: ${IMAGES_PREFIX:-}oneplace-php-dev
+    image: ${IMAGES_PREFIX:-}xivi-php-dev
     build:
       context: .
       target: frankenphp_dev

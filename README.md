@@ -1,4 +1,4 @@
-# onePlace v2
+# Xivi 17
 
 A metadata-driven CRM/ERP engine in Symfony, plus a CRM built on top of it to keep
 the engine honest.
