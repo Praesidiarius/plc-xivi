@@ -3,9 +3,9 @@
 A metadata-driven CRM/ERP engine in Symfony, plus a CRM built on top of it to keep
 the engine honest.
 
-> **Status: early.** The multi-tenancy foundation and sign-in are built and tested.
-> The engine itself — metadata layer, dynamic forms, field-type registry, modules —
-> is not. You can log in; there is nothing to do once you are in.
+> **Status: early.** Multi-tenancy, sign-in and the metadata engine are built and
+> tested; records can be defined, validated and stored. There is no UI for them
+> yet, so you can log in but the browser has nothing to show you.
 
 The design is written down first and the code follows it. Read
 **[docs/architecture.md](docs/architecture.md)** before anything else; it explains
@@ -33,6 +33,12 @@ email address is a different person at a different customer. Sessions are stampe
 with the tenant that created them and refused anywhere else, because Symfony
 restores a session by user *identifier* and those identifiers collide across
 tenants (§8.2).
+
+**A metadata-driven engine.** A module declares its fields; installing it for a
+customer writes those definitions into that customer's database and creates its
+table. From then on the definitions drive validation and storage, and the customer
+can add fields of their own. `packages/contact` is the whole first module — a
+declaration and nothing else, no entity and no repository (§5).
 
 **Classic PHP execution, on purpose.** FrankenPHP runs without worker mode, so no
 PHP state survives a request boundary and cross-tenant leakage (§7.4) is
@@ -82,6 +88,7 @@ debug is on.
 | --- | --- |
 | `tenant:provision <slug> <hostname...>` | Creates the row, the role, the database and its schema; `--admin-email` adds the first user |
 | `tenant:user:create <slug> <email>` | Adds a user to one tenant; `--admin` grants ROLE_ADMIN |
+| `tenant:module:install <slug> <module>` | Installs a module for one tenant: its table and field definitions |
 | `tenant:list` | Shows the registry |
 | `tenant:migrate [--slug=]` | Applies tenant migrations to every tenant; run it on every deploy |
 | `tenant:rotate-secrets` | Re-encrypts stored passwords with the active key |
@@ -180,8 +187,8 @@ docker compose exec php composer phpstan   # level 8
 The functional tests provision real tenants — real databases and roles — and drop
 them again. They cover the parts that would fail silently: two hosts reaching two
 databases within one process, one tenant's credentials being refused by another
-tenant's database, a session from one tenant being refused by another, and a full
-encryption-key rotation.
+tenant's database, a session from one tenant being refused by another, records and
+uniqueness not crossing tenants, and a full encryption-key rotation.
 
 ## Licence
 

@@ -1,0 +1,55 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Xivi\Core\Field\Type;
+
+use Symfony\Component\Validator\Constraints as Assert;
+use Xivi\Core\Entity\FieldDefinition;
+use Xivi\Core\Field\FieldType;
+
+final class IntegerFieldType implements FieldType
+{
+    public function key(): string
+    {
+        return 'integer';
+    }
+
+    public function label(): string
+    {
+        return 'Whole number';
+    }
+
+    public function constraints(FieldDefinition $field): array
+    {
+        $constraints = [new Assert\Type('int')];
+
+        $min = $field->getOption('min');
+        $max = $field->getOption('max');
+
+        if (\is_int($min) || \is_int($max)) {
+            $constraints[] = new Assert\Range(min: $min, max: $max);
+        }
+
+        return $constraints;
+    }
+
+    public function toStorage(mixed $value, FieldDefinition $field): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        // Anything that is not a whole number is left alone: rejecting it is the
+        // validator's job, and silently casting "12abc" to 12 would store a value
+        // the user never entered.
+        return \is_int($value) || (\is_string($value) && preg_match('/^-?\d+$/', $value) === 1)
+            ? (int) $value
+            : $value;
+    }
+
+    public function fromStorage(mixed $value, FieldDefinition $field): ?int
+    {
+        return $value === null ? null : (int) $value;
+    }
+}

@@ -138,6 +138,26 @@ thing both EAV and JSON are bad at, and a CRM is relational at its core. Relatio
 **Validation** is built dynamically from metadata using Symfony's `Collection`
 constraint plus per-field constraints, including a custom unique-field constraint.
 
+**Records are not Doctrine entities.** Their shape is decided per tenant at
+runtime, and mapping that through the ORM means fighting it; the fixed-shape
+things — users, and the metadata definitions themselves — stay entities. Records
+go through DBAL, in one repository that is the only place knowing *where* a field
+physically lives. That is the seam column promotion lands in later without
+anything above it noticing, and the query layer (§7.3) will want to build SQL
+anyway.
+
+**A module's table is created per customer, not per deploy.** Migrations describe
+what every tenant shares; a module's table exists only where that module is
+enabled, so the installer creates it when the module is installed for that
+customer. Metadata tables themselves are ordinary migrations, since every tenant
+has them.
+
+**Definitions are read fully loaded.** A definition fetched inside one tenant's
+context and touched outside it would lazily load its fields on whatever
+connection is current — throwing when no tenant is resolved, and quietly reading
+another customer's database when one is. §7.4 is not only about caches: any
+object that outlives the context it was loaded in is the same bug.
+
 ---
 
 ## 6. Extensibility
@@ -247,6 +267,11 @@ The tenant resolution layer of §4, and nothing of the engine itself yet.
   once per tenant.
 - Authentication per §8: users in the tenant database, form login, sessions bound to
   the tenant that minted them, first admin created by provisioning.
+- The engine, in `packages/core`: metadata definitions, a closed field-type
+  registry, DBAL record storage with soft delete, and validation built from the
+  definitions including per-tenant uniqueness. `packages/contact` is the first
+  module and is nothing but a declaration — no entity, no repository, no form.
+- Module boundaries enforced by deptrac in CI.
 
 ### 9.2 Decided since this brief was written
 
@@ -266,15 +291,15 @@ The tenant resolution layer of §4, and nothing of the engine itself yet.
 
 ### 9.3 Next
 
-The engine: the metadata layer of §5, proven by one thin `Contact` module, and then
-the §7.3 query layer against it.
+A UI for Contact, built from the same definitions — which is what proves the
+metadata layer drives the form as well as the storage. Then §7.3, the query layer,
+with a real table and real rows to be correct about.
 
-That order is deliberate, and the reverse of what this section said first. The query
-layer is the highest-risk component, but designing it before a single row exists
-means designing against an imagined schema; one real module gives it something to be
-correct about. The constraint runs the other way too — indexing decisions taken while
-building Contact will limit what the query layer can do — so §7.3 has to be argued
-about while Contact is built, just not built first.
+Deliberately still missing, and each one needs a decision rather than an
+implementation: column promotion, relations between modules, the metadata editor,
+and §7.2 — what happens to stored data when a field changes type or is removed.
+Installing a module today refuses to touch an existing installation for exactly
+that reason.
 
 Two things to keep honest while that lands: the metadata layer will want a
 per-tenant cache, which is §7.4 in a new costume; and file storage has not been

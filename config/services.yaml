@@ -27,5 +27,35 @@ services:
     App\:
         resource: '../src/'
 
+    # The engine operates on the tenant's database. Core deliberately has no idea
+    # which one that is (it would have to know about tenancy to decide), so the
+    # application says so here. Without these, autowiring would hand it the
+    # control-plane connection and customer records would land in the registry.
+    Xivi\Core\Metadata\MetadataRepository:
+        arguments:
+            $entityManager: '@doctrine.orm.tenant_entity_manager'
+
+    Xivi\Core\Module\ModuleInstaller:
+        arguments:
+            $entityManager: '@doctrine.orm.tenant_entity_manager'
+            $connection: '@doctrine.dbal.tenant_connection'
+
+    Xivi\Core\Record\RecordRepository:
+        arguments:
+            $connection: '@doctrine.dbal.tenant_connection'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+when@test:
+    services:
+        _defaults:
+            autowire: true
+            autoconfigure: true
+
+        # Private services with no caller are removed when the container is
+        # compiled, and nothing in the application validates a record yet — the
+        # UI is the next thing to be built. Keeping it reachable so the engine can
+        # be tested before something happens to use it.
+        Xivi\Core\Validation\RecordValidator:
+            public: true

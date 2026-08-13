@@ -50,6 +50,14 @@ doctrine:
                         dir: '%kernel.project_dir%/src/Tenant/Entity'
                         prefix: 'App\Tenant\Entity'
                         alias: Tenant
+                    # The engine's metadata tables live in each customer's own
+                    # database, next to the records they describe.
+                    XiviCore:
+                        type: attribute
+                        is_bundle: false
+                        dir: '%kernel.project_dir%/packages/core/src/Entity'
+                        prefix: 'Xivi\Core\Entity'
+                        alias: XiviCore
 
 when@test:
     doctrine:
