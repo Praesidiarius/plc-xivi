@@ -169,6 +169,33 @@ Three composable layers, all "one codebase, no forks":
   subscribers.
 - **View extensions** extend an entity's *UI* → tagged services contributing panels.
 
+### 6.1 Where a shape comes from
+
+Three sources, and the discipline is knowing which one a given need belongs to:
+
+- **Preset** — a named field set for *one module*, shipped with that module, in
+  code, versioned alongside it. `basic` and `extended` for Contact. There are a
+  handful per module, they are identical for every customer who picks one, and
+  changing one means the module changed — so a release is the honest way to ship
+  it.
+- **Template** — how a customer is set up *across* modules: install these modules
+  with these presets, then add these fields. "Dentist practice" is a template, not
+  a preset; nothing about it belongs to any single module. It is data, in the
+  control plane next to plan and enabled modules, because adding one means a new
+  market rather than a code change — and needing a deploy to onboard a vertical is
+  v1's compiled-in module list wearing a different hat.
+- **Metadata rows** — anything one specific customer needs. The moment a preset is
+  named after a customer, it has stopped being a preset.
+
+A preset is a seed, not a type. Once installed, the tenant's definitions are the
+truth and the preset has no further say — which is also why presets do not make
+§7.2 worse: customers are *designed* to diverge from each other, so "we do not
+retro-fit blueprint changes" is the stated model rather than a limitation.
+
+Templates reference presets instead of duplicating them, which is why they need
+nothing new from the engine: a template is a list of installations it already
+knows how to perform, plus rows it already supports.
+
 ---
 
 ## 7. Open design questions
