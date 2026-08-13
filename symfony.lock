@@ -209,5 +209,11 @@
             "config/packages/web_profiler.yaml",
             "config/routes/web_profiler.yaml"
         ]
+    },
+    "xivi/contact": {
+        "version": "dev-main"
+    },
+    "xivi/core": {
+        "version": "dev-main"
     }
 }

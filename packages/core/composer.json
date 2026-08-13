@@ -1,0 +1,25 @@
+{
+    "name": "xivi/core",
+    "description": "Xivi engine: metadata, field types and record storage",
+    "type": "symfony-bundle",
+    "version": "1.0.0",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.4",
+        "doctrine/dbal": "^4.4",
+        "doctrine/orm": "^3.6",
+        "symfony/framework-bundle": "8.1.*",
+        "symfony/validator": "8.1.*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Xivi\\Core\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Xivi\\Core\\Tests\\": "tests/"
+        }
+    },
+    "minimum-stability": "stable"
+}

@@ -82,6 +82,9 @@ COPY --link frankenphp/conf.d/20-app.prod.ini $PHP_INI_DIR/app.conf.d/
 
 # prevent the reinstallation of vendors at every changes in the source code
 COPY --link composer.* symfony.* ./
+# The monorepo's own packages are Composer path repositories, so they have to be
+# present before install can resolve them (docs/architecture.md §3).
+COPY --link packages packages/
 RUN composer install --no-cache --prefer-dist --no-dev --no-autoloader --no-scripts --no-progress
 
 # copy sources

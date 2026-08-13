@@ -152,9 +152,23 @@ GitHub Actions runs that same script rather than its own copy of the checks, so
 there is nothing that can drift between local and CI, and a green run locally means
 a green run there.
 
-It covers: `composer validate --strict`, a dependency vulnerability audit, PHPStan
-level 8, PHPUnit, and a build of the **production** image — the last one because the
-dev image installs dev dependencies and so proves nothing about what ships.
+It covers: `composer validate --strict`, a dependency vulnerability audit, deptrac
+module boundaries, PHPStan level 8, PHPUnit, and a build of the **production**
+image — the last one because the dev image installs dev dependencies and so proves
+nothing about what ships.
+
+## Layout
+
+```
+src/          the application: tenancy, control plane, security, controllers
+packages/core     the engine — metadata, field types, record storage
+packages/contact  the first module built on it
+```
+
+Modules are Symfony bundles wired as Composer path repositories. A module may
+depend on core, never on another module, and core may depend on neither the
+modules nor the application — enforced by `deptrac.yaml` in CI rather than by
+separate repositories (§3).
 
 Individual pieces, if you want them on their own:
 

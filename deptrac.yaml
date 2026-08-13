@@ -1,0 +1,43 @@
+# Boundary enforcement, replacing what separate repositories used to make
+# physically impossible (docs/architecture.md §3).
+#
+#   - a module may depend on core, never on another module
+#   - core may never depend on a module, nor on the application
+#   - the application may depend on both; it is what wires them together
+#
+# Deliberately three layers. The application's own internals are not layered here:
+# §3 asks for module boundaries, and rules nobody agreed to are rules that get
+# disabled the first time they are inconvenient.
+
+deptrac:
+  paths:
+    - ./src
+    - ./packages
+
+  layers:
+    - name: Core
+      collectors:
+        - type: directory
+          value: ^packages/core/src/.*
+
+    - name: ModuleContact
+      collectors:
+        - type: directory
+          value: ^packages/contact/src/.*
+
+    - name: App
+      collectors:
+        - type: directory
+          value: ^src/.*
+
+  ruleset:
+    # Core stands alone: it is handed an entity manager and a connection, and
+    # never asks who the tenant is or which module it is serving.
+    Core: ~
+
+    ModuleContact:
+      - Core
+
+    App:
+      - Core
+      - ModuleContact

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "19827019f679f8365a40bba4cb5a41be",
+    "content-hash": "af5fb5d325cd27c681eeccf6bfb76ea6",
     "packages": [
         {
             "name": "doctrine/collections",
@@ -5378,6 +5378,67 @@
                 }
             ],
             "time": "2026-07-03T20:44:34+00:00"
+        },
+        {
+            "name": "xivi/contact",
+            "version": "1.0.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/contact",
+                "reference": "e3b726745628eb87899189a0ca825f63dd9dccf8"
+            },
+            "require": {
+                "php": ">=8.4",
+                "symfony/framework-bundle": "8.1.*",
+                "xivi/core": "^1.0"
+            },
+            "type": "symfony-bundle",
+            "autoload": {
+                "psr-4": {
+                    "Xivi\\Contact\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Contact module: the thin module that keeps the engine honest",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "xivi/core",
+            "version": "1.0.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/core",
+                "reference": "65fd1270bd309b021bc2a5d98a4b099633df1c2a"
+            },
+            "require": {
+                "doctrine/dbal": "^4.4",
+                "doctrine/orm": "^3.6",
+                "php": ">=8.4",
+                "symfony/framework-bundle": "8.1.*",
+                "symfony/validator": "8.1.*"
+            },
+            "type": "symfony-bundle",
+            "autoload": {
+                "psr-4": {
+                    "Xivi\\Core\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Xivi\\Core\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Xivi engine: metadata, field types and record storage",
+            "transport-options": {
+                "relative": true
+            }
         }
     ],
     "packages-dev": [

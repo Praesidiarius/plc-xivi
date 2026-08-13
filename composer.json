@@ -2,7 +2,7 @@
     "name": "xivi/app",
     "type": "project",
     "license": "MIT",
-    "description": "Xivi 17 — metadata-driven CRM/ERP engine",
+    "description": "Xivi 17 \u2014 metadata-driven CRM/ERP engine",
     "minimum-stability": "stable",
     "prefer-stable": true,
     "require": {
@@ -21,7 +21,9 @@
         "symfony/security-bundle": "8.1.*",
         "symfony/twig-bundle": "8.1.*",
         "symfony/validator": "8.1.*",
-        "symfony/yaml": "8.1.*"
+        "symfony/yaml": "8.1.*",
+        "xivi/contact": "^1.0",
+        "xivi/core": "^1.0"
     },
     "config": {
         "allow-plugins": {
@@ -67,7 +69,8 @@
             "@auto-scripts"
         ],
         "test": "phpunit",
-        "phpstan": "phpstan analyse --memory-limit=1G"
+        "phpstan": "phpstan analyse --memory-limit=1G",
+        "deptrac": "deptrac analyse --no-progress"
     },
     "conflict": {
         "symfony/symfony": "*"
@@ -92,5 +95,12 @@
         "symfony/maker-bundle": "^1.67",
         "symfony/stopwatch": "8.1.*",
         "symfony/web-profiler-bundle": "8.1.*"
-    }
+    },
+    "repositories": [
+        {
+            "name": "xivi-packages",
+            "type": "path",
+            "url": "packages/*"
+        }
+    ]
 }
