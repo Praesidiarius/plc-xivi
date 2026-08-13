@@ -3,172 +3,20 @@
 	<head>
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<title>{% block title %}{{ tenant_name|default('Xivi') }}{% endblock %}</title>
+		<title>{% block title %}Xivi{% endblock %}</title>
 		<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><text y=%2214%22>17</text></svg>">
-		{% block stylesheets %}
-			<style>
-				:root {
-					color-scheme: light dark;
-					--bg: #f6f7f9;
-					--surface: #fff;
-					--text: #1c2024;
-					--muted: #5f6672;
-					--line: #dfe3e8;
-					--accent: #2f5cff;
-					--danger: #b3261e;
-				}
 
-				@media (prefers-color-scheme: dark) {
-					:root {
-						--bg: #14171a;
-						--surface: #1c2024;
-						--text: #e8eaed;
-						--muted: #9aa2ad;
-						--line: #2c3239;
-						--accent: #7f9bff;
-						--danger: #f2a099;
-					}
-				}
+		{# Bootstrap does not follow the operating system's setting on its own, and
+		   this has to run before the body paints or the page flashes white. #}
+		<script>
+			document.documentElement.dataset.bsTheme =
+				window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+		</script>
 
-				* { box-sizing: border-box; }
-
-				body {
-					margin: 0;
-					min-height: 100vh;
-					font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
-					background: var(--bg);
-					color: var(--text);
-				}
-
-				a { color: var(--accent); }
-
-				.shell {
-					max-width: 60rem;
-					margin: 0 auto;
-					padding: 2rem 1.25rem;
-				}
-
-				.centered {
-					display: grid;
-					place-items: center;
-					min-height: 100vh;
-					padding: 1.25rem;
-				}
-
-				.card {
-					width: 100%;
-					max-width: 24rem;
-					background: var(--surface);
-					border: 1px solid var(--line);
-					border-radius: 12px;
-					padding: 2rem;
-				}
-
-				h1 { font-size: 1.35rem; margin: 0 0 .35rem; }
-
-				.muted { color: var(--muted); font-size: .9rem; margin: 0 0 1.5rem; }
-
-				label { display: block; font-size: .85rem; font-weight: 600; margin: 0 0 .35rem; }
-
-				input[type="email"], input[type="password"] {
-					width: 100%;
-					padding: .6rem .7rem;
-					margin-bottom: 1rem;
-					font: inherit;
-					color: inherit;
-					background: var(--bg);
-					border: 1px solid var(--line);
-					border-radius: 8px;
-				}
-
-				input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-
-				button {
-					width: 100%;
-					padding: .65rem 1rem;
-					font: inherit;
-					font-weight: 600;
-					color: #fff;
-					background: var(--accent);
-					border: 0;
-					border-radius: 8px;
-					cursor: pointer;
-				}
-
-				.alert {
-					padding: .7rem .8rem;
-					margin-bottom: 1.25rem;
-					font-size: .9rem;
-					color: var(--danger);
-					border: 1px solid currentColor;
-					border-radius: 8px;
-				}
-
-				.topbar {
-					display: flex;
-					align-items: center;
-					justify-content: space-between;
-					gap: 1rem;
-					padding-bottom: 1rem;
-					border-bottom: 1px solid var(--line);
-				}
-
-				.topbar form { margin: 0; }
-				.topbar nav { display: flex; align-items: baseline; gap: 1.1rem; flex-wrap: wrap; }
-				.topbar a { text-decoration: none; }
-				.topbar nav a:not(:first-child) { color: var(--muted); font-size: .92rem; }
-				.topbar nav a:hover { color: var(--accent); }
-
-				button.link, .topbar button {
-					width: auto; background: none; color: var(--accent);
-					padding: .35rem 0; font-weight: 500;
-				}
-				button.link.danger { color: var(--danger); }
-
-				.page-head {
-					display: flex; align-items: center; justify-content: space-between;
-					gap: 1rem; margin: 1.5rem 0 1rem;
-				}
-				.page-head h1 { margin: 0; }
-
-				a.button {
-					display: inline-block; padding: .5rem .9rem; border-radius: 8px;
-					background: var(--accent); color: #fff; text-decoration: none; font-weight: 600;
-				}
-
-				.card.wide { max-width: none; }
-
-				.tiles { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); }
-				.tile {
-					display: flex; flex-direction: column; gap: .2rem; padding: 1rem;
-					background: var(--surface); border: 1px solid var(--line);
-					border-radius: 10px; text-decoration: none; color: inherit;
-				}
-				.tile:hover { border-color: var(--accent); }
-
-				/* Wide tables scroll rather than pushing the page sideways. */
-				.table-scroll { overflow-x: auto; }
-				table { width: 100%; border-collapse: collapse; }
-				th, td { padding: .55rem .6rem; text-align: left; border-bottom: 1px solid var(--line); }
-				th { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
-				.row-actions { display: flex; gap: .75rem; align-items: baseline; white-space: nowrap; }
-				.row-actions form { margin: 0; }
-
-				.flash { padding: .6rem .8rem; border-radius: 8px; border: 1px solid var(--line); }
-				.flash-success { border-color: var(--accent); }
-				.flash-error { border-color: var(--danger); color: var(--danger); }
-
-				.form-actions { display: flex; align-items: center; gap: 1rem; margin-top: 1rem; }
-				.form-actions button { width: auto; }
-
-				/* Symfony's default form markup, made legible without a form theme. */
-				form > div { margin-bottom: 1rem; }
-				ul { margin: .35rem 0; padding-left: 1.1rem; color: var(--danger); font-size: .9rem; }
-				code { font-size: .9em; }
-			</style>
-		{% endblock %}
+		{% block stylesheets %}{% endblock %}
+		{% block javascripts %}{{ importmap('app') }}{% endblock %}
 	</head>
-	<body>
+	<body class="bg-body-tertiary">
 		{% block body %}{% endblock %}
 	</body>
 </html>

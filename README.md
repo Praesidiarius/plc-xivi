@@ -48,6 +48,10 @@ PHP state survives a request boundary and cross-tenant leakage (§7.4) is
 structurally impossible for web requests. It costs a few milliseconds per request
 and is worth it. See the comment in `frankenphp/Caddyfile`.
 
+**Server-rendered, no build step.** Twig and Bootstrap's CSS, self-hosted through
+AssetMapper — no Node, no bundler, and no CDN calls from a customer's browser. The
+forms work without JavaScript.
+
 ## Requirements
 
 Docker and Docker Compose. Nothing else — there is no host PHP or Composer step.

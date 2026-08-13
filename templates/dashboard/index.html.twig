@@ -3,27 +3,33 @@
 {% block title %}{{ tenant.name }}{% endblock %}
 
 {% block body %}
-	<div class="shell">
-		{{ include('_topbar.html.twig') }}
+	{{ include('_topbar.html.twig') }}
 
+	<main class="container page-shell">
 		{{ include('_flashes.html.twig') }}
 
-		<h1>{{ tenant.name }}</h1>
+		<h1 class="h3 mb-4">{{ tenant.name }}</h1>
 
 		{% if chrome.modules is empty %}
-			<p class="muted">
+			<div class="alert alert-secondary">
 				No modules installed yet. Install one with
 				<code>bin/console tenant:module:install {{ tenant.slug }} contact</code>.
-			</p>
+			</div>
 		{% else %}
-			<div class="tiles">
+			<div class="row g-3">
 				{% for module in chrome.modules %}
-					<a class="tile" href="{{ path('module_index', {module: module.key}) }}">
-						<strong>{{ module.label }}</strong>
-						<span class="muted">{{ module.fields|length }} fields</span>
-					</a>
+					<div class="col-sm-6 col-lg-4">
+						<a class="card h-100 module-tile" href="{{ path('module_index', {module: module.key}) }}">
+							<div class="card-body">
+								<h2 class="h6 card-title mb-1">{{ module.label }}</h2>
+								<p class="card-text text-body-secondary small mb-0">
+									{{ module.fields|length }} field{{ module.fields|length == 1 ? '' : 's' }}
+								</p>
+							</div>
+						</a>
+					</div>
 				{% endfor %}
 			</div>
 		{% endif %}
-	</div>
+	</main>
 {% endblock %}

@@ -1,5 +1,8 @@
 twig:
     file_name_pattern: '*.twig'
+    # Symfony ships the Bootstrap 5 markup for forms, so a field rendered from a
+    # definition gets the same structure a hand-written form would.
+    form_themes: ['bootstrap_5_layout.html.twig']
     globals:
         # Tenant name and module navigation, needed by every signed-in page.
         # Lazy: the login page renders without a tenant.

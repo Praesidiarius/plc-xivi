@@ -3,50 +3,54 @@
 {% block title %}{{ module.label }}{% endblock %}
 
 {% block body %}
-	<div class="shell">
-		{{ include('_topbar.html.twig') }}
+	{{ include('_topbar.html.twig') }}
 
-		<div class="page-head">
-			<h1>{{ module.label }}</h1>
-			<a class="button" href="{{ path('module_new', {module: module.key}) }}">Add</a>
-		</div>
-
+	<main class="container page-shell">
 		{{ include('_flashes.html.twig') }}
 
+		<div class="d-flex align-items-center justify-content-between mb-3">
+			<h1 class="h3 mb-0">{{ module.label }}</h1>
+			<a class="btn btn-primary" href="{{ path('module_new', {module: module.key}) }}">Add</a>
+		</div>
+
 		{% if records is empty %}
-			<p class="muted">Nothing here yet.</p>
+			<div class="alert alert-secondary">Nothing here yet.</div>
 		{% else %}
-			<div class="table-scroll">
-				<table>
-					<thead>
-						<tr>
-							{# Columns come from the customer's own definitions, in their order. #}
-							{% for field in module.fields %}
-								<th>{{ field.label }}</th>
-							{% endfor %}
-							<th></th>
-						</tr>
-					</thead>
-					<tbody>
-						{% for record in records %}
+			<div class="card">
+				<div class="table-responsive">
+					<table class="table table-hover align-middle mb-0">
+						<thead>
 							<tr>
+								{# Columns are the customer's own definitions, in their order. #}
 								{% for field in module.fields %}
-									<td>{{ display(field, record.get(field.key)) }}</td>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ field.label }}</th>
 								{% endfor %}
-								<td class="row-actions">
-									<a href="{{ path('module_edit', {module: module.key, id: record.id}) }}">Edit</a>
-									<form method="post" action="{{ path('module_delete', {module: module.key, id: record.id}) }}">
-										<input type="hidden" name="_token" value="{{ csrf_token('delete-record-' ~ record.id) }}">
-										<button type="submit" class="link danger">Delete</button>
-									</form>
-								</td>
+								<th scope="col"></th>
 							</tr>
-						{% endfor %}
-					</tbody>
-				</table>
+						</thead>
+						<tbody>
+							{% for record in records %}
+								<tr>
+									{% for field in module.fields %}
+										<td>{{ display(field, record.get(field.key)) }}</td>
+									{% endfor %}
+									<td class="row-actions text-end">
+										<a class="btn btn-sm btn-outline-secondary"
+										   href="{{ path('module_edit', {module: module.key, id: record.id}) }}">Edit</a>
+										<form method="post" class="d-inline"
+										      action="{{ path('module_delete', {module: module.key, id: record.id}) }}">
+											<input type="hidden" name="_token" value="{{ csrf_token('delete-record-' ~ record.id) }}">
+											<button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+										</form>
+									</td>
+								</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
 			</div>
 
-			<p class="muted">{{ total }} record{{ total == 1 ? '' : 's' }}.</p>
+			<p class="text-body-secondary small mt-2">{{ total }} record{{ total == 1 ? '' : 's' }}.</p>
 		{% endif %}
-	</div>
+	</main>
 {% endblock %}

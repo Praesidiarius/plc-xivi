@@ -1,0 +1,28 @@
+/* Everything Bootstrap does not already do. Deliberately short. */
+
+.page-shell {
+	max-width: 62rem;
+}
+
+.signin-shell {
+	min-height: 100vh;
+	display: grid;
+	place-items: center;
+	padding: 1.5rem;
+}
+
+/* Dashboard module tiles. */
+.module-tile {
+	text-decoration: none;
+	color: inherit;
+	transition: border-color .15s ease-in-out;
+}
+
+.module-tile:hover {
+	border-color: var(--bs-primary);
+}
+
+/* Keep row actions on one line even when a table scrolls. */
+.row-actions {
+	white-space: nowrap;
+}

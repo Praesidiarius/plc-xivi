@@ -3,30 +3,32 @@
 {% block title %}{{ record.isNew ? 'New' : 'Edit' }} — {{ module.label }}{% endblock %}
 
 {% block body %}
-	<div class="shell">
-		{{ include('_topbar.html.twig') }}
+	{{ include('_topbar.html.twig') }}
 
-		<div class="page-head">
-			<h1>{{ record.isNew ? 'New' : 'Edit' }} {{ module.label|lower }}</h1>
-			<a href="{{ path('module_index', {module: module.key}) }}">Back</a>
-		</div>
-
+	<main class="container page-shell">
 		{{ include('_flashes.html.twig') }}
 
-		<div class="card wide">
-			{# Every field here came from a definition row — including any the
-			   customer added themselves, which is the point. #}
-			{{ form_start(form) }}
-			{{ form_errors(form) }}
-			{{ form_widget(form) }}
-
-			<div class="form-actions">
-				<button type="submit">Save</button>
-				{% if not record.isNew %}
-					<span class="muted">Created {{ record.createdAt ? record.createdAt|date('Y-m-d H:i') : '' }}</span>
-				{% endif %}
-			</div>
-			{{ form_end(form) }}
+		<div class="d-flex align-items-center justify-content-between mb-3">
+			<h1 class="h3 mb-0">{{ record.isNew ? 'New' : 'Edit' }} {{ module.label|lower }}</h1>
+			<a class="btn btn-link" href="{{ path('module_index', {module: module.key}) }}">Back</a>
 		</div>
-	</div>
+
+		<div class="card">
+			<div class="card-body">
+				{# Every field here came from a definition row — including any the
+				   customer added themselves, which is the point. #}
+				{{ form_start(form) }}
+				{{ form_errors(form) }}
+				{{ form_widget(form) }}
+
+				<div class="d-flex align-items-center gap-3 mt-4">
+					<button type="submit" class="btn btn-primary">Save</button>
+					{% if not record.isNew and record.createdAt %}
+						<span class="text-body-secondary small">Created {{ record.createdAt|date('Y-m-d H:i') }}</span>
+					{% endif %}
+				</div>
+				{{ form_end(form) }}
+			</div>
+		</div>
+	</main>
 {% endblock %}

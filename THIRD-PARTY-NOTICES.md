@@ -34,6 +34,17 @@ Development tooling adds BSD-3-Clause (PHPUnit and the `sebastian/*` packages,
 Both are permissive and compatible with MIT. They are not installed in production
 builds (`composer install --no-dev`).
 
+## Front-end assets
+
+**Bootstrap** — MIT, Copyright (c) 2011-2025 The Bootstrap Authors.
+<https://github.com/twbs/bootstrap>
+
+Only the compiled CSS is used; Bootstrap's JavaScript is not shipped. It is not
+committed here — `importmap:install` downloads it into `assets/vendor/` at build
+time, and the file keeps its own licence header. It is then served from this
+application's own host rather than a CDN, so no third party is contacted when a
+customer loads a page.
+
 ## Runtime images
 
 The Docker images build on `dunglas/frankenphp` (MIT) and `postgres` (PostgreSQL

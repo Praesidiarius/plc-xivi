@@ -1,5 +1,6 @@
+{# No dismiss buttons: they need Bootstrap's JavaScript, which this app does not ship. #}
 {% for type, messages in app.flashes(['success', 'error']) %}
 	{% for message in messages %}
-		<p class="flash flash-{{ type }}" role="status">{{ message }}</p>
+		<div class="alert alert-{{ type == 'error' ? 'danger' : 'success' }}" role="status">{{ message }}</div>
 	{% endfor %}
 {% endfor %}

@@ -1,12 +1,19 @@
-<div class="topbar">
-	<nav>
-		<a href="{{ path('dashboard') }}"><strong>{{ chrome.tenant.name }}</strong></a>
-		{% for module in chrome.modules %}
-			<a href="{{ path('module_index', {module: module.key}) }}">{{ module.label }}</a>
-		{% endfor %}
-	</nav>
+<nav class="navbar navbar-expand bg-body border-bottom mb-4">
+	<div class="container page-shell">
+		<a class="navbar-brand fw-semibold" href="{{ path('dashboard') }}">{{ chrome.tenant.name }}</a>
 
-	<form method="post" action="{{ path('logout') }}">
-		<button type="submit" class="link">Sign out {{ app.user.email }}</button>
-	</form>
-</div>
+		<ul class="navbar-nav me-auto">
+			{% for module in chrome.modules %}
+				<li class="nav-item">
+					<a class="nav-link{{ app.request.attributes.get('module') == module.key ? ' active' : '' }}"
+					   href="{{ path('module_index', {module: module.key}) }}">{{ module.label }}</a>
+				</li>
+			{% endfor %}
+		</ul>
+
+		<form method="post" action="{{ path('logout') }}" class="d-flex align-items-center gap-2">
+			<span class="text-body-secondary small d-none d-sm-inline">{{ app.user.email }}</span>
+			<button type="submit" class="btn btn-sm btn-outline-secondary">Sign out</button>
+		</form>
+	</div>
+</nav>

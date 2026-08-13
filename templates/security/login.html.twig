@@ -3,28 +3,36 @@
 {% block title %}Sign in{% endblock %}
 
 {% block body %}
-	<main class="centered">
-		<div class="card">
-			<h1>Sign in</h1>
-			<p class="muted">{{ app.request.host }}</p>
+	<main class="signin-shell">
+		<div class="card shadow-sm" style="width: 22rem;">
+			<div class="card-body p-4">
+				<h1 class="h4 mb-1">Sign in</h1>
+				<p class="text-body-secondary small mb-4">{{ app.request.host }}</p>
 
-			{% if error %}
-				{# messageKey is readable English on its own; symfony/translation is not
-				   installed yet, so no |trans filter exists to run it through. #}
-				<p class="alert" role="alert">{{ error.messageKey }}</p>
-			{% endif %}
+				{% if error %}
+					{# messageKey is readable English on its own; symfony/translation is not
+					   installed yet, so there is no |trans filter to run it through. #}
+					<div class="alert alert-danger py-2 small" role="alert">{{ error.messageKey }}</div>
+				{% endif %}
 
-			<form method="post" action="{{ path('login') }}">
-				<label for="email">Email</label>
-				<input type="email" id="email" name="email" value="{{ last_email }}" autocomplete="username" required autofocus>
+				<form method="post" action="{{ path('login') }}">
+					<div class="mb-3">
+						<label for="email" class="form-label">Email</label>
+						<input type="email" id="email" name="email" value="{{ last_email }}"
+						       class="form-control" autocomplete="username" required autofocus>
+					</div>
 
-				<label for="password">Password</label>
-				<input type="password" id="password" name="password" autocomplete="current-password" required>
+					<div class="mb-4">
+						<label for="password" class="form-label">Password</label>
+						<input type="password" id="password" name="password"
+						       class="form-control" autocomplete="current-password" required>
+					</div>
 
-				<input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+					<input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
 
-				<button type="submit">Sign in</button>
-			</form>
+					<button type="submit" class="btn btn-primary w-100">Sign in</button>
+				</form>
+			</div>
 		</div>
 	</main>
 {% endblock %}
