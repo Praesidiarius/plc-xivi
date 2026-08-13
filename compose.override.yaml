@@ -6,6 +6,11 @@ services:
     build:
       context: .
       target: frankenphp_dev
+    # Run as the developer, not as root. Otherwise every file a container command
+    # creates — a migration, a recipe's config, a vendored asset — lands in the
+    # working tree owned by root and cannot be edited from the host.
+    # Override UID/GID in .env.local if yours are not 1000.
+    user: "${UID:-1000}:${GID:-1000}"
     volumes:
       - ./:/app
       - ./frankenphp/Caddyfile:/etc/frankenphp/Caddyfile:ro
@@ -21,6 +26,9 @@ services:
       # See https://xdebug.org/docs/all_settings#mode
       XDEBUG_MODE: "${XDEBUG_MODE:-develop}"
       APP_ENV: "${APP_ENV:-dev}"
+      # That user has no home directory in the image.
+      HOME: /tmp
+      COMPOSER_HOME: /tmp/composer
     extra_hosts:
       # Ensure that host.docker.internal is correctly defined on Linux
       - host.docker.internal:host-gateway

@@ -56,6 +56,10 @@ forms work without JavaScript.
 
 Docker and Docker Compose. Nothing else — there is no host PHP or Composer step.
 
+The dev container runs as uid 1000 so that files it creates — migrations, recipe
+config, vendored assets — belong to you rather than to root. If your uid is not
+1000, set `UID` and `GID` in `.env.local`.
+
 ## Quickstart
 
 ```bash

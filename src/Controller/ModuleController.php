@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Tenant\Entity\User;
+use App\Tenant\Repository\UserRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormInterface;
@@ -35,6 +36,7 @@ final class ModuleController extends AbstractController
         private readonly MetadataRepository $metadata,
         private readonly RecordRepository $records,
         private readonly RecordValidator $validator,
+        private readonly UserRepository $users,
     ) {
     }
 
@@ -42,10 +44,12 @@ final class ModuleController extends AbstractController
     public function index(string $module): Response
     {
         $definition = $this->definition($module);
+        $records = $this->records->findAll($definition);
 
         return $this->render('module/index.html.twig', [
             'module' => $definition,
-            'records' => $this->records->findAll($definition),
+            'records' => $records,
+            'owners' => $this->ownerNames($records),
             'total' => $this->records->countAll($definition),
         ]);
     }
@@ -131,6 +135,36 @@ final class ModuleController extends AbstractController
                 $form->has($field) ? (string) $violation->getMessage() : sprintf('%s: %s', $field, $violation->getMessage()),
             ));
         }
+    }
+
+    /**
+     * Owner names for a page of records.
+     *
+     * The engine stores an owner id and deliberately knows nothing about users —
+     * there is not even a foreign key, because core has no idea what a user is.
+     * Resolving those ids to people is the application's job, and doing it here
+     * in one query keeps that boundary intact.
+     *
+     * @param list<Record> $records
+     *
+     * @return array<int, string>
+     */
+    private function ownerNames(array $records): array
+    {
+        $ids = array_values(array_unique(array_filter(
+            array_map(static fn (Record $record): ?int => $record->ownerId, $records),
+        )));
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $names = [];
+        foreach ($this->users->findBy(['id' => $ids]) as $user) {
+            $names[(int) $user->getId()] = $user->getName();
+        }
+
+        return $names;
     }
 
     private function definition(string $module): ModuleDefinition

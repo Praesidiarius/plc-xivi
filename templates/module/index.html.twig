@@ -25,6 +25,7 @@
 								{% for field in module.fields %}
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ field.label }}</th>
 								{% endfor %}
+								<th scope="col" class="text-body-secondary small text-uppercase">Owner</th>
 								<th scope="col"></th>
 							</tr>
 						</thead>
@@ -34,6 +35,9 @@
 									{% for field in module.fields %}
 										<td>{{ display(field, record.get(field.key)) }}</td>
 									{% endfor %}
+									{# owner_id is a system column; the name is resolved by the
+									   application, since the engine does not know what a user is. #}
+									<td class="text-body-secondary">{{ owners[record.ownerId] ?? '—' }}</td>
 									<td class="row-actions text-end">
 										<a class="btn btn-sm btn-outline-secondary"
 										   href="{{ path('module_edit', {module: module.key, id: record.id}) }}">Edit</a>

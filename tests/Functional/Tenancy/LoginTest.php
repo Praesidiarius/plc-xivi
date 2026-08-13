@@ -8,6 +8,9 @@ use App\ControlPlane\Entity\Tenant;
 use App\ControlPlane\Provisioning\TenantProvisioner;
 use App\ControlPlane\Repository\TenantRepository;
 use App\Tenancy\EventListener\TenantSessionGuard;
+use App\Tenancy\TenantSwitcher;
+use App\Tenant\Entity\User;
+use App\Tenant\Repository\UserRepository;
 use App\Tenant\Security\UserCreator;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -120,6 +123,33 @@ final class LoginTest extends WebTestCase
             self::ALPHA,
             $this->client->getRequest()->getSession()->get(TenantSessionGuard::SESSION_KEY),
         );
+    }
+
+    /** The column existed from the first migration; nothing wrote to it until now. */
+    public function testSigningInStampsTheLastLogin(): void
+    {
+        $switcher = self::getContainer()->get(TenantSwitcher::class);
+        \assert($switcher instanceof TenantSwitcher);
+        $tenants = self::getContainer()->get(TenantRepository::class);
+        \assert($tenants instanceof TenantRepository);
+        $alpha = $tenants->findOneBySlug(self::ALPHA);
+        self::assertNotNull($alpha);
+
+        $before = $switcher->runFor($alpha, fn () => $this->userInCurrentTenant()?->getLastLoginAt());
+        self::assertNull($before);
+
+        $this->signIn('login-alpha.localhost', self::ALPHA_PASSWORD);
+
+        $after = $switcher->runFor($alpha, fn () => $this->userInCurrentTenant()?->getLastLoginAt());
+        self::assertInstanceOf(\DateTimeImmutable::class, $after);
+    }
+
+    private function userInCurrentTenant(): ?User
+    {
+        $users = self::getContainer()->get(UserRepository::class);
+        \assert($users instanceof UserRepository);
+
+        return $users->findOneByEmail(self::EMAIL);
     }
 
     public function testTheLoginPageItselfIsPublic(): void

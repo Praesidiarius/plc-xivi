@@ -93,6 +93,15 @@ final class ModuleUiTest extends WebTestCase
         self::assertSelectorTextContains('table', '1815-12-10');
     }
 
+    /** owner_id is a system column; the name beside it is resolved by the application. */
+    public function testARecordShowsWhoCreatedIt(): void
+    {
+        $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+        $this->client->followRedirect();
+
+        self::assertSelectorTextContains('table', 'UI');
+    }
+
     public function testARequiredFieldIsEnforcedByItsDefinition(): void
     {
         $this->submitContact(['first_name' => '', 'last_name' => 'Babbage']);

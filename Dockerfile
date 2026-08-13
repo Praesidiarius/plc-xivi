@@ -65,6 +65,12 @@ RUN <<-EOF
 	install-php-extensions xdebug
 	useradd -m -s /bin/bash nonroot
 	git config --system --add safe.directory /app
+	# The dev container runs as the host user (see compose.override.yaml), whose
+	# uid is not known at build time. These are the paths it must be able to
+	# write: var/ is an anonymous volume that inherits these permissions when it
+	# is created, and Caddy stores its local TLS certificate under /data.
+	mkdir -p /app/var /data /config
+	chmod 1777 /app/var /data /config
 EOF
 
 COPY --link frankenphp/conf.d/20-app.dev.ini $PHP_INI_DIR/app.conf.d/
