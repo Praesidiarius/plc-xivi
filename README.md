@@ -112,7 +112,22 @@ changeover and the job is resumable:
 2. Run `tenant:rotate-secrets` until it reports nothing stale.
 3. Remove the old key.
 
-## Tests
+## Tests and CI
+
+```bash
+bin/ci                # everything CI runs, in the same containers
+bin/ci --no-build     # skip the production image build, the slow step
+```
+
+GitHub Actions runs that same script rather than its own copy of the checks, so
+there is nothing that can drift between local and CI, and a green run locally means
+a green run there.
+
+It covers: `composer validate --strict`, a dependency vulnerability audit, PHPStan
+level 8, PHPUnit, and a build of the **production** image — the last one because the
+dev image installs dev dependencies and so proves nothing about what ships.
+
+Individual pieces, if you want them on their own:
 
 ```bash
 docker compose exec php composer test      # PHPUnit

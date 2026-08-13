@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+#
+# The full CI suite, run against the same containers you develop in.
+#
+# GitHub Actions runs this exact script — there is no second list of checks that
+# can drift away from this one. If this passes locally it passes there, and you
+# find out before pushing rather than after.
+#
+#   bin/ci              everything
+#   bin/ci --no-build   skip the production image build (the slow one)
+#
+# The stack is left running afterwards; nothing here touches your dev tenants.
+# The test suite creates and drops its own.
+
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+build_prod_image=true
+
+for arg in "$@"; do
+	case "$arg" in
+		--no-build) build_prod_image=false ;;
+		-h|--help) sed -n '3,14p' "${BASH_SOURCE[0]}" | cut -c 3-; exit 0 ;;
+		*) printf 'unknown option: %s\n' "$arg" >&2; exit 64 ;;
+	esac
+done
+
+if [ -t 1 ]; then
+	step() { printf '\n\033[1;34m==> %s\033[0m\n' "$1"; }
+	pass() { printf '\n\033[1;32m%s\033[0m\n' "$1"; }
+else
+	step() { printf '\n==> %s\n' "$1"; }
+	pass() { printf '\n%s\n' "$1"; }
+fi
+
+step 'Starting the stack'
+docker compose up -d --wait
+
+step 'composer.json is valid and composer.lock matches it'
+docker compose exec -T php composer validate --strict
+
+step 'Dependencies have no known vulnerabilities'
+docker compose exec -T php composer audit
+
+step 'Static analysis (PHPStan, level 8)'
+docker compose exec -T php composer phpstan
+
+step 'Tests (PHPUnit)'
+docker compose exec -T php composer test
+
+if [ "$build_prod_image" = true ]; then
+	# The dev image says nothing about whether the production one builds: it
+	# installs dev dependencies, so a bundle registered for "all" while its
+	# package sits in require-dev only fails here. That has happened once.
+	step 'Production image builds'
+	docker build --target frankenphp_prod -t xivi-prod-check .
+fi
+
+pass 'All checks passed.'
