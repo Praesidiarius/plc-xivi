@@ -1,0 +1,8 @@
+doctrine_migrations:
+    # Control-plane migrations only; these run once per deploy.
+    # Tenant migrations live in migrations/tenant and are run per tenant by
+    # App\Tenancy\Migration\TenantMigrator ("bin/console tenant:migrate").
+    migrations_paths:
+        'DoctrineMigrations\ControlPlane': '%kernel.project_dir%/migrations/control'
+    em: control
+    enable_profiler: false

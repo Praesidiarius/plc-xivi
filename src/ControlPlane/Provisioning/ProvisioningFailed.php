@@ -1,0 +1,50 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\ControlPlane\Provisioning;
+
+final class ProvisioningFailed extends \RuntimeException
+{
+    public static function invalidSlug(string $slug): self
+    {
+        return new self(sprintf(
+            'Invalid tenant slug "%s": it becomes a database name, so it must start with a letter '
+            . 'and contain only lowercase letters, digits and underscores (max 63 characters).',
+            $slug,
+        ));
+    }
+
+    public static function slugTaken(string $slug): self
+    {
+        return new self(sprintf('A tenant with slug "%s" already exists.', $slug));
+    }
+
+    public static function noHostname(string $slug): self
+    {
+        return new self(sprintf('Tenant "%s" needs at least one hostname to be reachable.', $slug));
+    }
+
+    public static function hostnameTaken(string $hostname): self
+    {
+        return new self(sprintf('Hostname "%s" is already routed to another tenant.', $hostname));
+    }
+
+    public static function dsnWithoutUser(string $slug): self
+    {
+        return new self(sprintf(
+            'The DSN given for tenant "%s" names no database role. Each tenant connects as its own '
+            . 'role, so the DSN must contain one (postgresql://role@host:5432/database).',
+            $slug,
+        ));
+    }
+
+    public static function databaseExists(string $database): self
+    {
+        return new self(sprintf(
+            'Database "%s" already exists. Refusing to provision into it — drop it first, or pass an '
+            . 'explicit DSN pointing at a fresh database.',
+            $database,
+        ));
+    }
+}

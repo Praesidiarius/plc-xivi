@@ -1,0 +1,91 @@
+doctrine:
+    dbal:
+        default_connection: control
+        connections:
+            # Control plane: the tenant registry. Fixed DSN, known at deploy time.
+            control:
+                url: '%env(resolve:DATABASE_URL)%'
+                profiling_collect_backtrace: '%kernel.debug%'
+
+            # Tenant: the customer database of the request being served.
+            #
+            # These parameters are a placeholder. App\Tenancy\Dbal\TenantDriver
+            # replaces everything that identifies a database (host, port, dbname,
+            # user, password) at connect time with the resolved tenant's DSN, and
+            # throws when there is no resolved tenant — so this URL is never
+            # actually connected to. It is configured at all because DBAL needs a
+            # structurally valid set of parameters, including a server version, to
+            # build the platform without opening a connection.
+            tenant:
+                url: '%env(resolve:DATABASE_URL)%'
+                profiling_collect_backtrace: '%kernel.debug%'
+
+    orm:
+        default_entity_manager: control
+        entity_managers:
+            control:
+                connection: control
+                naming_strategy: doctrine.orm.naming_strategy.underscore
+                validate_xml_mapping: true
+                identity_generation_preferences:
+                    Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
+                mappings:
+                    ControlPlane:
+                        type: attribute
+                        is_bundle: false
+                        dir: '%kernel.project_dir%/src/ControlPlane/Entity'
+                        prefix: 'App\ControlPlane\Entity'
+                        alias: ControlPlane
+
+            tenant:
+                connection: tenant
+                naming_strategy: doctrine.orm.naming_strategy.underscore
+                validate_xml_mapping: true
+                identity_generation_preferences:
+                    Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
+                mappings:
+                    Tenant:
+                        type: attribute
+                        is_bundle: false
+                        dir: '%kernel.project_dir%/src/Tenant/Entity'
+                        prefix: 'App\Tenant\Entity'
+                        alias: Tenant
+
+when@test:
+    doctrine:
+        dbal:
+            connections:
+                # Tenant databases are named by the control-plane row, so only the
+                # control database needs the test suffix.
+                control:
+                    dbname_suffix: '_test%env(default::TEST_TOKEN)%'
+
+when@prod:
+    doctrine:
+        orm:
+            entity_managers:
+                control:
+                    query_cache_driver:
+                        type: pool
+                        pool: doctrine.system_cache_pool
+                    result_cache_driver:
+                        type: pool
+                        pool: doctrine.result_cache_pool
+                tenant:
+                    # Query cache only: it maps DQL to SQL, which is identical for
+                    # every tenant. The result cache is deliberately NOT enabled
+                    # here — its keys are derived from the query, not from the
+                    # database, so one pool shared by all tenants would serve
+                    # customer A's rows to customer B (docs/architecture.md §7.4). Enabling it
+                    # needs a pool namespaced by tenant first.
+                    query_cache_driver:
+                        type: pool
+                        pool: doctrine.system_cache_pool
+
+    framework:
+        cache:
+            pools:
+                doctrine.result_cache_pool:
+                    adapter: cache.app
+                doctrine.system_cache_pool:
+                    adapter: cache.system
