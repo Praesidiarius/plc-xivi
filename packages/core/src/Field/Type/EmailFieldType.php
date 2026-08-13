@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Xivi\Core\Field\Type;
 
+use Symfony\Component\Form\Extension\Core\Type\EmailType;
 use Symfony\Component\Validator\Constraints as Assert;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Field\FieldType;
@@ -45,5 +46,20 @@ final class EmailFieldType implements FieldType
     public function fromStorage(mixed $value, FieldDefinition $field): ?string
     {
         return $value === null ? null : (string) $value;
+    }
+
+    public function formType(): string
+    {
+        return EmailType::class;
+    }
+
+    public function formOptions(FieldDefinition $field): array
+    {
+        return ['attr' => ['maxlength' => 180]];
+    }
+
+    public function display(mixed $value, FieldDefinition $field): string
+    {
+        return \is_string($value) ? $value : '';
     }
 }

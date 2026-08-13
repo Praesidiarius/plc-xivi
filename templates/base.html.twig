@@ -114,7 +114,57 @@
 				}
 
 				.topbar form { margin: 0; }
-				.topbar button { width: auto; background: none; color: var(--accent); padding: .35rem 0; }
+				.topbar nav { display: flex; align-items: baseline; gap: 1.1rem; flex-wrap: wrap; }
+				.topbar a { text-decoration: none; }
+				.topbar nav a:not(:first-child) { color: var(--muted); font-size: .92rem; }
+				.topbar nav a:hover { color: var(--accent); }
+
+				button.link, .topbar button {
+					width: auto; background: none; color: var(--accent);
+					padding: .35rem 0; font-weight: 500;
+				}
+				button.link.danger { color: var(--danger); }
+
+				.page-head {
+					display: flex; align-items: center; justify-content: space-between;
+					gap: 1rem; margin: 1.5rem 0 1rem;
+				}
+				.page-head h1 { margin: 0; }
+
+				a.button {
+					display: inline-block; padding: .5rem .9rem; border-radius: 8px;
+					background: var(--accent); color: #fff; text-decoration: none; font-weight: 600;
+				}
+
+				.card.wide { max-width: none; }
+
+				.tiles { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); }
+				.tile {
+					display: flex; flex-direction: column; gap: .2rem; padding: 1rem;
+					background: var(--surface); border: 1px solid var(--line);
+					border-radius: 10px; text-decoration: none; color: inherit;
+				}
+				.tile:hover { border-color: var(--accent); }
+
+				/* Wide tables scroll rather than pushing the page sideways. */
+				.table-scroll { overflow-x: auto; }
+				table { width: 100%; border-collapse: collapse; }
+				th, td { padding: .55rem .6rem; text-align: left; border-bottom: 1px solid var(--line); }
+				th { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+				.row-actions { display: flex; gap: .75rem; align-items: baseline; white-space: nowrap; }
+				.row-actions form { margin: 0; }
+
+				.flash { padding: .6rem .8rem; border-radius: 8px; border: 1px solid var(--line); }
+				.flash-success { border-color: var(--accent); }
+				.flash-error { border-color: var(--danger); color: var(--danger); }
+
+				.form-actions { display: flex; align-items: center; gap: 1rem; margin-top: 1rem; }
+				.form-actions button { width: auto; }
+
+				/* Symfony's default form markup, made legible without a form theme. */
+				form > div { margin-bottom: 1rem; }
+				ul { margin: .35rem 0; padding-left: 1.1rem; color: var(--danger); font-size: .9rem; }
+				code { font-size: .9em; }
 			</style>
 		{% endblock %}
 	</head>

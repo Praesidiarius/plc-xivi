@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Xivi\Core\Field\Type;
 
+use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Validator\Constraints as Assert;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Field\FieldType;
@@ -46,5 +47,20 @@ final class TextFieldType implements FieldType
     public function fromStorage(mixed $value, FieldDefinition $field): ?string
     {
         return $value === null ? null : (string) $value;
+    }
+
+    public function formType(): string
+    {
+        return TextType::class;
+    }
+
+    public function formOptions(FieldDefinition $field): array
+    {
+        return ['attr' => ['maxlength' => (int) $field->getOption('max_length', self::DEFAULT_MAX_LENGTH)]];
+    }
+
+    public function display(mixed $value, FieldDefinition $field): string
+    {
+        return \is_string($value) ? $value : '';
     }
 }

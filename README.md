@@ -4,8 +4,9 @@ A metadata-driven CRM/ERP engine in Symfony, plus a CRM built on top of it to ke
 the engine honest.
 
 > **Status: early.** Multi-tenancy, sign-in and the metadata engine are built and
-> tested; records can be defined, validated and stored. There is no UI for them
-> yet, so you can log in but the browser has nothing to show you.
+> tested, and records can be listed, created and edited in the browser. What is
+> missing is everything that makes it a CRM: more modules, relations between
+> them, filtering and searching, and an editor for the metadata itself.
 
 The design is written down first and the code follows it. Read
 **[docs/architecture.md](docs/architecture.md)** before anything else; it explains
@@ -38,7 +39,9 @@ tenants (§8.2).
 customer writes those definitions into that customer's database and creates its
 table. From then on the definitions drive validation and storage, and the customer
 can add fields of their own. `packages/contact` is the whole first module — a
-declaration and nothing else, no entity and no repository (§5).
+declaration and nothing else, no entity, no repository, no controller and no form
+class (§5). One generic controller and one generic form serve every module,
+building each page from that customer's definitions.
 
 **Classic PHP execution, on purpose.** FrankenPHP runs without worker mode, so no
 PHP state survives a request boundary and cross-tenant leakage (§7.4) is

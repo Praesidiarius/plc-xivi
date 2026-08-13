@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Xivi\Core\Field\Type;
 
+use Symfony\Component\Form\Extension\Core\Type\DateType;
 use Symfony\Component\Validator\Constraints as Assert;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Field\FieldType;
@@ -61,5 +62,22 @@ final class DateFieldType implements FieldType
         $date = \DateTimeImmutable::createFromFormat('!' . self::FORMAT, $value);
 
         return $date === false ? null : $date;
+    }
+
+    public function formType(): string
+    {
+        return DateType::class;
+    }
+
+    public function formOptions(FieldDefinition $field): array
+    {
+        // A single native date input rather than three dropdowns, and the model
+        // value is the immutable date this type hands back from storage.
+        return ['widget' => 'single_text', 'input' => 'datetime_immutable', 'html5' => true];
+    }
+
+    public function display(mixed $value, FieldDefinition $field): string
+    {
+        return $value instanceof \DateTimeInterface ? $value->format(self::FORMAT) : '';
     }
 }

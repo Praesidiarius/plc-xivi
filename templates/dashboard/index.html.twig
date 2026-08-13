@@ -4,17 +4,26 @@
 
 {% block body %}
 	<div class="shell">
-		<div class="topbar">
-			<strong>{{ tenant.name }}</strong>
-			<form method="post" action="{{ path('logout') }}">
-				<button type="submit">Sign out {{ app.user.email }}</button>
-			</form>
-		</div>
+		{{ include('_topbar.html.twig') }}
 
-		<h1>Signed in</h1>
-		<p class="muted">
-			Nothing to show yet — the engine has no modules. This page exists so that
-			signing in has somewhere to arrive.
-		</p>
+		{{ include('_flashes.html.twig') }}
+
+		<h1>{{ tenant.name }}</h1>
+
+		{% if chrome.modules is empty %}
+			<p class="muted">
+				No modules installed yet. Install one with
+				<code>bin/console tenant:module:install {{ tenant.slug }} contact</code>.
+			</p>
+		{% else %}
+			<div class="tiles">
+				{% for module in chrome.modules %}
+					<a class="tile" href="{{ path('module_index', {module: module.key}) }}">
+						<strong>{{ module.label }}</strong>
+						<span class="muted">{{ module.fields|length }} fields</span>
+					</a>
+				{% endfor %}
+			</div>
+		{% endif %}
 	</div>
 {% endblock %}

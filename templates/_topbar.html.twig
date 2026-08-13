@@ -1,0 +1,12 @@
+<div class="topbar">
+	<nav>
+		<a href="{{ path('dashboard') }}"><strong>{{ chrome.tenant.name }}</strong></a>
+		{% for module in chrome.modules %}
+			<a href="{{ path('module_index', {module: module.key}) }}">{{ module.label }}</a>
+		{% endfor %}
+	</nav>
+
+	<form method="post" action="{{ path('logout') }}">
+		<button type="submit" class="link">Sign out {{ app.user.email }}</button>
+	</form>
+</div>

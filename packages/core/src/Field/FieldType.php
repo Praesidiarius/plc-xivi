@@ -46,4 +46,26 @@ interface FieldType
 
     /** The inverse: whatever JSONB gave back, as the PHP value the application expects. */
     public function fromStorage(mixed $value, FieldDefinition $field): mixed;
+
+    /**
+     * The Symfony form type to edit a value of this kind.
+     *
+     * @return class-string<\Symfony\Component\Form\FormTypeInterface>
+     */
+    public function formType(): string;
+
+    /**
+     * Options for that form type, given how this particular field is configured —
+     * a maximum length, a range, a widget choice.
+     *
+     * @return array<string, mixed>
+     */
+    public function formOptions(FieldDefinition $field): array;
+
+    /**
+     * How a stored value reads in a list or a detail view. Here because the type
+     * is the only thing that knows a date is not a string, and a template asking
+     * that question would have to know it too.
+     */
+    public function display(mixed $value, FieldDefinition $field): string;
 }

@@ -1,5 +1,9 @@
 twig:
     file_name_pattern: '*.twig'
+    globals:
+        # Tenant name and module navigation, needed by every signed-in page.
+        # Lazy: the login page renders without a tenant.
+        chrome: '@App\Twig\AppChrome'
 
 when@test:
     twig:
