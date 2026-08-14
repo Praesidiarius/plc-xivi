@@ -8,6 +8,12 @@
 #
 #   bin/ci              everything
 #   bin/ci --no-build   skip the production image build (the slow one)
+#   bin/ci --coverage   measure coverage and hold it above the floor
+#
+# Coverage is opt-in rather than always on, but not because it is slow: this
+# suite spends its time provisioning databases, so Xdebug costs it about seven
+# percent. It is opt-in because the report is only wanted when somebody is going
+# to read it. CI passes --coverage.
 #
 # The stack is left running afterwards; nothing here touches your dev tenants.
 # The test suite creates and drops its own.
@@ -27,11 +33,18 @@ export APP_UID="${APP_UID:-$(id -u)}"
 export APP_GID="${APP_GID:-$(id -g)}"
 
 build_prod_image=true
+coverage=false
+
+# A ratchet, sitting just under what the suite currently reaches. Raise it when
+# the number rises; argue it down out loud if it ever has to come down. Not 100:
+# chasing that buys tests written to reach lines rather than to catch anything.
+readonly COVERAGE_FLOOR=77
 
 for arg in "$@"; do
 	case "$arg" in
 		--no-build) build_prod_image=false ;;
-		-h|--help) sed -n '3,14p' "${BASH_SOURCE[0]}" | cut -c 3-; exit 0 ;;
+		--coverage) coverage=true ;;
+		-h|--help) sed -n '3,20p' "${BASH_SOURCE[0]}" | cut -c 3-; exit 0 ;;
 		*) printf 'unknown option: %s\n' "$arg" >&2; exit 64 ;;
 	esac
 done
@@ -59,8 +72,33 @@ docker compose exec -T php composer deptrac
 step 'Static analysis (PHPStan, level 8)'
 docker compose exec -T php composer phpstan
 
-step 'Tests (PHPUnit)'
-docker compose exec -T php composer test
+if [ "$coverage" = true ]; then
+	step 'Tests with coverage (PHPUnit)'
+	# Xdebug is in the dev image already and is the only driver here. The report
+	# goes to coverage/ rather than var/, because var/ is an anonymous volume and
+	# anything written there cannot be read from the host — which is exactly what
+	# CI has to do to upload it.
+	rm -rf coverage
+	docker compose exec -T -e XDEBUG_MODE=coverage php composer coverage
+
+	step "Coverage is at or above ${COVERAGE_FLOOR}%"
+	# The gate runs in the container like everything else — there is no host PHP
+	# here. Where its output goes is this script's business, not its own: on
+	# GitHub the same text lands on the job page, so a drop is readable without
+	# opening the log.
+	gate=0
+	report=$(docker compose exec -T php php bin/coverage-gate coverage/clover.xml "$COVERAGE_FLOOR" 2>&1) || gate=$?
+	printf '%s\n' "$report"
+
+	if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+		printf '### Coverage\n\n```\n%s\n```\n' "$report" >> "$GITHUB_STEP_SUMMARY"
+	fi
+
+	[ "$gate" -eq 0 ] || exit "$gate"
+else
+	step 'Tests (PHPUnit)'
+	docker compose exec -T php composer test
+fi
 
 if [ "$build_prod_image" = true ]; then
 	# The dev image says nothing about whether the production one builds: it

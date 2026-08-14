@@ -1,0 +1,78 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/*
+ * Reads a Clover report, prints the numbers, and refuses a build that covers
+ * less than the floor.
+ *
+ * A coverage percentage that nothing enforces is decoration: it drifts down one
+ * uncovered branch at a time and nobody notices until it is meaningless. The
+ * floor is a ratchet — it sits just under whatever the suite currently achieves,
+ * and it goes up when the number does. It is deliberately not 100: chasing that
+ * buys tests written to reach lines rather than to catch anything.
+ *
+ * It reports and it gates; where the text ends up is bin/ci's business, which is
+ * what lets this run inside the container while the job summary is written on
+ * the host.
+ *
+ *   php bin/coverage-gate coverage/clover.xml 77
+ */
+
+$file = $argv[1] ?? 'coverage/clover.xml';
+$floor = (float) ($argv[2] ?? 0);
+
+if (!is_file($file)) {
+    fwrite(\STDERR, sprintf("No coverage report at %s. Was the suite run with coverage?\n", $file));
+
+    exit(1);
+}
+
+$contents = file_get_contents($file);
+
+if ($contents === false) {
+    fwrite(\STDERR, sprintf("Could not read %s.\n", $file));
+
+    exit(1);
+}
+
+$metrics = (new SimpleXMLElement($contents))->project->metrics;
+
+$statements = (int) $metrics['statements'];
+$covered = (int) $metrics['coveredstatements'];
+$methods = (int) $metrics['methods'];
+$coveredMethods = (int) $metrics['coveredmethods'];
+
+if ($statements === 0) {
+    fwrite(\STDERR, "The report covers no statements at all, which is not a passing grade.\n");
+
+    exit(1);
+}
+
+$lineCoverage = 100 * $covered / $statements;
+$methodCoverage = $methods === 0 ? 0.0 : 100 * $coveredMethods / $methods;
+$passed = $lineCoverage >= $floor;
+
+$summary = sprintf(
+    "lines    %6.2f%%  (%d/%d)\nmethods  %6.2f%%  (%d/%d)\nfloor    %6.2f%%  -> %s\n",
+    $lineCoverage,
+    $covered,
+    $statements,
+    $methodCoverage,
+    $coveredMethods,
+    $methods,
+    $floor,
+    $passed ? 'pass' : 'FAIL',
+);
+
+echo $summary;
+
+if (!$passed) {
+    echo "\nCoverage fell below the floor. Either the new code needs tests, or the floor in bin/ci is wrong\n"
+        . "and should be argued down deliberately rather than edged down quietly.\n";
+
+    exit(1);
+}
+
+exit(0);

@@ -28,9 +28,21 @@ jobs:
       - uses: actions/checkout@v4
 
       # Deliberately the same script you run locally, not a re-listing of the
-      # same checks in YAML. One definition, no drift.
+      # same checks in YAML. One definition, no drift. --coverage is the only
+      # difference, because the report is only wanted where something reads it.
       - name: Run the CI suite
-        run: bin/ci
+        run: bin/ci --coverage
+
+      # Not gated on the run succeeding: coverage is most interesting on a build
+      # that just broke. fail_ci_if_error defaults to false, so this stays quiet
+      # until CODECOV_TOKEN exists rather than turning the build red for a
+      # reporting step.
+      - name: Upload coverage to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage/clover.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Container logs
         if: failure()

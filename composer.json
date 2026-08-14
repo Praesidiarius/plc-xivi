@@ -2,7 +2,7 @@
     "name": "xivi/app",
     "type": "project",
     "license": "MIT",
-    "description": "Xivi 17 \u2014 metadata-driven CRM/ERP engine",
+    "description": "Xivi 17 — metadata-driven CRM/ERP engine",
     "minimum-stability": "stable",
     "prefer-stable": true,
     "require": {
@@ -72,6 +72,7 @@
             "@auto-scripts"
         ],
         "test": "phpunit",
+        "coverage": "phpunit --coverage-clover coverage/clover.xml --coverage-html coverage/html --coverage-text",
         "phpstan": "phpstan analyse --memory-limit=1G",
         "deptrac": "deptrac analyse --no-progress"
     },

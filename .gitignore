@@ -16,6 +16,11 @@
 /.phpunit.cache/
 ###< phpunit/phpunit ###
 
+# Coverage reports. Not under var/ on purpose: var/ is an anonymous volume in
+# the dev container, so anything written there is invisible from the host — and
+# CI has to read the report from the workspace to upload it.
+/coverage/
+
 ###> deptrac ###
 /.deptrac.cache
 ###< deptrac ###

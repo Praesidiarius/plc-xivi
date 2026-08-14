@@ -30,6 +30,11 @@
     >
         <include>
             <directory>src</directory>
+            <!-- The engine lives here, so leaving it out would have measured the
+                 application's wiring and called it the project's coverage. One
+                 line per module, since PHPUnit does not glob these. -->
+            <directory>packages/core/src</directory>
+            <directory>packages/contact/src</directory>
         </include>
 
         <deprecationTrigger>

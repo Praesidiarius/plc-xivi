@@ -1,5 +1,12 @@
 # Xivi 17
 
+[![CI](https://github.com/Praesidiarius/plc-xivi/actions/workflows/ci.yml/badge.svg)](https://github.com/Praesidiarius/plc-xivi/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/Praesidiarius/plc-xivi/branch/main/graph/badge.svg)](https://codecov.io/gh/Praesidiarius/plc-xivi)
+[![PHPStan](https://img.shields.io/badge/PHPStan-level%208-brightgreen)](phpstan.dist.neon)
+[![PHP](https://img.shields.io/badge/PHP-8.4%2B-777bb4)](composer.json)
+[![Symfony](https://img.shields.io/badge/Symfony-8.1-000000)](composer.json)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 A metadata-driven CRM/ERP engine in Symfony, plus a CRM built on top of it to keep
 the engine honest.
 
@@ -70,6 +77,20 @@ printf 'APP_UID=%s\nAPP_GID=%s\n' "$(id -u)" "$(id -g)" >> .env.local
 ```bash
 docker compose up -d --wait
 ```
+
+## Checks
+
+```bash
+bin/ci              # everything CI runs, in the same containers
+bin/ci --no-build   # skip the production image build, the slow one
+bin/ci --coverage   # measure coverage and hold it above the floor
+```
+
+Coverage is measured over `src/` and `packages/`, written to `coverage/`, and
+gated by a floor in `bin/ci` — a number nothing enforces drifts down one
+uncovered branch at a time. Open `coverage/html/index.html` to see what is not
+covered. Xdebug costs this suite about seven percent, because it spends its time
+provisioning databases rather than executing PHP.
 
 That builds the image, starts PostgreSQL, installs dependencies and applies the
 control-plane migrations. The app is then on <https://localhost> with a self-signed
