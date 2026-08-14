@@ -15,6 +15,7 @@ namespace Xivi\Core\Field\Type;
 
 use Symfony\Component\Form\Extension\Core\Type\EmailType;
 use Symfony\Component\Validator\Constraints as Assert;
+use Xivi\Core\Demo\SampleVocabulary;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Field\FieldType;
 use Xivi\Core\Query\Operator;
@@ -41,6 +42,34 @@ final class EmailFieldType implements FieldType
             new Assert\Email(),
             new Assert\Length(max: 180),
         ];
+    }
+
+    /**
+     * Always unique, and always undeliverable: `.test` is reserved by RFC 2606,
+     * so a demo database cannot become a mailing list to real people.
+     */
+    public function sample(FieldDefinition $field, int $sequence): ?string
+    {
+        if (!$field->isRequired() && mt_rand(1, 10) === 1) {
+            return null;
+        }
+
+        return sprintf(
+            '%s.%s%d@example.test',
+            self::slug(SampleVocabulary::oneOf(SampleVocabulary::FIRST_NAMES)),
+            self::slug(SampleVocabulary::oneOf(SampleVocabulary::LAST_NAMES)),
+            $sequence,
+        );
+    }
+
+    /** Umlauts are fine in a name and not in the local part of an address. */
+    private static function slug(string $name): string
+    {
+        $ascii = strtr(mb_strtolower($name), [
+            'ä' => 'ae', 'ö' => 'oe', 'ü' => 'ue', 'é' => 'e', 'è' => 'e', 'à' => 'a', 'ç' => 'c',
+        ]);
+
+        return preg_replace('/[^a-z0-9]/', '', $ascii) ?? 'demo';
     }
 
     public function toStorage(mixed $value, FieldDefinition $field): ?string

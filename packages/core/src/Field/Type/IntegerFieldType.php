@@ -48,6 +48,20 @@ final class IntegerFieldType implements FieldType
         return $constraints;
     }
 
+    public function sample(FieldDefinition $field, int $sequence): ?int
+    {
+        if (!$field->isRequired() && mt_rand(1, 10) === 1) {
+            return null;
+        }
+
+        $min = $field->getOption('min');
+        $max = $field->getOption('max');
+
+        // Within whatever the field allows, so a generated value never fails the
+        // validation this same definition builds.
+        return mt_rand(\is_int($min) ? $min : 1, \is_int($max) ? $max : 1000);
+    }
+
     public function toStorage(mixed $value, FieldDefinition $field): ?int
     {
         if ($value === null || $value === '') {

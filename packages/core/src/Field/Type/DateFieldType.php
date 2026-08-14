@@ -50,6 +50,21 @@ final class DateFieldType implements FieldType
         ];
     }
 
+    /**
+     * Somewhere in the last forty years, which covers both a birthday and a date
+     * something happened, and sorts into a spread rather than a clump.
+     */
+    public function sample(FieldDefinition $field, int $sequence): ?string
+    {
+        if (!$field->isRequired() && mt_rand(1, 10) === 1) {
+            return null;
+        }
+
+        return (new \DateTimeImmutable('today'))
+            ->modify(sprintf('-%d days', mt_rand(0, 365 * 40)))
+            ->format(self::FORMAT);
+    }
+
     public function toStorage(mixed $value, FieldDefinition $field): mixed
     {
         if ($value === null || $value === '') {

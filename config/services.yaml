@@ -26,6 +26,13 @@ services:
     # this creates a service per class whose id is the fully-qualified class name
     App\:
         resource: '../src/'
+        # Demo data is a development tool. Excluded here and registered again
+        # under when@dev/when@test below, so the commands do not exist at all in
+        # a production image — a stronger guarantee than a flag somebody could
+        # pass by accident against a customer's database.
+        exclude:
+            - '../src/Command/GenerateDemoDataCommand.php'
+            - '../src/Command/ClearDemoDataCommand.php'
 
     # The engine operates on the tenant's database. Core deliberately has no idea
     # which one that is (it would have to know about tenancy to decide), so the
@@ -69,14 +76,37 @@ services:
         arguments:
             $connection: '@doctrine.dbal.tenant_connection'
 
+    # Both write to the customer's database, so both need its connection rather
+    # than the control plane's.
+    Xivi\Core\Demo\DemoDataGenerator:
+        arguments:
+            $connection: '@doctrine.dbal.tenant_connection'
+
+    Xivi\Core\Demo\DemoLedger:
+        arguments:
+            $connection: '@doctrine.dbal.tenant_connection'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+# The demo commands, excluded from the production build above.
+when@dev:
+    services:
+        _defaults:
+            autowire: true
+            autoconfigure: true
+
+        App\Command\GenerateDemoDataCommand: ~
+        App\Command\ClearDemoDataCommand: ~
 
 when@test:
     services:
         _defaults:
             autowire: true
             autoconfigure: true
+
+        App\Command\GenerateDemoDataCommand: ~
+        App\Command\ClearDemoDataCommand: ~
 
         # Between DAMA (100) and TenantConnectionMiddleware (0): middlewares
         # connect from the lowest priority up, so this sees the tenant's resolved

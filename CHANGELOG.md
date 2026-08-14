@@ -24,7 +24,23 @@ of every page, and is not yet tied to git tags.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **Demo data generation** (`tenant:demo:generate`), for finding out what the
+  list, the query layer and the paging do at a size nobody types by hand. It
+  walks a module's own definitions and asks each field *type* for a plausible
+  value, so a field added in the editor is filled in without the generator
+  knowing it exists, and a new field type gets demo data by implementing one
+  method. `--seed` makes a run repeatable.
+- `FieldType::sample()`, which is where that value comes from. A `choice` returns
+  one of its own options — so generating contacts produces both people and
+  companies without the generator having heard either word — and a `reference`
+  returns the id of a record that really exists.
+- **`tenant:demo:clear`**, which removes exactly what a generator made and
+  nothing else. Generated ids are written to a `demo_record` ledger, so a record
+  somebody typed into the same module survives the cleanup.
+- Both commands are registered in dev and test only, and are absent from a
+  production image entirely.
 
 ## [17.0.0] — 2026-08-14
 

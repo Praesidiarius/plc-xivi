@@ -15,6 +15,7 @@ namespace Xivi\Core\Field\Type;
 
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Validator\Constraints as Assert;
+use Xivi\Core\Demo\SampleVocabulary;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Field\FieldType;
 use Xivi\Core\Query\Operator;
@@ -44,6 +45,36 @@ final class TextFieldType implements FieldType
             // field nothing can be stored in, and the constraint refuses it.
             new Assert\Length(max: max(1, (int) $field->getOption('max_length', self::DEFAULT_MAX_LENGTH))),
         ];
+    }
+
+    /**
+     * A word chosen by what the field is called (see SampleVocabulary), so a
+     * demo contact reads as a contact rather than as filler.
+     */
+    public function sample(FieldDefinition $field, int $sequence): ?string
+    {
+        // A tenth of optional fields left empty. Real data has holes in it, and a
+        // list where every column is filled hides how the page looks when they
+        // are not.
+        if (!$field->isRequired() && mt_rand(1, 10) === 1) {
+            return null;
+        }
+
+        $key = mb_strtolower($field->getKey());
+
+        // A company is two words and a legal form, not one word, and it is the
+        // difference between demo data that reads as a customer list and one
+        // that reads as a word list.
+        $value = str_contains($key, 'company') || str_contains($key, 'organisation')
+            ? SampleVocabulary::company()
+            : SampleVocabulary::oneOf(SampleVocabulary::forKey($field->getKey()));
+
+        if (str_contains($key, 'street')) {
+            $value .= ' ' . mt_rand(1, 140);
+        }
+
+        // Uniqueness cannot be left to a list of thirty words.
+        return $field->isUnique() ? $value . ' ' . $sequence : $value;
     }
 
     public function toStorage(mixed $value, FieldDefinition $field): ?string

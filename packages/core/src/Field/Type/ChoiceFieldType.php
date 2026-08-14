@@ -59,6 +59,24 @@ final class ChoiceFieldType implements FieldType
         ];
     }
 
+    /**
+     * One of this field's own options, never anything else.
+     *
+     * Which is also how a demo module gets a spread of variants for free: the
+     * variant field *is* a choice (§5.5), so generating contacts produces both
+     * people and companies without the generator knowing either word.
+     */
+    public function sample(FieldDefinition $field, int $sequence): ?string
+    {
+        $choices = array_keys(self::choicesOf($field));
+
+        if ($choices === []) {
+            return null;
+        }
+
+        return (string) $choices[mt_rand(0, \count($choices) - 1)];
+    }
+
     public function toStorage(mixed $value, FieldDefinition $field): ?string
     {
         return $value === null || $value === '' ? null : (string) $value;

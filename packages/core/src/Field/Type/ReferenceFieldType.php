@@ -19,7 +19,10 @@ use Xivi\Core\Field\FieldType;
 use Xivi\Core\Form\RecordReferenceType;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Metadata\ModuleNotInstalled;
+use Xivi\Core\Query\Filter;
 use Xivi\Core\Query\Operator;
+use Xivi\Core\Query\RecordQuery;
+use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordRepository;
 
 /**
@@ -51,6 +54,12 @@ final class ReferenceFieldType implements FieldType
     public const string VARIANT = 'variant';
 
     /**
+     * How many existing records a generated link picks between. Enough for the
+     * links to look spread out, few enough to be one query.
+     */
+    private const int CANDIDATES = 200;
+
+    /**
      * Titles already resolved this request.
      *
      * A list of fifty records each showing a link would otherwise be fifty
@@ -61,6 +70,14 @@ final class ReferenceFieldType implements FieldType
      * @var array<string, string>
      */
     private array $titles = [];
+
+    /**
+     * Ids a generated link may point at, per field. Same lifetime as the titles
+     * above and for the same reason (§7.4): it dies with the request.
+     *
+     * @var array<string, list<int>>
+     */
+    private array $candidates = [];
 
     /**
      * The record repository arrives as a closure, and that is not fussiness.
@@ -96,6 +113,58 @@ final class ReferenceFieldType implements FieldType
         // about another table, and answering it here would validate on every
         // save what a foreign key should be answering once (§7.6, still open).
         return [];
+    }
+
+    /**
+     * The id of a record that actually exists, or nothing.
+     *
+     * A generated link has to point somewhere real or the demo data is a page
+     * full of broken references — which is exactly the thing this type exists to
+     * render nicely, so a demo that only exercised the broken case would be
+     * testing the wrong half.
+     *
+     * The candidates are read once and reused for the rest of the run. Picking
+     * randomly from the whole table per record would be a query each time, and
+     * the point of the generator is to produce a million rows.
+     */
+    public function sample(FieldDefinition $field, int $sequence): ?int
+    {
+        // Half of optional links left empty: a person may have no employer, and
+        // a column that is always filled never shows what an empty one looks like.
+        if (!$field->isRequired() && mt_rand(1, 2) === 1) {
+            return null;
+        }
+
+        $candidates = $this->candidates[$field->getKey()] ??= $this->findCandidates($field);
+
+        return $candidates === [] ? null : $candidates[mt_rand(0, \count($candidates) - 1)];
+    }
+
+    /**
+     * Ids this field could point at: records of its target module, narrowed to
+     * its target variant when it has one.
+     *
+     * @return list<int>
+     */
+    private function findCandidates(FieldDefinition $field): array
+    {
+        try {
+            $module = $this->metadata->get(self::targetModule($field));
+        } catch (ModuleNotInstalled) {
+            return [];
+        }
+
+        $filters = [];
+        $variant = self::targetVariant($field);
+        $variantField = $module->getVariantField();
+
+        if ($variant !== null && $variantField !== null) {
+            $filters[] = new Filter($variantField, Operator::Equals, $variant);
+        }
+
+        $records = ($this->records)()->findBy($module, new RecordQuery($filters, [], 1, self::CANDIDATES));
+
+        return array_map(static fn (Record $record): int => (int) $record->id, $records);
     }
 
     public function toStorage(mixed $value, FieldDefinition $field): ?int

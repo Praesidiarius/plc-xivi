@@ -90,6 +90,28 @@ interface FieldType
     public function operators(): array;
 
     /**
+     * A plausible value of this kind, for generating demo data.
+     *
+     * Here rather than in the generator for the same reason validation and
+     * storage are here: the generator would otherwise have to know that a
+     * `choice` may only hold one of its own options and that a `reference` holds
+     * the id of a record that exists — a switch on type, in the one place the
+     * design says there must not be one. A new field type gets demo data by
+     * implementing this, and a customer's own fields get filled without anybody
+     * touching the generator.
+     *
+     * Returning null is allowed and means "leave this one empty", which is what
+     * makes generated data look like real data rather than a filled-in grid. A
+     * required field should not do it.
+     *
+     * @param int $sequence which record is being generated, counting from one.
+     *                      A type whose field is unique has to use it: fifty
+     *                      thousand records drawn from a list of thirty names
+     *                      collide long before they finish.
+     */
+    public function sample(FieldDefinition $field, int $sequence): mixed;
+
+    /**
      * The stored value, in a form Postgres can compare correctly.
      *
      * `$accessor` extracts it as text — `data->>'age'` today, a real column once
