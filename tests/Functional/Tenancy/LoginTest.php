@@ -21,6 +21,7 @@ use App\Tenancy\TenantSwitcher;
 use App\Tenant\Entity\User;
 use App\Tenant\Repository\UserRepository;
 use App\Tenant\Security\UserCreator;
+use App\Version;
 use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -177,6 +178,20 @@ final class LoginTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('form input[name="_csrf_token"]');
+    }
+
+    /**
+     * Every page says which version it is, signed in or not.
+     *
+     * The first question about any bug report, and one nobody can answer from
+     * memory — so it is on the page somebody is looking at when they hit the bug,
+     * including the one they never get past.
+     */
+    public function testEveryPageSaysWhichVersionThisIs(): void
+    {
+        $crawler = $this->client->request('GET', 'https://login-alpha.localhost/login');
+
+        self::assertStringContainsString('Xivi ' . Version::CURRENT, $crawler->filter('footer')->text());
     }
 
     private function signIn(string $host, string $password): void

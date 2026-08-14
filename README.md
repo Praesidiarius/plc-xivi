@@ -21,7 +21,14 @@ the engine honest.
 The design is written down first and the code follows it. Read
 **[docs/architecture.md](docs/architecture.md)** before anything else; it explains
 the decisions this repository is an implementation of, and the code comments cite
-its section numbers.
+its section numbers. What has actually been built, and when, is in
+**[CHANGELOG.md](CHANGELOG.md)**.
+
+The version is `17.0.0`, shown in the footer of every page. The leading **17 is a
+generation, not a semver major** — it says which Xivi this is and changes only when
+there is a new one, so breaking changes inside a generation do not touch it. The
+rest moves on *release*, not on feature: work accumulates under *Unreleased* and
+cutting a version is something a person does deliberately.
 
 ## What exists today
 

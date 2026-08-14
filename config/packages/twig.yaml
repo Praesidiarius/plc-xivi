@@ -7,6 +7,9 @@ twig:
         # Tenant name and module navigation, needed by every signed-in page.
         # Lazy: the login page renders without a tenant.
         chrome: '@App\Twig\AppChrome'
+        # The constant itself, not a copy of the number: written down once in
+        # src/Version.php, so configuration cannot drift away from code.
+        app_version: !php/const App\Version::CURRENT
 
 when@test:
     twig:

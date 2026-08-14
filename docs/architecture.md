@@ -728,58 +728,19 @@ session should not be enough to take an account over.
 
 ## 9. Status
 
-### 9.1 Built
+### 9.1 What is built
 
-The tenancy layer of §4, and the engine of §5 as far as one module with a child
-collection exercises it.
+**Moved out of this document.** A list of what exists is a changelog, and keeping
+one inside a design brief made it drift: it contradicted §9.3 twice before anybody
+noticed, because nothing forces a prose list to stay true.
 
-- Kernel request listener resolving the tenant from `Host`, before routing. An
-  unknown host is a 404; a suspended tenant is a 503. A short list of system hosts
-  (dev tooling, health checks) is served without a tenant.
-- A DBAL driver middleware that substitutes the tenant's connection parameters at
-  connect time, on a second `tenant` connection. Without a resolved tenant it
-  refuses to connect rather than falling back to anything.
-- Control-plane entities (`Tenant`, `TenantDomain`), repository, and the commands
-  `tenant:provision`, `tenant:list`, `tenant:migrate`, `tenant:rotate-secrets`.
-- Two migration sets: `migrations/control` runs once per deploy, `migrations/tenant`
-  once per tenant.
-- Authentication per §8: users in the tenant database, form login, sessions bound to
-  the tenant that minted them, first admin created by provisioning.
-- The engine, in `packages/core`: metadata definitions, a closed field-type
-  registry, DBAL record storage with soft delete, and validation built from the
-  definitions including per-tenant uniqueness. `packages/contact` is the first
-  module and is nothing but a declaration — no entity, no repository, no form.
-- The module UI: one generic controller and one generic form building every page
-  from the customer's own definitions.
-- Child collections per §5.1, proven by a contact's addresses: their own table with
-  a real foreign key, edited inline with the parent, validated by their own
-  definitions, soft-deleted with the record they belong to. Contact declares them
-  and still contains no code.
-- History per §5.2: `RecordWriter` as the only write path, one entry per action in
-  a per-module table, and the record's timeline on its page. The first use of §6's
-  event layer — core dispatches what changed, the application adds who did it.
-- The five things you can do to a record: list, view, add, edit, remove. The record
-  page is read-only, built from the same definitions as the form, and is where a
-  record's collections and its history are read.
-- The query layer of §5.3: filtering, sorting and paging compiled from the
-  customer's definitions, with a filter bar and sortable columns on the list.
-- The metadata editor of §5.4: adding, editing and removing fields on any shape,
-  admin only, with every change that could strand data refused rather than made.
-- Variants (§5.5) and references (§7.6, in part): a contact is a person or a
-  company, each with its own fields, and a person links to their company by id.
-- Export (§5.6): a module's records as a spreadsheet, one sheet per shape,
-  carrying whatever the list was filtered to.
-- Import (§5.6), the other half: the same file back, validated row by row through
-  the same validator the form uses, applied in one transaction or refused whole.
-  A check is the import rolled back rather than a second code path, and an export
-  imported back unedited changes nothing — which is the test the pair is for.
-- Module presets (§6.1): `tenant:module:install --preset`, with Contact shipping
-  `basic` and `extended`.
-- User management (§8.4.1): adding colleagues, making them administrators,
-  deactivating them, resetting a password, and an account page for changing your
-  own. Deactivation is enforced both at sign-in and against sessions that already
-  exist.
-- Module boundaries enforced by deptrac in CI.
+See **[CHANGELOG.md](../CHANGELOG.md)**, which is now the record of what was built
+and when, and which also explains how the version number works — `17` is a
+generation rather than a semver major, and the number moves on release rather than
+on feature.
+
+What stays here is the part a changelog cannot carry: *why* each of those
+decisions was taken, in the sections above, and what is still open, below.
 
 ### 9.2 Decided since this brief was written
 

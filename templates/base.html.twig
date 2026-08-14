@@ -16,7 +16,16 @@
 		{% block stylesheets %}{% endblock %}
 		{% block javascripts %}{{ importmap('app') }}{% endblock %}
 	</head>
-	<body class="bg-body-tertiary">
+	<body class="bg-body-tertiary d-flex flex-column min-vh-100">
 		{% block body %}{% endblock %}
+
+		{#
+			Which version you are looking at, on every page including the login.
+			The first question about any bug report, and the one nobody can answer
+			from memory.
+		#}
+		<footer class="container page-shell mt-auto py-3">
+			<p class="text-body-secondary small mb-0">Xivi {{ app_version }}</p>
+		</footer>
 	</body>
 </html>
