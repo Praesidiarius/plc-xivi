@@ -101,6 +101,9 @@ one is really there.
 **Users, managed from the application.** An administrator adds colleagues,
 makes them administrators, deactivates the ones who leave and resets a lost
 password; everybody can change their own password on their account page (§8.4.1).
+A generated password has to be replaced before the account is usable — until it
+is, every page leads back to the account page, because a password an administrator
+read off a screen and passed on is one two people know.
 Nobody is ever deleted — records carry the id of whoever owns them and history the
 id of whoever changed them, so deactivating keeps all of it attributable and is
 reversible. Every refusal here is about lock-out: you cannot deactivate yourself,

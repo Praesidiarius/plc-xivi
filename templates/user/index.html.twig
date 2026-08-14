@@ -49,6 +49,13 @@
 								{% if not user.active %}
 									<span class="badge text-bg-secondary">deactivated</span>
 								{% endif %}
+								{#
+									Worth showing: it means the password you handed them is still
+									the one in use, so it is still a credential two people know.
+								#}
+								{% if user.mustChangePassword %}
+									<span class="badge text-bg-light">password not set yet</span>
+								{% endif %}
 							</td>
 							<td>{{ user.email }}</td>
 							<td>{{ 'ROLE_ADMIN' in user.roles ? 'Administrator' : 'Member' }}</td>

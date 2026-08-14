@@ -66,6 +66,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private bool $active = true;
 
+    /**
+     * Set whenever the system generates a password, cleared when the owner picks
+     * their own.
+     *
+     * A generated password is one at least two people know: the administrator
+     * read it off a screen and passed it on somehow (§8.5). It is a way in, not
+     * yet a credential, and the account is held at the password page until the
+     * owner has replaced it.
+     */
+    #[ORM\Column]
+    private bool $mustChangePassword = false;
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -156,6 +168,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setPassword(string $hashedPassword): void
     {
         $this->password = $hashedPassword;
+    }
+
+    public function mustChangePassword(): bool
+    {
+        return $this->mustChangePassword;
+    }
+
+    public function setMustChangePassword(bool $must): void
+    {
+        $this->mustChangePassword = $must;
     }
 
     public function isActive(): bool

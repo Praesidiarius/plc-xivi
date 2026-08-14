@@ -701,6 +701,21 @@ That printed password is the one credential in the system a human has to read. I
 exists because there is no mailer yet; when there is one, this becomes an invite
 link and the printing goes away.
 
+**A generated password has to be replaced before the account is usable.** It is a
+way in rather than a credential: the administrator read it off a screen and passed
+it on by whatever means was to hand — chat, a phone call, an email that will sit
+in a mailbox for years — so at least two people know it. `app_user.must_change_password`
+is set whenever the system generates one and cleared when the owner picks their
+own, and until then every page redirects to the account page. Signing out stays
+allowed: somebody who cannot change their password right now must still be able to
+leave.
+
+A hold rather than a first-run wizard, so there is no separate flow to keep in
+step with the ordinary one. And it applies only to passwords *this* generated — a
+password handed in by provisioning or a console command was chosen by whoever ran
+it, and demanding they change it immediately would be telling them their own
+decision was wrong.
+
 The screens work the same way and share the same code path: adding a user
 generates a password and shows it once, and an administrator never types one.
 An administrator who picks a colleague's password knows their colleague's

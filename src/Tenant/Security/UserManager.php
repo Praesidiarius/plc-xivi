@@ -163,6 +163,10 @@ final readonly class UserManager
         }
 
         $user->setPassword($this->passwordHasher->hashPassword($user, $new));
+
+        // Now only its owner knows it, which is the whole point of the hold.
+        $user->setMustChangePassword(false);
+
         $this->entityManager->flush();
     }
 
@@ -204,6 +208,12 @@ final readonly class UserManager
     /** @return string the plaintext, which exists only until this returns */
     private function assignPassword(User $user, #[\SensitiveParameter] ?string $password = null): string
     {
+        // Only a password *this* generated has to be replaced. One handed in by
+        // provisioning or a console command was chosen by whoever ran it, and
+        // demanding they change it immediately would be telling them their own
+        // decision was wrong.
+        $user->setMustChangePassword($password === null);
+
         $password ??= PasswordGenerator::human();
         $user->setPassword($this->passwordHasher->hashPassword($user, $password));
 

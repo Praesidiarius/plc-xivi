@@ -107,7 +107,92 @@ final class UserManagementTest extends WebTestCase
         $this->client->request('POST', $this->url('/logout'));
         $this->signIn('new@users.test', $password);
 
+        // Signed in, but held at the password page until they pick their own.
         $this->client->request('GET', $this->url('/'));
+        self::assertResponseRedirects();
+        self::assertStringContainsString('/account', (string) $this->client->getResponse()->headers->get('Location'));
+    }
+
+    /**
+     * A generated password is a way in, not a credential: the administrator read
+     * it off a screen and passed it on somehow, so at least two people know it
+     * until its owner replaces it (§8.5).
+     */
+    public function testANewUserIsHeldAtThePasswordPageUntilTheyChooseTheirOwn(): void
+    {
+        $password = $this->addUser('held@users.test');
+
+        $this->client->request('POST', $this->url('/logout'));
+        $this->signIn('held@users.test', $password);
+
+        // Every page, not just the one they asked for.
+        foreach (['/', '/users'] as $path) {
+            $this->client->request('GET', $this->url($path));
+            self::assertResponseRedirects(message: sprintf('%s should have been held', $path));
+        }
+
+        $crawler = $this->client->request('GET', $this->url('/account'));
+        self::assertStringContainsString('before you carry on', $crawler->filter('main')->text());
+
+        $this->client->submit($crawler->selectButton('Change password')->form([
+            'current_password' => $password,
+            'new_password' => 'one-of-my-very-own',
+            'repeat_password' => 'one-of-my-very-own',
+        ]));
+
+        // Let straight through to where they were going, not left on the page
+        // that was holding them.
+        self::assertResponseRedirects();
+        $this->client->followRedirect();
+
+        $this->client->request('GET', $this->url('/'));
+        self::assertResponseIsSuccessful();
+    }
+
+    /** Somebody who cannot change their password right now must still be able to leave. */
+    public function testSomebodyHeldCanStillSignOut(): void
+    {
+        $password = $this->addUser('leaving@users.test');
+
+        $this->client->request('POST', $this->url('/logout'));
+        $this->signIn('leaving@users.test', $password);
+
+        $this->client->request('POST', $this->url('/logout'));
+        $this->client->followRedirect();
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('login', (string) $this->client->getRequest()->getUri());
+    }
+
+    /** A password somebody else generated for you is the same situation again. */
+    public function testAResetPasswordAlsoHoldsTheAccount(): void
+    {
+        $this->signIn(self::ADMIN);
+
+        $member = $this->find(self::MEMBER);
+        $this->client->request('POST', $this->url('/users/' . $member->getId() . '/password'), [
+            '_token' => $this->token('manage-users'),
+        ]);
+        $password = $this->passwordFrom($this->client->followRedirect()->filter('main')->text());
+
+        $this->client->request('POST', $this->url('/logout'));
+        $this->signIn(self::MEMBER, $password);
+
+        $this->client->request('GET', $this->url('/'));
+        self::assertResponseRedirects();
+    }
+
+    /**
+     * Provisioning and the console hand in a password somebody chose. Demanding
+     * they change it immediately would be telling them their own decision was
+     * wrong — and it is how every other test in this class signs in.
+     */
+    public function testAPasswordChosenByWhoeverCreatedTheAccountIsNotHeld(): void
+    {
+        $this->signIn(self::MEMBER);
+
+        $this->client->request('GET', $this->url('/'));
+
         self::assertResponseIsSuccessful();
     }
 
@@ -244,9 +329,25 @@ final class UserManagementTest extends WebTestCase
 
         $this->client->request('POST', $this->url('/logout'));
         $this->signIn(self::MEMBER, $password);
-        $this->client->request('GET', $this->url('/'));
 
+        // Held rather than turned away: the new password worked, which is what
+        // this is about. The hold itself has its own test.
+        $this->client->request('GET', $this->url('/account'));
         self::assertResponseIsSuccessful();
+    }
+
+    /** @return string the generated password the administrator was shown */
+    private function addUser(string $email): string
+    {
+        $this->signIn(self::ADMIN);
+
+        $crawler = $this->client->request('GET', $this->url('/users/new'));
+        $this->client->submit($crawler->selectButton('Save')->form([
+            'email' => $email,
+            'name' => 'Newcomer',
+        ]));
+
+        return $this->passwordFrom($this->client->followRedirect()->filter('main')->text());
     }
 
     public function testSomebodyCanChangeTheirOwnPassword(): void

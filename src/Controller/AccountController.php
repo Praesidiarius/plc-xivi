@@ -56,13 +56,23 @@ final class AccountController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
+        // Read before the change, because changing it is what clears the hold —
+        // and somebody who has just been let in should be sent on rather than
+        // left looking at the page that was holding them.
+        $held = $user->mustChangePassword();
+
         if ($request->isMethod('POST') && $this->isCsrfTokenValid('account', (string) $request->request->get('_token'))) {
             $this->handle($user, $request);
+
+            if ($held && !$user->mustChangePassword()) {
+                return $this->redirectToRoute('dashboard');
+            }
         }
 
         return $this->render('account/index.html.twig', [
             'account' => $user,
             'minimum' => User::MINIMUM_PASSWORD_LENGTH,
+            'held' => $user->mustChangePassword(),
         ]);
     }
 

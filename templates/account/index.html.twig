@@ -10,6 +10,21 @@
 
 		<h1 class="h3 mb-3">Your account</h1>
 
+		{#
+			The hold, explained rather than merely enforced: somebody bounced back
+			here from every link they click deserves to know why, and the reason is
+			a good one (§8.5).
+		#}
+		{% if held %}
+			<div class="alert alert-warning">
+				<h2 class="h6">Choose your own password before you carry on.</h2>
+				<p class="mb-0">
+					The one you signed in with was generated and passed on to you, so somebody
+					else has seen it. Everything else waits until you have replaced it.
+				</p>
+			</div>
+		{% endif %}
+
 		<div class="row g-3">
 			<div class="col-12 col-lg-6">
 				<form method="post" class="card h-100">
