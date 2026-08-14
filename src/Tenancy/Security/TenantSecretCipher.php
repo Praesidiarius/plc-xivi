@@ -53,7 +53,7 @@ final readonly class TenantSecretCipher
      * @param array<array-key, mixed> $keys base64-encoded keys by id, e.g. {"2026-08": "..."}
      */
     public function __construct(
-        /**
+        /*
          * In dev these come from .env; in production from the secrets vault
          * (`bin/console secrets:set TENANT_SECRET_KEYS`) or an injected KMS value.
          * Several keys may be present at once — only during a rotation, normally one.

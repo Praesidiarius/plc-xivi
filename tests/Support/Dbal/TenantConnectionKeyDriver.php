@@ -13,10 +13,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Support\Dbal;
 
-use Doctrine\DBAL\Driver;
 use Doctrine\DBAL\Driver\Connection as DriverConnection;
 use Doctrine\DBAL\Driver\Middleware\AbstractDriverMiddleware;
-use SensitiveParameter;
 
 /**
  * Gives DAMA's static connection a key per tenant database.
@@ -42,7 +40,7 @@ final class TenantConnectionKeyDriver extends AbstractDriverMiddleware
     private const string KEY = 'dama.connection_key';
 
     public function connect(
-        #[SensitiveParameter]
+        #[\SensitiveParameter]
         array $params,
     ): DriverConnection {
         if (isset($params[self::KEY], $params['dbname'])) {

@@ -27,12 +27,12 @@ final readonly class ModuleBlueprint
 {
     /**
      * @param list<FieldBlueprint>      $fields
-     * @param list<CollectionBlueprint> $collections    child rows this module owns,
-     *                                                  such as a contact's addresses
-     * @param list<ModulePreset>        $presets        named subsets of `fields` a
-     *                                                  customer can be installed with (§6.1)
-     * @param string|null               $defaultPreset  which one applies when nobody
-     *                                                  chooses; null installs every field
+     * @param list<CollectionBlueprint> $collections   child rows this module owns,
+     *                                                 such as a contact's addresses
+     * @param list<ModulePreset>        $presets       named subsets of `fields` a
+     *                                                 customer can be installed with (§6.1)
+     * @param string|null               $defaultPreset which one applies when nobody
+     *                                                 chooses; null installs every field
      */
     public function __construct(
         public string $key,

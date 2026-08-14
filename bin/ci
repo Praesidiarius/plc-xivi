@@ -66,9 +66,9 @@ docker compose exec -T php composer validate --strict
 step 'Dependencies have no known vulnerabilities'
 docker compose exec -T php composer audit
 
-step 'Every file carries the licence header (PHP CS Fixer)'
-# One rule only — see .php-cs-fixer.dist.php. `composer cs-fix` writes the
-# header into whatever is missing it.
+step 'Formatting and the licence header (PHP CS Fixer)'
+# Symfony's ruleset, minus three rules that fight choices this codebase already
+# made — see .php-cs-fixer.dist.php. `composer cs-fix` writes the fixes.
 docker compose exec -T php composer cs
 
 step 'Module boundaries (deptrac)'

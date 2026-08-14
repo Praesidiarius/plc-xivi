@@ -15,8 +15,8 @@ namespace App\Tests\Functional\Engine;
 
 use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
-use OpenSpout\Reader\XLSX\Reader;
 use App\Tests\Support\SharesATenant;
+use OpenSpout\Reader\XLSX\Reader;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Xivi\Contact\ContactModule;
 use Xivi\Core\Export\RecordExporter;
@@ -63,7 +63,6 @@ final class RecordExportTest extends KernelTestCase
 
         $this->path = (string) tempnam(sys_get_temp_dir(), 'xivi-export-test-');
     }
-
 
     /** The header is the shape's field keys, which are what survive a relabel. */
     public function testTheHeaderComesFromTheDefinitions(): void
@@ -201,7 +200,7 @@ final class RecordExportTest extends KernelTestCase
     }
 
     /**
-     * @param array<string, mixed>                                                $data
+     * @param array<string, mixed>                                                 $data
      * @param array<string, list<array{id: int|null, data: array<string, mixed>}>> $children
      */
     private function save(array $data, array $children = []): Record
@@ -266,5 +265,4 @@ final class RecordExportTest extends KernelTestCase
 
         return $service;
     }
-
 }

@@ -61,7 +61,6 @@ final class ContactVariantsTest extends KernelTestCase
         ));
     }
 
-
     public function testTheModuleKnowsItsVariants(): void
     {
         $module = $this->module();
@@ -265,5 +264,4 @@ final class ContactVariantsTest extends KernelTestCase
 
         return $service;
     }
-
 }

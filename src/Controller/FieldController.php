@@ -95,7 +95,7 @@ final class FieldController extends AbstractController
                 // UnknownFieldType too: the select is built from the registry, so a
                 // type it does not know means a tampered form, which is a message
                 // rather than a stack trace.
-            } catch (MetadataChangeRefused | UnknownFieldType $e) {
+            } catch (MetadataChangeRefused|UnknownFieldType $e) {
                 $this->addFlash('warning', $e->getMessage());
             }
         }

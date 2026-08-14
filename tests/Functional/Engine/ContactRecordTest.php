@@ -19,11 +19,11 @@ use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Xivi\Contact\ContactModule;
 use Xivi\Core\Entity\ModuleDefinition;
+use Xivi\Core\History\HistoryEntry;
+use Xivi\Core\History\HistoryRepository;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
-use Xivi\Core\History\HistoryEntry;
-use Xivi\Core\History\HistoryRepository;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordAction;
 use Xivi\Core\Record\RecordRepository;
@@ -393,7 +393,7 @@ final class ContactRecordTest extends KernelTestCase
      * Through the writer, not the repository: that is the only supported way to
      * write a record (§5.2), so the tests should be taking it too.
      *
-     * @param array<string, mixed>                                                $data
+     * @param array<string, mixed>                                                 $data
      * @param array<string, list<array{id: int|null, data: array<string, mixed>}>> $children
      */
     private function saveIn(Tenant $tenant, array $data, array $children = []): Record

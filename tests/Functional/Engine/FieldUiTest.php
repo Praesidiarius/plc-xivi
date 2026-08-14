@@ -239,5 +239,4 @@ final class FieldUiTest extends WebTestCase
 
         return $service;
     }
-
 }

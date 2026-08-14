@@ -229,5 +229,4 @@ final readonly class TenantProvisioner
     {
         return $connection->getDatabasePlatform()->quoteSingleIdentifier($identifier);
     }
-
 }

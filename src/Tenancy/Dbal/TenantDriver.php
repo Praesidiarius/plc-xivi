@@ -16,7 +16,6 @@ namespace App\Tenancy\Dbal;
 use Doctrine\DBAL\Driver;
 use Doctrine\DBAL\Driver\Connection as DriverConnection;
 use Doctrine\DBAL\Driver\Middleware\AbstractDriverMiddleware;
-use SensitiveParameter;
 
 /**
  * Substitutes the current tenant's connection parameters at connect time.
@@ -38,7 +37,7 @@ final class TenantDriver extends AbstractDriverMiddleware
     }
 
     public function connect(
-        #[SensitiveParameter]
+        #[\SensitiveParameter]
         array $params,
     ): DriverConnection {
         return parent::connect($this->parameters->resolve($params));

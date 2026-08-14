@@ -51,9 +51,9 @@ final readonly class RecordWriter
 
     /**
      * @param array<string, list<array{id: int|null, data: array<string, mixed>}>> $children
-     *                                                                                      the full contents of each collection, keyed by collection;
-     *                                                                                      rows with an id are kept, rows without are added, and
-     *                                                                                      anything missing is removed
+     *                                                                                       the full contents of each collection, keyed by collection;
+     *                                                                                       rows with an id are kept, rows without are added, and
+     *                                                                                       anything missing is removed
      */
     public function save(ModuleDefinition $module, Record $record, array $children = []): Record
     {

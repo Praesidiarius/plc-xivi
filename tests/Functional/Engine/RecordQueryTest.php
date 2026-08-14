@@ -15,8 +15,8 @@ namespace App\Tests\Functional\Engine;
 
 use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
-use Doctrine\ORM\EntityManagerInterface;
 use App\Tests\Support\SharesATenant;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Xivi\Contact\ContactModule;
 use Xivi\Core\Entity\FieldDefinition;
@@ -64,7 +64,6 @@ final class RecordQueryTest extends KernelTestCase
             self::service(ModuleRegistry::class)->get(ContactModule::KEY),
         ));
     }
-
 
     public function testFilteringOnAFieldOfTheRecord(): void
     {
@@ -382,5 +381,4 @@ final class RecordQueryTest extends KernelTestCase
 
         return $service;
     }
-
 }

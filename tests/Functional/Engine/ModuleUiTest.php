@@ -13,7 +13,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Engine;
 
-use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Security\UserCreator;
 use App\Tests\Support\SharesATenant;
@@ -77,7 +76,6 @@ final class ModuleUiTest extends WebTestCase
 
         $this->signIn();
     }
-
 
     public function testTheFormIsBuiltFromTheFieldDefinitions(): void
     {
@@ -566,9 +564,9 @@ final class ModuleUiTest extends WebTestCase
     }
 
     /**
-     * @param array<string, string>             $values
-     * @param list<array<string, string>>       $addresses rows for the addresses collection,
-     *                                                     in the order the form renders them
+     * @param array<string, string>       $values
+     * @param list<array<string, string>> $addresses rows for the addresses collection,
+     *                                               in the order the form renders them
      */
     private function submitContact(array $values, array $addresses = []): void
     {
