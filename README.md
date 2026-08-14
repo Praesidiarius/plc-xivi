@@ -78,6 +78,25 @@ printf 'APP_UID=%s\nAPP_GID=%s\n' "$(id -u)" "$(id -g)" >> .env.local
 docker compose up -d --wait
 ```
 
+## Looking at a tenant's database
+
+```bash
+docker compose --profile tools up -d adminer   # http://127.0.0.1:8080
+```
+
+Sign in with server `database`, user `app`, password `!ChangeMe!` (or whatever
+`POSTGRES_PASSWORD` says), and pick the database: each tenant is its own, named
+`tenant_<slug>` — `tenant_acme`. That is §4's isolation seen from the outside.
+
+Note what that login is. `app` owns the cluster and can read every tenant, which
+is the operator's view and not the application's: the app connects as the tenant's
+own Postgres role, which can reach exactly one database. Those role passwords are
+encrypted in the control plane and nothing prints them, so Adminer cannot be used
+to check that isolation — only to look at data.
+
+Behind a profile, so it is opt-in and never starts as part of the stack or of CI.
+Bound to the loopback, because it is an unauthenticated door to a database server.
+
 ## Checks
 
 ```bash

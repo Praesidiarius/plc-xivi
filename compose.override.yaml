@@ -41,6 +41,30 @@ services:
       - host.docker.internal:host-gateway
     tty: true
 
+  # A database console, for reading a tenant's tables by hand.
+  #
+  #   docker compose --profile tools up -d adminer
+  #
+  # Behind a profile so it is opt-in: it has no business in bin/ci, and an
+  # ordinary `docker compose up` should not start a database UI nobody asked
+  # for. In compose.override.yaml rather than compose.yaml for the stronger
+  # version of the same point — this file is the development environment, and a
+  # console onto every customer's data must not be able to follow the stack into
+  # production.
+  adminer:
+    image: adminer:5
+    profiles: [tools]
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      ADMINER_DEFAULT_SERVER: database
+    ports:
+      # Loopback only. Published on every interface, this is an unauthenticated
+      # door to a database server for anyone who can reach this machine.
+      - "127.0.0.1:${ADMINER_PORT:-8080}:8080"
+
 ###> doctrine/doctrine-bundle ###
   database:
     ports:
