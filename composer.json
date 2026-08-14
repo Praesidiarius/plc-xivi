@@ -76,7 +76,9 @@
         "test": "phpunit",
         "coverage": "phpunit --coverage-clover coverage/clover.xml --coverage-html coverage/html --coverage-text",
         "phpstan": "phpstan analyse --memory-limit=1G",
-        "deptrac": "deptrac analyse --no-progress"
+        "deptrac": "deptrac analyse --no-progress",
+        "cs": "php-cs-fixer check --diff --show-progress=none",
+        "cs-fix": "php-cs-fixer fix"
     },
     "conflict": {
         "symfony/symfony": "*"
@@ -90,6 +92,7 @@
     "require-dev": {
         "dama/doctrine-test-bundle": "^8.6",
         "deptrac/deptrac": "^4.7",
+        "friendsofphp/php-cs-fixer": "^3.95",
         "phpstan/extension-installer": "^1.4",
         "phpstan/phpstan": "^2.2",
         "phpstan/phpstan-doctrine": "^2.0",
