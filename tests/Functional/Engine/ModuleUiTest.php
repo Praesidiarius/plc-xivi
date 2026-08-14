@@ -111,24 +111,88 @@ final class ModuleUiTest extends WebTestCase
         self::assertCount(1, $crawler->filter('.row-of-collection'));
     }
 
+    /** Saving lands on the record that was just saved, not back at the list. */
     public function testCreatingARecordThroughTheForm(): void
     {
         $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace', 'email' => 'ada@example.com', 'birthday' => '1815-12-10']);
 
-        self::assertResponseRedirects($this->url('/m/contact'));
+        self::assertResponseRedirects();
         $this->client->followRedirect();
 
-        self::assertSelectorTextContains('table', 'Lovelace');
+        // Named by the fields the module says it cannot exist without.
+        self::assertSelectorTextContains('h1', 'Ada Lovelace');
         // Rendered by the date type, not by the template guessing.
+        self::assertSelectorTextContains('dl', '1815-12-10');
+    }
+
+    public function testANewRecordAppearsInTheList(): void
+    {
+        $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace', 'birthday' => '1815-12-10']);
+
+        $this->client->request('GET', $this->url('/m/contact'));
+
+        self::assertSelectorTextContains('table', 'Lovelace');
         self::assertSelectorTextContains('table', '1815-12-10');
+    }
+
+    /**
+     * The whole record, read-only, built from the same definitions as the form —
+     * no show template that knows what a contact is.
+     */
+    public function testTheRecordPageIsBuiltFromTheFieldDefinitions(): void
+    {
+        $this->submitContact(
+            ['first_name' => 'Ada', 'last_name' => 'Lovelace', 'email' => 'ada@example.com'],
+            [['street' => 'Baker Street 1', 'city' => 'Zürich']],
+        );
+
+        $crawler = $this->client->followRedirect();
+        self::assertResponseIsSuccessful();
+
+        foreach (['First name', 'Last name', 'Email', 'Phone', 'Birthday'] as $label) {
+            self::assertSelectorTextContains('dl', $label);
+        }
+
+        self::assertSelectorTextContains('dl', 'ada@example.com');
+        // An empty field says so rather than being left out.
+        self::assertStringContainsString('—', $crawler->filter('dl')->text());
+
+        // The collections are on the record too, as a table of their own fields.
+        self::assertSelectorTextContains('h2', 'Addresses');
+        self::assertSelectorTextContains('.card:contains("Addresses") table', 'Baker Street 1');
+    }
+
+    public function testARecordThatDoesNotExistIsNotFound(): void
+    {
+        $this->client->request('GET', $this->url('/m/contact/999'));
+
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+    }
+
+    /** A deleted record is gone from the record page too, not only from the list. */
+    public function testADeletedRecordCannotBeViewed(): void
+    {
+        $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+        $crawler = $this->client->followRedirect();
+        $url = $this->client->getRequest()->getUri();
+
+        $this->client->submit($crawler->filter('form[action$="/delete"]')->form());
+
+        $this->client->request('GET', $url);
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
     }
 
     /** owner_id is a system column; the name beside it is resolved by the application. */
     public function testARecordShowsWhoCreatedIt(): void
     {
         $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
-        $this->client->followRedirect();
 
+        // On the record itself…
+        $this->client->followRedirect();
+        self::assertSelectorTextContains('main', 'owned by UI');
+
+        // …and in the list's owner column.
+        $this->client->request('GET', $this->url('/m/contact'));
         self::assertSelectorTextContains('table', 'UI');
     }
 
@@ -155,16 +219,17 @@ final class ModuleUiTest extends WebTestCase
     public function testEditingARecord(): void
     {
         $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace', 'email' => 'ada@example.com']);
-        $crawler = $this->client->followRedirect();
 
-        $this->client->click($crawler->filter('a:contains("Edit")')->link());
-        self::assertResponseIsSuccessful();
+        $crawler = $this->openFirstRecordForEditing();
         // The form comes back filled from storage.
-        self::assertSame('Ada', $this->client->getCrawler()->filter(sprintf('[name="%s"]', self::field('first_name')))->attr('value'));
+        self::assertSame('Ada', $crawler->filter(sprintf('[name="%s"]', self::field('first_name')))->attr('value'));
 
         $this->client->submitForm('Save', [self::field('first_name') => 'Augusta']);
         $this->client->followRedirect();
 
+        self::assertSelectorTextContains('h1', 'Augusta Lovelace');
+
+        $this->client->request('GET', $this->url('/m/contact'));
         self::assertSelectorTextContains('table', 'Augusta');
         self::assertSelectorTextNotContains('table', 'Ada ');
     }
@@ -187,9 +252,9 @@ final class ModuleUiTest extends WebTestCase
             [['street' => 'Baker Street 1', 'postal_code' => '8001', 'city' => 'Zürich']],
         );
 
-        self::assertResponseRedirects($this->url('/m/contact'));
+        self::assertResponseRedirects();
 
-        $crawler = $this->openFirstRecord();
+        $crawler = $this->openFirstRecordForEditing();
 
         self::assertSame('Baker Street 1', $crawler->filter(sprintf('[name="%s"]', self::addressField(0, 'street')))->attr('value'));
         self::assertSame('Zürich', $crawler->filter(sprintf('[name="%s"]', self::addressField(0, 'city')))->attr('value'));
@@ -206,7 +271,7 @@ final class ModuleUiTest extends WebTestCase
     {
         $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace'], [['street' => 'Baker Street 1', 'city' => 'Zürich']]);
 
-        $crawler = $this->openFirstRecord();
+        $crawler = $this->openFirstRecordForEditing();
         $addressId = $crawler->filter(sprintf('[name="%s[collections][addresses][0][id]"]', self::FORM))->attr('value');
         self::assertNotSame('', (string) $addressId);
 
@@ -217,7 +282,7 @@ final class ModuleUiTest extends WebTestCase
             self::addressField(1, 'city') => 'Bern',
         ]);
 
-        $crawler = $this->openFirstRecord();
+        $crawler = $this->openFirstRecordForEditing();
 
         self::assertSame('Baker Street 2', $crawler->filter(sprintf('[name="%s"]', self::addressField(0, 'street')))->attr('value'));
         self::assertSame('Bahnhofstrasse 5', $crawler->filter(sprintf('[name="%s"]', self::addressField(1, 'street')))->attr('value'));
@@ -231,13 +296,13 @@ final class ModuleUiTest extends WebTestCase
     {
         $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace'], [['street' => 'Baker Street 1', 'city' => 'Zürich']]);
 
-        $this->openFirstRecord();
+        $this->openFirstRecordForEditing();
         $this->client->submitForm('Save', [
             self::addressField(0, 'street') => '',
             self::addressField(0, 'city') => '',
         ]);
 
-        $crawler = $this->openFirstRecord();
+        $crawler = $this->openFirstRecordForEditing();
 
         // Only the blank row is left.
         self::assertCount(1, $crawler->filter('.row-of-collection'));
@@ -267,7 +332,7 @@ final class ModuleUiTest extends WebTestCase
     {
         $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
 
-        $this->openFirstRecord();
+        $this->openFirstRecordForEditing();
         $this->client->submitForm('Save', [self::field('first_name') => 'Augusta']);
 
         $crawler = $this->openFirstRecord();
@@ -284,7 +349,7 @@ final class ModuleUiTest extends WebTestCase
     {
         $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
 
-        $this->openFirstRecord();
+        $this->openFirstRecordForEditing();
         $this->client->submitForm('Save', [
             self::addressField(0, 'street') => 'Baker Street 1',
             self::addressField(0, 'city') => 'Zürich',
@@ -314,12 +379,16 @@ final class ModuleUiTest extends WebTestCase
     {
         $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
         $this->client->followRedirect();
-        self::assertSelectorTextContains('table', 'Lovelace');
+        self::assertSelectorTextContains('h1', 'Ada Lovelace');
 
         // Beta has no contact module at all, so even its own signed-in user
-        // cannot reach the record by any route.
+        // cannot reach the record by any route — not the list, and not the
+        // record's own URL.
         $this->signIn('ui-beta.localhost');
         $this->client->request('GET', 'https://ui-beta.localhost/m/contact');
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+
+        $this->client->request('GET', 'https://ui-beta.localhost/m/contact/1');
         self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
     }
 
@@ -355,8 +424,16 @@ final class ModuleUiTest extends WebTestCase
         $this->client->submitForm('Save', $fields);
     }
 
-    /** The edit page of the only record in the list. */
+    /** The record page of the only record in the list. */
     private function openFirstRecord(): Crawler
+    {
+        $crawler = $this->client->request('GET', $this->url('/m/contact'));
+
+        return $this->client->click($crawler->filter('a:contains("View")')->link());
+    }
+
+    /** Its edit form, which is a different page now. */
+    private function openFirstRecordForEditing(): Crawler
     {
         $crawler = $this->client->request('GET', $this->url('/m/contact'));
 

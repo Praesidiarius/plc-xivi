@@ -14,6 +14,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
+use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Form\ModuleRecordType;
 use Xivi\Core\History\HistoryRepository;
@@ -69,7 +70,69 @@ final class ModuleController extends AbstractController
         return $this->edit($definition, $record, $request);
     }
 
-    #[Route('/{id}', name: 'module_edit', requirements: ['id' => Requirement::POSITIVE_INT], methods: ['GET', 'POST'])]
+    /**
+     * One record, read-only: its own values, the rows of its collections, and
+     * what has happened to it.
+     *
+     * Everything here is rendered from the customer's definitions, so a field
+     * they added shows up with nothing touched — the same claim the form makes,
+     * on a page that only reads.
+     */
+    #[Route('/{id}', name: 'module_show', requirements: ['id' => Requirement::POSITIVE_INT], methods: ['GET'])]
+    public function show(string $module, int $id): Response
+    {
+        $definition = $this->definition($module);
+        $record = $this->records->find($definition, $id) ?? throw $this->createNotFoundException();
+
+        $children = [];
+        foreach ($definition->getCollections() as $collection) {
+            $children[$collection->getKey()] = $this->records->findChildren($collection, $id);
+        }
+
+        return $this->render('module/show.html.twig', [
+            'module' => $definition,
+            'record' => $record,
+            'children' => $children,
+            'titleFields' => self::titleFields($definition),
+            'owner' => $record->ownerId === null ? null : ($this->ownerNames([$record])[$record->ownerId] ?? null),
+            'history' => $this->history->findFor($definition, $id),
+        ]);
+    }
+
+    /**
+     * Which fields name a record, for a heading.
+     *
+     * The metadata has no idea: nothing marks a field as the one a record is
+     * called by, and inventing that flag on the way to a detail page would be
+     * deciding it by accident. The stand-in is the fields the module says a
+     * record cannot exist without — required fields are the ones always there to
+     * print, which for a contact is the first and last name. Capped at two so a
+     * module with six required fields does not get a heading like a sentence.
+     *
+     * A real "title field" belongs in the definitions; see §9.3.
+     *
+     * @return list<FieldDefinition>
+     */
+    private static function titleFields(ModuleDefinition $module): array
+    {
+        $required = [];
+
+        foreach ($module->getFields() as $field) {
+            if ($field->isRequired()) {
+                $required[] = $field;
+            }
+        }
+
+        if ($required !== []) {
+            return \array_slice($required, 0, 2);
+        }
+
+        $first = $module->getFields()->first();
+
+        return $first === false ? [] : [$first];
+    }
+
+    #[Route('/{id}/edit', name: 'module_edit', requirements: ['id' => Requirement::POSITIVE_INT], methods: ['GET', 'POST'])]
     public function editRecord(string $module, int $id, Request $request): Response
     {
         $definition = $this->definition($module);
@@ -144,7 +207,12 @@ final class ModuleController extends AbstractController
 
                 $this->addFlash('success', 'Saved.');
 
-                return $this->redirectToRoute('module_index', ['module' => $definition->getKey()]);
+                // Back to the record rather than the list: it is what was just
+                // worked on, and its history now says what the save did.
+                return $this->redirectToRoute('module_show', [
+                    'module' => $definition->getKey(),
+                    'id' => $record->id,
+                ]);
             }
         }
 
@@ -152,7 +220,6 @@ final class ModuleController extends AbstractController
             'module' => $definition,
             'record' => $record,
             'form' => $form,
-            'history' => $record->isNew() ? [] : $this->history->findFor($definition, (int) $record->id),
         ]);
     }
 

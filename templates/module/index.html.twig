@@ -33,12 +33,24 @@
 							{% for record in records %}
 								<tr>
 									{% for field in module.fields %}
-										<td>{{ display(field, record.get(field.key)) }}</td>
+										<td>
+											{# The first column opens the record, which is where anyone
+											   clicking a row expects to end up. #}
+											{% if loop.first %}
+												<a class="text-reset" href="{{ path('module_show', {module: module.key, id: record.id}) }}">
+													{{ display(field, record.get(field.key)) }}
+												</a>
+											{% else %}
+												{{ display(field, record.get(field.key)) }}
+											{% endif %}
+										</td>
 									{% endfor %}
 									{# owner_id is a system column; the name is resolved by the
 									   application, since the engine does not know what a user is. #}
 									<td class="text-body-secondary">{{ owners[record.ownerId] ?? '—' }}</td>
 									<td class="row-actions text-end">
+										<a class="btn btn-sm btn-outline-secondary"
+										   href="{{ path('module_show', {module: module.key, id: record.id}) }}">View</a>
 										<a class="btn btn-sm btn-outline-secondary"
 										   href="{{ path('module_edit', {module: module.key, id: record.id}) }}">Edit</a>
 										<form method="post" class="d-inline"

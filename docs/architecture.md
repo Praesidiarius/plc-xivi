@@ -452,6 +452,9 @@ collection exercises it.
 - History per §5.2: `RecordWriter` as the only write path, one entry per action in
   a per-module table, and the record's timeline on its page. The first use of §6's
   event layer — core dispatches what changed, the application adds who did it.
+- The five things you can do to a record: list, view, add, edit, remove. The record
+  page is read-only, built from the same definitions as the form, and is where a
+  record's collections and its history are read.
 - Module boundaries enforced by deptrac in CI.
 
 ### 9.2 Decided since this brief was written
@@ -504,6 +507,14 @@ addresses existed gets neither those nor a history table.
 the additive-only half of it next: a new table and new definition rows destroy
 nothing, and both collections and history needed exactly that. The destructive
 half — a field changing type, a field deleted with data in it — can stay open.
+
+**Nothing says which field names a record.** The record page needs a heading, and
+the metadata has no answer, so it uses the fields the module marks required — the
+ones always there to print — capped at two. That is a stand-in, and it will be
+wrong for the first module whose required fields are not what a person calls the
+record by. A real title belongs in the definitions; adding that flag on the way to
+a detail page would have been deciding it by accident, which is what §7 exists to
+prevent.
 
 Two things to keep honest while that lands: the metadata layer will want a
 per-tenant cache, which is §7.4 in a new costume; and file storage has not been
