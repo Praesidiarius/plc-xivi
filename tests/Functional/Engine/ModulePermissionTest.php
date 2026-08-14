@@ -243,6 +243,95 @@ final class ModulePermissionTest extends WebTestCase
         self::assertResponseIsSuccessful();
     }
 
+    // -- what the person is told the application consists of ----------------
+
+    /**
+     * A module you cannot list is not a module you have.
+     *
+     * Navigation that advertises doors and then refuses them is worse than
+     * navigation that is honest about the building — and it is the first thing
+     * anybody notices about a permission system.
+     */
+    public function testAModuleYouCannotListIsNotInTheNavigation(): void
+    {
+        $this->signIn(self::MEMBER);
+
+        $text = $this->client->request('GET', $this->url('/'))->filter('body')->text();
+
+        self::assertStringNotContainsString('Contacts', $text);
+        self::assertStringContainsString('do not have access to any modules', $text);
+    }
+
+    public function testAModuleYouCanListIsInTheNavigation(): void
+    {
+        $this->grant([[ModuleAction::List, PermissionScope::All]]);
+        $this->signIn(self::MEMBER);
+
+        $text = $this->client->request('GET', $this->url('/'))->filter('body')->text();
+
+        self::assertStringContainsString('Contacts', $text);
+        self::assertStringNotContainsString('do not have access to any modules', $text);
+    }
+
+    /**
+     * The empty dashboard has to tell two states apart: nothing is installed,
+     * which an administrator can fix with a command, and nothing is yours, which
+     * they cannot. Telling somebody with no permissions to run a console command
+     * against their employer's database is the wrong sentence in every respect.
+     */
+    public function testTheEmptyDashboardDoesNotTellOrdinaryUsersToRunConsoleCommands(): void
+    {
+        $this->signIn(self::MEMBER);
+
+        $text = $this->client->request('GET', $this->url('/'))->filter('body')->text();
+
+        self::assertStringNotContainsString('tenant:module:install', $text);
+    }
+
+    /** Buttons follow the same rule: no point offering what will be refused. */
+    public function testTheListOnlyOffersButtonsForWhatIsGranted(): void
+    {
+        $this->grant([[ModuleAction::List, PermissionScope::All]]);
+        $this->signIn(self::MEMBER);
+
+        $page = $this->client->request('GET', $this->url('/m/contact'))->filter('main')->html();
+
+        self::assertStringNotContainsString('module/contact/import', $page);
+        self::assertStringNotContainsString('/new', $page);
+        self::assertStringNotContainsString('/export', $page);
+    }
+
+    public function testTheListOffersAddOnceItIsGranted(): void
+    {
+        $this->grant([
+            [ModuleAction::List, PermissionScope::All],
+            [ModuleAction::Add, PermissionScope::All],
+        ]);
+        $this->signIn(self::MEMBER);
+
+        $page = $this->client->request('GET', $this->url('/m/contact'))->filter('main')->html();
+
+        self::assertStringContainsString('/new', $page);
+    }
+
+    /**
+     * With a scope of "own" the answer differs from one row to the next, so the
+     * buttons are asked about the record rather than about the module.
+     */
+    public function testRowButtonsAreDecidedPerRecord(): void
+    {
+        $this->grant([
+            [ModuleAction::List, PermissionScope::All],
+            [ModuleAction::Edit, PermissionScope::Own],
+        ]);
+        $this->signIn(self::MEMBER);
+
+        $page = $this->client->request('GET', $this->url('/m/contact'))->filter('main')->html();
+
+        self::assertStringContainsString(sprintf('/m/contact/%d/edit', $this->mine), $page);
+        self::assertStringNotContainsString(sprintf('/m/contact/%d/edit', $this->theirs), $page);
+    }
+
     // -- administrators -----------------------------------------------------
 
     /** The bypass, which is what keeps an installation recoverable (§8.4.1). */

@@ -101,9 +101,18 @@
 			</table>
 		</div>
 
+		{#
+			Accurate as of the permission model landing (§7.5). It says what is true
+			*and* what is missing, because the gap between "grants decide everything"
+			and "there is nowhere to edit a grant" is exactly the thing an
+			administrator needs to be told before they wonder why a new colleague
+			cannot see anything.
+		#}
 		<p class="text-body-secondary small mb-0">
-			Everybody here can see and edit everything. Who may do what is the next thing
-			being built — see docs/architecture.md §8.4.
+			Administrators may do everything. Everybody else starts with nothing and is
+			granted what they need, per module and per action — but the screen for
+			editing those grants is not built yet, so for now they are set with
+			<code>bin/console tenant:permissions:grant-all &lt;tenant&gt;</code>.
 		</p>
 	</main>
 {% endblock %}

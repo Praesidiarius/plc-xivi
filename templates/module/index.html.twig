@@ -34,24 +34,34 @@
 		<div class="d-flex align-items-center justify-content-between mb-3">
 			<h1 class="h3 mb-0">{{ module.label }}</h1>
 			<div class="d-flex align-items-center gap-2">
-				{# Carries the current query, so you download what you are looking at. #}
-				<a class="btn btn-outline-secondary"
-				   href="{{ path('module_export', app.request.query.all|merge({module: module.key})) }}">
-					<i class="bi bi-download" aria-hidden="true"></i>
-					<span class="d-none d-sm-inline">Export</span>
-				</a>
-				{% if is_granted('ROLE_ADMIN') %}
+				{% if can('export', module) %}
+					{# Carries the current query, so you download what you are looking at. #}
+					<a class="btn btn-outline-secondary"
+					   href="{{ path('module_export', app.request.query.all|merge({module: module.key})) }}">
+						<i class="bi bi-download" aria-hidden="true"></i>
+						<span class="d-none d-sm-inline">Export</span>
+					</a>
+				{% endif %}
+				{# Its own permission now, not ROLE_ADMIN — so somebody granted it
+				   can see the button they are allowed to press (§7.5). #}
+				{% if can('import', module) %}
 					<a class="btn btn-outline-secondary" href="{{ path('module_import', {module: module.key}) }}">
 							<i class="bi bi-upload" aria-hidden="true"></i>
 							<span class="d-none d-sm-inline">Import</span>
 						</a>
+				{% endif %}
+				{# The metadata editor stays an administrator's job: it changes what
+				   the module *is*, which is not one of its permissions (§5.4). #}
+				{% if is_granted('ROLE_ADMIN') %}
 					<a class="btn btn-outline-secondary" href="{{ path('field_index', {module: module.key}) }}">
 							<i class="bi bi-sliders" aria-hidden="true"></i> Fields
 						</a>
 				{% endif %}
-				<a class="btn btn-primary" href="{{ path('module_new', {module: module.key}) }}">
-						<i class="bi bi-plus-lg" aria-hidden="true"></i> Add
-					</a>
+				{% if can('add', module) %}
+					<a class="btn btn-primary" href="{{ path('module_new', {module: module.key}) }}">
+							<i class="bi bi-plus-lg" aria-hidden="true"></i> Add
+						</a>
+				{% endif %}
 			</div>
 		</div>
 
@@ -123,9 +133,11 @@
 							Either a fresh start or a very quiet week. Add the first one and this
 							page gets considerably more interesting.
 						</p>
-						<a class="btn btn-primary" href="{{ path('module_new', {module: module.key}) }}">
-							<i class="bi bi-plus-lg" aria-hidden="true"></i> Add the first one
-						</a>
+						{% if can('add', module) %}
+							<a class="btn btn-primary" href="{{ path('module_new', {module: module.key}) }}">
+								<i class="bi bi-plus-lg" aria-hidden="true"></i> Add the first one
+							</a>
+						{% endif %}
 					</div>
 				</div>
 			{% endif %}
@@ -167,24 +179,32 @@
 									   application, since the engine does not know what a user is. #}
 									<td class="text-body-secondary">{{ owners[record.ownerId] ?? '—' }}</td>
 									<td class="row-actions text-end">
-										<a class="btn btn-sm btn-outline-secondary"
-										   href="{{ path('module_show', {module: module.key, id: record.id}) }}">
-											<i class="bi bi-eye" aria-hidden="true"></i>
-											<span class="visually-hidden">View</span>
-										</a>
-										<a class="btn btn-sm btn-outline-secondary"
-										   href="{{ path('module_edit', {module: module.key, id: record.id}) }}">
-											<i class="bi bi-pencil" aria-hidden="true"></i>
-											<span class="visually-hidden">Edit</span>
-										</a>
-										<form method="post" class="d-inline"
-										      action="{{ path('module_delete', {module: module.key, id: record.id}) }}">
-											<input type="hidden" name="_token" value="{{ csrf_token('delete-record-' ~ record.id) }}">
-											<button type="submit" class="btn btn-sm btn-outline-danger">
-												<i class="bi bi-trash" aria-hidden="true"></i>
-												<span class="visually-hidden">Delete</span>
-											</button>
-										</form>
+										{# Asked about this row, not about the module: with a scope of
+										   "own", the answer differs from one line to the next. #}
+										{% if can('view', module, record) %}
+											<a class="btn btn-sm btn-outline-secondary"
+											   href="{{ path('module_show', {module: module.key, id: record.id}) }}">
+												<i class="bi bi-eye" aria-hidden="true"></i>
+												<span class="visually-hidden">View</span>
+											</a>
+										{% endif %}
+										{% if can('edit', module, record) %}
+											<a class="btn btn-sm btn-outline-secondary"
+											   href="{{ path('module_edit', {module: module.key, id: record.id}) }}">
+												<i class="bi bi-pencil" aria-hidden="true"></i>
+												<span class="visually-hidden">Edit</span>
+											</a>
+										{% endif %}
+										{% if can('delete', module, record) %}
+											<form method="post" class="d-inline"
+											      action="{{ path('module_delete', {module: module.key, id: record.id}) }}">
+												<input type="hidden" name="_token" value="{{ csrf_token('delete-record-' ~ record.id) }}">
+												<button type="submit" class="btn btn-sm btn-outline-danger">
+													<i class="bi bi-trash" aria-hidden="true"></i>
+													<span class="visually-hidden">Delete</span>
+												</button>
+											</form>
+										{% endif %}
 									</td>
 								</tr>
 							{% endfor %}

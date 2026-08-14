@@ -53,6 +53,16 @@ of every page, and is not yet tied to git tags.
   because that is the true answer.
 - **Importing is its own permission per module**, no longer `ROLE_ADMIN` — the
   answer §5.6 said §7.5 would give it.
+- **The navigation shows only the modules you may open.** A module you cannot
+  list is not in the topbar and not on the dashboard: navigation that advertises
+  doors and then refuses them is worse than navigation that is honest about the
+  building. The empty dashboard now tells its two states apart — "nothing is
+  installed", which an administrator can fix with a command, and "nothing is
+  yours", which they cannot.
+- **Buttons follow the same rule**, through a `can()` Twig function, and the
+  per-row ones are asked about the record rather than the module, since with a
+  scope of "own" the answer differs from one line to the next. This hides
+  controls and protects nothing — every route still decides for itself.
 - **The build fails when a module route names no permission.** The surface is
   defined by the URL — any route whose path contains `{module}` — rather than by a
   list of controllers, so a new controller is covered the day it is written and
