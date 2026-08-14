@@ -118,42 +118,41 @@
 												{% set from_group = inherited[module.key][action.value]|default('') %}
 												<td>
 													{#
-														Choices that cannot change anything are disabled rather than
-														offered and ignored. Grants only ever add (§8.4), so a
-														personal grant no wider than the group's is a no-op — and a
-														control that accepts a choice and does nothing with it is
-														worse than one that says it cannot.
+														The select shows what this person can actually do — their
+														groups and their own grant folded together the way the
+														resolver folds them — rather than the difference between the
+														two. A control showing "no" beside the words "groups give:
+														all" is describing a delta nobody asked about.
 
-														Never the currently selected one, whatever it is: clearing a
-														grant that has become redundant is a legitimate tidy-up, and
-														a value the form cannot round-trip is a value it would lose.
+														What it cannot do is go below the group's floor, because
+														grants only ever add (§8.4). Anything narrower than what the
+														groups give is disabled; anything wider is a personal grant,
+														and the manager stores only that difference.
 													#}
+													{% set effective = (from_group == 'all' or current == 'all')
+														? 'all'
+														: ((from_group == 'own' or current == 'own') ? 'own' : '') %}
 													<select class="form-select form-select-sm"
 													        name="grants[{{ module.key }}][{{ action.value }}]"
 													        aria-label="{{ action.label }} {{ module.label }}">
-														{# Never disabled: removing a grant that has become redundant
-														   is a real change, and the only way back to none. #}
-														<option value="" {{ current == '' ? 'selected' : '' }}>No</option>
+														<option value="" {{ effective == '' ? 'selected' : '' }}
+														        {{ from_group ? 'disabled' : '' }}>No</option>
 														{% for scope in scopes %}
 															{% if action.isScopable or scope.value == 'all' %}
-																{% set covered = from_group == 'all' or (from_group == 'own' and scope.value == 'own') %}
+																{# Strictly narrower than the floor, so unreachable. #}
 																<option value="{{ scope.value }}"
-																        {{ current == scope.value ? 'selected' : '' }}
-																        {{ covered and current != scope.value ? 'disabled' : '' }}>
+																        {{ effective == scope.value ? 'selected' : '' }}
+																        {{ from_group == 'all' and scope.value == 'own' ? 'disabled' : '' }}>
 																	{{ action.isScopable ? scope.label : 'Yes' }}
 																</option>
 															{% endif %}
 														{% endfor %}
 													</select>
-													{#
-														Said beside the control rather than merged into it. Merged,
-														somebody would grant a thing twice and then be unable to work
-														out why removing it changed nothing — the grant they removed
-														was never the one doing the work.
-													#}
+													{# Says where the floor comes from, so a disabled option is
+													   explained rather than merely refused. #}
 													{% if from_group %}
 														<div class="form-text mb-0">
-															groups give: {{ from_group == 'all' ? 'all' : 'own' }}
+															from groups: {{ from_group == 'all' ? 'all' : 'own' }}
 														</div>
 													{% endif %}
 												</td>

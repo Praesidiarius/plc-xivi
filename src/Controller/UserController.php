@@ -115,6 +115,11 @@ final class UserController extends AbstractController
                     $this->currentUser(),
                 );
 
+                // Read before the groups change: the matrix that was submitted
+                // was drawn against *this* floor, and unticking a group in the
+                // same save would otherwise turn its grant into a personal one.
+                $inherited = PermissionManager::inheritedMatrixOf($user);
+
                 $this->permissions->setGroupsOf($user, array_values(array_map(
                     static fn (mixed $id): int => (int) $id,
                     $request->request->all('groups'),
@@ -122,7 +127,7 @@ final class UserController extends AbstractController
 
                 /** @var array<string, array<string, string>> $matrix */
                 $matrix = $request->request->all('grants');
-                $this->permissions->applyUserGrants($user, $matrix);
+                $this->permissions->applyUserGrants($user, $matrix, $inherited);
 
                 $this->addFlash('success', sprintf('Saved %s.', $user->getEmail()));
 

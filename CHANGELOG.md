@@ -58,9 +58,11 @@ of every page, and is not yet tied to git tags.
   inventing a group of one that nobody can read the purpose of. What their groups
   already give is shown beside each cell and never merged into it: merged,
   somebody grants a thing twice and then cannot work out why removing it changed
-  nothing. Choices the groups already cover are disabled rather than offered and
-  ignored, since grants only ever add — never the current one, because clearing a
-  grant that has become redundant is a real change.
+  nothing. Each cell shows what the person can actually do — groups and personal
+  grant folded together — and cannot be set below what the groups give, since
+  grants only ever add. Only the part wider than the groups is stored, so saving
+  the form back unchanged writes nothing and a grant a group has since covered is
+  tidied away.
 - **A screen for granting permissions**, at `/users/groups`. Until it existed the
   only way to grant anything was a console command against the customer's
   database, which is not a thing a customer has — the same argument §8.4.1 made

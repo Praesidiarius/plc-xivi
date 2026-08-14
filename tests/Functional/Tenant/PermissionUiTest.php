@@ -269,17 +269,18 @@ final class PermissionUiTest extends WebTestCase
         $text = $this->client->request('GET', $this->url('/users/' . $member->getId()))
             ->filter('main')->text();
 
-        self::assertStringContainsString('groups give: all', $text);
+        self::assertStringContainsString('from groups: all', $text);
     }
 
     /**
-     * A choice that could not change anything is not offered.
+     * The select shows what the person can actually do, and cannot go below what
+     * their groups give.
      *
-     * Grants only ever add, so a personal grant no wider than the group's is a
-     * no-op — and a select that accepts a choice and then ignores it is a worse
-     * explanation of the rule than a disabled option is.
+     * Showing the difference instead would put "no" beside the words "groups
+     * give: all", which describes a delta nobody asked about. Anything narrower
+     * than the group's floor is disabled, because grants only ever add.
      */
-    public function testChoicesTheGroupsAlreadyCoverAreDisabled(): void
+    public function testTheSelectShowsTheEffectivePermissionAndCannotGoBelowIt(): void
     {
         $this->signIn(self::ADMIN);
         $this->createGroupGranting([
@@ -290,17 +291,90 @@ final class PermissionUiTest extends WebTestCase
         $member = $this->user(self::MEMBER);
         $page = $this->client->request('GET', $this->url('/users/' . $member->getId()));
 
-        // The group gives all, so nothing personal can widen it.
-        $view = $page->filter('select[name="grants[contact][view]"] option:not([disabled])');
-        self::assertSame(['No'], $this->labels($view));
+        // The group gives all: it is what the select shows, and nothing narrower
+        // is reachable.
+        self::assertSame(
+            ['All records'],
+            $this->labels($page->filter('select[name="grants[contact][view]"] option:not([disabled])')),
+        );
+        self::assertSame(
+            PermissionScope::All->value,
+            $page->filter('select[name="grants[contact][view]"] option[selected]')->attr('value'),
+        );
 
-        // The group gives own, so only all is worth choosing.
-        $edit = $page->filter('select[name="grants[contact][edit]"] option:not([disabled])');
-        self::assertSame(['No', 'All records'], $this->labels($edit));
+        // The group gives own: shown as own, and still widenable to all.
+        self::assertSame(
+            ['Own records', 'All records'],
+            $this->labels($page->filter('select[name="grants[contact][edit]"] option:not([disabled])')),
+        );
+        self::assertSame(
+            PermissionScope::Own->value,
+            $page->filter('select[name="grants[contact][edit]"] option[selected]')->attr('value'),
+        );
 
-        // Nothing inherited here, so every choice stays open.
-        $delete = $page->filter('select[name="grants[contact][delete]"] option:not([disabled])');
-        self::assertCount(3, $delete);
+        // Nothing inherited here, so every choice stays open and "No" is shown.
+        self::assertCount(
+            3,
+            $page->filter('select[name="grants[contact][delete]"] option:not([disabled])'),
+        );
+        self::assertSame(
+            '',
+            $page->filter('select[name="grants[contact][delete]"] option[selected]')->attr('value'),
+        );
+    }
+
+    /**
+     * Saving the form back unchanged stores nothing personal.
+     *
+     * The form asks what the person may do, so a cell echoing the group's own
+     * answer is somebody leaving it alone. Writing that down would fill the
+     * table with grants that change nothing and then have to be reasoned about
+     * forever.
+     */
+    public function testSavingWhatTheGroupAlreadyGivesStoresNoPersonalGrant(): void
+    {
+        $this->signIn(self::ADMIN);
+        $this->createGroupGranting(['grants[contact][view]' => PermissionScope::All->value]);
+
+        $member = $this->user(self::MEMBER);
+        $crawler = $this->client->request('GET', $this->url('/users/' . $member->getId()));
+        $this->client->submit($crawler->selectButton('Save')->form());
+
+        self::assertCount(0, $this->user(self::MEMBER)->getPermissionGrants());
+
+        // And the permission itself is untouched: it was the group's all along.
+        self::assertSame(
+            PermissionScope::All,
+            $this->resolve(self::MEMBER)->scopeFor(ContactModule::KEY, ModuleAction::View),
+        );
+    }
+
+    /** A redundant grant left over from before the group existed is tidied away. */
+    public function testAPersonalGrantTheGroupHasSinceCoveredIsRemovedOnSave(): void
+    {
+        $this->signIn(self::ADMIN);
+        $member = $this->user(self::MEMBER);
+
+        // Personal grant first, no group at all.
+        $this->client->request('GET', $this->url('/users/' . $member->getId()));
+        $this->client->submitForm('Save', [
+            'email' => self::MEMBER,
+            'name' => 'Member',
+            'grants[contact][view]' => PermissionScope::Own->value,
+        ]);
+        self::assertCount(1, $this->user(self::MEMBER)->getPermissionGrants());
+
+        // Now a group covers it more widely; the next save drops the personal one.
+        $this->createGroupGranting(['grants[contact][view]' => PermissionScope::All->value]);
+
+        $crawler = $this->client->request('GET', $this->url('/users/' . $member->getId()));
+        $this->client->submit($crawler->selectButton('Save')->form());
+
+        self::assertCount(0, $this->user(self::MEMBER)->getPermissionGrants());
+        self::assertSame(
+            PermissionScope::All,
+            $this->resolve(self::MEMBER)->scopeFor(ContactModule::KEY, ModuleAction::View),
+        );
     }
 
     /** Group membership is editable from the person as well as from the group. */
@@ -316,6 +390,31 @@ final class PermissionUiTest extends WebTestCase
         $this->client->submit($form);
 
         self::assertFalse($this->resolve(self::MEMBER)->allows(ContactModule::KEY, ModuleAction::List));
+    }
+
+    /**
+     * The tab bar says where you are, and /users is not the dashboard.
+     *
+     * Overview used to light up on every page with no module in its URL, which
+     * meant user management claimed to be the dashboard while plainly not being
+     * it. There is no tab for users, so the answer is that no tab is active and
+     * the button in the bar above says so instead.
+     */
+    public function testUserManagementDoesNotLightUpTheOverviewTab(): void
+    {
+        $this->signIn(self::ADMIN);
+
+        foreach (['/users', '/users/groups'] as $path) {
+            $page = $this->client->request('GET', $this->url($path));
+
+            self::assertCount(0, $page->filter('.nav-tabs .nav-link.active'), $path . ' lights up a tab');
+            self::assertCount(1, $page->filter('.navbar a.btn.active'), $path . ' does not mark the Users button');
+        }
+
+        // The dashboard still does light its own tab, so the assertion above is
+        // known to be able to move.
+        $page = $this->client->request('GET', $this->url('/'));
+        self::assertSame('Overview', trim($page->filter('.nav-tabs .nav-link.active')->text()));
     }
 
     /** Adding somebody has no permissions section: grants need an account first. */

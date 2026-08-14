@@ -150,14 +150,28 @@ final readonly class PermissionManager
      * cannot cover "Anna, and only Anna, may also export" without inventing a
      * group of one, which is a group nobody can read the purpose of.
      *
+     * `$inherited` is what the groups gave **when the form was drawn**, not what
+     * they give now. The two differ exactly when somebody unticks a group in the
+     * same save, and using the current state there would quietly convert the
+     * group's grant into a personal one — the person would keep a permission
+     * they were just removed from the group for.
+     *
      * @param array<string, array<string, string>> $matrix
+     * @param array<string, array<string, string>> $inherited
      */
-    public function applyUserGrants(User $user, array $matrix): void
+    public function applyUserGrants(User $user, array $matrix, array $inherited): void
     {
         $existing = [];
         foreach ($user->getPermissionGrants() as $grant) {
             $existing[$grant->getModuleKey()][$grant->getAction()->value] = $grant;
         }
+
+        // The form asks what this person may do, not what to store: a cell
+        // showing the group's own answer back is somebody leaving it alone, and
+        // writing that down would fill the table with grants that change
+        // nothing and then have to be reasoned about forever. Only the part
+        // wider than the groups is a personal grant.
+        $matrix = self::withoutWhatGroupsAlreadyGive($matrix, $inherited);
 
         $this->applyMatrix(
             $matrix,
@@ -233,6 +247,40 @@ final readonly class PermissionManager
                     : null;
 
                 $matrix[$module][$action] = ($existing?->widest($scope) ?? $scope)->value;
+            }
+        }
+
+        return $matrix;
+    }
+
+    /**
+     * The submitted matrix reduced to what the groups do not already cover.
+     *
+     * A cell equal to or narrower than the group's grant becomes "none", which
+     * removes any personal grant sitting there — so a redundant one left over
+     * from before the group existed is tidied away by the next save rather than
+     * lingering as a row nobody can explain.
+     *
+     * @param array<string, array<string, string>> $matrix
+     * @param array<string, array<string, string>> $inherited
+     *
+     * @return array<string, array<string, string>>
+     */
+    private static function withoutWhatGroupsAlreadyGive(array $matrix, array $inherited): array
+    {
+        foreach ($matrix as $moduleKey => $actions) {
+            foreach ($actions as $actionKey => $scopeKey) {
+                $scope = PermissionScope::tryFrom($scopeKey);
+                $floor = PermissionScope::tryFrom($inherited[$moduleKey][$actionKey] ?? '');
+
+                if ($scope === null || $floor === null) {
+                    continue;
+                }
+
+                // Adds nothing: the widest of the two is still the group's.
+                if ($floor->widest($scope) === $floor) {
+                    $matrix[$moduleKey][$actionKey] = '';
+                }
             }
         }
 

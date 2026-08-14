@@ -20,15 +20,26 @@
 				JavaScript is not shipped here, so a dropdown would be a menu that
 				never opens.
 			#}
+			{#
+				Which route is being served, so the buttons below can say where you
+				are. The module tabs cannot answer this: user management and the
+				account page are not modules, and marking Overview active on them
+				said "you are on the dashboard" while plainly not being there.
+			#}
+			{% set route = app.request.attributes.get('_route')|default('') %}
+			{% set on_users = route starts with 'user_' or route starts with 'group_' %}
+
 			<div class="d-flex align-items-center gap-2 ms-auto">
 				{% if is_granted('ROLE_ADMIN') %}
-					<a class="btn btn-sm btn-outline-secondary" href="{{ path('user_index') }}">
+					<a class="btn btn-sm btn-outline-secondary{{ on_users ? ' active' : '' }}"
+					   href="{{ path('user_index') }}" {{ on_users ? 'aria-current="page"' : '' }}>
 						<i class="bi bi-people" aria-hidden="true"></i>
 						<span class="d-none d-sm-inline">Users</span>
 					</a>
 				{% endif %}
 
-				<a class="btn btn-sm btn-outline-secondary" href="{{ path('account') }}">
+				<a class="btn btn-sm btn-outline-secondary{{ route == 'account' ? ' active' : '' }}"
+				   href="{{ path('account') }}" {{ route == 'account' ? 'aria-current="page"' : '' }}>
 					<i class="bi bi-person-circle" aria-hidden="true"></i>
 					<span class="d-none d-sm-inline">{{ app.user.email }}</span>
 				</a>
@@ -45,7 +56,9 @@
 		<ul class="nav nav-tabs border-bottom-0 w-100 mt-2">
 			{% set current = app.request.attributes.get('module') %}
 			<li class="nav-item">
-				<a class="nav-link{{ current is null ? ' active' : '' }}" href="{{ path('dashboard') }}">
+				{# The dashboard route itself, not merely "no module": /users has no
+				   module either and is plainly not the dashboard. #}
+				<a class="nav-link{{ route == 'dashboard' ? ' active' : '' }}" href="{{ path('dashboard') }}">
 					<i class="bi bi-grid" aria-hidden="true"></i>
 					<span class="ms-1">Overview</span>
 				</a>
