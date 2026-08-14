@@ -44,7 +44,7 @@ final readonly class ModuleInstaller
      * here would quietly overrule that. Bringing an existing installation up to a
      * newer blueprint is a different operation and needs §7.2 answered first.
      */
-    public function install(ModuleBlueprint $blueprint): ModuleDefinition
+    public function install(ModuleBlueprint $blueprint, ?string $preset = null): ModuleDefinition
     {
         $existing = $this->metadata->find($blueprint->key);
 
@@ -55,11 +55,13 @@ final readonly class ModuleInstaller
         $this->assertTypesExist($blueprint);
         $this->assertTableNameFits($blueprint->table);
 
+        $fields = $this->fieldsFor($blueprint, $preset);
+
         $this->createRecordTable($blueprint->table, parentTable: null);
         $this->createHistoryTable($blueprint->table);
 
         $module = new ModuleDefinition($blueprint->key, $blueprint->label, $blueprint->table);
-        $this->defineFields($module, $blueprint->fields);
+        $this->defineFields($module, $fields);
 
         foreach ($blueprint->collections as $collection) {
             $this->createRecordTable($collection->table, parentTable: $blueprint->table);
@@ -78,6 +80,59 @@ final readonly class ModuleInstaller
         $this->entityManager->flush();
 
         return $module;
+    }
+
+    /**
+     * Which of the blueprint's fields this installation gets (§6.1).
+     *
+     * A preset names a subset; every collection is installed either way, because
+     * a customer can add a field back later in the editor and cannot add a
+     * collection back at all — see ModulePreset.
+     *
+     * Order comes from the blueprint, not from the preset: the module author
+     * decided what sits next to what, and a preset is choosing which of those to
+     * take, not rearranging them.
+     *
+     * @return list<FieldBlueprint>
+     */
+    private function fieldsFor(ModuleBlueprint $blueprint, ?string $preset): array
+    {
+        $preset ??= $blueprint->defaultPreset;
+
+        if ($preset === null) {
+            return $blueprint->fields;
+        }
+
+        $chosen = $blueprint->preset($preset) ?? throw new \RuntimeException(sprintf(
+            'Module "%s" has no preset "%s". It offers: %s.',
+            $blueprint->key,
+            $preset,
+            implode(', ', $blueprint->presetKeys()) ?: 'none',
+        ));
+
+        $fields = array_values(array_filter(
+            $blueprint->fields,
+            static fn (FieldBlueprint $field): bool => \in_array($field->key, $chosen->fields, true),
+        ));
+
+        // A preset naming a field the module does not have is the module author's
+        // typo, and it would install a shape quietly missing something. Caught
+        // here because nothing downstream would ever notice.
+        $missing = array_diff($chosen->fields, array_map(
+            static fn (FieldBlueprint $field): string => $field->key,
+            $fields,
+        ));
+
+        if ($missing !== []) {
+            throw new \RuntimeException(sprintf(
+                'Preset "%s" of module "%s" names fields that do not exist: %s.',
+                $chosen->key,
+                $blueprint->key,
+                implode(', ', $missing),
+            ));
+        }
+
+        return $fields;
     }
 
     /**

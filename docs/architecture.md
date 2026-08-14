@@ -391,7 +391,20 @@ Three sources, and the discipline is knowing which one a given need belongs to:
   code, versioned alongside it. `basic` and `extended` for Contact. There are a
   handful per module, they are identical for every customer who picks one, and
   changing one means the module changed — so a release is the honest way to ship
-  it.
+  it. *Built:* a preset names a subset of the blueprint's own fields rather than
+  redeclaring them, so there is one description of what a contact can hold and a
+  couple of answers to how much of it you want. `tenant:module:install` takes
+  `--preset` and lists the choices when you do not.
+
+  **Fields only, never collections**, and not arbitrarily: a field a preset left
+  out can be added back in the editor (§5.4), so choosing the smaller preset is
+  reversible. Nothing can add a *collection* back — that needs a table, which only
+  the installer creates — so a preset omitting one would be a decision the
+  customer could never undo. Every collection a module declares is installed every
+  time, until §7.2's additive upgrade exists.
+
+  Nothing records which preset was used. Storing it would only invite something to
+  re-apply it later, and a preset is a seed with no further say.
 - **Template** — how a customer is set up *across* modules: install these modules
   with these presets, then add these fields. "Dentist practice" is a template, not
   a preset; nothing about it belongs to any single module. It is data, in the
@@ -553,6 +566,8 @@ collection exercises it.
   customer's definitions, with a filter bar and sortable columns on the list.
 - The metadata editor of §5.4: adding, editing and removing fields on any shape,
   admin only, with every change that could strand data refused rather than made.
+- Module presets (§6.1): `tenant:module:install --preset`, with Contact shipping
+  `basic` and `extended`.
 - Module boundaries enforced by deptrac in CI.
 
 ### 9.2 Decided since this brief was written
@@ -593,11 +608,13 @@ collection exercises it.
 
 ### 9.3 Next
 
-Module presets (§6.1) — `basic` and `extended` for Contact — which is small, and
-the first thing that makes installing a module a choice rather than a fixed shape.
+A real title field in the definitions, which the record page currently stands in
+for with required fields, and which the editor now has an obvious home for.
 
-Then a real title field in the definitions, which the record page currently stands
-in for with required fields, and which the editor now has an obvious home for.
+Then **templates** (§6.1), the other half of provisioning: which modules a
+customer gets, with which presets. They need nothing new from the engine — a
+template is a list of installations it already knows how to perform — but they do
+need somewhere in the control plane to live.
 
 The two halves of §7.2 still open are a field changing type, and purging a removed
 field's values. They are opposites and probably want deciding together: one is

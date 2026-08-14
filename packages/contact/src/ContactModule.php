@@ -7,6 +7,7 @@ namespace Xivi\Contact;
 use Xivi\Core\Module\CollectionBlueprint;
 use Xivi\Core\Module\FieldBlueprint;
 use Xivi\Core\Module\ModuleBlueprint;
+use Xivi\Core\Module\ModulePreset;
 use Xivi\Core\Module\ModuleProvider;
 
 /**
@@ -130,6 +131,28 @@ final class ContactModule implements ModuleProvider
                     position: 10,
                 ),
             ],
+            // Named field sets a customer can be installed with (§6.1). They pick
+            // from the fields above rather than redeclaring them, so there is one
+            // description of what a contact can hold and a couple of answers to
+            // how much of it you want.
+            presets: [
+                new ModulePreset(
+                    key: 'basic',
+                    label: 'Basic',
+                    description: 'A name and how to reach them.',
+                    fields: ['first_name', 'last_name', 'email', 'phone'],
+                ),
+                new ModulePreset(
+                    key: 'extended',
+                    label: 'Extended',
+                    description: 'Everything the module knows about a contact.',
+                    fields: ['first_name', 'last_name', 'email', 'phone', 'birthday'],
+                ),
+            ],
+            // Installing "the contact module" gives you the contact module.
+            // Choosing less is deliberate, and reversible: a field left out can be
+            // added back in the editor (§5.4).
+            defaultPreset: 'extended',
         );
     }
 }

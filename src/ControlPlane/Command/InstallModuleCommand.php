@@ -7,10 +7,13 @@ namespace App\ControlPlane\Command;
 use App\ControlPlane\Repository\TenantRepository;
 use App\Tenancy\TenantSwitcher;
 use Symfony\Component\Console\Attribute\Argument;
+use Symfony\Component\Console\Attribute\Option;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
+use Xivi\Core\Module\ModulePreset;
 use Xivi\Core\Module\ModuleRegistry;
 
 /**
@@ -31,6 +34,7 @@ final readonly class InstallModuleCommand
         private TenantSwitcher $switcher,
         private ModuleRegistry $modules,
         private ModuleInstaller $installer,
+        private MetadataRepository $metadata,
     ) {
     }
 
@@ -40,6 +44,8 @@ final readonly class InstallModuleCommand
         string $tenant,
         #[Argument(description: 'Module key, e.g. "contact"')]
         string $module,
+        #[Option(description: 'Named field set to install with; the module decides the default')]
+        ?string $preset = null,
     ): int {
         $found = $this->tenants->findOneBySlug($tenant);
 
@@ -61,19 +67,55 @@ final readonly class InstallModuleCommand
 
         $blueprint = $this->modules->get($module);
 
+        // Listed rather than left to be guessed: a preset is a choice somebody
+        // makes once and lives with, since nothing retro-fits it afterwards (§6.1).
+        if ($preset === null && $blueprint->presets !== []) {
+            $io->text(sprintf('Presets for "%s" (installing "%s"):', $module, (string) $blueprint->defaultPreset));
+            $io->listing(array_map(
+                static fn (ModulePreset $p): string => sprintf('%s — %s', $p->key, $p->description),
+                $blueprint->presets,
+            ));
+        }
+
         try {
-            $definition = $this->switcher->runFor($found, fn () => $this->installer->install($blueprint));
+            [$definition, $wasInstalled] = $this->switcher->runFor($found, function () use ($blueprint, $preset): array {
+                // Asked before installing, because install() is idempotent and
+                // hands back what is already there. Without this the summary would
+                // report the preset it *would* have used on a run that did
+                // nothing, which is a confident lie.
+                $already = $this->metadata->find($blueprint->key) !== null;
+
+                return [$this->installer->install($blueprint, $preset), !$already];
+            });
         } catch (\RuntimeException $e) {
             $io->error($e->getMessage());
 
             return Command::FAILURE;
         }
 
-        $io->success(sprintf('Module "%s" is installed for tenant "%s".', $module, $found->getSlug()));
-        $io->definitionList(
-            ['Table' => $definition->getTableName()],
-            ['Fields' => implode(', ', $definition->getFieldKeys())],
-        );
+        if (!$wasInstalled) {
+            $io->warning(sprintf(
+                'Tenant "%s" already has "%s". Nothing changed — a preset only ever seeds a new '
+                . 'installation (docs/architecture.md §6.1).',
+                $found->getSlug(),
+                $module,
+            ));
+        } else {
+            $io->success(sprintf('Module "%s" is installed for tenant "%s".', $module, $found->getSlug()));
+        }
+
+        $rows = [['Table' => $definition->getTableName()]];
+
+        // Only when it applied to anything. On a run that installed nothing, the
+        // preset is not a fact about this tenant.
+        if ($wasInstalled) {
+            $rows[] = ['Preset' => $preset ?? $blueprint->defaultPreset ?? 'every field'];
+        }
+
+        $rows[] = ['Fields' => implode(', ', $definition->getFieldKeys())];
+        $rows[] = ['Collections' => implode(', ', $definition->getCollectionKeys()) ?: 'none'];
+
+        $io->definitionList(...$rows);
 
         return Command::SUCCESS;
     }

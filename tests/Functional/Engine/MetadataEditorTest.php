@@ -63,6 +63,74 @@ final class MetadataEditorTest extends KernelTestCase
     }
 
     /**
+     * A preset is a named subset of the module's fields (§6.1) — installing with
+     * "basic" leaves birthday out, and the customer can add it back later, which
+     * is what makes choosing the smaller one reversible.
+     */
+    public function testInstallingWithAPresetTakesOnlyItsFields(): void
+    {
+        $this->provisioner->deprovision($this->tenant);
+        $this->tenant = $this->provisioner->provision(self::SLUG, 'Editor', ['editor.localhost']);
+
+        $this->switcher->runFor($this->tenant, fn () => self::service(ModuleInstaller::class)->install(
+            self::service(ModuleRegistry::class)->get(ContactModule::KEY),
+            'basic',
+        ));
+
+        $module = $this->switcher->runFor($this->tenant, fn () => self::service(MetadataRepository::class)
+            ->get(ContactModule::KEY));
+
+        self::assertSame(['first_name', 'last_name', 'email', 'phone'], $module->getFieldKeys());
+
+        // Collections are installed either way: nothing can add one back later,
+        // so a preset is not allowed to take one away.
+        self::assertSame(['addresses'], $module->getCollectionKeys());
+    }
+
+    /** Order comes from the blueprint, not from the order the preset lists them. */
+    public function testAPresetDoesNotReorderTheModulesFields(): void
+    {
+        $module = $this->switcher->runFor($this->tenant, fn () => self::service(MetadataRepository::class)
+            ->get(ContactModule::KEY));
+
+        // The default preset is "extended", which is every field.
+        self::assertSame(['first_name', 'last_name', 'email', 'phone', 'birthday'], $module->getFieldKeys());
+    }
+
+    public function testAnUnknownPresetIsRefused(): void
+    {
+        $this->provisioner->deprovision($this->tenant);
+        $this->tenant = $this->provisioner->provision(self::SLUG, 'Editor', ['editor.localhost']);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessageMatches('/no preset "deluxe". It offers: basic, extended/');
+
+        $this->switcher->runFor($this->tenant, fn () => self::service(ModuleInstaller::class)->install(
+            self::service(ModuleRegistry::class)->get(ContactModule::KEY),
+            'deluxe',
+        ));
+    }
+
+    /** A field the preset left out is not gone forever — that is the whole point. */
+    public function testAFieldLeftOutByAPresetCanBeAddedBack(): void
+    {
+        $this->provisioner->deprovision($this->tenant);
+        $this->tenant = $this->provisioner->provision(self::SLUG, 'Editor', ['editor.localhost']);
+
+        $this->switcher->runFor($this->tenant, fn () => self::service(ModuleInstaller::class)->install(
+            self::service(ModuleRegistry::class)->get(ContactModule::KEY),
+            'basic',
+        ));
+
+        $this->addField('birthday', 'Birthday', 'date');
+
+        $keys = $this->switcher->runFor($this->tenant, fn (): array => self::service(MetadataRepository::class)
+            ->get(ContactModule::KEY)->getFieldKeys());
+
+        self::assertContains('birthday', $keys);
+    }
+
+    /**
      * The whole point: a field added as a row shows up everywhere, because the
      * form, the validation and the query layer all read the same rows.
      */
