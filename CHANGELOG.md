@@ -53,6 +53,16 @@ of every page, and is not yet tied to git tags.
   because that is the true answer.
 - **Importing is its own permission per module**, no longer `ROLE_ADMIN` — the
   answer §5.6 said §7.5 would give it.
+- **The build fails when a module route names no permission.** The surface is
+  defined by the URL — any route whose path contains `{module}` — rather than by a
+  list of controllers, so a new controller is covered the day it is written and
+  there is no list to drift. It also catches a mistyped attribute string, which
+  would otherwise 403 for everybody including administrators and read as a
+  permissions problem rather than a spelling one; a permission with no subject,
+  which fails closed and silently; and an action added to the enum that nothing
+  uses, which would appear in the admin screen as a control that does nothing.
+  `#[NoModulePermission('why')]` is the deliberate opt-out, and it demands a
+  reason.
 - **`tenant:permissions:grant-all`**, the deliberate upgrade path for an
   installation that predates this, and the way back into one that has locked
   itself out. The migration is structural and writes no grants: it lands for every

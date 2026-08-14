@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Tenant\Security\NoModulePermission;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -48,6 +49,11 @@ use Xivi\Core\Metadata\ModuleNotInstalled;
  */
 #[Route('/m/{module}/fields', requirements: ['module' => '[a-z][a-z0-9_]*'])]
 #[IsGranted('ROLE_ADMIN')]
+#[NoModulePermission(
+    'Changing what a module *is* is not one of the things you do *to* its '
+    .'records, so it is not one of its permissions. A grant says who may edit a '
+    .'contact; this decides what a contact has. Administrators only (§5.4).',
+)]
 final class FieldController extends AbstractController
 {
     public function __construct(
