@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Engine;
 
 use App\ControlPlane\Entity\Tenant;
-use App\ControlPlane\Provisioning\TenantProvisioner;
-use App\ControlPlane\Repository\TenantRepository;
 use App\Tenancy\TenantSwitcher;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -47,9 +45,8 @@ final class ContactRecordTest extends KernelTestCase
 
         $this->switcher = self::service(TenantSwitcher::class);
 
-        // Provisioned once for the whole class and emptied between tests; see
-        // SharesATenant for why isolation here is a truncate and not a
-        // rolled-back transaction.
+        // Two tenants, provisioned once for the whole class; each test is rolled
+        // back in both of them (see SharesATenant).
         $this->alpha = $this->sharedTenant(self::ALPHA, ['engine-alpha.localhost']);
         $this->beta = $this->sharedTenant(self::BETA, ['engine-beta.localhost']);
 
@@ -57,8 +54,6 @@ final class ContactRecordTest extends KernelTestCase
             $this->switcher->runFor($tenant, fn () => self::service(ModuleInstaller::class)->install(
                 self::service(ModuleRegistry::class)->get(ContactModule::KEY),
             ));
-
-            $this->clearRecords($tenant);
         }
     }
 

@@ -9,6 +9,7 @@ use App\ControlPlane\Entity\TenantStatus;
 use App\ControlPlane\Provisioning\TenantProvisioner;
 use App\ControlPlane\Repository\TenantRepository;
 use App\Tenancy\Exception\NoTenantResolvedException;
+use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use Doctrine\DBAL\Connection;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -24,6 +25,13 @@ use Symfony\Component\HttpFoundation\Response;
  * from TenantSwitcher dropping the connection and identity map, not from the
  * reset cleaning up afterwards.
  */
+/**
+ * Provisions and drops tenants of its own, so it stays outside DAMA's
+ * transaction: a database cannot be created or dropped inside one, and a test
+ * that proves one tenant cannot see another has to be looking at what is
+ * actually committed.
+ */
+#[SkipDatabaseRollback]
 final class TenantIsolationTest extends WebTestCase
 {
     private const string ALPHA = 'test_alpha';

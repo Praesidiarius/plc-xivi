@@ -9,6 +9,7 @@ use App\ControlPlane\Provisioning\TenantProvisioner;
 use App\ControlPlane\Repository\TenantRepository;
 use App\Tenancy\Security\TenantSecretCipher;
 use App\Tenancy\Security\TenantSecretRotator;
+use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -16,6 +17,13 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
  * A full key rotation against real rows: the tenant keeps working throughout,
  * and the password that comes out the far side is the one Postgres knows.
  */
+/**
+ * Provisions and drops tenants of its own, so it stays outside DAMA's
+ * transaction: a database cannot be created or dropped inside one, and a test
+ * that proves one tenant cannot see another has to be looking at what is
+ * actually committed.
+ */
+#[SkipDatabaseRollback]
 final class TenantSecretRotationTest extends KernelTestCase
 {
     private const string SLUG = 'test_rotation';

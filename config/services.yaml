@@ -71,6 +71,13 @@ when@test:
             autowire: true
             autoconfigure: true
 
+        # Between DAMA (100) and TenantConnectionMiddleware (0): middlewares
+        # connect from the lowest priority up, so this sees the tenant's resolved
+        # database name and DAMA sees the key derived from it.
+        App\Tests\Support\Dbal\TenantConnectionKeyMiddleware:
+            tags:
+                - { name: 'doctrine.middleware', connection: 'tenant', priority: 50 }
+
         # Private services with no caller are removed when the container is
         # compiled, and nothing in the application validates a record yet — the
         # UI is the next thing to be built. Keeping it reachable so the engine can

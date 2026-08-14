@@ -10,6 +10,7 @@ return [
     Symfony\Bundle\DebugBundle\DebugBundle::class => ['dev' => true],
     Symfony\Bundle\MakerBundle\MakerBundle::class => ['dev' => true],
     Symfony\Bundle\SecurityBundle\SecurityBundle::class => ['all' => true],
+    DAMA\DoctrineTestBundle\DAMADoctrineTestBundle::class => ['test' => true],
     Xivi\Core\XiviCoreBundle::class => ['all' => true],
     Xivi\Contact\XiviContactBundle::class => ['all' => true],
 ];

@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Engine;
 
 use App\ControlPlane\Entity\Tenant;
-use App\ControlPlane\Provisioning\TenantProvisioner;
-use App\ControlPlane\Repository\TenantRepository;
 use App\Tenancy\TenantSwitcher;
+use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Xivi\Contact\ContactModule;
 use Xivi\Core\Entity\FieldDefinition;
@@ -34,32 +33,32 @@ use Xivi\Core\Validation\RecordValidator;
  */
 final class MetadataEditorTest extends KernelTestCase
 {
+    use SharesATenant;
+
     private const string SLUG = 'test_editor';
 
-    private TenantProvisioner $provisioner;
+    /** A second tenant with no module installed, for the tests about installing one. */
+    private const string FRESH = 'test_editor_fresh';
+
     private TenantSwitcher $switcher;
     private Tenant $tenant;
+    private Tenant $fresh;
 
     protected function setUp(): void
     {
         self::bootKernel();
 
-        $this->provisioner = self::service(TenantProvisioner::class);
         $this->switcher = self::service(TenantSwitcher::class);
 
-        $this->removeTenant();
-        $this->tenant = $this->provisioner->provision(self::SLUG, 'Editor', ['editor.localhost']);
+        // Editing definitions is what this class does, so it needs each test to
+        // start from the shipped ones. That is a rollback, not a fresh database
+        // (see SharesATenant) — including the installing done right here.
+        $this->tenant = $this->sharedTenant(self::SLUG, ['editor.localhost']);
+        $this->fresh = $this->sharedTenant(self::FRESH, ['editor-fresh.localhost']);
 
         $this->switcher->runFor($this->tenant, fn () => self::service(ModuleInstaller::class)->install(
             self::service(ModuleRegistry::class)->get(ContactModule::KEY),
         ));
-    }
-
-    protected function tearDown(): void
-    {
-        $this->removeTenant();
-
-        parent::tearDown();
     }
 
     /**
@@ -69,8 +68,8 @@ final class MetadataEditorTest extends KernelTestCase
      */
     public function testInstallingWithAPresetTakesOnlyItsFields(): void
     {
-        $this->provisioner->deprovision($this->tenant);
-        $this->tenant = $this->provisioner->provision(self::SLUG, 'Editor', ['editor.localhost']);
+        // The one with nothing installed; everything below then reads from it.
+        $this->tenant = $this->fresh;
 
         $this->switcher->runFor($this->tenant, fn () => self::service(ModuleInstaller::class)->install(
             self::service(ModuleRegistry::class)->get(ContactModule::KEY),
@@ -102,8 +101,8 @@ final class MetadataEditorTest extends KernelTestCase
 
     public function testAnUnknownPresetIsRefused(): void
     {
-        $this->provisioner->deprovision($this->tenant);
-        $this->tenant = $this->provisioner->provision(self::SLUG, 'Editor', ['editor.localhost']);
+        // The one with nothing installed; everything below then reads from it.
+        $this->tenant = $this->fresh;
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessageMatches('/no preset "deluxe". It offers: basic, extended/');
@@ -117,8 +116,8 @@ final class MetadataEditorTest extends KernelTestCase
     /** A field the preset left out is not gone forever — that is the whole point. */
     public function testAFieldLeftOutByAPresetCanBeAddedBack(): void
     {
-        $this->provisioner->deprovision($this->tenant);
-        $this->tenant = $this->provisioner->provision(self::SLUG, 'Editor', ['editor.localhost']);
+        // The one with nothing installed; everything below then reads from it.
+        $this->tenant = $this->fresh;
 
         $this->switcher->runFor($this->tenant, fn () => self::service(ModuleInstaller::class)->install(
             self::service(ModuleRegistry::class)->get(ContactModule::KEY),
@@ -483,14 +482,5 @@ final class MetadataEditorTest extends KernelTestCase
         \assert($service instanceof $id);
 
         return $service;
-    }
-
-    private function removeTenant(): void
-    {
-        $tenant = self::service(TenantRepository::class)->findOneBySlug(self::SLUG);
-
-        if ($tenant instanceof Tenant) {
-            $this->provisioner->deprovision($tenant);
-        }
     }
 }

@@ -1,0 +1,13 @@
+# Each test runs inside a transaction that is rolled back afterwards, so a test
+# cannot leave anything behind for the next one — records, definitions, users,
+# all of it (docs/architecture.md §8.5).
+dama_doctrine_test:
+    enable_static_connection:
+        # The customer's own database, which is what tests write to.
+        tenant: true
+
+        # Not the control plane. A tenant's *database* is created by CREATE
+        # DATABASE, which cannot be rolled back — so if its registry row were
+        # rolled back too, the row and the database would disagree and the next
+        # test would provision on top of one that already exists.
+        control: false

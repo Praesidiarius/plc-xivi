@@ -12,6 +12,7 @@ use App\Tenancy\TenantSwitcher;
 use App\Tenant\Entity\User;
 use App\Tenant\Repository\UserRepository;
 use App\Tenant\Security\UserCreator;
+use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
@@ -22,6 +23,13 @@ use Symfony\Component\HttpFoundation\Response;
  * Users live in the tenant databases, so "who is this email" has a different
  * answer per customer. Every assertion here is about that boundary holding.
  */
+/**
+ * Provisions and drops tenants of its own, so it stays outside DAMA's
+ * transaction: a database cannot be created or dropped inside one, and a test
+ * that proves one tenant cannot see another has to be looking at what is
+ * actually committed.
+ */
+#[SkipDatabaseRollback]
 final class LoginTest extends WebTestCase
 {
     private const string ALPHA = 'test_login_alpha';

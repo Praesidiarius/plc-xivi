@@ -52,5 +52,8 @@
     </source>
 
     <extensions>
+        <!-- Opens a transaction on the tenant connection before each test and
+             rolls it back afterwards. See config/packages/test/dama_doctrine_test.yaml. -->
+        <bootstrap class="DAMA\DoctrineTestBundle\PHPUnit\PHPUnitExtension" />
     </extensions>
 </phpunit>

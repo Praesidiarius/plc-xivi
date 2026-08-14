@@ -9,6 +9,7 @@ use App\ControlPlane\Provisioning\TenantProvisioner;
 use App\ControlPlane\Repository\TenantRepository;
 use App\Tenancy\Dbal\TenantDsnParser;
 use App\Tenancy\Security\TenantSecretCipher;
+use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Exception as DbalException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -21,6 +22,13 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
  * bug throws a connection error": with per-tenant roles and CONNECT revoked from
  * PUBLIC, credentials that reach the wrong database simply do not work.
  */
+/**
+ * Provisions and drops tenants of its own, so it stays outside DAMA's
+ * transaction: a database cannot be created or dropped inside one, and a test
+ * that proves one tenant cannot see another has to be looking at what is
+ * actually committed.
+ */
+#[SkipDatabaseRollback]
 final class TenantCredentialIsolationTest extends KernelTestCase
 {
     private const string ALPHA = 'test_cred_alpha';

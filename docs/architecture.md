@@ -709,6 +709,31 @@ collection exercises it.
   needed a dispatch point and not a decision about whether a subscriber may cancel
   a host action. Worth noticing: the passive half of §6 was usable all along, and
   the veto question was never actually blocking it.
+- **Tests are isolated by a transaction, one tenant database per test class.** Each
+  test runs inside a transaction on the tenant connection and is rolled back after
+  it, so nothing it writes — records, definitions, users, history — can reach the
+  next test. Provisioning stays outside that transaction, because `CREATE DATABASE`
+  cannot run inside one; the database is therefore made once for the class and not
+  dropped when it finishes, since the connection holding the transaction outlives
+  the class. The next run reclaims it.
+
+  This needed one thing that is specific to database-per-tenant. DAMA keys its
+  static connection per *configured* connection, and here one configured connection
+  serves every tenant — so all of them would have shared whichever tenant's
+  connection was opened first, and a test could have read another tenant's database
+  while believing it had proved §4's isolation. A test-only middleware sitting
+  between DAMA and `TenantDriver` derives the key from the resolved database name
+  instead. The cross-tenant tests in `tests/Functional/Engine` are the canary:
+  remove that middleware and they fail rather than quietly agreeing.
+
+  The tests that provision and drop tenants of their own carry
+  `#[SkipDatabaseRollback]`, which takes them out of the mechanism entirely — what
+  they assert is precisely what is committed.
+
+  What this replaced was a truncate between tests. It cleared records but not
+  definitions, so a class that edited metadata could not share a database and had
+  to provision per test method. Isolation is now the same for every class, and
+  nothing has to remember which kind it is.
 
 ### 9.3 Next
 

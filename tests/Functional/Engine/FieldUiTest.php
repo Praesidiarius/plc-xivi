@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Engine;
 
-use App\ControlPlane\Entity\Tenant;
-use App\ControlPlane\Provisioning\TenantProvisioner;
-use App\ControlPlane\Repository\TenantRepository;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Security\UserCreator;
+use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,6 +23,8 @@ use Xivi\Core\Module\ModuleRegistry;
  */
 final class FieldUiTest extends WebTestCase
 {
+    use SharesATenant;
+
     private const string SLUG = 'test_fieldui';
     private const string HOST = 'fieldui.localhost';
     private const string ADMIN = 'admin@fieldui.test';
@@ -38,9 +38,10 @@ final class FieldUiTest extends WebTestCase
         $this->client = self::createClient();
         $this->client->disableReboot();
 
-        $this->removeTenant();
-
-        $tenant = self::service(TenantProvisioner::class)->provision(self::SLUG, 'Fields', [self::HOST]);
+        // A class that adds and removes fields, so it needs each test to start
+        // from the shipped ones — which is a rollback, not a new database (see
+        // SharesATenant). The users are made inside it and go the same way.
+        $tenant = $this->sharedTenant(self::SLUG, [self::HOST]);
 
         self::service(TenantSwitcher::class)->runFor($tenant, fn () => self::service(ModuleInstaller::class)->install(
             self::service(ModuleRegistry::class)->get(ContactModule::KEY),
@@ -49,13 +50,6 @@ final class FieldUiTest extends WebTestCase
         $users = self::service(UserCreator::class);
         $users->create($tenant, self::ADMIN, 'Admin', self::PASSWORD, ['ROLE_ADMIN']);
         $users->create($tenant, self::MEMBER, 'Member', self::PASSWORD, []);
-    }
-
-    protected function tearDown(): void
-    {
-        $this->removeTenant();
-
-        parent::tearDown();
     }
 
     /**
@@ -235,12 +229,4 @@ final class FieldUiTest extends WebTestCase
         return $service;
     }
 
-    private function removeTenant(): void
-    {
-        $tenant = self::service(TenantRepository::class)->findOneBySlug(self::SLUG);
-
-        if ($tenant instanceof Tenant) {
-            self::service(TenantProvisioner::class)->deprovision($tenant);
-        }
-    }
 }

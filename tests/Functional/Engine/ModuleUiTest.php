@@ -5,10 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Engine;
 
 use App\ControlPlane\Entity\Tenant;
-use App\ControlPlane\Provisioning\TenantProvisioner;
-use App\ControlPlane\Repository\TenantRepository;
 use App\Tenancy\TenantSwitcher;
-use App\Tenant\Security\UserAlreadyExists;
 use App\Tenant\Security\UserCreator;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -52,8 +49,8 @@ final class ModuleUiTest extends WebTestCase
         $this->client = self::createClient();
         $this->client->disableReboot();
 
-        // Both tenants belong to the class; only their records are cleared
-        // between tests (see SharesATenant).
+        // Both tenants belong to the class; each test is rolled back in both of
+        // them (see SharesATenant).
         $alpha = $this->sharedTenant(self::ALPHA, [self::HOST]);
         $beta = $this->sharedTenant(self::BETA, ['ui-beta.localhost']);
 
@@ -63,16 +60,8 @@ final class ModuleUiTest extends WebTestCase
         // Alpha gets the module; beta deliberately does not.
         $switcher->runFor($alpha, fn () => self::service(ModuleInstaller::class)->install($blueprint));
 
-        $this->clearRecords($alpha);
-        $this->clearRecords($beta);
-
         foreach ([$alpha, $beta] as $tenant) {
-            try {
-                self::service(UserCreator::class)->create($tenant, self::EMAIL, 'UI', self::PASSWORD, ['ROLE_ADMIN']);
-            } catch (UserAlreadyExists) {
-                // Made once for the class; the records are cleared between tests
-                // but the person signing in is not one of them.
-            }
+            self::service(UserCreator::class)->create($tenant, self::EMAIL, 'UI', self::PASSWORD, ['ROLE_ADMIN']);
         }
 
         $this->signIn();

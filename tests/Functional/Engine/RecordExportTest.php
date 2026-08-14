@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Engine;
 
 use App\ControlPlane\Entity\Tenant;
-use App\ControlPlane\Provisioning\TenantProvisioner;
-use App\ControlPlane\Repository\TenantRepository;
 use App\Tenancy\TenantSwitcher;
 use OpenSpout\Reader\XLSX\Reader;
 use App\Tests\Support\SharesATenant;
@@ -45,14 +43,12 @@ final class RecordExportTest extends KernelTestCase
 
         $this->switcher = self::service(TenantSwitcher::class);
 
-        // One tenant for the class, emptied between tests (see SharesATenant).
+        // One tenant for the class; each test is rolled back (see SharesATenant).
         $this->tenant = $this->sharedTenant(self::SLUG, ['export.localhost']);
 
         $this->switcher->runFor($this->tenant, fn () => self::service(ModuleInstaller::class)->install(
             self::service(ModuleRegistry::class)->get(ContactModule::KEY),
         ));
-
-        $this->clearRecords($this->tenant);
 
         $this->path = (string) tempnam(sys_get_temp_dir(), 'xivi-export-test-');
     }
