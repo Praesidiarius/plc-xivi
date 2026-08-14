@@ -14,6 +14,8 @@ declare(strict_types=1);
 namespace App\Tenant\Entity;
 
 use App\Tenant\Repository\UserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -78,6 +80,34 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private bool $mustChangePassword = false;
 
+    /**
+     * The groups this person belongs to, and therefore everything those groups
+     * are granted (§7.5).
+     *
+     * The owning side, because membership is edited from both the user's page and
+     * the group's, and one of them has to be the side Doctrine writes.
+     *
+     * @var Collection<int, PermissionGroup>
+     */
+    #[ORM\ManyToMany(targetEntity: PermissionGroup::class, inversedBy: 'members')]
+    #[ORM\JoinTable(name: 'user_group')]
+    #[ORM\JoinColumn(name: 'user_id', onDelete: 'CASCADE')]
+    #[ORM\InverseJoinColumn(name: 'group_id', onDelete: 'CASCADE')]
+    private Collection $permissionGroups;
+
+    /**
+     * Grants made to this person specifically, on top of whatever their groups
+     * give them.
+     *
+     * Additive only — there is no such thing as a grant that takes something
+     * away, which is what keeps resolution a maximum rather than a precedence
+     * table nobody can hold in their head.
+     *
+     * @var Collection<int, PermissionGrant>
+     */
+    #[ORM\OneToMany(targetEntity: PermissionGrant::class, mappedBy: 'holderUser', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    private Collection $permissionGrants;
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -94,6 +124,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         #[ORM\Column(length: 255)]
         private string $name,
     ) {
+        $this->permissionGroups = new ArrayCollection();
+        $this->permissionGrants = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = $this->createdAt;
     }
@@ -190,6 +222,42 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->active = $active;
     }
 
+    /** @return Collection<int, PermissionGroup> */
+    public function getPermissionGroups(): Collection
+    {
+        return $this->permissionGroups;
+    }
+
+    public function addPermissionGroup(PermissionGroup $group): void
+    {
+        if (!$this->permissionGroups->contains($group)) {
+            $this->permissionGroups->add($group);
+        }
+    }
+
+    public function removePermissionGroup(PermissionGroup $group): void
+    {
+        $this->permissionGroups->removeElement($group);
+    }
+
+    /** @return Collection<int, PermissionGrant> */
+    public function getPermissionGrants(): Collection
+    {
+        return $this->permissionGrants;
+    }
+
+    public function addPermissionGrant(PermissionGrant $grant): void
+    {
+        if (!$this->permissionGrants->contains($grant)) {
+            $this->permissionGrants->add($grant);
+        }
+    }
+
+    public function removePermissionGrant(PermissionGrant $grant): void
+    {
+        $this->permissionGrants->removeElement($grant);
+    }
+
     public function getLastLoginAt(): ?\DateTimeImmutable
     {
         return $this->lastLoginAt;
@@ -213,5 +281,73 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function eraseCredentials(): void
     {
         // No plaintext is ever held on this object.
+    }
+
+    /**
+     * What of this user the session carries — everything except the permission
+     * collections.
+     *
+     * This object is serialized into the session by the security token, and a
+     * Doctrine collection in there is two problems. It arrives back detached, so
+     * touching it throws rather than lazily loading; and a person in several
+     * groups would have their whole permission model written into a cookie store
+     * on every request, to be thrown away and refreshed immediately.
+     *
+     * Refreshed is the operative word: ContextListener reloads the user from the
+     * provider on each request and compares identifier, password and roles, so
+     * nothing here is trusted for longer than it takes to do that (§8.2). The
+     * collections come back from the database with it.
+     *
+     * Listed property by property on purpose. `get_object_vars()` minus the two
+     * would keep itself up to date, but it also cannot be checked — and a new
+     * column silently missing from the session is a bug that only shows up as a
+     * user who is subtly not themselves. **A column added above belongs here
+     * too.**
+     *
+     * @return array<string, mixed>
+     */
+    public function __serialize(): array
+    {
+        return [
+            'id' => $this->id,
+            'email' => $this->email,
+            'name' => $this->name,
+            'password' => $this->password,
+            'roles' => $this->roles,
+            'active' => $this->active,
+            'mustChangePassword' => $this->mustChangePassword,
+            'createdAt' => $this->createdAt,
+            'updatedAt' => $this->updatedAt,
+            'lastLoginAt' => $this->lastLoginAt,
+        ];
+    }
+
+    /** @param array<string, mixed> $data */
+    public function __unserialize(array $data): void
+    {
+        \assert(\is_array($data['roles']));
+
+        $this->id = $data['id'] === null ? null : (int) $data['id'];
+        $this->email = (string) $data['email'];
+        $this->name = (string) $data['name'];
+        $this->password = (string) $data['password'];
+        /** @var list<string> $roles */
+        $roles = array_values($data['roles']);
+        $this->roles = $roles;
+        $this->active = (bool) $data['active'];
+        $this->mustChangePassword = (bool) $data['mustChangePassword'];
+
+        \assert($data['createdAt'] instanceof \DateTimeImmutable);
+        \assert($data['updatedAt'] instanceof \DateTimeImmutable);
+        \assert($data['lastLoginAt'] === null || $data['lastLoginAt'] instanceof \DateTimeImmutable);
+
+        $this->createdAt = $data['createdAt'];
+        $this->updatedAt = $data['updatedAt'];
+        $this->lastLoginAt = $data['lastLoginAt'];
+
+        // Empty rather than absent: a typed property left uninitialised throws on
+        // read, and this object is live until the provider replaces it.
+        $this->permissionGroups = new ArrayCollection();
+        $this->permissionGrants = new ArrayCollection();
     }
 }
