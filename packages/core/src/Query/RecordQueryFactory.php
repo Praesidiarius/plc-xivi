@@ -1,0 +1,128 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Xivi\Core\Query;
+
+use Xivi\Core\Entity\ModuleDefinition;
+
+/**
+ * Turns a query string into a RecordQuery, and says what may be asked about.
+ *
+ * It takes a plain array rather than a Request on purpose: core has no opinion
+ * about HTTP, and reading a query is the same job whether it arrives from a URL,
+ * a saved view, or an API later. It also means this is testable with arrays
+ * instead of with a kernel.
+ *
+ * Read leniently, trusted not at all. A row that names no field, or a comparison
+ * this build does not have, is dropped rather than argued with — a URL is typed,
+ * pasted and truncated. What it produces still goes to the compiler, which
+ * resolves every name against the customer's definitions and refuses whatever it
+ * does not recognise.
+ */
+final readonly class RecordQueryFactory
+{
+    /**
+     * @param array<string, mixed> $parameters the query string, as an array
+     */
+    public function fromQueryParameters(array $parameters): RecordQuery
+    {
+        return new RecordQuery(
+            self::filters($parameters['filter'] ?? null),
+            self::sorts($parameters['sort'] ?? null, $parameters['dir'] ?? null),
+            self::page($parameters['page'] ?? null),
+        );
+    }
+
+    /**
+     * The paths this module can be filtered on, module fields first and then
+     * each collection's, ready for a select.
+     *
+     * `filterable` is the customer's own flag on the definition row, so a filter
+     * bar grows a field the moment they mark one — no code, which is §5's claim
+     * applied to searching rather than to storing.
+     *
+     * @return array<string, string> path => label
+     */
+    public function filterablePaths(ModuleDefinition $module): array
+    {
+        $paths = [];
+
+        foreach ($module->getFields() as $field) {
+            if ($field->isFilterable()) {
+                $paths[$field->getKey()] = $field->getLabel();
+            }
+        }
+
+        foreach ($module->getCollections() as $collection) {
+            foreach ($collection->getFields() as $field) {
+                if ($field->isFilterable()) {
+                    $paths[$collection->getKey() . '.' . $field->getKey()]
+                        = sprintf('%s: %s', $collection->getLabel(), $field->getLabel());
+                }
+            }
+        }
+
+        return $paths;
+    }
+
+    /** @return list<Filter> */
+    private static function filters(mixed $rows): array
+    {
+        if (!\is_array($rows)) {
+            return [];
+        }
+
+        $filters = [];
+
+        foreach ($rows as $row) {
+            if (!\is_array($row)) {
+                continue;
+            }
+
+            $path = trim(self::text($row['path'] ?? null));
+            $operator = Operator::tryFrom(self::text($row['op'] ?? null));
+
+            if ($path === '' || $operator === null) {
+                continue;
+            }
+
+            $value = trim(self::text($row['value'] ?? null));
+
+            // A comparison that needs a value and has not got one is an empty
+            // filter box, not a filter for the empty string.
+            if ($value === '' && $operator->needsValue()) {
+                continue;
+            }
+
+            $filters[] = Filter::fromPath($path, $operator, $value);
+        }
+
+        return $filters;
+    }
+
+    /** @return list<Sort> */
+    private static function sorts(mixed $field, mixed $direction): array
+    {
+        $field = trim(self::text($field));
+
+        if ($field === '') {
+            return [];
+        }
+
+        // An unreadable direction is ascending rather than an error: the field is
+        // the part somebody meant.
+        return [new Sort($field, Direction::tryFrom(self::text($direction)) ?? Direction::Ascending)];
+    }
+
+    private static function page(mixed $page): int
+    {
+        return max(1, (int) self::text($page));
+    }
+
+    /** Query parameters arrive as strings, arrays, or missing. Only the first is a value. */
+    private static function text(mixed $value): string
+    {
+        return \is_scalar($value) ? (string) $value : '';
+    }
+}

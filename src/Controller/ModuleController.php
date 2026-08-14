@@ -20,11 +20,9 @@ use Xivi\Core\Form\ModuleRecordType;
 use Xivi\Core\History\HistoryRepository;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Metadata\ModuleNotInstalled;
-use Xivi\Core\Query\Direction;
-use Xivi\Core\Query\Filter;
 use Xivi\Core\Query\Operator;
 use Xivi\Core\Query\RecordQuery;
-use Xivi\Core\Query\Sort;
+use Xivi\Core\Query\RecordQueryFactory;
 use Xivi\Core\Query\UnsupportedQuery;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordRepository;
@@ -49,6 +47,7 @@ final class ModuleController extends AbstractController
         private readonly RecordWriter $writer,
         private readonly RecordValidator $validator,
         private readonly HistoryRepository $history,
+        private readonly RecordQueryFactory $queries,
         private readonly UserRepository $users,
     ) {
     }
@@ -57,7 +56,7 @@ final class ModuleController extends AbstractController
     public function index(string $module, Request $request): Response
     {
         $definition = $this->definition($module);
-        $query = self::queryFrom($request);
+        $query = $this->queries->fromQueryParameters($request->query->all());
 
         try {
             $records = $this->records->findBy($definition, $query);
@@ -79,82 +78,10 @@ final class ModuleController extends AbstractController
             'owners' => $this->ownerNames($records),
             'total' => $total,
             'query' => $query,
-            'filterable' => self::filterableFields($definition),
+            'filterable' => $this->queries->filterablePaths($definition),
             'operators' => Operator::cases(),
             'pages' => (int) ceil($total / max(1, $query->perPage)),
         ]);
-    }
-
-    /**
-     * The query the URL is asking for.
-     *
-     * Read leniently — a missing or nonsensical page is page one — but never
-     * trusted: field names go to the compiler, which resolves them against the
-     * customer's definitions and refuses anything it does not recognise.
-     */
-    private static function queryFrom(Request $request): RecordQuery
-    {
-        $filters = [];
-
-        /** @var array<int, array<string, string>> $rows */
-        $rows = $request->query->all('filter');
-
-        foreach ($rows as $row) {
-            $path = trim($row['path'] ?? '');
-            $operator = Operator::tryFrom($row['op'] ?? '');
-
-            if ($path === '' || $operator === null) {
-                continue;
-            }
-
-            $value = trim($row['value'] ?? '');
-
-            // A row with a comparison that needs a value and has not got one is
-            // an empty filter box, not a filter for the empty string.
-            if ($value === '' && $operator->needsValue()) {
-                continue;
-            }
-
-            $filters[] = Filter::fromPath($path, $operator, $value);
-        }
-
-        $sortField = trim((string) $request->query->get('sort', ''));
-        $sorts = $sortField === ''
-            ? []
-            : [new Sort($sortField, Direction::tryFrom((string) $request->query->get('dir', '')) ?? Direction::Ascending)];
-
-        return new RecordQuery($filters, $sorts, max(1, $request->query->getInt('page', 1)));
-    }
-
-    /**
-     * What may be filtered on, module fields first and then each collection's.
-     *
-     * `filterable` is the customer's own flag on the definition row, so the
-     * filter bar grows a field the moment they mark one — no code, which is the
-     * §5 claim applied to searching rather than to storing.
-     *
-     * @return array<string, string> path => label
-     */
-    private static function filterableFields(ModuleDefinition $module): array
-    {
-        $paths = [];
-
-        foreach ($module->getFields() as $field) {
-            if ($field->isFilterable()) {
-                $paths[$field->getKey()] = $field->getLabel();
-            }
-        }
-
-        foreach ($module->getCollections() as $collection) {
-            foreach ($collection->getFields() as $field) {
-                if ($field->isFilterable()) {
-                    $paths[$collection->getKey() . '.' . $field->getKey()]
-                        = sprintf('%s: %s', $collection->getLabel(), $field->getLabel());
-                }
-            }
-        }
-
-        return $paths;
     }
 
     #[Route('/new', name: 'module_new', methods: ['GET', 'POST'])]
