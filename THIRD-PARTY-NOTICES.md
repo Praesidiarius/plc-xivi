@@ -30,9 +30,10 @@ dependency is MIT licensed. Regenerate the list with:
 ## Development dependencies
 
 Development tooling adds BSD-3-Clause (PHPUnit and the `sebastian/*` packages,
-`nikic/php-parser`, `twig/twig`) and Apache-2.0 (`jetbrains/phpstorm-stubs`).
-Both are permissive and compatible with MIT. They are not installed in production
-builds (`composer install --no-dev`).
+`nikic/php-parser`, `twig/twig`) and Apache-2.0 (`jetbrains/phpstorm-stubs`, and
+`mcp/sdk` with the `opis/*` packages it brings, via Symfony AI Mate). Both are
+permissive and compatible with MIT. They are not installed in production builds
+(`composer install --no-dev`).
 
 ## Front-end assets
 

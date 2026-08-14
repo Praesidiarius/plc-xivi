@@ -78,39 +78,6 @@ printf 'APP_UID=%s\nAPP_GID=%s\n' "$(id -u)" "$(id -g)" >> .env.local
 docker compose up -d --wait
 ```
 
-## Looking at a tenant's database
-
-```bash
-docker compose --profile tools up -d adminer   # http://127.0.0.1:8080
-```
-
-Sign in with server `database`, user `app`, password `!ChangeMe!` (or whatever
-`POSTGRES_PASSWORD` says), and pick the database: each tenant is its own, named
-`tenant_<slug>` — `tenant_acme`. That is §4's isolation seen from the outside.
-
-Note what that login is. `app` owns the cluster and can read every tenant, which
-is the operator's view and not the application's: the app connects as the tenant's
-own Postgres role, which can reach exactly one database. Those role passwords are
-encrypted in the control plane and nothing prints them, so Adminer cannot be used
-to check that isolation — only to look at data.
-
-Behind a profile, so it is opt-in and never starts as part of the stack or of CI.
-Bound to the loopback, because it is an unauthenticated door to a database server.
-
-## Checks
-
-```bash
-bin/ci              # everything CI runs, in the same containers
-bin/ci --no-build   # skip the production image build, the slow one
-bin/ci --coverage   # measure coverage and hold it above the floor
-```
-
-Coverage is measured over `src/` and `packages/`, written to `coverage/`, and
-gated by a floor in `bin/ci` — a number nothing enforces drifts down one
-uncovered branch at a time. Open `coverage/html/index.html` to see what is not
-covered. Xdebug costs this suite about seven percent, because it spends its time
-provisioning databases rather than executing PHP.
-
 That builds the image, starts PostgreSQL, installs dependencies and applies the
 control-plane migrations. The app is then on <https://localhost> with a self-signed
 certificate, so expect a browser warning (or use `curl -k`).
@@ -137,6 +104,63 @@ are one level deep — `acme.localhost`, not `www.acme.localhost`.
 `/_tenancy/whoami` is a diagnostic that reports the resolved tenant and asks
 PostgreSQL which database the connection actually reached. It is served only when
 debug is on.
+
+## Looking at a tenant's database
+
+```bash
+docker compose --profile tools up -d adminer   # http://127.0.0.1:8080
+```
+
+Sign in with server `database`, user `app`, password `!ChangeMe!` (or whatever
+`POSTGRES_PASSWORD` says), and pick the database: each tenant is its own, named
+`tenant_<slug>` — `tenant_acme`. That is §4's isolation seen from the outside.
+
+Note what that login is. `app` owns the cluster and can read every tenant, which
+is the operator's view and not the application's: the app connects as the tenant's
+own Postgres role, which can reach exactly one database. Those role passwords are
+encrypted in the control plane and nothing prints them, so Adminer cannot be used
+to check that isolation — only to look at data.
+
+Behind a profile, so it is opt-in and never starts as part of the stack or of CI.
+Bound to the loopback, because it is an unauthenticated door to a database server.
+
+## Symfony AI Mate
+
+> **Development only.** Mate is a local MCP server that hands a coding agent this
+> application's Monolog logs and Symfony profiler. Those contain tenant hostnames,
+> executed SQL and request payloads — real customer data on any deployment that has
+> any. Never run it against production, and never expose it beyond the machine you
+> are developing on. Upstream says the same.
+
+It is required as a **dev dependency**, so `composer install --no-dev` leaves it out
+and it is absent from the production image. It registers no bundle: `mate serve` is
+its own process, speaking MCP over stdin and stdout, and it opens no port.
+
+It earns its place here because `var/` is an anonymous volume in the dev container
+and so is invisible from the host — without it, logs and profiles cannot be read
+from outside the container at all.
+
+Nothing it generates is committed (see `.gitignore`), because the command depends
+on how you run PHP and the agent files depend on which agent you use. Set it up
+yourself:
+
+```bash
+docker compose exec php vendor/bin/mate init
+docker compose exec php vendor/bin/mate discover
+```
+
+Two things to know, both of which cost an afternoon once:
+
+- `mate init` writes `"command": "php"` into `mcp.json`. There is no host PHP here,
+  so change it to `docker compose exec -T php vendor/bin/mate serve --force-keep-alive`.
+- `mate discover` is a **manual step**. Its Composer plugin is deliberately left out
+  of `allow-plugins` so that nothing of Mate's runs during `bin/ci`; the price is
+  that without `discover`, the extensions stay unregistered and the tool list
+  silently stays at one.
+
+`mate init` also writes an `AGENTS.md` telling agents to prefer its tools over the
+CLI. Take that as a suggestion — for most of what this project needs, a shell in
+the container is the better instrument.
 
 ## Commands
 
@@ -209,6 +233,7 @@ changeover and the job is resumable:
 ```bash
 bin/ci                # everything CI runs, in the same containers
 bin/ci --no-build     # skip the production image build, the slow step
+bin/ci --coverage     # measure coverage and hold it above the floor
 ```
 
 GitHub Actions runs that same script rather than its own copy of the checks, so
@@ -219,6 +244,12 @@ It covers: `composer validate --strict`, a dependency vulnerability audit, deptr
 module boundaries, PHPStan level 8, PHPUnit, and a build of the **production**
 image — the last one because the dev image installs dev dependencies and so proves
 nothing about what ships.
+
+Coverage is measured over `src/` and `packages/`, written to `coverage/`, and
+gated by a floor in `bin/ci` — a number nothing enforces drifts down one
+uncovered branch at a time. Open `coverage/html/index.html` to see what is not
+covered. Xdebug costs this suite about seven percent, because it spends its time
+provisioning databases rather than executing PHP.
 
 ## Layout
 
