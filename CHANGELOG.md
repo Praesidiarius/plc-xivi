@@ -53,6 +53,19 @@ of every page, and is not yet tied to git tags.
   because that is the true answer.
 - **Importing is its own permission per module**, no longer `ROLE_ADMIN` — the
   answer §5.6 said §7.5 would give it.
+- **A screen for granting permissions**, at `/users/groups`. Until it existed the
+  only way to grant anything was a console command against the customer's
+  database, which is not a thing a customer has — the same argument §8.4.1 made
+  for building the user manager before the permissions themselves. A group is
+  named, given a matrix of modules against actions with each cell reading no /
+  own records / all records, and given members. Creating one goes straight to the
+  matrix, because a group with no grants does nothing.
+- The matrix offers scope only where scope means something: `add` and `import`
+  read no / yes, since "add, but only the ones you own" describes nothing. The
+  form asks the enum rather than knowing.
+- Saving replaces the group's grants rather than merging them, so setting a cell
+  back to "no" is how a permission is taken away. Deleting a group says how many
+  people are in it first, and deletes none of them.
 - **The navigation shows only the modules you may open.** A module you cannot
   list is not in the topbar and not on the dashboard: navigation that advertises
   doors and then refuses them is worse than navigation that is honest about the

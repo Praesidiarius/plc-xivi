@@ -22,9 +22,14 @@
 
 		<div class="d-flex align-items-center justify-content-between mb-3">
 			<h1 class="h3 mb-0">Users</h1>
-			<a class="btn btn-primary" href="{{ path('user_new') }}">
-				<i class="bi bi-person-plus" aria-hidden="true"></i> Add user
-			</a>
+			<div class="d-flex gap-2">
+				<a class="btn btn-outline-secondary" href="{{ path('group_index') }}">
+					<i class="bi bi-shield-lock" aria-hidden="true"></i> Permission groups
+				</a>
+				<a class="btn btn-primary" href="{{ path('user_new') }}">
+					<i class="bi bi-person-plus" aria-hidden="true"></i> Add user
+				</a>
+			</div>
 		</div>
 
 		<div class="table-responsive">
@@ -102,17 +107,14 @@
 		</div>
 
 		{#
-			Accurate as of the permission model landing (§7.5). It says what is true
-			*and* what is missing, because the gap between "grants decide everything"
-			and "there is nowhere to edit a grant" is exactly the thing an
-			administrator needs to be told before they wonder why a new colleague
-			cannot see anything.
+			Said on the list rather than only on the groups screen, because the
+			question it answers — "why can my new colleague not see anything" —
+			is one somebody asks while looking at this page.
 		#}
 		<p class="text-body-secondary small mb-0">
-			Administrators may do everything. Everybody else starts with nothing and is
-			granted what they need, per module and per action — but the screen for
-			editing those grants is not built yet, so for now they are set with
-			<code>bin/console tenant:permissions:grant-all &lt;tenant&gt;</code>.
+			Administrators may do everything. Everybody else starts with nothing and gets
+			what their <a href="{{ path('group_index') }}">permission groups</a> give them,
+			per module and per action.
 		</p>
 	</main>
 {% endblock %}
