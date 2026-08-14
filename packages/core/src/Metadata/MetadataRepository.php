@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Metadata;
@@ -31,6 +40,8 @@ use Xivi\Core\Entity\ModuleDefinition;
  * beats three round trips per request. The ORDER BY leads with the module's own
  * fields so that the hydrator meets each collection, and each collection's
  * fields, in the right order the first time.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class MetadataRepository
 {

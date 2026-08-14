@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tests\Functional\Engine;
@@ -20,6 +29,8 @@ use Xivi\Core\Module\ModuleRegistry;
  * The test that matters: a field added here appears on the record form, with
  * nothing deployed and no SQL typed. That is the engine's whole claim, finally
  * reachable by the person who owns the data.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class FieldUiTest extends WebTestCase
 {

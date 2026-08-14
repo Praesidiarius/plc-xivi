@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Metadata;
@@ -21,6 +30,8 @@ use Xivi\Core\Record\RecordRepository;
  * change a field's type here, because there is no honest way to carry stored
  * values across one. Removing a field takes the definition and leaves the
  * values, which is the version of "delete" that cannot destroy anything.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class MetadataEditor
 {

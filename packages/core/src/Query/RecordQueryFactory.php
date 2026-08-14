@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Query;
@@ -19,6 +28,8 @@ use Xivi\Core\Entity\ModuleDefinition;
  * pasted and truncated. What it produces still goes to the compiler, which
  * resolves every name against the customer's definitions and refuses whatever it
  * does not recognise.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class RecordQueryFactory
 {

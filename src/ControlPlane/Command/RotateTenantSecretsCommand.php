@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\ControlPlane\Command;
@@ -13,6 +22,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * Step three of a key rotation: add the new key to TENANT_SECRET_KEYS, point
  * TENANT_SECRET_KEY_ID at it, run this, then drop the old key once it reports
  * everything on the active key.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[AsCommand(
     name: 'tenant:rotate-secrets',

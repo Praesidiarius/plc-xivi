@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Query;
@@ -12,6 +21,8 @@ namespace Xivi\Core\Query;
  * is, and therefore whether this becomes an ordinary predicate or a semi-join —
  * a contact with two addresses in Zürich is one contact, not two, so a child
  * condition can never be a plain JOIN (§5.1).
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class Filter
 {

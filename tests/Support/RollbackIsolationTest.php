@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tests\Support;
@@ -30,6 +39,8 @@ use Xivi\Core\Record\RecordWriter;
  *
  * The order matters here, deliberately: each pair writes and then looks. PHPUnit
  * runs the methods of a class in the order they are declared.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class RollbackIsolationTest extends KernelTestCase
 {

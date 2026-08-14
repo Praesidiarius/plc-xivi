@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tests\Functional\Engine;
@@ -27,6 +36,8 @@ use Xivi\Core\Validation\RecordValidator;
  * Everything here goes through definitions read from the database — nothing in
  * the assertions knows what a contact is except through them, which is the claim
  * §1 makes about the engine.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class ContactRecordTest extends KernelTestCase
 {

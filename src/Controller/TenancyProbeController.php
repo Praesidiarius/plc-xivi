@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Controller;
@@ -20,6 +29,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * is invisible from the outside: the wrong database still answers. Asking
  * Postgres itself, over the same connection the application uses, is the only
  * answer that cannot be faked by a stale service. Debug builds only.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class TenancyProbeController
 {

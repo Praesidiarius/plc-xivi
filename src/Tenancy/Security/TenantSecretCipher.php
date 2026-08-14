@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tenancy\Security;
@@ -27,6 +36,8 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  * background job rather than a single all-or-nothing rewrite: add a key, point
  * TENANT_SECRET_KEY_ID at it, run `tenant:rotate-secrets`, then drop the old key
  * once nothing reports as stale.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class TenantSecretCipher
 {

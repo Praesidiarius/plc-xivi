@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Record;
@@ -15,6 +24,8 @@ namespace Xivi\Core\Record;
  * `data` holds the custom fields. Where each one physically lives is
  * RecordRepository's business, which is what leaves room for column promotion
  * later without anything above this line noticing.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class Record
 {

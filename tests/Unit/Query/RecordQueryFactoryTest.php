@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tests\Unit\Query;
@@ -16,6 +25,8 @@ use Xivi\Core\Query\RecordQueryFactory;
  * rather than a Request precisely so that this is a unit test. Everything here
  * is input somebody could type into the address bar, including the input nobody
  * would type on purpose.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class RecordQueryFactoryTest extends TestCase
 {

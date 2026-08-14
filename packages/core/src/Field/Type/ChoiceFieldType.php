@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Field\Type;
@@ -20,6 +29,8 @@ use Xivi\Core\Query\Operator;
  * It is also what makes variants possible (§5.5): a shape names one choice field
  * as the one that decides which variant a record is, and the variants *are* that
  * field's options. No second list to keep in step.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class ChoiceFieldType implements FieldType
 {

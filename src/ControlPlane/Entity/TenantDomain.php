@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\ControlPlane\Entity;
@@ -10,6 +19,8 @@ use Doctrine\ORM\Mapping as ORM;
  * A hostname routed to a tenant. Separate table rather than a JSON column on
  * Tenant: this is the lookup key of every single request, so it gets a real
  * unique index (docs/architecture.md §4).
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'tenant_domain')]

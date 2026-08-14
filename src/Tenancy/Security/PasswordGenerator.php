@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tenancy\Security;
@@ -11,6 +20,8 @@ namespace App\Tenancy\Security;
  * previous generation of this system did with `date +%s | sha256sum` — makes the
  * search space "which second was this account created in", which is a few
  * thousand guesses if you know the day.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class PasswordGenerator
 {

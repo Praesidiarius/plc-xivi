@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tests\Functional\Engine;
@@ -26,6 +35,8 @@ use Xivi\Core\Validation\RecordValidator;
  * One module rather than two, so that selecting a contact anywhere is a plain
  * foreign key to one table rather than a type-and-id pair — the shape that
  * cannot carry a key, and the one §5.2 already refused once.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class ContactVariantsTest extends KernelTestCase
 {

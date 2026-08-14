@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Metadata;
@@ -11,6 +20,8 @@ namespace Xivi\Core\Metadata;
  * application can no longer read, save, or explain. They carry the reason in
  * full, because the person reading it is a customer changing their own module,
  * not a developer with the source open.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class MetadataChangeRefused extends \RuntimeException
 {

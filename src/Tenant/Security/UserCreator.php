@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tenant\Security;
@@ -19,6 +28,8 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  * Takes the tenant explicitly and switches to it, rather than assuming the
  * ambient context: the callers are console commands and provisioning, where
  * there is no request to have resolved one.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class UserCreator
 {

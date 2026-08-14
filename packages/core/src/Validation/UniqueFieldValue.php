@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Validation;
@@ -13,6 +22,8 @@ use Symfony\Component\Validator\Constraint;
  * whether a field is unique is a customer's decision that can change after rows
  * exist. A promoted column (§5) can carry a real index later, at which point this
  * becomes the second line of defence rather than the only one.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[\Attribute(\Attribute::TARGET_PROPERTY | \Attribute::TARGET_METHOD | \Attribute::IS_REPEATABLE)]
 final class UniqueFieldValue extends Constraint

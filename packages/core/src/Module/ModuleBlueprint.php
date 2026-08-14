@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Module;
@@ -11,6 +20,8 @@ namespace Xivi\Core\Module;
  * tenant's database once. From then on the customer's copy is what counts, and
  * it may have grown fields the blueprint never mentioned (§6). That separation
  * is what lets two customers run the same module with different shapes.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class ModuleBlueprint
 {

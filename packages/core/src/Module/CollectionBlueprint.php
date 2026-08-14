@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Module;
@@ -15,6 +24,8 @@ namespace Xivi\Core\Module;
  * across the whole table and unique within one parent are different rules, and
  * which one a customer means is not something to guess at. It waits for the same
  * decision §7.5 is waiting for.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class CollectionBlueprint
 {

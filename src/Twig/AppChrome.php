@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Twig;
@@ -16,6 +25,8 @@ use Xivi\Core\Metadata\MetadataRepository;
  * A Twig global rather than something each controller remembers to pass, since
  * forgetting it would mean a page with no navigation. Both accessors are lazy —
  * the login page renders without a tenant and must not query for modules.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class AppChrome
 {

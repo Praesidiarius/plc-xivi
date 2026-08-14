@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tests\Functional\Tenancy;
@@ -30,6 +39,8 @@ use Symfony\Component\HttpFoundation\Response;
  * transaction: a database cannot be created or dropped inside one, and a test
  * that proves one tenant cannot see another has to be looking at what is
  * actually committed.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[SkipDatabaseRollback]
 final class TenantIsolationTest extends WebTestCase

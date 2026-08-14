@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Export;
@@ -36,6 +45,8 @@ use Xivi\Core\Record\RecordRepository;
  * Nothing here knows what a contact is. The columns come from the customer's own
  * definitions, so a field added in the editor appears in the export with no code
  * changed — which is the same claim §5 makes about the form and the list.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class RecordExporter
 {

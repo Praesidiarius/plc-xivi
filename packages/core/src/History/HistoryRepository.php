@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\History;
@@ -20,6 +29,8 @@ use Xivi\Core\Record\RecordChanges;
  * Who the user was is passed in rather than looked up. Core does not know what a
  * user is — the application resolves that, exactly as it resolves owner ids to
  * names for the list view.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class HistoryRepository
 {

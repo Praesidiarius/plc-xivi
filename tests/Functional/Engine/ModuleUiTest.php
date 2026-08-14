@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tests\Functional\Engine;
@@ -23,6 +32,8 @@ use Xivi\Core\Module\ModuleRegistry;
  * from the customer's field definitions by one generic controller and one
  * generic form. That is the part of §5 that only a browser can prove: the
  * metadata drives the *form*, not just the storage.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class ModuleUiTest extends WebTestCase
 {

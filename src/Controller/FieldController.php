@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Controller;
@@ -34,6 +43,8 @@ use Xivi\Core\Metadata\ModuleNotInstalled;
  *
  * It edits any shape, so a collection's fields are editable exactly like a
  * module's — the same reason there is one record repository (§5.1).
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[Route('/m/{module}/fields', requirements: ['module' => '[a-z][a-z0-9_]*'])]
 #[IsGranted('ROLE_ADMIN')]

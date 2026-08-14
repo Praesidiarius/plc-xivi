@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tenancy\EventListener;
@@ -21,6 +30,8 @@ use Symfony\Component\HttpKernel\KernelEvents;
  *
  * Runs before routing so that no controller, and no listener that touches tenant
  * data, can run without a tenant — the request either has one or is rejected here.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[AsEventListener(event: KernelEvents::REQUEST, priority: 100)]
 final readonly class TenantRequestListener

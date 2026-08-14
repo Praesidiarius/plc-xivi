@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tests\Support\Dbal;
@@ -25,6 +34,8 @@ use SensitiveParameter;
  * That works because this runs *outside* TenantDriver: middlewares connect from
  * the lowest priority up, so by the time these parameters arrive they name the
  * tenant's own database.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class TenantConnectionKeyDriver extends AbstractDriverMiddleware
 {

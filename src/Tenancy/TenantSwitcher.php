@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tenancy;
@@ -19,6 +28,8 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  * every switch drops both, unconditionally — closing a connection that was never
  * opened is free, and "was it the same tenant?" is not a question worth being
  * wrong about.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class TenantSwitcher
 {

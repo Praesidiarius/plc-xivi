@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tenancy\EventListener;
@@ -23,6 +32,8 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
  *
  * An unknown slug is fatal rather than ignored: quietly running against no tenant
  * is how you end up believing a command did something it did not.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[AsEventListener(event: ConsoleEvents::COMMAND)]
 final readonly class TenantConsoleListener

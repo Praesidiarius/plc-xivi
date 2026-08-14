@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tests\Functional\Engine;
@@ -26,6 +35,8 @@ use Xivi\Core\Record\RecordWriter;
  *
  * Read back with the same library that wrote it, because a test that only
  * checks the file is non-empty is a test that would pass on a corrupt workbook.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class RecordExportTest extends KernelTestCase
 {

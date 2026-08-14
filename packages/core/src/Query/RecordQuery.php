@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Query;
@@ -19,6 +28,8 @@ namespace Xivi\Core\Query;
  * Paging is LIMIT/OFFSET, which is correct and gets slower the deeper it goes.
  * Keyset paging is the upgrade when someone is on page 400; until then it costs
  * a sort key in the URL that nobody wants to look at.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class RecordQuery
 {

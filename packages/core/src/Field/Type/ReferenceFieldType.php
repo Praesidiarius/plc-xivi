@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Field\Type;
@@ -33,6 +42,8 @@ use Xivi\Core\Record\RecordRepository;
  *
  * The variant is optional and narrows the candidates, so a person's employer
  * offers companies rather than every contact in the database.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class ReferenceFieldType implements FieldType
 {

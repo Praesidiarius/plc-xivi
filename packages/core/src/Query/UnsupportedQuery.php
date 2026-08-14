@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Query;
@@ -10,6 +19,8 @@ namespace Xivi\Core\Query;
  * Thrown rather than quietly dropped. A filter that silently does nothing shows
  * the customer a list that looks like a result and is not one, which is worse
  * than an error — they would act on it.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class UnsupportedQuery extends \InvalidArgumentException
 {

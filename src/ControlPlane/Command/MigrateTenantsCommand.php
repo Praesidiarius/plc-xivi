@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\ControlPlane\Command;
@@ -14,6 +23,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 /**
  * Every schema change lands for every tenant (docs/architecture.md §4), so a deploy is not
  * finished until this has run across the whole registry.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[AsCommand(name: 'tenant:migrate', description: 'Migrate tenant databases to the latest version')]
 final readonly class MigrateTenantsCommand

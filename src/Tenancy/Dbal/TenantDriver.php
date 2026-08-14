@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tenancy\Dbal;
@@ -16,6 +25,8 @@ use SensitiveParameter;
  * physical connection, not once per container build, so a worker process that
  * closes the connection between requests (see TenantSwitcher) picks up the new
  * tenant here instead of reusing the previous one's socket.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class TenantDriver extends AbstractDriverMiddleware
 {

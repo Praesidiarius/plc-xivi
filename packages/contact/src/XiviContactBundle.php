@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Contact;
@@ -15,6 +24,8 @@ use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
  *
  * It may depend on core. It may not depend on another module, and core may not
  * depend on it — enforced by deptrac rather than by good intentions.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class XiviContactBundle extends AbstractBundle
 {

@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Module;
@@ -25,6 +34,8 @@ use Xivi\Core\Metadata\MetadataRepository;
  * The system columns come from §5 and are the same for every shape — id,
  * timestamps, soft delete — with the custom long tail in a JSONB payload. A
  * module's table also carries an owner; a collection's carries a parent instead.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class ModuleInstaller
 {

@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Controller;
@@ -38,6 +47,8 @@ use Xivi\Core\Validation\RecordValidator;
  * One controller, no matter how many modules exist — a module that needed its
  * own would mean the engine had failed to describe it. Which module is being
  * served comes from the URL, and its shape from that customer's definitions.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[Route('/m/{module}', requirements: ['module' => '[a-z][a-z0-9_]*'])]
 final class ModuleController extends AbstractController

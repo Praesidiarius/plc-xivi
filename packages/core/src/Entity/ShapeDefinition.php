@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Entity;
@@ -24,6 +33,8 @@ use Xivi\Core\Field\Type\ChoiceFieldType;
  *
  * Single-table inheritance: the two kinds differ by a handful of columns, and
  * every query that reads definitions wants them together anyway.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'shape_definition')]

@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tenant\EventListener;
@@ -28,6 +37,8 @@ use Xivi\Core\History\HistoryRepository;
  *
  * It runs inside the transaction the writer opened, so if this throws, the change
  * it was describing is rolled back with it.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[AsEventListener(event: RecordChanged::class)]
 final readonly class RecordHistoryListener

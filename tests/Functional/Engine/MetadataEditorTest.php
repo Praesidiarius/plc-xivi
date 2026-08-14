@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tests\Functional\Engine;
@@ -30,6 +39,8 @@ use Xivi\Core\Validation\RecordValidator;
  * The tests that matter here are the refusals: everything this will not do is
  * something that would leave data the application can no longer read, save, or
  * explain.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class MetadataEditorTest extends KernelTestCase
 {

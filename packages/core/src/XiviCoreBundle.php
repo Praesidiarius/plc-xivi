@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core;
@@ -15,6 +24,8 @@ use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
  * an entity manager and a connection, and the application decides which database
  * those point at. Both directions matter: the boundary is checked by deptrac in
  * CI (docs/architecture.md §3).
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class XiviCoreBundle extends AbstractBundle
 {

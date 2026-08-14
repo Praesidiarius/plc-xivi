@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Entity;
@@ -16,6 +25,8 @@ use Doctrine\ORM\Mapping as ORM;
  * A field does not care whether the shape it belongs to is a module or one of
  * its collections — an address's street is described exactly like a contact's
  * surname, by the same row in the same table with the same field type behind it.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'field_definition')]

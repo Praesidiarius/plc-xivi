@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tests\Functional\Engine;
@@ -30,6 +39,8 @@ use Xivi\Core\Record\RecordWriter;
  * Nothing here names a column or writes a predicate: every question is asked in
  * terms of the customer's own definitions, which is what the compiler exists to
  * make possible without concatenating SQL.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class RecordQueryTest extends KernelTestCase
 {

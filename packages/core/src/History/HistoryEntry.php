@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\History;
@@ -12,6 +21,8 @@ use Xivi\Core\Record\RecordAction;
  * The user is a name and an id, not a User object: core does not know what a
  * user is, and the name is what was true when this happened — resolving it
  * afresh would let renaming somebody rewrite history.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class HistoryEntry
 {

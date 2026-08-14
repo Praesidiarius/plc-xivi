@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tests\Unit\Tenancy;
@@ -14,6 +23,9 @@ use App\Tenancy\TenantContext;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * @author Praesidiarius <praesidiarius@proton.me>
+ */
 #[CoversClass(TenantConnectionParameters::class)]
 final class TenantConnectionParametersTest extends TestCase
 {

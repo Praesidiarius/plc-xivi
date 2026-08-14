@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Record;
@@ -28,6 +37,8 @@ use Xivi\Core\Event\RecordChanged;
  *
  * Everything happens in one transaction, and the event is dispatched inside it,
  * so a subscriber that fails takes the change down with it.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class RecordWriter
 {

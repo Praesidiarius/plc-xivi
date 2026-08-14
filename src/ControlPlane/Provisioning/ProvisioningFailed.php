@@ -1,9 +1,21 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\ControlPlane\Provisioning;
 
+/**
+ * @author Praesidiarius <praesidiarius@proton.me>
+ */
 final class ProvisioningFailed extends \RuntimeException
 {
     public static function invalidSlug(string $slug): self

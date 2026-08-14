@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Twig;
@@ -17,6 +26,8 @@ use Xivi\Core\Field\FieldTypeRegistry;
  * — is this a date, does it need formatting — which is knowledge the field type
  * already owns. A template asking that question is a template that has to be
  * changed each time a field type is added.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class FieldDisplayExtension extends AbstractExtension
 {

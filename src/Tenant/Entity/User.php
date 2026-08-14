@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tenant\Entity;
@@ -22,6 +31,8 @@ use Symfony\Component\Security\Core\User\UserInterface;
  * Consequence worth remembering: user identifiers are only unique *within* a
  * tenant. Anything that trusts an identifier across a request boundary — the
  * session above all — has to carry the tenant with it.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 // "user" is reserved in PostgreSQL; naming the table explicitly avoids quoting

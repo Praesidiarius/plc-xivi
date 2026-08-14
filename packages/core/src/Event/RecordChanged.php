@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Event;
@@ -23,6 +32,8 @@ use Xivi\Core\Record\RecordChanges;
  *
  * It carries no user. Core does not know what a user is — the application
  * resolves that and adds it, the same way it resolves owner ids to names.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class RecordChanged
 {

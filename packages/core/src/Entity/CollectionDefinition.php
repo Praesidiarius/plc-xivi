@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Entity;
@@ -24,6 +33,8 @@ use Doctrine\ORM\Mapping as ORM;
  * to the parent. Not a JSON array on the parent record — that is exactly the
  * shape both EAV and JSON are bad at, and it would make "contacts in Zürich"
  * unanswerable.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[ORM\Entity]
 class CollectionDefinition extends ShapeDefinition

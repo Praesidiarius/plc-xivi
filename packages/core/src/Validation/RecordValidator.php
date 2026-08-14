@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Validation;
@@ -19,6 +28,8 @@ use Xivi\Core\Field\FieldTypeRegistry;
  * It validates any shape, so a contact's address is checked by the same rules
  * from the same kind of row as the contact itself — no separate validator for
  * children, and no way for the two to disagree about what "required" means.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class RecordValidator
 {

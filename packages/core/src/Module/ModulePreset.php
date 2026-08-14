@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Module;
@@ -23,6 +32,8 @@ namespace Xivi\Core\Module;
  * needs a table, which only the installer creates — so a preset that omitted one
  * would be a decision the customer could never undo. Until §7.2's additive
  * upgrade exists, every collection a module declares is installed every time.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class ModulePreset
 {

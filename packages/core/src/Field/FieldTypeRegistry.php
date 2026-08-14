@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Field;
@@ -12,6 +21,8 @@ use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
  * Asking for a type that no longer exists is fatal rather than silently ignored:
  * a definition row naming a removed type means stored data nobody can interpret,
  * and pretending otherwise is how that data quietly rots (§7.2).
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class FieldTypeRegistry
 {

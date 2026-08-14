@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Field;
@@ -19,6 +28,8 @@ use Xivi\Core\Query\Operator;
  *
  * Implementations are tagged automatically, so a new type is one class and no
  * configuration.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[AutoconfigureTag(self::TAG)]
 interface FieldType

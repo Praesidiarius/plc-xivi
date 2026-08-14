@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tenant\EventListener;
@@ -19,6 +28,8 @@ use Symfony\Component\Security\Http\Event\LoginSuccessEvent;
  *
  * Flushed through the tenant manager, which is the only one that knows this
  * user — by the time the firewall has authenticated, the tenant is resolved.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[AsEventListener(event: LoginSuccessEvent::class)]
 final readonly class RecordLastLoginListener

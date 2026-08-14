@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tenancy;
@@ -19,6 +28,8 @@ use Symfony\Contracts\Service\ResetInterface;
  *
  * Nothing here writes to the tenant connection; use TenantSwitcher to change
  * tenants, so that Doctrine's connection and identity map are dropped with it.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class TenantContext implements ResetInterface
 {

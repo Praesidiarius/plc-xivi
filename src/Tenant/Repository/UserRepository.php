@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tenant\Repository;
@@ -14,6 +23,8 @@ use Doctrine\Persistence\ManagerRegistry;
  * Resolves through the `tenant` manager, so every query here reaches whichever
  * customer's database the current request resolved to — and throws rather than
  * guessing when there is no tenant.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 class UserRepository extends ServiceEntityRepository
 {

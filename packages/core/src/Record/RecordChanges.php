@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Record;
@@ -18,6 +27,8 @@ namespace Xivi\Core\Record;
  * Values are in storage form, which is also the form they are compared in — the
  * alternative is a date that "changed" because one side is a string and the other
  * an object.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class RecordChanges
 {

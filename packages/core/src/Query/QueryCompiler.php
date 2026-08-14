@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Core\Query;
@@ -32,6 +41,8 @@ use Xivi\Core\Field\FieldTypeRegistry;
  * What it does not do is decide *which* records a person may see. That is §7.5,
  * and when it arrives it is another predicate alongside the soft-delete one in
  * conditions() — a WHERE clause, not a check after loading.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class QueryCompiler
 {

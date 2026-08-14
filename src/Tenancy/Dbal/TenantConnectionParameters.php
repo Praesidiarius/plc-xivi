@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tenancy\Dbal;
@@ -19,6 +28,8 @@ use App\Tenancy\TenantContext;
  * tenant DSN can never silently fall back to the control-plane database. Driver
  * level settings (driver options, wrapper class, server version, charset) do
  * survive, since they describe how we talk to Postgres, not to whom.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class TenantConnectionParameters
 {

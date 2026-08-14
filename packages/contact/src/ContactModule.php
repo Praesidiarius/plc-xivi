@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Xivi\Contact;
@@ -21,6 +30,8 @@ use Xivi\Core\Module\ModuleProvider;
  * A customer's copy starts as this and then diverges. Fields added by them are
  * ordinary rows next to these; the only difference is that these are marked as
  * the module's own.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class ContactModule implements ModuleProvider
 {

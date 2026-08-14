@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace App\Tenancy\EventListener;
@@ -34,6 +43,8 @@ use Symfony\Component\HttpKernel\KernelEvents;
  *
  * Two halves, because the session usually does not exist yet when the request
  * arrives: check on the way in, stamp on the way out.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class TenantSessionGuard
 {
