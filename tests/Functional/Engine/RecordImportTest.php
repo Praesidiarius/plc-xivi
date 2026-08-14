@@ -240,7 +240,7 @@ final class RecordImportTest extends KernelTestCase
         $report = $this->apply();
 
         self::assertTrue($report->applied, implode(' | ', $this->messages($report)));
-        self::assertSame(1, $report->childrenWritten);
+        self::assertSame(1, $report->childrenWritten());
         self::assertSame('Baker Street 1', $this->addresses((int) $contact->id)[0]->data['street']);
     }
 
@@ -293,7 +293,7 @@ final class RecordImportTest extends KernelTestCase
 
         self::assertTrue($report->applied, implode(' | ', $this->messages($report)));
         self::assertSame(2, $report->created);
-        self::assertSame(2, $report->childrenWritten);
+        self::assertSame(2, $report->childrenWritten());
 
         $streets = [];
         foreach ($this->all() as $contact) {
@@ -377,7 +377,7 @@ final class RecordImportTest extends KernelTestCase
 
         $report = $this->check();
 
-        self::assertSame(1, $report->childrenRemoved, 'a check has to say what an import would destroy');
+        self::assertSame(1, $report->childrenRemoved(), 'a check has to say what an import would destroy');
 
         self::assertTrue($this->apply()->applied);
         self::assertCount(1, $this->addresses((int) $contact->id));
@@ -456,7 +456,7 @@ final class RecordImportTest extends KernelTestCase
         self::assertTrue($report->applied, implode(' | ', $this->messages($report)));
         self::assertSame(0, $report->created, 'a re-import is not a second copy');
         self::assertSame(1, $report->updated);
-        self::assertSame(0, $report->childrenRemoved, 'the file lists the address it exported');
+        self::assertSame(0, $report->childrenRemoved(), 'the file lists the address it exported');
 
         $records = $this->all();
         self::assertCount(1, $records);

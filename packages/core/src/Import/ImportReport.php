@@ -25,20 +25,27 @@ namespace Xivi\Core\Import;
  */
 final readonly class ImportReport
 {
-    /** @param list<ImportProblem> $problems */
+    /**
+     * @param array<string, array{written: int, removed: int}> $collections
+     * @param list<ImportProblem>                              $problems
+     */
     public function __construct(
         /** False for a check, and for anything that was refused. */
         public bool $applied,
         public int $created = 0,
         public int $updated = 0,
-        public int $childrenWritten = 0,
         /**
-         * Rows of a collection that the file did not mention, and that were
-         * therefore removed. The destructive half of an import, and the reason a
-         * check is worth running: a file listing two of a contact's three
-         * addresses is asking for the third to go.
+         * Counted per collection rather than added up, and keyed by collection so
+         * that a report can name what it is talking about — "3 addresses" rather
+         * than "3 child rows". The engine has no vocabulary of its own here; the
+         * words are the customer's, off their own definitions.
+         *
+         * `removed` is the rows a sheet did not mention and that therefore went.
+         * The destructive half of an import, and the reason a check is worth
+         * running: a file listing two of a contact's three addresses is asking
+         * for the third to go.
          */
-        public int $childrenRemoved = 0,
+        public array $collections = [],
         public array $problems = [],
     ) {
     }
@@ -57,5 +64,15 @@ final readonly class ImportReport
     public function records(): int
     {
         return $this->created + $this->updated;
+    }
+
+    public function childrenWritten(): int
+    {
+        return array_sum(array_column($this->collections, 'written'));
+    }
+
+    public function childrenRemoved(): int
+    {
+        return array_sum(array_column($this->collections, 'removed'));
     }
 }

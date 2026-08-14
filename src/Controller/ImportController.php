@@ -62,9 +62,11 @@ final class ImportController extends AbstractController
             $report = $this->run($definition, $request);
 
             if ($report?->applied === true) {
+                // Named off the definitions, like every other word this
+                // application uses for a module's records.
                 $this->addFlash('success', sprintf(
-                    'Imported %d record(s): %d added, %d updated.',
-                    $report->records(),
+                    'Imported. %s: %d added, %d updated.',
+                    $definition->getLabel(),
                     $report->created,
                     $report->updated,
                 ));

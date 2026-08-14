@@ -201,8 +201,18 @@ final readonly class RecordImporter
         $problems = [];
         $created = 0;
         $updated = 0;
-        $childrenWritten = 0;
-        $childrenRemoved = 0;
+
+        // One entry per collection whose sheet the file carries, even if it turns
+        // out to hold no rows: "Addresses: 0 written" is the report confirming it
+        // read the sheet, which is different from not mentioning addresses at all.
+        $written = [];
+        $removed = [];
+        foreach ($module->getCollections() as $collection) {
+            if (isset($plan->maps[self::sheetKey($collection->getKey())])) {
+                $written[$collection->getKey()] = 0;
+                $removed[$collection->getKey()] = 0;
+            }
+        }
 
         $moduleMap = $plan->maps[$plan->moduleSheet];
         $children = $this->childRows($module, $plan, $problems);
@@ -301,14 +311,14 @@ final readonly class RecordImporter
                     }
 
                     $attached[$key][] = ['id' => $childRow['id'], 'data' => $childMerged];
-                    ++$childrenWritten;
+                    ++$written[$key];
                 }
 
                 // A sheet that is present speaks for the whole collection, so a
                 // row it does not mention is a row somebody deleted. Counted
                 // because it is the one thing an import destroys, and a check
                 // that did not say so would be worth very little.
-                $childrenRemoved += \count(array_diff_key($existing, $kept));
+                $removed[$key] += \count(array_diff_key($existing, $kept));
 
                 $attached[$key] ??= [];
             }
@@ -350,12 +360,16 @@ final readonly class RecordImporter
             }
         }
 
+        $collections = [];
+        foreach ($written as $key => $count) {
+            $collections[$key] = ['written' => $count, 'removed' => $removed[$key]];
+        }
+
         return new ImportReport(
             applied: $commit && $problems === [],
             created: $created,
             updated: $updated,
-            childrenWritten: $childrenWritten,
-            childrenRemoved: $childrenRemoved,
+            collections: $collections,
             problems: [...$plan->problems, ...$problems],
         );
     }

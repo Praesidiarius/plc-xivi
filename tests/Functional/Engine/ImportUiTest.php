@@ -105,6 +105,30 @@ final class ImportUiTest extends WebTestCase
         self::assertStringNotContainsString('Lovelace', $list->filter('main')->text());
     }
 
+    /**
+     * The report calls things what this customer calls them. "1 record, 1 child
+     * row" is the engine's vocabulary leaking onto a page that should be talking
+     * about contacts and addresses — and at the next customer, about something
+     * else again.
+     */
+    public function testTheReportUsesTheCustomersOwnWords(): void
+    {
+        $this->signIn(self::ADMIN);
+        $this->file(
+            [self::HEADER, ['ada', 'person', '', 'Ada', 'Lovelace', '', '', '', '']],
+            [['id', 'parent_id', 'street'], ['', 'ada', 'Baker Street 1']],
+        );
+
+        // The report itself, not the page: the notes underneath explain what a
+        // child sheet is, and are allowed to say so.
+        $report = $this->submit('Check')->filter('.alert')->text();
+
+        self::assertStringContainsString('Contacts: 1 added, 0 updated', $report);
+        self::assertStringContainsString('Addresses: 1 written, 0 removed', $report);
+        self::assertStringNotContainsString('child row', $report);
+        self::assertStringNotContainsString('record added', $report);
+    }
+
     public function testImportingAddsTheRecordsAndSaysSo(): void
     {
         $this->signIn(self::ADMIN);
@@ -147,8 +171,11 @@ final class ImportUiTest extends WebTestCase
         self::assertStringContainsString('could not be read', $crawler->filter('main')->text());
     }
 
-    /** @param list<list<mixed>> $rows */
-    private function file(array $rows): void
+    /**
+     * @param list<list<mixed>>      $rows
+     * @param list<list<mixed>>|null $addresses a second sheet, for the tests that need one
+     */
+    private function file(array $rows, ?array $addresses = null): void
     {
         $writer = new Writer();
         $writer->openToFile($this->path);
@@ -156,6 +183,14 @@ final class ImportUiTest extends WebTestCase
 
         foreach ($rows as $row) {
             $writer->addRow(Row::fromValues($row));
+        }
+
+        if ($addresses !== null) {
+            $writer->addNewSheetAndMakeItCurrent()->setName('addresses');
+
+            foreach ($addresses as $row) {
+                $writer->addRow(Row::fromValues($row));
+            }
         }
 
         $writer->close();

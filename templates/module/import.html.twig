@@ -45,22 +45,33 @@
 			{% if report.isClean %}
 				<div class="alert alert-info">
 					<h2 class="h6">Nothing was changed — this is what importing would do.</h2>
+					{#
+						Each line names its own shape, off the customer's definitions: this
+						module is called Contacts here and something else at the next
+						customer, and the engine has no business having a word of its own
+						for it. The labels are used exactly as they are stored, which is
+						also what keeps this readable when they are not in English.
+					#}
 					<ul class="mb-0">
-						<li><strong>{{ report.created }}</strong> record{{ report.created == 1 ? '' : 's' }} added</li>
-						<li><strong>{{ report.updated }}</strong> record{{ report.updated == 1 ? '' : 's' }} updated</li>
-						{% if report.childrenWritten > 0 %}
-							<li><strong>{{ report.childrenWritten }}</strong> child row{{ report.childrenWritten == 1 ? '' : 's' }} written</li>
-						{% endif %}
-						{#
-							The one thing an import destroys, so it is said in as many words
-							rather than left to be discovered afterwards.
-						#}
-						{% if report.childrenRemoved > 0 %}
-							<li class="text-danger">
-								<strong>{{ report.childrenRemoved }}</strong> existing child row{{ report.childrenRemoved == 1 ? '' : 's' }}
-								would be <strong>removed</strong>, because the file does not list them
+						<li>
+							<strong>{{ module.label }}</strong>:
+							{{ report.created }} added, {{ report.updated }} updated
+						</li>
+						{% for key, counts in report.collections %}
+							{% set collection = module.getCollection(key) %}
+							<li>
+								<strong>{{ collection ? collection.label : key }}</strong>:
+								{{ counts.written }} written{#-
+									The one thing an import destroys, so it is said in as many
+									words rather than left to be discovered afterwards.
+								-#}
+								{%- if counts.removed > 0 %},
+									<span class="text-danger">{{ counts.removed }} <strong>removed</strong>,
+									because the file does not list {{ counts.removed == 1 ? 'it' : 'them' }}</span>
+								{%- else %}, {{ counts.removed }} removed
+								{%- endif %}
 							</li>
-						{% endif %}
+						{% endfor %}
 					</ul>
 				</div>
 			{% else %}
