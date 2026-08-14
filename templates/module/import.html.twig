@@ -1,0 +1,102 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Import — {{ module.label }}{% endblock %}
+
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<h1 class="h3 mb-3">Import {{ module.label|lower }}</h1>
+
+		{#
+			One upload, two buttons. Nothing is kept between checking and importing —
+			§5.6 asks for an upload and no file storage — so applying means picking
+			the file again, which is the honest price of leaving nothing behind.
+		#}
+		<form method="post" enctype="multipart/form-data" class="card mb-3">
+			<div class="card-body">
+				<input type="hidden" name="_token" value="{{ csrf_token('import-records') }}">
+
+				<div class="mb-3">
+					<label class="form-label" for="file">Spreadsheet</label>
+					<input class="form-control" type="file" id="file" name="file" accept=".xlsx" required>
+					<div class="form-text">
+						An export of this module is exactly the shape it expects: one sheet named
+						<code>{{ module.key }}</code>{% for collection in module.collections %}, one named
+						<code>{{ collection.key }}</code>{% endfor %}.
+					</div>
+				</div>
+
+				<div class="d-flex align-items-center gap-2">
+					<button class="btn btn-outline-secondary" type="submit" name="action" value="check">
+						<i class="bi bi-search" aria-hidden="true"></i> Check
+					</button>
+					<button class="btn btn-primary" type="submit" name="action" value="apply">
+						<i class="bi bi-upload" aria-hidden="true"></i> Import
+					</button>
+					<a class="btn btn-link ms-auto" href="{{ path('module_index', {module: module.key}) }}">Back to the list</a>
+				</div>
+			</div>
+		</form>
+
+		{% if report %}
+			{% if report.isClean %}
+				<div class="alert alert-info">
+					<h2 class="h6">Nothing was changed — this is what importing would do.</h2>
+					<ul class="mb-0">
+						<li><strong>{{ report.created }}</strong> record{{ report.created == 1 ? '' : 's' }} added</li>
+						<li><strong>{{ report.updated }}</strong> record{{ report.updated == 1 ? '' : 's' }} updated</li>
+						{% if report.childrenWritten > 0 %}
+							<li><strong>{{ report.childrenWritten }}</strong> child row{{ report.childrenWritten == 1 ? '' : 's' }} written</li>
+						{% endif %}
+						{#
+							The one thing an import destroys, so it is said in as many words
+							rather than left to be discovered afterwards.
+						#}
+						{% if report.childrenRemoved > 0 %}
+							<li class="text-danger">
+								<strong>{{ report.childrenRemoved }}</strong> existing child row{{ report.childrenRemoved == 1 ? '' : 's' }}
+								would be <strong>removed</strong>, because the file does not list them
+							</li>
+						{% endif %}
+					</ul>
+				</div>
+			{% else %}
+				<div class="alert alert-warning">
+					<h2 class="h6">
+						Nothing was changed. {{ report.problems|length }}
+						problem{{ report.problems|length == 1 ? '' : 's' }} to fix first:
+					</h2>
+					{# Every one of them, not the first: somebody fixing a file wants the list. #}
+					<ul class="mb-0">
+						{% for problem in report.problems %}
+							<li>{{ problem.describe }}</li>
+						{% endfor %}
+					</ul>
+				</div>
+			{% endif %}
+		{% endif %}
+
+		<div class="card">
+			<div class="card-body">
+				<h2 class="h6">How a file is read</h2>
+				<ul class="mb-0 small text-body-secondary">
+					<li>A column may be named by a field's key or by its label.</li>
+					<li>A field with no column keeps the value it had; a column left empty clears it.</li>
+					<li>A row with an <code>id</code> updates that record. An empty <code>id</code> adds one.</li>
+					<li>
+						Anything else in <code>id</code> — <code>acme-1</code>, say — names a record this
+						file is creating, so its child rows can point at it before it exists.
+					</li>
+					<li>
+						A child sheet speaks for the whole collection: a row it does not list is removed
+						from the record. Leave the sheet out to keep them untouched.
+					</li>
+					<li>One problem anywhere refuses the whole file. There is no half-imported state.</li>
+				</ul>
+			</div>
+		</div>
+	</main>
+{% endblock %}

@@ -50,6 +50,13 @@ services:
 
     Xivi\Core\Export\RecordExporter: ~
 
+    # The importer opens the transaction it either keeps or throws away, so it
+    # needs the same connection the records are written on. Autowired, it would
+    # get the control plane, and a rolled-back check would roll back nothing.
+    Xivi\Core\Import\RecordImporter:
+        arguments:
+            $connection: '@doctrine.dbal.tenant_connection'
+
     Xivi\Core\Query\QueryCompiler:
         arguments:
             $connection: '@doctrine.dbal.tenant_connection'

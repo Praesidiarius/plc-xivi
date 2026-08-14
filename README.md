@@ -12,11 +12,11 @@ the engine honest.
 
 > **Status: early, but no longer a skeleton.** Multi-tenancy, sign-in and the
 > metadata engine are built and tested. A customer can list, filter, create, edit,
-> delete and export records, change their own fields, and read what happened to a
-> record — every page of it built from definitions in their own database. What is
-> missing is the way back in (a spreadsheet import), templates deciding which
-> modules a customer is given, a second module, and an authorization model finer
-> than a single admin role.
+> delete, export and import records, change their own fields, and read what
+> happened to a record — every page of it built from definitions in their own
+> database. What is missing is templates deciding which modules a customer is
+> given, a second module, and an authorization model finer than a single admin
+> role.
 
 The design is written down first and the code follows it. Read
 **[docs/architecture.md](docs/architecture.md)** before anything else; it explains
@@ -89,10 +89,14 @@ with a count rather than performed — turning on required or unique when existi
 records would fail it — and removing a field leaves its values untouched, so
 re-adding the key brings them back.
 
-**Export.** A module's records as a spreadsheet, one sheet per shape, carrying
-whatever the list was filtered to (§5.6). Headers are field keys rather than
-labels, so renaming a label does not break yesterday's file and the export reads
-back in. The import is the next thing being built.
+**Export, and import back.** A module's records as a spreadsheet, one sheet per
+shape, carrying whatever the list was filtered to — and the same file back in
+(§5.6). Every row is validated by the same rules the form uses and the file is
+applied in one transaction or refused whole, because half an import is a state
+nobody can reason about. **A check is the import, rolled back** rather than a
+second code path, so it catches what only a write can: two rows of one file
+claiming the same unique email collide on the second, because by then the first
+one is really there.
 
 **Classic PHP execution, on purpose.** FrankenPHP runs without worker mode, so no
 PHP state survives a request boundary and cross-tenant leakage (§7.4) is

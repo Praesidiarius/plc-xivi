@@ -165,8 +165,12 @@ final readonly class RecordExporter
     /**
      * Excel refuses a few characters in a sheet name and truncates at 31, so a
      * long collection key would otherwise produce a file that will not open.
+     *
+     * Public because the importer has to look for exactly these names (§5.6).
+     * One definition of the mangling, or a shape whose key is long enough to be
+     * truncated would export to a sheet the import could not find.
      */
-    private static function sheetName(string $key): string
+    public static function sheetName(string $key): string
     {
         return mb_substr(str_replace(['\\', '/', '?', '*', '[', ']', ':'], '-', $key), 0, 31);
     }

@@ -458,13 +458,53 @@ appears in the file with no code changed.
 (PhpSpreadsheet is also MIT since v2 — it was LGPL — but it holds whole documents
 in memory, and none of its formulas or charts are wanted here.)
 
-**Import is the other half, and is not built.** When it is: parse, match columns
-to fields, validate every row through the existing validator — which is already
-variant-aware — then show what would happen and apply it in one transaction, or
-not at all. Half an import is a state nobody can reason about. It writes through
-`RecordWriter` like everything else, so every imported row gets a history entry
-attributed to whoever imported it, for free (§5.2). It needs an upload but no
-file *storage*: parse and discard, which sidesteps §7 entirely.
+**Import is the other half, and is built.** It parses, matches columns to fields,
+validates every row through the existing validator — which is already
+variant-aware — and applies the file in one transaction or not at all. Half an
+import is a state nobody can reason about. It writes through `RecordWriter` like
+everything else, so every imported row gets a history entry attributed to whoever
+imported it, for free (§5.2). It needs an upload but no file *storage*: parse and
+discard, which sidesteps §7 entirely.
+
+**A check is the import, rolled back.** `check()` and `apply()` run the same
+statements on the same connection; one commits and one does not. A dry run down a
+separate path would be a dry run of something else, trusted right up until the day
+the two disagreed — and it is the only way to catch what only a write can, such as
+two rows of one file claiming the same unique email. The second write finds that,
+because by then the first one is really there. DBAL 4 nests transactions with
+savepoints, so this works underneath a test suite that is itself a transaction.
+
+**Lenient in, stable out.** A header may be a field's key or its label. A field
+with no column keeps the value it had — a three-column file corrects three things
+rather than blanking everything else — while a column that is present and empty
+does clear its field, because that is what deleting a cell means.
+
+**`id` decides create or update.** A numeric id updates that record, and one that
+names nothing is refused rather than quietly inserted: a mistyped id would
+otherwise duplicate the record it was meant to correct. An empty id creates.
+Anything else — `acme-1` — is a name the file made up for a record it is creating,
+which is what lets a migration from another system bring children with it, since
+the child sheet can point at a parent that does not exist yet.
+
+**A collection sheet speaks for the whole collection.** For every record the file
+names, a row the sheet does not list is a row that gets removed — otherwise a
+round trip could never delete an address. A collection with *no* sheet is left
+alone, because saying nothing is not the same as saying "none". Removal is the one
+thing an import destroys, so the check counts it separately and the page says so
+in as many words. A collection row naming a parent the file does not contain is
+refused: attaching it would mean loading a record the file never mentioned, which
+is a two-line file reaching into anything.
+
+**Both halves are tested against each other** — export a module, import the file
+back unedited, and nothing may change or double. Either half can be correct on its
+own and still disagree about a sheet name, a header or a stored value.
+
+Two things deliberately left: the file is read into memory before anything is
+written, because the sheets must be cross-referenced before the first row is saved
+and a spreadsheet promises no order — fine for what a customer exports and edits,
+and wrong for hundreds of thousands of rows. And importing is admin-only for now.
+It is not a more dangerous way to edit a record than the form is, but it is a much
+faster one, and §7.5 is where that gets a real answer.
 
 ---
 
@@ -670,6 +710,10 @@ collection exercises it.
   company, each with its own fields, and a person links to their company by id.
 - Export (§5.6): a module's records as a spreadsheet, one sheet per shape,
   carrying whatever the list was filtered to.
+- Import (§5.6), the other half: the same file back, validated row by row through
+  the same validator the form uses, applied in one transaction or refused whole.
+  A check is the import rolled back rather than a second code path, and an export
+  imported back unedited changes nothing — which is the test the pair is for.
 - Module presets (§6.1): `tenant:module:install --preset`, with Contact shipping
   `basic` and `extended`.
 - Module boundaries enforced by deptrac in CI.
@@ -747,25 +791,18 @@ field's values. They are opposites and probably want deciding together: one is
 data loss nobody asked for, the other is data loss somebody explicitly asked for.
 
 Deliberately still missing, and each one needs a decision rather than an
-implementation: column promotion, links between modules (§7.6), the metadata
-editor, and §7.2 — what happens to stored data when a field changes type or is
+implementation: column promotion, the remaining half of links between modules
+(§7.6), and §7.2 — what happens to stored data when a field changes type or is
 removed. Installing a module today refuses to touch an existing installation for
-exactly that reason, which now also means a customer who installed Contact before
+exactly that reason, which also means a customer who installed Contact before
 addresses existed gets neither those nor a history table.
 
-**§7.2 has now blocked two features in a row**, which is the argument for building
-the additive-only half of it next: a new table and new definition rows destroy
-nothing, and both collections and history needed exactly that. The destructive
-half — a field changing type, a field deleted with data in it — can stay open.
+**§7.2 blocked two features in a row**, which was the argument for building the
+additive-only half of it: a new table and new definition rows destroy nothing, and
+both collections and history needed exactly that.
 
-**Nothing says which field names a record.** The record page needs a heading, and
-the metadata has no answer, so it uses the fields the module marks required — the
-ones always there to print — capped at two. That is a stand-in, and it will be
-wrong for the first module whose required fields are not what a person calls the
-record by. A real title belongs in the definitions; adding that flag on the way to
-a detail page would have been deciding it by accident, which is what §7 exists to
-prevent.
-
-Two things to keep honest while that lands: the metadata layer will want a
+Two things to keep honest while templates land: the metadata layer will want a
 per-tenant cache, which is §7.4 in a new costume; and file storage has not been
-designed at all, which is a cross-tenant surface as soon as uploads exist.
+designed at all, which is a cross-tenant surface as soon as uploads exist. The
+import needs no answer to it — it parses the upload and discards it — but the
+first feature that keeps a file will.

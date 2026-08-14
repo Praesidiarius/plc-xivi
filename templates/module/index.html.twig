@@ -41,6 +41,10 @@
 					<span class="d-none d-sm-inline">Export</span>
 				</a>
 				{% if is_granted('ROLE_ADMIN') %}
+					<a class="btn btn-outline-secondary" href="{{ path('module_import', {module: module.key}) }}">
+							<i class="bi bi-upload" aria-hidden="true"></i>
+							<span class="d-none d-sm-inline">Import</span>
+						</a>
 					<a class="btn btn-outline-secondary" href="{{ path('field_index', {module: module.key}) }}">
 							<i class="bi bi-sliders" aria-hidden="true"></i> Fields
 						</a>
