@@ -33,8 +33,8 @@
 						   {{ user and 'ROLE_ADMIN' in user.roles ? 'checked' : (submitted.admin is defined ? 'checked' : '') }}>
 					<label class="form-check-label" for="admin">Administrator</label>
 					<div class="form-text">
-						Administrators manage users, a module's fields, and imports. Everything else
-						is open to everybody for now (§8.4).
+						Administrators may do everything, and manage users, groups and a module's
+						fields. The permissions below have no effect on one.
 					</div>
 				</div>
 
@@ -53,6 +53,124 @@
 					<a class="btn btn-link" href="{{ path('user_index') }}">Cancel</a>
 				</div>
 			</div>
+
+			{% if user %}
+				<div class="card-body border-top">
+					<h2 class="h5 mb-2">Groups</h2>
+					<p class="text-body-secondary">
+						Where permissions normally come from: a grant made to a job survives the
+						person leaving it. <a href="{{ path('group_index') }}">Manage groups</a>.
+					</p>
+
+					{% if groups is empty %}
+						<p class="text-body-secondary">
+							No groups exist yet. <a href="{{ path('group_new') }}">Make one</a>.
+						</p>
+					{% else %}
+						{% for group in groups %}
+							<div class="form-check">
+								<input class="form-check-input" type="checkbox" id="group-{{ group.id }}"
+								       name="groups[{{ group.id }}]" value="{{ group.id }}"
+								       {{ group.id in inGroups ? 'checked' : '' }}>
+								<label class="form-check-label" for="group-{{ group.id }}">{{ group.label }}</label>
+							</div>
+						{% endfor %}
+					{% endif %}
+				</div>
+
+				<div class="card-body border-top">
+					<h2 class="h5 mb-2">Extra permissions for this person</h2>
+					<p class="text-body-secondary">
+						Only for what the groups do not already cover. These <strong>add</strong> to
+						what the groups give — nothing here can take a permission away, which is why
+						what is already inherited is shown but not editable.
+					</p>
+
+					{% if 'ROLE_ADMIN' in user.roles %}
+						<div class="alert alert-secondary">
+							This person is an administrator and may already do everything. Anything
+							set here would take effect only if that were taken away.
+						</div>
+					{% endif %}
+
+					{% if modules is empty %}
+						<div class="alert alert-secondary">No modules are installed, so there is nothing to grant.</div>
+					{% else %}
+						<div class="table-responsive">
+							<table class="table align-middle mb-0">
+								<thead>
+									<tr>
+										<th scope="col" class="text-body-secondary small text-uppercase">Module</th>
+										{% for action in actions %}
+											<th scope="col" class="text-body-secondary small text-uppercase">{{ action.label }}</th>
+										{% endfor %}
+									</tr>
+								</thead>
+								<tbody>
+									{% for module in modules %}
+										<tr>
+											<th scope="row" class="fw-normal">
+												<i class="bi bi-{{ module.icon }} text-body-secondary" aria-hidden="true"></i>
+												{{ module.label }}
+											</th>
+											{% for action in actions %}
+												{% set current = matrix[module.key][action.value]|default('') %}
+												{% set from_group = inherited[module.key][action.value]|default('') %}
+												<td>
+													{#
+														Choices that cannot change anything are disabled rather than
+														offered and ignored. Grants only ever add (§8.4), so a
+														personal grant no wider than the group's is a no-op — and a
+														control that accepts a choice and does nothing with it is
+														worse than one that says it cannot.
+
+														Never the currently selected one, whatever it is: clearing a
+														grant that has become redundant is a legitimate tidy-up, and
+														a value the form cannot round-trip is a value it would lose.
+													#}
+													<select class="form-select form-select-sm"
+													        name="grants[{{ module.key }}][{{ action.value }}]"
+													        aria-label="{{ action.label }} {{ module.label }}">
+														{# Never disabled: removing a grant that has become redundant
+														   is a real change, and the only way back to none. #}
+														<option value="" {{ current == '' ? 'selected' : '' }}>No</option>
+														{% for scope in scopes %}
+															{% if action.isScopable or scope.value == 'all' %}
+																{% set covered = from_group == 'all' or (from_group == 'own' and scope.value == 'own') %}
+																<option value="{{ scope.value }}"
+																        {{ current == scope.value ? 'selected' : '' }}
+																        {{ covered and current != scope.value ? 'disabled' : '' }}>
+																	{{ action.isScopable ? scope.label : 'Yes' }}
+																</option>
+															{% endif %}
+														{% endfor %}
+													</select>
+													{#
+														Said beside the control rather than merged into it. Merged,
+														somebody would grant a thing twice and then be unable to work
+														out why removing it changed nothing — the grant they removed
+														was never the one doing the work.
+													#}
+													{% if from_group %}
+														<div class="form-text mb-0">
+															groups give: {{ from_group == 'all' ? 'all' : 'own' }}
+														</div>
+													{% endif %}
+												</td>
+											{% endfor %}
+										</tr>
+									{% endfor %}
+								</tbody>
+							</table>
+						</div>
+					{% endif %}
+				</div>
+
+				<div class="card-body border-top">
+					<button class="btn btn-primary" type="submit">Save</button>
+					<a class="btn btn-link" href="{{ path('user_index') }}">Cancel</a>
+				</div>
+			{% endif %}
 		</form>
 	</main>
 {% endblock %}

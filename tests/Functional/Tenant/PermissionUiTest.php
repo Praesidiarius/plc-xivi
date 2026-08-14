@@ -32,6 +32,9 @@ use Xivi\Core\Permission\PermissionScope;
 /**
  * Granting permissions from a screen rather than from a console command (§7.5).
  *
+ * Two screens: a group's, which is where permissions normally come from, and one
+ * person's, which is the exception on top of it.
+ *
  * The point of the whole slice: until this existed the only way to grant anything
  * was `tenant:permissions:grant-all`, which is all of it or none of it, and a
  * console command against the customer's database is not a thing a customer has —
@@ -39,14 +42,14 @@ use Xivi\Core\Permission\PermissionScope;
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
-final class PermissionGroupUiTest extends WebTestCase
+final class PermissionUiTest extends WebTestCase
 {
     use SharesATenant;
 
-    private const string SLUG = 'test_group_ui';
-    private const string HOST = 'groups.localhost';
-    private const string ADMIN = 'admin@groups.test';
-    private const string MEMBER = 'member@groups.test';
+    private const string SLUG = 'test_permission_ui';
+    private const string HOST = 'permissionui.localhost';
+    private const string ADMIN = 'admin@permissionui.test';
+    private const string MEMBER = 'member@permissionui.test';
     private const string PASSWORD = 'a-long-enough-password';
 
     private KernelBrowser $client;
@@ -205,7 +208,135 @@ final class PermissionGroupUiTest extends WebTestCase
         self::assertSame(2, $addOptions, 'no / yes');
     }
 
+    // -- one person's own grants --------------------------------------------
+
+    /**
+     * The exception the group model cannot express: "Anna, and only Anna, may
+     * also export" without inventing a group of one that nobody can read the
+     * purpose of.
+     */
+    public function testAGrantMadeToOnePersonAddsToWhatTheirGroupsGive(): void
+    {
+        $this->signIn(self::ADMIN);
+        $this->createGroupGranting(['grants[contact][list]' => PermissionScope::All->value]);
+
+        $member = $this->user(self::MEMBER);
+        $this->client->request('GET', $this->url('/users/' . $member->getId()));
+        $this->client->submitForm('Save', [
+            'email' => self::MEMBER,
+            'name' => 'Member',
+            'grants[contact][export]' => PermissionScope::Own->value,
+        ]);
+
+        $set = $this->resolve(self::MEMBER);
+
+        // Both, from two different holders, folded into one answer.
+        self::assertSame(PermissionScope::All, $set->scopeFor(ContactModule::KEY, ModuleAction::List));
+        self::assertSame(PermissionScope::Own, $set->scopeFor(ContactModule::KEY, ModuleAction::Export));
+    }
+
+    /**
+     * Additive means additive. A personal grant narrower than the group's cannot
+     * pull it back — the resolver takes the widest, and this is the screen where
+     * somebody would most expect otherwise.
+     */
+    public function testAPersonalGrantCannotNarrowWhatAGroupGave(): void
+    {
+        $this->signIn(self::ADMIN);
+        $this->createGroupGranting(['grants[contact][view]' => PermissionScope::All->value]);
+
+        $member = $this->user(self::MEMBER);
+        $this->client->request('GET', $this->url('/users/' . $member->getId()));
+        $this->client->submitForm('Save', [
+            'email' => self::MEMBER,
+            'name' => 'Member',
+            'grants[contact][view]' => PermissionScope::Own->value,
+        ]);
+
+        self::assertSame(
+            PermissionScope::All,
+            $this->resolve(self::MEMBER)->scopeFor(ContactModule::KEY, ModuleAction::View),
+        );
+    }
+
+    /** What the groups already give is shown, so nobody grants it twice. */
+    public function testTheUserFormSaysWhatTheGroupsAlreadyGive(): void
+    {
+        $this->signIn(self::ADMIN);
+        $this->createGroupGranting(['grants[contact][list]' => PermissionScope::All->value]);
+
+        $member = $this->user(self::MEMBER);
+        $text = $this->client->request('GET', $this->url('/users/' . $member->getId()))
+            ->filter('main')->text();
+
+        self::assertStringContainsString('groups give: all', $text);
+    }
+
+    /**
+     * A choice that could not change anything is not offered.
+     *
+     * Grants only ever add, so a personal grant no wider than the group's is a
+     * no-op — and a select that accepts a choice and then ignores it is a worse
+     * explanation of the rule than a disabled option is.
+     */
+    public function testChoicesTheGroupsAlreadyCoverAreDisabled(): void
+    {
+        $this->signIn(self::ADMIN);
+        $this->createGroupGranting([
+            'grants[contact][view]' => PermissionScope::All->value,
+            'grants[contact][edit]' => PermissionScope::Own->value,
+        ]);
+
+        $member = $this->user(self::MEMBER);
+        $page = $this->client->request('GET', $this->url('/users/' . $member->getId()));
+
+        // The group gives all, so nothing personal can widen it.
+        $view = $page->filter('select[name="grants[contact][view]"] option:not([disabled])');
+        self::assertSame(['No'], $this->labels($view));
+
+        // The group gives own, so only all is worth choosing.
+        $edit = $page->filter('select[name="grants[contact][edit]"] option:not([disabled])');
+        self::assertSame(['No', 'All records'], $this->labels($edit));
+
+        // Nothing inherited here, so every choice stays open.
+        $delete = $page->filter('select[name="grants[contact][delete]"] option:not([disabled])');
+        self::assertCount(3, $delete);
+    }
+
+    /** Group membership is editable from the person as well as from the group. */
+    public function testGroupsCanBeSetFromTheUserPage(): void
+    {
+        $this->signIn(self::ADMIN);
+        $id = $this->createGroupGranting(['grants[contact][list]' => PermissionScope::All->value]);
+
+        $member = $this->user(self::MEMBER);
+        $crawler = $this->client->request('GET', $this->url('/users/' . $member->getId()));
+        $form = $crawler->selectButton('Save')->form();
+        $form->remove(sprintf('groups[%d]', $id));
+        $this->client->submit($form);
+
+        self::assertFalse($this->resolve(self::MEMBER)->allows(ContactModule::KEY, ModuleAction::List));
+    }
+
+    /** Adding somebody has no permissions section: grants need an account first. */
+    public function testTheAddUserFormDoesNotAskForPermissions(): void
+    {
+        $this->signIn(self::ADMIN);
+
+        $text = $this->client->request('GET', $this->url('/users/new'))->filter('main')->text();
+
+        self::assertStringNotContainsString('Extra permissions', $text);
+    }
+
     // -- helpers ------------------------------------------------------------
+
+    /**
+     * @return list<string>
+     */
+    private function labels(\Symfony\Component\DomCrawler\Crawler $options): array
+    {
+        return $options->each(static fn (\Symfony\Component\DomCrawler\Crawler $o): string => trim($o->text()));
+    }
 
     /**
      * A group called Sales, granting what is passed, with the member in it.

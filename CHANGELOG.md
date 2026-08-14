@@ -53,6 +53,14 @@ of every page, and is not yet tied to git tags.
   because that is the true answer.
 - **Importing is its own permission per module**, no longer `ROLE_ADMIN` — the
   answer §5.6 said §7.5 would give it.
+- **Grants can also be made to one person**, on their own page, alongside their
+  group membership — the exception the group model cannot express without
+  inventing a group of one that nobody can read the purpose of. What their groups
+  already give is shown beside each cell and never merged into it: merged,
+  somebody grants a thing twice and then cannot work out why removing it changed
+  nothing. Choices the groups already cover are disabled rather than offered and
+  ignored, since grants only ever add — never the current one, because clearing a
+  grant that has become redundant is a real change.
 - **A screen for granting permissions**, at `/users/groups`. Until it existed the
   only way to grant anything was a console command against the customer's
   database, which is not a thing a customer has — the same argument §8.4.1 made

@@ -15,7 +15,7 @@ namespace App\Controller;
 
 use App\Tenant\Entity\PermissionGroup;
 use App\Tenant\Security\GroupChangeRefused;
-use App\Tenant\Security\PermissionGroupManager;
+use App\Tenant\Security\PermissionManager;
 use App\Tenant\Security\UserManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -52,7 +52,7 @@ final class PermissionGroupController extends AbstractController
     private const string CSRF = 'manage-groups';
 
     public function __construct(
-        private readonly PermissionGroupManager $groups,
+        private readonly PermissionManager $groups,
         private readonly MetadataRepository $metadata,
         private readonly UserManager $users,
     ) {
@@ -121,7 +121,7 @@ final class PermissionGroupController extends AbstractController
             'modules' => $this->metadata->all(),
             'actions' => ModuleAction::cases(),
             'scopes' => PermissionScope::cases(),
-            'matrix' => PermissionGroupManager::matrixOf($group),
+            'matrix' => PermissionManager::matrixOf($group),
             'users' => $this->users->all(),
             'members' => $this->memberIds($group),
         ]);
