@@ -6,9 +6,10 @@
 # can drift away from this one. If this passes locally it passes there, and you
 # find out before pushing rather than after.
 #
-#   bin/ci              everything
-#   bin/ci --no-build   skip the production image build (the slow one)
-#   bin/ci --coverage   measure coverage and hold it above the floor
+#   bin/ci                 everything
+#   bin/ci --no-build      skip the production image build (the slow one)
+#   bin/ci --coverage      measure coverage and hold it above the floor
+#   bin/ci --no-changelog  allow a branch that adds no changelog entry
 #
 # Coverage is opt-in rather than always on, but not because it is slow: this
 # suite spends its time provisioning databases, so Xdebug costs it about seven
@@ -40,10 +41,13 @@ coverage=false
 # chasing that buys tests written to reach lines rather than to catch anything.
 readonly COVERAGE_FLOOR=77
 
+check_changelog=true
+
 for arg in "$@"; do
 	case "$arg" in
 		--no-build) build_prod_image=false ;;
 		--coverage) coverage=true ;;
+		--no-changelog) check_changelog=false ;;
 		-h|--help) sed -n '3,20p' "${BASH_SOURCE[0]}" | cut -c 3-; exit 0 ;;
 		*) printf 'unknown option: %s\n' "$arg" >&2; exit 64 ;;
 	esac
@@ -55,6 +59,39 @@ if [ -t 1 ]; then
 else
 	step() { printf '\n==> %s\n' "$1"; }
 	pass() { printf '\n%s\n' "$1"; }
+fi
+
+# Checked before the slow work, so forgetting it costs seconds rather than the
+# whole suite. It is a real gate rather than a reminder: a changelog nobody is
+# made to write is one that is accurate right up until the week it matters.
+#
+# --no-changelog is the escape hatch for a branch that genuinely changed nothing
+# anybody would be told about. It exists on purpose: a check with no way out is
+# one that eventually gets deleted rather than answered.
+if [ "$check_changelog" = true ]; then
+	step 'The changelog mentions this branch'
+
+	branch=$(git rev-parse --abbrev-ref HEAD)
+	base=$(git merge-base HEAD main 2>/dev/null || true)
+
+	if [ "$branch" = 'main' ] || [ -z "$base" ]; then
+		printf 'Not on a branch off main; nothing to compare.\n'
+	elif git diff --quiet "$base" HEAD -- CHANGELOG.md && git diff --quiet HEAD -- CHANGELOG.md; then
+		printf 'CHANGELOG.md is unchanged on this branch.\n\n' >&2
+		printf 'Add an entry under [Unreleased], with the issue number if there is\n' >&2
+		printf 'one — see the [XIV-2] style at the bottom of the file. If this branch\n' >&2
+		printf 'really has nothing worth telling anybody about, pass --no-changelog.\n' >&2
+		exit 65
+	else
+		printf 'CHANGELOG.md has been updated.\n'
+	fi
+
+	# The issue number belongs in the branch name too, when there is an issue.
+	case "$branch" in
+		main|*/*) ;;
+		*) printf '\nNote: branch "%s" carries no issue number. The convention is\n' "$branch" >&2
+		   printf 'XIV-123/short-name when an issue exists.\n' >&2 ;;
+	esac
 fi
 
 step 'Starting the stack'

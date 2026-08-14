@@ -15,6 +15,8 @@ namespace App\Controller;
 
 use App\Tenant\Entity\User;
 use App\Tenant\Repository\UserRepository;
+use App\Tenant\Security\ModuleRecord;
+use App\Tenant\Security\PermissionResolver;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormInterface;
@@ -22,6 +24,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
@@ -31,6 +34,7 @@ use Xivi\Core\Form\ModuleRecordType;
 use Xivi\Core\History\HistoryRepository;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Metadata\ModuleNotInstalled;
+use Xivi\Core\Permission\ModuleAction;
 use Xivi\Core\Permission\RecordAccess;
 use Xivi\Core\Query\Filter;
 use Xivi\Core\Query\Operator;
@@ -67,20 +71,21 @@ final class ModuleController extends AbstractController
         private readonly RecordQueryFactory $queries,
         private readonly RecordExporter $exporter,
         private readonly UserRepository $users,
+        private readonly PermissionResolver $permissions,
     ) {
     }
 
     #[Route('', name: 'module_index', methods: ['GET'])]
+    #[IsGranted(ModuleAction::List->value, subject: 'module')]
     public function index(string $module, Request $request): Response
     {
         $definition = $this->definition($module);
         $query = $this->queries->fromQueryParameters($request->query->all());
 
-        // Unrestricted until the voters land: scoping the list while /new and
-        // /{id} are still open to anybody would be half a permission system,
-        // which reads as a working one. The engine is ready for it — this line
-        // and the count below are where it attaches (§7.5).
-        $access = RecordAccess::unrestricted();
+        // The attribute above said they may list; this says which ones. Both
+        // seams, because they answer different questions and neither implies
+        // the other (§7.5).
+        $access = $this->accessFor($definition, ModuleAction::List);
 
         try {
             $records = $this->records->findBy($definition, $query, $access);
@@ -132,16 +137,17 @@ final class ModuleController extends AbstractController
      * spreadsheet is a zip and the writer needs to seek.
      */
     #[Route('/export', name: 'module_export', methods: ['GET'])]
+    #[IsGranted(ModuleAction::Export->value, subject: 'module')]
     public function export(string $module, Request $request): Response
     {
         $definition = $this->definition($module);
         $query = $this->queries->fromQueryParameters($request->query->all());
 
         $path = (string) tempnam(sys_get_temp_dir(), 'xivi-export-');
-        // Unrestricted with the list above, and it has to move at the same time:
-        // an export narrower than the page it came from is confusing, and one
-        // wider than it is a leak (§7.5).
-        $this->exporter->toFile($definition, $query, RecordAccess::unrestricted(), $path);
+        // Scoped by the export permission rather than by the list one: they are
+        // separate grants, and somebody may reasonably be allowed to read every
+        // record on screen and take only their own away.
+        $this->exporter->toFile($definition, $query, $this->accessFor($definition, ModuleAction::Export), $path);
 
         $response = $this->file($path, sprintf('%s-%s.xlsx', $module, date('Y-m-d')))
             ->deleteFileAfterSend(true);
@@ -155,6 +161,7 @@ final class ModuleController extends AbstractController
     }
 
     #[Route('/new', name: 'module_new', methods: ['GET', 'POST'])]
+    #[IsGranted(ModuleAction::Add->value, subject: 'module')]
     public function new(string $module, Request $request): Response
     {
         $definition = $this->definition($module);
@@ -188,10 +195,11 @@ final class ModuleController extends AbstractController
      * on a page that only reads.
      */
     #[Route('/{id}', name: 'module_show', requirements: ['id' => Requirement::POSITIVE_INT], methods: ['GET'])]
+    #[IsGranted(ModuleAction::View->value, subject: 'module')]
     public function show(string $module, int $id): Response
     {
         $definition = $this->definition($module);
-        $record = $this->records->find($definition, $id) ?? throw $this->createNotFoundException();
+        $record = $this->recordFor($definition, $id, ModuleAction::View);
 
         $children = [];
         foreach ($definition->getCollections() as $collection) {
@@ -232,9 +240,12 @@ final class ModuleController extends AbstractController
                 continue;
             }
 
+            // Scoped like the list is. These are other people's records shown on
+            // this page, so leaving them unrestricted would be a way to read
+            // colleagues' contacts by opening the company they point at.
             $found = $this->records->findBy($module, new RecordQuery(
                 [new Filter($field->getKey(), Operator::Equals, (int) $record->id)],
-            ), RecordAccess::unrestricted());
+            ), $this->accessFor($module, ModuleAction::View));
 
             if ($found !== []) {
                 $linked[$field->getLabel()] = $found;
@@ -272,19 +283,21 @@ final class ModuleController extends AbstractController
     }
 
     #[Route('/{id}/edit', name: 'module_edit', requirements: ['id' => Requirement::POSITIVE_INT], methods: ['GET', 'POST'])]
+    #[IsGranted(ModuleAction::Edit->value, subject: 'module')]
     public function editRecord(string $module, int $id, Request $request): Response
     {
         $definition = $this->definition($module);
-        $record = $this->records->find($definition, $id) ?? throw $this->createNotFoundException();
+        $record = $this->recordFor($definition, $id, ModuleAction::Edit);
 
         return $this->edit($definition, $record, $request);
     }
 
     #[Route('/{id}/delete', name: 'module_delete', requirements: ['id' => Requirement::POSITIVE_INT], methods: ['POST'])]
+    #[IsGranted(ModuleAction::Delete->value, subject: 'module')]
     public function delete(string $module, int $id, Request $request): Response
     {
         $definition = $this->definition($module);
-        $record = $this->records->find($definition, $id) ?? throw $this->createNotFoundException();
+        $record = $this->recordFor($definition, $id, ModuleAction::Delete);
 
         if ($this->isCsrfTokenValid('delete-record-' . $id, (string) $request->request->get('_token'))) {
             $this->writer->delete($definition, $record);
@@ -496,6 +509,49 @@ final class ModuleController extends AbstractController
         }
 
         return $names;
+    }
+
+    /**
+     * One record, if this person is allowed it — and the right kind of no if not.
+     *
+     * **404 when they may not view it, 403 when they may.** Somebody scoped to
+     * their own records who guesses at ids must not be able to learn which ones
+     * exist, so a colleague's record answers exactly as an id that was never
+     * there. Once they can see it, hiding the refusal would be worse than
+     * useless: "you may look but not change this" is a real and comprehensible
+     * answer, and pretending the record vanished would only send them to look
+     * for it again.
+     */
+    private function recordFor(ModuleDefinition $definition, int $id, ModuleAction $action): Record
+    {
+        $record = $this->records->find($definition, $id) ?? throw $this->createNotFoundException();
+        $subject = new ModuleRecord($definition, $record);
+
+        if ($this->isGranted($action->value, $subject)) {
+            return $record;
+        }
+
+        throw $this->isGranted(ModuleAction::View->value, $subject)
+            ? $this->createAccessDeniedException()
+            : $this->createNotFoundException();
+    }
+
+    /**
+     * Which records this person may be shown, for one action, as something the
+     * query layer can compile (§7.5).
+     *
+     * The route attribute has already refused anybody with no grant at all, so
+     * in practice this narrows rather than empties — but it is written to fail
+     * closed anyway, because a second line that trusts the first is not one.
+     */
+    private function accessFor(ModuleDefinition $definition, ModuleAction $action): RecordAccess
+    {
+        return RecordAccess::fromPermissions(
+            $this->permissions->forUser($this->getUser()),
+            $definition->getKey(),
+            $action,
+            $this->currentUserId(),
+        );
     }
 
     private function definition(string $module): ModuleDefinition

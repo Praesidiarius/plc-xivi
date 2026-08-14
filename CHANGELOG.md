@@ -26,6 +26,38 @@ of every page, and is not yet tied to git tags.
 
 ### Added
 
+- **A fine-grained permission system** ([XIV-2]), settling §7.5 and replacing
+  "authenticated, plus `ROLE_ADMIN`". What can be done is a closed `ModuleAction`
+  enum — view, list, add, edit, delete, export, import — so the catalogue of
+  permissions is that enum crossed with the modules a customer has installed,
+  worked out at runtime. There is nothing to seed when a module is installed and
+  nothing to migrate when an action ships.
+- **Groups and grants.** A grant says "this holder may do this to this module,
+  this far", held by either a group or one user, with the database enforcing that
+  exactly one of them is set. Resolution is a union with no denies, so it is a
+  maximum rather than a precedence table, and a user's own grants only ever add
+  to what their groups gave them.
+- **Scope: all records, or only your own.** It applies to every action that names
+  a record which already exists — view, list, export, edit, delete — and not to
+  adding or importing, which name none.
+- **Record access is a WHERE clause**, not a check after loading. A voter is
+  handed one subject and cannot answer "which twenty-five am I looking at"; the
+  page and its total are separate queries, so a restriction reaching one and not
+  the other would print the number of records somebody may not see directly
+  underneath the ones they may. The predicate sits beside the soft-delete one in
+  `QueryCompiler`, and the export carries it too.
+- **Two voters** for the point checks: one for "may you do this to any of this
+  module's records", annotated on the routes, and one for a single record. A
+  record you may not view answers 404 rather than 403, so guessing ids cannot be
+  used to find out which ones exist; one you may view but not change answers 403,
+  because that is the true answer.
+- **Importing is its own permission per module**, no longer `ROLE_ADMIN` — the
+  answer §5.6 said §7.5 would give it.
+- **`tenant:permissions:grant-all`**, the deliberate upgrade path for an
+  installation that predates this, and the way back into one that has locked
+  itself out. The migration is structural and writes no grants: it lands for every
+  tenant at once, and deciding what a customer's people may do is not something to
+  do to them in passing.
 - **Demo data generation** (`tenant:demo:generate`), for finding out what the
   list, the query layer and the paging do at a size nobody types by hand. It
   walks a module's own definitions and asks each field *type* for a plausible
@@ -139,3 +171,5 @@ began and is recorded here as one entry rather than invented as a history.
   the production image.
 - 220 tests, with functional tests that provision real tenants — real databases
   and real PostgreSQL roles.
+
+[XIV-2]: https://xivi.youtrack.cloud/issue/XIV-2
