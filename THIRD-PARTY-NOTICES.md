@@ -46,6 +46,14 @@ time, and the file keeps its own licence header. It is then served from this
 application's own host rather than a CDN, so no third party is contacted when a
 customer loads a page.
 
+**Bootstrap Icons** — MIT, Copyright (c) 2019-2024 The Bootstrap Authors.
+<https://github.com/twbs/icons>
+
+Same arrangement: the CSS and its web fonts are fetched into `assets/vendor/` by
+`importmap:install` and self-hosted, not committed here. Chosen over Font Awesome
+because it is MIT throughout, where Font Awesome Free splits three ways and its
+icons carry an attribution obligation.
+
 ## Runtime images
 
 The Docker images build on `dunglas/frankenphp` (MIT) and `postgres` (PostgreSQL

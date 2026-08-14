@@ -10,10 +10,13 @@
 A metadata-driven CRM/ERP engine in Symfony, plus a CRM built on top of it to keep
 the engine honest.
 
-> **Status: early.** Multi-tenancy, sign-in and the metadata engine are built and
-> tested, and records can be listed, created and edited in the browser. What is
-> missing is everything that makes it a CRM: more modules, relations between
-> them, filtering and searching, and an editor for the metadata itself.
+> **Status: early, but no longer a skeleton.** Multi-tenancy, sign-in and the
+> metadata engine are built and tested. A customer can list, filter, create, edit,
+> delete and export records, change their own fields, and read what happened to a
+> record — every page of it built from definitions in their own database. What is
+> missing is the way back in (a spreadsheet import), templates deciding which
+> modules a customer is given, a second module, and an authorization model finer
+> than a single admin role.
 
 The design is written down first and the code follows it. Read
 **[docs/architecture.md](docs/architecture.md)** before anything else; it explains
@@ -50,14 +53,55 @@ declaration and nothing else, no entity, no repository, no controller and no for
 class (§5). One generic controller and one generic form serve every module,
 building each page from that customer's definitions.
 
+**Presets, so installing is a choice.** A module ships named subsets of its own
+fields — Contact has `basic` and `extended` — picked at install time with
+`--preset` (§6.1). A preset names fields the declaration already contains rather
+than carrying its own, so a field key means one type across the whole module no
+matter which preset a customer got.
+
+**Child collections.** A contact's addresses are the same kind of thing as the
+module itself, not a special case: their own table with a real foreign key, their
+own definitions, edited inline with the parent and soft-deleted along with it
+(§5.1). Contact declares them and still contains no code.
+
+**One module, more than one kind of record.** A contact is a person *or* a
+company, each variant with its own fields, in a single module — because "pick a
+contact" has to stay a plain foreign key, and two modules would make every link to
+one polymorphic (§5.5). A person links to their company by id; the company's
+people are a query, not a second copy of the answer.
+
+**History per module, not one table for everything.** Every write goes through a
+single writer, which records one entry per action in that module's own history
+table (§5.2). Per module because a shared polymorphic table cannot carry a foreign
+key, which is exactly what made the last one rot at 60 million rows; per action
+because a timeline nobody can read is a feature nobody uses. A record's timeline
+is on its page.
+
+**Filtering, sorting and paging.** Compiled from the customer's definitions rather
+than written per module, so a field they added this morning is filterable this
+afternoon (§5.3). A filter bar, sortable columns, and a filtered list that is a
+URL you can send to a colleague. Filtering by a collection compiles to an `EXISTS`
+semi-join, and each field type owns which operators apply to it.
+
+**An editor for the metadata.** Admins add, relabel and remove fields on any
+shape, collections included (§5.4). Changes that would strand data are refused
+with a count rather than performed — turning on required or unique when existing
+records would fail it — and removing a field leaves its values untouched, so
+re-adding the key brings them back.
+
+**Export.** A module's records as a spreadsheet, one sheet per shape, carrying
+whatever the list was filtered to (§5.6). Headers are field keys rather than
+labels, so renaming a label does not break yesterday's file and the export reads
+back in. The import is the next thing being built.
+
 **Classic PHP execution, on purpose.** FrankenPHP runs without worker mode, so no
 PHP state survives a request boundary and cross-tenant leakage (§7.4) is
 structurally impossible for web requests. It costs a few milliseconds per request
 and is worth it. See the comment in `frankenphp/Caddyfile`.
 
-**Server-rendered, no build step.** Twig and Bootstrap's CSS, self-hosted through
-AssetMapper — no Node, no bundler, and no CDN calls from a customer's browser. The
-forms work without JavaScript.
+**Server-rendered, no build step.** Twig, Bootstrap's CSS and Bootstrap Icons,
+self-hosted through AssetMapper — no Node, no bundler, and no CDN calls from a
+customer's browser. The forms work without JavaScript.
 
 ## Requirements
 
@@ -168,7 +212,7 @@ the container is the better instrument.
 | --- | --- |
 | `tenant:provision <slug> <hostname...>` | Creates the row, the role, the database and its schema; `--admin-email` adds the first user |
 | `tenant:user:create <slug> <email>` | Adds a user to one tenant; `--admin` grants ROLE_ADMIN |
-| `tenant:module:install <slug> <module>` | Installs a module for one tenant: its table and field definitions |
+| `tenant:module:install <slug> <module>` | Installs a module for one tenant: its table and field definitions; `--preset` picks which fields |
 | `tenant:list` | Shows the registry |
 | `tenant:migrate [--slug=]` | Applies tenant migrations to every tenant; run it on every deploy |
 | `tenant:rotate-secrets` | Re-encrypts stored passwords with the active key |
@@ -240,10 +284,16 @@ GitHub Actions runs that same script rather than its own copy of the checks, so
 there is nothing that can drift between local and CI, and a green run locally means
 a green run there.
 
-It covers: `composer validate --strict`, a dependency vulnerability audit, deptrac
+It covers: `composer validate --strict`, a dependency vulnerability audit, coding
+standards (`php-cs-fixer`, Symfony's ruleset plus the licence header), deptrac
 module boundaries, PHPStan level 8, PHPUnit, and a build of the **production**
 image — the last one because the dev image installs dev dependencies and so proves
 nothing about what ships.
+
+`composer cs-fix` writes the formatting fixes. It cannot write the `@author`
+annotation every class carries — no fixer adds one — so a new class needs it by
+hand; `.php-cs-fixer.dist.php` names the three Symfony rules deliberately turned
+off and why.
 
 Coverage is measured over `src/` and `packages/`, written to `coverage/`, and
 gated by a floor in `bin/ci` — a number nothing enforces drifts down one
@@ -254,9 +304,9 @@ provisioning databases rather than executing PHP.
 ## Layout
 
 ```
-src/          the application: tenancy, control plane, security, controllers
-packages/core     the engine — metadata, field types, record storage
-packages/contact  the first module built on it
+src/               the application: tenancy, control plane, security, controllers
+packages/core      the engine — metadata, field types, record storage
+packages/contact   the first module built on it
 ```
 
 Modules are Symfony bundles wired as Composer path repositories. A module may
@@ -271,11 +321,18 @@ docker compose exec php composer test      # PHPUnit
 docker compose exec php composer phpstan   # level 8
 ```
 
-The functional tests provision real tenants — real databases and roles — and drop
-them again. They cover the parts that would fail silently: two hosts reaching two
+The functional tests provision real tenants — real databases and real PostgreSQL
+roles. They cover the parts that would fail silently: two hosts reaching two
 databases within one process, one tenant's credentials being refused by another
 tenant's database, a session from one tenant being refused by another, records and
 uniqueness not crossing tenants, and a full encryption-key rotation.
+
+A tenant is provisioned once per test **class**, and each test is rolled back
+afterwards rather than truncated (`dama/doctrine-test-bundle`). Speed is not the
+point — a truncate was already fast — a rollback also undoes field *definitions*,
+which is what lets the metadata-editor tests share a database with everything
+else. Tenant databases are left behind between runs on purpose, and reclaimed by
+slug the next time.
 
 ## Licence
 
