@@ -33,139 +33,165 @@
 	<main class="container page-shell">
 		{{ include('_flashes.html.twig') }}
 
-		<div class="d-flex align-items-center justify-content-between gap-3 mb-3">
-			<div>
-				<h1 class="h3 mb-0">{{ title }}</h1>
-				<p class="text-body-secondary small mb-0">
-					{{ module.label }}
-					{% if owner %}· owned by {{ owner }}{% endif %}
-					{% if record.createdAt %}· created {{ record.createdAt|date('Y-m-d H:i') }}{% endif %}
-					{% if record.updatedAt %}· last changed {{ record.updatedAt|date('Y-m-d H:i') }}{% endif %}
-				</p>
+		<div class="d-flex align-items-start justify-content-between gap-3 mb-3">
+			<div class="d-flex align-items-center gap-3">
+				<i class="bi bi-{{ module.icon }} fs-2 text-body-secondary" aria-hidden="true"></i>
+				<div>
+					<h1 class="h3 mb-0">{{ title }}</h1>
+					<p class="text-body-secondary small mb-0">{{ module.label }}</p>
+				</div>
 			</div>
 
 			<div class="d-flex align-items-center gap-2">
 				<a class="btn btn-link" href="{{ path('module_index', {module: module.key}) }}">Back</a>
-				<a class="btn btn-primary" href="{{ path('module_edit', {module: module.key, id: record.id}) }}">Edit</a>
+				<a class="btn btn-primary" href="{{ path('module_edit', {module: module.key, id: record.id}) }}">
+					<i class="bi bi-pencil" aria-hidden="true"></i> Edit
+				</a>
 				<form method="post" action="{{ path('module_delete', {module: module.key, id: record.id}) }}">
 					<input type="hidden" name="_token" value="{{ csrf_token('delete-record-' ~ record.id) }}">
-					<button type="submit" class="btn btn-outline-danger">Delete</button>
+					<button type="submit" class="btn btn-outline-danger">
+						<i class="bi bi-trash" aria-hidden="true"></i> Delete
+					</button>
 				</form>
 			</div>
 		</div>
 
-		<div class="card">
-			<div class="card-body">
-				{# The customer's own definitions, in their order — the same rows that
-				   built the form, read instead of edited. #}
-				<dl class="row mb-0">
-					{% for field in module.fields %}
-						<dt class="col-sm-3 text-body-secondary fw-normal">{{ field.label }}</dt>
-						<dd class="col-sm-9">
-							{% set shown = display(field, record.get(field.key)) %}
-							{{ shown is empty ? '—' : shown }}
-						</dd>
-					{% endfor %}
-				</dl>
-			</div>
-		</div>
+		{# Two columns: the record on the left, context about it on the right.
+		   Three equal cards stacked said everything mattered the same amount. #}
+		<div class="row g-3">
+			<div class="col-lg-8">
+				<div class="card">
+					<div class="card-body">
+						{# The customer's own definitions, in their order — the same rows
+						   that built the form, read instead of edited. Each pair takes
+						   half the row, so two sit side by side on a wide screen. #}
+						<dl class="row mb-0">
+							{% for field in module.fields %}
+								<dt class="col-6 col-md-3 text-body-secondary fw-normal">{{ field.label }}</dt>
+								<dd class="col-6 col-md-3">
+									{% set shown = display(field, record.get(field.key)) %}
+									{# Empty reads quieter than filled, or a half-filled record
+									   looks busier than a full one. #}
+									{{ shown is empty ? '<span class="text-body-secondary">—</span>'|raw : shown }}
+								</dd>
+							{% endfor %}
+						</dl>
 
-		{% for collection in module.collections %}
-			{% set rows = children[collection.key] %}
+						{# A section of the record, not a card beside it: an address belongs
+						   to this contact rather than sitting next to it (§5.1). #}
+						{% for collection in module.collections %}
+							{% set rows = children[collection.key] %}
 
-			<div class="card mt-3">
-				<div class="card-body">
-					<h2 class="h5 mb-3">{{ collection.label }}</h2>
+							<h2 class="h6 text-uppercase text-body-secondary border-top pt-3 mt-4">{{ collection.label }}</h2>
 
-					{% if rows is empty %}
-						<p class="text-body-secondary mb-0">None.</p>
-					{% else %}
-						<div class="table-responsive">
-							<table class="table table-sm align-middle mb-0">
-								<thead>
-									<tr>
-										{% for field in collection.fields %}
-											<th scope="col" class="text-body-secondary small text-uppercase">{{ field.label }}</th>
-										{% endfor %}
-									</tr>
-								</thead>
-								<tbody>
-									{% for row in rows %}
-										<tr>
-											{% for field in collection.fields %}
-												{% set shown = display(field, row.get(field.key)) %}
-												<td>{{ shown is empty ? '—' : shown }}</td>
+							{% if rows is empty %}
+								<p class="text-body-secondary mb-0">None.</p>
+							{% else %}
+								<div class="table-responsive">
+									<table class="table table-sm align-middle mb-0">
+										<thead>
+											<tr>
+												{% for field in collection.fields %}
+													<th scope="col" class="text-body-secondary small text-uppercase fw-normal">{{ field.label }}</th>
+												{% endfor %}
+											</tr>
+										</thead>
+										<tbody>
+											{% for row in rows %}
+												<tr>
+													{% for field in collection.fields %}
+														{% set shown = display(field, row.get(field.key)) %}
+														<td>{{ shown is empty ? '<span class="text-body-secondary">—</span>'|raw : shown }}</td>
+													{% endfor %}
+												</tr>
 											{% endfor %}
-										</tr>
-									{% endfor %}
-								</tbody>
-							</table>
-						</div>
-					{% endif %}
+										</tbody>
+									</table>
+								</div>
+							{% endif %}
+						{% endfor %}
+					</div>
 				</div>
 			</div>
-		{% endfor %}
 
-		{# History belongs on the record, not on the form: it is something you read
-		   about a record, not something you edit (§5.2). #}
-		<div class="card mt-3">
-			<div class="card-body">
-				<h2 class="h5 mb-3">History</h2>
+			<div class="col-lg-4">
+				<div class="card mb-3">
+					<div class="card-body">
+						<h2 class="h6 text-uppercase text-body-secondary mb-3">Record</h2>
+						<dl class="row small mb-0">
+							<dt class="col-5 fw-normal text-body-secondary">Owner</dt>
+							<dd class="col-7">{{ owner ?? '—' }}</dd>
+							{% if record.createdAt %}
+								<dt class="col-5 fw-normal text-body-secondary">Created</dt>
+								<dd class="col-7">{{ record.createdAt|date('Y-m-d H:i') }}</dd>
+							{% endif %}
+							{% if record.updatedAt %}
+								<dt class="col-5 fw-normal text-body-secondary">Changed</dt>
+								<dd class="col-7 mb-0">{{ record.updatedAt|date('Y-m-d H:i') }}</dd>
+							{% endif %}
+						</dl>
+					</div>
+				</div>
 
-				{% if history is empty %}
-					<p class="text-body-secondary mb-0">
-						Nothing recorded. Records that existed before history did have none until
-						the next time they change.
-					</p>
-				{% else %}
-					<ul class="list-unstyled mb-0">
-						{% for entry in history %}
-							<li class="border-top pt-3 mt-3">
-								<div class="d-flex justify-content-between align-items-baseline gap-3">
-									<span>
-										<strong>{{ entry.action.value|capitalize }}</strong>
-										{# Nobody signed in is an import or a console command, not a gap. #}
-										by {{ entry.userLabel ?? 'System' }}
-									</span>
-									<time class="text-body-secondary small text-nowrap"
-										  datetime="{{ entry.occurredAt|date('c') }}">
-										{{ entry.occurredAt|date('Y-m-d H:i') }}
-									</time>
-								</div>
+				{# History belongs on the record, not on the form: it is something you
+				   read about a record, not something you edit (§5.2). #}
+				<div class="card">
+					<div class="card-body">
+						<h2 class="h6 text-uppercase text-body-secondary mb-3">History</h2>
 
-								<ul class="small text-body-secondary mt-2 mb-0">
-									{# Ordered by the definitions, because jsonb does not keep
-									   the order these were written in. #}
-									{% for key, change in in_field_order(module, entry.fieldChanges) %}
-										<li>
-											{{ change.label }}:
-											{{ h.value(module, key, change.from) }} → {{ h.value(module, key, change.to) }}
-										</li>
-									{% endfor %}
+						{% if history is empty %}
+							<p class="text-body-secondary small mb-0">
+								Nothing recorded. Records that existed before history did have none
+								until the next time they change.
+							</p>
+						{% else %}
+							<ul class="list-unstyled mb-0 small">
+								{% for entry in history %}
+									<li class="{{ loop.first ? '' : 'border-top pt-3 mt-3' }}">
+										<div>
+											<strong>{{ entry.action.value|capitalize }}</strong>
+											{# Nobody signed in is an import or a console command, not a gap. #}
+											by {{ entry.userLabel ?? 'System' }}
+										</div>
+										<time class="text-body-secondary" datetime="{{ entry.occurredAt|date('c') }}">
+											{{ entry.occurredAt|date('Y-m-d H:i') }}
+										</time>
 
-									{% for collectionKey, rows in entry.collectionChanges %}
-										{% set collection = module.getCollection(collectionKey) %}
-										{% for row in rows %}
-											<li>
-												{{ collection ? collection.label : collectionKey }} {{ row.action }}:
-												{% if row.action == 'updated' %}
-													{% for key, change in in_field_order(collection, row.changes) %}
-														{{ change.label }}
-														{{ h.value(collection, key, change.from) }} → {{ h.value(collection, key, change.to) }}{{ loop.last ? '' : ',' }}
-													{% endfor %}
-												{% else %}
-													{% for key, held in in_field_order(collection, row.values) %}
-														{{ h.value(collection, key, held.value) }}{{ loop.last ? '' : ',' }}
-													{% endfor %}
-												{% endif %}
-											</li>
-										{% endfor %}
-									{% endfor %}
-								</ul>
-							</li>
-						{% endfor %}
-					</ul>
-				{% endif %}
+										<ul class="text-body-secondary mt-2 mb-0 ps-3">
+											{# Ordered by the definitions, because jsonb does not keep
+											   the order these were written in. #}
+											{% for key, change in in_field_order(module, entry.fieldChanges) %}
+												<li>
+													{{ change.label }}:
+													{{ h.value(module, key, change.from) }} → {{ h.value(module, key, change.to) }}
+												</li>
+											{% endfor %}
+
+											{% for collectionKey, rows in entry.collectionChanges %}
+												{% set collection = module.getCollection(collectionKey) %}
+												{% for row in rows %}
+													<li>
+														{{ collection ? collection.label : collectionKey }} {{ row.action }}:
+														{% if row.action == 'updated' %}
+															{% for key, change in in_field_order(collection, row.changes) %}
+																{{ change.label }}
+																{{ h.value(collection, key, change.from) }} → {{ h.value(collection, key, change.to) }}{{ loop.last ? '' : ',' }}
+															{% endfor %}
+														{% else %}
+															{% for key, held in in_field_order(collection, row.values) %}
+																{{ h.value(collection, key, held.value) }}{{ loop.last ? '' : ',' }}
+															{% endfor %}
+														{% endif %}
+													</li>
+												{% endfor %}
+											{% endfor %}
+										</ul>
+									</li>
+								{% endfor %}
+							</ul>
+						{% endif %}
+					</div>
+				</div>
 			</div>
 		</div>
 	</main>

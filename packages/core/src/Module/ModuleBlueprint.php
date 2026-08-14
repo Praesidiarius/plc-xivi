@@ -31,6 +31,8 @@ final readonly class ModuleBlueprint
         public array $collections = [],
         public array $presets = [],
         public ?string $defaultPreset = null,
+        /** Bootstrap Icons name, without the `bi-` prefix. */
+        public ?string $icon = null,
     ) {
     }
 

@@ -1,19 +1,46 @@
-<nav class="navbar navbar-expand bg-body border-bottom mb-4">
-	<div class="container page-shell">
-		<a class="navbar-brand fw-semibold" href="{{ path('dashboard') }}">{{ chrome.tenant.name }}</a>
+{#
+	The tenant, the modules they have, and the way out.
 
-		<ul class="navbar-nav me-auto">
+	Tabs rather than plain links: with more than two modules the row needs to say
+	which one you are in, and an underline does that more quietly than a filled
+	pill. The icon comes from the module's own definition, so a module chooses how
+	it appears the same way it chooses its label.
+
+	The bar keeps its own background; the active tab takes the *page* colour, so it
+	reads as opening onto what is below rather than dissolving into the bar. That
+	needs an override — see .navbar .nav-tabs in app.css.
+#}
+<nav class="navbar navbar-expand bg-body border-bottom mb-4 pb-0">
+	<div class="container page-shell flex-wrap">
+		<div class="d-flex w-100 align-items-center">
+			<a class="navbar-brand fw-semibold" href="{{ path('dashboard') }}">{{ chrome.tenant.name }}</a>
+
+			<form method="post" action="{{ path('logout') }}" class="d-flex align-items-center gap-2 ms-auto">
+				<span class="text-body-secondary small d-none d-sm-inline">{{ app.user.email }}</span>
+				<button type="submit" class="btn btn-sm btn-outline-secondary">
+					<i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+					<span class="d-none d-sm-inline">Sign out</span>
+				</button>
+			</form>
+		</div>
+
+		<ul class="nav nav-tabs border-bottom-0 w-100 mt-2">
+			{% set current = app.request.attributes.get('module') %}
+			<li class="nav-item">
+				<a class="nav-link{{ current is null ? ' active' : '' }}" href="{{ path('dashboard') }}">
+					<i class="bi bi-grid" aria-hidden="true"></i>
+					<span class="ms-1">Overview</span>
+				</a>
+			</li>
 			{% for module in chrome.modules %}
 				<li class="nav-item">
-					<a class="nav-link{{ app.request.attributes.get('module') == module.key ? ' active' : '' }}"
-					   href="{{ path('module_index', {module: module.key}) }}">{{ module.label }}</a>
+					<a class="nav-link{{ current == module.key ? ' active' : '' }}"
+					   href="{{ path('module_index', {module: module.key}) }}">
+						<i class="bi bi-{{ module.icon }}" aria-hidden="true"></i>
+						<span class="ms-1">{{ module.label }}</span>
+					</a>
 				</li>
 			{% endfor %}
 		</ul>
-
-		<form method="post" action="{{ path('logout') }}" class="d-flex align-items-center gap-2">
-			<span class="text-body-secondary small d-none d-sm-inline">{{ app.user.email }}</span>
-			<button type="submit" class="btn btn-sm btn-outline-secondary">Sign out</button>
-		</form>
 	</div>
 </nav>

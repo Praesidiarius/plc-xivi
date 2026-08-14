@@ -10,5 +10,6 @@
  * component that needs it, and the forms must work without scripting.
  */
 import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap-icons/font/bootstrap-icons.min.css';
 import './styles/app.css';
 import './collections.js';

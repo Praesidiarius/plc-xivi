@@ -31,6 +31,9 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\DiscriminatorMap(['module' => ModuleDefinition::class, 'collection' => CollectionDefinition::class])]
 abstract class ShapeDefinition
 {
+    /** For a module that never said. Neutral on purpose — it names nothing. */
+    public const string FALLBACK_ICON = 'collection';
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -60,6 +63,15 @@ abstract class ShapeDefinition
          */
         #[ORM\Column(length: 63)]
         private string $tableName,
+        /**
+         * A Bootstrap Icons name, without the `bi-` prefix. Stored beside the
+         * label for the same reason the label is: this is the customer's copy of
+         * the module, so what it is called and what it looks like are both
+         * theirs. Null falls back, so a module that never declared one still
+         * renders.
+         */
+        #[ORM\Column(length: 63, nullable: true)]
+        private ?string $icon = null,
     ) {
         $this->fields = new ArrayCollection();
         $this->installedAt = new \DateTimeImmutable();
@@ -83,6 +95,17 @@ abstract class ShapeDefinition
     public function getTableName(): string
     {
         return $this->tableName;
+    }
+
+    /** Bootstrap Icons name, without the prefix. */
+    public function getIcon(): string
+    {
+        return $this->icon ?? self::FALLBACK_ICON;
+    }
+
+    public function setIcon(?string $icon): void
+    {
+        $this->icon = $icon;
     }
 
     public function getInstalledAt(): \DateTimeImmutable

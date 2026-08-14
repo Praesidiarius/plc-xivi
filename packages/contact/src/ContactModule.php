@@ -156,6 +156,7 @@ final class ContactModule implements ModuleProvider
             // Choosing less is deliberate, and reversible: a field left out can be
             // added back in the editor (§5.4).
             defaultPreset: 'extended',
+            icon: 'person-lines-fill',
         );
     }
 }

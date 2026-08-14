@@ -60,7 +60,7 @@ final readonly class ModuleInstaller
         $this->createRecordTable($blueprint->table, parentTable: null);
         $this->createHistoryTable($blueprint->table);
 
-        $module = new ModuleDefinition($blueprint->key, $blueprint->label, $blueprint->table);
+        $module = new ModuleDefinition($blueprint->key, $blueprint->label, $blueprint->table, $blueprint->icon);
         $this->defineFields($module, $fields);
 
         foreach ($blueprint->collections as $collection) {

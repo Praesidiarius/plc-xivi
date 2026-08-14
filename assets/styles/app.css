@@ -26,3 +26,15 @@
 .row-actions {
 	white-space: nowrap;
 }
+
+/*
+ * The module tabs live in the top bar, but an active tab belongs to the page
+ * below it. Bootstrap fills it with --bs-body-bg, which is the bar's own colour
+ * here, so the tab would merge into the bar. Pointing both the fill and the
+ * bottom border at the page colour makes the active tab continuous with the
+ * content instead — which is the whole idea of a tab.
+ */
+.navbar .nav-tabs {
+	--bs-nav-tabs-link-active-bg: var(--bs-tertiary-bg);
+	--bs-nav-tabs-link-active-border-color: var(--bs-border-color) var(--bs-border-color) var(--bs-tertiary-bg);
+}

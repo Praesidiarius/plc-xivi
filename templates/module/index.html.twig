@@ -30,9 +30,13 @@
 			<h1 class="h3 mb-0">{{ module.label }}</h1>
 			<div class="d-flex align-items-center gap-2">
 				{% if is_granted('ROLE_ADMIN') %}
-					<a class="btn btn-outline-secondary" href="{{ path('field_index', {module: module.key}) }}">Fields</a>
+					<a class="btn btn-outline-secondary" href="{{ path('field_index', {module: module.key}) }}">
+							<i class="bi bi-sliders" aria-hidden="true"></i> Fields
+						</a>
 				{% endif %}
-				<a class="btn btn-primary" href="{{ path('module_new', {module: module.key}) }}">Add</a>
+				<a class="btn btn-primary" href="{{ path('module_new', {module: module.key}) }}">
+						<i class="bi bi-plus-lg" aria-hidden="true"></i> Add
+					</a>
 			</div>
 		</div>
 
@@ -87,9 +91,29 @@
 		{% endif %}
 
 		{% if records is empty %}
-			<div class="alert alert-secondary">
-				{{ query.isFiltered ? 'Nothing matches that.' : 'Nothing here yet.' }}
-			</div>
+			{% if query.isFiltered %}
+				{# A filter finding nothing is information, not an occasion. #}
+				<div class="alert alert-secondary d-flex align-items-center gap-2">
+					<i class="bi bi-funnel" aria-hidden="true"></i>
+					Nothing matches that.
+				</div>
+			{% else %}
+				{# An empty module is somebody's first day, so point at the way in
+				   rather than reporting a count of zero. #}
+				<div class="card">
+					<div class="card-body text-center py-5">
+						<i class="bi bi-{{ module.icon }} display-4 text-body-secondary" aria-hidden="true"></i>
+						<h2 class="h5 mt-3">No {{ module.label|lower }} yet</h2>
+						<p class="text-body-secondary mb-4">
+							Either a fresh start or a very quiet week. Add the first one and this
+							page gets considerably more interesting.
+						</p>
+						<a class="btn btn-primary" href="{{ path('module_new', {module: module.key}) }}">
+							<i class="bi bi-plus-lg" aria-hidden="true"></i> Add the first one
+						</a>
+					</div>
+				</div>
+			{% endif %}
 		{% else %}
 			<div class="card">
 				<div class="table-responsive">
@@ -128,13 +152,22 @@
 									<td class="text-body-secondary">{{ owners[record.ownerId] ?? '—' }}</td>
 									<td class="row-actions text-end">
 										<a class="btn btn-sm btn-outline-secondary"
-										   href="{{ path('module_show', {module: module.key, id: record.id}) }}">View</a>
+										   href="{{ path('module_show', {module: module.key, id: record.id}) }}">
+											<i class="bi bi-eye" aria-hidden="true"></i>
+											<span class="visually-hidden">View</span>
+										</a>
 										<a class="btn btn-sm btn-outline-secondary"
-										   href="{{ path('module_edit', {module: module.key, id: record.id}) }}">Edit</a>
+										   href="{{ path('module_edit', {module: module.key, id: record.id}) }}">
+											<i class="bi bi-pencil" aria-hidden="true"></i>
+											<span class="visually-hidden">Edit</span>
+										</a>
 										<form method="post" class="d-inline"
 										      action="{{ path('module_delete', {module: module.key, id: record.id}) }}">
 											<input type="hidden" name="_token" value="{{ csrf_token('delete-record-' ~ record.id) }}">
-											<button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+											<button type="submit" class="btn btn-sm btn-outline-danger">
+												<i class="bi bi-trash" aria-hidden="true"></i>
+												<span class="visually-hidden">Delete</span>
+											</button>
 										</form>
 									</td>
 								</tr>

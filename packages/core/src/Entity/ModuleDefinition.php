@@ -34,9 +34,9 @@ class ModuleDefinition extends ShapeDefinition
     #[ORM\OrderBy(['position' => 'ASC', 'id' => 'ASC'])]
     private Collection $collections;
 
-    public function __construct(string $key, string $label, string $tableName)
+    public function __construct(string $key, string $label, string $tableName, ?string $icon = null)
     {
-        parent::__construct($key, $label, $tableName);
+        parent::__construct($key, $label, $tableName, $icon);
 
         $this->collections = new ArrayCollection();
     }

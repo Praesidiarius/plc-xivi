@@ -187,9 +187,11 @@ final class ModuleUiTest extends WebTestCase
     {
         $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
 
-        // On the record itself…
-        $this->client->followRedirect();
-        self::assertSelectorTextContains('main', 'owned by UI');
+        // On the record itself, in the context column beside it…
+        $crawler = $this->client->followRedirect();
+        $aside = $crawler->filter('.col-lg-4')->text();
+        self::assertStringContainsString('Owner', $aside);
+        self::assertStringContainsString('UI', $aside);
 
         // …and in the list's owner column.
         $this->client->request('GET', $this->url('/m/contact'));
@@ -242,7 +244,9 @@ final class ModuleUiTest extends WebTestCase
         $this->client->submit($crawler->filter('form[action$="/delete"]')->form());
         $this->client->followRedirect();
 
-        self::assertSelectorTextContains('body', 'Nothing here yet');
+        // The empty state, which points at the way in rather than reporting zero.
+        self::assertSelectorTextContains('body', 'No contacts yet');
+        self::assertSelectorExists('a:contains("Add the first one")');
     }
 
     public function testAddressesAreSavedWithTheContact(): void
