@@ -69,8 +69,14 @@ RUN <<-EOF
 	# uid is not known at build time. These are the paths it must be able to
 	# write: var/ is an anonymous volume that inherits these permissions when it
 	# is created, and Caddy stores its local TLS certificate under /data.
-	mkdir -p /app/var /data /config
-	chmod 1777 /app/var /data /config
+	#
+	# The caddy/ subdirectories matter as much as their parents. They arrive from
+	# the upstream image owned by root, so making only /data and /config writable
+	# leaves Caddy unable to create /data/caddy/pki and the container never
+	# becomes healthy. A named volume takes its permissions from here, so a
+	# machine that already has one will not show this — only a fresh one will.
+	mkdir -p /app/var /data/caddy /config/caddy
+	chmod 1777 /app/var /data /data/caddy /config /config/caddy
 EOF
 
 COPY --link frankenphp/conf.d/20-app.dev.ini $PHP_INI_DIR/app.conf.d/
