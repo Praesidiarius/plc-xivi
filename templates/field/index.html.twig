@@ -61,8 +61,11 @@
 											<label class="form-check-label small me-2">
 												<input form="f{{ field.id }}" type="checkbox" name="unique" value="1" {{ field.unique ? 'checked' : '' }}> unique
 											</label>
-											<label class="form-check-label small">
+											<label class="form-check-label small me-2">
 												<input form="f{{ field.id }}" type="checkbox" name="filterable" value="1" {{ field.filterable ? 'checked' : '' }}> filterable
+											</label>
+											<label class="form-check-label small">
+												<input form="f{{ field.id }}" type="checkbox" name="listed" value="1" {{ field.listed ? 'checked' : '' }}> on list
 											</label>
 										</td>
 										<td>
@@ -114,15 +117,20 @@
 									{% endfor %}
 								</select>
 							</div>
-							<div class="col-sm-3 text-nowrap">
+							<div class="col-sm-4 text-nowrap">
 								<label class="form-check-label small me-2">
 									<input type="checkbox" name="required" value="1"> required
 								</label>
 								<label class="form-check-label small me-2">
 									<input type="checkbox" name="unique" value="1"> unique
 								</label>
-								<label class="form-check-label small">
+								<label class="form-check-label small me-2">
 									<input type="checkbox" name="filterable" value="1"> filterable
+								</label>
+								{# Unticked on purpose: a field added later should not widen a list
+								   somebody reads every day without being asked. #}
+								<label class="form-check-label small">
+									<input type="checkbox" name="listed" value="1"> on list
 								</label>
 							</div>
 							<div class="col-sm-1 text-end">

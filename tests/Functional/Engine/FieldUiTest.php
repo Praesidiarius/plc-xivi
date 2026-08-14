@@ -111,6 +111,32 @@ final class FieldUiTest extends WebTestCase
         self::assertStringContainsString('VAT number', $crawler->filter('form[method="get"]')->text());
     }
 
+    /** The crowding fix: a new field does not widen the list uninvited (§5.4). */
+    public function testANewFieldIsNotAListColumnUnlessAsked(): void
+    {
+        $this->signIn(self::ADMIN);
+        $this->addContact('Ada', 'Lovelace');
+        $this->addField(['key' => 'vat_number', 'label' => 'VAT number', 'type' => 'text']);
+
+        $crawler = $this->client->request('GET', $this->url('/m/contact'));
+        self::assertStringNotContainsString('VAT number', $crawler->filter('thead')->text());
+
+        // …but it is on the record, where everything is.
+        $this->client->request('GET', $this->url('/m/contact/new'));
+        self::assertSelectorExists('[name="module_record[fields][vat_number]"]');
+    }
+
+    public function testAFieldMarkedForTheListBecomesAColumn(): void
+    {
+        $this->signIn(self::ADMIN);
+        $this->addContact('Ada', 'Lovelace');
+        $this->addField(['key' => 'vat_number', 'label' => 'VAT number', 'type' => 'text', 'listed' => '1']);
+
+        $crawler = $this->client->request('GET', $this->url('/m/contact'));
+
+        self::assertStringContainsString('VAT number', $crawler->filter('thead')->text());
+    }
+
     public function testAKeyThatIsNotAnIdentifierIsRefused(): void
     {
         $this->signIn(self::ADMIN);
@@ -153,6 +179,17 @@ final class FieldUiTest extends WebTestCase
         self::assertStringContainsString('module field', $crawler->filter('main')->text());
         // Every field is the module's own at this point, so nothing is removable.
         self::assertCount(0, $crawler->filter('a:contains("Remove")'));
+    }
+
+    /** The list only renders a table when there is something in it. */
+    private function addContact(string $first, string $last): void
+    {
+        $this->client->request('GET', $this->url('/m/contact/new'));
+        $this->client->submitForm('Save', [
+            'module_record[fields][first_name]' => $first,
+            'module_record[fields][last_name]' => $last,
+        ]);
+        $this->client->followRedirect();
     }
 
     /** @param array<string, string> $values */

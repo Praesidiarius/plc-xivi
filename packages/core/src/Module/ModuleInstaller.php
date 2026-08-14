@@ -196,6 +196,7 @@ final readonly class ModuleInstaller
                 required: $field->required,
                 unique: $field->unique,
                 filterable: $field->filterable,
+                listed: $field->listed,
                 position: $field->position,
                 system: true,
             );

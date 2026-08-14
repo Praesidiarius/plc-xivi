@@ -95,6 +95,39 @@ final class MetadataEditorTest extends KernelTestCase
         self::assertFalse($field->isSystem());
     }
 
+    /**
+     * A module's own fields are its designed shape and appear on the list; one
+     * added later does not, until somebody asks for it (§5.4). Otherwise every
+     * addition widens a table people read every day.
+     */
+    public function testAddedFieldsAreNotOnTheListByDefault(): void
+    {
+        $added = $this->addField('vat_number', 'VAT number', 'text');
+
+        self::assertFalse($added->isListed());
+
+        $shipped = $this->switcher->runFor($this->tenant, fn () => self::service(MetadataRepository::class)
+            ->get(ContactModule::KEY)->getField('first_name'));
+
+        self::assertNotNull($shipped);
+        self::assertTrue($shipped->isListed());
+    }
+
+    /** It is a UI hint: the value is stored, validated and queryable regardless. */
+    public function testAFieldOffTheListIsStillARealField(): void
+    {
+        $this->addField('vat_number', 'VAT number', 'text', filterable: true);
+        $this->contact(['first_name' => 'Ada', 'last_name' => 'Lovelace', 'vat_number' => 'CHE-1']);
+
+        $found = $this->switcher->runFor($this->tenant, fn (): array => self::service(RecordRepository::class)->findBy(
+            self::service(MetadataRepository::class)->get(ContactModule::KEY),
+            new RecordQuery([new Filter('vat_number', Operator::Equals, 'CHE-1')]),
+        ));
+
+        self::assertCount(1, $found);
+        self::assertSame('CHE-1', $found[0]->get('vat_number'));
+    }
+
     public function testAFieldNameMustBeAnIdentifier(): void
     {
         foreach (['VAT Number', '1st', 'vat-number', '', 'vat number'] as $key) {
@@ -270,6 +303,7 @@ final class MetadataEditorTest extends KernelTestCase
                 required: $required ?? $field->isRequired(),
                 unique: $unique ?? $field->isUnique(),
                 filterable: $field->isFilterable(),
+                listed: $field->isListed(),
                 position: $field->getPosition(),
                 options: $field->getOptions(),
             );

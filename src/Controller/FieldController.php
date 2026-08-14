@@ -75,6 +75,7 @@ final class FieldController extends AbstractController
                     required: $request->request->getBoolean('required'),
                     unique: $request->request->getBoolean('unique'),
                     filterable: $request->request->getBoolean('filterable'),
+                    listed: $request->request->getBoolean('listed'),
                     options: self::optionsFrom($request),
                 );
 
@@ -105,6 +106,7 @@ final class FieldController extends AbstractController
                     required: $request->request->getBoolean('required'),
                     unique: $request->request->getBoolean('unique'),
                     filterable: $request->request->getBoolean('filterable'),
+                    listed: $request->request->getBoolean('listed'),
                     position: $request->request->getInt('position', $target->getPosition()),
                     options: self::optionsFrom($request),
                 );

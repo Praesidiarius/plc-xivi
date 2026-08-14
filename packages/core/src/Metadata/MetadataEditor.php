@@ -47,6 +47,7 @@ final readonly class MetadataEditor
         bool $required = false,
         bool $unique = false,
         bool $filterable = false,
+        bool $listed = false,
         array $options = [],
     ): FieldDefinition {
         $key = trim($key);
@@ -71,6 +72,11 @@ final readonly class MetadataEditor
             required: $required,
             unique: $unique,
             filterable: $filterable,
+            // Off unless asked for. A module's own fields are its designed shape
+            // and appear by default; one added later is an addition, and an
+            // addition should not silently rearrange a list somebody reads every
+            // day. The editor offers the checkbox right beside the others.
+            listed: $listed,
             position: $shape->nextPosition(),
             // Not the module's: this one is the customer's, and that is what
             // makes it removable later.
@@ -103,6 +109,7 @@ final readonly class MetadataEditor
         bool $required,
         bool $unique,
         bool $filterable,
+        bool $listed,
         int $position,
         array $options = [],
     ): void {
@@ -119,6 +126,7 @@ final readonly class MetadataEditor
         $field->setRequired($required);
         $field->setUnique($unique);
         $field->setFilterable($filterable);
+        $field->setListed($listed);
         $field->setPosition($position);
         $field->setOptions($options);
 

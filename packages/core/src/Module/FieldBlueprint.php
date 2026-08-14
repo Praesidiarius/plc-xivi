@@ -14,6 +14,8 @@ final readonly class FieldBlueprint
         public bool $required = false,
         public bool $unique = false,
         public bool $filterable = false,
+        /** Shown as a column on the list. A module's own fields are, by default. */
+        public bool $listed = true,
         public int $position = 0,
         public array $options = [],
     ) {

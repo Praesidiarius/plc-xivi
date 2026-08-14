@@ -129,6 +129,9 @@ owns:
 - its normalizer/denormalizer
 - its filter/sort behavior in the query layer
 
+Definition rows carry the UI hints beside the rules: `required`, `unique`,
+`filterable`, and whether the list shows a column for the field (§5.4).
+
 Closed, not open: adding a field type is a deliberate code change, not customer config.
 
 **Relations stay relational.** Real link tables, real foreign keys. Relations are the one
@@ -348,6 +351,15 @@ module's (§5.1).
   because it cannot invalidate anything.
 - **A module's own fields cannot be removed.** Only the ones the customer added.
   §7.2's other half, unchanged.
+
+**A field can be on the list, or not.** Without that, every field a customer adds
+widens the table until nothing is readable — a strange punishment for using the
+engine as intended. It is a UI hint and nothing more: the value is still on the
+record, still in the form, still validated and still queryable. A module's own
+fields are its designed shape and appear by default; one added later does not
+until somebody ticks the box, because an addition should not silently rearrange a
+list people read every day. With nothing ticked the list falls back to the first
+field, since a table with no columns is not a table.
 
 **Removing a field takes the definition and leaves the values.** This is the
 answer to the half of §7.2 that is settled. Deleting the data too would be

@@ -74,6 +74,7 @@ final class ModuleController extends AbstractController
 
         return $this->render('module/index.html.twig', [
             'module' => $definition,
+            'columns' => self::listedFields($definition),
             'records' => $records,
             'owners' => $this->ownerNames($records),
             'total' => $total,
@@ -120,6 +121,35 @@ final class ModuleController extends AbstractController
             'owner' => $record->ownerId === null ? null : ($this->ownerNames([$record])[$record->ownerId] ?? null),
             'history' => $this->history->findFor($definition, $id),
         ]);
+    }
+
+    /**
+     * The columns the list shows: the fields marked for it (§5.4).
+     *
+     * Falling back to the first field when none are marked, because a table with
+     * no columns is not a table. One column is enough to recognise a record and
+     * click into it, and it makes "I unticked everything" look like what it is
+     * rather than silently restoring the crowded list they were escaping.
+     *
+     * @return list<FieldDefinition>
+     */
+    private static function listedFields(ModuleDefinition $module): array
+    {
+        $listed = [];
+
+        foreach ($module->getFields() as $field) {
+            if ($field->isListed()) {
+                $listed[] = $field;
+            }
+        }
+
+        if ($listed !== []) {
+            return $listed;
+        }
+
+        $first = $module->getFields()->first();
+
+        return $first === false ? [] : [$first];
     }
 
     /**

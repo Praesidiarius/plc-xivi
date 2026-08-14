@@ -96,8 +96,9 @@
 					<table class="table table-hover align-middle mb-0">
 						<thead>
 							<tr>
-								{# Columns are the customer's own definitions, in their order. #}
-								{% for field in module.fields %}
+								{# Columns are the customer's own definitions, in their order —
+								   the ones they marked for the list (§5.4). #}
+								{% for field in columns %}
 									<th scope="col" class="text-body-secondary small text-uppercase">
 										{{ h.sortable(module, query, field) }}
 									</th>
@@ -109,7 +110,7 @@
 						<tbody>
 							{% for record in records %}
 								<tr>
-									{% for field in module.fields %}
+									{% for field in columns %}
 										<td>
 											{# The first column opens the record, which is where anyone
 											   clicking a row expects to end up. #}

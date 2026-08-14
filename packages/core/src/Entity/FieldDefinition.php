@@ -54,6 +54,14 @@ class FieldDefinition
         private bool $unique = false,
         #[ORM\Column]
         private bool $filterable = false,
+        /**
+         * Whether the list shows a column for it. A UI hint, not a rule about
+         * the value: everything is still on the record and in the form. Without
+         * it every field a customer adds widens the table until nothing is
+         * readable, which is a strange punishment for using the engine.
+         */
+        #[ORM\Column(name: 'is_listed')]
+        private bool $listed = true,
         #[ORM\Column]
         private int $position = 0,
         /**
@@ -128,6 +136,16 @@ class FieldDefinition
     public function isFilterable(): bool
     {
         return $this->filterable;
+    }
+
+    public function isListed(): bool
+    {
+        return $this->listed;
+    }
+
+    public function setListed(bool $listed): void
+    {
+        $this->listed = $listed;
     }
 
     public function setFilterable(bool $filterable): void
