@@ -9,8 +9,15 @@ services:
     # Run as the developer, not as root. Otherwise every file a container command
     # creates — a migration, a recipe's config, a vendored asset — lands in the
     # working tree owned by root and cannot be edited from the host.
-    # Override UID/GID in .env.local if yours are not 1000.
-    user: "${UID:-1000}:${GID:-1000}"
+    #
+    # Not ${UID}: that is a shell variable and is never exported, so Compose
+    # cannot see it and every reader of this line silently got 1000. bin/ci
+    # exports the real values, which is what makes the suite work anywhere the
+    # checkout is not owned by uid 1000 — a second developer, or GitHub's runner,
+    # where it is 1001 and vendor/ could not be created at all. Running compose
+    # directly instead, with a different uid? Put APP_UID and APP_GID in
+    # .env.local.
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
     volumes:
       - ./:/app
       - ./frankenphp/Caddyfile:/etc/frankenphp/Caddyfile:ro

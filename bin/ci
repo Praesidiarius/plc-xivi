@@ -16,6 +16,16 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
+# The dev container bind-mounts this working tree and writes into it — vendor/,
+# caches, generated config — so it has to run as whoever owns these files.
+# Exported here because compose.override.yaml cannot work it out for itself:
+# $UID is a shell variable that is never exported, so Compose only ever saw the
+# fallback. On a machine where that fallback is wrong, the first thing to fail is
+# "/app/vendor does not exist and could not be created", and the container is
+# reported unhealthy rather than as a permissions problem.
+export APP_UID="${APP_UID:-$(id -u)}"
+export APP_GID="${APP_GID:-$(id -g)}"
+
 build_prod_image=true
 
 for arg in "$@"; do

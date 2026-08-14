@@ -56,9 +56,14 @@ forms work without JavaScript.
 
 Docker and Docker Compose. Nothing else — there is no host PHP or Composer step.
 
-The dev container runs as uid 1000 so that files it creates — migrations, recipe
-config, vendored assets — belong to you rather than to root. If your uid is not
-1000, set `UID` and `GID` in `.env.local`.
+The dev container runs as you, not as root, so that files it creates — migrations,
+recipe config, vendored assets — belong to you. `bin/ci` works this out for
+itself. If you start the stack with `docker compose` directly and your uid is not
+1000, set `APP_UID` and `APP_GID` in `.env.local`:
+
+```bash
+printf 'APP_UID=%s\nAPP_GID=%s\n' "$(id -u)" "$(id -g)" >> .env.local
+```
 
 ## Quickstart
 
