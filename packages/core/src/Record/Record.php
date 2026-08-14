@@ -23,6 +23,13 @@ final class Record
         public array $data = [],
         public ?int $id = null,
         public ?int $ownerId = null,
+        /**
+         * Set on rows of a collection, and null on everything else: a contact's
+         * address names the contact it belongs to, a contact names nobody. The
+         * two are mutually exclusive by design — a child's owner is whoever owns
+         * its parent, which is the only answer that cannot drift.
+         */
+        public ?int $parentId = null,
         public ?\DateTimeImmutable $createdAt = null,
         public ?\DateTimeImmutable $updatedAt = null,
         public ?\DateTimeImmutable $deletedAt = null,

@@ -11,6 +11,7 @@ use App\Tenancy\TenantSwitcher;
 use App\Tenant\Security\UserCreator;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Response;
 use Xivi\Contact\ContactModule;
 use Xivi\Core\Module\ModuleInstaller;
@@ -31,6 +32,14 @@ final class ModuleUiTest extends WebTestCase
     private const string HOST = 'ui-alpha.localhost';
     private const string EMAIL = 'ui@example.test';
     private const string PASSWORD = 'ui-password';
+
+    /**
+     * The form's name, from the generic type that builds it. A record's own
+     * values live under "fields" and its collections under "collections", so
+     * that a customer may call a field anything without it colliding with the
+     * name of a collection.
+     */
+    private const string FORM = 'module_record';
 
     private KernelBrowser $client;
 
@@ -71,14 +80,35 @@ final class ModuleUiTest extends WebTestCase
         self::assertResponseIsSuccessful();
 
         foreach (['first_name', 'last_name', 'email', 'phone', 'birthday'] as $field) {
-            self::assertSelectorExists(sprintf('[name="record[%s]"]', $field), $field . ' is on the form');
+            self::assertSelectorExists(sprintf('[name="%s"]', self::field($field)), $field . ' is on the form');
         }
 
         // The widget comes from the field type, not from any template.
-        self::assertSame('email', $crawler->filter('[name="record[email]"]')->attr('type'));
-        self::assertSame('date', $crawler->filter('[name="record[birthday]"]')->attr('type'));
+        self::assertSame('email', $crawler->filter(sprintf('[name="%s"]', self::field('email')))->attr('type'));
+        self::assertSame('date', $crawler->filter(sprintf('[name="%s"]', self::field('birthday')))->attr('type'));
         // And the label comes from the definition.
-        self::assertSelectorTextContains('label[for="record_first_name"]', 'First name');
+        self::assertSelectorTextContains(sprintf('label[for="%s_fields_first_name"]', self::FORM), 'First name');
+    }
+
+    /**
+     * A collection's fields are described by the same kind of row as the
+     * module's own, so they reach the form the same way — no address template,
+     * no address form type, nothing in the UI that knows what an address is.
+     */
+    public function testACollectionsFieldsAreOnTheFormToo(): void
+    {
+        $crawler = $this->client->request('GET', $this->url('/m/contact/new'));
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('h2', 'Addresses');
+
+        foreach (['label', 'street', 'postal_code', 'city', 'country'] as $field) {
+            self::assertSelectorExists(sprintf('[name="%s"]', self::addressField(0, $field)), $field . ' is on the form');
+        }
+
+        // One blank row is always rendered, which is what lets the page work
+        // with scripting turned off.
+        self::assertCount(1, $crawler->filter('.row-of-collection'));
     }
 
     public function testCreatingARecordThroughTheForm(): void
@@ -107,7 +137,7 @@ final class ModuleUiTest extends WebTestCase
         $this->submitContact(['first_name' => '', 'last_name' => 'Babbage']);
 
         self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
-        self::assertSelectorExists('#record_first_name');
+        self::assertSelectorExists(sprintf('#%s_fields_first_name', self::FORM));
         self::assertStringContainsString('should not be null', (string) $this->client->getResponse()->getContent());
     }
 
@@ -130,9 +160,9 @@ final class ModuleUiTest extends WebTestCase
         $this->client->click($crawler->filter('a:contains("Edit")')->link());
         self::assertResponseIsSuccessful();
         // The form comes back filled from storage.
-        self::assertSame('Ada', $this->client->getCrawler()->filter('[name="record[first_name]"]')->attr('value'));
+        self::assertSame('Ada', $this->client->getCrawler()->filter(sprintf('[name="%s"]', self::field('first_name')))->attr('value'));
 
-        $this->client->submitForm('Save', ['record[first_name]' => 'Augusta']);
+        $this->client->submitForm('Save', [self::field('first_name') => 'Augusta']);
         $this->client->followRedirect();
 
         self::assertSelectorTextContains('table', 'Augusta');
@@ -148,6 +178,84 @@ final class ModuleUiTest extends WebTestCase
         $this->client->followRedirect();
 
         self::assertSelectorTextContains('body', 'Nothing here yet');
+    }
+
+    public function testAddressesAreSavedWithTheContact(): void
+    {
+        $this->submitContact(
+            ['first_name' => 'Ada', 'last_name' => 'Lovelace'],
+            [['street' => 'Baker Street 1', 'postal_code' => '8001', 'city' => 'Zürich']],
+        );
+
+        self::assertResponseRedirects($this->url('/m/contact'));
+
+        $crawler = $this->openFirstRecord();
+
+        self::assertSame('Baker Street 1', $crawler->filter(sprintf('[name="%s"]', self::addressField(0, 'street')))->attr('value'));
+        self::assertSame('Zürich', $crawler->filter(sprintf('[name="%s"]', self::addressField(0, 'city')))->attr('value'));
+        // The one saved address, plus the blank row for the next one. The blank
+        // row submitted alongside it was not stored.
+        self::assertCount(2, $crawler->filter('.row-of-collection'));
+    }
+
+    /**
+     * The point of carrying the id in the form: a second save updates the row
+     * that is already there instead of replacing it with a new one.
+     */
+    public function testEditingKeepsAnAddressAndCanAddAnother(): void
+    {
+        $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace'], [['street' => 'Baker Street 1', 'city' => 'Zürich']]);
+
+        $crawler = $this->openFirstRecord();
+        $addressId = $crawler->filter(sprintf('[name="%s[collections][addresses][0][id]"]', self::FORM))->attr('value');
+        self::assertNotSame('', (string) $addressId);
+
+        $this->client->submitForm('Save', [
+            self::addressField(0, 'street') => 'Baker Street 2',
+            // The blank row the page always renders is where the second one goes.
+            self::addressField(1, 'street') => 'Bahnhofstrasse 5',
+            self::addressField(1, 'city') => 'Bern',
+        ]);
+
+        $crawler = $this->openFirstRecord();
+
+        self::assertSame('Baker Street 2', $crawler->filter(sprintf('[name="%s"]', self::addressField(0, 'street')))->attr('value'));
+        self::assertSame('Bahnhofstrasse 5', $crawler->filter(sprintf('[name="%s"]', self::addressField(1, 'street')))->attr('value'));
+        // Still the same row, edited — not deleted and re-created.
+        self::assertSame($addressId, $crawler->filter(sprintf('[name="%s[collections][addresses][0][id]"]', self::FORM))->attr('value'));
+        self::assertCount(3, $crawler->filter('.row-of-collection'));
+    }
+
+    /** Emptying a row is how it is removed without scripting. */
+    public function testClearingAnAddressRemovesIt(): void
+    {
+        $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace'], [['street' => 'Baker Street 1', 'city' => 'Zürich']]);
+
+        $this->openFirstRecord();
+        $this->client->submitForm('Save', [
+            self::addressField(0, 'street') => '',
+            self::addressField(0, 'city') => '',
+        ]);
+
+        $crawler = $this->openFirstRecord();
+
+        // Only the blank row is left.
+        self::assertCount(1, $crawler->filter('.row-of-collection'));
+        self::assertSame('', (string) $crawler->filter(sprintf('[name="%s"]', self::addressField(0, 'street')))->attr('value'));
+    }
+
+    /** An address is validated by its own definitions, like anything else. */
+    public function testARequiredFieldOnACollectionIsEnforced(): void
+    {
+        $this->submitContact(
+            ['first_name' => 'Ada', 'last_name' => 'Lovelace'],
+            // A city with no street: the row is not blank, so it is checked, and
+            // street is required by its definition.
+            [['city' => 'Zürich']],
+        );
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        self::assertStringContainsString('should not be null', (string) $this->client->getResponse()->getContent());
     }
 
     /** A module the customer does not have is a 404 — another customer may well have it. */
@@ -184,17 +292,45 @@ final class ModuleUiTest extends WebTestCase
         self::assertResponseRedirects($this->url('/login'));
     }
 
-    /** @param array<string, string> $values */
-    private function submitContact(array $values): void
+    /**
+     * @param array<string, string>             $values
+     * @param list<array<string, string>>       $addresses rows for the addresses collection,
+     *                                                     in the order the form renders them
+     */
+    private function submitContact(array $values, array $addresses = []): void
     {
         $this->client->request('GET', $this->url('/m/contact/new'));
 
         $fields = [];
         foreach ($values as $key => $value) {
-            $fields[sprintf('record[%s]', $key)] = $value;
+            $fields[self::field($key)] = $value;
+        }
+
+        foreach ($addresses as $index => $address) {
+            foreach ($address as $key => $value) {
+                $fields[self::addressField($index, $key)] = $value;
+            }
         }
 
         $this->client->submitForm('Save', $fields);
+    }
+
+    /** The edit page of the only record in the list. */
+    private function openFirstRecord(): Crawler
+    {
+        $crawler = $this->client->request('GET', $this->url('/m/contact'));
+
+        return $this->client->click($crawler->filter('a:contains("Edit")')->link());
+    }
+
+    private static function field(string $key): string
+    {
+        return sprintf('%s[fields][%s]', self::FORM, $key);
+    }
+
+    private static function addressField(int $index, string $key): string
+    {
+        return sprintf('%s[collections][addresses][%d][fields][%s]', self::FORM, $index, $key);
     }
 
     private function signIn(?string $host = null): void

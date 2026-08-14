@@ -7,15 +7,19 @@ namespace Xivi\Core\Entity;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * One field on one module, for one customer.
+ * One field on one shape, for one customer.
  *
  * This row is the single source of truth §5 asks for: it drives the form, the
  * validation, and where the value is stored. Nothing about a field is declared
  * twice.
+ *
+ * A field does not care whether the shape it belongs to is a module or one of
+ * its collections — an address's street is described exactly like a contact's
+ * surname, by the same row in the same table with the same field type behind it.
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'field_definition')]
-#[ORM\UniqueConstraint(name: 'uniq_field_definition_module_key', columns: ['module_id', 'field_key'])]
+#[ORM\UniqueConstraint(name: 'uniq_field_definition_shape_key', columns: ['shape_id', 'field_key'])]
 class FieldDefinition
 {
     #[ORM\Id]
@@ -28,9 +32,9 @@ class FieldDefinition
     private array $options = [];
 
     public function __construct(
-        #[ORM\ManyToOne(targetEntity: ModuleDefinition::class, inversedBy: 'fields')]
-        #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
-        private ModuleDefinition $module,
+        #[ORM\ManyToOne(targetEntity: ShapeDefinition::class, inversedBy: 'fields')]
+        #[ORM\JoinColumn(name: 'shape_id', nullable: false, onDelete: 'CASCADE')]
+        private ShapeDefinition $shape,
         /** Also the key inside the record's JSONB payload. */
         #[ORM\Column(name: 'field_key', length: 63)]
         private string $key,
@@ -56,7 +60,7 @@ class FieldDefinition
         #[ORM\Column(name: 'is_system')]
         private bool $system = false,
     ) {
-        $module->addField($this);
+        $shape->addField($this);
     }
 
     public function getId(): ?int
@@ -64,9 +68,9 @@ class FieldDefinition
         return $this->id;
     }
 
-    public function getModule(): ModuleDefinition
+    public function getShape(): ShapeDefinition
     {
-        return $this->module;
+        return $this->shape;
     }
 
     public function getKey(): string

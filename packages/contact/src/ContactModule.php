@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Xivi\Contact;
 
+use Xivi\Core\Module\CollectionBlueprint;
 use Xivi\Core\Module\FieldBlueprint;
 use Xivi\Core\Module\ModuleBlueprint;
 use Xivi\Core\Module\ModuleProvider;
@@ -71,6 +72,62 @@ final class ContactModule implements ModuleProvider
                     label: 'Birthday',
                     type: 'date',
                     position: 50,
+                ),
+            ],
+            collections: [
+                // A contact has as many addresses as they have, which is the
+                // first thing about a real CRM that a single row cannot hold.
+                // Still nothing but a declaration: these fields are described
+                // exactly like the ones above and stored by the same code.
+                new CollectionBlueprint(
+                    key: 'addresses',
+                    label: 'Addresses',
+                    table: 'contact_address',
+                    position: 10,
+                    fields: [
+                        new FieldBlueprint(
+                            key: 'label',
+                            label: 'Label',
+                            type: 'text',
+                            position: 10,
+                            options: ['max_length' => 60],
+                        ),
+                        new FieldBlueprint(
+                            key: 'street',
+                            label: 'Street',
+                            type: 'text',
+                            required: true,
+                            position: 20,
+                            options: ['max_length' => 180],
+                        ),
+                        new FieldBlueprint(
+                            key: 'postal_code',
+                            label: 'Postal code',
+                            type: 'text',
+                            position: 30,
+                            options: ['max_length' => 20],
+                        ),
+                        new FieldBlueprint(
+                            key: 'city',
+                            label: 'City',
+                            type: 'text',
+                            // Filterable because "contacts in this city" is the
+                            // question addresses exist to answer, and it is the
+                            // one §7.3 has to compile to a semi-join rather than
+                            // a join: a contact with two addresses here is still
+                            // one contact.
+                            filterable: true,
+                            position: 40,
+                            options: ['max_length' => 120],
+                        ),
+                        new FieldBlueprint(
+                            key: 'country',
+                            label: 'Country',
+                            type: 'text',
+                            position: 50,
+                            options: ['max_length' => 120],
+                        ),
+                    ],
                 ),
             ],
         );

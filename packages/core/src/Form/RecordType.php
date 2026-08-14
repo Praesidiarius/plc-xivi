@@ -7,16 +7,20 @@ namespace Xivi\Core\Form;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
-use Xivi\Core\Entity\ModuleDefinition;
+use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
 
 /**
- * A form for one module's records, assembled from its field definitions.
+ * The fields of one shape, assembled from its field definitions.
  *
  * There is no ContactType and there never will be: the same class builds the
  * form for every module, from rows that differ per customer. That is the §5
  * claim about one source of truth doing real work — a field added to a
  * customer's definitions appears here with no code touched anywhere.
+ *
+ * It builds a collection's fields the same way it builds a module's, which is
+ * why editing a contact's addresses inline needed no form code of its own — see
+ * ModuleRecordType for how they are composed.
  *
  * It edits a plain array, since a record is not an entity. Validation is not
  * done by the form: RecordValidator owns that, and the controller maps its
@@ -31,10 +35,10 @@ final class RecordType extends AbstractType
 
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
-        $module = $options['module'];
-        \assert($module instanceof ModuleDefinition);
+        $shape = $options['shape'];
+        \assert($shape instanceof ShapeDefinition);
 
-        foreach ($module->getFields() as $field) {
+        foreach ($shape->getFields() as $field) {
             $type = $this->fieldTypes->get($field->getType());
 
             $builder->add($field->getKey(), $type->formType(), [
@@ -51,8 +55,8 @@ final class RecordType extends AbstractType
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver
-            ->setRequired('module')
-            ->setAllowedTypes('module', ModuleDefinition::class)
+            ->setRequired('shape')
+            ->setAllowedTypes('shape', ShapeDefinition::class)
             ->setDefaults([
                 // A record is an array, not an object.
                 'data_class' => null,

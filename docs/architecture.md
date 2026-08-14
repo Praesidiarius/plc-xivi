@@ -133,7 +133,8 @@ Closed, not open: adding a field type is a deliberate code change, not customer 
 
 **Relations stay relational.** Real link tables, real foreign keys. Relations are the one
 thing both EAV and JSON are bad at, and a CRM is relational at its core. Relations are
-*described* in metadata but *stored* relationally.
+*described* in metadata but *stored* relationally. See §5.1 for the first kind of relation
+that exists.
 
 **Validation** is built dynamically from metadata using Symfony's `Collection`
 constraint plus per-field constraints, including a custom unique-field constraint.
@@ -156,7 +157,39 @@ has them.
 context and touched outside it would lazily load its fields on whatever
 connection is current — throwing when no tenant is resolved, and quietly reading
 another customer's database when one is. §7.4 is not only about caches: any
-object that outlives the context it was loaded in is the same bug.
+object that outlives the context it was loaded in is the same bug. A module's
+collections and *their* fields are loaded with it for the same reason.
+
+### 5.1 Shapes: modules and collections
+
+A **shape** is a set of fields describing the rows of one table. There are two
+kinds, and they differ only in what reaches them:
+
+- A **module** is browsable. It has a URL, it is in the navigation, and its
+  records stand on their own. Its rows carry an owner.
+- A **collection** is not. A contact's addresses have no URL, appear nowhere in
+  the navigation, and cannot be reached except through the contact that owns
+  them. Its rows carry a parent instead of an owner, are edited inside the
+  parent's form, and are soft-deleted with it.
+
+Everything else is shared: the same `field_definition` rows, the same field-type
+registry, the same record repository, the same validator, the same form builder.
+Adding addresses to Contact added a declaration, a table, and the composition of
+two form types — no second repository, no address entity, no address controller.
+That is the claim in §1 being tested by something harder than one flat module,
+and it is why the two kinds share a base rather than the engine growing a
+parallel path for children.
+
+**A collection is deliberately not a link between modules.** Contact → Company is
+a different thing: both sides exist independently, either can be browsed, and the
+target module may not even be installed for that customer (§3). Conflating the
+two is how a CRM ends up with orphaned addresses nobody can reach. When
+module-to-module links arrive they are their own mechanism; §7 tracks them.
+
+**Uniqueness on a collection field is refused, not guessed.** Unique across the
+whole table and unique within one parent are different rules, and which one a
+customer means is not something the installer should decide for them. It waits
+for the same decision §7.5 is waiting for.
 
 ---
 
@@ -206,9 +239,23 @@ Not yet decided. Decide deliberately rather than by accident.
    events give modules real power but make host behavior depend on what's installed.
 2. **Metadata migration.** What happens when a field changes type, or is deleted while
    data exists in it? Needs a real answer before the metadata editor ships.
+   *Now also covers a blueprint that grows.* Contact gained an addresses collection after
+   customers already had the module, and installing does not retro-fit it — §6.1 says the
+   customer's definitions are the truth once installed, so silently adding to them here
+   would overrule that. Adding a table and definition rows destroys nothing, so an
+   explicit, additive-only upgrade is the obvious first slice of this question; it is not
+   built yet.
 3. **Query layer.** Filtering, sorting, and pagination across mixed real-column and JSONB
    storage, without degenerating into concatenated SQL. This is the highest-risk
    component in the system.
+   *Sharpened by collections, which is why they were built first.* A filterable thing is
+   no longer "a key in this table's payload" — `city` lives on a contact's addresses, one
+   step away. Two consequences the compiler has to be built around rather than retrofitted
+   with: filtering a parent by a child value is a **semi-join** (`EXISTS`), because a
+   contact with two addresses in Zürich is still one contact and a plain `JOIN` would
+   return it twice; and **sorting by a to-many field is undefined** — which of the two
+   addresses? — so it has to be refusable, which a compiler with no vocabulary for
+   cardinality cannot express.
 4. **Doctrine multi-tenancy hazards.** Entity manager, metadata cache, result cache, and
    any warmed pools must not leak across tenants within a worker process. Critical under
    FrankenPHP/RoadRunner-style long-running workers.
@@ -218,7 +265,17 @@ Not yet decided. Decide deliberately rather than by accident.
    consumers when they arrive.*
 5. **Authorization model.** Roles, permissions, per-module access, and record-level
    rules. Entangled with §7.3: "only the records I own" is a WHERE clause, not a
-   check performed after loading. See §8.4.
+   check performed after loading. See §8.4. Collections inherit the answer rather
+   than needing their own: a child's access resolves through its parent, which is
+   why its rows carry a parent and no owner of their own (§5.1).
+6. **Links between modules.** Contact → Company: both sides independent, both browsable,
+   and the target module possibly not installed for that customer (§3). Distinct from the
+   collections of §5.1, which are settled. Open: whether a link is a field type, what
+   happens to a link whose target module is uninstalled, and whether the query layer can
+   reach across one.
+
+*Numbering is stable — code comments cite these by number, so a settled question keeps
+its slot and gains a note rather than being removed.*
 
 ---
 
@@ -280,7 +337,8 @@ link and the printing goes away.
 
 ### 9.1 Built
 
-The tenant resolution layer of §4, and nothing of the engine itself yet.
+The tenancy layer of §4, and the engine of §5 as far as one module with a child
+collection exercises it.
 
 - Kernel request listener resolving the tenant from `Host`, before routing. An
   unknown host is a 404; a suspended tenant is a 503. A short list of system hosts
@@ -298,6 +356,12 @@ The tenant resolution layer of §4, and nothing of the engine itself yet.
   registry, DBAL record storage with soft delete, and validation built from the
   definitions including per-tenant uniqueness. `packages/contact` is the first
   module and is nothing but a declaration — no entity, no repository, no form.
+- The module UI: one generic controller and one generic form building every page
+  from the customer's own definitions.
+- Child collections per §5.1, proven by a contact's addresses: their own table with
+  a real foreign key, edited inline with the parent, validated by their own
+  definitions, soft-deleted with the record they belong to. Contact declares them
+  and still contains no code.
 - Module boundaries enforced by deptrac in CI.
 
 ### 9.2 Decided since this brief was written
@@ -315,18 +379,29 @@ The tenant resolution layer of §4, and nothing of the engine itself yet.
   that stored values name individually so rotation is resumable. This protects
   dumps, snapshots and replicas of the control plane. It does not protect against a
   compromised application process — per-tenant roles are the answer there.
+- **A module and a child collection are the same kind of thing** — see §5.1. Chosen
+  over letting Contact hand-roll its addresses, because more than one module will
+  want children, and over making an address a module in disguise, because it is not
+  one: nothing can reach an address except the contact that owns it.
+- **Collections were built before the query layer, on purpose.** The order was the
+  other way round until it became clear that the query layer's central abstraction
+  is what counts as a filterable thing. Building the compiler against one flat table
+  first would have baked that assumption into its signature; see the note under
+  §7.3.
 
 ### 9.3 Next
 
-A UI for Contact, built from the same definitions — which is what proves the
-metadata layer drives the form as well as the storage. Then §7.3, the query layer,
-with a real table and real rows to be correct about.
+§7.3, the query layer, now with a real table, real rows, and a to-many relation to
+be correct about. The list view is deliberately still dumb — fifty records,
+`ORDER BY id DESC`, no filtering or sorting — so that it is written once, against
+what the engine actually has to express.
 
 Deliberately still missing, and each one needs a decision rather than an
-implementation: column promotion, relations between modules, the metadata editor,
-and §7.2 — what happens to stored data when a field changes type or is removed.
-Installing a module today refuses to touch an existing installation for exactly
-that reason.
+implementation: column promotion, links between modules (§7.6), the metadata
+editor, and §7.2 — what happens to stored data when a field changes type or is
+removed. Installing a module today refuses to touch an existing installation for
+exactly that reason, which now also means a customer who installed Contact before
+addresses existed does not get them.
 
 Two things to keep honest while that lands: the metadata layer will want a
 per-tenant cache, which is §7.4 in a new costume; and file storage has not been

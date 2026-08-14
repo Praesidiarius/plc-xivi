@@ -20,7 +20,7 @@ return static function (ContainerConfigurator $container): void {
         ->load('Xivi\\Core\\', __DIR__ . '/../src/')
             ->exclude([
                 __DIR__ . '/../src/Entity/',
-                __DIR__ . '/../src/Module/{ModuleBlueprint,FieldBlueprint}.php',
+                __DIR__ . '/../src/Module/{ModuleBlueprint,CollectionBlueprint,FieldBlueprint}.php',
                 __DIR__ . '/../src/Record/Record.php',
                 __DIR__ . '/../src/Validation/UniqueFieldValue.php',
                 __DIR__ . '/../src/XiviCoreBundle.php',

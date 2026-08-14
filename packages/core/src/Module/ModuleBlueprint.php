@@ -14,12 +14,17 @@ namespace Xivi\Core\Module;
  */
 final readonly class ModuleBlueprint
 {
-    /** @param list<FieldBlueprint> $fields */
+    /**
+     * @param list<FieldBlueprint>      $fields
+     * @param list<CollectionBlueprint> $collections child rows this module owns,
+     *                                               such as a contact's addresses
+     */
     public function __construct(
         public string $key,
         public string $label,
         public string $table,
         public array $fields,
+        public array $collections = [],
     ) {
     }
 }

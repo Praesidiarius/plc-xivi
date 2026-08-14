@@ -13,22 +13,57 @@
 			<a class="btn btn-link" href="{{ path('module_index', {module: module.key}) }}">Back</a>
 		</div>
 
+		{{ form_start(form) }}
+		{{ form_errors(form) }}
+
 		<div class="card">
 			<div class="card-body">
 				{# Every field here came from a definition row — including any the
 				   customer added themselves, which is the point. #}
-				{{ form_start(form) }}
-				{{ form_errors(form) }}
-				{{ form_widget(form) }}
-
-				<div class="d-flex align-items-center gap-3 mt-4">
-					<button type="submit" class="btn btn-primary">Save</button>
-					{% if not record.isNew and record.createdAt %}
-						<span class="text-body-secondary small">Created {{ record.createdAt|date('Y-m-d H:i') }}</span>
-					{% endif %}
-				</div>
-				{{ form_end(form) }}
+				{{ form_widget(form.fields) }}
 			</div>
 		</div>
+
+		{# And every one of these came from the same kind of row, on a shape that
+		   happens to be a collection rather than a module. #}
+		{% for collection in module.collections %}
+			{% set entries = form.collections[collection.key] %}
+
+			<div class="card mt-3">
+				<div class="card-body">
+					<h2 class="h5 mb-3">{{ collection.label }}</h2>
+
+					<div data-collection
+						 data-prototype="{{ form_widget(entries.vars.prototype)|e('html_attr') }}"
+						 data-next-index="{{ entries|length }}">
+						{% for entry in entries %}
+							<div class="row-of-collection border-top pt-3 mt-3">
+								{{ form_widget(entry) }}
+								<button type="button" class="btn btn-outline-danger btn-sm" data-collection-remove>Remove</button>
+							</div>
+						{% endfor %}
+					</div>
+
+					{# Scripting only adds convenience: without it the blank row at
+					   the bottom still takes one more, and clearing a row's fields
+					   still removes it, because an empty row is not saved. #}
+					<button type="button" class="btn btn-outline-secondary btn-sm mt-3" data-collection-add hidden>
+						Add {{ collection.label|lower }}
+					</button>
+				</div>
+			</div>
+		{% endfor %}
+
+		<div class="d-flex align-items-center gap-3 mt-4">
+			<button type="submit" class="btn btn-primary">Save</button>
+			{% if not record.isNew and record.createdAt %}
+				<span class="text-body-secondary small">Created {{ record.createdAt|date('Y-m-d H:i') }}</span>
+			{% endif %}
+		</div>
+		{# Everything above is rendered by hand, so form_rest would only re-emit the
+		   collection containers as empty wrappers. The token is the one thing it
+		   would otherwise have added, so it is added here instead. #}
+		{% if form.children._token is defined %}{{ form_widget(form._token) }}{% endif %}
+		{{ form_end(form, {render_rest: false}) }}
 	</main>
 {% endblock %}

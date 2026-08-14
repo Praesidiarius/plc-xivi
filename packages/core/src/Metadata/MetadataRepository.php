@@ -23,6 +23,14 @@ use Xivi\Core\Entity\ModuleDefinition;
  * customer's database if one is. Returning a fully loaded object means a
  * definition is safe to hold. Definitions are a handful of rows, so this costs
  * nothing.
+ *
+ * Collections and their own fields are joined for the same reason: a contact's
+ * addresses are part of the shape, so "fully loaded" has to mean all of it.
+ * Joining two collections at once produces a cartesian product — five fields
+ * times five address fields is twenty-five rows, which is nothing, and one query
+ * beats three round trips per request. The ORDER BY leads with the module's own
+ * fields so that the hydrator meets each collection, and each collection's
+ * fields, in the right order the first time.
  */
 final readonly class MetadataRepository
 {
@@ -34,7 +42,12 @@ final readonly class MetadataRepository
     {
         return $this->entityManager
             ->createQuery(sprintf(
-                'SELECT m, f FROM %s m LEFT JOIN m.fields f WHERE m.key = :key ORDER BY f.position ASC, f.id ASC',
+                'SELECT m, f, c, cf FROM %s m
+                 LEFT JOIN m.fields f
+                 LEFT JOIN m.collections c
+                 LEFT JOIN c.fields cf
+                 WHERE m.key = :key
+                 ORDER BY f.position ASC, f.id ASC, c.position ASC, c.id ASC, cf.position ASC, cf.id ASC',
                 ModuleDefinition::class,
             ))
             ->setParameter('key', $moduleKey)
@@ -57,7 +70,11 @@ final readonly class MetadataRepository
     {
         return $this->entityManager
             ->createQuery(sprintf(
-                'SELECT m, f FROM %s m LEFT JOIN m.fields f ORDER BY m.key ASC, f.position ASC, f.id ASC',
+                'SELECT m, f, c, cf FROM %s m
+                 LEFT JOIN m.fields f
+                 LEFT JOIN m.collections c
+                 LEFT JOIN c.fields cf
+                 ORDER BY m.key ASC, f.position ASC, f.id ASC, c.position ASC, c.id ASC, cf.position ASC, cf.id ASC',
                 ModuleDefinition::class,
             ))
             ->getResult();

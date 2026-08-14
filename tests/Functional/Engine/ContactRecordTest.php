@@ -81,6 +81,135 @@ final class ContactRecordTest extends KernelTestCase
         self::assertTrue($email->isSystem());
     }
 
+    /**
+     * The same assertion as above, made outside the tenant context, for the part
+     * of the shape that is a whole other table: a collection and its own fields
+     * have to be loaded too, or holding a definition would lazily query
+     * whichever database happened to be current.
+     */
+    public function testInstallingWritesTheCollectionsDefinitions(): void
+    {
+        $module = $this->moduleIn($this->alpha);
+
+        self::assertSame(['addresses'], $module->getCollectionKeys());
+
+        $addresses = $module->getCollection('addresses');
+        self::assertNotNull($addresses);
+        self::assertSame('contact_address', $addresses->getTableName());
+        self::assertSame($module, $addresses->getParent());
+        self::assertSame(['label', 'street', 'postal_code', 'city', 'country'], $addresses->getFieldKeys());
+
+        // Described by the same kind of row, so it carries the same flags.
+        $street = $addresses->getField('street');
+        self::assertNotNull($street);
+        self::assertTrue($street->isRequired());
+        self::assertSame('text', $street->getType());
+    }
+
+    public function testChildrenAreStoredInTheirOwnTableAndReadBackByParent(): void
+    {
+        $contact = $this->saveIn($this->alpha, ['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+
+        $found = $this->switcher->runFor($this->alpha, function () use ($contact): array {
+            $module = self::service(MetadataRepository::class)->get(ContactModule::KEY);
+            $addresses = $module->getCollection('addresses');
+            \assert($addresses !== null);
+            $records = self::service(RecordRepository::class);
+
+            $records->save($addresses, new Record(['street' => 'Baker Street 1', 'city' => 'Zürich'], parentId: $contact->id));
+            $records->save($addresses, new Record(['street' => 'Bahnhofstrasse 5', 'city' => 'Bern'], parentId: $contact->id));
+
+            return $records->findChildren($addresses, (int) $contact->id);
+        });
+
+        self::assertCount(2, $found);
+        // Oldest first: these are a list somebody typed, not a feed.
+        self::assertSame('Baker Street 1', $found[0]->get('street'));
+        self::assertSame('Bern', $found[1]->get('city'));
+        self::assertSame($contact->id, $found[0]->parentId);
+        // A child has no owner of its own; whoever owns the contact owns these.
+        self::assertNull($found[0]->ownerId);
+    }
+
+    /** Deleting a contact has to take its addresses with it, not orphan them. */
+    public function testDeletingARecordSoftDeletesItsChildren(): void
+    {
+        $contact = $this->saveIn($this->alpha, ['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+
+        $remaining = $this->switcher->runFor($this->alpha, function () use ($contact): array {
+            $module = self::service(MetadataRepository::class)->get(ContactModule::KEY);
+            $addresses = $module->getCollection('addresses');
+            \assert($addresses !== null);
+            $records = self::service(RecordRepository::class);
+
+            $records->save($addresses, new Record(['street' => 'Baker Street 1'], parentId: $contact->id));
+            $records->delete($module, $contact);
+
+            return $records->findChildren($addresses, (int) $contact->id);
+        });
+
+        self::assertSame([], $remaining);
+    }
+
+    /**
+     * A row of a collection without a parent has nowhere to belong. Caught
+     * before the database says so, because the not-null violation names a
+     * column and not the mistake.
+     */
+    public function testAChildWithoutAParentIsRefused(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->switcher->runFor($this->alpha, function (): void {
+            $module = self::service(MetadataRepository::class)->get(ContactModule::KEY);
+            $addresses = $module->getCollection('addresses');
+            \assert($addresses !== null);
+
+            self::service(RecordRepository::class)->save($addresses, new Record(['street' => 'Nowhere 1']));
+        });
+    }
+
+    /**
+     * The ids in a submitted collection come from a form, so a request naming a
+     * row belonging to a different contact is an attempt to edit that contact's
+     * data through a side door.
+     */
+    public function testAChildOfAnotherRecordCannotBeClaimed(): void
+    {
+        $ada = $this->saveIn($this->alpha, ['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+        $grace = $this->saveIn($this->alpha, ['first_name' => 'Grace', 'last_name' => 'Hopper']);
+
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->switcher->runFor($this->alpha, function () use ($ada, $grace): void {
+            $module = self::service(MetadataRepository::class)->get(ContactModule::KEY);
+            $addresses = $module->getCollection('addresses');
+            \assert($addresses !== null);
+            $records = self::service(RecordRepository::class);
+
+            $hers = $records->save($addresses, new Record(['street' => 'Baker Street 1'], parentId: $ada->id));
+
+            $records->replaceChildren($addresses, (int) $grace->id, [
+                ['id' => (int) $hers->id, 'data' => ['street' => 'Stolen Street 1']],
+            ]);
+        });
+    }
+
+    /** Validation reads a collection's definitions exactly as it reads a module's. */
+    public function testACollectionIsValidatedByItsOwnDefinitions(): void
+    {
+        $violations = $this->switcher->runFor($this->alpha, function () {
+            $module = self::service(MetadataRepository::class)->get(ContactModule::KEY);
+            $addresses = $module->getCollection('addresses');
+            \assert($addresses !== null);
+
+            return self::service(RecordValidator::class)->validate($addresses, ['city' => 'Zürich']);
+        });
+
+        self::assertCount(1, $violations);
+        self::assertSame('[street]', $violations->get(0)->getPropertyPath());
+    }
+
     public function testInstallingTwiceIsHarmless(): void
     {
         $before = $this->moduleIn($this->alpha)->getId();

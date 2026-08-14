@@ -8,12 +8,17 @@ use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Xivi\Core\Entity\ModuleDefinition;
+use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
 
 /**
  * Builds a record's validation rules out of its field definitions, as §5 asks:
  * one source of truth, so a field that is required is required everywhere,
  * without anybody restating it in a form class.
+ *
+ * It validates any shape, so a contact's address is checked by the same rules
+ * from the same kind of row as the contact itself — no separate validator for
+ * children, and no way for the two to disagree about what "required" means.
  */
 final readonly class RecordValidator
 {
@@ -28,11 +33,11 @@ final readonly class RecordValidator
      * @param int|null             $recordId the record being edited, so that a unique
      *                                       field does not collide with itself
      */
-    public function validate(ModuleDefinition $module, array $data, ?int $recordId = null): ConstraintViolationListInterface
+    public function validate(ShapeDefinition $shape, array $data, ?int $recordId = null): ConstraintViolationListInterface
     {
         return $this->validator->validate(
-            $this->normalize($module, $data),
-            $this->constraintFor($module, $recordId),
+            $this->normalize($shape, $data),
+            $this->constraintFor($shape, $recordId),
         );
     }
 
@@ -49,11 +54,11 @@ final readonly class RecordValidator
      *
      * @return array<string, mixed>
      */
-    private function normalize(ModuleDefinition $module, array $data): array
+    private function normalize(ShapeDefinition $shape, array $data): array
     {
         $normalized = $data;
 
-        foreach ($module->getFields() as $field) {
+        foreach ($shape->getFields() as $field) {
             $normalized[$field->getKey()] = $this->fieldTypes
                 ->get($field->getType())
                 ->toStorage($data[$field->getKey()] ?? null, $field);
@@ -62,16 +67,19 @@ final readonly class RecordValidator
         return $normalized;
     }
 
-    private function constraintFor(ModuleDefinition $module, ?int $recordId): Assert\Collection
+    private function constraintFor(ShapeDefinition $shape, ?int $recordId): Assert\Collection
     {
         $fields = [];
 
-        foreach ($module->getFields() as $field) {
+        foreach ($shape->getFields() as $field) {
             $constraints = $this->fieldTypes->get($field->getType())->constraints($field);
 
-            if ($field->isUnique()) {
+            // Only on a module. On a collection, "unique" would have to mean
+            // either across the whole table or within one parent, and the
+            // installer refuses the ambiguity rather than picking one silently.
+            if ($field->isUnique() && $shape instanceof ModuleDefinition) {
                 $constraints[] = new UniqueFieldValue(
-                    moduleKey: $module->getKey(),
+                    moduleKey: $shape->getKey(),
                     fieldKey: $field->getKey(),
                     exceptId: $recordId,
                 );

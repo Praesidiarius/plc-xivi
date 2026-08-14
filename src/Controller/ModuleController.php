@@ -15,7 +15,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
 use Xivi\Core\Entity\ModuleDefinition;
-use Xivi\Core\Form\RecordType;
+use Xivi\Core\Form\ModuleRecordType;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Metadata\ModuleNotInstalled;
 use Xivi\Core\Record\Record;
@@ -88,25 +88,65 @@ final class ModuleController extends AbstractController
 
     private function edit(ModuleDefinition $definition, Record $record, Request $request): Response
     {
-        $form = $this->createForm(RecordType::class, $record->data, ['module' => $definition]);
+        $form = $this->createForm(ModuleRecordType::class, $this->formData($definition, $record), [
+            'module' => $definition,
+        ]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted()) {
-            /** @var array<string, mixed> $submitted */
+            /** @var array{fields: array<string, mixed>} $submitted */
             $submitted = $form->getData();
-            $violations = $this->validator->validate($definition, $submitted, $record->id);
+            $children = self::childRows($definition, $form->getData());
 
-            if (\count($violations) === 0) {
-                $record->data = $submitted;
+            // Each part is checked against its own definitions: the contact
+            // against the contact's, every address against the address ones. The
+            // validator is handed a shape and never asks which kind it is.
+            $violations = $this->validator->validate($definition, $submitted['fields'], $record->id);
+            self::mapViolations($violations, $form->get('fields'));
+            $valid = \count($violations) === 0;
+
+            foreach ($children as $key => $rows) {
+                $collection = $definition->getCollection($key);
+                \assert($collection !== null);
+
+                foreach ($rows as $row) {
+                    $rowViolations = $this->validator->validate($collection, $row['data'], $row['id']);
+
+                    if (\count($rowViolations) > 0) {
+                        $valid = false;
+                        self::mapViolations(
+                            $rowViolations,
+                            $form->get('collections')->get($key)->get((string) $row['index'])->get('fields'),
+                        );
+                    }
+                }
+            }
+
+            if ($valid) {
+                $record->data = $submitted['fields'];
                 $record->ownerId ??= $this->currentUserId();
                 $this->records->save($definition, $record);
+
+                // After the parent, which is where a new record gets the id its
+                // children need to point at.
+                foreach ($children as $key => $rows) {
+                    $collection = $definition->getCollection($key);
+                    \assert($collection !== null);
+
+                    $this->records->replaceChildren(
+                        $collection,
+                        (int) $record->id,
+                        array_map(
+                            static fn (array $row): array => ['id' => $row['id'], 'data' => $row['data']],
+                            $rows,
+                        ),
+                    );
+                }
 
                 $this->addFlash('success', 'Saved.');
 
                 return $this->redirectToRoute('module_index', ['module' => $definition->getKey()]);
             }
-
-            self::mapViolations($violations, $form);
         }
 
         return $this->render('module/form.html.twig', [
@@ -114,6 +154,86 @@ final class ModuleController extends AbstractController
             'record' => $record,
             'form' => $form,
         ]);
+    }
+
+    /**
+     * What the form starts with: the record's own values, plus the rows of each
+     * collection it owns, plus one blank row.
+     *
+     * The blank row is what makes the page work with scripting turned off — it
+     * is somewhere to type the first address without a button that adds one.
+     * Left alone it costs nothing, since an empty row is not saved.
+     *
+     * @return array<string, mixed>
+     */
+    private function formData(ModuleDefinition $definition, Record $record): array
+    {
+        $data = ['fields' => $record->data];
+
+        foreach ($definition->getCollections() as $collection) {
+            $children = $record->isNew() ? [] : $this->records->findChildren($collection, (int) $record->id);
+
+            $rows = array_map(
+                static fn (Record $child): array => ['id' => (string) $child->id, 'fields' => $child->data],
+                $children,
+            );
+            $rows[] = ['id' => '', 'fields' => []];
+
+            $data['collections'][$collection->getKey()] = $rows;
+        }
+
+        return $data;
+    }
+
+    /**
+     * The submitted collection rows, keyed by collection, carrying the position
+     * they hold in the form so a violation can be put back on the row it came
+     * from.
+     *
+     * Rows the person added and left completely empty are dropped rather than
+     * validated: clicking "add address" and changing your mind is not an attempt
+     * to save a blank address. The same rule means clearing every field of an
+     * existing row deletes it, which is what emptying something out looks like
+     * to anyone who is not thinking about databases.
+     *
+     * @param array<string, mixed> $submitted
+     *
+     * @return array<string, list<array{index: int, id: int|null, data: array<string, mixed>}>>
+     */
+    private static function childRows(ModuleDefinition $definition, array $submitted): array
+    {
+        /** @var array<string, array<int, array{id?: string|null, fields?: array<string, mixed>}>> $collections */
+        $collections = $submitted['collections'] ?? [];
+        $rows = [];
+
+        foreach ($definition->getCollections() as $collection) {
+            $rows[$collection->getKey()] = [];
+
+            foreach ($collections[$collection->getKey()] ?? [] as $index => $entry) {
+                $fields = $entry['fields'] ?? [];
+
+                if (self::isBlank($fields)) {
+                    continue;
+                }
+
+                $id = ($entry['id'] ?? '') === '' ? null : (int) $entry['id'];
+                $rows[$collection->getKey()][] = ['index' => $index, 'id' => $id, 'data' => $fields];
+            }
+        }
+
+        return $rows;
+    }
+
+    /** @param array<string, mixed> $fields */
+    private static function isBlank(array $fields): bool
+    {
+        foreach ($fields as $value) {
+            if ($value !== null && $value !== '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
