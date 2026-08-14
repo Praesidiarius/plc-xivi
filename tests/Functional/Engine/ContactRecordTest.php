@@ -8,6 +8,7 @@ use App\ControlPlane\Entity\Tenant;
 use App\ControlPlane\Provisioning\TenantProvisioner;
 use App\ControlPlane\Repository\TenantRepository;
 use App\Tenancy\TenantSwitcher;
+use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Xivi\Contact\ContactModule;
 use Xivi\Core\Entity\ModuleDefinition;
@@ -31,10 +32,11 @@ use Xivi\Core\Validation\RecordValidator;
  */
 final class ContactRecordTest extends KernelTestCase
 {
+    use SharesATenant;
+
     private const string ALPHA = 'test_engine_alpha';
     private const string BETA = 'test_engine_beta';
 
-    private TenantProvisioner $provisioner;
     private TenantSwitcher $switcher;
     private Tenant $alpha;
     private Tenant $beta;
@@ -43,25 +45,21 @@ final class ContactRecordTest extends KernelTestCase
     {
         self::bootKernel();
 
-        $this->provisioner = self::service(TenantProvisioner::class);
         $this->switcher = self::service(TenantSwitcher::class);
 
-        $this->removeTenants();
-        $this->alpha = $this->provisioner->provision(self::ALPHA, 'Alpha', ['engine-alpha.localhost']);
-        $this->beta = $this->provisioner->provision(self::BETA, 'Beta', ['engine-beta.localhost']);
+        // Provisioned once for the whole class and emptied between tests; see
+        // SharesATenant for why isolation here is a truncate and not a
+        // rolled-back transaction.
+        $this->alpha = $this->sharedTenant(self::ALPHA, ['engine-alpha.localhost']);
+        $this->beta = $this->sharedTenant(self::BETA, ['engine-beta.localhost']);
 
         foreach ([$this->alpha, $this->beta] as $tenant) {
             $this->switcher->runFor($tenant, fn () => self::service(ModuleInstaller::class)->install(
                 self::service(ModuleRegistry::class)->get(ContactModule::KEY),
             ));
+
+            $this->clearRecords($tenant);
         }
-    }
-
-    protected function tearDown(): void
-    {
-        $this->removeTenants();
-
-        parent::tearDown();
     }
 
     /**
@@ -612,18 +610,5 @@ final class ContactRecordTest extends KernelTestCase
         \assert($service instanceof $id);
 
         return $service;
-    }
-
-    private function removeTenants(): void
-    {
-        $tenants = self::service(TenantRepository::class);
-
-        foreach ([self::ALPHA, self::BETA] as $slug) {
-            $tenant = $tenants->findOneBySlug($slug);
-
-            if ($tenant instanceof Tenant) {
-                $this->provisioner->deprovision($tenant);
-            }
-        }
     }
 }

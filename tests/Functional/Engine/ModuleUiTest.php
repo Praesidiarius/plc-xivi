@@ -8,7 +8,9 @@ use App\ControlPlane\Entity\Tenant;
 use App\ControlPlane\Provisioning\TenantProvisioner;
 use App\ControlPlane\Repository\TenantRepository;
 use App\Tenancy\TenantSwitcher;
+use App\Tenant\Security\UserAlreadyExists;
 use App\Tenant\Security\UserCreator;
+use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
@@ -27,6 +29,8 @@ use Xivi\Core\Module\ModuleRegistry;
  */
 final class ModuleUiTest extends WebTestCase
 {
+    use SharesATenant;
+
     private const string ALPHA = 'test_ui_alpha';
     private const string BETA = 'test_ui_beta';
     private const string HOST = 'ui-alpha.localhost';
@@ -48,11 +52,10 @@ final class ModuleUiTest extends WebTestCase
         $this->client = self::createClient();
         $this->client->disableReboot();
 
-        $this->removeTenants();
-
-        $provisioner = self::service(TenantProvisioner::class);
-        $alpha = $provisioner->provision(self::ALPHA, 'Alpha', [self::HOST]);
-        $beta = $provisioner->provision(self::BETA, 'Beta', ['ui-beta.localhost']);
+        // Both tenants belong to the class; only their records are cleared
+        // between tests (see SharesATenant).
+        $alpha = $this->sharedTenant(self::ALPHA, [self::HOST]);
+        $beta = $this->sharedTenant(self::BETA, ['ui-beta.localhost']);
 
         $switcher = self::service(TenantSwitcher::class);
         $blueprint = self::service(ModuleRegistry::class)->get(ContactModule::KEY);
@@ -60,18 +63,21 @@ final class ModuleUiTest extends WebTestCase
         // Alpha gets the module; beta deliberately does not.
         $switcher->runFor($alpha, fn () => self::service(ModuleInstaller::class)->install($blueprint));
 
-        self::service(UserCreator::class)->create($alpha, self::EMAIL, 'UI', self::PASSWORD, ['ROLE_ADMIN']);
-        self::service(UserCreator::class)->create($beta, self::EMAIL, 'UI', self::PASSWORD, ['ROLE_ADMIN']);
+        $this->clearRecords($alpha);
+        $this->clearRecords($beta);
+
+        foreach ([$alpha, $beta] as $tenant) {
+            try {
+                self::service(UserCreator::class)->create($tenant, self::EMAIL, 'UI', self::PASSWORD, ['ROLE_ADMIN']);
+            } catch (UserAlreadyExists) {
+                // Made once for the class; the records are cleared between tests
+                // but the person signing in is not one of them.
+            }
+        }
 
         $this->signIn();
     }
 
-    protected function tearDown(): void
-    {
-        $this->removeTenants();
-
-        parent::tearDown();
-    }
 
     public function testTheFormIsBuiltFromTheFieldDefinitions(): void
     {
@@ -505,6 +511,22 @@ final class ModuleUiTest extends WebTestCase
         self::assertNotContains('Grace Hopper', $options);
     }
 
+    /** The download, and that it carries the filter you are looking at. */
+    public function testExportingTheList(): void
+    {
+        $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+        $this->client->followRedirect();
+
+        $crawler = $this->client->request('GET', $this->url('/m/contact'));
+        $this->client->click($crawler->filter('a:contains("Export")')->link());
+
+        $response = $this->client->getResponse();
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('spreadsheetml', (string) $response->headers->get('content-type'));
+        self::assertStringContainsString('contact-', (string) $response->headers->get('content-disposition'));
+    }
+
     /** A module the customer does not have is a 404 — another customer may well have it. */
     public function testAModuleThatIsNotInstalledIsNotFound(): void
     {
@@ -619,19 +641,5 @@ final class ModuleUiTest extends WebTestCase
         \assert($service instanceof $id);
 
         return $service;
-    }
-
-    private function removeTenants(): void
-    {
-        $provisioner = self::service(TenantProvisioner::class);
-        $tenants = self::service(TenantRepository::class);
-
-        foreach ([self::ALPHA, self::BETA] as $slug) {
-            $tenant = $tenants->findOneBySlug($slug);
-
-            if ($tenant instanceof Tenant) {
-                $provisioner->deprovision($tenant);
-            }
-        }
     }
 }

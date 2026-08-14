@@ -8,6 +8,7 @@ use App\ControlPlane\Entity\Tenant;
 use App\ControlPlane\Provisioning\TenantProvisioner;
 use App\ControlPlane\Repository\TenantRepository;
 use App\Tenancy\TenantSwitcher;
+use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Xivi\Contact\ContactModule;
 use Xivi\Core\Metadata\MetadataRepository;
@@ -30,9 +31,10 @@ use Xivi\Core\Validation\RecordValidator;
  */
 final class ContactVariantsTest extends KernelTestCase
 {
+    use SharesATenant;
+
     private const string SLUG = 'test_variants';
 
-    private TenantProvisioner $provisioner;
     private TenantSwitcher $switcher;
     private Tenant $tenant;
 
@@ -40,23 +42,18 @@ final class ContactVariantsTest extends KernelTestCase
     {
         self::bootKernel();
 
-        $this->provisioner = self::service(TenantProvisioner::class);
         $this->switcher = self::service(TenantSwitcher::class);
 
-        $this->removeTenant();
-        $this->tenant = $this->provisioner->provision(self::SLUG, 'Variants', ['variants.localhost']);
+        // One tenant for the class, emptied between tests (see SharesATenant).
+        $this->tenant = $this->sharedTenant(self::SLUG, ['variants.localhost']);
 
         $this->switcher->runFor($this->tenant, fn () => self::service(ModuleInstaller::class)->install(
             self::service(ModuleRegistry::class)->get(ContactModule::KEY),
         ));
+
+        $this->clearRecords($this->tenant);
     }
 
-    protected function tearDown(): void
-    {
-        $this->removeTenant();
-
-        parent::tearDown();
-    }
 
     public function testTheModuleKnowsItsVariants(): void
     {
@@ -262,12 +259,4 @@ final class ContactVariantsTest extends KernelTestCase
         return $service;
     }
 
-    private function removeTenant(): void
-    {
-        $tenant = self::service(TenantRepository::class)->findOneBySlug(self::SLUG);
-
-        if ($tenant instanceof Tenant) {
-            $this->provisioner->deprovision($tenant);
-        }
-    }
 }

@@ -9,6 +9,7 @@ use App\ControlPlane\Provisioning\TenantProvisioner;
 use App\ControlPlane\Repository\TenantRepository;
 use App\Tenancy\TenantSwitcher;
 use Doctrine\ORM\EntityManagerInterface;
+use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Xivi\Contact\ContactModule;
 use Xivi\Core\Entity\FieldDefinition;
@@ -34,9 +35,10 @@ use Xivi\Core\Record\RecordWriter;
  */
 final class RecordQueryTest extends KernelTestCase
 {
+    use SharesATenant;
+
     private const string SLUG = 'test_query';
 
-    private TenantProvisioner $provisioner;
     private TenantSwitcher $switcher;
     private Tenant $tenant;
 
@@ -44,23 +46,18 @@ final class RecordQueryTest extends KernelTestCase
     {
         self::bootKernel();
 
-        $this->provisioner = self::service(TenantProvisioner::class);
         $this->switcher = self::service(TenantSwitcher::class);
 
-        $this->removeTenant();
-        $this->tenant = $this->provisioner->provision(self::SLUG, 'Query', ['query.localhost']);
+        // One tenant for the class, emptied between tests (see SharesATenant).
+        $this->tenant = $this->sharedTenant(self::SLUG, ['query.localhost']);
 
         $this->switcher->runFor($this->tenant, fn () => self::service(ModuleInstaller::class)->install(
             self::service(ModuleRegistry::class)->get(ContactModule::KEY),
         ));
+
+        $this->clearRecords($this->tenant);
     }
 
-    protected function tearDown(): void
-    {
-        $this->removeTenant();
-
-        parent::tearDown();
-    }
 
     public function testFilteringOnAFieldOfTheRecord(): void
     {
@@ -379,12 +376,4 @@ final class RecordQueryTest extends KernelTestCase
         return $service;
     }
 
-    private function removeTenant(): void
-    {
-        $tenant = self::service(TenantRepository::class)->findOneBySlug(self::SLUG);
-
-        if ($tenant instanceof Tenant) {
-            $this->provisioner->deprovision($tenant);
-        }
-    }
 }
