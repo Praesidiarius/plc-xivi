@@ -19,6 +19,7 @@ use Xivi\Core\Field\FieldType;
 use Xivi\Core\Form\RecordReferenceType;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Metadata\ModuleNotInstalled;
+use Xivi\Core\Permission\RecordAccess;
 use Xivi\Core\Query\Filter;
 use Xivi\Core\Query\Operator;
 use Xivi\Core\Query\RecordQuery;
@@ -162,7 +163,14 @@ final class ReferenceFieldType implements FieldType
             $filters[] = new Filter($variantField, Operator::Equals, $variant);
         }
 
-        $records = ($this->records)()->findBy($module, new RecordQuery($filters, [], 1, self::CANDIDATES));
+        // Unrestricted, for the same reason as the picker it feeds — see
+        // RecordReferenceType. §7.5 has not settled what a reference should show
+        // somebody scoped to their own records.
+        $records = ($this->records)()->findBy(
+            $module,
+            new RecordQuery($filters, [], 1, self::CANDIDATES),
+            RecordAccess::unrestricted(),
+        );
 
         return array_map(static fn (Record $record): int => (int) $record->id, $records);
     }

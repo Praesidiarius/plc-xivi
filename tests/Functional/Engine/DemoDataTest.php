@@ -27,6 +27,7 @@ use Xivi\Core\History\HistoryRepository;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
+use Xivi\Core\Permission\RecordAccess;
 use Xivi\Core\Query\RecordQuery;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordRepository;
@@ -82,7 +83,7 @@ final class DemoDataTest extends KernelTestCase
             $validator = self::service(RecordValidator::class);
             $module = self::module();
 
-            foreach (self::service(RecordRepository::class)->findBy($module, new RecordQuery(perPage: 100)) as $record) {
+            foreach (self::service(RecordRepository::class)->findBy($module, new RecordQuery(perPage: 100), RecordAccess::unrestricted()) as $record) {
                 $violations = $validator->validate($module, $record->data, $record->id);
 
                 self::assertCount(0, $violations, sprintf(
@@ -140,7 +141,7 @@ final class DemoDataTest extends KernelTestCase
             \assert($collection !== null);
             $records = self::service(RecordRepository::class);
 
-            foreach ($records->findBy(self::module(), new RecordQuery(perPage: 100)) as $record) {
+            foreach ($records->findBy(self::module(), new RecordQuery(perPage: 100), RecordAccess::unrestricted()) as $record) {
                 $counts[] = \count($records->findChildren($collection, (int) $record->id));
             }
         });
@@ -199,7 +200,7 @@ final class DemoDataTest extends KernelTestCase
         $this->generate(5);
 
         $this->switcher->runFor($this->tenant, function (): void {
-            $record = self::service(RecordRepository::class)->findBy(self::module(), new RecordQuery())[0];
+            $record = self::service(RecordRepository::class)->findBy(self::module(), new RecordQuery(), RecordAccess::unrestricted())[0];
 
             self::assertCount(1, self::service(HistoryRepository::class)->findFor(self::module(), (int) $record->id));
         });
@@ -266,7 +267,7 @@ final class DemoDataTest extends KernelTestCase
     private function records(int $perPage = 100): array
     {
         return $this->switcher->runFor($this->tenant, fn (): array => self::service(RecordRepository::class)
-            ->findBy(self::module(), new RecordQuery(perPage: $perPage)));
+            ->findBy(self::module(), new RecordQuery(perPage: $perPage), RecordAccess::unrestricted()));
     }
 
     private static function module(): ModuleDefinition

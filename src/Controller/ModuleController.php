@@ -31,6 +31,7 @@ use Xivi\Core\Form\ModuleRecordType;
 use Xivi\Core\History\HistoryRepository;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Metadata\ModuleNotInstalled;
+use Xivi\Core\Permission\RecordAccess;
 use Xivi\Core\Query\Filter;
 use Xivi\Core\Query\Operator;
 use Xivi\Core\Query\RecordQuery;
@@ -75,9 +76,15 @@ final class ModuleController extends AbstractController
         $definition = $this->definition($module);
         $query = $this->queries->fromQueryParameters($request->query->all());
 
+        // Unrestricted until the voters land: scoping the list while /new and
+        // /{id} are still open to anybody would be half a permission system,
+        // which reads as a working one. The engine is ready for it — this line
+        // and the count below are where it attaches (§7.5).
+        $access = RecordAccess::unrestricted();
+
         try {
-            $records = $this->records->findBy($definition, $query);
-            $total = $this->records->countBy($definition, $query);
+            $records = $this->records->findBy($definition, $query, $access);
+            $total = $this->records->countBy($definition, $query, $access);
         } catch (UnsupportedQuery $e) {
             // The query is in the URL, so it can be hand-edited into something
             // the engine will not answer. That is a message and an unfiltered
@@ -85,8 +92,8 @@ final class ModuleController extends AbstractController
             $this->addFlash('warning', $e->getMessage());
 
             $query = new RecordQuery();
-            $records = $this->records->findBy($definition, $query);
-            $total = $this->records->countBy($definition, $query);
+            $records = $this->records->findBy($definition, $query, $access);
+            $total = $this->records->countBy($definition, $query, $access);
         }
 
         return $this->render('module/index.html.twig', [
@@ -131,7 +138,10 @@ final class ModuleController extends AbstractController
         $query = $this->queries->fromQueryParameters($request->query->all());
 
         $path = (string) tempnam(sys_get_temp_dir(), 'xivi-export-');
-        $this->exporter->toFile($definition, $query, $path);
+        // Unrestricted with the list above, and it has to move at the same time:
+        // an export narrower than the page it came from is confusing, and one
+        // wider than it is a leak (§7.5).
+        $this->exporter->toFile($definition, $query, RecordAccess::unrestricted(), $path);
 
         $response = $this->file($path, sprintf('%s-%s.xlsx', $module, date('Y-m-d')))
             ->deleteFileAfterSend(true);
@@ -224,7 +234,7 @@ final class ModuleController extends AbstractController
 
             $found = $this->records->findBy($module, new RecordQuery(
                 [new Filter($field->getKey(), Operator::Equals, (int) $record->id)],
-            ));
+            ), RecordAccess::unrestricted());
 
             if ($found !== []) {
                 $linked[$field->getLabel()] = $found;
