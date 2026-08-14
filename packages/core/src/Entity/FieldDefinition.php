@@ -35,6 +35,19 @@ class FieldDefinition
     #[ORM\Column(type: 'json')]
     private array $options = [];
 
+    /**
+     * Which variants of the shape this field belongs to (§5.5).
+     *
+     * Empty means all of them, which is the common case and the default — a
+     * contact's email is a contact's email whether it is a person or a company.
+     * A non-empty list scopes the field: `['person']` on a first name means a
+     * company neither shows it nor is required to fill it in.
+     *
+     * @var list<string>
+     */
+    #[ORM\Column(type: 'json')]
+    private array $variants = [];
+
     public function __construct(
         #[ORM\ManyToOne(targetEntity: ShapeDefinition::class, inversedBy: 'fields')]
         #[ORM\JoinColumn(name: 'shape_id', nullable: false, onDelete: 'CASCADE')]
@@ -155,6 +168,34 @@ class FieldDefinition
     }
 
     /** Part of what the record is called; see the constructor. */
+    /** @return list<string> */
+    public function getVariants(): array
+    {
+        return $this->variants;
+    }
+
+    /** @param list<string> $variants */
+    public function setVariants(array $variants): void
+    {
+        $this->variants = array_values(array_unique($variants));
+    }
+
+    /**
+     * Whether this field is part of the given variant.
+     *
+     * A field scoped to variants does not apply when the variant is unknown:
+     * showing a company's fields on a record nobody has said is a company would
+     * be guessing, and validating them would be worse.
+     */
+    public function appliesTo(?string $variant): bool
+    {
+        if ($this->variants === []) {
+            return true;
+        }
+
+        return $variant !== null && \in_array($variant, $this->variants, true);
+    }
+
     public function isTitle(): bool
     {
         return $this->title;

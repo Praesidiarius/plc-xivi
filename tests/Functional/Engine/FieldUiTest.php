@@ -93,7 +93,7 @@ final class FieldUiTest extends WebTestCase
 
         self::assertSelectorTextContains('.alert', 'Added "VAT number"');
 
-        $this->client->request('GET', $this->url('/m/contact/new'));
+        $this->client->request('GET', $this->url('/m/contact/new?variant=person'));
 
         self::assertSelectorExists('[name="module_record[fields][vat_number]"]');
         // The label comes from the definition row, like every other field's.
@@ -122,7 +122,7 @@ final class FieldUiTest extends WebTestCase
         self::assertStringNotContainsString('VAT number', $crawler->filter('thead')->text());
 
         // …but it is on the record, where everything is.
-        $this->client->request('GET', $this->url('/m/contact/new'));
+        $this->client->request('GET', $this->url('/m/contact/new?variant=person'));
         self::assertSelectorExists('[name="module_record[fields][vat_number]"]');
     }
 
@@ -184,7 +184,7 @@ final class FieldUiTest extends WebTestCase
     /** The list only renders a table when there is something in it. */
     private function addContact(string $first, string $last): void
     {
-        $this->client->request('GET', $this->url('/m/contact/new'));
+        $this->client->request('GET', $this->url('/m/contact/new?variant=person'));
         $this->client->submitForm('Save', [
             'module_record[fields][first_name]' => $first,
             'module_record[fields][last_name]' => $last,

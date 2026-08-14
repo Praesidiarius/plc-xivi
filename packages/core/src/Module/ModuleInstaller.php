@@ -60,7 +60,13 @@ final readonly class ModuleInstaller
         $this->createRecordTable($blueprint->table, parentTable: null);
         $this->createHistoryTable($blueprint->table);
 
-        $module = new ModuleDefinition($blueprint->key, $blueprint->label, $blueprint->table, $blueprint->icon);
+        $module = new ModuleDefinition(
+            $blueprint->key,
+            $blueprint->label,
+            $blueprint->table,
+            $blueprint->icon,
+            $blueprint->variantField,
+        );
         $this->defineFields($module, $fields);
 
         foreach ($blueprint->collections as $collection) {
@@ -257,6 +263,7 @@ final readonly class ModuleInstaller
                 system: true,
             );
             $definition->setOptions($field->options);
+            $definition->setVariants($field->variants);
         }
     }
 

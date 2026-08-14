@@ -383,6 +383,50 @@ word.
 
 ---
 
+### 5.5 Variants: one shape, more than one kind of record
+
+A contact is a person or a company. They share an email, a phone number and an
+address; they do not share a first name, and a company cannot satisfy a rule that
+says one is required.
+
+**One module, not two.** The deciding argument is not tidiness, it is the
+reference: "select a contact anywhere you select a contact" has to work for both,
+and with two modules that selection is a **polymorphic** column — an id plus a
+type saying which table it points at. That is the shape that cannot carry a
+foreign key, and §5.2 already refused it once for exactly that reason. One module
+makes every link a plain key into one table. Shared machinery follows for free:
+addresses, history, filtering and the record page are declared once.
+
+**A shape names one choice field as the one that decides**, and the variants
+*are* that field's options — so adding "Partner" is adding an option, and there is
+no second list to disagree with it. A field then names the variants it belongs
+to; empty, the default and the common case, means all of them.
+
+    contact.variant_field = kind
+    kind      choice: person | company     (all variants)
+    first_name                             [person]
+    company_name                           [company]
+    email, phone, addresses[]              (all variants)
+
+**Where it applies, and where it deliberately does not.** The form asks for one
+variant's fields, the validator checks that variant's rules, and the record page
+shows what the record actually has. Storage is untouched: a value belonging to
+another variant stays in the payload and travels across saves, because it is
+somebody's data — the same reason removing a field leaves its values alone
+(§7.2). Validation lets those keys through unchecked while still rejecting a key
+the shape has never heard of.
+
+**Adding a record asks which kind first.** The fields depend on the answer, and
+switching them as somebody picks would need JavaScript, which these forms do not
+depend on. "New person" or "new company" is also how a CRM usually puts it.
+
+**The list names records rather than showing their fields.** With variants the
+only thing every row has is its name (§5.4), so that is the first column and it
+sorts across every field a name is built from — ordering people by a field only
+companies have was the first thing that went wrong here.
+
+---
+
 ## 6. Extensibility
 
 Three composable layers, all "one codebase, no forks":
@@ -471,11 +515,17 @@ Not yet decided. Decide deliberately rather than by accident.
    check performed after loading. See §8.4. Collections inherit the answer rather
    than needing their own: a child's access resolves through its parent, which is
    why its rows carry a parent and no owner of their own (§5.1).
-6. **Links between modules.** Contact → Company: both sides independent, both browsable,
-   and the target module possibly not installed for that customer (§3). Distinct from the
-   collections of §5.1, which are settled. Open: whether a link is a field type, what
-   happens to a link whose target module is uninstalled, and whether the query layer can
-   reach across one.
+6. **Links between records.** *Half built.* A link **is** a field type — that question is
+   answered: `reference` stores the target's id, and the widget, the display and the
+   filtering all come from the type like any other value. A person points at their company
+   (§5.5), and the company's list of people is the reverse read back by query rather than
+   stored twice. Optionally narrowed to a variant, so a picker offers companies rather
+   than everybody.
+   Still open: **across modules** rather than within one — what a link means when the
+   target module is not installed for that customer (§3), and whether the query layer can
+   filter through one, which today it cannot. Also whether anything enforces that the id
+   points at something: there is no foreign key on a JSONB value, so a link can go stale,
+   and the display says `#id` rather than pretending otherwise.
 
 *Numbering is stable — code comments cite these by number, so a settled question keeps
 its slot and gains a note rather than being removed.*
@@ -575,6 +625,8 @@ collection exercises it.
   customer's definitions, with a filter bar and sortable columns on the list.
 - The metadata editor of §5.4: adding, editing and removing fields on any shape,
   admin only, with every change that could strand data refused rather than made.
+- Variants (§5.5) and references (§7.6, in part): a contact is a person or a
+  company, each with its own fields, and a person links to their company by id.
 - Module presets (§6.1): `tenant:module:install --preset`, with Contact shipping
   `basic` and `extended`.
 - Module boundaries enforced by deptrac in CI.

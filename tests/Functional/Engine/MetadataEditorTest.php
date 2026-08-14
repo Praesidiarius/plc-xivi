@@ -80,7 +80,7 @@ final class MetadataEditorTest extends KernelTestCase
         $module = $this->switcher->runFor($this->tenant, fn () => self::service(MetadataRepository::class)
             ->get(ContactModule::KEY));
 
-        self::assertSame(['first_name', 'last_name', 'email', 'phone'], $module->getFieldKeys());
+        self::assertSame(['kind', 'company_name', 'first_name', 'last_name', 'email'], $module->getFieldKeys());
 
         // Collections are installed either way: nothing can add one back later,
         // so a preset is not allowed to take one away.
@@ -94,7 +94,10 @@ final class MetadataEditorTest extends KernelTestCase
             ->get(ContactModule::KEY));
 
         // The default preset is "extended", which is every field.
-        self::assertSame(['first_name', 'last_name', 'email', 'phone', 'birthday'], $module->getFieldKeys());
+        self::assertSame(
+            ['kind', 'company_name', 'first_name', 'last_name', 'email', 'phone', 'birthday', 'company'],
+            $module->getFieldKeys(),
+        );
     }
 
     public function testAnUnknownPresetIsRefused(): void
@@ -144,7 +147,7 @@ final class MetadataEditorTest extends KernelTestCase
         self::assertContains('vat_number', $keys);
 
         // Storable, and queryable, with nothing else touched.
-        $this->contact(['first_name' => 'Ada', 'last_name' => 'Lovelace', 'vat_number' => 'CHE-1']);
+        $this->contact(['kind' => ContactModule::PERSON, 'first_name' => 'Ada', 'last_name' => 'Lovelace', 'vat_number' => 'CHE-1']);
 
         $found = $this->switcher->runFor($this->tenant, fn (): array => self::service(RecordRepository::class)->findBy(
             self::service(MetadataRepository::class)->get(ContactModule::KEY),
@@ -185,7 +188,7 @@ final class MetadataEditorTest extends KernelTestCase
     public function testAFieldOffTheListIsStillARealField(): void
     {
         $this->addField('vat_number', 'VAT number', 'text', filterable: true);
-        $this->contact(['first_name' => 'Ada', 'last_name' => 'Lovelace', 'vat_number' => 'CHE-1']);
+        $this->contact(['kind' => ContactModule::PERSON, 'first_name' => 'Ada', 'last_name' => 'Lovelace', 'vat_number' => 'CHE-1']);
 
         $found = $this->switcher->runFor($this->tenant, fn (): array => self::service(RecordRepository::class)->findBy(
             self::service(MetadataRepository::class)->get(ContactModule::KEY),
@@ -272,7 +275,7 @@ final class MetadataEditorTest extends KernelTestCase
             );
         });
 
-        self::assertSame(['first_name', 'last_name'], $named);
+        self::assertSame(['kind', 'company_name'], $named);
     }
 
     public function testAFieldNameMustBeAnIdentifier(): void
@@ -308,8 +311,8 @@ final class MetadataEditorTest extends KernelTestCase
      */
     public function testMakingAFieldRequiredIsRefusedWhenRecordsWouldFail(): void
     {
-        $this->contact(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
-        $this->contact(['first_name' => 'Grace', 'last_name' => 'Hopper']);
+        $this->contact(['kind' => ContactModule::PERSON, 'first_name' => 'Ada', 'last_name' => 'Lovelace']);
+        $this->contact(['kind' => ContactModule::PERSON, 'first_name' => 'Grace', 'last_name' => 'Hopper']);
 
         $this->expectException(MetadataChangeRefused::class);
         $this->expectExceptionMessageMatches('/2 existing records/');
@@ -319,8 +322,8 @@ final class MetadataEditorTest extends KernelTestCase
 
     public function testMakingAFieldUniqueIsRefusedWhenRecordsCollide(): void
     {
-        $this->contact(['first_name' => 'Ada', 'last_name' => 'Lovelace', 'phone' => '+41 1']);
-        $this->contact(['first_name' => 'Grace', 'last_name' => 'Hopper', 'phone' => '+41 1']);
+        $this->contact(['kind' => ContactModule::PERSON, 'first_name' => 'Ada', 'last_name' => 'Lovelace', 'phone' => '+41 1']);
+        $this->contact(['kind' => ContactModule::PERSON, 'first_name' => 'Grace', 'last_name' => 'Hopper', 'phone' => '+41 1']);
 
         $this->expectException(MetadataChangeRefused::class);
         $this->expectExceptionMessageMatches('/2 existing records/');
@@ -331,13 +334,13 @@ final class MetadataEditorTest extends KernelTestCase
     /** Relaxing a rule cannot invalidate anything, so it is never refused. */
     public function testRelaxingARuleIsAlwaysAllowed(): void
     {
-        $this->contact(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+        $this->contact(['kind' => ContactModule::PERSON, 'first_name' => 'Ada', 'last_name' => 'Lovelace']);
 
         $this->update('first_name', required: false);
 
         $violations = $this->switcher->runFor($this->tenant, fn () => self::service(RecordValidator::class)->validate(
             self::service(MetadataRepository::class)->get(ContactModule::KEY),
-            ['last_name' => 'Nameless'],
+            ['kind' => ContactModule::PERSON, 'last_name' => 'Nameless'],
         ));
 
         self::assertCount(0, $violations, (string) $violations);

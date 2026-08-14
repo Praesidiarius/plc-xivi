@@ -26,6 +26,10 @@ final class ContactModule implements ModuleProvider
 {
     public const string KEY = 'contact';
 
+    /** The variants a contact comes in; the values stored in `kind`. */
+    public const string PERSON = 'person';
+    public const string COMPANY = 'company';
+
     public function blueprint(): ModuleBlueprint
     {
         return new ModuleBlueprint(
@@ -33,8 +37,37 @@ final class ContactModule implements ModuleProvider
             label: 'Contacts',
             table: 'contact',
             fields: [
+                // What kind of contact this is, and therefore which of the fields
+                // below apply to it (§5.5). Its options *are* the variants, so
+                // adding "Partner" later is adding an option here.
+                new FieldBlueprint(
+                    key: 'kind',
+                    label: 'Kind',
+                    type: 'choice',
+                    required: true,
+                    filterable: true,
+                    listed: true,
+                    position: 5,
+                    options: ['choices' => [self::PERSON => 'Person', self::COMPANY => 'Company']],
+                ),
+                new FieldBlueprint(
+                    key: 'company_name',
+                    label: 'Company name',
+                    type: 'text',
+                    required: true,
+                    filterable: true,
+                    listed: true,
+                    // A company is called by its name, the way a person is called
+                    // by theirs — record_title() skips whichever is empty, so one
+                    // rule names both (§5.4).
+                    title: true,
+                    variants: [self::COMPANY],
+                    position: 8,
+                    options: ['max_length' => 180],
+                ),
                 new FieldBlueprint(
                     key: 'first_name',
+                    variants: [self::PERSON],
                     // Part of what a contact is called (§5.4).
                     title: true,
                     label: 'First name',
@@ -46,6 +79,7 @@ final class ContactModule implements ModuleProvider
                 ),
                 new FieldBlueprint(
                     key: 'last_name',
+                    variants: [self::PERSON],
                     title: true,
                     label: 'Last name',
                     type: 'text',
@@ -75,7 +109,21 @@ final class ContactModule implements ModuleProvider
                     key: 'birthday',
                     label: 'Birthday',
                     type: 'date',
+                    variants: [self::PERSON],
                     position: 50,
+                ),
+                // The link, and the first one in the system (§7.6). Stored on the
+                // person, because that is the side that has one company; the
+                // company's list of people is the reverse of this and is read
+                // rather than stored, so the two cannot disagree.
+                new FieldBlueprint(
+                    key: 'company',
+                    label: 'Company',
+                    type: 'reference',
+                    filterable: true,
+                    variants: [self::PERSON],
+                    position: 60,
+                    options: ['module' => self::KEY, 'variant' => self::COMPANY],
                 ),
             ],
             collections: [
@@ -143,13 +191,13 @@ final class ContactModule implements ModuleProvider
                     key: 'basic',
                     label: 'Basic',
                     description: 'A name and how to reach them.',
-                    fields: ['first_name', 'last_name', 'email', 'phone'],
+                    fields: ['kind', 'company_name', 'first_name', 'last_name', 'email'],
                 ),
                 new ModulePreset(
                     key: 'extended',
                     label: 'Extended',
-                    description: 'Everything the module knows about a contact.',
-                    fields: ['first_name', 'last_name', 'email', 'phone', 'birthday'],
+                    description: 'Everything the module knows about a contact, companies included.',
+                    fields: ['kind', 'company_name', 'first_name', 'last_name', 'email', 'phone', 'birthday', 'company'],
                 ),
             ],
             // Installing "the contact module" gives you the contact module.
@@ -157,6 +205,9 @@ final class ContactModule implements ModuleProvider
             // added back in the editor (§5.4).
             defaultPreset: 'extended',
             icon: 'person-lines-fill',
+            // Which field decides a record's variant. The variants themselves are
+            // that field's options, so there is one place they are written down.
+            variantField: 'kind',
         );
     }
 }

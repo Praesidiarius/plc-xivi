@@ -35,9 +35,13 @@ final readonly class RecordValidator
      */
     public function validate(ShapeDefinition $shape, array $data, ?int $recordId = null): ConstraintViolationListInterface
     {
+        // The variant comes from the record's own values, so there is no way to
+        // validate a company against a person's rules by passing the wrong thing.
+        $variant = $shape->variantOf($data);
+
         return $this->validator->validate(
             $this->normalize($shape, $data),
-            $this->constraintFor($shape, $recordId),
+            $this->constraintFor($shape, $recordId, $variant),
         );
     }
 
@@ -58,7 +62,7 @@ final readonly class RecordValidator
     {
         $normalized = $data;
 
-        foreach ($shape->getFields() as $field) {
+        foreach ($shape->getFieldsFor($shape->variantOf($data)) as $field) {
             $normalized[$field->getKey()] = $this->fieldTypes
                 ->get($field->getType())
                 ->toStorage($data[$field->getKey()] ?? null, $field);
@@ -67,11 +71,11 @@ final readonly class RecordValidator
         return $normalized;
     }
 
-    private function constraintFor(ShapeDefinition $shape, ?int $recordId): Assert\Collection
+    private function constraintFor(ShapeDefinition $shape, ?int $recordId, ?string $variant): Assert\Collection
     {
         $fields = [];
 
-        foreach ($shape->getFields() as $field) {
+        foreach ($shape->getFieldsFor($variant) as $field) {
             $constraints = $this->fieldTypes->get($field->getType())->constraints($field);
 
             // Only on a module. On a collection, "unique" would have to mean
@@ -90,6 +94,15 @@ final readonly class RecordValidator
             }
 
             $fields[$field->getKey()] = new Assert\Optional($constraints);
+        }
+
+        // Fields of this shape that belong to another variant are allowed
+        // through unchecked (§5.5). They are somebody's stored data — a company
+        // that used to be a person still has a first name — and the record
+        // carries them across a save. Only a key the shape has never heard of is
+        // a mistake worth reporting.
+        foreach ($shape->getFields() as $field) {
+            $fields[$field->getKey()] ??= new Assert\Optional();
         }
 
         return new Assert\Collection(

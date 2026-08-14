@@ -40,7 +40,10 @@ final class RecordType extends AbstractType
         $shape = $options['shape'];
         \assert($shape instanceof ShapeDefinition);
 
-        foreach ($shape->getFields() as $field) {
+        // Only this variant's fields (§5.5). A company has no first name, so it
+        // is not asked for one — and RecordValidator scopes itself the same way,
+        // so it is not required to have one either.
+        foreach ($shape->getFieldsFor($options['variant']) as $field) {
             $type = $this->fieldTypes->get($field->getType());
 
             $builder->add($field->getKey(), $type->formType(), [
@@ -59,6 +62,8 @@ final class RecordType extends AbstractType
         $resolver
             ->setRequired('shape')
             ->setAllowedTypes('shape', ShapeDefinition::class)
+            ->setDefault('variant', null)
+            ->setAllowedTypes('variant', ['null', 'string'])
             ->setDefaults([
                 // A record is an array, not an object.
                 'data_class' => null,

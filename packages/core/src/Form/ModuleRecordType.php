@@ -35,7 +35,12 @@ final class ModuleRecordType extends AbstractType
         $module = $options['module'];
         \assert($module instanceof ModuleDefinition);
 
-        $builder->add('fields', RecordType::class, ['shape' => $module, 'label' => false]);
+        $builder->add('fields', RecordType::class, [
+            'shape' => $module,
+            // Only this record's variant is asked for (§5.5).
+            'variant' => $options['variant'],
+            'label' => false,
+        ]);
 
         if ($module->getCollections()->isEmpty()) {
             return;
@@ -70,6 +75,8 @@ final class ModuleRecordType extends AbstractType
         $resolver
             ->setRequired('module')
             ->setAllowedTypes('module', ModuleDefinition::class)
+            ->setDefault('variant', null)
+            ->setAllowedTypes('variant', ['null', 'string'])
             ->setDefaults([
                 // A record is an array, not an object.
                 'data_class' => null,

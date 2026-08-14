@@ -16,10 +16,12 @@ use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
+use Xivi\Core\Field\Type\ReferenceFieldType;
 use Xivi\Core\Form\ModuleRecordType;
 use Xivi\Core\History\HistoryRepository;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Metadata\ModuleNotInstalled;
+use Xivi\Core\Query\Filter;
 use Xivi\Core\Query\Operator;
 use Xivi\Core\Query\RecordQuery;
 use Xivi\Core\Query\RecordQueryFactory;
@@ -75,6 +77,12 @@ final class ModuleController extends AbstractController
         return $this->render('module/index.html.twig', [
             'module' => $definition,
             'columns' => self::listedFields($definition),
+            // Every field the name is built from: sorting by only the first
+            // would order a list of people by a field only companies have.
+            'nameSort' => implode(',', array_map(
+                static fn (FieldDefinition $f): string => $f->getKey(),
+                $definition->getTitleFields(),
+            )),
             'records' => $records,
             'owners' => $this->ownerNames($records),
             'total' => $total,
@@ -85,11 +93,35 @@ final class ModuleController extends AbstractController
         ]);
     }
 
+    /**
+     * A new record, of a kind chosen before the form is drawn (§5.5).
+     *
+     * A company has no first name, so the form cannot be built until it knows
+     * which variant it is for — and switching the fields as somebody picks would
+     * need JavaScript, which the forms here do not depend on. Asking first is
+     * both simpler and how a CRM usually puts it: "new person" or "new company".
+     */
     #[Route('/new', name: 'module_new', methods: ['GET', 'POST'])]
     public function new(string $module, Request $request): Response
     {
         $definition = $this->definition($module);
+        $variants = $definition->getVariants();
         $record = new Record();
+
+        if ($variants !== []) {
+            $chosen = (string) $request->query->get('variant', '');
+
+            if (!isset($variants[$chosen])) {
+                return $this->render('module/choose_variant.html.twig', [
+                    'module' => $definition,
+                    'variants' => $variants,
+                ]);
+            }
+
+            // Seeded rather than left to the form, so the record knows what it is
+            // before anything asks which fields it has.
+            $record->set((string) $definition->getVariantField(), $chosen);
+        }
 
         return $this->edit($definition, $record, $request);
     }
@@ -116,39 +148,74 @@ final class ModuleController extends AbstractController
         return $this->render('module/show.html.twig', [
             'module' => $definition,
             'record' => $record,
+            'fields' => $definition->getFieldsFor($definition->variantOf($record->data)),
             'children' => $children,
+            'linked' => $this->linkedTo($definition, $record),
             'owner' => $record->ownerId === null ? null : ($this->ownerNames([$record])[$record->ownerId] ?? null),
             'history' => $this->history->findFor($definition, $id),
         ]);
     }
 
     /**
-     * The columns the list shows: the fields marked for it (§5.4).
+     * Records elsewhere that point at this one (§7.6).
      *
-     * Falling back to the first field when none are marked, because a table with
-     * no columns is not a table. One column is enough to recognise a record and
-     * click into it, and it makes "I unticked everything" look like what it is
-     * rather than silently restoring the crowded list they were escaping.
+     * The reverse of a reference, and read rather than stored: a person carries
+     * its company, so a company's list of people is a query over that field.
+     * Storing both sides would be two records of one fact, which is two things
+     * to keep in step and one of them eventually wrong.
+     *
+     * Only self-references for now — a link from another module would mean
+     * looking through every installed module for fields pointing here, which is
+     * §7.6's remaining half.
+     *
+     * @return array<string, list<Record>> field label => the records pointing here
+     */
+    private function linkedTo(ModuleDefinition $module, Record $record): array
+    {
+        $linked = [];
+
+        foreach ($module->getFields() as $field) {
+            if ($field->getType() !== 'reference' || ReferenceFieldType::targetModule($field) !== $module->getKey()) {
+                continue;
+            }
+
+            $found = $this->records->findBy($module, new RecordQuery(
+                [new Filter($field->getKey(), Operator::Equals, (int) $record->id)],
+            ));
+
+            if ($found !== []) {
+                $linked[$field->getLabel()] = $found;
+            }
+        }
+
+        return $linked;
+    }
+
+    /**
+     * The columns after the name: the fields marked for the list (§5.4), minus
+     * the ones that make up the name itself.
+     *
+     * The name is always the first column, so a list of mixed variants reads —
+     * people and companies are named differently, and neither has the other's
+     * fields (§5.5). It also means a table can never end up with no columns.
      *
      * @return list<FieldDefinition>
      */
     private static function listedFields(ModuleDefinition $module): array
     {
+        $titles = $module->getTitleFields();
         $listed = [];
 
         foreach ($module->getFields() as $field) {
-            if ($field->isListed()) {
+            // Title fields are not columns: the first column *is* the record's
+            // name, which with variants is the only thing every row has (§5.5) —
+            // a company has no first name to put under "First name".
+            if ($field->isListed() && !\in_array($field, $titles, true)) {
                 $listed[] = $field;
             }
         }
 
-        if ($listed !== []) {
-            return $listed;
-        }
-
-        $first = $module->getFields()->first();
-
-        return $first === false ? [] : [$first];
+        return $listed;
     }
 
     #[Route('/{id}/edit', name: 'module_edit', requirements: ['id' => Requirement::POSITIVE_INT], methods: ['GET', 'POST'])]
@@ -178,6 +245,7 @@ final class ModuleController extends AbstractController
     {
         $form = $this->createForm(ModuleRecordType::class, $this->formData($definition, $record), [
             'module' => $definition,
+            'variant' => $definition->variantOf($record->data),
         ]);
         $form->handleRequest($request);
 
@@ -211,7 +279,11 @@ final class ModuleController extends AbstractController
             }
 
             if ($valid) {
-                $record->data = $submitted['fields'];
+                // Merged, not replaced. The form only carries this variant's
+                // fields, and a value belonging to another variant is somebody's
+                // data — the same reason removing a field leaves its values
+                // alone (§7.2).
+                $record->data = [...$record->data, ...$submitted['fields']];
                 $record->ownerId ??= $this->currentUserId();
 
                 // One call, one transaction, one history entry — the record and

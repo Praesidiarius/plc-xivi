@@ -7,6 +7,7 @@ namespace Xivi\Core\Entity;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use Xivi\Core\Field\Type\ChoiceFieldType;
 
 /**
  * A set of fields describing rows in one table, for one customer.
@@ -72,6 +73,16 @@ abstract class ShapeDefinition
          */
         #[ORM\Column(length: 63, nullable: true)]
         private ?string $icon = null,
+        /**
+         * The key of the choice field that decides which variant a record is
+         * (§5.5) — `kind` on a contact, whose options are person and company.
+         *
+         * Null for a shape whose records are all the same thing, which is most
+         * of them. Naming a field rather than holding a list of variants means
+         * there is one place the variants are written down: that field's options.
+         */
+        #[ORM\Column(length: 63, nullable: true)]
+        private ?string $variantField = null,
     ) {
         $this->fields = new ArrayCollection();
         $this->installedAt = new \DateTimeImmutable();
@@ -106,6 +117,78 @@ abstract class ShapeDefinition
     public function setIcon(?string $icon): void
     {
         $this->icon = $icon;
+    }
+
+    public function getVariantField(): ?string
+    {
+        return $this->variantField;
+    }
+
+    public function setVariantField(?string $variantField): void
+    {
+        $this->variantField = $variantField;
+    }
+
+    public function hasVariants(): bool
+    {
+        return $this->variantField !== null && $this->getVariants() !== [];
+    }
+
+    /**
+     * The variants this shape has, as value => label.
+     *
+     * Read off the choice field itself, so adding a variant is adding an option
+     * to that field and nothing else has to agree with it.
+     *
+     * @return array<string, string>
+     */
+    public function getVariants(): array
+    {
+        if ($this->variantField === null) {
+            return [];
+        }
+
+        $field = $this->getField($this->variantField);
+
+        return $field === null ? [] : ChoiceFieldType::choicesOf($field);
+    }
+
+    /**
+     * Which variant a record is, from its own values.
+     *
+     * @param array<string, mixed> $data
+     */
+    public function variantOf(array $data): ?string
+    {
+        if ($this->variantField === null) {
+            return null;
+        }
+
+        $value = $data[$this->variantField] ?? null;
+
+        return \is_string($value) && $value !== '' ? $value : null;
+    }
+
+    /**
+     * The fields that apply to one variant, in the shape's own order.
+     *
+     * With no variant field this is every field, which is why everything that
+     * renders or validates a record can call it without asking whether this
+     * shape has variants at all.
+     *
+     * @return list<FieldDefinition>
+     */
+    public function getFieldsFor(?string $variant): array
+    {
+        $fields = [];
+
+        foreach ($this->fields as $field) {
+            if ($field->appliesTo($variant)) {
+                $fields[] = $field;
+            }
+        }
+
+        return $fields;
     }
 
     public function getInstalledAt(): \DateTimeImmutable

@@ -101,18 +101,26 @@ final readonly class RecordQueryFactory
         return $filters;
     }
 
-    /** @return list<Sort> */
+    /**
+     * @return list<Sort>
+     *
+     * Comma-separated, because one visible column can rest on more than one
+     * field: with variants a record's name is its company name or its first
+     * name, never both (§5.5), so "sort by name" is an ordering over the lot.
+     * They share a direction — a column header is one control.
+     */
     private static function sorts(mixed $field, mixed $direction): array
     {
-        $field = trim(self::text($field));
-
-        if ($field === '') {
-            return [];
-        }
+        $keys = array_values(array_filter(array_map(
+            trim(...),
+            explode(',', self::text($field)),
+        ), static fn (string $key): bool => $key !== ''));
 
         // An unreadable direction is ascending rather than an error: the field is
         // the part somebody meant.
-        return [new Sort($field, Direction::tryFrom(self::text($direction)) ?? Direction::Ascending)];
+        $order = Direction::tryFrom(self::text($direction)) ?? Direction::Ascending;
+
+        return array_map(static fn (string $key): Sort => new Sort($key, $order), $keys);
     }
 
     private static function page(mixed $page): int

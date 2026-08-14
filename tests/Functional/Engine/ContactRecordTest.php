@@ -76,7 +76,10 @@ final class ContactRecordTest extends KernelTestCase
 
         self::assertSame('contact', $module->getKey());
         self::assertSame('contact', $module->getTableName());
-        self::assertSame(['first_name', 'last_name', 'email', 'phone', 'birthday'], $module->getFieldKeys());
+        self::assertSame(
+            ['kind', 'company_name', 'first_name', 'last_name', 'email', 'phone', 'birthday', 'company'],
+            $module->getFieldKeys(),
+        );
 
         $email = $module->getField('email');
         self::assertNotNull($email);
@@ -393,7 +396,7 @@ final class ContactRecordTest extends KernelTestCase
     {
         return $this->switcher->runFor($tenant, fn (): Record => self::service(RecordWriter::class)->save(
             self::service(MetadataRepository::class)->get(ContactModule::KEY),
-            new Record($data),
+            new Record([...self::asPerson(), ...$data]),
             $children,
         ));
     }
@@ -569,12 +572,23 @@ final class ContactRecordTest extends KernelTestCase
         ));
     }
 
+    /**
+     * A contact is a person unless a test says otherwise (§5.5) — without a kind
+     * a record has no variant, and the person fields would not apply to it.
+     *
+     * @return array<string, mixed>
+     */
+    private static function asPerson(): array
+    {
+        return ['kind' => ContactModule::PERSON];
+    }
+
     /** @param array<string, mixed> $data */
     private function validateIn(Tenant $tenant, array $data, ?int $recordId = null): \Symfony\Component\Validator\ConstraintViolationListInterface
     {
         return $this->switcher->runFor($tenant, fn () => self::service(RecordValidator::class)->validate(
             self::service(MetadataRepository::class)->get(ContactModule::KEY),
-            $data,
+            [...self::asPerson(), ...$data],
             $recordId,
         ));
     }

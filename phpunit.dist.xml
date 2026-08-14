@@ -12,6 +12,13 @@
 >
     <php>
         <ini name="display_errors" value="1" />
+        <!--
+            The functional tests keep one kernel across a whole class, so the
+            profiler's per-request data piles up over a few dozen browser
+            requests. Not a leak to chase: it is what disabling the reboot buys
+            in speed, paid for in memory.
+        -->
+        <ini name="memory_limit" value="512M" />
         <ini name="error_reporting" value="-1" />
         <server name="APP_ENV" value="test" force="true" />
         <server name="SHELL_VERBOSITY" value="-1" />

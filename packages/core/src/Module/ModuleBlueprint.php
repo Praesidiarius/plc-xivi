@@ -33,6 +33,11 @@ final readonly class ModuleBlueprint
         public ?string $defaultPreset = null,
         /** Bootstrap Icons name, without the `bi-` prefix. */
         public ?string $icon = null,
+        /**
+         * The key of the choice field deciding which variant a record is (§5.5).
+         * Null for a module whose records are all the same thing.
+         */
+        public ?string $variantField = null,
     ) {
     }
 

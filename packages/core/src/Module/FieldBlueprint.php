@@ -18,6 +18,13 @@ final readonly class FieldBlueprint
         public bool $listed = true,
         /** Part of what a record is called — the heading on its page. */
         public bool $title = false,
+        /**
+         * Which variants of the shape this field belongs to (§5.5). Empty — the
+         * default — means all of them.
+         *
+         * @var list<string>
+         */
+        public array $variants = [],
         public int $position = 0,
         public array $options = [],
     ) {

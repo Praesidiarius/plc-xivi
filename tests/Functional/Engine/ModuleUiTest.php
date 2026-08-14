@@ -75,7 +75,7 @@ final class ModuleUiTest extends WebTestCase
 
     public function testTheFormIsBuiltFromTheFieldDefinitions(): void
     {
-        $crawler = $this->client->request('GET', $this->url('/m/contact/new'));
+        $crawler = $this->client->request('GET', $this->url('/m/contact/new?variant=person'));
 
         self::assertResponseIsSuccessful();
 
@@ -97,7 +97,7 @@ final class ModuleUiTest extends WebTestCase
      */
     public function testACollectionsFieldsAreOnTheFormToo(): void
     {
-        $crawler = $this->client->request('GET', $this->url('/m/contact/new'));
+        $crawler = $this->client->request('GET', $this->url('/m/contact/new?variant=person'));
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('h2', 'Addresses');
@@ -407,13 +407,15 @@ final class ModuleUiTest extends WebTestCase
         $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
 
         $crawler = $this->client->request('GET', $this->url('/m/contact'));
-        $crawler = $this->client->click($crawler->filter('thead a:contains("First name")')->link());
+        // The first column is the record's name, which is the only thing every
+        // variant has (§5.5); it sorts by the first field that makes it up.
+        $crawler = $this->client->click($crawler->filter('thead a:contains("Name")')->link());
 
-        self::assertSame('Ada', trim($crawler->filter('tbody tr td')->first()->text()));
+        self::assertSame('Ada Lovelace', trim($crawler->filter('tbody tr td')->first()->text()));
 
         // The same header again turns it round.
-        $crawler = $this->client->click($crawler->filter('thead a:contains("First name")')->link());
-        self::assertSame('Grace', trim($crawler->filter('tbody tr td')->first()->text()));
+        $crawler = $this->client->click($crawler->filter('thead a:contains("Name")')->link());
+        self::assertSame('Grace Hopper', trim($crawler->filter('tbody tr td')->first()->text()));
     }
 
     /**
@@ -433,6 +435,74 @@ final class ModuleUiTest extends WebTestCase
         self::assertSelectorTextContains('.alert', 'two of them');
         // And it still shows the records, unsorted, rather than nothing at all.
         self::assertSelectorTextContains('table', 'Lovelace');
+    }
+
+    /**
+     * A form cannot be drawn before it knows which variant it is for — a company
+     * has no first name — and switching the fields live would need JavaScript
+     * (§5.5). So it asks first.
+     */
+    public function testAddingARecordAsksWhichKindFirst(): void
+    {
+        $crawler = $this->client->request('GET', $this->url('/m/contact/new'));
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('h1', 'What kind?');
+
+        $text = $crawler->filter('main')->text();
+        self::assertStringContainsString('Person', $text);
+        self::assertStringContainsString('Company', $text);
+
+        // No form yet: nothing to fill in until the question is answered.
+        self::assertSelectorNotExists('[name="' . self::field('first_name') . '"]');
+    }
+
+    public function testACompanyIsAskedForItsNameAndNotForAFirstName(): void
+    {
+        $this->client->request('GET', $this->url('/m/contact/new?variant=company'));
+
+        self::assertSelectorExists('[name="' . self::field('company_name') . '"]');
+        // The whole point of variants: a company is not asked for what it cannot
+        // have, and so is not required to have it either.
+        self::assertSelectorNotExists('[name="' . self::field('first_name') . '"]');
+    }
+
+    /** Both kinds are contacts, named by their own fields, in one list (§5.4). */
+    public function testACompanyAndAPersonAppearInTheSameList(): void
+    {
+        $this->client->request('GET', $this->url('/m/contact/new?variant=company'));
+        $this->client->submitForm('Save', [self::field('company_name') => 'Acme AG']);
+        $this->client->followRedirect();
+        self::assertSelectorTextContains('h1', 'Acme AG');
+
+        $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+
+        $crawler = $this->client->request('GET', $this->url('/m/contact'));
+        $names = $crawler->filter('tbody tr td:first-child')->each(static fn ($td): string => trim($td->text()));
+
+        sort($names);
+        self::assertSame(['Acme AG', 'Ada Lovelace'], $names);
+    }
+
+    /**
+     * The link (§7.6): a person picks a company, and the picker offers companies
+     * rather than every contact, because the reference names a variant.
+     */
+    public function testAPersonCanBeLinkedToACompanyThroughTheForm(): void
+    {
+        $this->client->request('GET', $this->url('/m/contact/new?variant=company'));
+        $this->client->submitForm('Save', [self::field('company_name') => 'Acme AG']);
+        $this->client->followRedirect();
+
+        $this->submitContact(['first_name' => 'Grace', 'last_name' => 'Hopper']);
+
+        $crawler = $this->openFirstRecordForEditing();
+        $options = $crawler->filter('[name="' . self::field('company') . '"] option')
+            ->each(static fn ($o): string => trim($o->text()));
+
+        // The placeholder, and the one company. Not Grace, who is a person.
+        self::assertContains('Acme AG', $options);
+        self::assertNotContains('Grace Hopper', $options);
     }
 
     /** A module the customer does not have is a 404 — another customer may well have it. */
@@ -480,7 +550,7 @@ final class ModuleUiTest extends WebTestCase
      */
     private function submitContact(array $values, array $addresses = []): void
     {
-        $this->client->request('GET', $this->url('/m/contact/new'));
+        $this->client->request('GET', $this->url('/m/contact/new?variant=person'));
 
         $fields = [];
         foreach ($values as $key => $value) {

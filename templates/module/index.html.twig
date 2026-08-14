@@ -6,16 +6,21 @@
 	A column header that sorts. Clicking the current sort turns it round, and any
 	sort resets to page one — page 3 of a different order is not where you were.
 #}
-{% macro sortable(module, query, field) %}
-	{% set current = query.sortOn(field.key) %}
-	{% set next = current and current.direction.value == 'asc' ? 'desc' : 'asc' %}
-	<a class="text-decoration-none text-reset"
-	   href="{{ path('module_index', app.request.query.all|merge({
-		   module: module.key, sort: field.key, dir: next, page: null,
-	   })) }}">
-		{{ field.label }}
-		{% if current %}<span aria-hidden="true">{{ current.direction.value == 'asc' ? '↑' : '↓' }}</span>{% endif %}
-	</a>
+{% macro sortable(module, query, key, label) %}
+	{% if key is empty %}
+		{{ label }}
+	{% else %}
+		{# A key may name several fields; the first one carries the indicator. #}
+		{% set current = query.sortOn(key|split(',')|first) %}
+		{% set next = current and current.direction.value == 'asc' ? 'desc' : 'asc' %}
+		<a class="text-decoration-none text-reset"
+		   href="{{ path('module_index', app.request.query.all|merge({
+			   module: module.key, sort: key, dir: next, page: null,
+		   })) }}">
+			{{ label }}
+			{% if current %}<span aria-hidden="true">{{ current.direction.value == 'asc' ? '↑' : '↓' }}</span>{% endif %}
+		</a>
+	{% endif %}
 {% endmacro %}
 
 {% import _self as h %}
@@ -120,11 +125,15 @@
 					<table class="table table-hover align-middle mb-0">
 						<thead>
 							<tr>
-								{# Columns are the customer's own definitions, in their order —
-								   the ones they marked for the list (§5.4). #}
+								{# The name first, because it is the one thing every record has
+								   whatever variant it is (§5.5), and the only sensible thing to
+								   click. Then the customer's own listed fields, in their order. #}
+								<th scope="col" class="text-body-secondary small text-uppercase">
+									{{ h.sortable(module, query, nameSort, 'Name') }}
+								</th>
 								{% for field in columns %}
 									<th scope="col" class="text-body-secondary small text-uppercase">
-										{{ h.sortable(module, query, field) }}
+										{{ h.sortable(module, query, field.key, field.label) }}
 									</th>
 								{% endfor %}
 								<th scope="col" class="text-body-secondary small text-uppercase">Owner</th>
@@ -134,18 +143,15 @@
 						<tbody>
 							{% for record in records %}
 								<tr>
+									{# The name opens the record, which is where anyone clicking a
+									   row expects to end up. #}
+									<td>
+										<a class="text-reset" href="{{ path('module_show', {module: module.key, id: record.id}) }}">
+											{{ record_title(module, record.data, record.id) }}
+										</a>
+									</td>
 									{% for field in columns %}
-										<td>
-											{# The first column opens the record, which is where anyone
-											   clicking a row expects to end up. #}
-											{% if loop.first %}
-												<a class="text-reset" href="{{ path('module_show', {module: module.key, id: record.id}) }}">
-													{{ display(field, record.get(field.key)) }}
-												</a>
-											{% else %}
-												{{ display(field, record.get(field.key)) }}
-											{% endif %}
-										</td>
+										<td>{{ display(field, record.get(field.key)) }}</td>
 									{% endfor %}
 									{# owner_id is a system column; the name is resolved by the
 									   application, since the engine does not know what a user is. #}

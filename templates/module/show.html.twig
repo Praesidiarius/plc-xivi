@@ -66,7 +66,7 @@
 						   that built the form, read instead of edited. Each pair takes
 						   half the row, so two sit side by side on a wide screen. #}
 						<dl class="row mb-0">
-							{% for field in module.fields %}
+							{% for field in fields %}
 								<dt class="col-6 col-md-3 text-body-secondary fw-normal">{{ field.label }}</dt>
 								<dd class="col-6 col-md-3">
 									{% set shown = display(field, record.get(field.key)) %}
@@ -113,6 +113,32 @@
 					</div>
 				</div>
 			</div>
+
+			{#
+				Records pointing at this one (§7.6) — a company's people. Read from
+				the reference on their side rather than stored here, so the two can
+				never disagree about who works where.
+			#}
+			{% for label, records in linked %}
+				<div class="col-lg-8">
+					<div class="card">
+						<div class="card-body">
+							<h2 class="h6 text-uppercase text-body-secondary mb-3">
+								{{ records|length }} with this as {{ label|lower }}
+							</h2>
+							<ul class="list-unstyled mb-0">
+								{% for linkedRecord in records %}
+									<li class="{{ loop.first ? '' : 'border-top pt-2 mt-2' }}">
+										<a href="{{ path('module_show', {module: module.key, id: linkedRecord.id}) }}">
+											{{ record_title(module, linkedRecord.data, linkedRecord.id) }}
+										</a>
+									</li>
+								{% endfor %}
+							</ul>
+						</div>
+					</div>
+				</div>
+			{% endfor %}
 
 			<div class="col-lg-4">
 				<div class="card mb-3">
