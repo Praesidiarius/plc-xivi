@@ -14,9 +14,9 @@ the engine honest.
 > metadata engine are built and tested. A customer can list, filter, create, edit,
 > delete, export and import records, change their own fields, and read what
 > happened to a record — every page of it built from definitions in their own
-> database. What is missing is templates deciding which modules a customer is
-> given, a second module, and an authorization model finer than a single admin
-> role.
+> database, and an administrator can manage the people who sign in. What is
+> missing is templates deciding which modules a customer is given, a second
+> module, and an authorization model finer than a single admin role.
 
 The design is written down first and the code follows it. Read
 **[docs/architecture.md](docs/architecture.md)** before anything else; it explains
@@ -97,6 +97,14 @@ nobody can reason about. **A check is the import, rolled back** rather than a
 second code path, so it catches what only a write can: two rows of one file
 claiming the same unique email collide on the second, because by then the first
 one is really there.
+
+**Users, managed from the application.** An administrator adds colleagues,
+makes them administrators, deactivates the ones who leave and resets a lost
+password; everybody can change their own password on their account page (§8.4.1).
+Nobody is ever deleted — records carry the id of whoever owns them and history the
+id of whoever changed them, so deactivating keeps all of it attributable and is
+reversible. Every refusal here is about lock-out: you cannot deactivate yourself,
+demote yourself, or leave the installation with no administrator.
 
 **Classic PHP execution, on purpose.** FrankenPHP runs without worker mode, so no
 PHP state survives a request boundary and cross-tenant leakage (§7.4) is

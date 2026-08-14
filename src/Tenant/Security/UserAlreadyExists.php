@@ -20,12 +20,12 @@ use App\ControlPlane\Entity\Tenant;
  */
 final class UserAlreadyExists extends \RuntimeException
 {
-    public static function in(Tenant $tenant, string $email): self
+    public static function in(Tenant $tenant, string $email, ?\Throwable $previous = null): self
     {
         return new self(sprintf(
             'Tenant "%s" already has a user with the email "%s".',
             $tenant->getSlug(),
             $email,
-        ));
+        ), previous: $previous);
     }
 }

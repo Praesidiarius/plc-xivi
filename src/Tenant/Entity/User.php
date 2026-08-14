@@ -42,6 +42,15 @@ use Symfony\Component\Security\Core\User\UserInterface;
 #[ORM\HasLifecycleCallbacks]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
+    /**
+     * The floor for a password somebody chooses for themselves.
+     *
+     * Generated ones are 96 bits and nowhere near this limit; this exists for the
+     * box on the account page, where the alternative is a four-character password
+     * on an account that can read every customer record.
+     */
+    public const int MINIMUM_PASSWORD_LENGTH = 12;
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -93,9 +102,25 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->email;
     }
 
+    /**
+     * Changing this changes the login, and therefore the security identifier the
+     * session holds. Symfony compares the two when it refreshes a user, so a
+     * person who renames their own account is signed out and signs in again as
+     * the new address — which is the correct outcome, not a bug to work around.
+     */
+    public function setEmail(string $email): void
+    {
+        $this->email = mb_strtolower(trim($email));
+    }
+
     public function getName(): string
     {
         return $this->name;
+    }
+
+    public function setName(string $name): void
+    {
+        $this->name = $name;
     }
 
     /**

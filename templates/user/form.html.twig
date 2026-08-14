@@ -1,0 +1,58 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ user ? user.email : 'Add user' }}{% endblock %}
+
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<h1 class="h3 mb-3">{{ user ? 'Edit ' ~ user.email : 'Add user' }}</h1>
+
+		<form method="post" class="card">
+			<div class="card-body">
+				<input type="hidden" name="_token" value="{{ csrf_token('manage-users') }}">
+
+				<div class="mb-3">
+					<label class="form-label" for="email">Email</label>
+					<input class="form-control" type="email" id="email" name="email" required
+						   value="{{ user ? user.email : (submitted.email ?? '') }}">
+					<div class="form-text">This is the login. It has to be unique here, not everywhere.</div>
+				</div>
+
+				<div class="mb-3">
+					<label class="form-label" for="name">Name</label>
+					<input class="form-control" type="text" id="name" name="name"
+						   value="{{ user ? user.name : (submitted.name ?? '') }}">
+					<div class="form-text">Shown on records they own and in history. Defaults to the email.</div>
+				</div>
+
+				<div class="form-check mb-3">
+					<input class="form-check-input" type="checkbox" id="admin" name="admin" value="1"
+						   {{ user and 'ROLE_ADMIN' in user.roles ? 'checked' : (submitted.admin is defined ? 'checked' : '') }}>
+					<label class="form-check-label" for="admin">Administrator</label>
+					<div class="form-text">
+						Administrators manage users, a module's fields, and imports. Everything else
+						is open to everybody for now (§8.4).
+					</div>
+				</div>
+
+				{% if not user %}
+					{#
+						No password box, on purpose: an administrator who picks a colleague's
+						password knows their password. One is generated and shown once (§8.5).
+					#}
+					<p class="text-body-secondary small mb-3">
+						A password is generated when you save, and shown to you once so you can pass it on.
+					</p>
+				{% endif %}
+
+				<div class="d-flex align-items-center gap-2">
+					<button class="btn btn-primary" type="submit">Save</button>
+					<a class="btn btn-link" href="{{ path('user_index') }}">Cancel</a>
+				</div>
+			</div>
+		</form>
+	</main>
+{% endblock %}

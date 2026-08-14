@@ -15,13 +15,31 @@
 		<div class="d-flex w-100 align-items-center">
 			<a class="navbar-brand fw-semibold" href="{{ path('dashboard') }}">{{ chrome.tenant.name }}</a>
 
-			<form method="post" action="{{ path('logout') }}" class="d-flex align-items-center gap-2 ms-auto">
-				<span class="text-body-secondary small d-none d-sm-inline">{{ app.user.email }}</span>
-				<button type="submit" class="btn btn-sm btn-outline-secondary">
-					<i class="bi bi-box-arrow-right" aria-hidden="true"></i>
-					<span class="d-none d-sm-inline">Sign out</span>
-				</button>
-			</form>
+			{#
+				Plain links rather than a dropdown under the email: Bootstrap's
+				JavaScript is not shipped here, so a dropdown would be a menu that
+				never opens.
+			#}
+			<div class="d-flex align-items-center gap-2 ms-auto">
+				{% if is_granted('ROLE_ADMIN') %}
+					<a class="btn btn-sm btn-outline-secondary" href="{{ path('user_index') }}">
+						<i class="bi bi-people" aria-hidden="true"></i>
+						<span class="d-none d-sm-inline">Users</span>
+					</a>
+				{% endif %}
+
+				<a class="btn btn-sm btn-outline-secondary" href="{{ path('account') }}">
+					<i class="bi bi-person-circle" aria-hidden="true"></i>
+					<span class="d-none d-sm-inline">{{ app.user.email }}</span>
+				</a>
+
+				<form method="post" action="{{ path('logout') }}">
+					<button type="submit" class="btn btn-sm btn-outline-secondary">
+						<i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+						<span class="d-none d-sm-inline">Sign out</span>
+					</button>
+				</form>
+			</div>
 		</div>
 
 		<ul class="nav nav-tabs border-bottom-0 w-100 mt-2">

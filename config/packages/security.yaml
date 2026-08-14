@@ -23,6 +23,10 @@ security:
             provider: tenant_users
             entry_point: form_login
 
+            # Without this, User::active is a column nothing reads: a deactivated
+            # user signs in exactly as before (§8.5).
+            user_checker: App\Tenant\Security\ActiveUserChecker
+
             form_login:
                 login_path: login
                 check_path: login

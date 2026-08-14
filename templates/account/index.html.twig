@@ -1,0 +1,78 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Your account{% endblock %}
+
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<h1 class="h3 mb-3">Your account</h1>
+
+		<div class="row g-3">
+			<div class="col-12 col-lg-6">
+				<form method="post" class="card h-100">
+					<div class="card-body">
+						<h2 class="h6">Details</h2>
+						<input type="hidden" name="_token" value="{{ csrf_token('account') }}">
+						<input type="hidden" name="action" value="details">
+
+						<div class="mb-3">
+							<label class="form-label" for="name">Name</label>
+							<input class="form-control" type="text" id="name" name="name" value="{{ account.name }}">
+							<div class="form-text">What shows up on records you own and in their history.</div>
+						</div>
+
+						<div class="mb-3">
+							<label class="form-label" for="email">Email</label>
+							<input class="form-control" type="email" id="email" value="{{ account.email }}" disabled>
+							{#
+								Read-only here on purpose: it is the login and the identifier the
+								session holds, so changing it under your own session signs you out.
+								An administrator does it from the users page.
+							#}
+							<div class="form-text">Your login. An administrator can change it for you.</div>
+						</div>
+
+						<button class="btn btn-primary" type="submit">Save</button>
+					</div>
+				</form>
+			</div>
+
+			<div class="col-12 col-lg-6">
+				<form method="post" class="card h-100">
+					<div class="card-body">
+						<h2 class="h6">Password</h2>
+						<input type="hidden" name="_token" value="{{ csrf_token('account') }}">
+						<input type="hidden" name="action" value="password">
+
+						<div class="mb-3">
+							<label class="form-label" for="current_password">Current password</label>
+							<input class="form-control" type="password" id="current_password"
+								   name="current_password" autocomplete="current-password" required>
+							<div class="form-text">
+								Asked for so that an unattended session is not enough to take your account over.
+							</div>
+						</div>
+
+						<div class="mb-3">
+							<label class="form-label" for="new_password">New password</label>
+							<input class="form-control" type="password" id="new_password" name="new_password"
+								   autocomplete="new-password" minlength="{{ minimum }}" required>
+							<div class="form-text">At least {{ minimum }} characters.</div>
+						</div>
+
+						<div class="mb-3">
+							<label class="form-label" for="repeat_password">Repeat it</label>
+							<input class="form-control" type="password" id="repeat_password" name="repeat_password"
+								   autocomplete="new-password" minlength="{{ minimum }}" required>
+						</div>
+
+						<button class="btn btn-primary" type="submit">Change password</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</main>
+{% endblock %}

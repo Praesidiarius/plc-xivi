@@ -654,6 +654,42 @@ not own" — is an open question, because record-level rules become WHERE clause
 so cannot be designed apart from §7.3. Deciding it before a single module exists is
 the speculative generalisation §1 warns against.
 
+`ROLE_ADMIN` currently gates the metadata editor (§5.4), the import (§5.6) and
+user management. Everything else is open to anybody who can sign in.
+
+### 8.4.1 Managing users, before managing permissions
+
+Permissions need something to be granted *to*, and until there was a screen for
+users the only way to have a second one was a console command against the
+customer's database — which is not a thing a customer has. So the user manager
+came first, deliberately, and is where the model of §8.4 will attach.
+
+**Deactivate, never delete.** Records carry the id of whoever owns them and
+history carries the id of whoever made each change, so deleting a row leaves
+records belonging to nobody and a timeline pointing at an absence. Deactivating
+locks the person out, keeps every record attributable, and is reversible.
+
+**`User::active` had to be made to mean something first.** The column existed
+from the beginning and nothing read it: no user checker, no query filtering on
+it. A deactivate button on top of that would have been worse than none, because
+somebody would have relied on it. It now takes **two** mechanisms, and neither
+covers the other's case:
+
+- `ActiveUserChecker` refuses the sign-in.
+- `DeactivatedUserListener` ends a session that already exists. A user checker is
+  *not* consulted when a session is restored: `ContextListener` compares
+  identifier, password and roles, and nothing else. Without the listener,
+  withdrawing access would take effect whenever the session happened to expire.
+  `EquatableInterface` is the other way to do this and was not taken — it replaces
+  the framework's whole change comparison, so the application would silently
+  become responsible for the password-change case too.
+
+**Every refusal is about lock-out.** An administrator cannot deactivate their own
+account, cannot take administrator away from themselves, and cannot leave the
+installation with no active administrator at all. There is no support desk behind
+this: getting back in would mean a console command against the customer's
+database.
+
 ### 8.5 The first user comes from provisioning
 
 `tenant:provision --admin-email=…` creates an admin and prints a generated password
@@ -664,6 +700,14 @@ search space to "which second was this account created in".
 That printed password is the one credential in the system a human has to read. It
 exists because there is no mailer yet; when there is one, this becomes an invite
 link and the printing goes away.
+
+The screens work the same way and share the same code path: adding a user
+generates a password and shows it once, and an administrator never types one.
+An administrator who picks a colleague's password knows their colleague's
+password, which is a different system from the one this is trying to be. Changing
+it afterwards belongs to the account owner, on `/account`, and needs the current
+one — not because a password is secret from its owner, but because an unattended
+session should not be enough to take an account over.
 
 ---
 
@@ -716,6 +760,10 @@ collection exercises it.
   imported back unedited changes nothing — which is the test the pair is for.
 - Module presets (§6.1): `tenant:module:install --preset`, with Contact shipping
   `basic` and `extended`.
+- User management (§8.4.1): adding colleagues, making them administrators,
+  deactivating them, resetting a password, and an account page for changing your
+  own. Deactivation is enforced both at sign-in and against sessions that already
+  exist.
 - Module boundaries enforced by deptrac in CI.
 
 ### 9.2 Decided since this brief was written
