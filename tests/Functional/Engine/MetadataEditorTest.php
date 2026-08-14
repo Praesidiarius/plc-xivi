@@ -196,6 +196,85 @@ final class MetadataEditorTest extends KernelTestCase
         self::assertSame('CHE-1', $found[0]->get('vat_number'));
     }
 
+    /** The blueprint's flag reaches the definitions, not just the fallback. */
+    public function testTheModuleDeclaresWhichFieldsNameARecord(): void
+    {
+        $module = $this->switcher->runFor($this->tenant, fn () => self::service(MetadataRepository::class)
+            ->get(ContactModule::KEY));
+
+        self::assertTrue($module->getField('first_name')?->isTitle());
+        self::assertTrue($module->getField('last_name')?->isTitle());
+        self::assertFalse($module->getField('phone')?->isTitle());
+    }
+
+    /**
+     * The test that distinguishes the flag from the old guess: Contact's title
+     * fields and its required fields happen to be the same two, so only marking
+     * something *else* shows which one is answering.
+     */
+    public function testAMarkedFieldOverridesTheRequiredFieldsGuess(): void
+    {
+        $named = $this->switcher->runFor($this->tenant, function (): array {
+            $module = self::service(MetadataRepository::class)->get(ContactModule::KEY);
+            $editor = self::service(MetadataEditor::class);
+
+            // email is not required, so the old heuristic would never pick it.
+            foreach ($module->getFields() as $field) {
+                $editor->updateField(
+                    field: $field,
+                    label: $field->getLabel(),
+                    required: $field->isRequired(),
+                    unique: $field->isUnique(),
+                    filterable: $field->isFilterable(),
+                    listed: $field->isListed(),
+                    title: $field->getKey() === 'email',
+                    position: $field->getPosition(),
+                    options: $field->getOptions(),
+                );
+            }
+
+            return array_map(
+                static fn ($f): string => $f->getKey(),
+                self::service(MetadataRepository::class)->get(ContactModule::KEY)->getTitleFields(),
+            );
+        });
+
+        self::assertSame(['email'], $named);
+    }
+
+    /**
+     * With nothing marked, the old guess still answers: the required fields,
+     * first two. A wrong heading beats a blank one.
+     */
+    public function testWithoutAMarkedFieldItFallsBackToTheRequiredOnes(): void
+    {
+        $named = $this->switcher->runFor($this->tenant, function (): array {
+            $module = self::service(MetadataRepository::class)->get(ContactModule::KEY);
+            $editor = self::service(MetadataEditor::class);
+
+            foreach ($module->getFields() as $field) {
+                $editor->updateField(
+                    field: $field,
+                    label: $field->getLabel(),
+                    required: $field->isRequired(),
+                    unique: $field->isUnique(),
+                    filterable: $field->isFilterable(),
+                    listed: $field->isListed(),
+                    title: false,
+                    position: $field->getPosition(),
+                    options: $field->getOptions(),
+                );
+            }
+
+            return array_map(
+                static fn ($f): string => $f->getKey(),
+                self::service(MetadataRepository::class)->get(ContactModule::KEY)->getTitleFields(),
+            );
+        });
+
+        self::assertSame(['first_name', 'last_name'], $named);
+    }
+
     public function testAFieldNameMustBeAnIdentifier(): void
     {
         foreach (['VAT Number', '1st', 'vat-number', '', 'vat number'] as $key) {
@@ -372,6 +451,7 @@ final class MetadataEditorTest extends KernelTestCase
                 unique: $unique ?? $field->isUnique(),
                 filterable: $field->isFilterable(),
                 listed: $field->isListed(),
+                title: $field->isTitle(),
                 position: $field->getPosition(),
                 options: $field->getOptions(),
             );

@@ -64,8 +64,13 @@
 											<label class="form-check-label small me-2">
 												<input form="f{{ field.id }}" type="checkbox" name="filterable" value="1" {{ field.filterable ? 'checked' : '' }}> filterable
 											</label>
-											<label class="form-check-label small">
+											<label class="form-check-label small me-2">
 												<input form="f{{ field.id }}" type="checkbox" name="listed" value="1" {{ field.listed ? 'checked' : '' }}> on list
+											</label>
+											{# What the record is called: its heading, and whatever names it
+											   in a link later (§5.4). #}
+											<label class="form-check-label small">
+												<input form="f{{ field.id }}" type="checkbox" name="title" value="1" {{ field.title ? 'checked' : '' }}> titles it
 											</label>
 										</td>
 										<td>
@@ -129,8 +134,11 @@
 								</label>
 								{# Unticked on purpose: a field added later should not widen a list
 								   somebody reads every day without being asked. #}
-								<label class="form-check-label small">
+								<label class="form-check-label small me-2">
 									<input type="checkbox" name="listed" value="1"> on list
+								</label>
+								<label class="form-check-label small">
+									<input type="checkbox" name="title" value="1"> titles it
 								</label>
 							</div>
 							<div class="col-sm-1 text-end">

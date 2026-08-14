@@ -22,12 +22,8 @@
 	{%- endif -%}
 {% endmacro %}
 
-{# Built with filters rather than a loop: `set` inside a `for` does not survive it. #}
-{% set title = titleFields
-	|map(field => display(field, record.get(field.key)))
-	|filter(shown => shown is not empty)
-	|join(' ') %}
-{% set title = title is empty ? module.label ~ ' #' ~ record.id : title %}
+{# One answer to "what is this record called", from the engine (§5.4). #}
+{% set title = record_title(module, record.data, record.id) %}
 
 {% block title %}{{ title }} — {{ module.label }}{% endblock %}
 

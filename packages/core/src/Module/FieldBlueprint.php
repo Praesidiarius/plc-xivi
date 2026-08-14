@@ -16,6 +16,8 @@ final readonly class FieldBlueprint
         public bool $filterable = false,
         /** Shown as a column on the list. A module's own fields are, by default. */
         public bool $listed = true,
+        /** Part of what a record is called — the heading on its page. */
+        public bool $title = false,
         public int $position = 0,
         public array $options = [],
     ) {

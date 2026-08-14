@@ -125,6 +125,50 @@ abstract class ShapeDefinition
         return null;
     }
 
+    /**
+     * The fields a record is called by, in the shape's own order.
+     *
+     * Here rather than in a controller because the question is asked from more
+     * than one place — a record's heading today, and whatever names a record in
+     * a link or a picker once §7.6 arrives. Two answers to "what is this record
+     * called" would be one too many.
+     *
+     * The fallback is the old guess, kept for anyone who has not marked a field
+     * yet: the required ones, first two, because a record cannot exist without
+     * them so they are always there to print. It is wrong for a module whose
+     * required fields are not its identifying ones, which is exactly why the
+     * flag exists — but a wrong heading beats a blank one.
+     *
+     * @return list<FieldDefinition>
+     */
+    public function getTitleFields(): array
+    {
+        $chosen = [];
+        $required = [];
+
+        foreach ($this->fields as $field) {
+            if ($field->isTitle()) {
+                $chosen[] = $field;
+            }
+
+            if ($field->isRequired()) {
+                $required[] = $field;
+            }
+        }
+
+        if ($chosen !== []) {
+            return $chosen;
+        }
+
+        if ($required !== []) {
+            return \array_slice($required, 0, 2);
+        }
+
+        $first = $this->fields->first();
+
+        return $first === false ? [] : [$first];
+    }
+
     /** @return list<string> */
     public function getFieldKeys(): array
     {

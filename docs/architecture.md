@@ -352,6 +352,15 @@ module's (§5.1).
 - **A module's own fields cannot be removed.** Only the ones the customer added.
   §7.2's other half, unchanged.
 
+**A field can say it names the record.** Something has to decide what a record is
+*called* — the heading on its page today, and whatever names it in a link or a
+picker once §7.6 arrives. The metadata used to have no answer, so the record page
+guessed from the required fields, first two: right for a contact, wrong for an
+invoice whose required fields are `status` and `issued_on`, and tied to field
+order, so reordering fields in the editor silently renamed every record. It is a
+flag now, and the guess survives only as the fallback for anyone who has not
+marked one — a wrong heading beats a blank one.
+
 **A field can be on the list, or not.** Without that, every field a customer adds
 widens the table until nothing is readable — a strange punishment for using the
 engine as intended. It is a UI hint and nothing more: the value is still on the
@@ -608,10 +617,7 @@ collection exercises it.
 
 ### 9.3 Next
 
-A real title field in the definitions, which the record page currently stands in
-for with required fields, and which the editor now has an obvious home for.
-
-Then **templates** (§6.1), the other half of provisioning: which modules a
+**Templates** (§6.1), the other half of provisioning: which modules a
 customer gets, with which presets. They need nothing new from the engine — a
 template is a list of installations it already knows how to perform — but they do
 need somewhere in the control plane to live.

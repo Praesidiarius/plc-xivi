@@ -117,7 +117,6 @@ final class ModuleController extends AbstractController
             'module' => $definition,
             'record' => $record,
             'children' => $children,
-            'titleFields' => self::titleFields($definition),
             'owner' => $record->ownerId === null ? null : ($this->ownerNames([$record])[$record->ownerId] ?? null),
             'history' => $this->history->findFor($definition, $id),
         ]);
@@ -145,39 +144,6 @@ final class ModuleController extends AbstractController
 
         if ($listed !== []) {
             return $listed;
-        }
-
-        $first = $module->getFields()->first();
-
-        return $first === false ? [] : [$first];
-    }
-
-    /**
-     * Which fields name a record, for a heading.
-     *
-     * The metadata has no idea: nothing marks a field as the one a record is
-     * called by, and inventing that flag on the way to a detail page would be
-     * deciding it by accident. The stand-in is the fields the module says a
-     * record cannot exist without — required fields are the ones always there to
-     * print, which for a contact is the first and last name. Capped at two so a
-     * module with six required fields does not get a heading like a sentence.
-     *
-     * A real "title field" belongs in the definitions; see §9.3.
-     *
-     * @return list<FieldDefinition>
-     */
-    private static function titleFields(ModuleDefinition $module): array
-    {
-        $required = [];
-
-        foreach ($module->getFields() as $field) {
-            if ($field->isRequired()) {
-                $required[] = $field;
-            }
-        }
-
-        if ($required !== []) {
-            return \array_slice($required, 0, 2);
         }
 
         $first = $module->getFields()->first();

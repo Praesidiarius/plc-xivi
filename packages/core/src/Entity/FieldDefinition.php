@@ -62,6 +62,17 @@ class FieldDefinition
          */
         #[ORM\Column(name: 'is_listed')]
         private bool $listed = true,
+        /**
+         * Whether this field is part of what a record is *called* — the heading
+         * on its page, and whatever names it in a link or a picker later.
+         *
+         * Its own flag because nothing else answers the question. Guessing from
+         * "required" gets a contact right and an invoice wrong, and it ties the
+         * name to field order, so reordering fields would silently rename every
+         * record.
+         */
+        #[ORM\Column(name: 'is_title')]
+        private bool $title = false,
         #[ORM\Column]
         private int $position = 0,
         /**
@@ -141,6 +152,17 @@ class FieldDefinition
     public function isListed(): bool
     {
         return $this->listed;
+    }
+
+    /** Part of what the record is called; see the constructor. */
+    public function isTitle(): bool
+    {
+        return $this->title;
+    }
+
+    public function setTitle(bool $title): void
+    {
+        $this->title = $title;
     }
 
     public function setListed(bool $listed): void

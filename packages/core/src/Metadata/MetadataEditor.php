@@ -48,6 +48,7 @@ final readonly class MetadataEditor
         bool $unique = false,
         bool $filterable = false,
         bool $listed = false,
+        bool $title = false,
         array $options = [],
     ): FieldDefinition {
         $key = trim($key);
@@ -77,6 +78,7 @@ final readonly class MetadataEditor
             // addition should not silently rearrange a list somebody reads every
             // day. The editor offers the checkbox right beside the others.
             listed: $listed,
+            title: $title,
             position: $shape->nextPosition(),
             // Not the module's: this one is the customer's, and that is what
             // makes it removable later.
@@ -110,6 +112,7 @@ final readonly class MetadataEditor
         bool $unique,
         bool $filterable,
         bool $listed,
+        bool $title,
         int $position,
         array $options = [],
     ): void {
@@ -127,6 +130,7 @@ final readonly class MetadataEditor
         $field->setUnique($unique);
         $field->setFilterable($filterable);
         $field->setListed($listed);
+        $field->setTitle($title);
         $field->setPosition($position);
         $field->setOptions($options);
 

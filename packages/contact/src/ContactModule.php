@@ -35,6 +35,8 @@ final class ContactModule implements ModuleProvider
             fields: [
                 new FieldBlueprint(
                     key: 'first_name',
+                    // Part of what a contact is called (§5.4).
+                    title: true,
                     label: 'First name',
                     type: 'text',
                     required: true,
@@ -44,6 +46,7 @@ final class ContactModule implements ModuleProvider
                 ),
                 new FieldBlueprint(
                     key: 'last_name',
+                    title: true,
                     label: 'Last name',
                     type: 'text',
                     required: true,

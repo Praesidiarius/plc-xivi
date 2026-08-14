@@ -252,6 +252,7 @@ final readonly class ModuleInstaller
                 unique: $field->unique,
                 filterable: $field->filterable,
                 listed: $field->listed,
+                title: $field->title,
                 position: $field->position,
                 system: true,
             );

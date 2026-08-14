@@ -30,7 +30,36 @@ final class FieldDisplayExtension extends AbstractExtension
             new TwigFunction('display', $this->display(...)),
             new TwigFunction('display_stored', $this->displayStored(...)),
             new TwigFunction('in_field_order', $this->inFieldOrder(...)),
+            new TwigFunction('record_title', $this->recordTitle(...)),
         ];
+    }
+
+    /**
+     * What to call one record, in one line.
+     *
+     * Built from the fields the shape says name it (§5.4), rendered through
+     * their own types so a date in a title reads like a date. Falls back to the
+     * shape's label and the record's id, because a record with nothing filled in
+     * still has to be referred to somehow — "Contacts #14" is a poor name and a
+     * worse blank.
+     *
+     * @param array<string, mixed> $data the record's values
+     */
+    public function recordTitle(ShapeDefinition $shape, array $data, ?int $id = null): string
+    {
+        $parts = [];
+
+        foreach ($shape->getTitleFields() as $field) {
+            $shown = trim($this->display($field, $data[$field->getKey()] ?? null));
+
+            if ($shown !== '') {
+                $parts[] = $shown;
+            }
+        }
+
+        return $parts === []
+            ? sprintf('%s #%s', $shape->getLabel(), $id ?? '?')
+            : implode(' ', $parts);
     }
 
     /**
