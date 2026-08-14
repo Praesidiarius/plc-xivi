@@ -27,6 +27,8 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity]
 class ModuleDefinition extends ShapeDefinition
 {
+    public const string HISTORY_SUFFIX = '_history';
+
     /** @var Collection<int, CollectionDefinition> */
     #[ORM\OneToMany(targetEntity: CollectionDefinition::class, mappedBy: 'parent', cascade: ['persist', 'remove'])]
     #[ORM\OrderBy(['position' => 'ASC', 'id' => 'ASC'])]
@@ -37,6 +39,19 @@ class ModuleDefinition extends ShapeDefinition
         parent::__construct($key, $label, $tableName);
 
         $this->collections = new ArrayCollection();
+    }
+
+    /**
+     * Where this module's history lives (§5.2). One table per module, so
+     * `record_id` means exactly one thing and can carry a real foreign key.
+     *
+     * Derived from the *table* name rather than the module key, so renaming a
+     * module still never moves a table — which is why the table name is stored
+     * in the first place.
+     */
+    public function getHistoryTableName(): string
+    {
+        return $this->getTableName() . self::HISTORY_SUFFIX;
     }
 
     /** @return Collection<int, CollectionDefinition> */

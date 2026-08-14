@@ -44,6 +44,14 @@ services:
         arguments:
             $connection: '@doctrine.dbal.tenant_connection'
 
+    Xivi\Core\Record\RecordWriter:
+        arguments:
+            $connection: '@doctrine.dbal.tenant_connection'
+
+    Xivi\Core\History\HistoryRepository:
+        arguments:
+            $connection: '@doctrine.dbal.tenant_connection'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
 

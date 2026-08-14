@@ -22,6 +22,13 @@ use Xivi\Core\Field\FieldTypeRegistry;
  * the two kinds diverge is one column: a module's row names an owner, a
  * collection's names its parent.
  *
+ * Reads are public. **Writes are internal to RecordWriter** (§5.2): every change
+ * has to go through the unit of work that opens the transaction and records the
+ * history, or the first caller to save a record directly writes no history at
+ * all — and a history with holes in it is worse than no history, because it is
+ * trusted. PHP has no package-private, so this is `@internal` and the fact that
+ * nothing else calls it.
+ *
  * Straight DBAL: the columns are known only at runtime, and the query layer
  * (§7.3) will need to build SQL over a mix of real columns and JSONB anyway.
  *
@@ -95,53 +102,6 @@ final readonly class RecordRepository
         return array_map(fn (array $row): Record => $this->hydrate($collection, $row), $rows);
     }
 
-    /**
-     * Make one record's collection look like what was submitted: update the rows
-     * that came back with an id, insert the ones that did not, and soft-delete
-     * the ones that were dropped.
-     *
-     * The ids are checked against the rows this parent actually owns. They
-     * arrive from a form, so a submission naming somebody else's address is a
-     * request to edit another record through a side door; refusing loudly beats
-     * a stray UPDATE that no page would ever show.
-     *
-     * @param list<array{id: int|null, data: array<string, mixed>}> $rows
-     */
-    public function replaceChildren(CollectionDefinition $collection, int $parentId, array $rows): void
-    {
-        $existing = [];
-        foreach ($this->findChildren($collection, $parentId) as $child) {
-            $existing[(int) $child->id] = $child;
-        }
-
-        $kept = [];
-
-        foreach ($rows as $row) {
-            if ($row['id'] === null) {
-                $this->save($collection, new Record(data: $row['data'], parentId: $parentId));
-
-                continue;
-            }
-
-            $child = $existing[$row['id']] ?? throw new \InvalidArgumentException(sprintf(
-                'Row %d of collection "%s" does not belong to record %d.',
-                $row['id'],
-                $collection->getKey(),
-                $parentId,
-            ));
-
-            $child->data = $row['data'];
-            $this->save($collection, $child);
-            $kept[$row['id']] = true;
-        }
-
-        foreach ($existing as $id => $child) {
-            if (!isset($kept[$id])) {
-                $this->delete($collection, $child);
-            }
-        }
-    }
-
     public function countAll(ShapeDefinition $shape): int
     {
         return (int) $this->connection->fetchOne(
@@ -149,6 +109,7 @@ final readonly class RecordRepository
         );
     }
 
+    /** @internal Use RecordWriter, which owns the transaction and the history (§5.2). */
     public function save(ShapeDefinition $shape, Record $record): Record
     {
         $now = new \DateTimeImmutable();
@@ -203,6 +164,8 @@ final readonly class RecordRepository
      * delete, which is not the path taken here, so the cascade is done in SQL
      * rather than left to the database — otherwise deleting a contact would
      * leave its addresses visible to anything that reads them directly.
+     *
+     * @internal Use RecordWriter, which owns the transaction and the history (§5.2).
      */
     public function delete(ShapeDefinition $shape, Record $record): void
     {
@@ -283,23 +246,44 @@ final readonly class RecordRepository
     }
 
     /**
+     * A shape's values in the form they are stored in, every declared key
+     * present, nulls included.
+     *
+     * Public because comparing two versions of a record is only meaningful in
+     * this form: a date submitted as a string and a date read back as an object
+     * are the same value, and would otherwise look like a change every time
+     * (§5.2).
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array<string, mixed>
+     */
+    public function storageValues(ShapeDefinition $shape, array $data): array
+    {
+        $values = [];
+
+        foreach ($shape->getFields() as $field) {
+            $values[$field->getKey()] = $this->fieldTypes
+                ->get($field->getType())
+                ->toStorage($data[$field->getKey()] ?? null, $field);
+        }
+
+        return $values;
+    }
+
+    /**
      * @param array<string, mixed> $data
      *
      * @return string JSON, ready for a jsonb column
      */
     private function encode(ShapeDefinition $shape, array $data): string
     {
-        $encoded = [];
-
-        foreach ($shape->getFields() as $field) {
-            $value = $this->fieldTypes->get($field->getType())->toStorage($data[$field->getKey()] ?? null, $field);
-
-            // Absent rather than null: a JSONB payload full of nulls is noise, and
-            // "key missing" and "key set to null" should not become two states.
-            if ($value !== null) {
-                $encoded[$field->getKey()] = $value;
-            }
-        }
+        // Absent rather than null: a JSONB payload full of nulls is noise, and
+        // "key missing" and "key set to null" should not become two states.
+        $encoded = array_filter(
+            $this->storageValues($shape, $data),
+            static fn (mixed $value): bool => $value !== null,
+        );
 
         return json_encode($encoded, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE);
     }

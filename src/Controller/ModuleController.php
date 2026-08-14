@@ -16,10 +16,12 @@ use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Form\ModuleRecordType;
+use Xivi\Core\History\HistoryRepository;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Metadata\ModuleNotInstalled;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordRepository;
+use Xivi\Core\Record\RecordWriter;
 use Xivi\Core\Validation\RecordValidator;
 
 /**
@@ -35,7 +37,11 @@ final class ModuleController extends AbstractController
     public function __construct(
         private readonly MetadataRepository $metadata,
         private readonly RecordRepository $records,
+        // Every write goes through the writer, never the repository: it owns the
+        // transaction and the history entry (§5.2).
+        private readonly RecordWriter $writer,
         private readonly RecordValidator $validator,
+        private readonly HistoryRepository $history,
         private readonly UserRepository $users,
     ) {
     }
@@ -79,7 +85,7 @@ final class ModuleController extends AbstractController
         $record = $this->records->find($definition, $id) ?? throw $this->createNotFoundException();
 
         if ($this->isCsrfTokenValid('delete-record-' . $id, (string) $request->request->get('_token'))) {
-            $this->records->delete($definition, $record);
+            $this->writer->delete($definition, $record);
             $this->addFlash('success', 'Deleted.');
         }
 
@@ -125,23 +131,16 @@ final class ModuleController extends AbstractController
             if ($valid) {
                 $record->data = $submitted['fields'];
                 $record->ownerId ??= $this->currentUserId();
-                $this->records->save($definition, $record);
 
-                // After the parent, which is where a new record gets the id its
-                // children need to point at.
-                foreach ($children as $key => $rows) {
-                    $collection = $definition->getCollection($key);
-                    \assert($collection !== null);
-
-                    $this->records->replaceChildren(
-                        $collection,
-                        (int) $record->id,
-                        array_map(
-                            static fn (array $row): array => ['id' => $row['id'], 'data' => $row['data']],
-                            $rows,
-                        ),
-                    );
-                }
+                // One call, one transaction, one history entry — the record and
+                // its collections are one action, not several.
+                $this->writer->save($definition, $record, array_map(
+                    static fn (array $rows): array => array_map(
+                        static fn (array $row): array => ['id' => $row['id'], 'data' => $row['data']],
+                        $rows,
+                    ),
+                    $children,
+                ));
 
                 $this->addFlash('success', 'Saved.');
 
@@ -153,6 +152,7 @@ final class ModuleController extends AbstractController
             'module' => $definition,
             'record' => $record,
             'form' => $form,
+            'history' => $record->isNew() ? [] : $this->history->findFor($definition, (int) $record->id),
         ]);
     }
 

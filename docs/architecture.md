@@ -191,6 +191,93 @@ whole table and unique within one parent are different rules, and which one a
 customer means is not something the installer should decide for them. It waits
 for the same decision §7.5 is waiting for.
 
+### 5.2 History is per module, and per action
+
+Every change to a record is recorded: who, when, and what changed.
+
+**One history table per module, not one for the system, and not one per shape.**
+`contact_history`, `order_history`. A single `history(entity_type, entity_id)`
+table is the design this project has already watched fail: at 60M rows the
+relating id meant an order, a contact or an article depending on the row, so it
+**could not carry a foreign key** — no integrity, no cascade, orphans
+accumulating, and a planner with nothing useful to narrow on. Splitting per
+module is what makes `record_id` mean one thing, and therefore what makes a real
+foreign key possible. Size is the lesser half of the argument.
+
+§4 does the other half of the work here without being asked: history lives in one
+customer's database, so the table that was 60M rows shared is now many small ones.
+
+A collection's events go in **its parent module's** table, tagged with which
+collection and which row. An address has no independent life (§5.1), nobody asks
+for an address's timeline, and the timeline anyone does want — the contact's —
+stays a single indexed read instead of a union.
+
+**Fixed shape, not metadata-driven.** The columns are identical for every module,
+so this is an ordinary table created by the installer alongside the module's own,
+with no field definitions. Making history describable would buy nothing and cost
+every index.
+
+    id           bigint identity      -- bigint from the start; this is what grows
+    record_id    int  NOT NULL        -- FK → contact(id) ON DELETE CASCADE
+    occurred_at  timestamptz NOT NULL
+    user_id      int  NULL            -- no FK: core still does not know what a user is
+    user_label   text NULL            -- who they were at the time
+    action       varchar(31)          -- created | updated | deleted
+    changes      jsonb NOT NULL
+
+One index, on `(record_id, id DESC)`, because that is the only question anyone
+asks. Over-indexing is the other half of what made the old table hurt.
+
+**One entry per action, not per row touched.** Fixing an email and adding an
+address in one save is one line in the timeline, not three. The grouping key is
+the *record*, so an import touching 500 contacts still writes 500 entries.
+
+That granularity is why writing goes through **`RecordWriter`**, a unit of work
+that owns the transaction, takes the before-images, merges the diff and dispatches
+one event per root record. The obvious alternative — a request-scoped buffer
+flushed at the end — is the §7.4 hazard wearing a hat: state outliving the context
+it was made in, waiting to flush one tenant's changes into another's database on a
+console command that serves several in sequence. An explicitly scoped object
+cannot do that.
+
+`RecordWriter` is the *only* supported way to write a record; `RecordRepository`'s
+mutating methods are internal to it. Otherwise the first import to call the
+repository directly would silently write no history, and a history with holes in
+it is worse than none, because it is trusted. PHP has no package-private, so this
+is `@internal` plus the fact that nothing else calls it — enforced by review, not
+by the compiler.
+
+**Merge rules**, so the timeline stays readable:
+
+- The same field changed twice in one action records first `from` to last `to`.
+- A value that ends where it started is not a change.
+- An empty diff writes no entry at all. "Edited, nothing changed" is most of what
+  makes these logs unreadable. `created` and `deleted` are always recorded.
+- `action` is the root record's own verb: adding an address to an existing contact
+  is an update *of the contact*.
+- Deleting a record writes one entry; its collections cascade silently.
+
+**The diff is structured, and mirrors the form** — the same `fields` and
+`collections` branches the form and validator already use:
+
+    {"fields": {"email": {"label": "Email", "from": "…", "to": "…"}},
+     "collections": {"addresses": [{"action": "added", "child_id": 7, …}]}}
+
+Labels are captured **at write time**. History is a record of what happened, so
+renaming a field later must not rewrite the past — the same reason `user_label` is
+denormalised rather than joined. Descriptions are rendered at read time through
+the field type when the definition still exists, and fall back to the stored label
+when it does not, because history outlives the schema that produced it. That is
+§7.2 arriving from a new direction.
+
+**Values only, no reads.** Recording who *looked* at a record is a different
+feature with roughly a hundred times the volume and a different retention answer;
+it is an optional extra later, not part of this.
+
+Still to decide: retention and whether `occurred_at` wants range partitioning.
+Cheap now, expensive at 60M rows. And field types will need a way to say "do not
+record this value" before the first sensitive type ships.
+
 ---
 
 ## 6. Extensibility
@@ -362,6 +449,9 @@ collection exercises it.
   a real foreign key, edited inline with the parent, validated by their own
   definitions, soft-deleted with the record they belong to. Contact declares them
   and still contains no code.
+- History per §5.2: `RecordWriter` as the only write path, one entry per action in
+  a per-module table, and the record's timeline on its page. The first use of §6's
+  event layer — core dispatches what changed, the application adds who did it.
 - Module boundaries enforced by deptrac in CI.
 
 ### 9.2 Decided since this brief was written
@@ -388,6 +478,13 @@ collection exercises it.
   is what counts as a filterable thing. Building the compiler against one flat table
   first would have baked that assumption into its signature; see the note under
   §7.3.
+- **History is per module and per action** — see §5.2. Per module because a shared
+  polymorphic table cannot carry a foreign key, which is what made the last one
+  rot; per action because a timeline nobody can read is a feature nobody uses.
+- **Events arrived without §7.1 being answered.** History only observes, so it
+  needed a dispatch point and not a decision about whether a subscriber may cancel
+  a host action. Worth noticing: the passive half of §6 was usable all along, and
+  the veto question was never actually blocking it.
 
 ### 9.3 Next
 
@@ -401,7 +498,12 @@ implementation: column promotion, links between modules (§7.6), the metadata
 editor, and §7.2 — what happens to stored data when a field changes type or is
 removed. Installing a module today refuses to touch an existing installation for
 exactly that reason, which now also means a customer who installed Contact before
-addresses existed does not get them.
+addresses existed gets neither those nor a history table.
+
+**§7.2 has now blocked two features in a row**, which is the argument for building
+the additive-only half of it next: a new table and new definition rows destroy
+nothing, and both collections and history needed exactly that. The destructive
+half — a field changing type, a field deleted with data in it — can stay open.
 
 Two things to keep honest while that lands: the metadata layer will want a
 per-tenant cache, which is §7.4 in a new costume; and file storage has not been

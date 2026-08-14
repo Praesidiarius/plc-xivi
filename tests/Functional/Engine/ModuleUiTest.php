@@ -258,6 +258,46 @@ final class ModuleUiTest extends WebTestCase
         self::assertStringContainsString('should not be null', (string) $this->client->getResponse()->getContent());
     }
 
+    /**
+     * The half of history core cannot do on its own: who did it. Core dispatches
+     * what changed and the application adds the person, so this only shows up
+     * through a signed-in request (§5.2).
+     */
+    public function testTheHistoryNamesWhoChangedWhat(): void
+    {
+        $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+
+        $this->openFirstRecord();
+        $this->client->submitForm('Save', [self::field('first_name') => 'Augusta']);
+
+        $crawler = $this->openFirstRecord();
+        $history = $crawler->filter('.card:contains("History")')->text();
+
+        self::assertStringContainsString('Updated by UI', $history);
+        self::assertStringContainsString('Created by UI', $history);
+        // What changed, from the definition's label and the stored values.
+        self::assertStringContainsString('First name: Ada → Augusta', $history);
+    }
+
+    /** An address added to an existing contact is one entry on the contact. */
+    public function testTheHistoryShowsCollectionChangesOnTheParent(): void
+    {
+        $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+
+        $this->openFirstRecord();
+        $this->client->submitForm('Save', [
+            self::addressField(0, 'street') => 'Baker Street 1',
+            self::addressField(0, 'city') => 'Zürich',
+        ]);
+
+        $history = $this->openFirstRecord()->filter('.card:contains("History")')->text();
+
+        self::assertStringContainsString('Addresses added', $history);
+        // In the order the definitions declare, not the order jsonb hands back:
+        // street comes before city on the form, so it does here too.
+        self::assertMatchesRegularExpression('/Baker Street 1,\s*Zürich/u', $history);
+    }
+
     /** A module the customer does not have is a 404 — another customer may well have it. */
     public function testAModuleThatIsNotInstalledIsNotFound(): void
     {

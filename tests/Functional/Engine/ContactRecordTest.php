@@ -14,8 +14,12 @@ use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
+use Xivi\Core\History\HistoryEntry;
+use Xivi\Core\History\HistoryRepository;
 use Xivi\Core\Record\Record;
+use Xivi\Core\Record\RecordAction;
 use Xivi\Core\Record\RecordRepository;
+use Xivi\Core\Record\RecordWriter;
 use Xivi\Core\Validation\RecordValidator;
 
 /**
@@ -108,18 +112,19 @@ final class ContactRecordTest extends KernelTestCase
 
     public function testChildrenAreStoredInTheirOwnTableAndReadBackByParent(): void
     {
-        $contact = $this->saveIn($this->alpha, ['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+        $contact = $this->saveIn($this->alpha, ['first_name' => 'Ada', 'last_name' => 'Lovelace'], [
+            'addresses' => [
+                ['id' => null, 'data' => ['street' => 'Baker Street 1', 'city' => 'Zürich']],
+                ['id' => null, 'data' => ['street' => 'Bahnhofstrasse 5', 'city' => 'Bern']],
+            ],
+        ]);
 
         $found = $this->switcher->runFor($this->alpha, function () use ($contact): array {
             $module = self::service(MetadataRepository::class)->get(ContactModule::KEY);
             $addresses = $module->getCollection('addresses');
             \assert($addresses !== null);
-            $records = self::service(RecordRepository::class);
 
-            $records->save($addresses, new Record(['street' => 'Baker Street 1', 'city' => 'Zürich'], parentId: $contact->id));
-            $records->save($addresses, new Record(['street' => 'Bahnhofstrasse 5', 'city' => 'Bern'], parentId: $contact->id));
-
-            return $records->findChildren($addresses, (int) $contact->id);
+            return self::service(RecordRepository::class)->findChildren($addresses, (int) $contact->id);
         });
 
         self::assertCount(2, $found);
@@ -134,18 +139,18 @@ final class ContactRecordTest extends KernelTestCase
     /** Deleting a contact has to take its addresses with it, not orphan them. */
     public function testDeletingARecordSoftDeletesItsChildren(): void
     {
-        $contact = $this->saveIn($this->alpha, ['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+        $contact = $this->saveIn($this->alpha, ['first_name' => 'Ada', 'last_name' => 'Lovelace'], [
+            'addresses' => [['id' => null, 'data' => ['street' => 'Baker Street 1']]],
+        ]);
 
         $remaining = $this->switcher->runFor($this->alpha, function () use ($contact): array {
             $module = self::service(MetadataRepository::class)->get(ContactModule::KEY);
             $addresses = $module->getCollection('addresses');
             \assert($addresses !== null);
-            $records = self::service(RecordRepository::class);
 
-            $records->save($addresses, new Record(['street' => 'Baker Street 1'], parentId: $contact->id));
-            $records->delete($module, $contact);
+            self::service(RecordWriter::class)->delete($module, $contact);
 
-            return $records->findChildren($addresses, (int) $contact->id);
+            return self::service(RecordRepository::class)->findChildren($addresses, (int) $contact->id);
         });
 
         self::assertSame([], $remaining);
@@ -176,21 +181,26 @@ final class ContactRecordTest extends KernelTestCase
      */
     public function testAChildOfAnotherRecordCannotBeClaimed(): void
     {
-        $ada = $this->saveIn($this->alpha, ['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+        $ada = $this->saveIn($this->alpha, ['first_name' => 'Ada', 'last_name' => 'Lovelace'], [
+            'addresses' => [['id' => null, 'data' => ['street' => 'Baker Street 1']]],
+        ]);
         $grace = $this->saveIn($this->alpha, ['first_name' => 'Grace', 'last_name' => 'Hopper']);
 
-        $this->expectException(\InvalidArgumentException::class);
-
-        $this->switcher->runFor($this->alpha, function () use ($ada, $grace): void {
+        $hers = $this->switcher->runFor($this->alpha, function () use ($ada): int {
             $module = self::service(MetadataRepository::class)->get(ContactModule::KEY);
             $addresses = $module->getCollection('addresses');
             \assert($addresses !== null);
-            $records = self::service(RecordRepository::class);
 
-            $hers = $records->save($addresses, new Record(['street' => 'Baker Street 1'], parentId: $ada->id));
+            return (int) self::service(RecordRepository::class)->findChildren($addresses, (int) $ada->id)[0]->id;
+        });
 
-            $records->replaceChildren($addresses, (int) $grace->id, [
-                ['id' => (int) $hers->id, 'data' => ['street' => 'Stolen Street 1']],
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->switcher->runFor($this->alpha, function () use ($grace, $hers): void {
+            $module = self::service(MetadataRepository::class)->get(ContactModule::KEY);
+
+            self::service(RecordWriter::class)->save($module, $grace, [
+                'addresses' => [['id' => $hers, 'data' => ['street' => 'Stolen Street 1']]],
             ]);
         });
     }
@@ -223,16 +233,12 @@ final class ContactRecordTest extends KernelTestCase
 
     public function testSavingAndReadingBackARecord(): void
     {
-        $saved = $this->switcher->runFor($this->alpha, function (): Record {
-            $module = self::service(MetadataRepository::class)->get(ContactModule::KEY);
-
-            return self::service(RecordRepository::class)->save($module, new Record([
-                'first_name' => 'Ada',
-                'last_name' => 'Lovelace',
-                'email' => 'ADA@example.com ',
-                'birthday' => '1815-12-10',
-            ]));
-        });
+        $saved = $this->saveIn($this->alpha, [
+            'first_name' => 'Ada',
+            'last_name' => 'Lovelace',
+            'email' => 'ADA@example.com ',
+            'birthday' => '1815-12-10',
+        ]);
 
         self::assertNotNull($saved->id);
 
@@ -358,7 +364,7 @@ final class ContactRecordTest extends KernelTestCase
 
         $this->switcher->runFor($this->alpha, function () use ($record): void {
             $module = self::service(MetadataRepository::class)->get(ContactModule::KEY);
-            self::service(RecordRepository::class)->delete($module, $record);
+            self::service(RecordWriter::class)->delete($module, $record);
         });
 
         [$visible, $withDeleted] = $this->switcher->runFor($this->alpha, function () use ($record): array {
@@ -376,12 +382,190 @@ final class ContactRecordTest extends KernelTestCase
         self::assertTrue($withDeleted->isDeleted());
     }
 
-    /** @param array<string, mixed> $data */
-    private function saveIn(Tenant $tenant, array $data): Record
+    /**
+     * Through the writer, not the repository: that is the only supported way to
+     * write a record (§5.2), so the tests should be taking it too.
+     *
+     * @param array<string, mixed>                                                $data
+     * @param array<string, list<array{id: int|null, data: array<string, mixed>}>> $children
+     */
+    private function saveIn(Tenant $tenant, array $data, array $children = []): Record
     {
-        return $this->switcher->runFor($tenant, fn (): Record => self::service(RecordRepository::class)->save(
+        return $this->switcher->runFor($tenant, fn (): Record => self::service(RecordWriter::class)->save(
             self::service(MetadataRepository::class)->get(ContactModule::KEY),
             new Record($data),
+            $children,
+        ));
+    }
+
+    public function testCreatingARecordIsRecorded(): void
+    {
+        $contact = $this->saveIn($this->alpha, ['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+
+        $history = $this->historyOf($this->alpha, (int) $contact->id);
+
+        self::assertCount(1, $history);
+        self::assertSame(RecordAction::Created, $history[0]->action);
+        // No user: nothing is signed in here, and "System" is the honest answer.
+        self::assertNull($history[0]->userId);
+        self::assertSame('Ada', $history[0]->fieldChanges()['first_name']['to']);
+        self::assertSame('First name', $history[0]->fieldChanges()['first_name']['label']);
+    }
+
+    public function testEditingRecordsOnlyWhatChanged(): void
+    {
+        $contact = $this->saveIn($this->alpha, ['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+
+        $this->switcher->runFor($this->alpha, function () use ($contact): void {
+            $module = self::service(MetadataRepository::class)->get(ContactModule::KEY);
+            $contact->data['first_name'] = 'Augusta';
+
+            self::service(RecordWriter::class)->save($module, $contact);
+        });
+
+        $history = $this->historyOf($this->alpha, (int) $contact->id);
+
+        self::assertCount(2, $history);
+        // Newest first.
+        self::assertSame(RecordAction::Updated, $history[0]->action);
+        self::assertSame(['first_name'], array_keys($history[0]->fieldChanges()));
+        self::assertSame('Ada', $history[0]->fieldChanges()['first_name']['from']);
+        self::assertSame('Augusta', $history[0]->fieldChanges()['first_name']['to']);
+    }
+
+    /**
+     * The rule that keeps a timeline readable: saving without changing anything
+     * is not an event.
+     */
+    public function testSavingWithoutChangingAnythingRecordsNothing(): void
+    {
+        $contact = $this->saveIn($this->alpha, ['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+
+        $this->switcher->runFor($this->alpha, function () use ($contact): void {
+            $module = self::service(MetadataRepository::class)->get(ContactModule::KEY);
+
+            self::service(RecordWriter::class)->save($module, $contact);
+        });
+
+        self::assertCount(1, $this->historyOf($this->alpha, (int) $contact->id));
+    }
+
+    /**
+     * A date is stored as a string and read back as an object. Comparing the two
+     * forms naively would report a change on every save, which is how audit
+     * trails become noise nobody reads.
+     */
+    public function testATypedValueSurvivingARoundTripIsNotAChange(): void
+    {
+        $contact = $this->saveIn($this->alpha, [
+            'first_name' => 'Ada',
+            'last_name' => 'Lovelace',
+            'birthday' => '1815-12-10',
+        ]);
+
+        $this->switcher->runFor($this->alpha, function () use ($contact): void {
+            $module = self::service(MetadataRepository::class)->get(ContactModule::KEY);
+            $records = self::service(RecordRepository::class);
+
+            // Read back, so birthday is a DateTimeImmutable rather than a string.
+            $reloaded = $records->find($module, (int) $contact->id);
+            \assert($reloaded !== null);
+
+            self::service(RecordWriter::class)->save($module, $reloaded);
+        });
+
+        self::assertCount(1, $this->historyOf($this->alpha, (int) $contact->id));
+    }
+
+    /** One action, one entry — the contact and its addresses together (§5.2). */
+    public function testChangesToAChildLandInTheParentsEntry(): void
+    {
+        $contact = $this->saveIn($this->alpha, ['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+
+        $this->switcher->runFor($this->alpha, function () use ($contact): void {
+            $module = self::service(MetadataRepository::class)->get(ContactModule::KEY);
+            $contact->data['phone'] = '+41 00 000 00 00';
+
+            self::service(RecordWriter::class)->save($module, $contact, [
+                'addresses' => [['id' => null, 'data' => ['street' => 'Baker Street 1', 'city' => 'Zürich']]],
+            ]);
+        });
+
+        $history = $this->historyOf($this->alpha, (int) $contact->id);
+
+        // One entry, not two: the phone number and the address were one action.
+        self::assertCount(2, $history);
+        self::assertSame(RecordAction::Updated, $history[0]->action);
+        self::assertSame(['phone'], array_keys($history[0]->fieldChanges()));
+
+        $addresses = $history[0]->collectionChanges()['addresses'];
+        self::assertCount(1, $addresses);
+        self::assertSame('added', $addresses[0]['action']);
+        self::assertSame('Baker Street 1', $addresses[0]['values']['street']['value']);
+    }
+
+    public function testRemovingAChildSaysWhatItWas(): void
+    {
+        $contact = $this->saveIn($this->alpha, ['first_name' => 'Ada', 'last_name' => 'Lovelace'], [
+            'addresses' => [['id' => null, 'data' => ['street' => 'Baker Street 1', 'city' => 'Zürich']]],
+        ]);
+
+        $this->switcher->runFor($this->alpha, function () use ($contact): void {
+            $module = self::service(MetadataRepository::class)->get(ContactModule::KEY);
+
+            // Every address gone.
+            self::service(RecordWriter::class)->save($module, $contact, ['addresses' => []]);
+        });
+
+        $removed = $this->historyOf($this->alpha, (int) $contact->id)[0]->collectionChanges()['addresses'][0];
+
+        self::assertSame('removed', $removed['action']);
+        // What it was, because the row it described is gone now.
+        self::assertSame('Zürich', $removed['values']['city']['value']);
+    }
+
+    public function testDeletingIsRecordedOnce(): void
+    {
+        $contact = $this->saveIn($this->alpha, ['first_name' => 'Ada', 'last_name' => 'Lovelace'], [
+            'addresses' => [['id' => null, 'data' => ['street' => 'Baker Street 1']]],
+        ]);
+
+        $this->switcher->runFor($this->alpha, function () use ($contact): void {
+            self::service(RecordWriter::class)->delete(
+                self::service(MetadataRepository::class)->get(ContactModule::KEY),
+                $contact,
+            );
+        });
+
+        $history = $this->historyOf($this->alpha, (int) $contact->id);
+
+        self::assertSame(RecordAction::Deleted, $history[0]->action);
+        // One line, not one per address: "deleted" is the fact.
+        self::assertSame([], $history[0]->collectionChanges());
+    }
+
+    /** History is a table in the customer's own database, like everything else. */
+    public function testHistoryDoesNotCrossTenants(): void
+    {
+        $inAlpha = $this->saveIn($this->alpha, ['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+        $inBeta = $this->saveIn($this->beta, ['first_name' => 'Grace', 'last_name' => 'Hopper']);
+
+        // Same id in both databases, since ids are only unique within a tenant.
+        self::assertSame($inAlpha->id, $inBeta->id);
+
+        $alpha = $this->historyOf($this->alpha, (int) $inAlpha->id);
+        $beta = $this->historyOf($this->beta, (int) $inBeta->id);
+
+        self::assertSame('Ada', $alpha[0]->fieldChanges()['first_name']['to']);
+        self::assertSame('Grace', $beta[0]->fieldChanges()['first_name']['to']);
+    }
+
+    /** @return list<HistoryEntry> */
+    private function historyOf(Tenant $tenant, int $recordId): array
+    {
+        return $this->switcher->runFor($tenant, fn (): array => self::service(HistoryRepository::class)->findFor(
+            self::service(MetadataRepository::class)->get(ContactModule::KEY),
+            $recordId,
         ));
     }
 

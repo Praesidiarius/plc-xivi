@@ -83,7 +83,6 @@ final class ContactModule implements ModuleProvider
                     key: 'addresses',
                     label: 'Addresses',
                     table: 'contact_address',
-                    position: 10,
                     fields: [
                         new FieldBlueprint(
                             key: 'label',
@@ -128,6 +127,7 @@ final class ContactModule implements ModuleProvider
                             options: ['max_length' => 120],
                         ),
                     ],
+                    position: 10,
                 ),
             ],
         );

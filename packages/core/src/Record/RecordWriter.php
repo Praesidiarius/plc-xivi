@@ -1,0 +1,247 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Xivi\Core\Record;
+
+use Doctrine\DBAL\Connection;
+use Psr\EventDispatcher\EventDispatcherInterface;
+use Xivi\Core\Entity\CollectionDefinition;
+use Xivi\Core\Entity\ModuleDefinition;
+use Xivi\Core\Entity\ShapeDefinition;
+use Xivi\Core\Event\RecordChanged;
+
+/**
+ * One user action against one record: the record, its collections, and the
+ * history entry that says what happened (§5.2).
+ *
+ * The only supported way to write a record. RecordRepository still does the
+ * statements, but its mutating methods are internal to this class — a caller
+ * that saves directly writes no history, and an audit trail with invisible gaps
+ * is worse than none.
+ *
+ * It is an explicitly scoped object rather than a request-scoped buffer that
+ * flushes at the end, and that is a correctness decision. Ambient state that
+ * outlives the context it was made in is §7.4: on a console command serving
+ * several tenants in sequence, a buffer filled for one would flush into the
+ * next one's database. A scope you can see at the call site cannot do that.
+ *
+ * Everything happens in one transaction, and the event is dispatched inside it,
+ * so a subscriber that fails takes the change down with it.
+ */
+final readonly class RecordWriter
+{
+    public function __construct(
+        private Connection $connection,
+        private RecordRepository $records,
+        private EventDispatcherInterface $events,
+    ) {
+    }
+
+    /**
+     * @param array<string, list<array{id: int|null, data: array<string, mixed>}>> $children
+     *                                                                                      the full contents of each collection, keyed by collection;
+     *                                                                                      rows with an id are kept, rows without are added, and
+     *                                                                                      anything missing is removed
+     */
+    public function save(ModuleDefinition $module, Record $record, array $children = []): Record
+    {
+        return $this->connection->transactional(function () use ($module, $record, $children): Record {
+            $isNew = $record->isNew();
+
+            $before = $isNew
+                ? []
+                : ($this->records->find($module, (int) $record->id, includeDeleted: true)?->data ?? []);
+
+            $fields = $this->diff($module, $before, $record->data);
+
+            $this->records->save($module, $record);
+
+            $collections = [];
+            foreach ($children as $key => $rows) {
+                $collection = $module->getCollection($key) ?? throw new \InvalidArgumentException(sprintf(
+                    'Module "%s" has no collection "%s".',
+                    $module->getKey(),
+                    $key,
+                ));
+
+                $touched = $this->writeChildren($collection, (int) $record->id, $rows);
+
+                if ($touched !== []) {
+                    $collections[$key] = $touched;
+                }
+            }
+
+            $changes = new RecordChanges($fields, $collections);
+
+            // A save that changed nothing is not an event. "Edited, nothing
+            // changed" is most of what makes an audit trail unreadable. Creation
+            // is always worth recording, even of an empty record.
+            if ($isNew || !$changes->isEmpty()) {
+                $this->events->dispatch(new RecordChanged(
+                    $module,
+                    $record,
+                    $isNew ? RecordAction::Created : RecordAction::Updated,
+                    $changes,
+                    new \DateTimeImmutable(),
+                ));
+            }
+
+            return $record;
+        });
+    }
+
+    /**
+     * The record and its collections, in one entry. The children are soft-deleted
+     * by the repository's cascade and deliberately do not each get a line of
+     * their own: "deleted" is the fact, and three address removals underneath it
+     * are noise.
+     */
+    public function delete(ModuleDefinition $module, Record $record): void
+    {
+        if ($record->isNew()) {
+            return;
+        }
+
+        $this->connection->transactional(function () use ($module, $record): void {
+            $this->records->delete($module, $record);
+
+            $this->events->dispatch(new RecordChanged(
+                $module,
+                $record,
+                RecordAction::Deleted,
+                new RecordChanges(),
+                new \DateTimeImmutable(),
+            ));
+        });
+    }
+
+    /**
+     * Make one record's collection look like what was submitted, and say what
+     * that did.
+     *
+     * The ids are checked against the rows this parent actually owns. They
+     * arrive from a form, so a submission naming somebody else's address is a
+     * request to edit another record through a side door; refusing loudly beats
+     * a stray UPDATE that no page would ever show.
+     *
+     * @param list<array{id: int|null, data: array<string, mixed>}> $rows
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function writeChildren(CollectionDefinition $collection, int $parentId, array $rows): array
+    {
+        $existing = [];
+        foreach ($this->records->findChildren($collection, $parentId) as $child) {
+            $existing[(int) $child->id] = $child;
+        }
+
+        $touched = [];
+        $kept = [];
+
+        foreach ($rows as $row) {
+            if ($row['id'] === null) {
+                $added = $this->records->save($collection, new Record(data: $row['data'], parentId: $parentId));
+
+                $touched[] = [
+                    'action' => 'added',
+                    'child_id' => (int) $added->id,
+                    'values' => $this->summarise($collection, $added->data),
+                ];
+
+                continue;
+            }
+
+            $child = $existing[$row['id']] ?? throw new \InvalidArgumentException(sprintf(
+                'Row %d of collection "%s" does not belong to record %d.',
+                $row['id'],
+                $collection->getKey(),
+                $parentId,
+            ));
+
+            $changed = $this->diff($collection, $child->data, $row['data']);
+            $child->data = $row['data'];
+            $this->records->save($collection, $child);
+            $kept[$row['id']] = true;
+
+            // An untouched row is not an event either.
+            if ($changed !== []) {
+                $touched[] = ['action' => 'updated', 'child_id' => (int) $child->id, 'changes' => $changed];
+            }
+        }
+
+        foreach ($existing as $id => $child) {
+            if (isset($kept[$id])) {
+                continue;
+            }
+
+            $this->records->delete($collection, $child);
+            $touched[] = [
+                'action' => 'removed',
+                'child_id' => $id,
+                // What it was, so the entry still reads after the row is gone.
+                'values' => $this->summarise($collection, $child->data),
+            ];
+        }
+
+        return $touched;
+    }
+
+    /**
+     * What changed between two versions of a shape's values.
+     *
+     * Compared in storage form, so a date submitted as a string and the same date
+     * read back as an object are the same value rather than a change on every
+     * save. Labels come from the definitions as they are *now*, which is when
+     * this happened.
+     *
+     * @param array<string, mixed> $before
+     * @param array<string, mixed> $after
+     *
+     * @return array<string, array{label: string, from: mixed, to: mixed}>
+     */
+    private function diff(ShapeDefinition $shape, array $before, array $after): array
+    {
+        $from = $this->records->storageValues($shape, $before);
+        $to = $this->records->storageValues($shape, $after);
+
+        $changes = [];
+
+        foreach ($shape->getFields() as $field) {
+            $key = $field->getKey();
+
+            if ($from[$key] === $to[$key]) {
+                continue;
+            }
+
+            $changes[$key] = ['label' => $field->getLabel(), 'from' => $from[$key], 'to' => $to[$key]];
+        }
+
+        return $changes;
+    }
+
+    /**
+     * A row's values, for an entry about a row that was added or removed. Only
+     * what was filled in — an address is described by the three lines somebody
+     * typed, not by the two they left blank.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array<string, array{label: string, value: mixed}>
+     */
+    private function summarise(ShapeDefinition $shape, array $data): array
+    {
+        $values = $this->records->storageValues($shape, $data);
+        $summary = [];
+
+        foreach ($shape->getFields() as $field) {
+            if ($values[$field->getKey()] === null) {
+                continue;
+            }
+
+            $summary[$field->getKey()] = ['label' => $field->getLabel(), 'value' => $values[$field->getKey()]];
+        }
+
+        return $summary;
+    }
+}

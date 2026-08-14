@@ -53,8 +53,10 @@ final readonly class ModuleInstaller
         }
 
         $this->assertTypesExist($blueprint);
+        $this->assertTableNameFits($blueprint->table);
 
         $this->createRecordTable($blueprint->table, parentTable: null);
+        $this->createHistoryTable($blueprint->table);
 
         $module = new ModuleDefinition($blueprint->key, $blueprint->label, $blueprint->table);
         $this->defineFields($module, $blueprint->fields);
@@ -103,6 +105,83 @@ final readonly class ModuleInstaller
                 }
             }
         }
+    }
+
+    /**
+     * Postgres truncates identifiers at 63 characters, and a module's history
+     * table is its own name plus a suffix. Truncation would silently point two
+     * modules at one table, so it is refused here where the name is still the
+     * author's to change.
+     */
+    private function assertTableNameFits(string $table): void
+    {
+        $longest = \strlen($table . ModuleDefinition::HISTORY_SUFFIX);
+
+        if ($longest > 63) {
+            throw new \RuntimeException(sprintf(
+                'Table name "%s" leaves no room for its history table: "%s" is %d characters and Postgres '
+                . 'allows 63.',
+                $table,
+                $table . ModuleDefinition::HISTORY_SUFFIX,
+                $longest,
+            ));
+        }
+    }
+
+    /**
+     * A module's history (§5.2): fixed columns, one table per module, and a real
+     * foreign key — which is the whole point of not having one shared table.
+     */
+    private function createHistoryTable(string $recordTable): void
+    {
+        $name = $recordTable . ModuleDefinition::HISTORY_SUFFIX;
+        $schemaManager = $this->connection->createSchemaManager();
+
+        if ($schemaManager->tablesExist([$name])) {
+            throw new \RuntimeException(sprintf(
+                'Table "%s" already exists but nothing here has definitions for it. Refusing to adopt a '
+                . 'table this installer did not create.',
+                $name,
+            ));
+        }
+
+        $table = new Table($name);
+        // bigint from the start. This is the table that grows without bound, and
+        // widening a primary key later is not a migration anyone enjoys.
+        $table->addColumn('id', Types::BIGINT, ['autoincrement' => true]);
+        $table->addColumn('record_id', Types::INTEGER);
+        $table->addColumn('occurred_at', Types::DATETIMETZ_IMMUTABLE);
+        // No foreign key on the user, for the same reason records have none: core
+        // does not know what a user is. The label beside it is who they were at
+        // the time, so a rename cannot rewrite the past.
+        $table->addColumn('user_id', Types::INTEGER, ['notnull' => false]);
+        $table->addColumn('user_label', Types::TEXT, ['notnull' => false]);
+        $table->addColumn('action', Types::STRING, ['length' => 31]);
+        $table->addColumn('changes', Types::JSON, ['platformOptions' => ['jsonb' => true]]);
+        $table->setPrimaryKey(['id']);
+
+        // The only question this table is ever asked: one record's timeline,
+        // newest first. Postgres reads a btree backwards, so ascending serves
+        // ORDER BY id DESC without a second index. Nothing else is indexed until
+        // something actually asks for it — over-indexing is half of what makes
+        // these tables hurt.
+        $table->addIndex(['record_id', 'id'], sprintf('idx_%s_record', $name));
+
+        $schemaManager->createTable($table);
+
+        // The foreign key is added here rather than on the Table above, and that
+        // is not a style choice. DBAL indexes a key's columns for you unless an
+        // existing index *of the same width* covers them — so the composite
+        // index leading with record_id does not count, and going through the
+        // schema API would leave a second index on (record_id) alone. On the
+        // fastest-growing table in the system, that is a write paid on every
+        // insert to answer a question nothing asks.
+        $this->connection->executeStatement(sprintf(
+            'ALTER TABLE %s ADD CONSTRAINT %s FOREIGN KEY (record_id) REFERENCES %s (id) ON DELETE CASCADE',
+            $name,
+            sprintf('fk_%s_record', $name),
+            $recordTable,
+        ));
     }
 
     /** @param list<FieldBlueprint> $fields */
