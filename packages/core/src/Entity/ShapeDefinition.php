@@ -101,6 +101,19 @@ abstract class ShapeDefinition
         $this->fields->add($field);
     }
 
+    public function removeField(FieldDefinition $field): void
+    {
+        $this->fields->removeElement($field);
+    }
+
+    /** The next free slot at the end, so a new field lands where it was added. */
+    public function nextPosition(): int
+    {
+        $positions = array_map(static fn (FieldDefinition $f): int => $f->getPosition(), $this->fields->toArray());
+
+        return ($positions === [] ? 0 : max($positions)) + 10;
+    }
+
     public function getField(string $key): ?FieldDefinition
     {
         foreach ($this->fields as $field) {

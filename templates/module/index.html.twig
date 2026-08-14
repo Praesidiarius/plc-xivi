@@ -28,7 +28,12 @@
 
 		<div class="d-flex align-items-center justify-content-between mb-3">
 			<h1 class="h3 mb-0">{{ module.label }}</h1>
-			<a class="btn btn-primary" href="{{ path('module_new', {module: module.key}) }}">Add</a>
+			<div class="d-flex align-items-center gap-2">
+				{% if is_granted('ROLE_ADMIN') %}
+					<a class="btn btn-outline-secondary" href="{{ path('field_index', {module: module.key}) }}">Fields</a>
+				{% endif %}
+				<a class="btn btn-primary" href="{{ path('module_new', {module: module.key}) }}">Add</a>
+			</div>
 		</div>
 
 		{% if filterable is not empty %}

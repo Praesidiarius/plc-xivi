@@ -1,0 +1,140 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Fields — {{ module.label }}{% endblock %}
+
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<div class="d-flex align-items-center justify-content-between mb-3">
+			<div>
+				<h1 class="h3 mb-0">Fields</h1>
+				<p class="text-body-secondary small mb-0">
+					{{ module.label }} — your copy. Changes apply to this customer only and take effect
+					immediately.
+				</p>
+			</div>
+			<a class="btn btn-link" href="{{ path('module_index', {module: module.key}) }}">Back to {{ module.label|lower }}</a>
+		</div>
+
+		{% for shape in shapes %}
+			<div class="card mb-3">
+				<div class="card-body">
+					<h2 class="h5 mb-3">
+						{{ shape.label }}
+						{% if not loop.first %}<span class="text-body-secondary fw-normal small">— rows inside a {{ module.label|lower }}</span>{% endif %}
+					</h2>
+
+					<div class="table-responsive">
+						<table class="table table-sm align-middle mb-0">
+							<thead>
+								<tr>
+									<th scope="col" class="text-body-secondary small text-uppercase">Name</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">Label</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">Type</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">Rules</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">Order</th>
+									<th scope="col"></th>
+								</tr>
+							</thead>
+							<tbody>
+								{% for field in shape.fields %}
+									<tr>
+										{# One form per row: no JavaScript, and one field saved at a time
+										   is one thing to get wrong at a time. #}
+										<td><code>{{ field.key }}</code></td>
+										<td>
+											<input form="f{{ field.id }}" class="form-control form-control-sm" name="label"
+												   value="{{ field.label }}" style="min-width: 10rem">
+										</td>
+										<td>
+											{# No control: changing a type cannot carry stored values across
+											   and §7.2 has no answer for it yet. #}
+											<span class="text-body-secondary">{{ types[field.type].label|default(field.type) }}</span>
+										</td>
+										<td class="text-nowrap">
+											<label class="form-check-label small me-2">
+												<input form="f{{ field.id }}" type="checkbox" name="required" value="1" {{ field.required ? 'checked' : '' }}> required
+											</label>
+											<label class="form-check-label small me-2">
+												<input form="f{{ field.id }}" type="checkbox" name="unique" value="1" {{ field.unique ? 'checked' : '' }}> unique
+											</label>
+											<label class="form-check-label small">
+												<input form="f{{ field.id }}" type="checkbox" name="filterable" value="1" {{ field.filterable ? 'checked' : '' }}> filterable
+											</label>
+										</td>
+										<td>
+											<input form="f{{ field.id }}" type="number" class="form-control form-control-sm"
+												   name="position" value="{{ field.position }}" style="width: 5.5rem">
+										</td>
+										<td class="text-end text-nowrap">
+											<form id="f{{ field.id }}" method="post"
+												  action="{{ path('field_update', {module: module.key, field: field.id}) }}">
+												<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
+												{% if field.getOption('max_length') %}
+													<input type="hidden" name="max_length" value="{{ field.getOption('max_length') }}">
+												{% endif %}
+												<button class="btn btn-sm btn-outline-secondary" type="submit">Save</button>
+											</form>
+											{% if field.system %}
+												{# Came with the module; removing it is §7.2's other half. #}
+												<span class="text-body-secondary small">module field</span>
+											{% else %}
+												<a class="btn btn-sm btn-outline-danger"
+												   href="{{ path('field_confirm_delete', {module: module.key, field: field.id}) }}">Remove</a>
+											{% endif %}
+										</td>
+									</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+
+					<form method="post" action="{{ path('field_add', {module: module.key}) }}" class="border-top mt-3 pt-3">
+						<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
+						<input type="hidden" name="shape" value="{{ shape.id }}">
+
+						<div class="row g-2 align-items-end">
+							<div class="col-sm-3">
+								<label class="form-label small mb-1" for="key{{ shape.id }}">Name</label>
+								<input id="key{{ shape.id }}" class="form-control form-control-sm" name="key"
+									   placeholder="vat_number" pattern="[a-z][a-z0-9_]*" required>
+							</div>
+							<div class="col-sm-3">
+								<label class="form-label small mb-1" for="label{{ shape.id }}">Label</label>
+								<input id="label{{ shape.id }}" class="form-control form-control-sm" name="label" placeholder="VAT number">
+							</div>
+							<div class="col-sm-2">
+								<label class="form-label small mb-1" for="type{{ shape.id }}">Type</label>
+								<select id="type{{ shape.id }}" class="form-select form-select-sm" name="type">
+									{% for key, type in types %}
+										<option value="{{ key }}">{{ type.label }}</option>
+									{% endfor %}
+								</select>
+							</div>
+							<div class="col-sm-3 text-nowrap">
+								<label class="form-check-label small me-2">
+									<input type="checkbox" name="required" value="1"> required
+								</label>
+								<label class="form-check-label small me-2">
+									<input type="checkbox" name="unique" value="1"> unique
+								</label>
+								<label class="form-check-label small">
+									<input type="checkbox" name="filterable" value="1"> filterable
+								</label>
+							</div>
+							<div class="col-sm-1 text-end">
+								<button class="btn btn-sm btn-primary" type="submit">Add</button>
+							</div>
+						</div>
+						<p class="text-body-secondary small mb-0 mt-2">
+							The name is where the value is stored and cannot be changed later; the label can.
+						</p>
+					</form>
+				</div>
+			</div>
+		{% endfor %}
+	</main>
+{% endblock %}

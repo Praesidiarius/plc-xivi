@@ -87,6 +87,19 @@ class FieldDefinition
         return $this->label;
     }
 
+    public function setLabel(string $label): void
+    {
+        $this->label = $label;
+    }
+
+    /**
+     * There is deliberately no setType().
+     *
+     * Changing a field's type is the hard half of §7.2 — stored values may not
+     * survive the new one, and "convert what you can" is data loss on a click.
+     * Refusing it structurally beats a setter that throws: the editor cannot
+     * offer a control it has no way to honour.
+     */
     public function getType(): string
     {
         return $this->type;
@@ -97,9 +110,19 @@ class FieldDefinition
         return $this->required;
     }
 
+    public function setRequired(bool $required): void
+    {
+        $this->required = $required;
+    }
+
     public function isUnique(): bool
     {
         return $this->unique;
+    }
+
+    public function setUnique(bool $unique): void
+    {
+        $this->unique = $unique;
     }
 
     public function isFilterable(): bool
@@ -107,9 +130,19 @@ class FieldDefinition
         return $this->filterable;
     }
 
+    public function setFilterable(bool $filterable): void
+    {
+        $this->filterable = $filterable;
+    }
+
     public function getPosition(): int
     {
         return $this->position;
+    }
+
+    public function setPosition(int $position): void
+    {
+        $this->position = $position;
     }
 
     public function isSystem(): bool

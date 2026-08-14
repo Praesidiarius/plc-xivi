@@ -254,6 +254,65 @@ final readonly class RecordRepository
         }
     }
 
+    /**
+     * How many live records hold a value for this field.
+     *
+     * What the metadata editor puts in front of somebody about to remove a field
+     * (§5.4): the definition goes, the values stay, and this is how many there
+     * are. A number beats "this may affect stored data".
+     */
+    public function countWithValue(ShapeDefinition $shape, FieldDefinition $field): int
+    {
+        return (int) $this->connection->fetchOne(
+            sprintf(
+                "SELECT COUNT(*) FROM %s WHERE deleted_at IS NULL AND data->>:field IS NOT NULL AND data->>:field <> ''",
+                $this->table($shape),
+            ),
+            ['field' => $field->getKey()],
+        );
+    }
+
+    /**
+     * How many live records would fail a rule that is about to be switched on.
+     *
+     * Making a field required, or unique, is a promise about data that already
+     * exists. Applying it blind leaves records that cannot be saved again until
+     * somebody works out why — so the editor counts first and refuses.
+     */
+    public function countViolating(ShapeDefinition $shape, FieldDefinition $field, bool $required, bool $unique): int
+    {
+        $table = $this->table($shape);
+        $violations = 0;
+
+        if ($required) {
+            $violations += (int) $this->connection->fetchOne(
+                sprintf(
+                    "SELECT COUNT(*) FROM %s WHERE deleted_at IS NULL AND (data->>:field IS NULL OR data->>:field = '')",
+                    $table,
+                ),
+                ['field' => $field->getKey()],
+            );
+        }
+
+        if ($unique) {
+            // Rows sharing a value, not groups of them: two records with the same
+            // email are two records to fix.
+            $violations += (int) $this->connection->fetchOne(
+                sprintf(
+                    "SELECT COALESCE(SUM(held), 0) FROM (
+                         SELECT COUNT(*) AS held FROM %s
+                         WHERE deleted_at IS NULL AND data->>:field IS NOT NULL AND data->>:field <> ''
+                         GROUP BY data->>:field HAVING COUNT(*) > 1
+                     ) AS duplicates",
+                    $table,
+                ),
+                ['field' => $field->getKey()],
+            );
+        }
+
+        return $violations;
+    }
+
     /** Backs the unique-field constraint; `exceptId` is the record being edited. */
     public function existsWithValue(ShapeDefinition $shape, FieldDefinition $field, mixed $value, ?int $exceptId = null): bool
     {

@@ -35,6 +35,10 @@ services:
         arguments:
             $entityManager: '@doctrine.orm.tenant_entity_manager'
 
+    Xivi\Core\Metadata\MetadataEditor:
+        arguments:
+            $entityManager: '@doctrine.orm.tenant_entity_manager'
+
     Xivi\Core\Module\ModuleInstaller:
         arguments:
             $entityManager: '@doctrine.orm.tenant_entity_manager'

@@ -1,0 +1,47 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Remove {{ field.label }} — {{ module.label }}{% endblock %}
+
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<h1 class="h3 mb-3">Remove “{{ field.label }}”?</h1>
+
+		<div class="card">
+			<div class="card-body">
+				{# The whole reason this page exists: somebody clicking Remove reasonably
+				   assumes the data goes too. It does not, and saying so afterwards would
+				   be too late (§5.4). #}
+				<p>
+					The field disappears from the form, the list, the filters and validation.
+					<strong>The values stay in storage.</strong> Adding a field named
+					<code>{{ field.key }}</code> again brings them back.
+				</p>
+
+				<p class="mb-0">
+					{% if holding == 0 %}
+						No records currently hold a value for it.
+					{% else %}
+						<strong>{{ holding }}</strong> record{{ holding == 1 ? '' : 's' }} currently hold{{ holding == 1 ? 's' : '' }} a value for it.
+					{% endif %}
+				</p>
+
+				<p class="text-body-secondary small mt-3 mb-0">
+					Nothing here deletes data. Permanently removing the values is a separate
+					operation and does not exist yet — see docs/architecture.md §7.2.
+				</p>
+			</div>
+		</div>
+
+		<div class="d-flex align-items-center gap-2 mt-3">
+			<a class="btn btn-link" href="{{ path('field_index', {module: module.key}) }}">Cancel</a>
+			<form method="post" action="{{ path('field_delete', {module: module.key, field: field.id}) }}">
+				<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
+				<button class="btn btn-danger" type="submit">Remove the field</button>
+			</form>
+		</div>
+	</main>
+{% endblock %}

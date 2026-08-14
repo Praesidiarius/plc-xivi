@@ -319,6 +319,49 @@ sort key in every URL. LIMIT/OFFSET is correct, and slower the deeper it goes.
 
 ---
 
+### 5.4 The metadata editor
+
+A customer changing the shape of their own module, without SQL and without a
+deploy. A field added here appears in the form, the list, the validation and the
+filter bar at once, because all four read the same rows — which is §5's claim
+stopping being an argument and becoming a page.
+
+Admin only. That makes it the first thing in the application to need more than
+"signed in": §8.4 leaves the real model open, and changing what a module *is*
+seemed the wrong place to keep waiting for it.
+
+It edits any shape, so a collection's fields are editable exactly like a
+module's (§5.1).
+
+**What it refuses, and why each refusal is the feature:**
+
+- **A field's type cannot be changed.** Not a disabled control — there is no
+  `setType()`. Stored values may not survive a new type, and "convert what you
+  can" is data loss on a click. This is the half of §7.2 still open.
+- **A field's key cannot be changed.** The key is where the value lives, so
+  renaming one would orphan every value it names. The label is the part people
+  read, and that is freely editable.
+- **A rule cannot be switched on if existing records would fail it.** Making a
+  field required or unique is a promise about data that already exists; applying
+  it blind leaves records nobody can save until they work out why. The editor
+  counts first and refuses with the number. Relaxing a rule is always allowed,
+  because it cannot invalidate anything.
+- **A module's own fields cannot be removed.** Only the ones the customer added.
+  §7.2's other half, unchanged.
+
+**Removing a field takes the definition and leaves the values.** This is the
+answer to the half of §7.2 that is settled. Deleting the data too would be
+irreversible on a click; leaving it means adding a field with the same key brings
+it back, so removal is reversible by construction. The confirmation says so
+plainly and says how many records still hold a value — somebody clicking Remove
+reasonably assumes the data goes with it, and finding out afterwards would be too
+late. For a product sold on data protection that also means the opposite promise
+has to be available: **purging values is a separate, explicit operation, and it
+does not exist yet.** Until it does, "remove" means "hide", and the UI says the
+word.
+
+---
+
 ## 6. Extensibility
 
 Three composable layers, all "one codebase, no forks":
@@ -365,7 +408,12 @@ Not yet decided. Decide deliberately rather than by accident.
    events give modules real power but make host behavior depend on what's installed.
 2. **Metadata migration.** What happens when a field changes type, or is deleted while
    data exists in it? Needs a real answer before the metadata editor ships.
-   *Now also covers a blueprint that grows.* Contact gained an addresses collection after
+   *Half settled — see §5.4.* Deleting a field is now decided: the definition goes and
+   the values stay, which makes removal reversible and destroys nothing. Switching on a
+   rule that existing records would fail is refused with a count. What remains open is the
+   genuinely hard part — a field **changing type** — plus purging values, which is the
+   deliberate counterpart to leaving them.
+   *Also covers a blueprint that grows.* Contact gained an addresses collection after
    customers already had the module, and installing does not retro-fit it — §6.1 says the
    customer's definitions are the truth once installed, so silently adding to them here
    would overrule that. Adding a table and definition rows destroys nothing, so an
@@ -491,6 +539,8 @@ collection exercises it.
   record's collections and its history are read.
 - The query layer of §5.3: filtering, sorting and paging compiled from the
   customer's definitions, with a filter bar and sortable columns on the list.
+- The metadata editor of §5.4: adding, editing and removing fields on any shape,
+  admin only, with every change that could strand data refused rather than made.
 - Module boundaries enforced by deptrac in CI.
 
 ### 9.2 Decided since this brief was written
@@ -531,12 +581,15 @@ collection exercises it.
 
 ### 9.3 Next
 
-The metadata editor: adding a field is still an INSERT by hand, and it is the last
-thing standing between this and a customer configuring their own module. It forces
-§7.2, which has now blocked three features in a row.
+Module presets (§6.1) — `basic` and `extended` for Contact — which is small, and
+the first thing that makes installing a module a choice rather than a fixed shape.
 
-Two smaller ones with arguments already made: module presets (§6.1), and a real
-title field in the definitions, which the record page currently stands in for.
+Then a real title field in the definitions, which the record page currently stands
+in for with required fields, and which the editor now has an obvious home for.
+
+The two halves of §7.2 still open are a field changing type, and purging a removed
+field's values. They are opposites and probably want deciding together: one is
+data loss nobody asked for, the other is data loss somebody explicitly asked for.
 
 Deliberately still missing, and each one needs a decision rather than an
 implementation: column promotion, links between modules (§7.6), the metadata
