@@ -8,6 +8,7 @@ use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Validator\Constraints as Assert;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Field\FieldType;
+use Xivi\Core\Query\Operator;
 
 final class TextFieldType implements FieldType
 {
@@ -62,5 +63,23 @@ final class TextFieldType implements FieldType
     public function display(mixed $value, FieldDefinition $field): string
     {
         return \is_string($value) ? $value : '';
+    }
+
+    public function operators(): array
+    {
+        return [
+            Operator::Contains,
+            Operator::StartsWith,
+            Operator::Equals,
+            Operator::NotEquals,
+            Operator::IsEmpty,
+            Operator::IsNotEmpty,
+        ];
+    }
+
+    /** Already text in the payload, so nothing to convert. */
+    public function comparableSql(string $accessor): string
+    {
+        return $accessor;
     }
 }

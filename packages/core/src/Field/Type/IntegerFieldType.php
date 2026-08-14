@@ -8,6 +8,7 @@ use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Validator\Constraints as Assert;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Field\FieldType;
+use Xivi\Core\Query\Operator;
 
 final class IntegerFieldType implements FieldType
 {
@@ -75,5 +76,29 @@ final class IntegerFieldType implements FieldType
     public function display(mixed $value, FieldDefinition $field): string
     {
         return \is_int($value) ? (string) $value : '';
+    }
+
+    public function operators(): array
+    {
+        return [
+            Operator::Equals,
+            Operator::NotEquals,
+            Operator::AtLeast,
+            Operator::AtMost,
+            Operator::GreaterThan,
+            Operator::LessThan,
+            Operator::IsEmpty,
+            Operator::IsNotEmpty,
+        ];
+    }
+
+    /**
+     * Cast, or 9 would sort after 10 and "at least 5" would be a text
+     * comparison. numeric rather than int because it cannot overflow on a value
+     * some other writer put there.
+     */
+    public function comparableSql(string $accessor): string
+    {
+        return sprintf('(%s)::numeric', $accessor);
     }
 }

@@ -11,6 +11,8 @@ use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Query\QueryCompiler;
+use Xivi\Core\Query\RecordQuery;
 
 /**
  * Reads and writes the rows of any shape — a module's records, and the rows of
@@ -44,7 +46,60 @@ final readonly class RecordRepository
     public function __construct(
         private Connection $connection,
         private FieldTypeRegistry $fieldTypes,
+        private QueryCompiler $queries,
     ) {
+    }
+
+    /**
+     * Records matching a query: filtered, sorted, and one page of them (§7.3).
+     *
+     * The SQL comes from the compiler, which is the only thing here allowed to
+     * build a predicate. This method's job is the shape of the statement around
+     * it — and to keep LIMIT and OFFSET as bound integers rather than as numbers
+     * pasted into it.
+     *
+     * @return list<Record>
+     */
+    public function findBy(ModuleDefinition $module, RecordQuery $query): array
+    {
+        $compiled = $this->queries->compile($module, $query);
+
+        $rows = $this->connection->fetchAllAssociative(
+            sprintf(
+                'SELECT %1$s.* FROM %2$s %1$s WHERE %3$s ORDER BY %4$s LIMIT :limit OFFSET :offset',
+                QueryCompiler::ALIAS,
+                $this->table($module),
+                $compiled->where,
+                $compiled->orderBy,
+            ),
+            [...$compiled->parameters, 'limit' => $query->perPage, 'offset' => $query->offset()],
+            [...$compiled->types, 'limit' => ParameterType::INTEGER, 'offset' => ParameterType::INTEGER],
+        );
+
+        return array_map(fn (array $row): Record => $this->hydrate($module, $row), $rows);
+    }
+
+    /**
+     * How many match, ignoring the page.
+     *
+     * Counted with the same compiled predicate as the page itself, so the total
+     * under a list can never disagree with the list — which it would the moment
+     * two code paths built the same WHERE clause separately.
+     */
+    public function countBy(ModuleDefinition $module, RecordQuery $query): int
+    {
+        $compiled = $this->queries->compile($module, $query);
+
+        return (int) $this->connection->fetchOne(
+            sprintf(
+                'SELECT COUNT(*) FROM %2$s %1$s WHERE %3$s',
+                QueryCompiler::ALIAS,
+                $this->table($module),
+                $compiled->where,
+            ),
+            $compiled->parameters,
+            $compiled->types,
+        );
     }
 
     public function find(ShapeDefinition $shape, int $id, bool $includeDeleted = false): ?Record

@@ -278,6 +278,45 @@ Still to decide: retention and whether `occurred_at` wants range partitioning.
 Cheap now, expensive at 60M rows. And field types will need a way to say "do not
 record this value" before the first sensitive type ships.
 
+### 5.3 Asking questions: the query layer
+
+A `RecordQuery` — conditions, ordering, one page — compiled to SQL against the
+customer's own definitions. It is what §7.3 called the highest-risk component,
+and it was built after collections precisely so that it was designed against a
+to-many relation rather than retrofitted with one.
+
+**Nothing from a user is concatenated.** Field names are resolved against
+definition rows and bound as parameters; comparisons are a closed enum; the only
+text interpolated is a table name from a definition row. A filter the engine
+cannot answer raises rather than being dropped — a condition that silently does
+nothing shows a list that looks like a result and is not one, which is worse than
+an error because somebody acts on it.
+
+**A condition on a collection is a semi-join.** `EXISTS`, never `JOIN`: a contact
+with two addresses in Zürich is one contact, and a join would return them twice
+and inflate every count on the page. The child's own soft delete is honoured, so
+a removed address stops keeping its contact in that city's results.
+
+**Sorting by a collection is refused.** Two addresses are two cities and there is
+no answer, so `Sort` cannot express one and the compiler raises. Refusing is the
+feature; quietly picking one would be a wrong answer that looks right.
+
+**The field type owns its comparisons**, as §5 always said it would: which
+operators it accepts, and how its stored value has to be read to compare —
+`::numeric` for a whole number, nothing for text, and nothing for a date either,
+since ISO-8601 compares and sorts as text, which is why dates are stored that
+way. The compiler therefore has no switch on field type, and column promotion
+will change the accessor without touching any of it.
+
+**Every ordering ends on the record id.** Without a total order two records
+sharing a sort value may swap between pages, so one is shown twice and another
+never. Any list with a LIMIT needs that tiebreaker.
+
+Deliberately not built: `OR` between conditions, which needs a tree and a UI to
+build one rather than the list of ANDs that covers the honest 90%; and keyset
+paging, which is the answer when someone is on page 400 and until then costs a
+sort key in every URL. LIMIT/OFFSET is correct, and slower the deeper it goes.
+
 ---
 
 ## 6. Extensibility
@@ -335,14 +374,9 @@ Not yet decided. Decide deliberately rather than by accident.
 3. **Query layer.** Filtering, sorting, and pagination across mixed real-column and JSONB
    storage, without degenerating into concatenated SQL. This is the highest-risk
    component in the system.
-   *Sharpened by collections, which is why they were built first.* A filterable thing is
-   no longer "a key in this table's payload" — `city` lives on a contact's addresses, one
-   step away. Two consequences the compiler has to be built around rather than retrofitted
-   with: filtering a parent by a child value is a **semi-join** (`EXISTS`), because a
-   contact with two addresses in Zürich is still one contact and a plain `JOIN` would
-   return it twice; and **sorting by a to-many field is undefined** — which of the two
-   addresses? — so it has to be refusable, which a compiler with no vocabulary for
-   cardinality cannot express.
+   *Built — see §5.3.* Both consequences collections predicted held: a condition on a
+   child is a semi-join, and sorting by one is refused. What is still open is narrower
+   than the question was: `OR` between conditions, and keyset paging.
 4. **Doctrine multi-tenancy hazards.** Entity manager, metadata cache, result cache, and
    any warmed pools must not leak across tenants within a worker process. Critical under
    FrankenPHP/RoadRunner-style long-running workers.
@@ -455,6 +489,8 @@ collection exercises it.
 - The five things you can do to a record: list, view, add, edit, remove. The record
   page is read-only, built from the same definitions as the form, and is where a
   record's collections and its history are read.
+- The query layer of §5.3: filtering, sorting and paging compiled from the
+  customer's definitions, with a filter bar and sortable columns on the list.
 - Module boundaries enforced by deptrac in CI.
 
 ### 9.2 Decided since this brief was written
@@ -484,6 +520,10 @@ collection exercises it.
 - **History is per module and per action** — see §5.2. Per module because a shared
   polymorphic table cannot carry a foreign key, which is what made the last one
   rot; per action because a timeline nobody can read is a feature nobody uses.
+- **The query layer was built last of the three, on purpose.** Collections first so
+  it met a to-many relation while its central abstraction was still soft, then
+  history, then this. Both things collections predicted about it turned out to be
+  load-bearing.
 - **Events arrived without §7.1 being answered.** History only observes, so it
   needed a dispatch point and not a decision about whether a subscriber may cancel
   a host action. Worth noticing: the passive half of §6 was usable all along, and
@@ -491,10 +531,12 @@ collection exercises it.
 
 ### 9.3 Next
 
-§7.3, the query layer, now with a real table, real rows, and a to-many relation to
-be correct about. The list view is deliberately still dumb — fifty records,
-`ORDER BY id DESC`, no filtering or sorting — so that it is written once, against
-what the engine actually has to express.
+The metadata editor: adding a field is still an INSERT by hand, and it is the last
+thing standing between this and a customer configuring their own module. It forces
+§7.2, which has now blocked three features in a row.
+
+Two smaller ones with arguments already made: module presets (§6.1), and a real
+title field in the definitions, which the record page currently stands in for.
 
 Deliberately still missing, and each one needs a decision rather than an
 implementation: column promotion, links between modules (§7.6), the metadata

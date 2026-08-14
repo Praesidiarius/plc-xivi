@@ -8,6 +8,7 @@ use Symfony\Component\Form\Extension\Core\Type\DateType;
 use Symfony\Component\Validator\Constraints as Assert;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Field\FieldType;
+use Xivi\Core\Query\Operator;
 
 /**
  * A calendar date with no time and no zone — a birthday is the same day
@@ -79,5 +80,29 @@ final class DateFieldType implements FieldType
     public function display(mixed $value, FieldDefinition $field): string
     {
         return $value instanceof \DateTimeInterface ? $value->format(self::FORMAT) : '';
+    }
+
+    public function operators(): array
+    {
+        return [
+            Operator::Equals,
+            Operator::NotEquals,
+            Operator::AtLeast,
+            Operator::AtMost,
+            Operator::GreaterThan,
+            Operator::LessThan,
+            Operator::IsEmpty,
+            Operator::IsNotEmpty,
+        ];
+    }
+
+    /**
+     * No cast: ISO-8601 compares and sorts as text, which is exactly why dates
+     * are stored in that format. A ::date cast here would also turn one bad row
+     * into a failed query for the whole list.
+     */
+    public function comparableSql(string $accessor): string
+    {
+        return $accessor;
     }
 }

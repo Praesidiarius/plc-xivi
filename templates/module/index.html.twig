@@ -2,6 +2,24 @@
 
 {% block title %}{{ module.label }}{% endblock %}
 
+{#
+	A column header that sorts. Clicking the current sort turns it round, and any
+	sort resets to page one — page 3 of a different order is not where you were.
+#}
+{% macro sortable(module, query, field) %}
+	{% set current = query.sortOn(field.key) %}
+	{% set next = current and current.direction.value == 'asc' ? 'desc' : 'asc' %}
+	<a class="text-decoration-none text-reset"
+	   href="{{ path('module_index', app.request.query.all|merge({
+		   module: module.key, sort: field.key, dir: next, page: null,
+	   })) }}">
+		{{ field.label }}
+		{% if current %}<span aria-hidden="true">{{ current.direction.value == 'asc' ? '↑' : '↓' }}</span>{% endif %}
+	</a>
+{% endmacro %}
+
+{% import _self as h %}
+
 {% block body %}
 	{{ include('_topbar.html.twig') }}
 
@@ -13,8 +31,60 @@
 			<a class="btn btn-primary" href="{{ path('module_new', {module: module.key}) }}">Add</a>
 		</div>
 
+		{% if filterable is not empty %}
+			{#
+				A GET form, so a filtered list is a URL: it can be bookmarked, shared
+				and reloaded. One row per active filter plus a blank one, the same way
+				the record form handles collections — emptying a row removes it, so
+				this works with scripting off.
+			#}
+			<form method="get" class="card mb-3">
+				<div class="card-body pb-2">
+					{% for i in 0..query.filters|length %}
+						{% set filter = query.filters[i] ?? null %}
+						<div class="row g-2 align-items-center mb-2">
+							<div class="col-sm-4">
+								<select name="filter[{{ i }}][path]" class="form-select form-select-sm">
+									<option value="">—</option>
+									{% for path, label in filterable %}
+										<option value="{{ path }}" {{ filter and filter.path == path ? 'selected' : '' }}>{{ label }}</option>
+									{% endfor %}
+								</select>
+							</div>
+							<div class="col-sm-3">
+								<select name="filter[{{ i }}][op]" class="form-select form-select-sm">
+									{% for operator in operators %}
+										<option value="{{ operator.value }}" {{ filter and filter.operator == operator ? 'selected' : '' }}>{{ operator.label }}</option>
+									{% endfor %}
+								</select>
+							</div>
+							<div class="col-sm-4">
+								<input type="text" class="form-control form-control-sm" name="filter[{{ i }}][value]"
+									   value="{{ filter ? filter.value : '' }}" placeholder="value">
+							</div>
+							<div class="col-sm-1 text-end">
+								{% if loop.last %}<button class="btn btn-sm btn-primary" type="submit">Filter</button>{% endif %}
+							</div>
+						</div>
+					{% endfor %}
+
+					{# The sort travels with the filter, or filtering would silently reorder. #}
+					{% if query.sorts is not empty %}
+						<input type="hidden" name="sort" value="{{ query.sorts[0].field }}">
+						<input type="hidden" name="dir" value="{{ query.sorts[0].direction.value }}">
+					{% endif %}
+
+					{% if query.isFiltered %}
+						<a class="btn btn-sm btn-link ps-0" href="{{ path('module_index', {module: module.key}) }}">Clear</a>
+					{% endif %}
+				</div>
+			</form>
+		{% endif %}
+
 		{% if records is empty %}
-			<div class="alert alert-secondary">Nothing here yet.</div>
+			<div class="alert alert-secondary">
+				{{ query.isFiltered ? 'Nothing matches that.' : 'Nothing here yet.' }}
+			</div>
 		{% else %}
 			<div class="card">
 				<div class="table-responsive">
@@ -23,7 +93,9 @@
 							<tr>
 								{# Columns are the customer's own definitions, in their order. #}
 								{% for field in module.fields %}
-									<th scope="col" class="text-body-secondary small text-uppercase">{{ field.label }}</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">
+										{{ h.sortable(module, query, field) }}
+									</th>
 								{% endfor %}
 								<th scope="col" class="text-body-secondary small text-uppercase">Owner</th>
 								<th scope="col"></th>
@@ -66,7 +138,24 @@
 				</div>
 			</div>
 
-			<p class="text-body-secondary small mt-2">{{ total }} record{{ total == 1 ? '' : 's' }}.</p>
+			<div class="d-flex align-items-center justify-content-between mt-2">
+				<p class="text-body-secondary small mb-0">
+					{{ total }} record{{ total == 1 ? '' : 's' }}{{ query.isFiltered ? ' matching' : '' }}.
+				</p>
+
+				{% if pages > 1 %}
+					<nav aria-label="Pages">
+						<ul class="pagination pagination-sm mb-0">
+							{% for page in 1..pages %}
+								<li class="page-item {{ page == query.page ? 'active' : '' }}">
+									<a class="page-link"
+									   href="{{ path('module_index', app.request.query.all|merge({module: module.key, page: page})) }}">{{ page }}</a>
+								</li>
+							{% endfor %}
+						</ul>
+					</nav>
+				{% endif %}
+			</div>
 		{% endif %}
 	</main>
 {% endblock %}

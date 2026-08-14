@@ -44,6 +44,10 @@ services:
         arguments:
             $connection: '@doctrine.dbal.tenant_connection'
 
+    Xivi\Core\Query\QueryCompiler:
+        arguments:
+            $connection: '@doctrine.dbal.tenant_connection'
+
     Xivi\Core\Record\RecordWriter:
         arguments:
             $connection: '@doctrine.dbal.tenant_connection'

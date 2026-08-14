@@ -8,6 +8,7 @@ use Symfony\Component\Form\Extension\Core\Type\EmailType;
 use Symfony\Component\Validator\Constraints as Assert;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Field\FieldType;
+use Xivi\Core\Query\Operator;
 
 final class EmailFieldType implements FieldType
 {
@@ -61,5 +62,27 @@ final class EmailFieldType implements FieldType
     public function display(mixed $value, FieldDefinition $field): string
     {
         return \is_string($value) ? $value : '';
+    }
+
+    public function operators(): array
+    {
+        return [
+            Operator::Contains,
+            Operator::StartsWith,
+            Operator::Equals,
+            Operator::NotEquals,
+            Operator::IsEmpty,
+            Operator::IsNotEmpty,
+        ];
+    }
+
+    /**
+     * Stored lowercased and trimmed, so a plain comparison already means what a
+     * person means by it — no LOWER() around the column, which would also throw
+     * away any index on it.
+     */
+    public function comparableSql(string $accessor): string
+    {
+        return $accessor;
     }
 }

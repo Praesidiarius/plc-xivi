@@ -363,6 +363,74 @@ final class ModuleUiTest extends WebTestCase
         self::assertMatchesRegularExpression('/Baker Street 1,\s*Zürich/u', $history);
     }
 
+    /**
+     * The filter bar is built from the definitions too: a field appears in it
+     * because the customer marked it filterable, not because anyone wrote it
+     * into a template (§7.3).
+     */
+    public function testFilteringThroughTheList(): void
+    {
+        $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+        $this->submitContact(['first_name' => 'Grace', 'last_name' => 'Hopper']);
+
+        $crawler = $this->client->request('GET', $this->url('/m/contact'));
+        $this->client->submit($crawler->selectButton('Filter')->form([
+            'filter[0][path]' => 'last_name',
+            'filter[0][op]' => 'contains',
+            'filter[0][value]' => 'hopp',
+        ]));
+
+        self::assertSelectorTextContains('table', 'Grace');
+        self::assertSelectorTextNotContains('table', 'Ada');
+        self::assertSelectorTextContains('main', '1 record matching');
+    }
+
+    /** A contact is found by where they live, one step away in another table. */
+    public function testFilteringByACollectionField(): void
+    {
+        $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace'], [['street' => 'A 1', 'city' => 'Zürich']]);
+        $this->submitContact(['first_name' => 'Grace', 'last_name' => 'Hopper'], [['street' => 'B 2', 'city' => 'Bern']]);
+
+        $this->client->request('GET', $this->url('/m/contact?filter[0][path]=addresses.city&filter[0][op]=eq&filter[0][value]=Bern'));
+
+        self::assertSelectorTextContains('table', 'Grace');
+        self::assertSelectorTextNotContains('table', 'Ada');
+    }
+
+    public function testSortingByClickingAColumn(): void
+    {
+        $this->submitContact(['first_name' => 'Grace', 'last_name' => 'Hopper']);
+        $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+
+        $crawler = $this->client->request('GET', $this->url('/m/contact'));
+        $crawler = $this->client->click($crawler->filter('thead a:contains("First name")')->link());
+
+        self::assertSame('Ada', trim($crawler->filter('tbody tr td')->first()->text()));
+
+        // The same header again turns it round.
+        $crawler = $this->client->click($crawler->filter('thead a:contains("First name")')->link());
+        self::assertSame('Grace', trim($crawler->filter('tbody tr td')->first()->text()));
+    }
+
+    /**
+     * The query is in the URL, so it can be typed. Something the engine will not
+     * answer is a message, not a 500 — and not a list that silently ignored it
+     * either, which would look like a result.
+     */
+    public function testAQueryTheEngineRefusesExplainsItself(): void
+    {
+        $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+        // Consume the "Saved." flash, or it is the alert this would find.
+        $this->client->followRedirect();
+
+        $this->client->request('GET', $this->url('/m/contact?sort=addresses.city'));
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.alert', 'two of them');
+        // And it still shows the records, unsorted, rather than nothing at all.
+        self::assertSelectorTextContains('table', 'Lovelace');
+    }
+
     /** A module the customer does not have is a 404 — another customer may well have it. */
     public function testAModuleThatIsNotInstalledIsNotFound(): void
     {

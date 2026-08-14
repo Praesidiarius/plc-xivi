@@ -7,6 +7,7 @@ namespace Xivi\Core\Field;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\Validator\Constraint;
 use Xivi\Core\Entity\FieldDefinition;
+use Xivi\Core\Query\Operator;
 
 /**
  * One kind of field, and everything that follows from it.
@@ -68,4 +69,26 @@ interface FieldType
      * that question would have to know it too.
      */
     public function display(mixed $value, FieldDefinition $field): string;
+
+    /**
+     * The comparisons this type accepts (§7.3). Asking whether a date contains
+     * "ar" is not a question worth answering, so a date does not offer it.
+     *
+     * @return list<Operator>
+     */
+    public function operators(): array;
+
+    /**
+     * The stored value, in a form Postgres can compare correctly.
+     *
+     * `$accessor` extracts it as text — `data->>'age'` today, a real column once
+     * promotion arrives (§5) — and the type wraps whatever that needs: a cast for
+     * numbers, nothing for text, and nothing for dates either, because ISO-8601
+     * compares and sorts as text, which is why they are stored that way.
+     *
+     * This is the one place a type reaches into SQL, and it never sees a table or
+     * a field name — so the compiler cannot grow a switch on type, and promotion
+     * changes the accessor without touching any of this.
+     */
+    public function comparableSql(string $accessor): string;
 }
