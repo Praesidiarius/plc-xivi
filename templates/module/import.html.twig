@@ -87,8 +87,11 @@
 					<li>A field with no column keeps the value it had; a column left empty clears it.</li>
 					<li>A row with an <code>id</code> updates that record. An empty <code>id</code> adds one.</li>
 					<li>
-						Anything else in <code>id</code> — <code>acme-1</code>, say — names a record this
-						file is creating, so its child rows can point at it before it exists.
+						Anything else in <code>id</code> — <code>ada</code>, say — names a record this file
+						is creating. That is how new records arrive with child rows: give each new record
+						a name of your own in <code>id</code>, and put the same name in the child's
+						<code>parent_id</code>. A record whose <code>id</code> is empty is created too,
+						but nothing in the file can point at it.
 					</li>
 					<li>
 						A child sheet speaks for the whole collection: a row it does not list is removed

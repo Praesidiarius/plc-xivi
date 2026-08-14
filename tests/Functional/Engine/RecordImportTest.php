@@ -269,6 +269,69 @@ final class RecordImportTest extends KernelTestCase
     }
 
     /**
+     * The everyday case: several new contacts arriving at once, each with its own
+     * address. Each contact names itself, and each address says which name it
+     * belongs to — the only way the file can tell them apart before any of them
+     * has an id.
+     */
+    public function testSeveralNewRecordsEachKeepTheirOwnChildren(): void
+    {
+        $this->file([
+            'contact' => [
+                self::HEADER,
+                ['ada', 'person', '', 'Ada', 'Lovelace', '', '', '', ''],
+                ['grace', 'person', '', 'Grace', 'Hopper', '', '', '', ''],
+            ],
+            'addresses' => [
+                ['id', 'parent_id', 'label', 'street', 'postal_code', 'city', 'country'],
+                ['', 'grace', 'Home', 'Kramgasse 2', '3011', 'Bern', 'CH'],
+                ['', 'ada', 'Home', 'Baker Street 1', '8000', 'Zürich', 'CH'],
+            ],
+        ]);
+
+        $report = $this->apply();
+
+        self::assertTrue($report->applied, implode(' | ', $this->messages($report)));
+        self::assertSame(2, $report->created);
+        self::assertSame(2, $report->childrenWritten);
+
+        $streets = [];
+        foreach ($this->all() as $contact) {
+            $streets[$contact->data['first_name']] = array_map(
+                static fn (Record $address): mixed => $address->data['street'],
+                $this->addresses((int) $contact->id),
+            );
+        }
+
+        // Listed in the other order in the file, on purpose: the rows are matched
+        // by name, not by the order they happen to appear in.
+        self::assertSame(['Baker Street 1'], $streets['Ada']);
+        self::assertSame(['Kramgasse 2'], $streets['Grace']);
+    }
+
+    /**
+     * Leaving the id empty is the instinct, and it cannot work: a record with no
+     * name in the file is a record nothing can point at. Said out loud rather
+     * than dropped, because a silently address-less import is worse.
+     */
+    public function testAnAddressCannotBeAttachedToARecordThatNamedItselfNothing(): void
+    {
+        $this->file([
+            'contact' => [self::HEADER, ['', 'person', '', 'Ada', 'Lovelace', '', '', '', '']],
+            'addresses' => [
+                ['id', 'parent_id', 'label', 'street', 'postal_code', 'city', 'country'],
+                ['', '', 'Home', 'Baker Street 1', '', '', ''],
+            ],
+        ]);
+
+        $report = $this->apply();
+
+        self::assertFalse($report->applied);
+        self::assertStringContainsString('names no parent', $this->messages($report)[0]);
+        self::assertSame([], $this->all(), 'the contact is not created without its address');
+    }
+
+    /**
      * The child would have to be attached by loading a record the file never
      * mentions, which is a two-line file reaching into anything.
      */

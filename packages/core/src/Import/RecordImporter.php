@@ -342,9 +342,9 @@ final readonly class RecordImporter
             foreach ($byCollection as $key => $childRows) {
                 foreach ($childRows as $childRow) {
                     $problems[] = new ImportProblem(self::sheetKey($key), $childRow['row'], sprintf(
-                        'This row belongs to "%s", which is not in the %s sheet.',
-                        $ref,
+                        'No row of the %s sheet is called "%s". Put that same name in the id column of the row this belongs to.',
                         $plan->moduleSheet,
+                        $ref,
                     ));
                 }
             }
@@ -434,7 +434,10 @@ final readonly class RecordImporter
                 }
 
                 if ($parent === '') {
-                    $problems[] = new ImportProblem($sheet, $number, 'This row names no parent record.');
+                    $problems[] = new ImportProblem($sheet, $number, sprintf(
+                        'This row names no parent record. Put the id of the %s it belongs to in parent_id.',
+                        mb_strtolower($module->getLabel()),
+                    ));
 
                     continue;
                 }
