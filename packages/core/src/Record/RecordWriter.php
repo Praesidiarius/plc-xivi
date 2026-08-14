@@ -51,7 +51,7 @@ final readonly class RecordWriter
 
             $before = $isNew
                 ? []
-                : ($this->records->find($module, (int) $record->id, includeDeleted: true)?->data ?? []);
+                : ($this->records->find($module, (int) $record->id, includeDeleted: true)->data ?? []);
 
             $fields = $this->diff($module, $before, $record->data);
 

@@ -28,7 +28,9 @@ final class TextFieldType implements FieldType
     {
         return [
             new Assert\Type('string'),
-            new Assert\Length(max: (int) $field->getOption('max_length', self::DEFAULT_MAX_LENGTH)),
+            // At least 1: a max length of zero is not a shorter field, it is a
+            // field nothing can be stored in, and the constraint refuses it.
+            new Assert\Length(max: max(1, (int) $field->getOption('max_length', self::DEFAULT_MAX_LENGTH))),
         ];
     }
 

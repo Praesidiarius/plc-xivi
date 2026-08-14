@@ -25,6 +25,8 @@ use Xivi\Core\Entity\CollectionDefinition;
  * Named "row" rather than "entry" on purpose: Symfony renders a collection's
  * prototype under the block prefix `collection_entry`, so a type of that name
  * collides with it and the form refuses to render.
+ *
+ * @extends AbstractType<array<string, mixed>>
  */
 final class CollectionRowType extends AbstractType
 {

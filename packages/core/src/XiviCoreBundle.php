@@ -18,6 +18,7 @@ use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
  */
 final class XiviCoreBundle extends AbstractBundle
 {
+    /** @param array<string, mixed> $config */
     public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
     {
         $container->import(__DIR__ . '/../config/services.php');

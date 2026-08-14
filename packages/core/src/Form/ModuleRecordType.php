@@ -25,6 +25,8 @@ use Xivi\Core\Entity\ModuleDefinition;
  * means the validator can be handed each part on its own — a contact validated
  * against the contact definitions, an address against the address ones — with no
  * code that knows which module it is looking at.
+ *
+ * @extends AbstractType<array<string, mixed>>
  */
 final class ModuleRecordType extends AbstractType
 {

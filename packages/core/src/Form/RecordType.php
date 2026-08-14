@@ -26,6 +26,8 @@ use Xivi\Core\Field\FieldTypeRegistry;
  * done by the form: RecordValidator owns that, and the controller maps its
  * violations onto these fields, so there is exactly one place that decides
  * whether a record is acceptable.
+ *
+ * @extends AbstractType<array<string, mixed>>
  */
 final class RecordType extends AbstractType
 {

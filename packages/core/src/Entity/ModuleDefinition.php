@@ -79,9 +79,9 @@ class ModuleDefinition extends ShapeDefinition
     /** @return list<string> */
     public function getCollectionKeys(): array
     {
-        return array_map(
+        return array_values(array_map(
             static fn (CollectionDefinition $c): string => $c->getKey(),
             $this->collections->toArray(),
-        );
+        ));
     }
 }

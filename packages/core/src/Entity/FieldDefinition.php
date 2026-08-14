@@ -27,7 +27,11 @@ class FieldDefinition
     #[ORM\Column]
     private ?int $id = null;
 
-    /** Per-type settings: maximum length, bounds, and so on. */
+    /**
+     * Per-type settings: maximum length, bounds, and so on.
+     *
+     * @var array<string, mixed>
+     */
     #[ORM\Column(type: 'json')]
     private array $options = [];
 

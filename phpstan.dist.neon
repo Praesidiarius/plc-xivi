@@ -2,6 +2,11 @@ parameters:
     level: 8
     paths:
         - src
+        # The engine, which is most of the code and was outside the analysis
+        # until 2026-08-14 — so "level 8" had been describing the application's
+        # wiring while packages/ went unchecked. Same omission the coverage
+        # config had.
+        - packages
         - tests
     treatPhpDocTypesAsCertain: false
 

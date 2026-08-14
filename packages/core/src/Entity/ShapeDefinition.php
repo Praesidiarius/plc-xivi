@@ -115,6 +115,6 @@ abstract class ShapeDefinition
     /** @return list<string> */
     public function getFieldKeys(): array
     {
-        return array_map(static fn (FieldDefinition $f): string => $f->getKey(), $this->fields->toArray());
+        return array_values(array_map(static fn (FieldDefinition $f): string => $f->getKey(), $this->fields->toArray()));
     }
 }

@@ -51,7 +51,7 @@ interface FieldType
     /**
      * The Symfony form type to edit a value of this kind.
      *
-     * @return class-string<\Symfony\Component\Form\FormTypeInterface>
+     * @return class-string<\Symfony\Component\Form\FormTypeInterface<mixed>>
      */
     public function formType(): string;
 
