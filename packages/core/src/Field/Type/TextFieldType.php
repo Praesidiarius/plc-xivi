@@ -27,6 +27,10 @@ final class TextFieldType implements FieldType
 {
     public const int DEFAULT_MAX_LENGTH = 255;
 
+    public function __construct(private readonly SampleVocabulary $vocabulary)
+    {
+    }
+
     public function key(): string
     {
         return 'text';
@@ -60,21 +64,18 @@ final class TextFieldType implements FieldType
             return null;
         }
 
-        $key = mb_strtolower($field->getKey());
+        $value = $this->vocabulary->forKey($field->getKey());
 
-        // A company is two words and a legal form, not one word, and it is the
-        // difference between demo data that reads as a customer list and one
-        // that reads as a word list.
-        $value = str_contains($key, 'company') || str_contains($key, 'organisation')
-            ? SampleVocabulary::company()
-            : SampleVocabulary::oneOf(SampleVocabulary::forKey($field->getKey()));
-
-        if (str_contains($key, 'street')) {
-            $value .= ' ' . mt_rand(1, 140);
+        // Uniqueness cannot be left to a vocabulary, however large.
+        if ($field->isUnique()) {
+            $value .= ' ' . $sequence;
         }
 
-        // Uniqueness cannot be left to a list of thirty words.
-        return $field->isUnique() ? $value . ' ' . $sequence : $value;
+        // Cut to the length this field actually allows. The type owns the
+        // constraint above, so it owns keeping its own sample inside it —
+        // otherwise a wordier vocabulary starts generating records the module
+        // itself would reject, which a test caught the moment Faker arrived.
+        return mb_substr($value, 0, max(1, (int) $field->getOption('max_length', self::DEFAULT_MAX_LENGTH)));
     }
 
     public function toStorage(mixed $value, FieldDefinition $field): ?string

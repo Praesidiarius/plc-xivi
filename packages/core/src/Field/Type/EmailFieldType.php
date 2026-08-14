@@ -25,6 +25,10 @@ use Xivi\Core\Query\Operator;
  */
 final class EmailFieldType implements FieldType
 {
+    public function __construct(private readonly SampleVocabulary $vocabulary)
+    {
+    }
+
     public function key(): string
     {
         return 'email';
@@ -56,8 +60,8 @@ final class EmailFieldType implements FieldType
 
         return sprintf(
             '%s.%s%d@example.test',
-            self::slug(SampleVocabulary::oneOf(SampleVocabulary::FIRST_NAMES)),
-            self::slug(SampleVocabulary::oneOf(SampleVocabulary::LAST_NAMES)),
+            self::slug($this->vocabulary->firstName()),
+            self::slug($this->vocabulary->lastName()),
             $sequence,
         );
     }

@@ -33,6 +33,9 @@ services:
         exclude:
             - '../src/Command/GenerateDemoDataCommand.php'
             - '../src/Command/ClearDemoDataCommand.php'
+            # Faker is a dev dependency; this class would not even load in a
+            # production build.
+            - '../src/Demo/FakerSampleValues.php'
 
     # The engine operates on the tenant's database. Core deliberately has no idea
     # which one that is (it would have to know about tenancy to decide), so the
@@ -86,6 +89,11 @@ services:
         arguments:
             $connection: '@doctrine.dbal.tenant_connection'
 
+    # The words demo data is made of. Core's own lists by default, so generation
+    # works with no dependency; dev and test replace this with Faker below,
+    # which has hundreds of names where these have thirty.
+    Xivi\Core\Demo\SampleValues: '@Xivi\Core\Demo\BuiltInSampleValues'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
 
@@ -99,6 +107,9 @@ when@dev:
         App\Command\GenerateDemoDataCommand: ~
         App\Command\ClearDemoDataCommand: ~
 
+        App\Demo\FakerSampleValues: ~
+        Xivi\Core\Demo\SampleValues: '@App\Demo\FakerSampleValues'
+
 when@test:
     services:
         _defaults:
@@ -107,6 +118,9 @@ when@test:
 
         App\Command\GenerateDemoDataCommand: ~
         App\Command\ClearDemoDataCommand: ~
+
+        App\Demo\FakerSampleValues: ~
+        Xivi\Core\Demo\SampleValues: '@App\Demo\FakerSampleValues'
 
         # Between DAMA (100) and TenantConnectionMiddleware (0): middlewares
         # connect from the lowest priority up, so this sees the tenant's resolved

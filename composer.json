@@ -102,6 +102,7 @@
     "require-dev": {
         "dama/doctrine-test-bundle": "^8.6",
         "deptrac/deptrac": "^4.7",
+        "fakerphp/faker": "^1.24",
         "friendsofphp/php-cs-fixer": "^3.95",
         "phpstan/extension-installer": "^1.4",
         "phpstan/phpstan": "^2.2",
