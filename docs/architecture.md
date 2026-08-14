@@ -427,6 +427,47 @@ companies have was the first thing that went wrong here.
 
 ---
 
+### 5.6 Getting data out, and later back in
+
+A module's records as a spreadsheet: a customer's backup, and the way data
+arrives from whatever system they were on before.
+
+**One sheet per shape**, mirroring the storage — a contact has many addresses and
+they cannot share its row (§5.1), so the child sheet carries `parent_id` and the
+file can be read back as the structure it left as.
+
+**Headers are field keys, not labels.** A key is the one thing about a field that
+cannot change; the editor refuses to rename one (§5.4). A file exported today
+therefore still matches its module after somebody relabels a column. Import will
+accept either — lenient in, stable out.
+
+**Values are in storage form**: an ISO date, a choice's stored value rather than
+its label, a reference's id rather than the record's name. A file that reads
+beautifully and cannot be imported would be the wrong trade.
+
+**An export carries the query the list was showing**, including the children of
+exactly those records — a filtered export that quietly included everybody else's
+addresses would be worse than no filter at all.
+
+Variants need nothing: every field is a column, `kind` says which apply, the rest
+are blank (§5.5). And nothing in the exporter knows what a contact is — the
+columns come from the customer's definitions, so a field added in the editor
+appears in the file with no code changed.
+
+`openspout`, which is MIT and streams rather than building a workbook in memory.
+(PhpSpreadsheet is also MIT since v2 — it was LGPL — but it holds whole documents
+in memory, and none of its formulas or charts are wanted here.)
+
+**Import is the other half, and is not built.** When it is: parse, match columns
+to fields, validate every row through the existing validator — which is already
+variant-aware — then show what would happen and apply it in one transaction, or
+not at all. Half an import is a state nobody can reason about. It writes through
+`RecordWriter` like everything else, so every imported row gets a history entry
+attributed to whoever imported it, for free (§5.2). It needs an upload but no
+file *storage*: parse and discard, which sidesteps §7 entirely.
+
+---
+
 ## 6. Extensibility
 
 Three composable layers, all "one codebase, no forks":
@@ -627,6 +668,8 @@ collection exercises it.
   admin only, with every change that could strand data refused rather than made.
 - Variants (§5.5) and references (§7.6, in part): a contact is a person or a
   company, each with its own fields, and a person links to their company by id.
+- Export (§5.6): a module's records as a spreadsheet, one sheet per shape,
+  carrying whatever the list was filtered to.
 - Module presets (§6.1): `tenant:module:install --preset`, with Contact shipping
   `basic` and `extended`.
 - Module boundaries enforced by deptrac in CI.

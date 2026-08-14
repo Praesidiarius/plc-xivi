@@ -15,6 +15,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
 use Xivi\Core\Entity\FieldDefinition;
+use Xivi\Core\Export\RecordExporter;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Field\Type\ReferenceFieldType;
 use Xivi\Core\Form\ModuleRecordType;
@@ -41,6 +42,8 @@ use Xivi\Core\Validation\RecordValidator;
 #[Route('/m/{module}', requirements: ['module' => '[a-z][a-z0-9_]*'])]
 final class ModuleController extends AbstractController
 {
+    private const string XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
     public function __construct(
         private readonly MetadataRepository $metadata,
         private readonly RecordRepository $records,
@@ -50,6 +53,7 @@ final class ModuleController extends AbstractController
         private readonly RecordValidator $validator,
         private readonly HistoryRepository $history,
         private readonly RecordQueryFactory $queries,
+        private readonly RecordExporter $exporter,
         private readonly UserRepository $users,
     ) {
     }
@@ -101,6 +105,34 @@ final class ModuleController extends AbstractController
      * need JavaScript, which the forms here do not depend on. Asking first is
      * both simpler and how a CRM usually puts it: "new person" or "new company".
      */
+    /**
+     * The records you are looking at, as a spreadsheet.
+     *
+     * The same query the list ran, so a filtered export contains what the filter
+     * showed — anything else would be a file that quietly disagrees with the page
+     * it came from. Written to a temporary file and streamed, because a
+     * spreadsheet is a zip and the writer needs to seek.
+     */
+    #[Route('/export', name: 'module_export', methods: ['GET'])]
+    public function export(string $module, Request $request): Response
+    {
+        $definition = $this->definition($module);
+        $query = $this->queries->fromQueryParameters($request->query->all());
+
+        $path = (string) tempnam(sys_get_temp_dir(), 'xivi-export-');
+        $this->exporter->toFile($definition, $query, $path);
+
+        $response = $this->file($path, sprintf('%s-%s.xlsx', $module, date('Y-m-d')))
+            ->deleteFileAfterSend(true);
+
+        // Said rather than guessed. Left to itself the response sniffs the file
+        // through symfony/mime, which is not installed — and there is nothing to
+        // work out: we wrote the thing.
+        $response->headers->set('Content-Type', self::XLSX);
+
+        return $response;
+    }
+
     #[Route('/new', name: 'module_new', methods: ['GET', 'POST'])]
     public function new(string $module, Request $request): Response
     {

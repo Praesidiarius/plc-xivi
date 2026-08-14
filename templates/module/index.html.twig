@@ -34,6 +34,12 @@
 		<div class="d-flex align-items-center justify-content-between mb-3">
 			<h1 class="h3 mb-0">{{ module.label }}</h1>
 			<div class="d-flex align-items-center gap-2">
+				{# Carries the current query, so you download what you are looking at. #}
+				<a class="btn btn-outline-secondary"
+				   href="{{ path('module_export', app.request.query.all|merge({module: module.key})) }}">
+					<i class="bi bi-download" aria-hidden="true"></i>
+					<span class="d-none d-sm-inline">Export</span>
+				</a>
 				{% if is_granted('ROLE_ADMIN') %}
 					<a class="btn btn-outline-secondary" href="{{ path('field_index', {module: module.key}) }}">
 							<i class="bi bi-sliders" aria-hidden="true"></i> Fields

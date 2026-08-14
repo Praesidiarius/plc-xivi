@@ -48,6 +48,8 @@ services:
         arguments:
             $connection: '@doctrine.dbal.tenant_connection'
 
+    Xivi\Core\Export\RecordExporter: ~
+
     Xivi\Core\Query\QueryCompiler:
         arguments:
             $connection: '@doctrine.dbal.tenant_connection'

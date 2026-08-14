@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Xivi\Core\Record;
 
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
 use Xivi\Core\Entity\CollectionDefinition;
@@ -152,6 +153,37 @@ final readonly class RecordRepository
             ),
             ['parent' => $parentId],
             ['parent' => ParameterType::INTEGER],
+        );
+
+        return array_map(fn (array $row): Record => $this->hydrate($collection, $row), $rows);
+    }
+
+    /**
+     * The rows of one collection belonging to any of these records.
+     *
+     * One query for a page of parents rather than one per parent: an export of
+     * fifty thousand contacts would otherwise be fifty thousand queries for
+     * their addresses.
+     *
+     * @param list<int> $parentIds
+     *
+     * @return list<Record>
+     */
+    public function findChildrenOfAny(CollectionDefinition $collection, array $parentIds): array
+    {
+        if ($parentIds === []) {
+            return [];
+        }
+
+        $rows = $this->connection->fetchAllAssociative(
+            sprintf(
+                'SELECT * FROM %s WHERE %s IN (:parents) AND deleted_at IS NULL ORDER BY %s ASC, id ASC',
+                $this->table($collection),
+                CollectionDefinition::PARENT_COLUMN,
+                CollectionDefinition::PARENT_COLUMN,
+            ),
+            ['parents' => $parentIds],
+            ['parents' => ArrayParameterType::INTEGER],
         );
 
         return array_map(fn (array $row): Record => $this->hydrate($collection, $row), $rows);
