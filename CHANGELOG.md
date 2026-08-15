@@ -32,6 +32,41 @@ of every page, and is not yet tied to git tags.
 
 ### Added
 
+- **An order module** ([XIV-18]) — a customer, a date, a status and its lines.
+  The third module and the first one that is mostly *relationships*: it names a
+  contact and its lines name articles, and neither of those packages knows it
+  exists. The link is a key in a definition, so deptrac's boundary holds even
+  here.
+- **Lines come in four kinds** — article, custom, comment and subtotal — with one
+  blank row of each to type into. One `description` field carries all four
+  meanings: the article's name, the custom line's words, the comment, the
+  subtotal's label. A comment line is then not a special case anywhere; it is a
+  line whose only field is the one every line has.
+- **An article line inherits its description and price from the article, once**,
+  and owns them afterwards. An order confirmed at 19.90 still says 19.90 after
+  the article goes up, and still says it after the article is deleted — a
+  property of the document rather than an optimisation. Nothing ever copies over
+  a value somebody typed, so a negotiated price survives every save.
+- **A line that has drifted from its article says so**, field by field. Once an
+  inherited value can be edited, a negotiated price and a stale copy look
+  identical, and the difference between them is a conversation with a customer.
+- **Inheritance is declared, not coded** (`InheritedValue`): one option on a
+  field, no module code, and it works for any field of any shape pointing
+  anywhere. The order module carrying a hook to fill in its own lines is exactly
+  what §1 says a module must not need.
+- **A module can say which modules it needs** ([XIV-23]). Installing `order` into
+  a tenant with no `contact` used to succeed and then refuse every save on a
+  required reference with an empty picker — broken rather than degraded, and the
+  one case §7.6's "a link into a module you do not have reads as `#id`" does not
+  cover: a link nobody can *create* is not a link that has gone stale.
+- **Two strengths of requirement, because one is not enough.** A module
+  **requires** what it cannot work without and **uses** what it works better
+  with. Installing without a requirement is refused and names what to install
+  first; installing without an optional one succeeds, and the parts that depend
+  on it are not offered — an order in a tenant with no articles has no "article
+  line" kind, and its custom, comment and subtotal lines behave as normal.
+  Deliberately *not* the dependency §3 forbids: that rule is about code, and the
+  order package still imports nothing from contact or article.
 - **Documents from Word templates** ([XIV-4]). A module's records can be
   downloaded as a filled-in .docx or PDF, from templates the customer writes in
   Word and uploads themselves. Both formats every time: the PDF is what gets
