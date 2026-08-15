@@ -63,6 +63,10 @@ services:
         arguments:
             $connection: '@doctrine.dbal.tenant_connection'
 
+    # What a form starts with (XIV-30). Core's own, and autowired: it reads a
+    # shape and a record and asks nothing about whose database it is in.
+    Xivi\Core\Record\RecordFormData: ~
+
     Xivi\Core\Export\RecordExporter: ~
 
     # The importer opens the transaction it either keeps or throws away, so it
