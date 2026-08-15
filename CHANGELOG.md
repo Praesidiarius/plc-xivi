@@ -30,6 +30,27 @@ of every page, and is not yet tied to git tags.
 
 ## [Unreleased]
 
+### Added
+
+- **Modules have a state** ([XIV-7]), platform-wide: `development` or `published`,
+  a closed set that grows by adding a case. Preparation for the store ([XIV-6]),
+  which is the only thing that will read it — so that a module can exist in a
+  build without being offered to anybody.
+- **A module with no decision recorded is in development**, which is how a new
+  module gets the right default without a sync step whose only job is to write it
+  down. The state lives in the control plane rather than in the blueprint,
+  because publishing is a decision about whether customers may have a module, not
+  a change to the module — the same rule that puts presets in code and templates
+  in data (§6.1, §6.2).
+- **`module:list` and `module:state`**, the process for seeing and changing it.
+  Neither takes a tenant, because the answer is the same for all of them. A state
+  row naming a module the build no longer ships is listed and flagged rather than
+  hidden, and never offered — the store cannot install what the deploy does not
+  carry.
+- Installing names the state and does not enforce it: a module is developed by
+  installing it somewhere, so refusing the case the state exists to describe
+  would be backwards.
+
 ### Changed
 
 - **The export's content type comes from `symfony/mime`** ([XIV-5]) instead of a
@@ -332,6 +353,8 @@ began and is recorded here as one entry rather than invented as a history.
 
 [XIV-2]: https://xivi.youtrack.cloud/issue/XIV-2
 [XIV-5]: https://xivi.youtrack.cloud/issue/XIV-5
+[XIV-6]: https://xivi.youtrack.cloud/issue/XIV-6
+[XIV-7]: https://xivi.youtrack.cloud/issue/XIV-7
 [XIV-8]: https://xivi.youtrack.cloud/issue/XIV-8
 [XIV-9]: https://xivi.youtrack.cloud/issue/XIV-9
 [XIV-10]: https://xivi.youtrack.cloud/issue/XIV-10

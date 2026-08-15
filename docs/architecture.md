@@ -84,6 +84,10 @@ drift in a new form — N config files on disk that nobody audits.
 
 Provisioning a customer becomes a console command, not a filesystem ritual.
 
+Not everything out here is per tenant. The control plane is also where the
+platform keeps decisions that are the same for everybody — today, how far along
+each module is (§6.2). One row per tenant is what it started as, not what it is.
+
 **Database per tenant, not shared tables with `tenant_id`:**
 
 1. **Isolation is physical.** A forgotten `WHERE tenant_id = ?` becomes a bug, not a
@@ -556,6 +560,42 @@ retro-fit blueprint changes" is the stated model rather than a limitation.
 Templates reference presets instead of duplicating them, which is why they need
 nothing new from the engine: a template is a list of installations it already
 knows how to perform, plus rows it already supports.
+
+### 6.2 How far along a module is (XIV-7)
+
+A module has a **state**, platform-wide: `development` or `published`, a closed
+set that grows by adding a case — early access is the obvious next one.
+
+**Global, never per tenant.** Whether a module is finished is a fact about the
+module. A customer being offered a half-built one because somebody flipped a row
+on their tenant is §4's configuration drift in a new costume, so there is nowhere
+to say it per tenant and nothing to keep in step.
+
+**In the control plane, not in the blueprint.** The tempting alternative is a
+field on `ModuleBlueprint`, which would be global for free and impossible to
+disagree with the build. It was rejected on the same rule that puts presets in
+code and templates in data (§6.1): a preset changing *is* the module changing,
+whereas publishing is a decision about whether customers may have it — the same
+kind of decision as a tenant's plan or status, and those live in the control
+plane. It also means a module can be pulled back out of the store without a
+deploy, on the day that matters.
+
+**A module with no row is in development.** That is what makes "a new module
+starts in development" free rather than a sync step whose only job is to write
+down the default. A row appears the first time somebody decides otherwise, and
+survives being moved back, because when a module left the store is worth knowing.
+
+The two halves — what exists (the build, via `ModuleRegistry`) and what state each
+is in (the control plane) — are joined in exactly one place, `ModuleCatalog`. It
+is what knows that a state row can name a module this deploy no longer ships:
+listed and flagged, never offered, since the store cannot install what the build
+does not carry.
+
+**It gates the store (§6, XIV-6) and nothing else.** Installing is deliberately
+not gated: a module is developed by installing it somewhere, which is the exact
+case the state exists to describe, so `tenant:module:install` names the state and
+proceeds. Nor does taking a module out of the store uninstall it anywhere — a
+state says what may be installed from here, never what is removed.
 
 ---
 
