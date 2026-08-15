@@ -1,0 +1,55 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'profile.title'|trans }}{% endblock %}
+
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<h1 class="h3 mb-1">{{ 'profile.title'|trans }}</h1>
+		<p class="text-body-secondary">{{ 'profile.intro'|trans }}</p>
+
+		{#
+			Read and change are separate grants, so somebody may well be looking at
+			this page without being the person who decides what is on it. The fields
+			are disabled and the button is gone rather than the page being refused —
+			what the instance prices in is a fact worth being able to look up.
+		#}
+		{% set editable = can('edit', area) %}
+
+		<form method="post" action="{{ path('tenant_profile_save') }}" class="card">
+			<div class="card-body">
+				<input type="hidden" name="_token" value="{{ csrf_token('tenant-profile') }}">
+
+				<div class="mb-3">
+					<label class="form-label" for="company_name">{{ 'profile.company_name'|trans }}</label>
+					<input class="form-control" type="text" id="company_name" name="company_name"
+					       maxlength="255" value="{{ profile.companyName }}" {{ editable ? '' : 'disabled' }}>
+					<div class="form-text">{{ 'profile.company_name_help'|trans }}</div>
+				</div>
+
+				<div class="mb-3">
+					<label class="form-label" for="currency">{{ 'profile.currency'|trans }}</label>
+					<select class="form-select" id="currency" name="currency" {{ editable ? '' : 'disabled' }}>
+						{# Not chosen is a real answer, and the one every instance starts on. #}
+						<option value="">{{ 'profile.currency_none'|trans }}</option>
+						{% for code, name in currencies %}
+							<option value="{{ code }}" {{ profile.currency == code ? 'selected' : '' }}>
+								{{ name }} ({{ code }})
+							</option>
+						{% endfor %}
+					</select>
+					<div class="form-text">{{ 'profile.currency_help'|trans }}</div>
+				</div>
+
+				{% if editable %}
+					<button class="btn btn-primary" type="submit">{{ 'common.save'|trans }}</button>
+				{% else %}
+					<p class="text-body-secondary mb-0">{{ 'profile.read_only'|trans }}</p>
+				{% endif %}
+			</div>
+		</form>
+	</main>
+{% endblock %}

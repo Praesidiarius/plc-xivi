@@ -32,6 +32,23 @@ of every page, and is not yet tied to git tags.
 
 ### Added
 
+- **A tenant profile** ([XIV-12]), at `/settings/profile`: what this customer
+  calls themselves, and the currency their instance works in. It lives in the
+  customer's own database next to their users and definitions (§8.6) — the
+  control plane's `tenant.name` stays the operator's label in the registry, and
+  the chrome shows the company name once there is one.
+- **The currency is an ISO 4217 code**, never a symbol or a formatted string. The
+  list comes from symfony/intl, named in whatever language is being read, and
+  null until somebody chooses: a currency guessed for a customer would only
+  surface on the first priced thing they printed.
+- **Permission areas** — things worth granting that no module owns (§8.4). The
+  catalogue is now the action enum crossed with the customer's modules *and* a
+  closed set of areas, still worked out at runtime with nothing seeded and
+  nothing migrated. An area is stored in the grant table's existing `module_key`,
+  which was never a join; area keys begin with `@`, which module keys cannot, so
+  they can never collide. Reading the profile and changing it are separate
+  grants, and neither of them is "administrator".
+
 - **Modules have a state** ([XIV-7]), platform-wide: `development` or `published`,
   a closed set that grows by adding a case. Preparation for the store ([XIV-6]),
   which is the only thing that will read it — so that a module can exist in a
@@ -355,6 +372,7 @@ began and is recorded here as one entry rather than invented as a history.
 [XIV-5]: https://xivi.youtrack.cloud/issue/XIV-5
 [XIV-6]: https://xivi.youtrack.cloud/issue/XIV-6
 [XIV-7]: https://xivi.youtrack.cloud/issue/XIV-7
+[XIV-12]: https://xivi.youtrack.cloud/issue/XIV-12
 [XIV-8]: https://xivi.youtrack.cloud/issue/XIV-8
 [XIV-9]: https://xivi.youtrack.cloud/issue/XIV-9
 [XIV-10]: https://xivi.youtrack.cloud/issue/XIV-10

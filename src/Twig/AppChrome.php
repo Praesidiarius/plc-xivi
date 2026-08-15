@@ -15,6 +15,8 @@ namespace App\Twig;
 
 use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantContext;
+use App\Tenant\Repository\TenantProfileRepository;
+use App\Tenant\Security\PermissionArea;
 use App\Tenant\Security\PermissionResolver;
 use Symfony\Bundle\SecurityBundle\Security;
 use Xivi\Core\Entity\ModuleDefinition;
@@ -38,12 +40,43 @@ final class AppChrome
         private readonly MetadataRepository $metadata,
         private readonly PermissionResolver $permissions,
         private readonly Security $security,
+        private readonly TenantProfileRepository $profiles,
     ) {
     }
 
     public function getTenant(): ?Tenant
     {
         return $this->context->tryGetTenant();
+    }
+
+    /**
+     * What to call this installation in the chrome (XIV-12).
+     *
+     * The customer's own company name when they have set one, and the registry's
+     * label for them otherwise. Two facts rather than one: `tenant.name` is what
+     * the operator filed them under and is not theirs to change, so a customer who
+     * has said what they are called should be reading that instead of it.
+     */
+    public function getName(): string
+    {
+        $tenant = $this->getTenant();
+
+        if ($tenant === null) {
+            return '';
+        }
+
+        $company = $this->profiles->current()->getCompanyName();
+
+        return $company !== '' ? $company : $tenant->getName();
+    }
+
+    /**
+     * The profile's permission key, so a template can ask `can('view', ...)`
+     * about it without holding the string itself.
+     */
+    public function getProfileArea(): string
+    {
+        return PermissionArea::Profile->value;
     }
 
     /**

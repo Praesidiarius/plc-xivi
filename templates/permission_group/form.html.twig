@@ -82,6 +82,54 @@
 				</div>
 			{% endif %}
 
+			{#
+				The parts of the instance that are not a module's records (XIV-12). Its
+				own table rather than rows in the one above: an area answers a couple of
+				the verbs and none of the scope question — there is one profile and it is
+				nobody's own — so the columns are simply different.
+			#}
+			<h2 class="h5 mb-2">{{ 'group.instance'|trans }}</h2>
+			<p class="text-body-secondary">{{ 'group.instance_help'|trans }}</p>
+
+			<div class="card mb-4">
+				<div class="table-responsive">
+					<table class="table align-middle mb-0">
+						<thead>
+							<tr>
+								<th scope="col" class="text-body-secondary small text-uppercase">{{ 'common.area'|trans }}</th>
+								{% for action in actions %}
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ action.labelKey|trans({}, 'xivi') }}</th>
+								{% endfor %}
+							</tr>
+						</thead>
+						<tbody>
+							{% for area in areas %}
+								<tr>
+									<th scope="row" class="fw-normal">
+										<i class="bi bi-{{ area.icon }} text-body-secondary" aria-hidden="true"></i>
+										{{ area.labelKey|trans }}
+									</th>
+									{% for action in actions %}
+										<td>
+											{% if area.allows(action) %}
+												<select class="form-select form-select-sm"
+												        name="grants[{{ area.value }}][{{ action.value }}]"
+												        aria-label="{{ action.labelKey|trans({}, 'xivi') }} {{ area.labelKey|trans }}">
+													<option value="">{{ 'permission.no'|trans }}</option>
+													<option value="all" {{ matrix[area.value][action.value]|default('') ? 'selected' : '' }}>
+														{{ 'permission.yes'|trans }}
+													</option>
+												</select>
+											{% endif %}
+										</td>
+									{% endfor %}
+								</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+			</div>
+
 			<h2 class="h5 mb-2">{{ 'group.who_is_in_it'|trans }}</h2>
 			<p class="text-body-secondary">
 				{{ 'group.members_help'|trans }}

@@ -15,6 +15,7 @@ namespace App\Controller;
 
 use App\Tenant\Entity\PermissionGroup;
 use App\Tenant\Security\GroupChangeRefused;
+use App\Tenant\Security\PermissionArea;
 use App\Tenant\Security\PermissionManager;
 use App\Tenant\Security\UserManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -121,6 +122,10 @@ final class PermissionGroupController extends AbstractController
         return $this->render('permission_group/form.html.twig', [
             'group' => $group,
             'modules' => $this->metadata->all(),
+            // What is grantable but belongs to no module (XIV-12). The catalogue
+            // is still worked out at runtime — now from the enum crossed with
+            // modules *and* these.
+            'areas' => PermissionArea::all(),
             'actions' => ModuleAction::cases(),
             'scopes' => PermissionScope::cases(),
             'matrix' => PermissionManager::matrixOf($group),

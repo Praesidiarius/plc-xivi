@@ -9,6 +9,7 @@
 common:
     actions: Aktionen
     add: Hinzufügen
+    area: Bereich
     back: Zurück
     cancel: Abbrechen
     create: Erstellen
@@ -31,6 +32,7 @@ common:
 nav:
     overview: Übersicht
     users: Benutzer
+    profile: Firma
     sign_out: Abmelden
 
 login:
@@ -216,6 +218,10 @@ group:
         das gilt für Aktionen, die einen bereits vorhandenen Datensatz benennen, weshalb
         Hinzufügen und Importieren nur ganz oder gar nicht gehen.
     no_modules: Es sind keine Module installiert, also gibt es noch nichts zu vergeben.
+    instance: Die Instanz selbst
+    instance_help: >-
+        Die Teile dieser Installation, die keine Datensätze eines Moduls sind. Es gibt
+        jeden nur einmal, also bleibt nur die Frage, wer ihn sehen und wer ihn ändern darf.
     who_is_in_it: Wer darin ist
     members_help: >-
         Die Administration steht nicht in der Liste: sie darf ohnehin alles, und sie in
@@ -232,9 +238,23 @@ group:
     edit_aria: '%group% bearbeiten'
     delete_aria: '%group% löschen'
 
+profile:
+    title: Firmenprofil
+    intro: >-
+        Wie diese Installation heißt und in welcher Währung sie rechnet. Das gilt für
+        alle hier, nicht nur für dich.
+    company_name: Firmenname
+    company_name_help: Wie ihr euch nennt. Ersetzt den Namen in der Leiste oben, sobald er gesetzt ist.
+    currency: Währung
+    currency_help: Worin Preise angegeben werden. Nichts erzwingt eine, und Module, die sie brauchen, greifen darauf zurück.
+    currency_none: Noch nicht gewählt
+    read_only: Du darfst das sehen, aber nicht ändern.
+
 permission:
     yes: 'Ja'
     no: 'Nein'
+    area:
+        profile: Firmenprofil
 
 refusal:
     last_admin: Das ist die einzige aktive Administration. Mache zuerst jemand anderen zur Administration.
@@ -248,6 +268,7 @@ refusal:
 
 flash:
     saved: Gespeichert.
+    profile_saved: Gespeichert. So beschreibt sich die Instanz von jetzt an.
     shape_renamed: 'Umbenannt in „%shape%“.'
     deleted: Gelöscht.
     passwords_differ: Die beiden Passwörter stimmen nicht überein.
