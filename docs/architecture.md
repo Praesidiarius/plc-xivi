@@ -779,6 +779,67 @@ trail that called both "updated" would bury the first.
 
 ---
 
+### 5.9 Derived values, and the money that needed them (XIV-16)
+
+A module may work values out while a record is being saved. `ValueDeriver` is
+handed the record's fields **and its rows**, before anything is written and
+inside the save's transaction; whatever it puts there is what lands in the table,
+what the history entry describes, and what the next reader sees.
+
+**This answers the non-veto half of §7.1.** A module may take part in a save, and
+what it may do there is *derive*. It may not cancel, and there is deliberately
+nothing to cancel with — no return value, no stoppable event, no flag. A save
+that fails for a reason the page cannot name is the failure mode that question
+was written about; a save that produces more than was typed is not.
+
+**Rows as well as fields**, because the interesting derived values need both: an
+order's total is a fact about its lines, and a subtotal line is a fact about the
+lines *above* it. Rows arrive in the order they will be stored in (XIV-21), which
+is what makes "the lines since the previous subtotal" computable at all.
+
+**A collection missing from the derivation is one the save is not touching**, and
+that distinction is load-bearing rather than pedantic: an empty list means "no
+rows", which deletes what is there. A lifecycle transition writes the header
+alone, and without the distinction confirming an order would zero its totals.
+
+**A collection nobody can type into is derived**, read off its fields rather than
+stored as a flag — the same trick §5.5 plays with the variant field. Such a
+collection is off the form, out of the import and export, and out of the history:
+its rows restate what other rows already say, and the change that moved them is
+in the same entry anyway.
+
+#### What the money model decided
+
+The order module is the first thing to use this, and four decisions came with it.
+They belong here rather than in that package because the invoice module has to
+make the same ones.
+
+- **Totals are stored, not computed when read.** "Orders over 5000" has to be a
+  `WHERE` clause, and what a confirmed order came to is a fact about that day
+  rather than the result of running today's code over yesterday's lines.
+- **VAT is per line, not per document.** A document mixing 8.1% and 2.6% is an
+  ordinary week in Switzerland. The article carries the rate, the line copies it
+  like the price (§5.1's inherited values), and the per-rate breakdown is stored
+  as a derived collection — so it cannot disagree with the tax total beside it.
+- **Rounding has one answer**, written down in `Money\Amount` and nowhere else: a
+  line total is rounded to two places as it is computed, so the printed column
+  adds up to the printed total; **VAT is grouped per rate before it is rounded**,
+  because a hundred lines each losing half a rappen is fifty rappen of tax nobody
+  owes. Halves go away from zero. Rounding to five rappen is deliberately absent:
+  that is a rule about paying cash, not about what an invoice says.
+- **A discount is a line with a negative price**, not a percentage on the header.
+  A discount reduces the VAT base it was given against, and only a line can say
+  which rate that was — a header field would be guessing on any document with two
+  rates.
+
+**A line contributes if it has a price, not if it is the right kind.** Comment
+lines and subtotal lines fall out of the summing for having no quantity and no
+unit price, which is a fact about the line rather than a branch about its kind —
+so a fifth kind of line needs no arithmetic written for it. A subtotal is the one
+thing asked about by kind, because a subtotal is defined by being one.
+
+---
+
 ## 6. Extensibility
 
 Three composable layers, all "one codebase, no forks":
@@ -876,6 +937,11 @@ Not yet decided. Decide deliberately rather than by accident.
    it is the engine refusing on a rule the module *declared*, not a subscriber vetoing at
    runtime. The question is still open for subscribers; what a module can say
    declaratively is turning out to cover more of it than expected.
+   *Half answered by §5.9 — XIV-16.* A module may now take part in a save, and what it may
+   do there is **derive**: fill in values that follow from what was typed, on the record and
+   on its rows. `ValueDeriver` has nothing to cancel with, on purpose. So the answer is
+   asymmetric and deliberately so — taking part is allowed, refusing is not, and the half
+   still open is exactly the half that makes host behaviour depend on what is installed.
 2. **Metadata migration.** What happens when a field changes type, or is deleted while
    data exists in it? Needs a real answer before the metadata editor ships.
    *Half settled — see §5.4.* Deleting a field is now decided: the definition goes and

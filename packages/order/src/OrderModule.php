@@ -41,6 +41,25 @@ final class OrderModule implements ModuleProvider
 {
     public const string KEY = 'order';
 
+    /** What it sells, and the VAT that follows from it (XIV-16). */
+    public const string LINES = 'lines';
+    public const string TAXES = 'taxes';
+
+    /** The fields the totals are made of and written to (XIV-16). */
+    public const string KIND = 'kind';
+    public const string QUANTITY = 'quantity';
+    public const string UNIT_PRICE = 'unit_price';
+    public const string TAX_RATE = 'tax_rate';
+    public const string LINE_TOTAL = 'line_total';
+    public const string NET_TOTAL = 'net_total';
+    public const string TAX_TOTAL = 'tax_total';
+    public const string GROSS_TOTAL = 'gross_total';
+
+    /** And the fields of one row of the VAT table. */
+    public const string RATE = 'rate';
+    public const string TAXABLE_NET = 'net';
+    public const string TAX_AMOUNT = 'amount';
+
     /** The kinds a line comes in (§5.5 one level down — XIV-20). */
     public const string ARTICLE_LINE = 'article';
     public const string CUSTOM_LINE = 'custom';
@@ -109,15 +128,51 @@ final class OrderModule implements ModuleProvider
                     listed: false,
                     position: 40,
                 ),
+                // **Stored, not worked out when read** (XIV-16). Three reasons,
+                // and the first two are the ones that matter: "orders over 5000"
+                // has to be a WHERE clause rather than twenty-five records
+                // summed in PHP, and what a confirmed order came to is a fact
+                // about that day rather than the result of running today's code
+                // over yesterday's lines. The third is that the figures are
+                // printed on documents, and a document that disagrees with the
+                // list it was found in is a support call.
+                new FieldBlueprint(
+                    key: self::NET_TOTAL,
+                    label: 'field.net_total',
+                    type: 'currency',
+                    filterable: true,
+                    listed: false,
+                    position: 50,
+                    derived: true,
+                ),
+                new FieldBlueprint(
+                    key: self::TAX_TOTAL,
+                    label: 'field.tax_total',
+                    type: 'currency',
+                    filterable: true,
+                    listed: false,
+                    position: 60,
+                    derived: true,
+                ),
+                // The one on the list, because it is the figure anybody scanning
+                // a page of orders is looking for.
+                new FieldBlueprint(
+                    key: self::GROSS_TOTAL,
+                    label: 'field.gross_total',
+                    type: 'currency',
+                    filterable: true,
+                    position: 70,
+                    derived: true,
+                ),
             ],
             collections: [
                 new CollectionBlueprint(
-                    key: 'lines',
+                    key: self::LINES,
                     label: 'collection.lines',
                     table: 'sales_order_line',
                     fields: [
                         new FieldBlueprint(
-                            key: 'kind',
+                            key: self::KIND,
                             label: 'field.kind',
                             type: 'choice',
                             required: true,
@@ -164,7 +219,7 @@ final class OrderModule implements ModuleProvider
                         // rather than to this line, and a unit that only
                         // decorates the number is worse than none.
                         new FieldBlueprint(
-                            key: 'quantity',
+                            key: self::QUANTITY,
                             label: 'field.quantity',
                             type: 'decimal',
                             required: true,
@@ -172,23 +227,47 @@ final class OrderModule implements ModuleProvider
                             position: 30,
                             options: ['min' => 0, 'scale' => 2],
                         ),
+                        // **A negative price is allowed here, and that is where
+                        // a discount lives** (XIV-16). Not a percentage on the
+                        // header: a discount reduces the VAT base it was given
+                        // against, and a header field cannot say which rate it
+                        // came off — on a document mixing 8.1% and 2.6% it would
+                        // be guessing. A line can say, because a line carries a
+                        // rate like every other line. The article's own price
+                        // keeps its floor: a catalogue entry that costs less
+                        // than nothing is a typo.
                         new FieldBlueprint(
-                            key: 'unit_price',
+                            key: self::UNIT_PRICE,
                             label: 'field.unit_price',
                             type: 'currency',
                             required: true,
                             variants: [self::ARTICLE_LINE, self::CUSTOM_LINE],
                             position: 40,
+                            options: InheritedValue::from('article', 'price'),
+                        ),
+                        // Copied from the article like the price, and editable
+                        // afterwards for the same reason: the rate that applies
+                        // is the rate that applied on the day (XIV-16).
+                        new FieldBlueprint(
+                            key: self::TAX_RATE,
+                            label: 'field.tax_rate',
+                            type: 'decimal',
+                            variants: [self::ARTICLE_LINE, self::CUSTOM_LINE],
+                            position: 45,
                             options: [
                                 'min' => 0,
-                                ...InheritedValue::from('article', 'price'),
+                                'max' => 100,
+                                'scale' => 2,
+                                ...InheritedValue::from('article', 'tax_rate'),
                             ],
                         ),
-                        // Derived, so shown and never typed into (XIV-20). What
-                        // fills it in is XIV-16; until then it is the shape of
-                        // the answer rather than the answer.
+                        // Derived, so shown and never typed into (XIV-20), and
+                        // filled in by OrderTotals during the save (XIV-16). It
+                        // means two things: on a priced line, quantity times
+                        // price; on a subtotal, the priced lines since the last
+                        // one.
                         new FieldBlueprint(
-                            key: 'line_total',
+                            key: self::LINE_TOTAL,
                             label: 'field.line_total',
                             type: 'currency',
                             variants: [self::ARTICLE_LINE, self::CUSTOM_LINE, self::SUBTOTAL_LINE],
@@ -197,7 +276,48 @@ final class OrderModule implements ModuleProvider
                         ),
                     ],
                     position: 10,
-                    variantField: 'kind',
+                    variantField: self::KIND,
+                ),
+                // **The VAT table, one row per rate** (XIV-16). A collection
+                // because the number of rates is not known in advance — 8.1% and
+                // 2.6% on one document is ordinary — so there is no set of
+                // fields on the header that could hold it.
+                //
+                // Every field derived, which is what makes the whole collection
+                // derived: it is off the form, out of the import and out of the
+                // history, and the engine works it out on every save. Stored
+                // rather than grouped at print time so that it cannot disagree
+                // with the tax total beside it, and so that XIV-17 can print it
+                // with the same repeating block as the lines.
+                new CollectionBlueprint(
+                    key: self::TAXES,
+                    label: 'collection.taxes',
+                    table: 'sales_order_tax',
+                    fields: [
+                        new FieldBlueprint(
+                            key: self::RATE,
+                            label: 'field.rate',
+                            type: 'decimal',
+                            position: 10,
+                            derived: true,
+                            options: ['scale' => 2],
+                        ),
+                        new FieldBlueprint(
+                            key: self::TAXABLE_NET,
+                            label: 'field.taxable_net',
+                            type: 'currency',
+                            position: 20,
+                            derived: true,
+                        ),
+                        new FieldBlueprint(
+                            key: self::TAX_AMOUNT,
+                            label: 'field.tax_amount',
+                            type: 'currency',
+                            position: 30,
+                            derived: true,
+                        ),
+                    ],
+                    position: 20,
                 ),
             ],
             icon: 'receipt',

@@ -10,3 +10,4 @@ field:
     title: Title
     description: Description
     price: Price
+    tax_rate: VAT rate (%)

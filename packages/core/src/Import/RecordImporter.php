@@ -147,7 +147,13 @@ final readonly class RecordImporter
 
         $shapes = [$moduleSheet => $module];
         foreach ($module->getCollections() as $collection) {
-            $shapes[self::sheetKey($collection->getKey())] = $collection;
+            // A derived collection has no sheet (XIV-16), which is what makes
+            // every loop below skip it: they are all driven by the sheets that
+            // are present, and rows the engine works out for itself are not a
+            // thing a file gets to say anything about.
+            if (!$collection->isDerived()) {
+                $shapes[self::sheetKey($collection->getKey())] = $collection;
+            }
         }
 
         $maps = [];

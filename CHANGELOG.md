@@ -32,6 +32,47 @@ of every page, and is not yet tied to git tags.
 
 ### Added
 
+- **Line items, totals and VAT on an order** ([XIV-16]). A line's total is
+  quantity times price, worked out rather than typed; the order stores its net
+  total, its VAT and its gross total, so "orders over 5000" is a `WHERE` clause
+  and what a confirmed order came to stays a fact about that day rather than the
+  result of running today's code over yesterday's lines.
+- **VAT is per line, not per document.** A document mixing 8.1% and 2.6% is an
+  ordinary week here, and a single rate on the header would have been wrong from
+  the first invoice. The article carries the rate, the line copies it like the
+  price, and the per-rate breakdown is stored as a derived collection so it
+  cannot disagree with the tax total beside it.
+- **A subtotal line restates the priced lines since the previous one** and adds
+  nothing to the order's own totals — a restatement counted twice is the one
+  arithmetic mistake this feature can make. A line contributes if it *has* a
+  price rather than if it is the right kind, so comment and subtotal lines fall
+  out of the summing without a branch, and a fifth kind of line would too.
+- **Rounding has one answer, written down** in `Money\Amount`: a line total is
+  rounded to two places as it is computed, so the printed column adds up to the
+  printed total, and VAT is grouped per rate *before* it is rounded, because a
+  hundred lines each losing half a rappen is fifty rappen of tax nobody owes.
+  Halves go away from zero. Rounding to five rappen is deliberately absent —
+  that is a rule about paying cash, not about what an invoice says. Exact
+  throughout, on `brick/math`, so nothing on the path is ever a float.
+- **A discount is a line with a negative price**, not a percentage on the header.
+  A discount reduces the VAT base it was given against, and only a line can say
+  which rate that was; on a document with two rates a header field would be
+  guessing. The article's own price keeps its floor — a catalogue entry costing
+  less than nothing is a typo.
+- **An article carries a VAT rate**, as a number rather than a choice of the
+  three Swiss ones: those are this year's, and this is not a Swiss engine. Empty
+  means no VAT, which is right for a customer who is not registered for it and
+  should see no VAT table at all.
+- **A seam for a module to derive values while a record is being saved**
+  ([XIV-16]) — `ValueDeriver`, handed the record's fields *and* its rows before
+  anything is written. This answers the **non-veto half of §7.1**: a module may
+  take part in a save, and what it may do there is derive. It has nothing to
+  cancel with, on purpose. Whether a subscriber may *refuse* a save stays open.
+- **A collection nobody can type into is a derived one**, read off its fields
+  rather than stored as a flag. It is off the form, out of the import and export
+  and out of the history — its rows restate what other rows already say, and the
+  change that moved them is in the same entry anyway.
+
 - **A `decimal` field type** ([XIV-22]). The engine had `integer` and it had
   `currency` and nothing in between, so an order line could sell three lamps and
   could not sell two and a half hours — the only field type carrying a fraction

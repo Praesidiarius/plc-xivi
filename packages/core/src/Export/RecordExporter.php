@@ -107,6 +107,14 @@ final readonly class RecordExporter
         }
 
         foreach ($module->getCollections() as $collection) {
+            // Left out, because the import cannot read it back (XIV-16): a
+            // derived collection is worked out on every save, so a sheet of it
+            // would be a column of numbers that silently do nothing on the way
+            // in. A file this export produces should be one this import accepts.
+            if ($collection->isDerived()) {
+                continue;
+            }
+
             $writer->addNewSheetAndMakeItCurrent()->setName(self::sheetName($collection->getKey()));
             $writer->addRow(Row::fromValues(['id', 'parent_id', ...$collection->getFieldKeys()]));
 

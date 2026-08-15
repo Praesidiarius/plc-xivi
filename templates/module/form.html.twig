@@ -30,7 +30,9 @@
 
 		{# And every one of these came from the same kind of row, on a shape that
 		   happens to be a collection rather than a module. #}
-		{% for collection in module.collections %}
+		{% for collection in module.collections|filter(c => not c.derived) %}
+			{# Derived collections are worked out during the save and never drawn
+			   here (XIV-16), so the form has no branch for them at all. #}
 			{% set entries = form.collections[collection.key] %}
 
 			<div class="card mt-3">

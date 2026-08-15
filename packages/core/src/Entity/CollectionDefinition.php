@@ -88,4 +88,35 @@ class CollectionDefinition extends ShapeDefinition
     {
         return $this->position;
     }
+
+    /**
+     * Whether these rows are worked out rather than typed (XIV-16) — a document's
+     * VAT broken down per rate, which is a restatement of its lines and not a
+     * table anybody fills in.
+     *
+     * Read off the fields rather than stored as a flag of its own, and the rule
+     * is the plain one: **a collection nobody can type into is one where nothing
+     * is typeable.** A flag would be a second place to say what the fields
+     * already say, and the two would eventually disagree — the same reason
+     * {@see ShapeDefinition::hasVariants()} asks the variant field instead of
+     * holding a list.
+     *
+     * Empty is not derived. A collection with no fields yet is one somebody is
+     * part-way through building in the editor, and treating it as derived would
+     * quietly hide it from the form it is being built for.
+     */
+    public function isDerived(): bool
+    {
+        if ($this->getFields()->isEmpty()) {
+            return false;
+        }
+
+        foreach ($this->getFields() as $field) {
+            if (!$field->isDerived()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

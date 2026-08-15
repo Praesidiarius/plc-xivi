@@ -65,6 +65,13 @@ final class ModuleRecordType extends AbstractType
         ]);
 
         foreach ($module->getCollections() as $collection) {
+            // Nothing to type into, so nothing to draw (XIV-16): a tax breakdown
+            // is worked out from the lines, and offering an empty row of it
+            // would invite somebody to fill in a figure the next save overwrites.
+            if ($collection->isDerived()) {
+                continue;
+            }
+
             $collections->add($collection->getKey(), CollectionType::class, [
                 'entry_type' => CollectionRowType::class,
                 'entry_options' => ['shape' => $collection, 'label' => false],
@@ -78,7 +85,11 @@ final class ModuleRecordType extends AbstractType
             ]);
         }
 
-        $builder->add($collections);
+        // A module whose only collections are derived gets no container at all,
+        // rather than an empty one with a heading over nothing.
+        if ($collections->all() !== []) {
+            $builder->add($collections);
+        }
     }
 
     public function configureOptions(OptionsResolver $resolver): void

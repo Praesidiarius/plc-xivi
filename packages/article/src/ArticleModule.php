@@ -77,6 +77,21 @@ final class ArticleModule implements ModuleProvider
                     // letting a typo become a credit.
                     options: ['min' => 0],
                 ),
+                // What VAT it is sold at, as a percentage (XIV-16). A number
+                // rather than a choice of 8.1, 2.6 and 3.8, because those are
+                // this year's Swiss rates and this is not a Swiss engine — a
+                // closed list would be wrong in another country and wrong here
+                // the next time parliament moves one. Empty means no VAT, which
+                // is the right default for a customer who is not registered for
+                // it and sees no tax on their documents at all.
+                new FieldBlueprint(
+                    key: 'tax_rate',
+                    label: 'field.tax_rate',
+                    type: 'decimal',
+                    filterable: true,
+                    position: 40,
+                    options: ['min' => 0, 'max' => 100, 'scale' => 2],
+                ),
             ],
             // No presets. Three fields is already the smallest honest version of
             // this module, so a "basic" one could only leave out the price —

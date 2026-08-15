@@ -10,6 +10,7 @@
         "ext-ctype": "*",
         "ext-iconv": "*",
         "anourvalar/office": "^2.6",
+        "brick/math": "^0.19.1",
         "doctrine/doctrine-bundle": "^3.3",
         "doctrine/doctrine-migrations-bundle": "^4.0",
         "doctrine/orm": "^3.6",
@@ -34,8 +35,8 @@
         "symfony/yaml": "8.1.*",
         "xivi/article": "^1.0",
         "xivi/contact": "^1.0",
-        "xivi/order": "^1.0",
-        "xivi/core": "^1.0"
+        "xivi/core": "^1.0",
+        "xivi/order": "^1.0"
     },
     "config": {
         "allow-plugins": {

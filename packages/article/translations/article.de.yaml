@@ -9,3 +9,4 @@ field:
     title: Titel
     description: Beschreibung
     price: Preis
+    tax_rate: MWST-Satz (%)

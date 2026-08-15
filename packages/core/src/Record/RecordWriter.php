@@ -15,6 +15,7 @@ namespace Xivi\Core\Record;
 
 use Doctrine\DBAL\Connection;
 use Psr\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Xivi\Core\Entity\CollectionDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
@@ -45,10 +46,13 @@ final readonly class RecordWriter
     /** The gap left between rows, so one can be moved between two (XIV-21). */
     private const int POSITION_STEP = 10;
 
+    /** @param iterable<ValueDeriver> $derivers */
     public function __construct(
         private Connection $connection,
         private RecordRepository $records,
         private EventDispatcherInterface $events,
+        #[AutowireIterator(ValueDeriver::TAG)]
+        private iterable $derivers = [],
     ) {
     }
 
@@ -72,6 +76,13 @@ final readonly class RecordWriter
                 ? []
                 : ($this->records->find($module, (int) $record->id, includeDeleted: true)->data ?? []);
 
+            // What the modules work out for themselves, before anything is
+            // compared or written (XIV-16). Here rather than after the write, so
+            // a derived total is stored once and the history entry describes the
+            // record that actually landed — deriving afterwards would mean a
+            // second UPDATE and a timeline that reads a step behind.
+            $children = $this->derive($module, $record, $children);
+
             $fields = $this->diff($module, $before, $record->data);
 
             $this->records->save($module, $record);
@@ -86,7 +97,12 @@ final readonly class RecordWriter
 
                 $touched = $this->writeChildren($collection, (int) $record->id, $rows);
 
-                if ($touched !== []) {
+                // A collection nobody typed into says nothing about what
+                // somebody did (XIV-16). Its rows restate the lines above them,
+                // and the change that moved them is already in this same entry —
+                // "VAT 8.1%: 97.20 → 105.30" underneath "quantity 1 → 2" is the
+                // same fact, told twice and less clearly.
+                if ($touched !== [] && !$collection->isDerived()) {
                     $collections[$key] = $touched;
                 }
             }
@@ -133,6 +149,65 @@ final readonly class RecordWriter
                 new \DateTimeImmutable(),
             ));
         });
+    }
+
+    /**
+     * Let every module with something to say fill in what follows from what was
+     * typed (XIV-16, §7.1).
+     *
+     * Derivers see the record and its rows together, because the interesting
+     * derived values need both: an order's total is a fact about its lines, and
+     * a subtotal line is a fact about the lines above it.
+     *
+     * **A derived collection keeps the row ids it already had.** The rows are
+     * worked out fresh on every save and carry no id, so writing them as they
+     * come would delete three rows and insert three identical ones each time —
+     * churning ids, and burning through the sequence for nothing. Matched by
+     * position instead, which is the only thing a restatement has to be matched
+     * by: what is in row two is whatever the lines put there.
+     *
+     * @param array<string, list<array{id: int|null, data: array<string, mixed>}>> $children
+     *
+     * @return array<string, list<array{id: int|null, data: array<string, mixed>}>>
+     */
+    private function derive(ModuleDefinition $module, Record $record, array $children): array
+    {
+        $derivation = new Derivation($record->data, $children);
+        $derived = false;
+
+        foreach ($this->derivers as $deriver) {
+            if ($deriver->supports($module)) {
+                $deriver->derive($module, $derivation);
+                $derived = true;
+            }
+        }
+
+        if (!$derived) {
+            return $children;
+        }
+
+        $record->data = $derivation->fields;
+        $rows = $derivation->rows;
+
+        if ($record->isNew()) {
+            return $rows;
+        }
+
+        foreach ($module->getCollections() as $collection) {
+            $key = $collection->getKey();
+
+            if (!$collection->isDerived() || !isset($rows[$key])) {
+                continue;
+            }
+
+            $existing = $this->records->findChildren($collection, (int) $record->id);
+
+            foreach ($rows[$key] as $index => $row) {
+                $rows[$key][$index]['id'] = isset($existing[$index]) ? (int) $existing[$index]->id : null;
+            }
+        }
+
+        return $rows;
     }
 
     /**

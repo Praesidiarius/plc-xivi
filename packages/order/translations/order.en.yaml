@@ -8,6 +8,7 @@ module: Orders
 
 collection:
     lines: Lines
+    taxes: VAT breakdown
 
 field:
     contact: Customer
@@ -20,6 +21,13 @@ field:
     quantity: Quantity
     unit_price: Unit price
     line_total: Line total
+    tax_rate: VAT rate (%)
+    net_total: Net total
+    tax_total: VAT
+    gross_total: Total
+    rate: Rate (%)
+    taxable_net: Net
+    tax_amount: VAT
 
 status:
     draft: Draft
