@@ -90,6 +90,14 @@ services:
         arguments:
             $connection: '@doctrine.dbal.tenant_connection'
 
+    # Document numbers come out of the customer's own counters (XIV-15). On the
+    # control plane they would be one sequence shared by every customer, which is
+    # both wrong and a leak: my invoice numbers would tell you how many invoices
+    # everybody else sent.
+    Xivi\Core\Numbering\NumberAllocator:
+        arguments:
+            $connection: '@doctrine.dbal.tenant_connection'
+
     # Both write to the customer's database, so both need its connection rather
     # than the control plane's.
     Xivi\Core\Demo\DemoDataGenerator:

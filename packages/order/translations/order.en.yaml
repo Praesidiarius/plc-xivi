@@ -11,6 +11,7 @@ collection:
     taxes: VAT breakdown
 
 field:
+    number: Number
     contact: Customer
     ordered_on: Ordered on
     status: Status

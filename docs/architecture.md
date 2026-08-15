@@ -840,6 +840,57 @@ thing asked about by kind, because a subtotal is defined by being one.
 
 ---
 
+### 5.10 Document numbers (XIV-15)
+
+A field may be numbered from a sequence: `ORD-2026-0001`, `INV-2026-0001`. Two
+things can go wrong with a document number and both are fatal — one that changes
+after somebody has read it down the phone, and two documents carrying the same
+one — so the mechanism is small and the decisions are written down.
+
+**Declared as an option, not as a field type.** A number is a string; what is
+special about it is *who fills it in*, which is a fact about the field rather
+than about the kind of value. So `NumberFormat::from('ORD-{year}-{number:4}')`
+spreads into any text field's options, the way inherited values do (§5.1), and a
+customer can change the pattern in the metadata editor without a deployment.
+
+**One pattern instead of three settings.** Prefix, padding and "resets each year"
+were never independent: a year in the number that did not reset would look absurd
+by 2028, and a reset without the year in it would hand out `0001` twice. So **the
+pattern decides the period** — a number containing `{year}` resets each year, one
+without it does not — and the third setting cannot be set wrongly because it
+cannot be set at all. The width earns its keep twice: it is what makes sorting
+the text sort the numbers.
+
+**The counter is a table, and allocation is one statement.**
+`INSERT ... ON CONFLICT DO UPDATE ... RETURNING` against a unique index on
+(shape, field, period). Read-then-increment in PHP is the textbook race — two
+requests read 41, two invoices go out as 42 — and that is the one bug here that
+cannot be cleaned up afterwards, because both documents may already have been
+sent. A Postgres `SEQUENCE` was the other candidate and loses on both counts: it
+cannot restart each year without an `ALTER` that two January transactions race
+through, and `nextval` survives a rollback.
+
+**Allocated inside the save's transaction**, through the §5.9 seam — the first
+thing to use it that is not a module, which is the useful confirmation that the
+engine needed exactly what a module needed. A save that fails gives its number
+back. The cost is a row lock held until that transaction ends, so two people
+creating an order at the same moment take turns; for a table written once per
+document that is the right way round.
+
+**Gaps, decided.** The number is assigned on the **first save**, not when a
+document is issued: it is what the record is *called* in lists and links (§5.4),
+and a draft with nothing to be called by is a worse problem than a gap. A record
+that is created and later deleted **keeps its number** and the sequence moves on.
+Records are soft-deleted (§5), so that is a hole in a list rather than a hole in
+the books — the document behind the missing number is still there to be looked
+at, which is exactly what somebody asking about it wants.
+
+**The year is the year the number is allocated in**, never a date on the record.
+Otherwise backdating an order to December reaches into last year's numbering,
+which is a book that is closed.
+
+---
+
 ## 6. Extensibility
 
 Three composable layers, all "one codebase, no forks":
