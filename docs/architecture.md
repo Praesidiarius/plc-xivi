@@ -786,11 +786,29 @@ Not yet decided. Decide deliberately rather than by accident.
    (§5.5), and the company's list of people is the reverse read back by query rather than
    stored twice. Optionally narrowed to a variant, so a picker offers companies rather
    than everybody.
-   Still open: **across modules** rather than within one — what a link means when the
-   target module is not installed for that customer (§3), and whether the query layer can
-   filter through one, which today it cannot. Also whether anything enforces that the id
-   points at something: there is no foreign key on a JSONB value, so a link can go stale,
-   and the display says `#id` rather than pretending otherwise.
+   *Built across modules too — XIV-13.* A reference may point at any module the customer
+   has, and four things follow from it:
+   - **The reverse list crosses modules.** A record's page asks every installed module
+     which of its fields point here, and groups what it finds by the module doing the
+     pointing. Named by module rather than by field, because an order and an invoice may
+     both call their link "Contact" and a list keyed by label alone silently shows one.
+   - **A filter may take one hop through a link**, compiled as `EXISTS` over the target's
+     table. One hop: `order.contact.city` from an invoice is a second join and a cost
+     nobody can estimate from the URL. **The target module's own permissions apply inside
+     the subquery** — following a link is reading the other module, and a filter that
+     ignored that would sift records by values somebody may not see (§8.4). No grant there
+     means the predicate matches nothing, which is an answer rather than an error.
+   - **A link into a module the customer does not have matches nothing and reads as
+     `#id`.** Not installed is a runtime fact about that customer (§3), not a broken
+     reference, and a page that renders beats one that does not.
+   - **Deleting a record that others point at is allowed, and the link goes stale.**
+     Refusing would mean a contact can never be deleted once anything has ever named it,
+     and there is no foreign key on a JSONB value to enforce it with anyway. Records are
+     soft-deleted, so nothing is destroyed; the link says `#id` rather than pretending,
+     which is the same honesty the display already had.
+
+   Still open: nothing enforces that the id points at something, which is the price of the
+   above and is deliberate rather than forgotten.
 
 *Numbering is stable — code comments cite these by number, so a settled question keeps
 its slot and gains a note rather than being removed.*
@@ -914,10 +932,20 @@ permission screens themselves — the last because gating them with a module
 permission would be circular. Importing is no longer among them: it is its own
 grant, which is the answer §5.6 said this section would give it.
 
-Still open: whether a reference picker should show only records the person may
-see, which is a real question about whether a link can point at something you
-cannot read; and what a grant means for a module the customer has uninstalled,
-which is inert today and deliberately not deleted.
+**A reference picker is scoped** (XIV-13), which answers what this section used to
+leave open. An unrestricted picker is a way to read the names of records somebody
+may not open — point at one, read the label back — so the candidates go through
+the same `RecordAccess` a list does. The cost is real and worth stating: somebody
+scoped to their own records will see a picker that omits the answer they wanted,
+with no message saying why. That is the safer half of the trade, and the half that
+can be widened by a grant instead of by a deploy.
+
+Core asks for that answer through `RecordAccessProvider`, because a query
+following a link cannot know in advance which module it will land in — the same
+seam as `InstanceCurrency`, one level further out.
+
+Still open: what a grant means for a module the customer has uninstalled, which is
+inert today and deliberately not deleted.
 
 ### 8.4.1 Managing users, before managing permissions
 

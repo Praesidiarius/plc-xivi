@@ -122,18 +122,25 @@
 				the reference on their side rather than stored here, so the two can
 				never disagree about who works where.
 			#}
-			{% for label, records in linked %}
+			{% for group in linked %}
+				{# The heading names the field as well only when one module points
+				   here twice — "Orders" beats "Orders: Contact" and says the same. #}
+				{% set twice = linked|filter(g => g.module.key == group.module.key)|length > 1 %}
+
 				<div class="col-lg-8">
 					<div class="card">
 						<div class="card-body">
 							<h2 class="h6 text-uppercase text-body-secondary mb-3">
-								{{ records|length }} with this as {{ label|lower }}
+								{{ group.heading(twice) }}
+								<span class="badge text-bg-light fw-normal">{{ group.records|length }}</span>
 							</h2>
 							<ul class="list-unstyled mb-0">
-								{% for linkedRecord in records %}
+								{% for linkedRecord in group.records %}
 									<li class="{{ loop.first ? '' : 'border-top pt-2 mt-2' }}">
-										<a href="{{ path('module_show', {module: module.key, id: linkedRecord.id}) }}">
-											{{ record_title(module, linkedRecord.data, linkedRecord.id) }}
+										{# The other module's own page, and its own way of naming a
+										   record — this one may be a different module entirely. #}
+										<a href="{{ path('module_show', {module: group.module.key, id: linkedRecord.id}) }}">
+											{{ record_title(group.module, linkedRecord.data, linkedRecord.id) }}
 										</a>
 									</li>
 								{% endfor %}

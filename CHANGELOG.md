@@ -151,6 +151,27 @@ of every page, and is not yet tied to git tags.
 
 ### Changed
 
+- **A link may now leave its own module** ([XIV-13]), which is the half of §7.6
+  that was open. `reference` already stored a target's id and took a module
+  option; what did not work was everything around it.
+- **The reverse list crosses modules.** A record's page lists what points at it
+  from anywhere the customer has installed, grouped by the module doing the
+  pointing — and named by that module, since an order and an invoice may both
+  call their link "Contact".
+- **A list can filter one hop through a link** — "articles whose supplier is
+  Acme". One hop only: a second would be a path nobody can reason about the cost
+  of. **The linked module's own permissions apply inside the join**, so a filter
+  is not a way to sift records by values somebody may not see; no grant there
+  means the condition matches nothing rather than erroring.
+- **The reference picker is scoped**, which settles the question §8.4 left open.
+  An unrestricted picker is a way to read the names of records somebody may not
+  open, by pointing at them and reading the label back. The cost is stated rather
+  than hidden: somebody scoped to their own records sees a picker that omits the
+  answer they wanted.
+- **Deleting a record that others point at is allowed, and the link goes stale**
+  — decided, and written into §7.6 with the reasoning. A link into a module the
+  customer does not have, or at a record that is gone, reads as `#id` and breaks
+  no page it appears on.
 - **A record's history is compact, and no longer the whole thing** ([XIV-3]). An
   entry is one line — when, what, who, and how many things it touched — with the
   changes themselves behind a native `<details>`. Native rather than a Bootstrap
@@ -476,6 +497,7 @@ began and is recorded here as one entry rather than invented as a history.
 [XIV-7]: https://xivi.youtrack.cloud/issue/XIV-7
 [XIV-11]: https://xivi.youtrack.cloud/issue/XIV-11
 [XIV-12]: https://xivi.youtrack.cloud/issue/XIV-12
+[XIV-13]: https://xivi.youtrack.cloud/issue/XIV-13
 [XIV-8]: https://xivi.youtrack.cloud/issue/XIV-8
 [XIV-9]: https://xivi.youtrack.cloud/issue/XIV-9
 [XIV-10]: https://xivi.youtrack.cloud/issue/XIV-10

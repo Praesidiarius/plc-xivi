@@ -13,7 +13,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Query;
 
+use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
+use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Query\Direction;
 use Xivi\Core\Query\Operator;
 use Xivi\Core\Query\RecordQueryFactory;
@@ -34,7 +36,14 @@ final class RecordQueryFactoryTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->factory = new RecordQueryFactory();
+        // Real, over a mocked entity manager: the repository is only reached
+        // when the filter *paths* are asked for, and this class only ever parses
+        // a query string — so nothing here touches a database.
+        // A stub rather than a mock: nothing here expects a call on it, and
+        // PHPUnit is right to say so.
+        $this->factory = new RecordQueryFactory(
+            new MetadataRepository(self::createStub(EntityManagerInterface::class)),
+        );
     }
 
     public function testAnEmptyQueryStringIsTheDefaultQuery(): void
@@ -55,7 +64,7 @@ final class RecordQueryFactoryTest extends TestCase
 
         self::assertCount(1, $query->filters);
         self::assertSame('last_name', $query->filters[0]->field);
-        self::assertNull($query->filters[0]->collection);
+        self::assertNull($query->filters[0]->through);
         self::assertSame(Operator::Contains, $query->filters[0]->operator);
         self::assertSame('Lovelace', $query->filters[0]->value);
     }
@@ -67,7 +76,7 @@ final class RecordQueryFactoryTest extends TestCase
             'filter' => [['path' => 'addresses.city', 'op' => 'eq', 'value' => 'Bern']],
         ]);
 
-        self::assertSame('addresses', $query->filters[0]->collection);
+        self::assertSame('addresses', $query->filters[0]->through);
         self::assertSame('city', $query->filters[0]->field);
         self::assertSame('addresses.city', $query->filters[0]->path());
     }

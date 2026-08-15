@@ -20,7 +20,12 @@ use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Field\Type\ReferenceFieldType;
+use Xivi\Core\Metadata\MetadataRepository;
+use Xivi\Core\Metadata\ModuleNotInstalled;
+use Xivi\Core\Permission\ModuleAction;
 use Xivi\Core\Permission\RecordAccess;
+use Xivi\Core\Permission\RecordAccessProvider;
 
 /**
  * Turns a RecordQuery into SQL (§7.3) — the highest-risk component in the
@@ -52,8 +57,16 @@ final readonly class QueryCompiler
     public function __construct(
         private Connection $connection,
         private FieldTypeRegistry $fieldTypes,
+        // Both only for links (XIV-13): which module a reference points at, and
+        // what the person may see of it. A filter that stays inside one module
+        // touches neither.
+        private MetadataRepository $metadata,
+        private RecordAccessProvider $access,
     ) {
     }
+
+    /** The one field type this compiler knows by name — see linkJoin(). */
+    private const string REFERENCE = 'reference';
 
     /** The alias the records table carries, so a semi-join can name its parent. */
     public const string ALIAS = 'r';
@@ -100,9 +113,7 @@ final readonly class QueryCompiler
         }
 
         foreach ($query->filters as $filter) {
-            $conditions[] = $filter->collection === null
-                ? $this->condition($module, $filter, $slot, $parameters, $types)
-                : $this->semiJoin($module, $filter, $slot, $parameters, $types);
+            $conditions[] = $this->predicate($module, $filter, $slot, $parameters, $types);
         }
 
         return new CompiledQuery(
@@ -111,6 +122,42 @@ final readonly class QueryCompiler
             types: $types,
             orderBy: $this->orderBy($module, $query),
         );
+    }
+
+    /**
+     * One filter, as whatever kind of predicate its path turns out to name.
+     *
+     * The path does not say which it is — `addresses.city` and `company.name`
+     * are the same syntax — so the shape is asked instead. A collection becomes
+     * a semi-join and a reference becomes a link join; the definitions already
+     * know which of the two a name is, and a marker in the URL would be a second
+     * place to keep that in step (XIV-13).
+     *
+     * @param array<string, mixed>         $parameters
+     * @param array<string, ParameterType> $types
+     */
+    private function predicate(
+        ModuleDefinition $module,
+        Filter $filter,
+        int &$slot,
+        array &$parameters,
+        array &$types,
+    ): string {
+        if ($filter->through === null) {
+            return $this->condition($module, $filter, $slot, $parameters, $types);
+        }
+
+        if ($module->getCollection($filter->through) !== null) {
+            return $this->semiJoin($module, $filter, $slot, $parameters, $types);
+        }
+
+        $reference = $module->getField($filter->through);
+
+        if ($reference !== null && $reference->getType() === self::REFERENCE) {
+            return $this->linkJoin($module, $reference, $filter, $slot, $parameters, $types);
+        }
+
+        throw UnsupportedQuery::unknownCollection($filter->through, $module->getKey());
     }
 
     /**
@@ -149,10 +196,10 @@ final readonly class QueryCompiler
         array &$parameters,
         array &$types,
     ): string {
-        \assert($filter->collection !== null);
+        \assert($filter->through !== null);
 
-        $collection = $module->getCollection($filter->collection)
-            ?? throw UnsupportedQuery::unknownCollection($filter->collection, $module->getKey());
+        $collection = $module->getCollection($filter->through)
+            ?? throw UnsupportedQuery::unknownCollection($filter->through, $module->getKey());
 
         $field = $collection->getField($filter->field)
             ?? throw UnsupportedQuery::unknownField($filter->path(), $collection->getKey());
@@ -169,6 +216,85 @@ final readonly class QueryCompiler
             self::ALIAS,
             $alias,
             $comparison,
+        );
+    }
+
+    /**
+     * A condition on the record this one links to (§7.6, XIV-13).
+     *
+     * `EXISTS` again, and for a different reason than the collection's: a
+     * reference points at exactly one record, so a plain join would not multiply
+     * rows — but it would turn a filter into an outer-join question about
+     * records that may not exist, and `EXISTS` says what is meant. It also keeps
+     * every filter the same shape, which is what stops this method from being
+     * the start of a query builder.
+     *
+     * **The linked module's own permissions apply inside it.** Following a link
+     * is reading the other module, and a filter that quietly ignored that would
+     * let somebody sift records by a value they may not see — the inference
+     * channel §8.4 is careful about. Somebody with no grant there gets a
+     * predicate that matches nothing, which is the honest answer and not an
+     * error: their list is simply empty of records that link anywhere.
+     *
+     * One hop only. `order.contact.city` from an invoice would be a second join
+     * and a path nobody can reason about the cost of; it is refused with the
+     * same message as any other unknown path.
+     *
+     * @param array<string, mixed>         $parameters
+     * @param array<string, ParameterType> $types
+     */
+    private function linkJoin(
+        ModuleDefinition $module,
+        FieldDefinition $reference,
+        Filter $filter,
+        int &$slot,
+        array &$parameters,
+        array &$types,
+    ): string {
+        $targetKey = ReferenceFieldType::targetModule($reference);
+
+        try {
+            $target = $this->metadata->get($targetKey);
+        } catch (ModuleNotInstalled) {
+            // A link into a module this customer does not have (§3). Nothing to
+            // join to, so nothing matches — the same answer as no permission,
+            // and for the same reason it is not an error.
+            return 'FALSE';
+        }
+
+        $field = $target->getField($filter->field)
+            ?? throw UnsupportedQuery::unknownField($filter->path(), $target->getKey());
+
+        $access = $this->access->accessFor($targetKey, ModuleAction::View);
+
+        if ($access->matchesNothing()) {
+            return 'FALSE';
+        }
+
+        $alias = 'l' . $slot;
+        $conditions = [
+            sprintf(
+                '%s.id = (%s)::bigint',
+                $alias,
+                $this->storedValue(self::ALIAS, $reference),
+            ),
+            sprintf('%s.deleted_at IS NULL', $alias),
+            $this->comparison($field, $filter, $alias, $slot, $parameters, $types),
+        ];
+
+        if ($access->isRestricted()) {
+            ++$slot;
+            $parameter = 'link_owner_' . $slot;
+            $conditions[] = sprintf('%s.%s = :%s', $alias, self::OWNER_COLUMN, $parameter);
+            $parameters[$parameter] = $access->ownerId();
+            $types[$parameter] = ParameterType::INTEGER;
+        }
+
+        return sprintf(
+            'EXISTS (SELECT 1 FROM %s %s WHERE %s)',
+            $this->table($target),
+            $alias,
+            implode(' AND ', $conditions),
         );
     }
 
@@ -290,6 +416,12 @@ final readonly class QueryCompiler
     private static function escapeLike(string $value): string
     {
         return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value);
+    }
+
+    /** A field's stored value, as text, for a place that binds no parameter. */
+    private function storedValue(string $alias, FieldDefinition $field): string
+    {
+        return sprintf('%s.data->>%s', $alias, $this->connection->quote($field->getKey()));
     }
 
     private function table(ShapeDefinition $shape): string
