@@ -115,7 +115,16 @@ step 'Static analysis (PHPStan, level 8)'
 docker compose exec -T php composer phpstan
 
 if [ "$coverage" = true ]; then
-	step 'Tests with coverage (PHPUnit)'
+	step 'Tests with coverage (PHPUnit, serial)'
+	# Serial, and not by choice: paratest 7.24 crashes outright when asked for
+	# coverage under PHPUnit 13 ("Call to a member function write() on array" in
+	# its SuiteLoader). So the coverage run — which is the one GitHub Actions
+	# makes — is the serial one until paratest catches up. Worth retrying on the
+	# next paratest release; it is the difference between ~48s and ~10s.
+	#
+	# The tmpfs test database (XIV-10) helps here regardless, and is most of the
+	# win: this path was 165s before it.
+	#
 	# Xdebug is in the dev image already and is the only driver here. The report
 	# goes to coverage/ rather than var/, because var/ is an anonymous volume and
 	# anything written there cannot be read from the host — which is exactly what
