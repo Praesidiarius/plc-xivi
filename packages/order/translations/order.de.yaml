@@ -1,0 +1,38 @@
+# Deutsch, per „du“ — dieselbe Anrede wie überall sonst (XIV-8).
+#
+# Wird einmal bei der Installation gelesen und in die Definitionen dieser Kundin
+# geschrieben; danach gehören die Bezeichnungen ihr.
+
+module: Aufträge
+
+collection:
+    lines: Positionen
+
+field:
+    contact: Kundin
+    ordered_on: Bestellt am
+    status: Status
+    note: Notiz
+    kind: Art
+    article: Artikel
+    description: Bezeichnung
+    quantity: Menge
+    unit_price: Einzelpreis
+    line_total: Positionssumme
+
+status:
+    draft: Entwurf
+    confirmed: Bestätigt
+    delivered: Geliefert
+    cancelled: Storniert
+
+line:
+    article: Artikelposition
+    custom: Freie Position
+    comment: Kommentar
+    subtotal: Zwischensumme
+
+transition:
+    confirm: Bestätigen
+    deliver: Als geliefert markieren
+    cancel: Stornieren

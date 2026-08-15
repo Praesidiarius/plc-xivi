@@ -30,6 +30,11 @@ deptrac:
         - type: directory
           value: ^packages/article/src/.*
 
+    - name: ModuleOrder
+      collectors:
+        - type: directory
+          value: ^packages/order/src/.*
+
     - name: App
       collectors:
         - type: directory
@@ -46,7 +51,14 @@ deptrac:
     ModuleArticle:
       - Core
 
+    # It links to contact and article by *key*, never by class: the reference is
+    # a string in a definition, and the customer's installation is what makes it
+    # resolve (§3, §7.6). So the boundary holds even here.
+    ModuleOrder:
+      - Core
+
     App:
       - Core
       - ModuleContact
       - ModuleArticle
+      - ModuleOrder

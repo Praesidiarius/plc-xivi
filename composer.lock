@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "4b3f9e0d31e548767201cd6b4f532240",
+    "content-hash": "93b5148c792c7b7a508ded45edcb27ca",
     "packages": [
         {
             "name": "anourvalar/office",
@@ -6839,6 +6839,33 @@
                 "MIT"
             ],
             "description": "Xivi engine: metadata, field types and record storage",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "xivi/order",
+            "version": "1.0.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/order",
+                "reference": "cf79a970e155354989e674c380f6b6516eaf7138"
+            },
+            "require": {
+                "php": ">=8.4",
+                "symfony/framework-bundle": "8.1.*",
+                "xivi/core": "^1.0"
+            },
+            "type": "symfony-bundle",
+            "autoload": {
+                "psr-4": {
+                    "Xivi\\Order\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Order module: what a customer ordered, and from which articles",
             "transport-options": {
                 "relative": true
             }

@@ -1,0 +1,18 @@
+{
+    "name": "xivi/order",
+    "description": "Order module: what a customer ordered, and from which articles",
+    "type": "symfony-bundle",
+    "version": "1.0.0",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.4",
+        "symfony/framework-bundle": "8.1.*",
+        "xivi/core": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Xivi\\Order\\": "src/"
+        }
+    },
+    "minimum-stability": "stable"
+}

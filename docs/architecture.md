@@ -247,6 +247,25 @@ which is unusual here and unavoidable: a collection's table is created per
 customer by the installer rather than by a migration, so only the tenant's own
 `shape_definition` knows which tables exist.
 
+**A field may be inherited from the record it points at** (XIV-18). An order line
+names an article and shows its description and price — *copied* when the line is
+written, not read through afterwards. Three properties follow, and all three are
+the point rather than side effects:
+
+- an order confirmed at 19.90 says 19.90 next year, and says it after the article
+  is deleted;
+- nothing ever copies over a value somebody typed, so a negotiated price is an
+  edit rather than a defect;
+- and because of the second, the page has to say **which fields have since
+  drifted** from what they were copied out of — a negotiated price and a stale
+  copy are otherwise indistinguishable, and telling them apart is a conversation
+  with a customer.
+
+It is **declared on the field**, not coded in the module: the alternative was the
+order module carrying a hook that fills in its own lines, and a module with code
+in it is what §1 exists to avoid. One option, and it works for any field of any
+shape pointing anywhere.
+
 **A field can be derived rather than typed** — a line's total, a subtotal's
 figure. It is shown and never offered for editing, enforced with `disabled` so a
 hand-edited request cannot type over it either. A derived value somebody can type

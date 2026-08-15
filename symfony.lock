@@ -309,5 +309,8 @@
     },
     "xivi/core": {
         "version": "dev-main"
+    },
+    "xivi/order": {
+        "version": "1.0.0"
     }
 }
