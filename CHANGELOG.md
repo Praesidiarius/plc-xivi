@@ -70,6 +70,16 @@ of every page, and is not yet tied to git tags.
 
 ### Fixed
 
+- **Editing a field no longer discards the options the form does not know**
+  ([XIV-26]). Saving a field replaced its whole options array with the three
+  settings the editor draws, so renaming a label — the thing that page exists for
+  — wiped a choice field's `choices`, a reference's `module`, an order line's
+  `inherit` and a numbered field's `sequence`. On a *variant* field that meant a
+  module with no kinds and records of a kind that no longer existed, and none of
+  it could be typed back in, because the editor has no control for any of it.
+  Saving now names only what it drew; a setting it means to empty it names as
+  null, so clearing a limit still clears it.
+
 - **Emptying a collection row deletes it again** ([XIV-19]). A disabled field
   keeps its value through a submit, so once rows carried derived values — a line
   total, and on a seeded row the id of the row it came from — a row somebody had
@@ -749,6 +759,7 @@ began and is recorded here as one entry rather than invented as a history.
 [XIV-17]: https://xivi.youtrack.cloud/issue/XIV-17
 [XIV-18]: https://xivi.youtrack.cloud/issue/XIV-18
 [XIV-19]: https://xivi.youtrack.cloud/issue/XIV-19
+[XIV-26]: https://xivi.youtrack.cloud/issue/XIV-26
 [XIV-20]: https://xivi.youtrack.cloud/issue/XIV-20
 [XIV-21]: https://xivi.youtrack.cloud/issue/XIV-21
 [XIV-22]: https://xivi.youtrack.cloud/issue/XIV-22

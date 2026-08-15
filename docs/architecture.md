@@ -489,6 +489,23 @@ module's (§5.1).
 - **A module's own fields cannot be removed.** Only the ones the customer added.
   §7.2's other half, unchanged.
 
+**What the form does not mention, it does not touch** (XIV-26). Options are where
+the declarative half of the engine lives — a choice field's `choices`, a
+reference's `module`, an order line's `inherit`, a numbered field's `sequence` —
+and this form draws three settings. It used to save the whole options array,
+which meant renaming a label wiped everything the form had never heard of: a
+module's states, a shape's variants, a link's target, none of it typeable back in
+because the editor has no control for any of it. Saving now names only what it
+drew, and a setting it means to *empty* it names as null — the difference between
+"not mentioned" and "mentioned as nothing" is what lets a form both leave alone
+what it does not know and still clear the boxes it does.
+
+That is a patch over the real shape, which is that a **type** should say which of
+its options are the customer's to set — the same way it already owns its
+validation, its storage and its widget. Then the editor could draw the right
+controls per type instead of three fixed ones, and a numbering pattern would be
+editable by the person whose numbers they are.
+
 **A field can say it names the record.** Something has to decide what a record is
 *called* — the heading on its page today, and whatever names it in a link or a
 picker once §7.6 arrives. The metadata used to have no answer, so the record page
@@ -850,8 +867,11 @@ one — so the mechanism is small and the decisions are written down.
 **Declared as an option, not as a field type.** A number is a string; what is
 special about it is *who fills it in*, which is a fact about the field rather
 than about the kind of value. So `NumberFormat::from('ORD-{year}-{number:4}')`
-spreads into any text field's options, the way inherited values do (§5.1), and a
-customer can change the pattern in the metadata editor without a deployment.
+spreads into any text field's options, the way inherited values do (§5.1), so it
+is per customer and changeable without a deployment.
+*Not changeable by the customer themselves yet* — the editor's form draws three
+settings and this is not one of them (XIV-27). The mechanism is theirs; the
+control is missing.
 
 **One pattern instead of three settings.** Prefix, padding and "resets each year"
 were never independent: a year in the number that did not reset would look absurd
