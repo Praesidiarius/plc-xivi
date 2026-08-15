@@ -133,12 +133,16 @@ trait SavesRecords
      * which is what the browser tests are for (XIV-31).
      *
      * @param array<string, mixed> $props beyond the module: `recordId`, `variant`
+     * @param string|null          $as    whose form this is — only when a test is
+     *                                    about *who* is looking, which for a
+     *                                    record form mostly means what language
+     *                                    they read numbers in (XIV-8)
      */
-    protected function recordForm(string $module, array $props = []): TestLiveComponent
+    protected function recordForm(string $module, array $props = [], ?string $as = null): TestLiveComponent
     {
         $this->client->setServerParameter('HTTP_HOST', static::HOST);
 
-        $user = $this->signingUser(null);
+        $user = $this->signingUser($as);
 
         return $this
             ->createLiveComponent('RecordForm', ['module' => $module, ...$props], $this->client)

@@ -65,11 +65,11 @@ lands in `Unreleased` here.
 
 ### Added
 
-- **Totals update while you type** ([XIV-32]). A line's total and the order's
-  net, VAT and gross follow the quantity and the price as they are entered,
-  before anything is saved. The arithmetic is the server's — the same derivers
-  the save runs, so there is no second copy of the rounding rule to disagree
-  with the first. See §5.9.
+- **Totals update while you type** ([XIV-32], [XIV-44]). A line's total and the
+  order's net, VAT and gross follow the quantity and the price as they are
+  entered, before anything is saved, and read in the reader's own number format.
+  The arithmetic is the server's — the same derivers the save runs, so there is
+  no second copy of the rounding rule to disagree with the first. See §5.9.
 - **Releases are published on GitHub**, from the changelog file the release
   procedure already writes. Pushing a `v*` tag posts
   `docs/changelog/<version>.md` as the release notes — and refuses if that file
@@ -86,3 +86,4 @@ lands in `Unreleased` here.
 | [17.0.0](docs/changelog/17.0.0.md) | 2026-08-14 | The first numbered version: the engine, tenancy, and everything built before versioning began |
 
 [XIV-32]: https://xivi.youtrack.cloud/issue/XIV-32
+[XIV-44]: https://xivi.youtrack.cloud/issue/XIV-44

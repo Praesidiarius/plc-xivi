@@ -277,6 +277,9 @@ final class RecordForm extends AbstractController
      * mid-number, not wrong, and only {@see self::save()} has an opinion about
      * that.
      *
+     * **The values are the form's, transformed** — see {@see self::asSubmitted()}.
+     * Reading `$this->formValues` directly is the bug this feature shipped with.
+     *
      * @param array<string, mixed> $initial
      *
      * @return array<string, mixed>
@@ -290,9 +293,11 @@ final class RecordForm extends AbstractController
             return $initial;
         }
 
+        $submitted = $this->asSubmitted($definition, $initial);
+
         /** @var array<string, mixed> $fields */
-        $fields = $this->formValues['fields'] ?? [];
-        $derivation = $this->derived->preview($definition, $fields, $this->submission->rows($definition, $this->formValues));
+        $fields = $submitted['fields'] ?? [];
+        $derivation = $this->derived->preview($definition, $fields, $this->submission->rows($definition, $submitted));
 
         if ($derivation === null) {
             return $initial;
@@ -328,6 +333,47 @@ final class RecordForm extends AbstractController
         }
 
         return $initial;
+    }
+
+    /**
+     * What is in the form right now, as the *model* sees it rather than as the
+     * screen shows it.
+     *
+     * `$this->formValues` is what the fields are displaying, and a displayed
+     * number is written in the reader's language: a price is `19.90` to somebody
+     * working in English and `19,90` to somebody working in German (XIV-8 —
+     * the language is per person, so both are on the same installation). The
+     * derivers want neither. They want the stored form, and `Amount::of('19,90')`
+     * is **null** — so previewing straight from the view values worked in English
+     * and, in German, blanked every total the moment a re-render fed a formatted
+     * number back in. It did not recover, because each render re-read the
+     * formatting it had just produced.
+     *
+     * So the values go through the form, which is the thing that owns the
+     * conversion. It costs one extra form build per render and buys the only
+     * version of this that is correct in more than one language.
+     *
+     * A throwaway form rather than `$this->getForm()`: that one is being built
+     * *by the caller of this method*, and asking for it here would be a loop.
+     *
+     * @param array<string, mixed> $initial
+     *
+     * @return array<string, mixed>
+     */
+    private function asSubmitted(ModuleDefinition $definition, array $initial): array
+    {
+        $probe = $this->createForm(
+            ModuleRecordType::class,
+            $initial,
+            ['module' => $definition, 'variant' => $definition->variantOf($this->recordFor($definition)->data)],
+        );
+
+        $probe->submit($this->formValues);
+
+        /** @var array<string, mixed> $data */
+        $data = $probe->getData();
+
+        return $data;
     }
 
     private function definition(): ModuleDefinition

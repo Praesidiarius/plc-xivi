@@ -15,7 +15,10 @@ namespace App\Tests\Functional\Engine;
 
 use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
+use App\Tenant\Entity\User;
+use App\Tenant\Repository\UserRepository;
 use App\Tenant\Security\UserCreator;
+use App\Tenant\Security\UserManager;
 use App\Tests\Support\SavesRecords;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -53,6 +56,7 @@ final class OrderTotalsTest extends WebTestCase
     private const string SLUG = 'test_totals';
     private const string HOST = 'totals.localhost';
     private const string EMAIL = 'totals@example.test';
+    private const string GERMAN_EMAIL = 'zahlen@example.test';
     private const string PASSWORD = 'totals-password';
 
     private KernelBrowser $client;
@@ -75,6 +79,17 @@ final class OrderTotalsTest extends WebTestCase
         });
 
         self::service(UserCreator::class)->create($this->tenant, self::EMAIL, 'Totals', self::PASSWORD, ['ROLE_ADMIN']);
+
+        // Somebody who reads numbers in German, on the same installation — the
+        // language is per person (XIV-8), so this is an ordinary colleague and
+        // not a second configuration.
+        self::service(UserCreator::class)->create($this->tenant, self::GERMAN_EMAIL, 'Zahlen', self::PASSWORD, ['ROLE_ADMIN']);
+
+        self::service(TenantSwitcher::class)->runFor($this->tenant, function (): void {
+            $german = self::service(UserRepository::class)->findOneByEmail(self::GERMAN_EMAIL);
+            self::assertInstanceOf(User::class, $german);
+            self::service(UserManager::class)->setLocale($german, 'de');
+        });
 
         $this->signIn();
     }
@@ -504,6 +519,44 @@ final class OrderTotalsTest extends WebTestCase
                 RecordAccess::unrestricted(),
             ),
         ), 'and no order was created by looking at one');
+    }
+
+    /**
+     * The figures survive being read in German (XIV-32).
+     *
+     * The live preview used to derive from the form's *view* values, which are
+     * written in the reader's language. `Amount::of('19,90')` is null, so every
+     * total blanked the moment a re-render fed a formatted number back in — and
+     * it never recovered, because each render re-read the formatting it had just
+     * produced. English hid it completely: there, the displayed number and the
+     * stored one are the same string.
+     */
+    public function testTheFiguresSurviveBeingReadInGerman(): void
+    {
+        $html = self::liveService(TenantSwitcher::class)->runFor($this->tenant, function (): string {
+            $component = $this->recordForm(OrderModule::KEY, [], self::GERMAN_EMAIL)
+                ->call('addRow', ['collection' => OrderModule::LINES, 'kind' => OrderModule::CUSTOM_LINE])
+                ->set('module_record', [
+                    'fields' => [],
+                    'collections' => [OrderModule::LINES => [self::row([
+                        OrderModule::KIND => OrderModule::CUSTOM_LINE,
+                        'description' => 'Beratung',
+                        OrderModule::QUANTITY => '3',
+                        OrderModule::UNIT_PRICE => '19,90',
+                    ])]],
+                ]);
+
+            // The second render is the one that used to break: by then the form
+            // is handing back what it drew, in German.
+            $component->render();
+
+            return $component
+                ->call('addRow', ['collection' => OrderModule::LINES, 'kind' => OrderModule::COMMENT_LINE])
+                ->render()
+                ->toString();
+        });
+
+        self::assertStringContainsString('59,70', $html, 'the total is there, and written in German');
     }
 
     /**
