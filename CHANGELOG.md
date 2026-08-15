@@ -117,6 +117,21 @@ of every page, and is not yet tied to git tags.
 - Both commands are registered in dev and test only, and are absent from a
   production image entirely.
 
+### Changed
+
+- **The session no longer carries a user's groups and grants.** `User` is
+  serialized into the security token, and a Doctrine collection in there comes
+  back detached — so touching it throws rather than loading lazily, and a person
+  in several groups would have written their whole permission model into the
+  session on every request only for it to be refreshed from the database anyway
+  (§8.2). The excluded properties are listed one by one rather than derived, so a
+  column silently missing from the session is not a thing that can happen quietly.
+- **`bin/ci` refuses a branch that adds no changelog entry**, before it starts the
+  stack, so forgetting costs seconds rather than the whole suite. It also notes
+  when a branch name carries no issue number. `--no-changelog` is the deliberate
+  escape hatch for a branch that genuinely changed nothing anybody would be told
+  about — a check with no way out is one that gets deleted rather than answered.
+
 ## [17.0.0] — 2026-08-14
 
 The first version to carry a number. Everything below was built before versioning
