@@ -152,6 +152,14 @@ a lost hundredth of a cent turns up is an invoice. And **the currency is not
 stored beside the amount**: one per installation means a column of prices adds
 up, where per record it would need exchange rates behind it to mean anything.
 
+The widget itself is Symfony's `MoneyType` under the Bootstrap theme, which
+already draws the input group and already knows which side of the amount a
+currency goes on in each language. **Framework first, wherever it reaches**: a
+hand-rolled widget sitting next to Symfony's own is a widget somebody has to keep
+next to it, and the first thing it stops matching is the locale handling nobody
+wrote down. Where the framework has an answer, this codebase takes it and spends
+its own opinions on the parts that are actually the product.
+
 **Relations stay relational.** Real link tables, real foreign keys. Relations are the one
 thing both EAV and JSON are bad at, and a CRM is relational at its core. Relations are
 *described* in metadata but *stored* relationally. See §5.1 for the first kind of relation
