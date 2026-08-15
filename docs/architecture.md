@@ -881,6 +881,19 @@ make the same ones.
   which rate that was — a header field would be guessing on any document with two
   rates.
 
+**The same arithmetic runs twice, and only once exists** (XIV-32). The form shows
+these figures while somebody is typing, before anything is saved, and it gets
+them by running the *same derivers* over values that are not going to be stored —
+`DerivedValues` is that call, extracted from the writer when the second caller
+appeared. The alternative was recomputing in the browser, which would be a second
+implementation of the rounding rule above; the two would agree until they did
+not, and the place they disagreed would be a rappen on an invoice, shown to the
+person deciding whether to send it. What differs between the callers is what they
+do afterwards, which is what should differ.
+
+Nothing about that preview is validated. Somebody who has typed `2.` is
+mid-number, not wrong, and the shape validation belongs to the save.
+
 **A line contributes if it has a price, not if it is the right kind.** Comment
 lines and subtotal lines fall out of the summing for having no quantity and no
 unit price, which is a fact about the line rather than a branch about its kind —
@@ -1281,6 +1294,12 @@ given up.
 **It was htmx first, and the swap is worth recording rather than quietly
 rewriting** (XIV-28, then XIV-33). htmx did the job for one button and did it
 well. Three things decided against it for the next one:
+
+The morphing argument below was a prediction when it was written. **XIV-32 built
+the feature it was predicting and it held**: typing a price updates the line
+total and the document's totals around a caret that does not move, with a browser
+test on the caret specifically, because the caret is the whole claim and nothing
+server-side can see it. The decision is no longer on probation.
 
 - **Morphing.** A form that redraws while somebody is typing in it has to update
   the changed nodes, not replace the region — swap the block a quantity field

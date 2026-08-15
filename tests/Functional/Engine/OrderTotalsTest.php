@@ -26,6 +26,8 @@ use Xivi\Contact\ContactModule;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
+use Xivi\Core\Permission\RecordAccess;
+use Xivi\Core\Query\RecordQuery;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordRepository;
 use Xivi\Order\OrderModule;
@@ -458,6 +460,114 @@ final class OrderTotalsTest extends WebTestCase
 
             return $record;
         });
+    }
+
+    /**
+     * The figures follow the typing, before anything is saved (XIV-32).
+     *
+     * Not a second implementation of the arithmetic being checked — the same
+     * derivers the writer uses, run over values that are not going to be stored.
+     * Which is exactly why this is worth a test: the way to get it wrong is to
+     * compute it somewhere else and have the two agree until they do not.
+     */
+    public function testTotalsFollowTheTypingWithoutSaving(): void
+    {
+        $html = self::liveService(TenantSwitcher::class)->runFor($this->tenant, fn (): string => $this
+            ->recordForm(OrderModule::KEY)
+            ->call('addRow', ['collection' => OrderModule::LINES, 'kind' => OrderModule::CUSTOM_LINE])
+            ->set('module_record', [
+                'fields' => [],
+                'collections' => [OrderModule::LINES => [self::row([
+                    OrderModule::KIND => OrderModule::CUSTOM_LINE,
+                    'description' => 'Consulting',
+                    OrderModule::QUANTITY => '3',
+                    OrderModule::UNIT_PRICE => '19.90',
+                ])]],
+            ])
+            ->render()
+            ->toString());
+
+        self::assertStringContainsString('59.70', $html, 'the line total is 3 × 19.90');
+        self::assertStringContainsString(
+            '59.70',
+            $html,
+            "and the order's net total says so too, from the same derivation",
+        );
+
+        // Nothing was written: a form somebody is still typing into is not a
+        // record, and a preview that saved would be a document nobody checked.
+        self::assertSame([], self::liveService(TenantSwitcher::class)->runFor(
+            $this->tenant,
+            fn (): array => self::service(RecordRepository::class)->findBy(
+                self::service(MetadataRepository::class)->get(OrderModule::KEY),
+                new RecordQuery([], [], 1, 10),
+                RecordAccess::unrestricted(),
+            ),
+        ), 'and no order was created by looking at one');
+    }
+
+    /**
+     * Looking at a form does not take a document number (XIV-32).
+     *
+     * `AssignsNumbers` is a deriver too, and the live preview runs derivers — so
+     * the first version of this feature allocated a number on every keystroke.
+     * A sequence does not give one back, so an order somebody typed slowly came
+     * out numbered in the hundreds. The preview runs only the derivers that said
+     * they cost nothing; this is the test that says so.
+     */
+    public function testPreviewingDoesNotConsumeADocumentNumber(): void
+    {
+        self::liveService(TenantSwitcher::class)->runFor($this->tenant, function (): void {
+            $this->recordForm(OrderModule::KEY)
+                ->call('addRow', ['collection' => OrderModule::LINES, 'kind' => OrderModule::CUSTOM_LINE])
+                ->set('module_record', [
+                    'fields' => [],
+                    'collections' => [OrderModule::LINES => [self::row([
+                        OrderModule::KIND => OrderModule::CUSTOM_LINE,
+                        'description' => 'Consulting',
+                        OrderModule::QUANTITY => '3',
+                        OrderModule::UNIT_PRICE => '19.90',
+                    ])]],
+                ])
+                ->render();
+        });
+
+        // The next order saved is still the first one, which it would not be if
+        // looking at the form had taken a number.
+        $id = $this->anOrder([[OrderModule::CUSTOM_LINE, ['description' => 'Real', OrderModule::QUANTITY => '1', OrderModule::UNIT_PRICE => '10.00']]]);
+
+        $number = self::liveService(TenantSwitcher::class)->runFor($this->tenant, fn (): string => (string) self::service(RecordRepository::class)
+            ->find(self::service(MetadataRepository::class)->get(OrderModule::KEY), $id)
+            ?->get(OrderModule::NUMBER));
+
+        self::assertStringEndsWith('0001', (string) $number, 'the first order saved is still the first number');
+    }
+
+    /**
+     * A half-typed number is not a mistake.
+     *
+     * The live re-render must not run the shape validation: somebody who has got
+     * as far as `2.` is mid-number, and a form that shouts at them is worse than
+     * one that waits.
+     */
+    public function testAHalfTypedNumberIsNotAnError(): void
+    {
+        $html = self::liveService(TenantSwitcher::class)->runFor($this->tenant, fn (): string => $this
+            ->recordForm(OrderModule::KEY)
+            ->call('addRow', ['collection' => OrderModule::LINES, 'kind' => OrderModule::CUSTOM_LINE])
+            ->set('module_record', [
+                'fields' => [],
+                'collections' => [OrderModule::LINES => [self::row([
+                    OrderModule::KIND => OrderModule::CUSTOM_LINE,
+                    'description' => '',
+                    OrderModule::QUANTITY => '2.',
+                    OrderModule::UNIT_PRICE => '',
+                ])]],
+            ])
+            ->render()
+            ->toString());
+
+        self::assertStringNotContainsString('invalid-feedback', $html, 'nothing is complained about yet');
     }
 
     private function signIn(): void
