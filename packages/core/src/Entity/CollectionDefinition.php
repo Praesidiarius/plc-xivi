@@ -46,6 +46,17 @@ class CollectionDefinition extends ShapeDefinition
      */
     public const string PARENT_COLUMN = 'parent_id';
 
+    /**
+     * Where a row sits among its siblings (XIV-21).
+     *
+     * A system column like the parent, not a field: it is not the customer's to
+     * name or to delete, and every read of a collection sorts by it. Rows are
+     * numbered in tens so that one can be moved between two others without
+     * renumbering the rest — which is also what lets a position survive a save
+     * that reorders nothing.
+     */
+    public const string POSITION_COLUMN = 'position';
+
     public function __construct(
         #[ORM\ManyToOne(targetEntity: ModuleDefinition::class, inversedBy: 'collections')]
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]

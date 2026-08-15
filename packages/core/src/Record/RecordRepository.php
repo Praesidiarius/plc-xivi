@@ -158,9 +158,10 @@ final readonly class RecordRepository
     /**
      * The rows of one collection belonging to one record.
      *
-     * Ascending by id, not descending: these are a list a person edits in order —
-     * the first address is the first one they typed — rather than a feed where
-     * the newest belongs on top.
+     * In the order the customer put them in (XIV-21), with the id breaking ties
+     * — a list somebody arranges, not a feed where the newest belongs on top.
+     * Rows written before positions existed all sit at zero and therefore keep
+     * the order they had.
      *
      * @return list<Record>
      */
@@ -168,9 +169,10 @@ final readonly class RecordRepository
     {
         $rows = $this->connection->fetchAllAssociative(
             sprintf(
-                'SELECT * FROM %s WHERE %s = :parent AND deleted_at IS NULL ORDER BY id ASC',
+                'SELECT * FROM %s WHERE %s = :parent AND deleted_at IS NULL ORDER BY %s ASC, id ASC',
                 $this->table($collection),
                 CollectionDefinition::PARENT_COLUMN,
+                CollectionDefinition::POSITION_COLUMN,
             ),
             ['parent' => $parentId],
             ['parent' => ParameterType::INTEGER],
@@ -198,10 +200,11 @@ final readonly class RecordRepository
 
         $rows = $this->connection->fetchAllAssociative(
             sprintf(
-                'SELECT * FROM %s WHERE %s IN (:parents) AND deleted_at IS NULL ORDER BY %s ASC, id ASC',
+                'SELECT * FROM %s WHERE %s IN (:parents) AND deleted_at IS NULL ORDER BY %s ASC, %s ASC, id ASC',
                 $this->table($collection),
                 CollectionDefinition::PARENT_COLUMN,
                 CollectionDefinition::PARENT_COLUMN,
+                CollectionDefinition::POSITION_COLUMN,
             ),
             ['parents' => $parentIds],
             ['parents' => ArrayParameterType::INTEGER],
@@ -224,23 +227,31 @@ final readonly class RecordRepository
         $payload = $this->encode($shape, $record->data);
         [$linkColumn, $linkValue] = $this->link($shape, $record);
 
+        // A row of a collection also carries where it sits (XIV-21); a module's
+        // record has nowhere to sit, so the column is not in its table at all.
+        $ordered = $shape instanceof CollectionDefinition;
+        $position = $ordered ? sprintf(', %s', CollectionDefinition::POSITION_COLUMN) : '';
+
         if ($record->isNew()) {
             $record->createdAt = $now;
             $record->updatedAt = $now;
 
             $id = $this->connection->fetchOne(
                 sprintf(
-                    'INSERT INTO %s (created_at, updated_at, %s, data) VALUES (:created, :updated, :link, :data) RETURNING id',
+                    'INSERT INTO %s (created_at, updated_at, %s, data%s) VALUES (:created, :updated, :link, :data%s) RETURNING id',
                     $this->table($shape),
                     $linkColumn,
+                    $position,
+                    $ordered ? ', :position' : '',
                 ),
                 [
                     'created' => $now->format('Y-m-d H:i:s'),
                     'updated' => $now->format('Y-m-d H:i:s'),
                     'link' => $linkValue,
                     'data' => $payload,
+                    ...($ordered ? ['position' => $record->position ?? 0] : []),
                 ],
-                ['link' => ParameterType::INTEGER],
+                ['link' => ParameterType::INTEGER, 'position' => ParameterType::INTEGER],
             );
 
             $record->id = (int) $id;
@@ -251,14 +262,20 @@ final readonly class RecordRepository
         $record->updatedAt = $now;
 
         $this->connection->executeStatement(
-            sprintf('UPDATE %s SET updated_at = :updated, %s = :link, data = :data WHERE id = :id', $this->table($shape), $linkColumn),
+            sprintf(
+                'UPDATE %s SET updated_at = :updated, %s = :link, data = :data%s WHERE id = :id',
+                $this->table($shape),
+                $linkColumn,
+                $ordered ? sprintf(', %s = :position', CollectionDefinition::POSITION_COLUMN) : '',
+            ),
             [
                 'updated' => $now->format('Y-m-d H:i:s'),
                 'link' => $linkValue,
                 'data' => $payload,
                 'id' => $record->id,
+                ...($ordered ? ['position' => $record->position ?? 0] : []),
             ],
-            ['link' => ParameterType::INTEGER, 'id' => ParameterType::INTEGER],
+            ['link' => ParameterType::INTEGER, 'id' => ParameterType::INTEGER, 'position' => ParameterType::INTEGER],
         );
 
         return $record;
@@ -477,6 +494,9 @@ final readonly class RecordRepository
             id: (int) $row['id'],
             ownerId: isset($row['owner_id']) ? (int) $row['owner_id'] : null,
             parentId: $parent === null ? null : (int) $parent,
+            position: isset($row[CollectionDefinition::POSITION_COLUMN])
+                ? (int) $row[CollectionDefinition::POSITION_COLUMN]
+                : null,
             createdAt: self::toDateTime($row['created_at'] ?? null),
             updatedAt: self::toDateTime($row['updated_at'] ?? null),
             deletedAt: self::toDateTime($row['deleted_at'] ?? null),

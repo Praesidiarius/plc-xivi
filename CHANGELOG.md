@@ -151,6 +151,20 @@ of every page, and is not yet tied to git tags.
 
 ### Changed
 
+- **Collection rows keep the order the customer put them in** ([XIV-21]). They
+  used to come back by id, so a row could only ever sit where it was created —
+  fine for a contact's addresses, useless for lines a comment is meant to group.
+- **A position, typed as a number.** Rows are renumbered in tens on every save,
+  so typing 15 puts a row between 10 and 20 and the next insertion still has
+  room. A plain input rather than move-up and move-down buttons: those are a form
+  submission each, this is one save, and typing a number between two others is
+  something people already know how to do.
+- **Moving a row is not a change to it.** Its id does not move and its history
+  says nothing happened, because nothing about the row did — the arrangement is a
+  property of the list.
+- **The order is what everything reads them in**: the form, the record page, the
+  export and generated documents. An import keeps the order of the file, which
+  falls out of the same rule — rows are numbered as they arrive.
 - **A collection's rows can come in kinds** ([XIV-20]) — §5.5 one level down. A
   contact is a person or a company; an order line will be an item, a comment or a
   subtotal. The same choice field decides which of the shape's fields apply, and
@@ -541,6 +555,7 @@ began and is recorded here as one entry rather than invented as a history.
 [XIV-14]: https://xivi.youtrack.cloud/issue/XIV-14
 [XIV-16]: https://xivi.youtrack.cloud/issue/XIV-16
 [XIV-20]: https://xivi.youtrack.cloud/issue/XIV-20
+[XIV-21]: https://xivi.youtrack.cloud/issue/XIV-21
 [XIV-8]: https://xivi.youtrack.cloud/issue/XIV-8
 [XIV-9]: https://xivi.youtrack.cloud/issue/XIV-9
 [XIV-10]: https://xivi.youtrack.cloud/issue/XIV-10

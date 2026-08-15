@@ -546,7 +546,11 @@ final class ModuleController extends AbstractController
             $children = $record->isNew() ? [] : $this->records->findChildren($collection, (int) $record->id);
 
             $rows = array_map(
-                static fn (Record $child): array => ['id' => (string) $child->id, 'fields' => $child->data],
+                static fn (Record $child): array => [
+                    'id' => (string) $child->id,
+                    'position' => $child->position,
+                    'fields' => $child->data,
+                ],
                 $children,
             );
 
@@ -556,11 +560,15 @@ final class ModuleController extends AbstractController
             // for the same reason: switching a form's fields as somebody picks
             // needs JavaScript, and these forms do not depend on any.
             foreach (array_keys($collection->getVariants()) as $variant) {
-                $rows[] = ['id' => '', 'fields' => [(string) $collection->getVariantField() => $variant]];
+                $rows[] = [
+                    'id' => '',
+                    'position' => null,
+                    'fields' => [(string) $collection->getVariantField() => $variant],
+                ];
             }
 
             if (!$collection->hasVariants()) {
-                $rows[] = ['id' => '', 'fields' => []];
+                $rows[] = ['id' => '', 'position' => null, 'fields' => []];
             }
 
             $data['collections'][$collection->getKey()] = $rows;
@@ -609,8 +617,24 @@ final class ModuleController extends AbstractController
                 }
 
                 $id = ($entry['id'] ?? '') === '' ? null : (int) $entry['id'];
-                $rows[$collection->getKey()][] = ['index' => $index, 'id' => $id, 'data' => $fields];
+                $rows[$collection->getKey()][] = [
+                    'index' => $index,
+                    'id' => $id,
+                    'data' => $fields,
+                    // A row nobody numbered goes to the end, which is where a
+                    // blank row somebody has just filled in belongs.
+                    'position' => ($entry['position'] ?? '') === '' ? \PHP_INT_MAX : (int) $entry['position'],
+                ];
             }
+
+            // Sorted by what the customer typed, and stable within it (XIV-21):
+            // two rows sharing a number keep the order they were shown in, which
+            // is the only answer that does not shuffle a list when somebody
+            // numbers two rows the same by accident.
+            usort(
+                $rows[$collection->getKey()],
+                static fn (array $a, array $b): int => [$a['position'], $a['index']] <=> [$b['position'], $b['index']],
+            );
         }
 
         return $rows;

@@ -69,3 +69,21 @@
 .history-section > summary {
 	cursor: pointer;
 }
+
+/*
+ * Collection rows carry a position (XIV-21).
+ *
+ * Narrow, and out of the way: it is a number about the list rather than a value
+ * of the row, so it should not read as another field to fill in.
+ */
+.row-position-cell {
+	float: left;
+	width: 4rem;
+	margin-right: .75rem;
+}
+
+.row-of-collection::after {
+	content: "";
+	display: block;
+	clear: both;
+}

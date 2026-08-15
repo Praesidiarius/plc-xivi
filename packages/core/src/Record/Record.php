@@ -41,6 +41,11 @@ final class Record
          * its parent, which is the only answer that cannot drift.
          */
         public ?int $parentId = null,
+        /**
+         * Where this row sits among its siblings (XIV-21). Null on anything that
+         * is not a collection's row, and on one that has not been placed yet.
+         */
+        public ?int $position = null,
         public ?\DateTimeImmutable $createdAt = null,
         public ?\DateTimeImmutable $updatedAt = null,
         public ?\DateTimeImmutable $deletedAt = null,
