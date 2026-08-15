@@ -95,6 +95,12 @@
 			<span class="badge text-bg-light fw-normal ms-1">
 				{{- 'module.history_changes'|trans({'%count%': entry.changeCount}) -}}
 			</span>
+		{% elseif entry.document %}
+			{# An entry that changed nothing still has something to say: which
+			   template, and which format came out of it (XIV-4). #}
+			<span class="badge text-bg-light fw-normal ms-1">
+				{{- entry.document.template }} · {{ entry.document.format|upper -}}
+			</span>
 		{% endif %}
 	{% endset %}
 

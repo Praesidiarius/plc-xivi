@@ -50,6 +50,12 @@ of every page, and is not yet tied to git tags.
   stops being offered — the same claim the form and the list already make, so
   there is no documentation to go stale. Values are written the way the field
   type shows them, so a date reads as a date and a price as "CHF 19.90".
+- **Generating a document is recorded on the record's timeline** — who, when,
+  from which template and in which format. The first history entry that is not a
+  change (§5.2): a letter that went out is a fact about the record's life, and
+  unlike "who looked at this" it is deliberate, rare and worth keeping. It goes
+  through the same event a change dispatches, so the engine still does not learn
+  what a user is.
 - **One Documents button beside Edit**, opening a chooser for the template and
   the format, rather than a card listing every template on the record. A contact
   with fifty templates was a column of a hundred buttons. The button's href is a

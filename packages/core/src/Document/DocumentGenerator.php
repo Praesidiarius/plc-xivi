@@ -14,9 +14,13 @@ declare(strict_types=1);
 namespace Xivi\Core\Document;
 
 use AnourValar\Office\DocumentService;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Xivi\Core\Entity\DocumentTemplate;
 use Xivi\Core\Entity\ModuleDefinition;
+use Xivi\Core\Event\RecordChanged;
 use Xivi\Core\Record\Record;
+use Xivi\Core\Record\RecordAction;
+use Xivi\Core\Record\RecordChanges;
 
 /**
  * One record plus one template makes one document (XIV-4).
@@ -39,6 +43,7 @@ final readonly class DocumentGenerator
     public function __construct(
         private DocumentMarkers $markers,
         private PdfConverter $converter,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -48,6 +53,61 @@ final readonly class DocumentGenerator
      * @throws DocumentFailed when the template cannot be read or filled
      */
     public function docx(DocumentTemplate $template, ModuleDefinition $module, Record $record): string
+    {
+        $document = $this->fill($template, $module, $record);
+        $this->announce($template, $module, $record, DocumentFormat::Docx);
+
+        return $document;
+    }
+
+    /**
+     * The same document as a PDF.
+     *
+     * Filled first and converted afterwards, rather than converted and then
+     * filled: the markers live in a Word document and stop being addressable the
+     * moment it becomes a PDF.
+     *
+     * @throws DocumentFailed
+     */
+    public function pdf(DocumentTemplate $template, ModuleDefinition $module, Record $record): string
+    {
+        $pdf = $this->converter->toPdf(
+            $this->fill($template, $module, $record),
+            self::filename($template, $record, DocumentFormat::Docx),
+        );
+
+        // After the conversion, so a converter that is down leaves no entry
+        // saying a document was made. And once, not twice: the PDF starts life
+        // as a .docx, which is why filling is separate from either verb.
+        $this->announce($template, $module, $record, DocumentFormat::Pdf);
+
+        return $pdf;
+    }
+
+    /**
+     * Says that a document happened, so the record's timeline can show it (§5.2).
+     *
+     * The same event a change dispatches, because the question "who did this, and
+     * when" has one answer and one listener already knows how to write it down —
+     * core still does not learn what a user is.
+     */
+    private function announce(
+        DocumentTemplate $template,
+        ModuleDefinition $module,
+        Record $record,
+        DocumentFormat $format,
+    ): void {
+        $this->events->dispatch(new RecordChanged(
+            $module,
+            $record,
+            RecordAction::DocumentGenerated,
+            RecordChanges::forDocument($template->getName(), $format->value),
+            new \DateTimeImmutable(),
+        ));
+    }
+
+    /** @throws DocumentFailed when the template cannot be read or filled */
+    private function fill(DocumentTemplate $template, ModuleDefinition $module, Record $record): string
     {
         $data = $this->markers->dataFor($module, $record);
 
@@ -112,23 +172,6 @@ final readonly class DocumentGenerator
         }
 
         $zip->close();
-    }
-
-    /**
-     * The same document as a PDF.
-     *
-     * Filled first and converted afterwards, rather than converted and then
-     * filled: the markers live in a Word document and stop being addressable the
-     * moment it becomes a PDF.
-     *
-     * @throws DocumentFailed
-     */
-    public function pdf(DocumentTemplate $template, ModuleDefinition $module, Record $record): string
-    {
-        return $this->converter->toPdf(
-            $this->docx($template, $module, $record),
-            self::filename($template, $record, DocumentFormat::Docx),
-        );
     }
 
     /**

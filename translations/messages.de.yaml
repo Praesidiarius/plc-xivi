@@ -97,6 +97,7 @@ module:
         created: Erstellt
         updated: Geändert
         deleted: Gelöscht
+        document_generated: Dokument erzeugt
     row_action:
         added: hinzugefügt
         updated: geändert

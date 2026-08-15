@@ -40,12 +40,25 @@ final readonly class RecordChanges
     public function __construct(
         public array $fields = [],
         public array $collections = [],
+        /**
+         * What was made, for an entry that changed nothing (XIV-4): the template
+         * it came from and the format it came out as.
+         *
+         * @var array{template: string, format: string}|array{}
+         */
+        public array $document = [],
     ) {
+    }
+
+    /** A document generated from a template, which alters no value. */
+    public static function forDocument(string $template, string $format): self
+    {
+        return new self(document: ['template' => $template, 'format' => $format]);
     }
 
     public function isEmpty(): bool
     {
-        return $this->fields === [] && $this->collections === [];
+        return $this->fields === [] && $this->collections === [] && $this->document === [];
     }
 
     /**
@@ -65,6 +78,10 @@ final readonly class RecordChanges
 
         if ($this->collections !== []) {
             $out['collections'] = $this->collections;
+        }
+
+        if ($this->document !== []) {
+            $out['document'] = $this->document;
         }
 
         return $out;
