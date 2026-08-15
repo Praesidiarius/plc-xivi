@@ -27,13 +27,11 @@
 			{# Every field here came from a definition row — including any the
 			   customer added themselves, which is the point.
 
-			   The `row` is what makes the widths mean anything (XIV-43): each
-			   field carries its own `col-*` and the grid wraps them into lines
-			   once they pass twelve, so ordering plus width is the whole layout
-			   and there is nothing here that knows what a field is. #}
-			<div class="row">
-				{{ form_widget(form.fields) }}
-			</div>
+			   Each field carries its own `col-*` (XIV-43) and the container this
+			   renders *is* the grid row — see RecordType, which puts the class
+			   there rather than here, so it holds for a collection row's fields
+			   too. Nothing here knows what a field is. #}
+			{{ form_widget(form.fields) }}
 		</div>
 	</div>
 
