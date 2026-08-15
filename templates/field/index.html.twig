@@ -22,10 +22,22 @@
 		{% for shape in shapes %}
 			<div class="card mb-3">
 				<div class="card-body">
-					<h2 class="h5 mb-3">
-						{{ shape.label }}
-						{% if not loop.first %}<span class="text-body-secondary fw-normal small">— rows inside a {{ module.label|lower }}</span>{% endif %}
-					</h2>
+					{#
+						The heading is an input, because the label is the customer's word
+						and their module arrived named in whatever language it was
+						installed in (XIV-8). Same change as relabelling a field, so it
+						sits on the same screen.
+					#}
+					<form method="post" action="{{ path('shape_rename', {module: module.key, shape: shape.id}) }}"
+					      class="d-flex align-items-center gap-2 mb-3">
+						<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
+						<input class="form-control form-control-sm w-auto" name="label" value="{{ shape.label }}"
+						       aria-label="{{ 'field.shape_name'|trans }}" required>
+						<button class="btn btn-sm btn-outline-secondary" type="submit">{{ 'common.rename'|trans }}</button>
+						{% if not loop.first %}
+							<span class="text-body-secondary small">{{ 'field.rows_inside'|trans({'%module%': module.label|lower}) }}</span>
+						{% endif %}
+					</form>
 
 					<div class="table-responsive">
 						<table class="table table-sm align-middle mb-0">

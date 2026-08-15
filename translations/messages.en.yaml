@@ -33,6 +33,7 @@ common:
     none: None.
     password: Password
     remove: Remove
+    rename: Rename
     save: Save
     view: View
 
@@ -110,6 +111,8 @@ module:
 field:
     label: Label
     label_placeholder: VAT number
+    shape_name: Name of this shape
+    rows_inside: '— rows inside a %module%'
     type: Type
     rules: Rules
     order: Order
@@ -251,6 +254,7 @@ refusal:
 
 flash:
     saved: Saved.
+    shape_renamed: 'Renamed to "%shape%".'
     deleted: Deleted.
     passwords_differ: Those two passwords are not the same.
     password_changed: Your password has been changed.

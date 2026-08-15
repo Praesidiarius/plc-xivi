@@ -57,6 +57,8 @@ final readonly class InstallModuleCommand
         string $module,
         #[Option(description: 'Named field set to install with; the module decides the default')]
         ?string $preset = null,
+        #[Option(description: 'Language to seed the labels in, e.g. "de"; the application default otherwise')]
+        ?string $locale = null,
     ): int {
         $found = $this->tenants->findOneBySlug($tenant);
 
@@ -89,14 +91,14 @@ final readonly class InstallModuleCommand
         }
 
         try {
-            [$definition, $wasInstalled] = $this->switcher->runFor($found, function () use ($blueprint, $preset): array {
+            [$definition, $wasInstalled] = $this->switcher->runFor($found, function () use ($blueprint, $preset, $locale): array {
                 // Asked before installing, because install() is idempotent and
                 // hands back what is already there. Without this the summary would
                 // report the preset it *would* have used on a run that did
                 // nothing, which is a confident lie.
                 $already = $this->metadata->find($blueprint->key) !== null;
 
-                return [$this->installer->install($blueprint, $preset), !$already];
+                return [$this->installer->install($blueprint, $preset, $locale), !$already];
             });
         } catch (\RuntimeException $e) {
             $io->error($e->getMessage());

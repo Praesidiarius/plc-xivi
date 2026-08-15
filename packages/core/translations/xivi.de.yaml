@@ -43,6 +43,7 @@ import:
         invalid_value: '%field%: %reason%'
 
 metadata:
+    empty_label: 'Eine Form braucht eine Bezeichnung: so nennen sie die Navigation und jede Seitenüberschrift.'
     bad_key: 'Ein Feldname muss mit einem Buchstaben beginnen und darf nur Kleinbuchstaben, Zahlen und Unterstriche enthalten. „%key%“ tut das nicht.'
     key_taken: '„%shape%“ hat bereits ein Feld namens „%key%“.'
     system_field: 'Das Feld „%key%“ kam mit dem Modul und kann nicht entfernt werden. Selbst hinzugefügte Felder schon.'

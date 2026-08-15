@@ -77,6 +77,35 @@ final class FieldController extends AbstractController
         ]);
     }
 
+    /**
+     * What a customer calls one of their own shapes (XIV-8).
+     *
+     * Their module arrived named by whatever language it was installed in, and
+     * "Contacts" is not the word a German office uses. Renaming it is the same
+     * kind of change as relabelling a field, so it lives on the same screen and
+     * goes through the same editor.
+     */
+    #[Route('/{shape}/rename', name: 'shape_rename', requirements: ['shape' => Requirement::POSITIVE_INT], methods: ['POST'])]
+    public function rename(string $module, int $shape, Request $request): Response
+    {
+        $definition = $this->definition($module);
+
+        if ($this->isCsrfTokenValid('edit-fields', (string) $request->request->get('_token'))) {
+            try {
+                $target = $this->shape($definition, $shape);
+                $this->editor->renameShape($target, (string) $request->request->get('label'));
+
+                $this->addFlash('success', $this->translator->trans('flash.shape_renamed', [
+                    '%shape%' => $target->getLabel(),
+                ]));
+            } catch (MetadataChangeRefused $e) {
+                $this->addFlash('warning', $e->translatable()->trans($this->translator));
+            }
+        }
+
+        return $this->redirectToRoute('field_index', ['module' => $module]);
+    }
+
     #[Route('/add', name: 'field_add', methods: ['POST'])]
     public function add(string $module, Request $request): Response
     {

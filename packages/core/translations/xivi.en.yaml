@@ -50,6 +50,7 @@ import:
         invalid_value: '%field%: %reason%'
 
 metadata:
+    empty_label: 'A shape needs a label: it is what the navigation and every page heading call it.'
     bad_key: 'A field name must start with a letter and contain only lowercase letters, numbers and underscores. "%key%" does not.'
     key_taken: '"%shape%" already has a field named "%key%".'
     system_field: 'The field "%key%" came with the module and cannot be removed. Fields you added yourself can be.'

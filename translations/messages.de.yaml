@@ -24,6 +24,7 @@ common:
     none: Keine.
     password: Passwort
     remove: Entfernen
+    rename: Umbenennen
     save: Speichern
     view: Ansehen
 
@@ -102,6 +103,8 @@ module:
 field:
     label: Bezeichnung
     label_placeholder: Umsatzsteuer-ID
+    shape_name: Name dieser Form
+    rows_inside: '— Zeilen innerhalb eines %module%'
     type: Typ
     rules: Regeln
     order: Reihenfolge
@@ -245,6 +248,7 @@ refusal:
 
 flash:
     saved: Gespeichert.
+    shape_renamed: 'Umbenannt in „%shape%“.'
     deleted: Gelöscht.
     passwords_differ: Die beiden Passwörter stimmen nicht überein.
     password_changed: Dein Passwort wurde geändert.

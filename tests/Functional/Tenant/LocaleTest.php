@@ -21,6 +21,13 @@ use App\Tenant\Security\UserCreator;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Xivi\Contact\ContactModule;
+use Xivi\Core\Entity\FieldDefinition;
+use Xivi\Core\Metadata\MetadataChangeRefused;
+use Xivi\Core\Metadata\MetadataEditor;
+use Xivi\Core\Metadata\MetadataRepository;
+use Xivi\Core\Module\ModuleInstaller;
+use Xivi\Core\Module\ModuleRegistry;
 
 /**
  * Reading the application in your own language (XIV-8).
@@ -199,6 +206,75 @@ final class LocaleTest extends WebTestCase
         );
 
         self::assertContains('Benutzer bearbeiten', $titles);
+    }
+
+    /**
+     * A module installed in German is named in German (XIV-8).
+     *
+     * Its label is the customer's data (§5), so it cannot follow each reader's
+     * own language — two colleagues share one row. What it can do is arrive in
+     * the right language, which is what the blueprint's catalogue is for: read
+     * once, at install time, and then it stops having a say.
+     */
+    public function testAModuleInstalledInGermanIsNamedInGerman(): void
+    {
+        $switcher = self::service(TenantSwitcher::class);
+        $blueprint = self::service(ModuleRegistry::class)->get(ContactModule::KEY);
+
+        $module = $switcher->runFor(
+            $this->tenant,
+            fn () => self::service(ModuleInstaller::class)->install($blueprint, null, 'de'),
+        );
+
+        self::assertSame('Kontakte', $module->getLabel());
+
+        $labels = array_map(
+            static fn (FieldDefinition $f): string => $f->getLabel(),
+            $module->getFields()->toArray(),
+        );
+
+        self::assertContains('Vorname', $labels);
+        self::assertContains('Nachname', $labels);
+    }
+
+    /**
+     * And the customer can still overrule it.
+     *
+     * Which is the whole reason the translation is a seed rather than a lookup:
+     * a label resolved on every render would overwrite their word every page
+     * load, and the screen offering the rename would be a lie.
+     */
+    public function testACustomerCanRenameTheirOwnModule(): void
+    {
+        $switcher = self::service(TenantSwitcher::class);
+        $blueprint = self::service(ModuleRegistry::class)->get(ContactModule::KEY);
+
+        $switcher->runFor($this->tenant, fn () => self::service(ModuleInstaller::class)->install($blueprint, null, 'de'));
+
+        $renamed = $switcher->runFor($this->tenant, function () {
+            $module = self::service(MetadataRepository::class)->get(ContactModule::KEY);
+            self::service(MetadataEditor::class)->renameShape($module, 'Ansprechpartner');
+
+            return $module->getLabel();
+        });
+
+        self::assertSame('Ansprechpartner', $renamed);
+    }
+
+    /** A shape with no name is a blank tab nobody can click. */
+    public function testAShapeCannotBeRenamedToNothing(): void
+    {
+        $switcher = self::service(TenantSwitcher::class);
+        $blueprint = self::service(ModuleRegistry::class)->get(ContactModule::KEY);
+
+        $switcher->runFor($this->tenant, fn () => self::service(ModuleInstaller::class)->install($blueprint));
+
+        $this->expectException(MetadataChangeRefused::class);
+
+        $switcher->runFor($this->tenant, function (): void {
+            $module = self::service(MetadataRepository::class)->get(ContactModule::KEY);
+            self::service(MetadataEditor::class)->renameShape($module, '   ');
+        });
     }
 
     // -- helpers ------------------------------------------------------------

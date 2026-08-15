@@ -45,7 +45,7 @@ final class ContactModule implements ModuleProvider
     {
         return new ModuleBlueprint(
             key: self::KEY,
-            label: 'Contacts',
+            label: 'module',
             table: 'contact',
             fields: [
                 // What kind of contact this is, and therefore which of the fields
@@ -53,17 +53,17 @@ final class ContactModule implements ModuleProvider
                 // adding "Partner" later is adding an option here.
                 new FieldBlueprint(
                     key: 'kind',
-                    label: 'Kind',
+                    label: 'field.kind',
                     type: 'choice',
                     required: true,
                     filterable: true,
                     listed: true,
                     position: 5,
-                    options: ['choices' => [self::PERSON => 'Person', self::COMPANY => 'Company']],
+                    options: ['choices' => [self::PERSON => 'choice.person', self::COMPANY => 'choice.company']],
                 ),
                 new FieldBlueprint(
                     key: 'company_name',
-                    label: 'Company name',
+                    label: 'field.company_name',
                     type: 'text',
                     required: true,
                     filterable: true,
@@ -81,7 +81,7 @@ final class ContactModule implements ModuleProvider
                     variants: [self::PERSON],
                     // Part of what a contact is called (§5.4).
                     title: true,
-                    label: 'First name',
+                    label: 'field.first_name',
                     type: 'text',
                     required: true,
                     filterable: true,
@@ -92,7 +92,7 @@ final class ContactModule implements ModuleProvider
                     key: 'last_name',
                     variants: [self::PERSON],
                     title: true,
-                    label: 'Last name',
+                    label: 'field.last_name',
                     type: 'text',
                     required: true,
                     filterable: true,
@@ -101,7 +101,7 @@ final class ContactModule implements ModuleProvider
                 ),
                 new FieldBlueprint(
                     key: 'email',
-                    label: 'Email',
+                    label: 'field.email',
                     type: 'email',
                     // Not required: plenty of real contacts are a name and a phone
                     // number. Unique, so the ones that have an address have their own.
@@ -111,14 +111,14 @@ final class ContactModule implements ModuleProvider
                 ),
                 new FieldBlueprint(
                     key: 'phone',
-                    label: 'Phone',
+                    label: 'field.phone',
                     type: 'text',
                     position: 40,
                     options: ['max_length' => 40],
                 ),
                 new FieldBlueprint(
                     key: 'birthday',
-                    label: 'Birthday',
+                    label: 'field.birthday',
                     type: 'date',
                     variants: [self::PERSON],
                     position: 50,
@@ -129,7 +129,7 @@ final class ContactModule implements ModuleProvider
                 // rather than stored, so the two cannot disagree.
                 new FieldBlueprint(
                     key: 'company',
-                    label: 'Company',
+                    label: 'field.company',
                     type: 'reference',
                     filterable: true,
                     variants: [self::PERSON],
@@ -144,19 +144,19 @@ final class ContactModule implements ModuleProvider
                 // exactly like the ones above and stored by the same code.
                 new CollectionBlueprint(
                     key: 'addresses',
-                    label: 'Addresses',
+                    label: 'collection.addresses',
                     table: 'contact_address',
                     fields: [
                         new FieldBlueprint(
                             key: 'label',
-                            label: 'Label',
+                            label: 'field.address_label',
                             type: 'text',
                             position: 10,
                             options: ['max_length' => 60],
                         ),
                         new FieldBlueprint(
                             key: 'street',
-                            label: 'Street',
+                            label: 'field.street',
                             type: 'text',
                             required: true,
                             position: 20,
@@ -164,14 +164,14 @@ final class ContactModule implements ModuleProvider
                         ),
                         new FieldBlueprint(
                             key: 'postal_code',
-                            label: 'Postal code',
+                            label: 'field.postal_code',
                             type: 'text',
                             position: 30,
                             options: ['max_length' => 20],
                         ),
                         new FieldBlueprint(
                             key: 'city',
-                            label: 'City',
+                            label: 'field.city',
                             type: 'text',
                             // Filterable because "contacts in this city" is the
                             // question addresses exist to answer, and it is the
@@ -184,7 +184,7 @@ final class ContactModule implements ModuleProvider
                         ),
                         new FieldBlueprint(
                             key: 'country',
-                            label: 'Country',
+                            label: 'field.country',
                             type: 'text',
                             position: 50,
                             options: ['max_length' => 120],

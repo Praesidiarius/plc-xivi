@@ -1,0 +1,33 @@
+# What the Contact module calls itself and its fields (XIV-8).
+#
+# Read **once, at install time**, and written into that customer's definitions —
+# not looked up on every render. A label is the customer's data (§5): they may
+# rename it, and a translation that overrode their word every page load would
+# make the rename screen a lie.
+#
+# So this is a seed, exactly like the module blueprint it belongs to (§6.1),
+# and it stops having a say the moment the module is installed.
+
+module: Contacts
+
+collection:
+    addresses: Addresses
+
+field:
+    kind: Kind
+    company_name: Company name
+    first_name: First name
+    last_name: Last name
+    email: Email
+    phone: Phone
+    birthday: Birthday
+    company: Company
+    address_label: Label
+    street: Street
+    postal_code: Postal code
+    city: City
+    country: Country
+
+choice:
+    person: Person
+    company: Company

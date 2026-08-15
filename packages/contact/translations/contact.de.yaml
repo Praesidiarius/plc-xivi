@@ -1,0 +1,27 @@
+# Die deutschen Vorgaben des Kontakt-Moduls (XIV-8). Siehe contact.en.yaml —
+# das hier ist ein Saatgut, kein Nachschlagewerk: es wird einmal bei der
+# Installation gelesen.
+
+module: Kontakte
+
+collection:
+    addresses: Adressen
+
+field:
+    kind: Art
+    company_name: Firmenname
+    first_name: Vorname
+    last_name: Nachname
+    email: E-Mail
+    phone: Telefon
+    birthday: Geburtstag
+    company: Firma
+    address_label: Bezeichnung
+    street: Strasse
+    postal_code: PLZ
+    city: Ort
+    country: Land
+
+choice:
+    person: Person
+    company: Firma

@@ -135,8 +135,18 @@ of every page, and is not yet tied to git tags.
   key in both directions: a key with no German is the quietest bug here, since the
   fallback keeps the page working and merely serves one paragraph of it in the
   wrong language on somebody else's screen.
-- A customer's own labels are deliberately **not** translated: module names, field
-  labels and choice options are their data, in the language they typed.
+- **A module's labels are seeded from its own catalogue**, read once at install
+  time: `tenant:module:install --locale=de` gives that customer "Kontakte" and
+  "Vorname" rather than the blueprint's English. Once written they are the
+  customer's data (§5) and stop following the catalogue — resolving a label on
+  every render would overrule a rename every page load, which would make the
+  screen offering that rename a lie.
+- **A module can be renamed**, which it could not be before. Field labels were
+  already the customer's to change; the shape holding them was not, so a module
+  installed in the wrong language could not be corrected at all.
+- Labels therefore stay one language *per tenant*, not per reader: two colleagues
+  share one row, and a label that changed with who was looking would have stopped
+  being data.
 - **Every string in the interface is now a catalogue entry**, across all nineteen
   templates. Counted sentences use ICU plurals rather than a ternary, because
   "one" and "other" are not the only two answers every language has and building

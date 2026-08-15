@@ -63,6 +63,15 @@ final class MetadataChangeRefused extends \RuntimeException
         );
     }
 
+    public static function emptyLabel(): self
+    {
+        return self::of(
+            'A shape needs a label: it is what the navigation and every page heading call it.',
+            'metadata.empty_label',
+            [],
+        );
+    }
+
     public static function keyTaken(string $key, string $shape): self
     {
         return self::of(

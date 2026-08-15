@@ -85,9 +85,15 @@ final class FieldUiTest extends WebTestCase
         self::assertResponseIsSuccessful();
 
         $text = $crawler->filter('main')->text();
-        foreach (['first_name', 'birthday', 'Addresses', 'postal_code'] as $expected) {
+        foreach (['first_name', 'birthday', 'postal_code'] as $expected) {
             self::assertStringContainsString($expected, $text);
         }
+
+        // A shape's label is an input now, because it can be renamed (XIV-8) —
+        // and text() does not see what an input holds.
+        $labels = $crawler->filter('input[name="label"]')->extract(['value']);
+
+        self::assertContains('Addresses', $labels);
     }
 
     /** The claim, end to end: a row becomes a form field. */
