@@ -1,0 +1,52 @@
+# Deutsch, per „du“ — dieselbe Anrede wie überall sonst (XIV-8).
+#
+# Wird einmal bei der Installation gelesen und in die Definitionen dieser Kundin
+# geschrieben; danach gehören die Bezeichnungen ihr.
+
+module: Rechnungen
+
+collection:
+    lines: Positionen
+    taxes: MWST-Aufteilung
+
+field:
+    number: Nummer
+    order: Auftrag
+    contact: Kundin
+    issued_on: Rechnungsdatum
+    status: Status
+    note: Notiz
+    net_total: Total netto
+    tax_total: MWST
+    gross_total: Total
+    kind: Art
+    order_line: Auftragsposition
+    article: Artikel
+    description: Bezeichnung
+    quantity: Menge
+    unit_price: Einzelpreis
+    tax_rate: MWST-Satz (%)
+    line_total: Positionssumme
+    rate: Satz (%)
+    taxable_net: Netto
+    tax_amount: MWST
+
+status:
+    draft: Entwurf
+    sent: Versendet
+    paid: Bezahlt
+    cancelled: Storniert
+
+line:
+    article: Artikelposition
+    custom: Freie Position
+    comment: Kommentar
+    subtotal: Zwischensumme
+
+transition:
+    send: Als versendet markieren
+    pay: Als bezahlt markieren
+    cancel: Stornieren
+
+seed:
+    action: Restmenge verrechnen

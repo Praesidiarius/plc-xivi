@@ -1,0 +1,17 @@
+{
+    "name": "xivi/invoice",
+    "description": "Invoice module: what a customer is asked to pay, made from an order",
+    "type": "symfony-bundle",
+    "version": "1.0.0",
+    "require": {
+        "php": ">=8.4",
+        "symfony/framework-bundle": "8.1.*",
+        "xivi/core": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Xivi\\Invoice\\": "src/"
+        }
+    },
+    "minimum-stability": "stable"
+}

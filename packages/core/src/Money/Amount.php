@@ -97,6 +97,12 @@ final readonly class Amount implements \Stringable
         return new self($this->value->plus($addend->value));
     }
 
+    /** What is left of this after that — how much of a line is still to invoice (XIV-19). */
+    public function minus(self $subtrahend): self
+    {
+        return new self($this->value->minus($subtrahend->value));
+    }
+
     /**
      * This amount at a percentage of itself — 1200.00 at 8.1 is 97.20.
      *
@@ -117,6 +123,16 @@ final readonly class Amount implements \Stringable
     public function isZero(): bool
     {
         return $this->value->isZero();
+    }
+
+    /**
+     * More than nothing. Not "not zero": a line invoiced past its quantity has a
+     * negative remainder, and there is no more of it left than there is of one
+     * invoiced exactly.
+     */
+    public function isPositive(): bool
+    {
+        return $this->value->isPositive();
     }
 
     /**

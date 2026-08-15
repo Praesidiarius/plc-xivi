@@ -20,6 +20,7 @@ use Xivi\Core\Module\CollectionBlueprint;
 use Xivi\Core\Module\FieldBlueprint;
 use Xivi\Core\Module\ModuleBlueprint;
 use Xivi\Core\Module\ModuleProvider;
+use Xivi\Core\Money\LineTotals;
 use Xivi\Core\Numbering\NumberFormat;
 use Xivi\Core\Record\InheritedValue;
 
@@ -368,11 +369,30 @@ final class OrderModule implements ModuleProvider
                 // and a cancelled one is a record of what did not.
                 locked: [self::DELIVERED, self::CANCELLED],
             ),
+            // Every order names a customer, so this one is not optional (XIV-23).
+            requires: ['contact'],
             // And an order that sells only custom lines is an ordinary order, so
             // this one is: without it, the article line kind is simply not
             // offered.
-            requires: ['contact'],
             uses: [self::ARTICLE_MODULE],
+            // Where the money is (XIV-16, declared rather than coded since
+            // XIV-19). The arithmetic belongs to the engine; what this module
+            // knows is which of its own fields mean what.
+            lineTotals: new LineTotals(
+                collection: self::LINES,
+                quantity: self::QUANTITY,
+                unitPrice: self::UNIT_PRICE,
+                lineTotal: self::LINE_TOTAL,
+                netTotal: self::NET_TOTAL,
+                grossTotal: self::GROSS_TOTAL,
+                taxRate: self::TAX_RATE,
+                taxTotal: self::TAX_TOTAL,
+                taxes: self::TAXES,
+                rate: self::RATE,
+                taxableNet: self::TAXABLE_NET,
+                taxAmount: self::TAX_AMOUNT,
+                subtotalKind: self::SUBTOTAL_LINE,
+            ),
         );
     }
 }

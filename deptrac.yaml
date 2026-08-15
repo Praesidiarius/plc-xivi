@@ -35,6 +35,11 @@ deptrac:
         - type: directory
           value: ^packages/order/src/.*
 
+    - name: ModuleInvoice
+      collectors:
+        - type: directory
+          value: ^packages/invoice/src/.*
+
     - name: App
       collectors:
         - type: directory
@@ -57,8 +62,15 @@ deptrac:
     ModuleOrder:
       - Core
 
+    # Made *from* an order and pointing at contacts and articles, and still
+    # depending on none of them: every one of those is a key in a declaration
+    # (§3, XIV-19).
+    ModuleInvoice:
+      - Core
+
     App:
       - Core
       - ModuleContact
       - ModuleArticle
       - ModuleOrder
+      - ModuleInvoice

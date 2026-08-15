@@ -942,6 +942,62 @@ same problem §5.7 describes and the same technique answers it.
 
 ---
 
+### 5.12 One record made from another (XIV-19)
+
+An invoice is made from an order, a delivery note from an order, an order from a
+quotation. It is the commonest thing an ERP does and it is always the same thing:
+copy a header, copy the lines, keep a link back, and never take the same line
+twice. So it is **declared** — `Seed` names the source module, the field holding
+the link, and the fields and rows to bring along — rather than written once per
+pair of modules, which would be a class per pair.
+
+**Copied, never read through.** The new record holds its own values from the
+moment it exists. That is what lets an invoice stay correct after the order is
+edited, and what lets a second invoice hold different lines from the first. Once
+issued, an invoice is a document and stops following anything. The link is kept
+beside the copy so reporting still knows where it came from — the same shape as
+an order line's article (§5.1), one level up.
+
+**Seeding is not saving.** What comes back is a *form*, filled in, that somebody
+reads and changes before pressing save. A document that appeared fully formed the
+moment a button was pressed is a document nobody checked. It is also why the
+seeded page is the ordinary new-record form: a seeded form and an edited one are
+the same page, which is what makes the seeded one editable at all.
+
+**What is left is read, not stored.** A "quantity invoiced" column on the order
+line, kept in step by whoever writes an invoice, is a second record of a fact the
+invoices already hold, and the two disagree the first time somebody deletes one.
+So each seeded row records **which row it came from**, and what a source row has
+left is its quantity minus what every document made from it took. A row with
+nothing left is not offered again; the order's own page shows what is still
+outstanding on the line rather than in a total nobody can check against a line.
+
+That row reference is a plain number rather than a `reference` field, because a
+reference points at a *record* and a collection row is not one — it has no page
+and no life of its own (§5.1). What it is for is arithmetic, not a link somebody
+follows.
+
+**Through the reader's own permissions.** Working out what is left means reading
+the other module's records, and being allowed to open an order is not being
+allowed to read the invoices made from it (§8.4). Somebody without that grant is
+told the order is wholly uninvoiced — the safe direction to be wrong in, and they
+cannot make an invoice either way.
+
+**Two things are deliberately not copied**: a line's total and a subtotal's
+figure. Both are derived on save (§5.9), so a partial invoice restates its own
+subtotals instead of repeating the order's — which on an invoice for half the
+lines would be the most convincing wrong number in the system.
+
+*What this cost the engine is the measure of the six tickets before it.* The
+invoice module is a declaration and a translation file: no controller, no entity,
+no form, no class the engine calls. The one thing it did cost was moving the
+order module's totals into core behind a `LineTotals` declaration — two modules
+needing identical sums is the engine's problem rather than theirs, and the
+alternative was the same hundred lines twice, drifting apart the first time
+somebody fixed a rounding bug in one of them.
+
+---
+
 ## 6. Extensibility
 
 Three composable layers, all "one codebase, no forks":

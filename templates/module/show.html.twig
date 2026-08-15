@@ -66,6 +66,19 @@
 						</button>
 					</form>
 				{% endfor %}
+				{#
+					What this record can be made into (XIV-19): an invoice from an
+					order. A link rather than a form, because what it opens is the
+					new record's form filled in — nothing is written until somebody
+					has read it and pressed save.
+				#}
+				{% for offer in seeds %}
+					<a class="btn btn-outline-primary"
+					   href="{{ path('module_new', {module: offer.module.key, from: record.id}) }}">
+						<i class="bi bi-{{ offer.module.icon }}" aria-hidden="true"></i>
+						{{ offer.seed.label|trans({}, offer.module.key) }}
+					</a>
+				{% endfor %}
 				{% if can('edit', module, record) and not (lifecycle and lifecycle.isLocked(record)) %}
 					<a class="btn btn-primary" href="{{ path('module_edit', {module: module.key, id: record.id}) }}">
 						<i class="bi bi-pencil" aria-hidden="true"></i> {{ 'common.edit'|trans }}
@@ -129,6 +142,11 @@
 												   question it answers — "is this price negotiated or stale?" — is
 												   asked while looking at the row. #}
 												{% set apart = drifted[collection.key][row.id]|default([]) %}
+												{# What nothing has taken yet (XIV-19): an order line
+												   half invoiced says so on the line, where somebody
+												   deciding what to invoice next is looking. #}
+												{% set remaining = outstanding[collection.key]|default(null) %}
+												{% set left = remaining ? remaining.rows[row.id]|default(null) : null %}
 												<tr>
 													{% for field in collection.fields %}
 														{% set shown = display(field, row.get(field.key)) %}
@@ -138,6 +156,12 @@
 																<i class="bi bi-pencil-square text-body-secondary small"
 																   title="{{ 'module.drifted'|trans({'%field%': field.label}) }}"
 																   aria-hidden="true"></i>
+															{% endif %}
+															{% if left is not null and field.key == remaining.field %}
+																<span class="badge text-bg-light ms-1"
+																      title="{{ 'module.outstanding_help'|trans }}">
+																	{{ 'module.outstanding'|trans({'%amount%': left}) }}
+																</span>
 															{% endif %}
 														</td>
 													{% endfor %}
