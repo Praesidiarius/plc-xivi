@@ -138,8 +138,16 @@ if [ "$coverage" = true ]; then
 
 	[ "$gate" -eq 0 ] || exit "$gate"
 else
-	step 'Tests (PHPUnit)'
-	docker compose exec -T php composer test
+	step 'Tests (PHPUnit, in parallel)'
+	# Eight workers rather than one per core, deliberately: past about four there
+	# is no gain, because the wall clock is bounded by the slowest single class
+	# and by Postgres serialising CREATE DATABASE. Measured 2026-08-15 — 165s
+	# serial, ~85s at four processes, the same at eight and at sixteen.
+	#
+	# Pinned rather than "auto" for a second reason: each worker namespaces the
+	# tenant databases it creates, so changing the number strands the ones the
+	# last count left behind. A fixed number means every run reclaims its own.
+	docker compose exec -T php composer test:parallel
 fi
 
 if [ "$build_prod_image" = true ]; then

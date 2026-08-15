@@ -73,22 +73,39 @@ final class TenantIsolationTest extends WebTestCase
         parent::tearDown();
     }
 
+    /**
+     * What this run names tenant databases and roles after (XIV-9).
+     *
+     * Read rather than written down, because parallel workers each get their
+     * own prefix so they cannot claim each other's cluster objects. The
+     * assertion below is about *which* database a tenant reaches, not about the
+     * string it is called, so taking the namespace from configuration keeps the
+     * claim intact and stops the test asserting the test runner's own bookkeeping.
+     */
+    private function objectPrefix(): string
+    {
+        $prefix = self::getContainer()->getParameter('app.tenant_object_prefix');
+        \assert(\is_string($prefix));
+
+        return $prefix;
+    }
+
     public function testEachHostReachesItsOwnDatabaseWithinOneProcess(): void
     {
         self::assertSame(
-            ['tenant' => self::ALPHA, 'status' => 'active', 'database' => 'tenant_' . self::ALPHA],
+            ['tenant' => self::ALPHA, 'status' => 'active', 'database' => $this->objectPrefix() . self::ALPHA],
             $this->whoami('alpha.localhost'),
         );
 
         self::assertSame(
-            ['tenant' => self::BETA, 'status' => 'active', 'database' => 'tenant_' . self::BETA],
+            ['tenant' => self::BETA, 'status' => 'active', 'database' => $this->objectPrefix() . self::BETA],
             $this->whoami('beta.localhost'),
         );
 
         // Back to the first one: the connection opened for beta must not be the
         // one alpha ends up using.
         self::assertSame(
-            ['tenant' => self::ALPHA, 'status' => 'active', 'database' => 'tenant_' . self::ALPHA],
+            ['tenant' => self::ALPHA, 'status' => 'active', 'database' => $this->objectPrefix() . self::ALPHA],
             $this->whoami('alpha.localhost'),
         );
     }

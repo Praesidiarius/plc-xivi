@@ -77,6 +77,7 @@
             "@auto-scripts"
         ],
         "test": "phpunit",
+        "test:parallel": "paratest --processes=8",
         "coverage": "phpunit --coverage-clover coverage/clover.xml --coverage-html coverage/html --coverage-text",
         "phpstan": "phpstan analyse --memory-limit=1G",
         "deptrac": "deptrac analyse --no-progress",
@@ -102,6 +103,7 @@
         }
     },
     "require-dev": {
+        "brianium/paratest": "^7.24",
         "dama/doctrine-test-bundle": "^8.6",
         "deptrac/deptrac": "^4.7",
         "fakerphp/faker": "^1.24",
