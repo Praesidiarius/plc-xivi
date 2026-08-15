@@ -13,4 +13,5 @@ return [
     DAMA\DoctrineTestBundle\DAMADoctrineTestBundle::class => ['test' => true],
     Xivi\Core\XiviCoreBundle::class => ['all' => true],
     Xivi\Contact\XiviContactBundle::class => ['all' => true],
+    Xivi\Article\XiviArticleBundle::class => ['all' => true],
 ];

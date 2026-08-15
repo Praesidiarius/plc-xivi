@@ -94,6 +94,12 @@ services:
         arguments:
             $connection: '@doctrine.dbal.tenant_connection'
 
+    # Which currency prices are in. Core asks (Xivi\Core\Money\InstanceCurrency)
+    # and never learns what a tenant is; the answer comes from the customer's own
+    # profile (§8.6). Same boundary as the connections above, one level up: there
+    # the application says which database, here it says whose settings (XIV-11).
+    Xivi\Core\Money\InstanceCurrency: '@App\Tenant\Settings\ProfileCurrency'
+
     # The words demo data is made of. Core's own lists by default, so generation
     # works with no dependency; dev and test replace this with Faker below,
     # which has hundreds of names where these have thirty.

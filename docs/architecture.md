@@ -138,6 +138,20 @@ Definition rows carry the UI hints beside the rules: `required`, `unique`,
 
 Closed, not open: adding a field type is a deliberate code change, not customer config.
 
+**A type may need an answer only the application has** (XIV-11). `currency` shows
+the price in the currency this installation works in, which lives in the tenant
+profile (§8.6) — and core is handed a connection without ever learning whose it
+is. So core declares the question as an interface (`InstanceCurrency`) and the
+application answers it, the same shape as the entity manager and the connection
+being bound in `config/services.yaml`. A field type reaching into a customer's
+settings table on its own would be the boundary in §3 quietly gone.
+
+Two consequences of that type worth writing down. **Money is stored as a decimal
+string, never a float** — 19.90 has no exact binary representation, and the place
+a lost hundredth of a cent turns up is an invoice. And **the currency is not
+stored beside the amount**: one per installation means a column of prices adds
+up, where per record it would need exchange rates behind it to mean anything.
+
 **Relations stay relational.** Real link tables, real foreign keys. Relations are the one
 thing both EAV and JSON are bad at, and a CRM is relational at its core. Relations are
 *described* in metadata but *stored* relationally. See §5.1 for the first kind of relation

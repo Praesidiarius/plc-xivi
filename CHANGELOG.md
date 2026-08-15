@@ -32,6 +32,29 @@ of every page, and is not yet tied to git tags.
 
 ### Added
 
+- **An article module** ([XIV-11]) — a title, a description and a price. The
+  second module on the engine, and the first one nobody had to change the engine
+  for: a declaration and two field types, with no controller, no entity, no form
+  class and no template of its own. Contact showed the engine could describe a
+  module; this one is the check that it was not quietly built around that
+  particular module.
+- **A `textarea` field type.** Its own type rather than an option on `text`,
+  because everything that follows from the length differs — a box instead of a
+  line, a default maximum in the thousands, and no "starts with" filter, which is
+  not a question anybody asks of a description.
+- **A `currency` field type**, drawn as a Bootstrap input group with the
+  instance's currency in front of the amount ([XIV-12] supplies it). Stored as a
+  decimal string and never a float: 19.90 has no exact binary representation, and
+  the place a lost hundredth of a cent turns up is an invoice. The currency is
+  not stored beside the amount — one per installation means a column of prices
+  adds up, where per record it would need exchange rates behind it to mean
+  anything.
+- **A field type may now ask the application something it cannot know** (§5): core
+  declares `InstanceCurrency` and the application answers it from the tenant
+  profile, the same shape as the entity manager and the connection being bound in
+  `config/services.yaml`. Deliberately not a field type reaching into a customer's
+  settings table on its own, which would be §3's boundary quietly gone.
+
 - **A tenant profile** ([XIV-12]), at `/settings/profile`: what this customer
   calls themselves, and the currency their instance works in. It lives in the
   customer's own database next to their users and definitions (§8.6) — the
@@ -372,6 +395,7 @@ began and is recorded here as one entry rather than invented as a history.
 [XIV-5]: https://xivi.youtrack.cloud/issue/XIV-5
 [XIV-6]: https://xivi.youtrack.cloud/issue/XIV-6
 [XIV-7]: https://xivi.youtrack.cloud/issue/XIV-7
+[XIV-11]: https://xivi.youtrack.cloud/issue/XIV-11
 [XIV-12]: https://xivi.youtrack.cloud/issue/XIV-12
 [XIV-8]: https://xivi.youtrack.cloud/issue/XIV-8
 [XIV-9]: https://xivi.youtrack.cloud/issue/XIV-9

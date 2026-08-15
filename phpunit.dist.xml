@@ -42,6 +42,7 @@
                  line per module, since PHPUnit does not glob these. -->
             <directory>packages/core/src</directory>
             <directory>packages/contact/src</directory>
+            <directory>packages/article/src</directory>
         </include>
 
         <deprecationTrigger>
