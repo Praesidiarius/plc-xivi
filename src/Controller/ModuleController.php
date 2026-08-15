@@ -22,6 +22,7 @@ use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Mime\MimeTypes;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -59,8 +60,6 @@ use Xivi\Core\Validation\RecordValidator;
 #[Route('/m/{module}', requirements: ['module' => '[a-z][a-z0-9_]*'])]
 final class ModuleController extends AbstractController
 {
-    private const string XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-
     public function __construct(
         private readonly MetadataRepository $metadata,
         private readonly RecordRepository $records,
@@ -154,10 +153,11 @@ final class ModuleController extends AbstractController
         $response = $this->file($path, sprintf('%s-%s.xlsx', $module, date('Y-m-d')))
             ->deleteFileAfterSend(true);
 
-        // Said rather than guessed. Left to itself the response sniffs the file
-        // through symfony/mime, which is not installed — and there is nothing to
-        // work out: we wrote the thing.
-        $response->headers->set('Content-Type', self::XLSX);
+        // Looked up rather than sniffed. Left to itself the response would ask
+        // libmagic what the bytes are — an answer that depends on which libmagic
+        // the image happens to ship, for a file we wrote ourselves and named
+        // .xlsx. The extension is the fact; symfony/mime holds the table.
+        $response->headers->set('Content-Type', MimeTypes::getDefault()->getMimeTypes('xlsx')[0]);
 
         return $response;
     }
