@@ -303,6 +303,17 @@ when it does not, because history outlives the schema that produced it. That is
 feature with roughly a hundred times the volume and a different retention answer;
 it is an optional extra later, not part of this.
 
+**One exception, and it is deliberate: generating a document** (§5.7, XIV-4). It
+changes nothing, so by the rule above it does not belong here — but a letter that
+went out is a fact about the record's life in a way that opening a page is not,
+and it is rare, deliberate and attributable where a page view is none of those.
+The entry names the template and the format, because a timeline saying only
+"document generated" answers the least interesting half of the question. It is
+dispatched as the same `RecordChanged` event a change dispatches, so there is one
+answer to "who did this, and when" and one listener that knows how to write it
+down. That the rule now has an exception is the thing to watch: the next
+candidate should have to argue the same three properties.
+
 **Reading it back is paged, and an entry is one line** (XIV-3). A timeline is the
 one part of a record that grows without limit, so the record page shows a fixed
 handful and says how many there are, and the whole thing is a page of its own —

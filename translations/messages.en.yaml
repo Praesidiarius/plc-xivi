@@ -105,6 +105,7 @@ module:
         created: Created
         updated: Updated
         deleted: Deleted
+        document_generated: Document generated
     row_action:
         added: added
         updated: updated

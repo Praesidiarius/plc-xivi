@@ -27,4 +27,12 @@ enum RecordAction: string
     case Created = 'created';
     case Updated = 'updated';
     case Deleted = 'deleted';
+
+    /**
+     * A document was generated from one of the module's templates (XIV-4).
+     *
+     * The first verb here that changed nothing — see §5.2 for why it is recorded
+     * anyway, and why "who read this record" still is not.
+     */
+    case DocumentGenerated = 'document_generated';
 }

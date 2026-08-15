@@ -65,6 +65,23 @@ final readonly class HistoryEntry
     }
 
     /**
+     * What was generated, for an entry that made a document rather than a change
+     * (XIV-4).
+     *
+     * @return array{template: string, format: string}|null
+     */
+    public function document(): ?array
+    {
+        $document = $this->changes['document'] ?? null;
+
+        if (!\is_array($document) || !isset($document['template'], $document['format'])) {
+            return null;
+        }
+
+        return ['template' => (string) $document['template'], 'format' => (string) $document['format']];
+    }
+
+    /**
      * How many things this entry touched, fields and collection rows together.
      *
      * What a compact timeline says instead of the detail (XIV-3): "3 changes" is

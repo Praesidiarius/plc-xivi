@@ -284,6 +284,45 @@ final class DocumentTemplateTest extends WebTestCase
         self::assertStringContainsString('Dear Ada.', $this->textOf($docx), 'the markers still work');
     }
 
+    /**
+     * A letter that went out is a fact about the record's life (§5.2).
+     *
+     * The first history entry that records something other than a change, and it
+     * says which template and which format — a timeline that only said "document
+     * generated" would answer the least interesting half of the question.
+     */
+    public function testGeneratingADocumentIsRecordedOnTheTimeline(): void
+    {
+        $template = $this->upload('Letter', 'Dear [first_name].');
+        $id = $this->aContact();
+
+        $this->client->request('GET', $this->url(sprintf('/m/contact/%d/document/download?template=%d&format=docx', $id, $template)));
+
+        $timeline = $this->client->request('GET', $this->url('/m/contact/' . $id . '/history'))->filter('main')->text();
+
+        self::assertStringContainsString('Document generated', $timeline);
+        self::assertStringContainsString('by Admin', $timeline);
+        self::assertStringContainsString('Letter', $timeline);
+        self::assertStringContainsString('DOCX', $timeline);
+    }
+
+    /** Two downloads are two entries, and each says what it was. */
+    public function testEachFormatIsItsOwnEntry(): void
+    {
+        $template = $this->upload('Letter', 'Dear [first_name].');
+        $id = $this->aContact();
+
+        $this->client->request('GET', $this->url(sprintf('/m/contact/%d/document/download?template=%d&format=docx', $id, $template)));
+        $this->client->request('GET', $this->url(sprintf('/m/contact/%d/document/download?template=%d&format=docx', $id, $template)));
+
+        $entries = $this->client->request('GET', $this->url('/m/contact/' . $id . '/history'))
+            ->filter('.history-entry')
+            ->each(static fn ($node): string => $node->text());
+
+        // Two generations and the record being created.
+        self::assertCount(3, $entries);
+    }
+
     /** A .docx is a zip with a document in it, and the extension proves nothing. */
     public function testSomethingThatIsNotADocxIsRefused(): void
     {
