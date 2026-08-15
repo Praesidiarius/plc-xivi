@@ -16,7 +16,15 @@
  * That is the line worth holding. Server-rendered stays true (§8.3); "works
  * with JavaScript off" does not.
  */
-import 'htmx.org';
+// Named, and put on `window` — which the import alone does not do. htmx works
+// either way: the module initialises itself and processes `hx-*` attributes on
+// load. What the global buys is a way to ask whether it is really there, from a
+// console or from a browser test (XIV-31), and that question turns out to be
+// worth being able to ask: an importmap that fails to resolve leaves every
+// button quietly submitting its form instead of swapping.
+import htmx from 'htmx.org';
+
+window.htmx = htmx;
 import { Tooltip } from 'bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.min.css';

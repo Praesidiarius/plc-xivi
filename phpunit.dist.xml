@@ -25,8 +25,30 @@
     </php>
 
     <testsuites>
+        <!--
+            Everything except the browser tests, named directory by directory
+            rather than by excluding one — `<exclude>` inside a suite is quietly
+            ignored here. Both runners are told which suite to run as well, since
+            paratest takes every suite it can find otherwise, and a browser test
+            started eight times over is not a subtle failure. They cannot run in
+            parallel:
+            Panther starts one web server on one port per process, and eight
+            paratest workers would fight over it (XIV-31).
+        -->
         <testsuite name="Project Test Suite">
-            <directory>tests</directory>
+            <directory>tests/Unit</directory>
+            <directory>tests/Functional</directory>
+            <!-- One test lives beside the trait it is about. -->
+            <directory>tests/Support</directory>
+        </testsuite>
+
+        <!--
+            The safety net: a real browser, a handful of assertions, run in one
+            process by `composer test:browser`. Deliberately few — an end-to-end
+            layer is where flakiness lives, and a flaky net gets skipped.
+        -->
+        <testsuite name="browser">
+            <directory>tests/Browser</directory>
         </testsuite>
     </testsuites>
 
@@ -54,6 +76,14 @@
     </source>
 
     <extensions>
+        <!--
+            Panther's own extension owns the lifecycle of the web server the
+            browser tests talk to (XIV-31): started once, stopped when the run
+            ends. A run that is killed can still leave it holding port 9080, and
+            the symptom then is a timeout that says nothing about a stray
+            process — `docker compose restart php` is the cure.
+        -->
+        <bootstrap class="Symfony\Component\Panther\ServerExtension" />
         <!-- Opens a transaction on the tenant connection before each test and
              rolls it back afterwards. See config/packages/test/dama_doctrine_test.yaml. -->
         <bootstrap class="DAMA\DoctrineTestBundle\PHPUnit\PHPUnitExtension" />

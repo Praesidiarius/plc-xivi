@@ -21,6 +21,10 @@ services:
     depends_on:
       database-test:
         condition: service_healthy
+      # The browser tests are part of `bin/ci`, so the grid has to be up before
+      # anything asks it for a session (XIV-31).
+      browser:
+        condition: service_healthy
     volumes:
       - ./:/app
       - ./frankenphp/Caddyfile:/etc/frankenphp/Caddyfile:ro
@@ -42,7 +46,67 @@ services:
     extra_hosts:
       # Ensure that host.docker.internal is correctly defined on Linux
       - host.docker.internal:host-gateway
+    # The name the browser asks for in the end-to-end tests (XIV-31), and the
+    # hostname the e2e tenant is provisioned under.
+    #
+    # **Both lines are needed, for different readers.** This application resolves
+    # the customer from the Host header, and a browser in another container
+    # resolves `xivi.localhost` to its own loopback rather than to this one — so
+    # the name has to be one Docker's DNS answers, which is what the alias does.
+    # But Panther binds its web server to the same name it will later ask for, and
+    # an alias does *not* resolve inside the container it belongs to; `hostname`
+    # is what puts it in this container's own /etc/hosts.
+    #
+    # Not the service name `php`: that is in app.system_hosts, deliberately served
+    # without a tenant, so the pages render and the first thing that touches the
+    # database throws. An hour, that one.
+    hostname: xivi-e2e
+    networks:
+      default:
+        aliases:
+          - xivi-e2e
     tty: true
+
+  # The browser the end-to-end tests drive (XIV-31).
+  #
+  # **Its own container, not chromium in the php image.** That image is the one
+  # production is built from — the same Dockerfile, and `bin/ci` builds the
+  # production target on every run — so a browser in it would be several hundred
+  # megabytes and a wider attack surface in the thing that ships, for something
+  # only the test suite ever uses.
+  #
+  # Standalone Selenium rather than a bare chromedriver: Panther talks the W3C
+  # WebDriver protocol over HTTP either way, and this image already has the
+  # browser, the driver and the versions that match each other, which is the part
+  # nobody wants to maintain by hand.
+  browser:
+    image: selenium/standalone-chromium:latest
+    restart: unless-stopped
+    # Chromium's renderer processes want more than Docker's default 64 MB of
+    # shared memory and crash without saying so when they do not get it.
+    shm_size: 2gb
+    environment:
+      # One session at a time: the browser tests are deliberately few and run in
+      # one process, so a queue is more honest than parallelism nothing uses.
+      # Four slots for three tests, deliberately generous. With one slot, a
+      # session the test process never released — a failing test, an interrupted
+      # run — makes every later test queue for three minutes before reporting a
+      # timeout that says nothing about a leaked browser. Slack here is the
+      # difference between a red run and a nine-minute red run.
+      SE_NODE_MAX_SESSIONS: "4"
+      SE_NODE_OVERRIDE_MAX_SESSIONS: "true"
+      SE_OPTS: "--max-sessions 4 --override-max-sessions true"
+      # And a session nobody has spoken to for five minutes is abandoned, so an
+      # interrupted run heals itself instead of holding the only slot until
+      # somebody restarts this container. Long enough that nothing a test
+      # legitimately does looks idle — which is also why the tenant is
+      # provisioned before the browser is opened rather than after.
+      SE_NODE_SESSION_TIMEOUT: "300"
+    healthcheck:
+      test: ["CMD", "/opt/bin/check-grid.sh", "--host", "0.0.0.0", "--port", "4444"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   # The database the test suite uses, kept entirely in RAM (XIV-10).
   #

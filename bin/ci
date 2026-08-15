@@ -159,6 +159,16 @@ else
 	docker compose exec -T php composer test:parallel
 fi
 
+# A real browser, three assertions, and the only thing in this repository that
+# can tell whether the front end works at all (XIV-31). Separate from the run
+# above because Panther starts one web server on one port per process, so it
+# cannot go through paratest — and the timing is printed because the budget for
+# this layer is a decision rather than something to discover later.
+step 'Tests (a real browser)'
+browser_started=$(date +%s)
+docker compose exec -T php composer test:browser
+printf '    %ss\n' "$(($(date +%s) - browser_started))"
+
 if [ "$build_prod_image" = true ]; then
 	# The dev image says nothing about whether the production one builds: it
 	# installs dev dependencies, so a bundle registered for "all" while its

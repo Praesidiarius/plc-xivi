@@ -86,7 +86,8 @@
             "@auto-scripts"
         ],
         "test": "phpunit",
-        "test:parallel": "paratest --processes=8",
+        "test:parallel": "paratest --processes=8 --testsuite=\"Project Test Suite\"",
+        "test:browser": "phpunit --testsuite=browser",
         "coverage": "phpunit --coverage-clover coverage/clover.xml --coverage-html coverage/html --coverage-text",
         "phpstan": "phpstan analyse --memory-limit=1G",
         "deptrac": "deptrac analyse --no-progress",
@@ -130,6 +131,7 @@
         "symfony/css-selector": "8.1.*",
         "symfony/debug-bundle": "8.1.*",
         "symfony/maker-bundle": "^1.67",
+        "symfony/panther": "^2.4",
         "symfony/stopwatch": "8.1.*",
         "symfony/web-profiler-bundle": "8.1.*"
     },
