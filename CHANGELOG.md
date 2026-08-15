@@ -32,6 +32,21 @@ of every page, and is not yet tied to git tags.
 
 ### Added
 
+- **A browser-level safety net** ([XIV-31]). Three assertions in a real Chromium,
+  over the one thing nothing else could see: that htmx is loaded, that pressing
+  a button adds a row *without reloading the page*, and that what was already
+  typed survives it. Everything else in the suite presses the same submit buttons
+  a person does, which is what makes it honest about the server and blind to
+  whether the front end runs at all.
+- **Its own container**, never chromium in the php image — that image is the one
+  production is built from, and `bin/ci` builds the production target on every
+  run. `bin/ci` now runs the browser tests as their own step and prints how long
+  they took, because the budget for this layer should be a decision rather than
+  a discovery.
+- **htmx is now on `window`**, which importing it as a module does not do by
+  itself. It works either way; what the global buys is the ability to ask
+  whether it is really there — from a console, or from the test above.
+
 - **A button per kind of line, instead of a blank row of every kind** ([XIV-29]).
   An order's form ended with four blank rows, each showing a different subset of
   fields, and it was the first thing anybody noticed about it. Now it draws
@@ -820,6 +835,7 @@ began and is recorded here as one entry rather than invented as a history.
 [XIV-28]: https://xivi.youtrack.cloud/issue/XIV-28
 [XIV-29]: https://xivi.youtrack.cloud/issue/XIV-29
 [XIV-30]: https://xivi.youtrack.cloud/issue/XIV-30
+[XIV-31]: https://xivi.youtrack.cloud/issue/XIV-31
 [XIV-20]: https://xivi.youtrack.cloud/issue/XIV-20
 [XIV-21]: https://xivi.youtrack.cloud/issue/XIV-21
 [XIV-22]: https://xivi.youtrack.cloud/issue/XIV-22

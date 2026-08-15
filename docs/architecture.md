@@ -1272,6 +1272,23 @@ somewhere. It needs no build step and asset-mapper serves it from our own host,
 which keeps the no-CDN rule that exists because a CDN reports every customer's IP
 to a third party on every page load.
 
+**One browser runs, and only over what only a browser can see** (XIV-31). Every
+other test drives the server: the collection buttons are real submit buttons, so
+BrowserKit presses the same thing a person does and learns nothing about whether
+`hx-post` and `hx-swap` do anything. Three assertions in a real browser close
+that — the library is loaded, a row appears without the page reloading, and what
+was already typed survives it. Deliberately three: an end-to-end layer is where
+flakiness lives, flaky tests get skipped, and a skipped safety net is worse than
+none because everybody believes it is there.
+
+Two things it cannot share with the rest of the suite, and both are the same
+fact. The browser is another process making real requests, so **the transaction
+rollback everything else depends on is invisible to it** (§9.2's speed work) — its
+tenant is committed and reclaimed on the next run. And it needs a hostname that
+resolves *both* from the browser's container and from the application's own,
+because the web server binds to the name it will later be asked for; the service
+name will not do, because that one is deliberately served without a tenant.
+
 **The cost to watch is the endpoints, not the library.** Every `hx-*` target is a
 route returning a fragment: a second rendering surface for data the generic
 controller already renders, and a second place permissions have to be checked. A
