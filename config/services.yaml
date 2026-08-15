@@ -10,6 +10,11 @@ parameters:
     # Hosts served without a tenant: dev tooling (profiler), health checks and
     # the container-internal name. Every other host must resolve to a tenant or
     # the request is rejected (docs/architecture.md §4).
+    # What a tenant's database and role are named after the prefix, so that
+    # parallel test workers cannot claim each other's cluster objects (XIV-9).
+    # Production never overrides this.
+    app.tenant_object_prefix: 'tenant_'
+
     app.system_hosts:
         - 'localhost'
         - '127.0.0.1'
@@ -111,6 +116,12 @@ when@dev:
         Xivi\Core\Demo\SampleValues: '@App\Demo\FakerSampleValues'
 
 when@test:
+    parameters:
+        # One namespace per parallel worker. TEST_TOKEN is paratest's own
+        # variable and is empty on a serial run, which leaves the name exactly as
+        # it was — so `composer test` still finds the databases it left behind.
+        app.tenant_object_prefix: 'tenant%env(default::TEST_TOKEN)%_'
+
     services:
         _defaults:
             autowire: true

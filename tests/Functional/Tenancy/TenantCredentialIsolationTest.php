@@ -67,14 +67,31 @@ final class TenantCredentialIsolationTest extends KernelTestCase
         parent::tearDown();
     }
 
+    /**
+     * What this run names tenant databases and roles after (XIV-9).
+     *
+     * Read rather than written down, because parallel workers each get their
+     * own prefix so they cannot claim each other's cluster objects. The
+     * assertion below is about *which* database a tenant reaches, not about the
+     * string it is called, so taking the namespace from configuration keeps the
+     * claim intact and stops the test asserting the test runner's own bookkeeping.
+     */
+    private function objectPrefix(): string
+    {
+        $prefix = self::getContainer()->getParameter('app.tenant_object_prefix');
+        \assert(\is_string($prefix));
+
+        return $prefix;
+    }
+
     public function testEachTenantConnectsWithItsOwnCredentials(): void
     {
         $alpha = $this->tenant(self::ALPHA);
 
         $connection = DriverManager::getConnection($this->paramsFor($alpha));
 
-        self::assertSame('tenant_' . self::ALPHA, $connection->fetchOne('SELECT current_database()'));
-        self::assertSame('tenant_' . self::ALPHA, $connection->fetchOne('SELECT current_user'));
+        self::assertSame($this->objectPrefix() . self::ALPHA, $connection->fetchOne('SELECT current_database()'));
+        self::assertSame($this->objectPrefix() . self::ALPHA, $connection->fetchOne('SELECT current_user'));
 
         $connection->close();
     }
@@ -83,7 +100,7 @@ final class TenantCredentialIsolationTest extends KernelTestCase
     public function testOneTenantsCredentialsCannotOpenAnotherTenantsDatabase(): void
     {
         $params = $this->paramsFor($this->tenant(self::ALPHA));
-        $params['dbname'] = 'tenant_' . self::BETA;
+        $params['dbname'] = $this->objectPrefix() . self::BETA;
 
         $connection = DriverManager::getConnection($params);
 
@@ -97,7 +114,7 @@ final class TenantCredentialIsolationTest extends KernelTestCase
     {
         $dsn = $this->tenant(self::ALPHA)->getDatabaseDsn();
 
-        self::assertStringContainsString('//tenant_' . self::ALPHA . '@', $dsn);
+        self::assertStringContainsString('//' . $this->objectPrefix() . self::ALPHA . '@', $dsn);
         self::assertArrayNotHasKey('password', $this->parser()->parse($dsn));
     }
 

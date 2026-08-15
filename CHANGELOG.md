@@ -170,6 +170,21 @@ of every page, and is not yet tied to git tags.
 
 ### Changed
 
+- **The test suite runs in parallel** ([XIV-9]) — 165s to about 85s. Each worker
+  namespaces the tenant databases and roles it creates, which it has to: those are
+  *cluster* objects while the registry naming them is one database, so two workers
+  with a registry each would both claim `tenant_test_locale` and the second would
+  connect with a password only the first's registry knows. That was exactly the
+  failure, 245 of them, before the prefix existed.
+- The isolation tests that asserted a literal database name now read the
+  configured prefix instead. They still prove what they proved — which database a
+  tenant reaches, and that its credentials cannot open another's — they simply
+  stopped asserting the test runner's own bookkeeping.
+- Eight workers, pinned rather than one per core: past about four there is no
+  gain, because the wall clock is bounded by the slowest single class and by
+  Postgres serialising `CREATE DATABASE`. Pinning also means each run reclaims the
+  databases the last one left, which a varying count would strand.
+
 - **The session no longer carries a user's groups and grants.** `User` is
   serialized into the security token, and a Doctrine collection in there comes
   back detached — so touching it throws rather than loading lazily, and a person
@@ -283,3 +298,4 @@ began and is recorded here as one entry rather than invented as a history.
 
 [XIV-2]: https://xivi.youtrack.cloud/issue/XIV-2
 [XIV-8]: https://xivi.youtrack.cloud/issue/XIV-8
+[XIV-9]: https://xivi.youtrack.cloud/issue/XIV-9

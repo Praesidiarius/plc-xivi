@@ -47,7 +47,19 @@ final readonly class TenantProvisioner
     /** Also the tenant's database and role name, so: valid unquoted Postgres identifier. */
     private const string SLUG_PATTERN = '/^[a-z][a-z0-9_]{1,55}$/';
 
-    private const string OBJECT_PREFIX = 'tenant_';
+    /**
+     * What a tenant's database and role are called, before the slug.
+     *
+     * Configurable for one reason (XIV-9): databases and roles are **cluster**
+     * objects while the registry naming them is one database, so two test
+     * workers with a registry each would both claim `tenant_test_locale` and
+     * the second would connect with a password only the first's registry knows.
+     * Giving each worker its own prefix namespaces every object it creates
+     * without a single test having to remember to.
+     *
+     * Production leaves it alone.
+     */
+    public const string OBJECT_PREFIX = 'tenant_';
 
     public function __construct(
         private EntityManagerInterface $controlPlane,
@@ -62,6 +74,9 @@ final readonly class TenantProvisioner
         /** Credentials allowed to CREATE DATABASE and CREATE ROLE; provisioning only. */
         #[Autowire('%env(TENANT_ADMIN_DSN)%')]
         private string $adminDsn,
+        /** @see OBJECT_PREFIX */
+        #[Autowire('%app.tenant_object_prefix%')]
+        private string $objectPrefix = self::OBJECT_PREFIX,
     ) {
     }
 
@@ -97,7 +112,7 @@ final readonly class TenantProvisioner
             }
         }
 
-        $objectName = self::OBJECT_PREFIX . $slug;
+        $objectName = $this->objectPrefix . $slug;
         $password = PasswordGenerator::machine();
 
         $tenant = new Tenant($slug, $name, $dsn ?? $this->dsnFor($objectName), $plan);
@@ -153,7 +168,7 @@ final readonly class TenantProvisioner
 
         try {
             $database = $this->dsnParser->databaseName($tenant->getDatabaseDsn());
-            $role = $this->dsnParser->userName($tenant->getDatabaseDsn()) ?? self::OBJECT_PREFIX . $slug;
+            $role = $this->dsnParser->userName($tenant->getDatabaseDsn()) ?? $this->objectPrefix . $slug;
 
             $admin->executeStatement(sprintf('DROP DATABASE IF EXISTS %s', $this->quoteName($admin, $database)));
             $admin->executeStatement(sprintf('DROP ROLE IF EXISTS %s', $this->quoteName($admin, $role)));
