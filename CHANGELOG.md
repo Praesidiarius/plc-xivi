@@ -144,6 +144,14 @@ of every page, and is not yet tied to git tags.
 - The engine ships **its own catalogue** from `packages/core/translations`, so
   core can name a filter operator or a permission action without reaching into
   the application's file. A module package would do the same.
+- **Flash messages and refusals are translated too.** A refusal carries a key
+  beside its message rather than instead of it: the exception's own text stays
+  English and goes to the log, where the reader is a developer, and the customer
+  gets the same fact in their own language. Two audiences, two sentences, neither
+  a compromise for the other.
+- Import problems carry a key and their parameters, with the sheet and row
+  wrapped around them as a nested translatable rather than concatenated — so a
+  translator can reorder the parts, which German wants often enough to matter.
 - **Tooltips on the icon-only buttons** in the record list, the user list and the
   group list. Bootstrap's JavaScript is now shipped for them — it was deliberately
   absent, and the rule it was protecting still holds: the forms work without

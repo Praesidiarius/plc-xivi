@@ -20,6 +20,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
@@ -60,6 +61,7 @@ final class FieldController extends AbstractController
         private readonly MetadataRepository $metadata,
         private readonly MetadataEditor $editor,
         private readonly FieldTypeRegistry $fieldTypes,
+        private readonly TranslatorInterface $translator,
     ) {
     }
 
@@ -97,12 +99,12 @@ final class FieldController extends AbstractController
                     options: self::optionsFrom($request),
                 );
 
-                $this->addFlash('success', sprintf('Added "%s".', $field->getLabel()));
+                $this->addFlash('success', $this->translator->trans('flash.field_added', ['%field%' => $field->getLabel()]));
                 // UnknownFieldType too: the select is built from the registry, so a
                 // type it does not know means a tampered form, which is a message
                 // rather than a stack trace.
             } catch (MetadataChangeRefused|UnknownFieldType $e) {
-                $this->addFlash('warning', $e->getMessage());
+                $this->addFlash('warning', $e->translatable()->trans($this->translator));
             }
         }
 
@@ -130,9 +132,9 @@ final class FieldController extends AbstractController
                     options: self::optionsFrom($request),
                 );
 
-                $this->addFlash('success', sprintf('Saved "%s".', $target->getLabel()));
+                $this->addFlash('success', $this->translator->trans('flash.field_saved', ['%field%' => $target->getLabel()]));
             } catch (MetadataChangeRefused $e) {
-                $this->addFlash('warning', $e->getMessage());
+                $this->addFlash('warning', $e->translatable()->trans($this->translator));
             }
         }
 
@@ -168,9 +170,9 @@ final class FieldController extends AbstractController
 
             try {
                 $this->editor->removeField($target);
-                $this->addFlash('success', sprintf('Removed "%s". Its values are still stored.', $target->getLabel()));
+                $this->addFlash('success', $this->translator->trans('flash.field_removed', ['%field%' => $target->getLabel()]));
             } catch (MetadataChangeRefused $e) {
-                $this->addFlash('warning', $e->getMessage());
+                $this->addFlash('warning', $e->translatable()->trans($this->translator));
             }
         }
 

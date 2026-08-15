@@ -238,3 +238,32 @@ group:
 permission:
     yes: 'Yes'
     no: 'No'
+
+refusal:
+    last_admin: This is the only active administrator. Make somebody else an administrator first.
+    own_admin_role: You cannot take administrator away from yourself. Ask another administrator to do it.
+    own_account: You cannot deactivate your own account.
+    email_taken: 'Somebody here already signs in as "%email%".'
+    no_email: 'A user needs an email address: it is the login.'
+    wrong_password: That is not your current password.
+    group_no_name: 'A group needs a name: it is what people pick it by.'
+    group_name_taken: 'There is already a group called "%label%".'
+
+flash:
+    saved: Saved.
+    deleted: Deleted.
+    passwords_differ: Those two passwords are not the same.
+    password_changed: Your password has been changed.
+    field_added: 'Added "%field%".'
+    field_saved: 'Saved "%field%".'
+    field_removed: 'Removed "%field%". Its values are still stored.'
+    group_created: 'Created "%group%". Now say what it may do.'
+    group_saved: 'Saved "%group%".'
+    group_deleted: 'Deleted "%group%". Nobody was removed, only what the group gave them.'
+    user_saved: 'Saved %email%.'
+    user_created: 'Created %email%. Their password is %password% — copy it now, it cannot be shown again.'
+    password_reset: 'New password for %email%: %password% — copy it now, it cannot be shown again.'
+    user_reactivated: '%email% can now sign in.'
+    user_deactivated: '%email% can no longer sign in.'
+    upload_broken: 'That file did not arrive intact (%reason%).'
+    no_file: Choose a spreadsheet to import.

@@ -24,3 +24,32 @@ permission:
     scope:
         own: Eigene Datensätze
         all: Alle Datensätze
+
+import:
+    at_sheet: '%sheet%: %problem%'
+    at_row: '%sheet%, Zeile %row%: %problem%'
+    problem:
+        unknown_column: 'Die Spalte „%column%“ passt zu keinem Feld von „%shape%“.'
+        duplicate_column: 'Zwei Spalten füllen beide „%field%“.'
+        unreadable: 'Diese Datei konnte nicht als Tabelle gelesen werden (%reason%).'
+        missing_sheet: 'Die Datei hat kein Blatt namens „%sheet%“. Ein Export dieses Moduls hat die erwartete Form.'
+        unknown_sheet: Dieses Blatt passt zu keinem Teil des Moduls, seine Zeilen würden ignoriert.
+        missing_parent_column: 'Ein Blatt „%shape%“ braucht eine Spalte parent_id, die sagt, zu welchem Datensatz jede Zeile gehört.'
+        duplicate_id: 'Die Id „%id%“ kommt mehrfach vor.'
+        wrong_parent: 'Zeile %row% gehört nicht zum Datensatz %parent%.'
+        unknown_parent_name: 'Keine Zeile des Blatts %sheet% heißt „%name%“. Trage denselben Namen in der Spalte id der Zeile ein, zu der dies gehört.'
+        unknown_id: 'Es gibt keinen Datensatz mit der Id %id%. Lass die Id leer, um einen neuen anzulegen.'
+        no_parent: 'Diese Zeile nennt keinen übergeordneten Datensatz. Trage die Id des %module%, zu dem sie gehört, in parent_id ein.'
+        invalid_value: '%field%: %reason%'
+
+metadata:
+    bad_key: 'Ein Feldname muss mit einem Buchstaben beginnen und darf nur Kleinbuchstaben, Zahlen und Unterstriche enthalten. „%key%“ tut das nicht.'
+    key_taken: '„%shape%“ hat bereits ein Feld namens „%key%“.'
+    system_field: 'Das Feld „%key%“ kam mit dem Modul und kann nicht entfernt werden. Selbst hinzugefügte Felder schon.'
+    module_not_installed: 'Hier ist kein Modul namens „%module%“ installiert.'
+
+query:
+    unknown_field: 'Auf „%shape%“ gibt es nichts namens „%path%“, wonach sich filtern oder sortieren ließe.'
+    unknown_collection: '„%module%“ hat keine Sammlung namens „%collection%“.'
+    unsupported_operator: 'Es lässt sich nicht fragen, ob „%path%“ (%type%) %operator%. Dieser Typ akzeptiert: %supported%.'
+    sort_by_collection: 'Nach „%path%“ lässt sich nicht sortieren: es gehört zu einer Sammlung, und ein Datensatz mit zweien davon hat zwei Werte. Welcher wäre der des Datensatzes?'

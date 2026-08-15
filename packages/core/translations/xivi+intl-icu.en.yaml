@@ -1,0 +1,4 @@
+# The one engine message that counts something (XIV-8).
+
+metadata:
+    would_invalidate: '{count, plural, one {That rule would make # existing record invalid, and it could not be saved again until somebody fixed it. Fix the record first, or leave "{key}" as it is.} other {That rule would make # existing records invalid, and they could not be saved again until somebody fixed them. Fix the records first, or leave "{key}" as it is.}}'

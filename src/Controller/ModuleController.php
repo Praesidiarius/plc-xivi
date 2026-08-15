@@ -26,6 +26,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Export\RecordExporter;
@@ -72,6 +73,7 @@ final class ModuleController extends AbstractController
         private readonly RecordExporter $exporter,
         private readonly UserRepository $users,
         private readonly PermissionResolver $permissions,
+        private readonly TranslatorInterface $translator,
     ) {
     }
 
@@ -94,7 +96,7 @@ final class ModuleController extends AbstractController
             // The query is in the URL, so it can be hand-edited into something
             // the engine will not answer. That is a message and an unfiltered
             // list, not a 500 — and the exception already explains itself.
-            $this->addFlash('warning', $e->getMessage());
+            $this->addFlash('warning', $e->translatable()->trans($this->translator));
 
             $query = new RecordQuery();
             $records = $this->records->findBy($definition, $query, $access);
@@ -301,7 +303,7 @@ final class ModuleController extends AbstractController
 
         if ($this->isCsrfTokenValid('delete-record-' . $id, (string) $request->request->get('_token'))) {
             $this->writer->delete($definition, $record);
-            $this->addFlash('success', 'Deleted.');
+            $this->addFlash('success', $this->translator->trans('flash.deleted'));
         }
 
         return $this->redirectToRoute('module_index', ['module' => $module]);
@@ -362,7 +364,7 @@ final class ModuleController extends AbstractController
                     $children,
                 ));
 
-                $this->addFlash('success', 'Saved.');
+                $this->addFlash('success', $this->translator->trans('flash.saved'));
 
                 // Back to the record rather than the list: it is what was just
                 // worked on, and its history now says what the save did.

@@ -86,7 +86,7 @@
 					{# Every one of them, not the first: somebody fixing a file wants the list. #}
 					<ul class="mb-0">
 						{% for problem in report.problems %}
-							<li>{{ problem.describe }}</li>
+							<li>{{ problem.translatable|trans }}</li>
 						{% endfor %}
 					</ul>
 				</div>

@@ -232,3 +232,32 @@ group:
 permission:
     yes: 'Ja'
     no: 'Nein'
+
+refusal:
+    last_admin: Das ist die einzige aktive Administration. Mache zuerst jemand anderen zur Administration.
+    own_admin_role: Du kannst dir die Administration nicht selbst nehmen. Bitte jemand anderen darum.
+    own_account: Du kannst dein eigenes Konto nicht deaktivieren.
+    email_taken: 'Hier meldet sich bereits jemand als „%email%“ an.'
+    no_email: 'Ein Benutzer braucht eine E-Mail-Adresse: sie ist die Anmeldung.'
+    wrong_password: Das ist nicht dein aktuelles Passwort.
+    group_no_name: 'Eine Gruppe braucht einen Namen: daran wird sie ausgewählt.'
+    group_name_taken: 'Es gibt bereits eine Gruppe namens „%label%“.'
+
+flash:
+    saved: Gespeichert.
+    deleted: Gelöscht.
+    passwords_differ: Die beiden Passwörter stimmen nicht überein.
+    password_changed: Dein Passwort wurde geändert.
+    field_added: '„%field%“ hinzugefügt.'
+    field_saved: '„%field%“ gespeichert.'
+    field_removed: '„%field%“ entfernt. Die Werte bleiben gespeichert.'
+    group_created: '„%group%“ erstellt. Sage jetzt, was sie darf.'
+    group_saved: '„%group%“ gespeichert.'
+    group_deleted: '„%group%“ gelöscht. Es wurde niemand entfernt, nur was die Gruppe gegeben hat.'
+    user_saved: '%email% gespeichert.'
+    user_created: '%email% erstellt. Das Passwort lautet %password% — kopiere es jetzt, es wird nicht wieder angezeigt.'
+    password_reset: 'Neues Passwort für %email%: %password% — kopiere es jetzt, es wird nicht wieder angezeigt.'
+    user_reactivated: '%email% kann sich jetzt anmelden.'
+    user_deactivated: '%email% kann sich nicht mehr anmelden.'
+    upload_broken: 'Diese Datei ist nicht unversehrt angekommen (%reason%).'
+    no_file: Wähle eine Tabelle zum Importieren.

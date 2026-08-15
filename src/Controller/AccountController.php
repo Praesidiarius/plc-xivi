@@ -139,30 +139,30 @@ final class AccountController extends AbstractController
                 if ($new !== $repeat) {
                     // Checked here rather than in the manager: it is a fact about
                     // this form having two boxes, not about what a password is.
-                    $this->addFlash('warning', 'Those two passwords are not the same.');
+                    $this->addFlash('warning', $this->translator->trans('flash.passwords_differ'));
 
                     return;
                 }
 
                 if (mb_strlen($new) < User::MINIMUM_PASSWORD_LENGTH) {
-                    $this->addFlash('warning', sprintf(
-                        'Use at least %d characters.',
-                        User::MINIMUM_PASSWORD_LENGTH,
+                    $this->addFlash('warning', $this->translator->trans(
+                        'flash.password_too_short',
+                        ['%count%' => User::MINIMUM_PASSWORD_LENGTH],
                     ));
 
                     return;
                 }
 
                 $this->users->changeOwnPassword($user, (string) $request->request->get('current_password'), $new);
-                $this->addFlash('success', 'Your password has been changed.');
+                $this->addFlash('success', $this->translator->trans('flash.password_changed'));
 
                 return;
             }
 
             $this->users->updateProfile($user, $user->getEmail(), (string) $request->request->get('name'));
-            $this->addFlash('success', 'Saved.');
+            $this->addFlash('success', $this->translator->trans('flash.saved'));
         } catch (UserChangeRefused $e) {
-            $this->addFlash('warning', $e->getMessage());
+            $this->addFlash('warning', $e->translatable()->trans($this->translator));
         }
     }
 }

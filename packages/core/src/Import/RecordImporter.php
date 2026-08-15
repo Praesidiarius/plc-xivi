@@ -93,10 +93,9 @@ final readonly class RecordImporter
         } catch (IOException|ReaderException $e) {
             // Not an exception the caller should have to handle: somebody
             // uploaded the wrong file, which is a sentence rather than a 500.
-            return ImportReport::refused([new ImportProblem('file', null, sprintf(
-                'This file could not be read as a spreadsheet (%s).',
-                $e->getMessage(),
-            ))]);
+            return ImportReport::refused([new ImportProblem('file', null, 'import.problem.unreadable', [
+                '%reason%' => $e->getMessage(),
+            ])]);
         }
 
         $plan = $this->plan($module, $sheets);
@@ -141,10 +140,9 @@ final readonly class RecordImporter
         $rows = $sheets[$moduleSheet] ?? null;
 
         if ($rows === null) {
-            return ImportPlan::refused([new ImportProblem('file', null, sprintf(
-                'The file has no sheet named "%s". An export of this module is the shape it expects.',
-                $moduleSheet,
-            ))]);
+            return ImportPlan::refused([new ImportProblem('file', null, 'import.problem.missing_sheet', [
+                '%sheet%' => $moduleSheet,
+            ])]);
         }
 
         $shapes = [$moduleSheet => $module];
@@ -162,7 +160,7 @@ final readonly class RecordImporter
                 // dropping data quietly is the thing all-or-nothing exists to
                 // prevent.
                 if (\count($sheetRows) > 1) {
-                    $problems[] = new ImportProblem($name, null, 'This sheet matches no part of the module, and its rows would be ignored.');
+                    $problems[] = new ImportProblem($name, null, 'import.problem.unknown_sheet');
                 }
 
                 continue;
@@ -172,10 +170,9 @@ final readonly class RecordImporter
             $problems = [...$problems, ...$map->problems];
 
             if ($shape instanceof CollectionDefinition && $map->parentColumn === null && \count($sheetRows) > 1) {
-                $problems[] = new ImportProblem($name, null, sprintf(
-                    'A "%s" sheet needs a parent_id column saying which record each row belongs to.',
-                    $shape->getLabel(),
-                ));
+                $problems[] = new ImportProblem($name, null, 'import.problem.missing_parent_column', [
+                    '%shape%' => $shape->getLabel(),
+                ]);
             }
 
             $maps[$name] = $map;
@@ -230,7 +227,7 @@ final readonly class RecordImporter
             }
 
             if ($ref !== '' && isset($refs[$ref])) {
-                $problems[] = new ImportProblem($plan->moduleSheet, $number, sprintf('Id "%s" appears more than once.', $ref));
+                $problems[] = new ImportProblem($plan->moduleSheet, $number, 'import.problem.duplicate_id', ['%id%' => $ref]);
 
                 continue;
             }
@@ -284,11 +281,10 @@ final readonly class RecordImporter
                         // Caught here so it reads as a line in a file rather than
                         // as the writer's InvalidArgumentException about a row
                         // belonging to another record.
-                        $problems[] = new ImportProblem($sheet, $childRow['row'], sprintf(
-                            'Row %d does not belong to record %s.',
-                            $childRow['id'],
-                            $ref,
-                        ));
+                        $problems[] = new ImportProblem($sheet, $childRow['row'], 'import.problem.wrong_parent', [
+                            '%row%' => $childRow['id'],
+                            '%parent%' => $ref,
+                        ]);
                         $failed = true;
 
                         continue;
@@ -351,11 +347,10 @@ final readonly class RecordImporter
 
             foreach ($byCollection as $key => $childRows) {
                 foreach ($childRows as $childRow) {
-                    $problems[] = new ImportProblem(self::sheetKey($key), $childRow['row'], sprintf(
-                        'No row of the %s sheet is called "%s". Put that same name in the id column of the row this belongs to.',
-                        $plan->moduleSheet,
-                        $ref,
-                    ));
+                    $problems[] = new ImportProblem(self::sheetKey($key), $childRow['row'], 'import.problem.unknown_parent_name', [
+                        '%sheet%' => $plan->moduleSheet,
+                        '%name%' => $ref,
+                    ]);
                 }
             }
         }
@@ -402,10 +397,7 @@ final readonly class RecordImporter
         $record = $this->records->find($module, (int) $ref);
 
         if ($record === null) {
-            $problems[] = new ImportProblem($sheet, $number, sprintf(
-                'There is no record with id %s. Leave the id empty to create a new one.',
-                $ref,
-            ));
+            $problems[] = new ImportProblem($sheet, $number, 'import.problem.unknown_id', ['%id%' => $ref]);
         }
 
         return $record;
@@ -448,10 +440,9 @@ final readonly class RecordImporter
                 }
 
                 if ($parent === '') {
-                    $problems[] = new ImportProblem($sheet, $number, sprintf(
-                        'This row names no parent record. Put the id of the %s it belongs to in parent_id.',
-                        mb_strtolower($module->getLabel()),
-                    ));
+                    $problems[] = new ImportProblem($sheet, $number, 'import.problem.no_parent', [
+                        '%module%' => mb_strtolower($module->getLabel()),
+                    ]);
 
                     continue;
                 }
@@ -495,11 +486,12 @@ final readonly class RecordImporter
             $key = trim($violation->getPropertyPath(), '[]');
             $field = $shape->getField($key);
 
-            $problems[] = new ImportProblem($sheet, $number, sprintf(
-                '%s: %s',
-                $field?->getLabel() ?? $key,
-                $violation->getMessage(),
-            ));
+            // The violation message is already translated by the validator, so it
+            // arrives as a finished string rather than as another key.
+            $problems[] = new ImportProblem($sheet, $number, 'import.problem.invalid_value', [
+                '%field%' => $field?->getLabel() ?? $key,
+                '%reason%' => $violation->getMessage(),
+            ]);
         }
 
         return \count($violations) > 0;

@@ -102,21 +102,19 @@ final readonly class ColumnMap
             $field = $byKey[$name] ?? $byLabel[$name] ?? null;
 
             if ($field === null) {
-                $problems[] = new ImportProblem($sheet, null, sprintf(
-                    'Column "%s" matches no field of "%s".',
-                    trim((string) (\is_scalar($cell) ? $cell : '')),
-                    $shape->getLabel(),
-                ));
+                $problems[] = new ImportProblem($sheet, null, 'import.problem.unknown_column', [
+                    '%column%' => trim((string) (\is_scalar($cell) ? $cell : '')),
+                    '%shape%' => $shape->getLabel(),
+                ]);
 
                 continue;
             }
 
             if (isset($seen[$field->getKey()])) {
                 // Two columns feeding one field: one of them would silently win.
-                $problems[] = new ImportProblem($sheet, null, sprintf(
-                    'Two columns both fill "%s".',
-                    $field->getLabel(),
-                ));
+                $problems[] = new ImportProblem($sheet, null, 'import.problem.duplicate_column', [
+                    '%field%' => $field->getLabel(),
+                ]);
 
                 continue;
             }

@@ -30,3 +30,7 @@ import:
 group:
     delete_members: '{count, plural, =0 {Nobody is in this group,} one {# person is in this group,} other {# people are in this group,}}'
     delete_grants: '{count, plural, one {and it grants # permission.} other {and it grants # permissions.}}'
+
+flash:
+    password_too_short: '{count, plural, one {Use at least # character.} other {Use at least # characters.}}'
+    imported: 'Imported. {module}: {added, plural, other {# added}}, {updated, plural, other {# updated}}.'

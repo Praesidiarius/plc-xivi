@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 namespace App\Tenant\Security;
 
+use Symfony\Component\Translation\TranslatableMessage;
+
 /**
  * A change to a permission group that the application will not make.
  *
@@ -26,13 +28,35 @@ namespace App\Tenant\Security;
  */
 final class GroupChangeRefused extends \RuntimeException
 {
+    /**
+     * What to show the person who caused it, in their language (XIV-8).
+     *
+     * The exception's own message stays English for the log, where the reader is
+     * a developer. Two audiences, two sentences.
+     */
+    private TranslatableMessage $translatable;
+
+    public function translatable(): TranslatableMessage
+    {
+        return $this->translatable;
+    }
+
+    /** @param array<string, mixed> $parameters */
+    private static function of(string $message, string $key, array $parameters = []): self
+    {
+        $refusal = new self($message);
+        $refusal->translatable = new TranslatableMessage($key, $parameters, 'messages');
+
+        return $refusal;
+    }
+
     public static function noName(): self
     {
-        return new self('A group needs a name: it is what people pick it by.');
+        return self::of('A group needs a name: it is what people pick it by.', 'refusal.group_no_name');
     }
 
     public static function nameTaken(string $label): self
     {
-        return new self(sprintf('There is already a group called "%s".', $label));
+        return self::of(sprintf('There is already a group called "%s".', $label), 'refusal.group_name_taken', ['%label%' => $label]);
     }
 }
