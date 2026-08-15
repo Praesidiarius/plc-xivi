@@ -28,6 +28,7 @@ use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use Xivi\Core\Document\DocumentTemplateRepository;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Export\RecordExporter;
@@ -79,6 +80,7 @@ final class ModuleController extends AbstractController
         private readonly UserRepository $users,
         private readonly PermissionResolver $permissions,
         private readonly TranslatorInterface $translator,
+        private readonly DocumentTemplateRepository $templates,
     ) {
     }
 
@@ -227,6 +229,12 @@ final class ModuleController extends AbstractController
             'history' => $this->history->findFor($definition, $id, self::HISTORY_ON_RECORD),
             'historyTotal' => $this->history->countFor($definition, $id),
             'historyShown' => self::HISTORY_ON_RECORD,
+            // The templates this record could be written onto (XIV-4). Asked for
+            // only when they may generate one, so the query is not run to fill a
+            // card nobody is shown.
+            'documents' => $this->isGranted(ModuleAction::Document->value, $module)
+                ? $this->templates->forRecord($definition->getKey(), $definition->variantOf($record->data))
+                : [],
         ]);
     }
 

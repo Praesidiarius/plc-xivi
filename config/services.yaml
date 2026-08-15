@@ -100,6 +100,15 @@ services:
     # the application says which database, here it says whose settings (XIV-11).
     Xivi\Core\Money\InstanceCurrency: '@App\Tenant\Settings\ProfileCurrency'
 
+    # Documents (XIV-4). Core fills a .docx template and asks for a PDF through
+    # Xivi\Core\Document\PdfConverter; the application answers with Gotenberg,
+    # a service on the compose network. Same seam as the currency above.
+    Xivi\Core\Document\PdfConverter: '@App\Tenant\Document\GotenbergPdfConverter'
+
+    Xivi\Core\Document\DocumentTemplateRepository:
+        arguments:
+            $entityManager: '@doctrine.orm.tenant_entity_manager'
+
     # The words demo data is made of. Core's own lists by default, so generation
     # works with no dependency; dev and test replace this with Faker below,
     # which has hundreds of names where these have thirty.

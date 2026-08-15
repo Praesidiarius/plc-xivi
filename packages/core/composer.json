@@ -8,7 +8,10 @@
         "doctrine/dbal": "^4.4",
         "doctrine/orm": "^3.6",
         "php": ">=8.4",
+        "anourvalar/office": "^2.6",
+        "maennchen/zipstream-php": "^3.2",
         "symfony/form": "8.1.*",
+        "symfony/mime": "8.1.*",
         "symfony/framework-bundle": "8.1.*",
         "symfony/validator": "8.1.*"
     },

@@ -1,0 +1,148 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'document.templates'|trans }} — {{ module.label }}{% endblock %}
+
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<div class="d-flex align-items-start justify-content-between gap-3 mb-3">
+			<div>
+				<h1 class="h3 mb-1">{{ 'document.templates'|trans }}</h1>
+				<p class="text-body-secondary mb-0">{{ 'document.templates_intro'|trans({'%module%': module.label}) }}</p>
+			</div>
+			<a class="btn btn-link" href="{{ path('module_index', {module: module.key}) }}">{{ 'common.back'|trans }}</a>
+		</div>
+
+		<div class="row g-4">
+			<div class="col-lg-7">
+				<div class="card mb-4">
+					<div class="card-body">
+						<h2 class="h6 text-uppercase text-body-secondary mb-3">{{ 'document.uploaded'|trans }}</h2>
+
+						{% if templates is empty %}
+							<p class="text-body-secondary mb-0">{{ 'document.none_yet'|trans }}</p>
+						{% else %}
+							<div class="table-responsive">
+								<table class="table align-middle mb-0">
+									<thead>
+										<tr>
+											<th scope="col" class="text-body-secondary small text-uppercase">{{ 'common.name'|trans }}</th>
+											<th scope="col" class="text-body-secondary small text-uppercase">{{ 'document.applies_to'|trans }}</th>
+											<th scope="col" class="text-body-secondary small text-uppercase">{{ 'document.uploaded_when'|trans }}</th>
+											<th scope="col"></th>
+										</tr>
+									</thead>
+									<tbody>
+										{% for template in templates %}
+											<tr>
+												<th scope="row" class="fw-normal">
+													<i class="bi bi-file-earmark-word text-body-secondary" aria-hidden="true"></i>
+													{{ template.name }}
+													<div class="small text-body-secondary">{{ template.filename }}</div>
+												</th>
+												<td>
+													{# A template naming no variant is offered on every record. #}
+													{{ template.variant ? (variants[template.variant]|default(template.variant)) : ('document.every_record'|trans) }}
+												</td>
+												<td class="small text-body-secondary">
+													{{ template.uploadedAt|date('Y-m-d H:i') }}
+													{% if template.uploadedBy %}
+														<div>{{ 'module.action_by'|trans({'%who%': template.uploadedBy}) }}</div>
+													{% endif %}
+												</td>
+												<td class="text-end row-actions">
+													<form method="post"
+													      action="{{ path('module_template_delete', {module: module.key, template: template.id}) }}">
+														<input type="hidden" name="_token" value="{{ csrf_token('module-templates') }}">
+														<button class="btn btn-sm btn-outline-danger" type="submit">
+															{{ 'common.delete'|trans }}
+														</button>
+													</form>
+												</td>
+											</tr>
+										{% endfor %}
+									</tbody>
+								</table>
+							</div>
+						{% endif %}
+					</div>
+				</div>
+
+				<div class="card">
+					<div class="card-body">
+						<h2 class="h6 text-uppercase text-body-secondary mb-3">{{ 'document.upload'|trans }}</h2>
+
+						<form method="post" enctype="multipart/form-data"
+						      action="{{ path('module_template_upload', {module: module.key}) }}">
+							<input type="hidden" name="_token" value="{{ csrf_token('module-templates') }}">
+
+							<div class="mb-3">
+								<label class="form-label" for="name">{{ 'common.name'|trans }}</label>
+								<input class="form-control" type="text" id="name" name="name" maxlength="255"
+								       placeholder="{{ 'document.name_placeholder'|trans }}">
+								<div class="form-text">{{ 'document.name_help'|trans }}</div>
+							</div>
+
+							{% if variants is not empty %}
+								<div class="mb-3">
+									<label class="form-label" for="variant">{{ 'document.applies_to'|trans }}</label>
+									<select class="form-select" id="variant" name="variant">
+										<option value="">{{ 'document.every_record'|trans }}</option>
+										{% for key, label in variants %}
+											<option value="{{ key }}">{{ label }}</option>
+										{% endfor %}
+									</select>
+									<div class="form-text">{{ 'document.applies_to_help'|trans }}</div>
+								</div>
+							{% endif %}
+
+							<div class="mb-3">
+								<label class="form-label" for="template">{{ 'document.file'|trans }}</label>
+								<input class="form-control" type="file" id="template" name="template"
+								       accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required>
+								<div class="form-text">
+									{{ 'document.file_help'|trans({'%size%': (maxBytes / 1024 / 1024)|round}) }}
+								</div>
+							</div>
+
+							<button class="btn btn-primary" type="submit">{{ 'document.upload'|trans }}</button>
+						</form>
+					</div>
+				</div>
+			</div>
+
+			<div class="col-lg-5">
+				{#
+					The reference list, which is the reason this page exists: somebody
+					writing the template in Word needs to know what to type, and the
+					answer comes from this customer's own definitions rather than from
+					documentation that would go stale the first time they add a field.
+				#}
+				<div class="card">
+					<div class="card-body">
+						<h2 class="h6 text-uppercase text-body-secondary mb-2">{{ 'document.placeholders'|trans }}</h2>
+						<p class="text-body-secondary small">{{ 'document.placeholders_help'|trans }}</p>
+
+						{% for variant, list in markers %}
+							{% if variant %}
+								<h3 class="h6 mt-3">{{ variants[variant]|default(variant) }}</h3>
+							{% endif %}
+
+							<dl class="row small mb-0">
+								{% for marker in list %}
+									<dt class="col-6 fw-normal">
+										<code>{{ marker.token }}</code>
+									</dt>
+									<dd class="col-6 text-body-secondary">{{ marker.label }}</dd>
+								{% endfor %}
+							</dl>
+						{% endfor %}
+					</div>
+				</div>
+			</div>
+		</div>
+	</main>
+{% endblock %}

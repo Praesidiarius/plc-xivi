@@ -84,10 +84,18 @@ services:
       - -c
       - max_connections=300
     tmpfs:
-      # Capped rather than left to the default half-of-RAM: the suite's databases
-      # come to about 50 MB, and a CI runner with 7 GB should not be one runaway
-      # test away from having none.
-      - /var/lib/postgresql/data:size=1g
+      # Capped rather than left to the default half-of-RAM: a CI runner with 7 GB
+      # should not be one runaway test away from having none.
+      #
+      # 2g rather than the 1g this started at. A full parallel run is about 320 MB
+      # across 28 databases now that a dozen test classes provision a tenant each
+      # — and nothing here is ever deleted, because a database cannot be dropped
+      # while DAMA still holds a connection to it (see SharesATenant). A machine
+      # that runs both `composer test` and `composer test:parallel` therefore
+      # keeps two sets, plus whatever slugs older branches left behind, and 1g ran
+      # out mid-suite with "no space left on device". Restarting the container
+      # empties it, which is the other half of the answer and costs nothing.
+      - /var/lib/postgresql/data:size=2g
     healthcheck:
       test: ["CMD", "pg_isready", "-d", "${POSTGRES_DB:-app}", "-U", "${POSTGRES_USER:-app}"]
       timeout: 5s

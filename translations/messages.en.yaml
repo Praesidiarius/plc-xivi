@@ -257,6 +257,28 @@ profile:
     currency_none: Not chosen yet
     read_only: You may see this but not change it.
 
+document:
+    documents: Documents
+    templates: Templates
+    templates_intro: >-
+        The .docx files documents for %module% are made from. Write one in Word, put the
+        placeholders below where the values should go, and upload it here.
+    uploaded: Uploaded templates
+    none_yet: No templates yet. Nothing can be generated until there is one.
+    upload: Upload a template
+    file: The .docx file
+    file_help: 'Word documents only, up to %size% MB.'
+    name_placeholder: Letter, Invoice, Data sheet…
+    name_help: What it is called on the record. Taken from the file name if you leave it empty.
+    applies_to: Applies to
+    applies_to_help: A template for one kind of record is only offered on that kind.
+    every_record: Every record
+    uploaded_when: Uploaded
+    placeholders: Placeholders
+    placeholders_help: >-
+        Type these into the Word document, brackets included. They are replaced with this
+        record's values when the document is generated. Anything you leave out stays out.
+
 permission:
     yes: 'Yes'
     no: 'No'
@@ -275,6 +297,8 @@ refusal:
 
 flash:
     saved: Saved.
+    template_uploaded: Template uploaded. It is offered on every record it applies to.
+    template_deleted: 'Removed "%template%". Documents already downloaded are unaffected.'
     profile_saved: Saved. This is how the instance describes itself from now on.
     shape_renamed: 'Renamed to "%shape%".'
     deleted: Deleted.

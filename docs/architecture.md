@@ -547,6 +547,69 @@ and wrong for hundreds of thousands of rows. And importing is admin-only for now
 It is not a more dangerous way to edit a record than the form is, but it is a much
 faster one, and §7.5 is where that gets a real answer.
 
+### 5.7 Documents from templates (XIV-4)
+
+A record, on paper: the customer writes a .docx in Word, puts `[markers]` where
+the values go, uploads it, and downloads a filled-in copy of it as a .docx or a
+PDF from any record it applies to.
+
+**The placeholder list is derived, not documented.** It is the customer's own
+field definitions crossed with a handful of markers every template ends up
+wanting — the record's number, its dates, today — so a field added this morning
+is a marker this afternoon and one removed stops being offered. One class
+computes both the reference list and the values that fill it, because a screen
+somebody writes their template against and the substitution that happens later
+have to agree about every word; two functions computing them separately is a
+feature that works until a field is renamed. Values are rendered through the
+field type, so a date reads as a date and a price as "CHF 19.90" — the same
+`display()` the list already uses.
+
+**A template may name a variant** (§5.5): a letter to a person is a different
+document from a letter to a company, and one naming no variant is offered
+everywhere.
+
+**Uploading and generating are two permissions.** They fall out of §8.4 for free
+— the enum crossed with the modules — and they are genuinely different jobs:
+whoever designs the invoice is not whoever sends one, and a template decides what
+every future document of that kind looks like, which is a larger thing to hand
+out than the documents.
+
+**Three libraries, and the licence decided two of them.** This project is MIT and
+its dependencies have to be usable on those terms:
+
+- **`anourvalar/office`** fills the .docx. PHPWord is the obvious choice and is
+  LGPL-3.0; this one is MIT and does the part that is actually hard, which is
+  that Word splits a placeholder somebody typed by hand across several runs in
+  the XML, where a naive string replace finds nothing.
+- **Gotenberg**, through `sensiolabs/gotenberg-bundle`, makes the PDF. Both MIT.
+  It is a container wrapping LibreOffice rather than a library, and that is the
+  point: **no pure-PHP PDF library can read a .docx at all.** They render HTML, so
+  the pipeline with one would be docx → HTML → PDF, and the header, the footer,
+  the page numbering and the fonts of the template are approximations by the end
+  of it. LibreOffice is what a person would use to export the document
+  themselves. (dompdf is LGPL-2.1, mPDF GPL-2.0, TCPDF LGPL-3.0 — the licences
+  rule them out before the fidelity does.)
+- Core declares `PdfConverter` and the application answers it with Gotenberg, the
+  same seam as `InstanceCurrency` (§5): the engine fills a template and never
+  learns that the converter is a service on a network.
+
+**Uploaded templates live in the tenant's own database**, in a bytea column.
+These are the first files the system keeps, and the general file-storage question
+— the one attachments will ask — is deliberately *not* answered here. Templates
+are small and few and unmistakably one customer's, so the isolation §4 already
+provides costs nothing extra: no volume, no bucket, no path to get wrong, and
+backup, restore and export-on-churn keep working per customer with nothing added.
+Attachments are many, large and long-lived, and will want a different answer;
+this one is bounded on purpose.
+
+**A converter that is down is not a broken record.** The .docx is offered beside
+the PDF for exactly that case, and the page says so rather than showing a stack
+trace.
+
+Still to decide: repeating blocks, so a template can lay out a contact's
+addresses or an invoice's lines. A marker is one value, and a table that grows is
+a different feature in the Word document as much as in the code.
+
 ---
 
 ## 6. Extensibility
@@ -1057,7 +1120,8 @@ additive-only half of it: a new table and new definition rows destroy nothing, a
 both collections and history needed exactly that.
 
 Two things to keep honest while templates land: the metadata layer will want a
-per-tenant cache, which is §7.4 in a new costume; and file storage has not been
-designed at all, which is a cross-tenant surface as soon as uploads exist. The
-import needs no answer to it — it parses the upload and discards it — but the
-first feature that keeps a file will.
+per-tenant cache, which is §7.4 in a new costume; and file storage is now half
+answered rather than not at all. Document templates (§5.7) are the first feature
+that keeps a file, and they keep it in the tenant's own database — a bounded
+answer for something small, few and unmistakably one customer's. Attachments are
+many, large and long-lived, and will still want a real one.

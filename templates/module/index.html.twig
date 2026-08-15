@@ -50,6 +50,14 @@
 							<span class="d-none d-sm-inline">{{ 'common.import'|trans }}</span>
 						</a>
 				{% endif %}
+				{# Keeping the stationery, which is its own grant: whoever designs the
+				   invoice is not whoever sends one (XIV-4). #}
+				{% if can('templates', module) %}
+					<a class="btn btn-outline-secondary" href="{{ path('module_templates', {module: module.key}) }}">
+							<i class="bi bi-file-earmark-word" aria-hidden="true"></i>
+							<span class="d-none d-sm-inline">{{ 'document.templates'|trans }}</span>
+						</a>
+				{% endif %}
 				{# The metadata editor stays an administrator's job: it changes what
 				   the module *is*, which is not one of its permissions (§5.4). #}
 				{% if is_granted('ROLE_ADMIN') %}

@@ -32,6 +32,35 @@ of every page, and is not yet tied to git tags.
 
 ### Added
 
+- **Documents from Word templates** ([XIV-4]). A module's records can be
+  downloaded as a filled-in .docx or PDF, from templates the customer writes in
+  Word and uploads themselves. Both formats every time: the PDF is what gets
+  sent, and the .docx is what somebody edits when a letter needs a sentence the
+  template has not got.
+- **The placeholder list comes from the customer's own definitions.** A field
+  they added this morning is `[a_marker]` this afternoon, and one they removed
+  stops being offered — the same claim the form and the list already make, so
+  there is no documentation to go stale. Values are written the way the field
+  type shows them, so a date reads as a date and a price as "CHF 19.90".
+- **A template may name a variant** (§5.5) — a letter to a person is a different
+  document from a letter to a company, and one naming no variant is offered on
+  every record of the module.
+- **Uploading templates and generating documents are two permissions**
+  (`templates` and `document`), which is what the enum crossed with the modules
+  gives for free. Whoever designs the invoice is not whoever sends one, and a
+  template decides what every future document of that kind looks like.
+- **Three libraries, all MIT** (§5.7): `anourvalar/office` fills the .docx, where
+  PHPWord — the obvious choice — is LGPL-3.0; and `sensiolabs/gotenberg-bundle`
+  talks to a Gotenberg container that converts it with LibreOffice, where every
+  pure-PHP PDF library is LGPL or GPL and none of them can read a .docx at all.
+  DomPDF would have meant docx → HTML → PDF, which throws away the header, the
+  footer and the fonts the template was made in Word for.
+- **The first files this system keeps live in the tenant's own database**, in a
+  bytea column. Templates are small and few, so the isolation §4 already provides
+  costs nothing extra here — no volume, no bucket, no paths to get wrong.
+  Deliberately a bounded decision and not the general file-storage design, which
+  attachments will still need.
+
 - **An article module** ([XIV-11]) — a title, a description and a price. The
   second module on the engine, and the first one nobody had to change the engine
   for: a declaration and two field types, with no controller, no entity, no form
@@ -414,6 +443,7 @@ began and is recorded here as one entry rather than invented as a history.
 
 [XIV-2]: https://xivi.youtrack.cloud/issue/XIV-2
 [XIV-3]: https://xivi.youtrack.cloud/issue/XIV-3
+[XIV-4]: https://xivi.youtrack.cloud/issue/XIV-4
 [XIV-5]: https://xivi.youtrack.cloud/issue/XIV-5
 [XIV-6]: https://xivi.youtrack.cloud/issue/XIV-6
 [XIV-7]: https://xivi.youtrack.cloud/issue/XIV-7

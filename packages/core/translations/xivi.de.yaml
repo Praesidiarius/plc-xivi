@@ -12,6 +12,12 @@ operator:
     empty: ist leer
     filled: ist nicht leer
 
+document:
+    problem:
+        not_a_docx: '„%file%“ ist kein lesbares Word-Dokument. Speichere es als .docx und versuche es erneut.'
+        could_not_fill: 'Die Vorlage „%template%“ konnte nicht befüllt werden. Möglicherweise ist sie in einem Format gespeichert, das Word selbst reparieren würde.'
+        no_converter: Der PDF-Dienst war nicht erreichbar, deshalb gibt es gerade nur die .docx-Datei.
+
 history:
     period:
         today: Heute
@@ -29,6 +35,8 @@ permission:
         delete: Löschen
         export: Exportieren
         import: Importieren
+        templates: Vorlagen
+        document: Dokumente
     scope:
         own: Eigene Datensätze
         all: Alle Datensätze
