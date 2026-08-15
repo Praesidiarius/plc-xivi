@@ -25,6 +25,7 @@ use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModulePreset;
 use Xivi\Core\Module\ModuleRegistry;
+use Xivi\Core\Module\ModuleRequirementMissing;
 
 /**
  * Installs a module for one customer: its table and its field definitions, in
@@ -102,6 +103,13 @@ final readonly class InstallModuleCommand
 
                 return [$this->installer->install($blueprint, $preset, $locale), !$already];
             });
+        } catch (ModuleRequirementMissing $e) {
+            // Its own catch, because this one is worth acting on rather than
+            // merely reading: it names the module to install first (XIV-23).
+            $io->error($e->getMessage());
+            $io->note(sprintf('bin/console tenant:module:install %s <module>', $found->getSlug()));
+
+            return Command::FAILURE;
         } catch (\RuntimeException $e) {
             $io->error($e->getMessage());
 

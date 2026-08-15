@@ -557,6 +557,7 @@ began and is recorded here as one entry rather than invented as a history.
 [XIV-18]: https://xivi.youtrack.cloud/issue/XIV-18
 [XIV-20]: https://xivi.youtrack.cloud/issue/XIV-20
 [XIV-21]: https://xivi.youtrack.cloud/issue/XIV-21
+[XIV-23]: https://xivi.youtrack.cloud/issue/XIV-23
 [XIV-8]: https://xivi.youtrack.cloud/issue/XIV-8
 [XIV-9]: https://xivi.youtrack.cloud/issue/XIV-9
 [XIV-10]: https://xivi.youtrack.cloud/issue/XIV-10

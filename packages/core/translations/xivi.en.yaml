@@ -76,6 +76,9 @@ import:
         no_parent: 'This row names no parent record. Put the id of the %module% it belongs to in parent_id.'
         invalid_value: '%field%: %reason%'
 
+module:
+    requires_missing: '"%module%" needs %missing%, which is not installed here. Install that first.'
+
 metadata:
     empty_label: 'A shape needs a label: it is what the navigation and every page heading call it.'
     bad_key: 'A field name must start with a letter and contain only lowercase letters, numbers and underscores. "%key%" does not.'

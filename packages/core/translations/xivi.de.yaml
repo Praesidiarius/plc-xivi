@@ -69,6 +69,9 @@ import:
         no_parent: 'Diese Zeile nennt keinen übergeordneten Datensatz. Trage die Id des %module%, zu dem sie gehört, in parent_id ein.'
         invalid_value: '%field%: %reason%'
 
+module:
+    requires_missing: '„%module%“ braucht %missing%, und das ist hier nicht installiert. Installiere das zuerst.'
+
 metadata:
     empty_label: 'Eine Form braucht eine Bezeichnung: so nennen sie die Navigation und jede Seitenüberschrift.'
     bad_key: 'Ein Feldname muss mit einem Buchstaben beginnen und darf nur Kleinbuchstaben, Zahlen und Unterstriche enthalten. „%key%“ tut das nicht.'
