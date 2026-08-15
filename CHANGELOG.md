@@ -151,6 +151,30 @@ of every page, and is not yet tied to git tags.
 
 ### Changed
 
+- **Records can have a lifecycle** ([XIV-14]), built on **symfony/workflow**. A
+  module declares its states and the moves between them beside its fields, the
+  engine refuses an illegal move and says what was possible instead, and a record
+  offers only the moves that are legal from where it is.
+- **The state lives in an ordinary field** — a `choice` field the module already
+  declares — so it filters, lists, exports and appears in history for free. A
+  lifecycle is a rule *over a value*, not a second place the state is kept; two
+  stores would eventually disagree. The adaptation is one nine-line marking store,
+  because a record already is a bag of values and one of them is the state.
+- **Definitions come from the module blueprint, not from `framework.workflows`.**
+  A YAML file would have to name every module every customer might install, and
+  which modules a customer has is a runtime question (§3). `DefinitionBuilder` is
+  the component's own answer to exactly that.
+- **Moving a record is its own permission** (`transition`), which the enum
+  crossed with the modules gives for free. Sending an invoice is a different
+  authority from correcting a typo in one. One grant per module rather than per
+  transition — "may confirm but not cancel" is a real requirement and the moment
+  somebody has it, that is its own ticket.
+- **A state can end editing.** A finished record loses the edit button *and* the
+  route behind it, because a hidden button is a courtesy and a URL is not.
+- **The timeline says the record moved**, rather than that a field happened to
+  differ: "somebody sent this invoice" and "somebody fixed a typo in it" are
+  different facts and an audit trail that called both "updated" would bury the
+  first.
 - **A link may now leave its own module** ([XIV-13]), which is the half of §7.6
   that was open. `reference` already stored a target's id and took a module
   option; what did not work was everything around it.
@@ -498,6 +522,7 @@ began and is recorded here as one entry rather than invented as a history.
 [XIV-11]: https://xivi.youtrack.cloud/issue/XIV-11
 [XIV-12]: https://xivi.youtrack.cloud/issue/XIV-12
 [XIV-13]: https://xivi.youtrack.cloud/issue/XIV-13
+[XIV-14]: https://xivi.youtrack.cloud/issue/XIV-14
 [XIV-8]: https://xivi.youtrack.cloud/issue/XIV-8
 [XIV-9]: https://xivi.youtrack.cloud/issue/XIV-9
 [XIV-10]: https://xivi.youtrack.cloud/issue/XIV-10

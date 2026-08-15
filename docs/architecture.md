@@ -649,6 +649,49 @@ Still to decide: repeating blocks, so a template can lay out a contact's
 addresses or an invoice's lines. A marker is one value, and a table that grows is
 a different feature in the Word document as much as in the code.
 
+### 5.8 Lifecycles (XIV-14)
+
+A module may declare the states its records move through and the moves allowed
+between them: draft → active → done, cancelled from either.
+
+**On symfony/workflow**, because the framework has this and a hand-rolled state
+machine would be a second one to maintain (§5.7's rule, applied again). Two
+things had to be adapted, and both are worth knowing:
+
+- **A record is not an entity**, so neither marking store the component ships
+  fits — `MethodMarkingStore` wants a getter this class of object cannot have.
+  The replacement is nine lines, because **the state lives in an ordinary
+  `choice` field the module already declares**. That is the design decision
+  underneath: a lifecycle is a *rule over a value*, not a second place the state
+  is kept. The state filters, lists, exports and shows up in history for free,
+  and there is no second store to disagree with the first.
+- **Definitions are built from the blueprint**, not from `framework.workflows`.
+  That YAML would have to name every module every customer might install, and
+  which modules a customer has is a runtime question (§3). `DefinitionBuilder`
+  exists for exactly this.
+
+**Two traps the component sets, both found by tests rather than by reading.**
+`StateMachine` is the right class — a record is in one state, where `Workflow` is
+a Petri net whose subject holds several places at once. And **a transition with
+two `from` places means "from both at once"**, not "from either": "cancel, from
+draft or from active" is spelled as two transitions sharing a name, which is what
+the builder here does. Neither class name nor signature says any of this.
+
+**Moving a record is its own permission** (§8.4): one grant per module, not per
+transition. Sending an invoice is a different authority from correcting a typo in
+one, which is why it is not `edit` — but "may confirm and not cancel" would need
+the grant table to carry a third thing, so it waits for somebody who actually
+needs it.
+
+**A state can end editing.** A finished record loses the edit button and the
+route behind it; the button is a courtesy and the URL is the rule. That is the
+first time the engine refuses a save on a module's say-so, which narrows §7.1
+without answering it: this is a declared rule, not a subscriber's veto.
+
+**The timeline gets its own verb for it.** "Somebody sent this invoice" and
+"somebody fixed a typo in it" are different facts about a document, and an audit
+trail that called both "updated" would bury the first.
+
 ---
 
 ## 6. Extensibility
@@ -744,6 +787,10 @@ Not yet decided. Decide deliberately rather than by accident.
 
 1. **Veto events.** May a subscriber cancel a host action (e.g. `BeforeSave`)? Stoppable
    events give modules real power but make host behavior depend on what's installed.
+   *Narrowed by §5.8.* A lifecycle now refuses a save — an edit of a locked record — but
+   it is the engine refusing on a rule the module *declared*, not a subscriber vetoing at
+   runtime. The question is still open for subscribers; what a module can say
+   declaratively is turning out to cover more of it than expected.
 2. **Metadata migration.** What happens when a field changes type, or is deleted while
    data exists in it? Needs a real answer before the metadata editor ships.
    *Half settled — see §5.4.* Deleting a field is now decided: the definition goes and

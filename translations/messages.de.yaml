@@ -88,6 +88,8 @@ module:
     created_at: 'Erstellt am %when%'
     pages: Seiten
     history: Verlauf
+    status: Status
+    locked: 'Dieser Datensatz ist %state% und kann nicht mehr bearbeitet werden.'
     history_empty: >-
         Nichts aufgezeichnet. Datensätze, die es schon vor dem Verlauf gab, haben
         keinen, bis sie das nächste Mal geändert werden.
@@ -98,6 +100,7 @@ module:
         updated: Geändert
         deleted: Gelöscht
         document_generated: Dokument erzeugt
+        transitioned: Status geändert
     row_action:
         added: hinzugefügt
         updated: geändert
@@ -304,6 +307,7 @@ refusal:
 
 flash:
     saved: Gespeichert.
+    transitioned: 'Jetzt %state%.'
     template_uploaded: Vorlage hochgeladen. Sie wird an jedem passenden Datensatz angeboten.
     template_deleted: '„%template%“ entfernt. Bereits heruntergeladene Dokumente bleiben davon unberührt.'
     profile_saved: Gespeichert. So beschreibt sich die Instanz von jetzt an.

@@ -30,6 +30,7 @@
         "symfony/translation": "8.1.*",
         "symfony/twig-bundle": "8.1.*",
         "symfony/validator": "8.1.*",
+        "symfony/workflow": "8.1.*",
         "symfony/yaml": "8.1.*",
         "xivi/article": "^1.0",
         "xivi/contact": "^1.0",

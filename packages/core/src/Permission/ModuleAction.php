@@ -60,6 +60,20 @@ enum ModuleAction: string
     case Document = 'document';
 
     /**
+     * Moving a record through its lifecycle: confirming an order, sending an
+     * invoice (XIV-14).
+     *
+     * One grant for every transition of the module, not one per transition.
+     * That keeps the catalogue free — this enum crossed with the customer's
+     * modules, worked out at runtime — where per-transition control would need
+     * the grant table to carry a third thing and §8.4's whole argument to be
+     * reopened. "May confirm but not cancel" is a real requirement and the
+     * moment somebody has it, that is the ticket; guessing at it now would be
+     * paying for it before anybody asked.
+     */
+    case Transition = 'transition';
+
+    /**
      * Whether "only the records I own" is a question this action can answer.
      *
      * Adding a record and importing a file name nothing that already exists, so
@@ -70,7 +84,7 @@ enum ModuleAction: string
     public function isScopable(): bool
     {
         return match ($this) {
-            self::View, self::List, self::Edit, self::Delete, self::Export, self::Document => true,
+            self::View, self::List, self::Edit, self::Delete, self::Export, self::Document, self::Transition => true,
             // Templates names no record: it is the module's stationery, not
             // anybody's row.
             self::Add, self::Import, self::Templates => false,
@@ -87,7 +101,7 @@ enum ModuleAction: string
     public function isMutating(): bool
     {
         return match ($this) {
-            self::Add, self::Edit, self::Delete, self::Import, self::Templates => true,
+            self::Add, self::Edit, self::Delete, self::Import, self::Templates, self::Transition => true,
             // Generating a document changes nothing about the record; it is a
             // read that happens to come back as a file, like the export.
             self::View, self::List, self::Export, self::Document => false,

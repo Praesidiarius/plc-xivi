@@ -19,7 +19,16 @@
 				<i class="bi bi-{{ module.icon }} fs-2 text-body-secondary" aria-hidden="true"></i>
 				<div>
 					<h1 class="h3 mb-0">{{ title }}</h1>
-					<p class="text-body-secondary small mb-0">{{ module.label }}</p>
+					<p class="text-body-secondary small mb-0">
+						{{ module.label }}
+						{% if lifecycle %}
+							{# The state reads as a badge beside what the record is, because it
+							   is what the record *is* right now (XIV-14). #}
+							<span class="badge text-bg-secondary ms-1">
+								{{- display(module.getField(lifecycle.lifecycle.field), record.get(lifecycle.lifecycle.field)) -}}
+							</span>
+						{% endif %}
+					</p>
 				</div>
 			</div>
 
@@ -43,7 +52,21 @@
 						<span class="d-none d-sm-inline">{{ 'document.documents'|trans }}</span>
 					</a>
 				{% endif %}
-				{% if can('edit', module, record) %}
+				{#
+					Where the record is, and where it may go from here (XIV-14). Only
+					the legal moves are drawn: a button that answers "not from there"
+					is a button that should not have been offered.
+				#}
+				{% for transition in transitions %}
+					<form method="post"
+					      action="{{ path('module_transition', {module: module.key, id: record.id, transition: transition.name}) }}">
+						<input type="hidden" name="_token" value="{{ csrf_token('transition-record-' ~ record.id) }}">
+						<button type="submit" class="btn btn-outline-primary">
+							{{ transition.labelKey|trans({}, module.key) }}
+						</button>
+					</form>
+				{% endfor %}
+				{% if can('edit', module, record) and not (lifecycle and lifecycle.isLocked(record)) %}
 					<a class="btn btn-primary" href="{{ path('module_edit', {module: module.key, id: record.id}) }}">
 						<i class="bi bi-pencil" aria-hidden="true"></i> {{ 'common.edit'|trans }}
 					</a>

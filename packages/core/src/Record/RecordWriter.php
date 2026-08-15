@@ -54,10 +54,15 @@ final readonly class RecordWriter
      *                                                                                       the full contents of each collection, keyed by collection;
      *                                                                                       rows with an id are kept, rows without are added, and
      *                                                                                       anything missing is removed
+     * @param RecordAction|null                                                    $as       what this save *was*, when it was more than an edit —
+     *                                                                                       a lifecycle transition writes the same field diff as
+     *                                                                                       any other change and deserves a different verb over
+     *                                                                                       it (XIV-14). Null lets the writer decide, which is
+     *                                                                                       what every ordinary save wants
      */
-    public function save(ModuleDefinition $module, Record $record, array $children = []): Record
+    public function save(ModuleDefinition $module, Record $record, array $children = [], ?RecordAction $as = null): Record
     {
-        return $this->connection->transactional(function () use ($module, $record, $children): Record {
+        return $this->connection->transactional(function () use ($module, $record, $children, $as): Record {
             $isNew = $record->isNew();
 
             $before = $isNew
@@ -92,7 +97,7 @@ final readonly class RecordWriter
                 $this->events->dispatch(new RecordChanged(
                     $module,
                     $record,
-                    $isNew ? RecordAction::Created : RecordAction::Updated,
+                    $as ?? ($isNew ? RecordAction::Created : RecordAction::Updated),
                     $changes,
                     new \DateTimeImmutable(),
                 ));

@@ -96,6 +96,8 @@ module:
     created_at: 'Created %when%'
     pages: Pages
     history: History
+    status: Status
+    locked: 'This record is %state% and can no longer be edited.'
     history_empty: >-
         Nothing recorded. Records that existed before history did have none until
         the next time they change.
@@ -106,6 +108,7 @@ module:
         updated: Updated
         deleted: Deleted
         document_generated: Document generated
+        transitioned: Status changed
     row_action:
         added: added
         updated: updated
@@ -311,6 +314,7 @@ refusal:
 
 flash:
     saved: Saved.
+    transitioned: 'Now %state%.'
     template_uploaded: Template uploaded. It is offered on every record it applies to.
     template_deleted: 'Removed "%template%". Documents already downloaded are unaffected.'
     profile_saved: Saved. This is how the instance describes itself from now on.

@@ -165,6 +165,11 @@ when@test:
             tags:
                 - { name: 'doctrine.middleware', connection: 'tenant', priority: 50 }
 
+        # A module that exists only here, so the lifecycle machinery has
+        # something to be tested against without inventing product behaviour in
+        # a module customers actually have (XIV-14).
+        App\Tests\Support\Module\JobModule: ~
+
         # Private services with no caller are removed when the container is
         # compiled, and nothing in the application validates a record yet — the
         # UI is the next thing to be built. Keeping it reachable so the engine can

@@ -35,4 +35,13 @@ enum RecordAction: string
      * anyway, and why "who read this record" still is not.
      */
     case DocumentGenerated = 'document_generated';
+
+    /**
+     * The record moved through its lifecycle (XIV-14).
+     *
+     * Its own verb rather than an ordinary update, because "somebody sent this
+     * invoice" and "somebody corrected a typo in it" are different facts about a
+     * document and a timeline that called both "updated" would bury the first.
+     */
+    case Transitioned = 'transitioned';
 }

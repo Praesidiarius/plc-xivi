@@ -38,6 +38,8 @@ use Xivi\Core\Field\Type\ReferenceFieldType;
 use Xivi\Core\Form\ModuleRecordType;
 use Xivi\Core\History\HistoryRepository;
 use Xivi\Core\History\HistorySection;
+use Xivi\Core\Lifecycle\Lifecycles;
+use Xivi\Core\Lifecycle\TransitionRefused;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Metadata\ModuleNotInstalled;
 use Xivi\Core\Permission\ModuleAction;
@@ -48,6 +50,7 @@ use Xivi\Core\Query\RecordQuery;
 use Xivi\Core\Query\RecordQueryFactory;
 use Xivi\Core\Query\UnsupportedQuery;
 use Xivi\Core\Record\Record;
+use Xivi\Core\Record\RecordAction;
 use Xivi\Core\Record\RecordRepository;
 use Xivi\Core\Record\RecordWriter;
 use Xivi\Core\Validation\RecordValidator;
@@ -83,6 +86,7 @@ final class ModuleController extends AbstractController
         private readonly PermissionResolver $permissions,
         private readonly TranslatorInterface $translator,
         private readonly DocumentTemplateRepository $templates,
+        private readonly Lifecycles $lifecycles,
     ) {
     }
 
@@ -218,6 +222,8 @@ final class ModuleController extends AbstractController
             $children[$collection->getKey()] = $this->records->findChildren($collection, $id);
         }
 
+        $lifecycle = $this->lifecycles->for($definition->getKey());
+
         return $this->render('module/show.html.twig', [
             'module' => $definition,
             'record' => $record,
@@ -238,6 +244,12 @@ final class ModuleController extends AbstractController
                 ? $this->templates->forRecord($definition->getKey(), $definition->variantOf($record->data))
                 : [],
             'formats' => DocumentFormat::cases(),
+            // Null for a module that simply is (XIV-14); the page then draws no
+            // status at all rather than an empty one.
+            'lifecycle' => $lifecycle,
+            'transitions' => $lifecycle === null || !$this->isGranted(ModuleAction::Transition->value, $module)
+                ? []
+                : $lifecycle->enabledFor($record),
         ]);
     }
 
@@ -371,8 +383,61 @@ final class ModuleController extends AbstractController
     {
         $definition = $this->definition($module);
         $record = $this->recordFor($definition, $id, ModuleAction::Edit);
+        $lifecycle = $this->lifecycles->for($definition->getKey());
+
+        // A state can end editing (XIV-14): a sent invoice is a document, not a
+        // draft. The page hides the button; this is what makes it true, because
+        // a hidden button is a courtesy and a URL is not.
+        if ($lifecycle !== null && $lifecycle->isLocked($record)) {
+            $this->addFlash('warning', $this->translator->trans('module.locked', [
+                '%state%' => $lifecycle->stateOf($record),
+            ]));
+
+            return $this->redirectToRoute('module_show', ['module' => $module, 'id' => $id]);
+        }
 
         return $this->edit($definition, $record, $request);
+    }
+
+    /**
+     * Moving a record along its lifecycle (XIV-14).
+     *
+     * Its own route and its own permission: sending an invoice is a different
+     * authority from correcting a typo in one, even though both write the same
+     * table. The transition is applied in memory and then saved through the
+     * writer like any other change, so it lands in one transaction with one
+     * history entry — and the entry says the record *moved* rather than that a
+     * field happened to differ (§5.2).
+     */
+    #[Route('/{id}/transition/{transition}', name: 'module_transition', requirements: ['id' => Requirement::POSITIVE_INT, 'transition' => '[a-z][a-z0-9_]*'], methods: ['POST'])]
+    #[IsGranted(ModuleAction::Transition->value, subject: 'module')]
+    public function transition(string $module, int $id, string $transition, Request $request): Response
+    {
+        $definition = $this->definition($module);
+        $record = $this->recordFor($definition, $id, ModuleAction::Transition);
+
+        if ($this->isCsrfTokenValid('transition-record-' . $id, (string) $request->request->get('_token'))) {
+            $lifecycle = $this->lifecycles->for($definition->getKey());
+
+            if ($lifecycle === null) {
+                throw $this->createNotFoundException();
+            }
+
+            try {
+                $lifecycle->apply($record, $transition);
+                $this->writer->save($definition, $record, as: RecordAction::Transitioned);
+
+                $this->addFlash('success', $this->translator->trans('flash.transitioned', [
+                    '%state%' => $lifecycle->stateOf($record),
+                ]));
+            } catch (TransitionRefused $e) {
+                // A stale page, usually: somebody pressed a button that was legal
+                // when it was drawn. The message says what is possible now.
+                $this->addFlash('warning', $e->translatable()->trans($this->translator));
+            }
+        }
+
+        return $this->redirectToRoute('module_show', ['module' => $module, 'id' => $id]);
     }
 
     #[Route('/{id}/delete', name: 'module_delete', requirements: ['id' => Requirement::POSITIVE_INT], methods: ['POST'])]
