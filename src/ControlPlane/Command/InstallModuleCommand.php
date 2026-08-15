@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace App\ControlPlane\Command;
 
+use App\ControlPlane\Module\ModuleCatalog;
 use App\ControlPlane\Repository\TenantRepository;
 use App\Tenancy\TenantSwitcher;
 use Symfony\Component\Console\Attribute\Argument;
@@ -46,6 +47,7 @@ final readonly class InstallModuleCommand
         private ModuleRegistry $modules,
         private ModuleInstaller $installer,
         private MetadataRepository $metadata,
+        private ModuleCatalog $catalog,
     ) {
     }
 
@@ -117,7 +119,17 @@ final readonly class InstallModuleCommand
             $io->success(sprintf('Module "%s" is installed for tenant "%s".', $module, $found->getSlug()));
         }
 
-        $rows = [['Table' => $definition->getTableName()]];
+        // Named, never enforced (XIV-7): a module is developed by installing it
+        // somewhere, so refusing the very case the state exists to describe would
+        // be backwards. Saying it out loud is enough.
+        $state = $this->catalog->state($module);
+
+        $rows = [
+            ['State' => $state->isOfferedInStore()
+                ? $state->value
+                : sprintf('%s — not offered in the store', $state->value)],
+            ['Table' => $definition->getTableName()],
+        ];
 
         // Only when it applied to anything. On a run that installed nothing, the
         // preset is not a fact about this tenant.
