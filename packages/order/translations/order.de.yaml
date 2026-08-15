@@ -10,6 +10,7 @@ collection:
     taxes: MWST-Aufteilung
 
 field:
+    number: Nummer
     contact: Kundin
     ordered_on: Bestellt am
     status: Status

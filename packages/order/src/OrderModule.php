@@ -20,6 +20,7 @@ use Xivi\Core\Module\CollectionBlueprint;
 use Xivi\Core\Module\FieldBlueprint;
 use Xivi\Core\Module\ModuleBlueprint;
 use Xivi\Core\Module\ModuleProvider;
+use Xivi\Core\Numbering\NumberFormat;
 use Xivi\Core\Record\InheritedValue;
 
 /**
@@ -40,6 +41,9 @@ use Xivi\Core\Record\InheritedValue;
 final class OrderModule implements ModuleProvider
 {
     public const string KEY = 'order';
+
+    /** What the order is called (XIV-15). */
+    public const string NUMBER = 'number';
 
     /** What it sells, and the VAT that follows from it (XIV-16). */
     public const string LINES = 'lines';
@@ -81,6 +85,28 @@ final class OrderModule implements ModuleProvider
             label: 'module',
             table: 'sales_order',
             fields: [
+                // **What the order is called** (XIV-15). Drawn from a sequence
+                // as the record is first saved, and never typed — which is why
+                // it is also the title: an order somebody refers to on the phone
+                // is "ORD-2026-0001", not "the Acme one from Tuesday".
+                //
+                // The pattern is the customer's from the moment they have the
+                // module, like every other option (§6.1): a customer whose
+                // bookkeeper wants six digits and no year edits it in the
+                // metadata editor and the next order follows.
+                new FieldBlueprint(
+                    key: self::NUMBER,
+                    label: 'field.number',
+                    type: 'text',
+                    filterable: true,
+                    title: true,
+                    position: 5,
+                    derived: true,
+                    // Padded to four, which is also the quiet reason a width is
+                    // part of the pattern at all: sorting the text then sorts
+                    // the numbers, and 0010 does not come before 0009.
+                    options: ['max_length' => 40, ...NumberFormat::from('ORD-{year}-{number:4}')],
+                ),
                 // Who ordered. A link into another module (XIV-13), which is what
                 // makes a contact's page list the orders naming it without either
                 // module having been told about the other.

@@ -32,6 +32,34 @@ of every page, and is not yet tied to git tags.
 
 ### Added
 
+- **Document numbers** ([XIV-15]). A field can be numbered from a sequence, and
+  an order now carries `ORD-2026-0001`. It is what the order is *called* — the
+  heading on its page and the text of every link to it — because "the Acme one
+  from Tuesday" is not something anybody can repeat down a phone.
+- **One pattern instead of three settings.** `ORD-{year}-{number:4}` says the
+  prefix, the padding and whether the sequence resets, and it makes the third
+  impossible to get wrong: a number containing the year resets each year, one
+  without it does not. Those were never independent. The width earns its keep
+  twice — it is what makes sorting the text sort the numbers.
+- **Declared as a field option, not a field type**, so it works on any text field
+  and the customer can change the pattern in the metadata editor without a
+  deployment. A number is a string; what is special about it is who fills it in.
+- **Allocation is one statement against a unique index**, so two people creating
+  a record at the same moment cannot take the same number. Read-then-increment in
+  PHP is the textbook race, and it is the one bug here that cannot be cleaned up
+  afterwards, because both documents may already have been sent. A Postgres
+  sequence lost on two counts: it cannot restart each year without an `ALTER`
+  that two January transactions race through, and `nextval` survives a rollback.
+- **Assigned once, inside the save's transaction** — through the derivation seam
+  from [XIV-16], which is the first thing to use it that is not a module. A save
+  that fails gives its number back; a number already assigned is never
+  reallocated, whatever else is edited and however the record moves through its
+  lifecycle.
+- **Gaps have an answer.** A record that is created and later deleted keeps its
+  number and the sequence moves on. Records are soft-deleted, so that is a hole
+  in a list rather than a hole in the books — the document behind the missing
+  number is still there to be looked at.
+
 - **Line items, totals and VAT on an order** ([XIV-16]). A line's total is
   quantity times price, worked out rather than typed; the order stores its net
   total, its VAT and its gross total, so "orders over 5000" is a `WHERE` clause
@@ -641,6 +669,7 @@ began and is recorded here as one entry rather than invented as a history.
 [XIV-12]: https://xivi.youtrack.cloud/issue/XIV-12
 [XIV-13]: https://xivi.youtrack.cloud/issue/XIV-13
 [XIV-14]: https://xivi.youtrack.cloud/issue/XIV-14
+[XIV-15]: https://xivi.youtrack.cloud/issue/XIV-15
 [XIV-16]: https://xivi.youtrack.cloud/issue/XIV-16
 [XIV-18]: https://xivi.youtrack.cloud/issue/XIV-18
 [XIV-20]: https://xivi.youtrack.cloud/issue/XIV-20
