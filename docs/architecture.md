@@ -765,6 +765,36 @@ installation with no active administrator at all. There is no support desk behin
 this: getting back in would mean a console command against the customer's
 database.
 
+### 8.4.2 Language
+
+Each person picks the language they read the application in, stored on their own
+row rather than the tenant's: one office is not one language, and a Swiss company
+has German and French speakers in it. Resolved per request from the user and
+never parked in the session, which would be state outliving the request that made
+it (§7.4) — the one hazard this runtime otherwise does not have. The login page
+has nobody to ask and follows the browser.
+
+**A customer's own words are not translated.** Module labels, field labels and
+choice options are their data (§5); two colleagues share one row, so a label that
+changed with who was looking would have stopped being data. What a *blueprint*
+ships is different — that is code, and it was English. Its labels are keys now,
+resolved **once at install time** from the module's own catalogue and then
+written down. Seeded, exactly like the preset they arrive with (§6.1), and silent
+afterwards: a label looked up on every render would overrule the customer's rename
+every page load, which would make the screen offering that rename a lie.
+
+Which is why renaming a shape had to exist. Fields were always relabelable
+(§5.4); the module holding them was not, so one installed in the wrong language
+could not be corrected at all.
+
+The engine and each module ship their own catalogues, so core can name a filter
+operator without reaching into the application's file, and a module can name
+itself without either of them.
+
+**A missing translation fails the build.** It is the quietest bug available here:
+the fallback keeps the page working and merely serves one paragraph of it in the
+wrong language, on somebody else's screen, in a country nobody is looking at.
+
 ### 8.5 The first user comes from provisioning
 
 `tenant:provision --admin-email=…` creates an admin and prints a generated password

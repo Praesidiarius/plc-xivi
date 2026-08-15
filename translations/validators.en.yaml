@@ -1,0 +1,7 @@
+# Our own constraint messages (XIV-8).
+#
+# Symfony translates a constraint's message through the `validators` domain,
+# keyed by the English text itself — which is why these keys are sentences. The
+# framework ships its own catalogue for every built-in constraint; this file is
+# only the ones this application added.
+'Another record already uses this value.': Another record already uses this value.
