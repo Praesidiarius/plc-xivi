@@ -170,6 +170,19 @@ of every page, and is not yet tied to git tags.
 
 ### Changed
 
+- **The test suite runs against a database kept in RAM** ([XIV-10]) — 85s to
+  **10s**, and 165s to 10s counting from before any of this. A second Postgres
+  service on `tmpfs` with `fsync=off`, because provisioning is what the suite
+  spends its time on and provisioning is disk-bound: `CREATE DATABASE` copies a
+  template and eleven migrations commit repeatedly. A *second* service, not a
+  setting on the first, so the dev tenants keep their disk and their crash safety.
+- It removed the reason for two other planned changes. The critical path was
+  `LoginTest` at 27s and `TenantIsolationTest` at 26s, both reprovisioning tenants
+  per test method; they now take 4s and 3s, so making them share a tenant — which
+  would have traded away the independence they exist to prove — buys nothing.
+  `paratest --functional` was measured too: 8s against 10s, with one consistent
+  failure and an assertion count that varied between runs. Two seconds is not
+  worth a suite that disagrees with itself.
 - **The test suite runs in parallel** ([XIV-9]) — 165s to about 85s. Each worker
   namespaces the tenant databases and roles it creates, which it has to: those are
   *cluster* objects while the registry naming them is one database, so two workers
@@ -299,3 +312,4 @@ began and is recorded here as one entry rather than invented as a history.
 [XIV-2]: https://xivi.youtrack.cloud/issue/XIV-2
 [XIV-8]: https://xivi.youtrack.cloud/issue/XIV-8
 [XIV-9]: https://xivi.youtrack.cloud/issue/XIV-9
+[XIV-10]: https://xivi.youtrack.cloud/issue/XIV-10

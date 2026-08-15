@@ -18,6 +18,9 @@ services:
     # directly instead, with a different uid? Put APP_UID and APP_GID in
     # .env.local.
     user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    depends_on:
+      database-test:
+        condition: service_healthy
     volumes:
       - ./:/app
       - ./frankenphp/Caddyfile:/etc/frankenphp/Caddyfile:ro
@@ -40,6 +43,56 @@ services:
       # Ensure that host.docker.internal is correctly defined on Linux
       - host.docker.internal:host-gateway
     tty: true
+
+  # The database the test suite uses, kept entirely in RAM (XIV-10).
+  #
+  # A second server rather than a second database on the first one, and the
+  # reason is the dev tenants: acme, scratch and xivi live on `database` and are
+  # meant to survive a restart. This one is on tmpfs, so it is empty every time
+  # the container starts — which for tests is the point and for them would be
+  # data loss.
+  #
+  # `fsync=off` and its friends are the other half. They trade crash safety for
+  # speed, which is exactly the right trade for a database whose entire contents
+  # are disposable and the wrong one for anything else. Keeping them on their own
+  # server means they cannot reach anything that matters.
+  #
+  # Provisioning is what the suite spends its time on — CREATE DATABASE copies a
+  # template off disk and the tenant migrations commit repeatedly — so this is
+  # aimed squarely at the part that was left after XIV-9.
+  database-test:
+    image: postgres:${POSTGRES_VERSION:-18}-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-!ChangeMe!}
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      # Initialising into a tmpfs needs the data directory to be a subdirectory
+      # of the mount: the mount point itself is not empty enough for initdb.
+      PGDATA: /var/lib/postgresql/data/pgdata
+    command:
+      - postgres
+      - -c
+      - fsync=off
+      - -c
+      - full_page_writes=off
+      - -c
+      - synchronous_commit=off
+      # Eight paratest workers each hold connections open per tenant they touch,
+      # and the default 100 is not enough — the first symptom is "too many
+      # clients already", which reads like a leak rather than a limit.
+      - -c
+      - max_connections=300
+    tmpfs:
+      # Capped rather than left to the default half-of-RAM: the suite's databases
+      # come to about 50 MB, and a CI runner with 7 GB should not be one runaway
+      # test away from having none.
+      - /var/lib/postgresql/data:size=1g
+    healthcheck:
+      test: ["CMD", "pg_isready", "-d", "${POSTGRES_DB:-app}", "-U", "${POSTGRES_USER:-app}"]
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   # A database console, for reading a tenant's tables by hand.
   #
