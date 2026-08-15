@@ -1,0 +1,53 @@
+# What the Invoice module calls itself, its fields and its steps (XIV-8).
+#
+# Read once, at install time, and written into that customer's definitions —
+# see contact.en.yaml, which explains at length why this is a seed rather than a
+# lookup table.
+
+module: Invoices
+
+collection:
+    lines: Lines
+    taxes: VAT breakdown
+
+field:
+    number: Number
+    order: Order
+    contact: Customer
+    issued_on: Issued on
+    status: Status
+    note: Note
+    net_total: Net total
+    tax_total: VAT
+    gross_total: Total
+    kind: Kind
+    order_line: Order line
+    article: Article
+    description: Description
+    quantity: Quantity
+    unit_price: Unit price
+    tax_rate: VAT rate (%)
+    line_total: Line total
+    rate: Rate (%)
+    taxable_net: Net
+    tax_amount: VAT
+
+status:
+    draft: Draft
+    sent: Sent
+    paid: Paid
+    cancelled: Cancelled
+
+line:
+    article: Article line
+    custom: Custom line
+    comment: Comment
+    subtotal: Subtotal
+
+transition:
+    send: Mark sent
+    pay: Mark paid
+    cancel: Cancel
+
+seed:
+    action: Invoice what is left

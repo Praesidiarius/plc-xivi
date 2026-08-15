@@ -14,6 +14,8 @@ declare(strict_types=1);
 namespace Xivi\Core\Module;
 
 use Xivi\Core\Lifecycle\Lifecycle;
+use Xivi\Core\Money\LineTotals;
+use Xivi\Core\Seed\Seed;
 
 /**
  * What a module declares about itself in code, before any customer has it.
@@ -62,6 +64,17 @@ final readonly class ModuleBlueprint
          * them (XIV-14). Null for a module whose records simply are.
          */
         public ?Lifecycle $lifecycle = null,
+        /**
+         * Where the money is, for a module whose records have lines (XIV-19).
+         * Null for one that sells nothing.
+         */
+        public ?LineTotals $lineTotals = null,
+        /**
+         * That a record of this one is made from a record of another (XIV-19) —
+         * an invoice from an order. Null for a module somebody starts from
+         * nothing, which is most of them.
+         */
+        public ?Seed $seed = null,
         /**
          * Modules this one cannot work without (XIV-23).
          *

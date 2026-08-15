@@ -55,6 +55,7 @@ use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordAction;
 use Xivi\Core\Record\RecordRepository;
 use Xivi\Core\Record\RecordWriter;
+use Xivi\Core\Seed\Seeder;
 use Xivi\Core\Validation\RecordValidator;
 
 /**
@@ -80,6 +81,7 @@ final class ModuleController extends AbstractController
         // Every write goes through the writer, never the repository: it owns the
         // transaction and the history entry (§5.2).
         private readonly RecordWriter $writer,
+        private readonly Seeder $seeder,
         private readonly RecordValidator $validator,
         private readonly HistoryRepository $history,
         private readonly RecordQueryFactory $queries,
@@ -204,7 +206,37 @@ final class ModuleController extends AbstractController
             $record->set((string) $definition->getVariantField(), $chosen);
         }
 
-        return $this->edit($definition, $record, $request);
+        // Made from a record of another module (XIV-19): an invoice from an
+        // order. What comes back is a *form*, filled in — somebody still reads
+        // it and presses save, because an invoice that appeared the moment a
+        // button was pressed is a document nobody checked.
+        $seeded = $this->seeded($definition, $request);
+        $record->data = [...$record->data, ...$seeded['fields']];
+
+        return $this->edit($definition, $record, $request, $seeded['rows']);
+    }
+
+    /**
+     * What a new record starts with when it is being made from another one.
+     *
+     * Empty for an ordinary "new" — and empty too when the source cannot be
+     * read: seeding from a record somebody may not open would copy its lines
+     * onto a page they are allowed to see (§8.4).
+     *
+     * @return array{fields: array<string, mixed>, rows: array<string, list<array<string, mixed>>>}
+     */
+    private function seeded(ModuleDefinition $definition, Request $request): array
+    {
+        $from = $request->query->getInt('from');
+        $seed = $this->seeder->seedOf($definition->getKey());
+
+        if ($from <= 0 || $seed === null) {
+            return ['fields' => [], 'rows' => []];
+        }
+
+        $source = $this->definition($seed->from);
+
+        return $this->seeder->fill($definition, $seed, $source, $this->recordFor($source, $from, ModuleAction::View));
     }
 
     /**
@@ -239,6 +271,11 @@ final class ModuleController extends AbstractController
             // until something says which is which.
             'drifted' => $this->driftedRows($definition, $children),
             'linked' => $this->linkedTo($definition, $record),
+            // What this record can be turned into, and how much of it is left to
+            // turn (XIV-19). Only modules this person may add to: offering a
+            // button that leads to a 403 is worse than offering nothing.
+            'seeds' => $this->seedsOn($definition, $record),
+            'outstanding' => $this->outstandingOn($definition, $record),
             'owner' => $record->ownerId === null ? null : ($this->ownerNames([$record])[$record->ownerId] ?? null),
             // The latest few and how many there are in total (XIV-3). A record
             // page renders the same small number whether its timeline is six
@@ -303,6 +340,58 @@ final class ModuleController extends AbstractController
             'page' => $page,
             'pages' => $pages,
         ]);
+    }
+
+    /**
+     * The modules a record of this one can be made into (XIV-19).
+     *
+     * @return list<array{module: ModuleDefinition, seed: \Xivi\Core\Seed\Seed}>
+     */
+    private function seedsOn(ModuleDefinition $definition, Record $record): array
+    {
+        if ($record->isNew()) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $this->seeder->offeredOn($definition),
+            fn (array $offer): bool => $this->isGranted(ModuleAction::Add->value, $offer['module']->getKey()),
+        ));
+    }
+
+    /**
+     * How much of each of this record's rows nothing has taken yet, by
+     * collection and row id (XIV-19).
+     *
+     * Read from whatever has already been made from it, so an order that has
+     * been half invoiced says so on the row rather than in a total nobody can
+     * check against a line.
+     *
+     * Keyed by collection, and carrying the field the figure belongs beside —
+     * "2 left" means nothing except next to the quantity it is left of.
+     *
+     * @return array<string, array{field: string, rows: array<int, string>}>
+     */
+    private function outstandingOn(ModuleDefinition $definition, Record $record): array
+    {
+        $left = [];
+
+        foreach ($this->seedsOn($definition, $record) as $offer) {
+            $rows = $offer['seed']->rows;
+
+            if ($rows === null || $rows->outstanding === null) {
+                continue;
+            }
+
+            $found = $this->seeder->outstanding($offer['module'], $offer['seed'], $definition, (int) $record->id);
+            $left[$rows->from] ??= ['field' => $rows->outstanding, 'rows' => []];
+
+            foreach ($found as $id => $amount) {
+                $left[$rows->from]['rows'][$id] = (string) $amount;
+            }
+        }
+
+        return $left;
     }
 
     /**
@@ -492,9 +581,10 @@ final class ModuleController extends AbstractController
         return $this->redirectToRoute('module_index', ['module' => $module]);
     }
 
-    private function edit(ModuleDefinition $definition, Record $record, Request $request): Response
+    /** @param array<string, list<array<string, mixed>>> $seeded rows a new record starts with (XIV-19) */
+    private function edit(ModuleDefinition $definition, Record $record, Request $request, array $seeded = []): Response
     {
-        $form = $this->createForm(ModuleRecordType::class, $this->formData($definition, $record), [
+        $form = $this->createForm(ModuleRecordType::class, $this->formData($definition, $record, $seeded), [
             'module' => $definition,
             'variant' => $definition->variantOf($record->data),
         ]);
@@ -573,9 +663,11 @@ final class ModuleController extends AbstractController
      * is somewhere to type the first address without a button that adds one.
      * Left alone it costs nothing, since an empty row is not saved.
      *
+     * @param array<string, list<array<string, mixed>>> $seeded rows a new record starts with (XIV-19)
+     *
      * @return array<string, mixed>
      */
-    private function formData(ModuleDefinition $definition, Record $record): array
+    private function formData(ModuleDefinition $definition, Record $record, array $seeded = []): array
     {
         $data = ['fields' => $record->data];
 
@@ -595,6 +687,13 @@ final class ModuleController extends AbstractController
                 ],
                 $children,
             );
+
+            // Rows copied from another record (XIV-19). They have no id — they
+            // are new rows somebody is about to save — and they come before the
+            // blank ones, so the form reads as the document it is becoming.
+            foreach ($seeded[$collection->getKey()] ?? [] as $values) {
+                $rows[] = ['id' => '', 'position' => null, 'fields' => $values];
+            }
 
             // One blank row per kind, rather than one blank row (XIV-20).
             // Choosing which to fill in *is* choosing the kind, which is the
@@ -653,13 +752,26 @@ final class ModuleController extends AbstractController
             foreach ($collections[$collection->getKey()] ?? [] as $index => $entry) {
                 $fields = $entry['fields'] ?? [];
 
-                // The kind does not count as something typed (XIV-20). Every
-                // blank row now arrives carrying one, so a row that only says
-                // what it *would* have been is still a row nobody filled in —
-                // and without this, saving a record would mint an empty line of
-                // every kind the collection has.
+                // **Nothing the engine put there counts as something typed.**
+                // The kind does not (XIV-20): every blank row arrives carrying
+                // one, so a row that only says what it *would* have been is
+                // still a row nobody filled in, and without this a save would
+                // mint an empty line of every kind the collection has.
+                //
+                // Nor does a derived value, for the same reason and a sharper
+                // one: a disabled field keeps its value through a submit, so a
+                // row somebody has emptied out still arrives carrying its line
+                // total and, on a seeded row, the id of the row it came from
+                // (XIV-19). Counting those, emptying a row stopped deleting it
+                // and started failing validation instead.
                 $typed = $fields;
                 unset($typed[(string) $collection->getVariantField()]);
+
+                foreach ($collection->getFields() as $field) {
+                    if ($field->isDerived()) {
+                        unset($typed[$field->getKey()]);
+                    }
+                }
 
                 if (self::isBlank($typed)) {
                     continue;

@@ -32,6 +32,51 @@ of every page, and is not yet tied to git tags.
 
 ### Added
 
+- **An invoice module** ([XIV-19]) — the fourth module, and the measure of the
+  six tickets before it. It names an order, copies its lines, carries a number, a
+  lifecycle, totals and a VAT table, and can be printed from a Word template. It
+  is a declaration and a translation file: no controller, no entity, no form, no
+  class the engine calls.
+- **One record made from another, declared** — `Seed` names the source module,
+  the field holding the link, and the fields and rows to bring along. Order →
+  invoice is the same shape as quotation → order and order → delivery note, and
+  an engine that made each of them a class would be an engine with a class per
+  pair.
+- **Copied, never read through.** An invoice holds its own values from the moment
+  it exists, so it stays correct after the order is edited and a second invoice
+  can hold different lines from the first. Comment and subtotal lines come along
+  because they are part of how the document reads — but a subtotal's *figure* is
+  recomputed from the invoice's own lines, never copied, since on an invoice for
+  half the order it would be the most convincing wrong number in the system.
+- **Seeding is not saving**: what comes back is the ordinary new-record form,
+  filled in, that somebody reads and changes before pressing save. A document
+  that appeared the moment a button was pressed is a document nobody checked.
+- **An order can be invoiced in parts**, and the order's page says what is still
+  outstanding on each line. What is left is *read* rather than stored — a
+  "quantity invoiced" column kept in step by hand is a second record of a fact
+  the invoices already hold, and the two disagree the first time somebody deletes
+  one. A line with nothing left is not offered again.
+- **A sent invoice is a document**: no transition back to draft, and no editing
+  either, because the customer has it now. Correcting one is a credit note, which
+  is a second document rather than an edit of the first.
+
+### Changed
+
+- **Line totals are a declaration rather than a module's own class** ([XIV-19]).
+  The order module worked out its own money in `OrderTotals`; the invoice module
+  wanted the same arithmetic, which §3 forbids it from importing and nobody
+  should want it to duplicate. So the sums moved into the engine behind
+  `LineTotals`, and both modules now name their fields and get the rest.
+
+### Fixed
+
+- **Emptying a collection row deletes it again** ([XIV-19]). A disabled field
+  keeps its value through a submit, so once rows carried derived values — a line
+  total, and on a seeded row the id of the row it came from — a row somebody had
+  cleared still arrived carrying them, stopped looking blank, and failed
+  validation instead of being removed. Nothing the engine put on a row counts as
+  something typed, which was already the rule for a row's kind.
+
 - **Repeating blocks in document templates** ([XIV-17]). A table row containing a
   collection marker — `[lines.description]` — draws itself once per row of that
   collection, so an invoice template can finally list what it is invoicing. There
@@ -703,6 +748,7 @@ began and is recorded here as one entry rather than invented as a history.
 [XIV-16]: https://xivi.youtrack.cloud/issue/XIV-16
 [XIV-17]: https://xivi.youtrack.cloud/issue/XIV-17
 [XIV-18]: https://xivi.youtrack.cloud/issue/XIV-18
+[XIV-19]: https://xivi.youtrack.cloud/issue/XIV-19
 [XIV-20]: https://xivi.youtrack.cloud/issue/XIV-20
 [XIV-21]: https://xivi.youtrack.cloud/issue/XIV-21
 [XIV-22]: https://xivi.youtrack.cloud/issue/XIV-22

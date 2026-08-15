@@ -98,6 +98,8 @@ module:
     history: History
     status: Status
     drifted: '%field% differs from what it was copied from.'
+    outstanding: '%amount% left'
+    outstanding_help: Not yet taken by anything made from this record.
     locked: 'This record is %state% and can no longer be edited.'
     history_empty: >-
         Nothing recorded. Records that existed before history did have none until

@@ -310,6 +310,9 @@
     "xivi/core": {
         "version": "dev-main"
     },
+    "xivi/invoice": {
+        "version": "1.0.0"
+    },
     "xivi/order": {
         "version": "1.0.0"
     }

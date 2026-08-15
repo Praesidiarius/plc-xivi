@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "cd807f941dc62ee048c310a0d74814bc",
+    "content-hash": "920b6bea19e913d63cee679efb75e123",
     "packages": [
         {
             "name": "anourvalar/office",
@@ -6870,10 +6870,11 @@
             "dist": {
                 "type": "path",
                 "url": "packages/core",
-                "reference": "78ce0c2799afa9f8072583a98850bdcb0e8211b1"
+                "reference": "a26371225150e119f1d131a29ef35759a658110d"
             },
             "require": {
                 "anourvalar/office": "^2.6",
+                "brick/math": "^0.19",
                 "doctrine/dbal": "^4.4",
                 "doctrine/orm": "^3.6",
                 "maennchen/zipstream-php": "^3.2",
@@ -6898,6 +6899,30 @@
                 "MIT"
             ],
             "description": "Xivi engine: metadata, field types and record storage",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "xivi/invoice",
+            "version": "1.0.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/invoice",
+                "reference": "0507e817b3ca4fed16bd51950e87bff07b47757b"
+            },
+            "require": {
+                "php": ">=8.4",
+                "symfony/framework-bundle": "8.1.*",
+                "xivi/core": "^1.0"
+            },
+            "type": "symfony-bundle",
+            "autoload": {
+                "psr-4": {
+                    "Xivi\\Invoice\\": "src/"
+                }
+            },
+            "description": "Invoice module: what a customer is asked to pay, made from an order",
             "transport-options": {
                 "relative": true
             }

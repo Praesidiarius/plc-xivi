@@ -90,6 +90,8 @@ module:
     history: Verlauf
     status: Status
     drifted: '%field% weicht von der Quelle ab, aus der es kopiert wurde.'
+    outstanding: 'noch %amount%'
+    outstanding_help: Noch von nichts übernommen, was aus diesem Datensatz entstanden ist.
     locked: 'Dieser Datensatz ist %state% und kann nicht mehr bearbeitet werden.'
     history_empty: >-
         Nichts aufgezeichnet. Datensätze, die es schon vor dem Verlauf gab, haben
