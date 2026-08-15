@@ -14,6 +14,9 @@ declare(strict_types=1);
 namespace Xivi\Core\Query;
 
 use Xivi\Core\Entity\ModuleDefinition;
+use Xivi\Core\Field\Type\ReferenceFieldType;
+use Xivi\Core\Metadata\MetadataRepository;
+use Xivi\Core\Metadata\ModuleNotInstalled;
 
 /**
  * Turns a query string into a RecordQuery, and says what may be asked about.
@@ -33,6 +36,13 @@ use Xivi\Core\Entity\ModuleDefinition;
  */
 final readonly class RecordQueryFactory
 {
+    private const string REFERENCE = 'reference';
+
+    /** Only for offering paths through a link — see filterablePaths() (XIV-13). */
+    public function __construct(private MetadataRepository $metadata)
+    {
+    }
+
     /**
      * @param array<string, mixed> $parameters the query string, as an array
      */
@@ -70,6 +80,32 @@ final readonly class RecordQueryFactory
                 if ($field->isFilterable()) {
                     $paths[$collection->getKey() . '.' . $field->getKey()]
                         = sprintf('%s: %s', $collection->getLabel(), $field->getLabel());
+                }
+            }
+        }
+
+        // One hop through a link, and one only (XIV-13): "orders whose contact
+        // is in Zürich" is a question people ask, and
+        // "orders whose contact's company's owner…" is one nobody can reason
+        // about the cost of.
+        foreach ($module->getFields() as $field) {
+            if ($field->getType() !== self::REFERENCE || !$field->isFilterable()) {
+                continue;
+            }
+
+            try {
+                $target = $this->metadata->get(ReferenceFieldType::targetModule($field));
+            } catch (ModuleNotInstalled) {
+                // A link into a module this customer does not have: nothing to
+                // offer, and not an error (§3).
+                continue;
+            }
+
+            foreach ($target->getFields() as $linked) {
+                // Not another reference: two hops, by a different door.
+                if ($linked->isFilterable() && $linked->getType() !== self::REFERENCE) {
+                    $paths[$field->getKey() . '.' . $linked->getKey()]
+                        = sprintf('%s: %s', $field->getLabel(), $linked->getLabel());
                 }
             }
         }

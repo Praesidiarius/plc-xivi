@@ -163,9 +163,10 @@ final class ReferenceFieldType implements FieldType
             $filters[] = new Filter($variantField, Operator::Equals, $variant);
         }
 
-        // Unrestricted, for the same reason as the picker it feeds — see
-        // RecordReferenceType. §7.5 has not settled what a reference should show
-        // somebody scoped to their own records.
+        // Unrestricted, and deliberately not scoped like the picker is (XIV-13):
+        // this feeds the demo generator, which runs from a console command with
+        // nobody signed in. Scoping it would mean generated links that always
+        // point nowhere.
         $records = ($this->records)()->findBy(
             $module,
             new RecordQuery($filters, [], 1, self::CANDIDATES),

@@ -17,6 +17,7 @@ use App\Tenant\Entity\User;
 use App\Tenant\Repository\UserRepository;
 use App\Tenant\Security\ModuleRecord;
 use App\Tenant\Security\PermissionResolver;
+use App\View\LinkedRecords;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormInterface;
@@ -295,26 +296,42 @@ final class ModuleController extends AbstractController
      * looking through every installed module for fields pointing here, which is
      * §7.6's remaining half.
      *
-     * @return array<string, list<Record>> field label => the records pointing here
+     * @return list<LinkedRecords>
      */
     private function linkedTo(ModuleDefinition $module, Record $record): array
     {
         $linked = [];
 
-        foreach ($module->getFields() as $field) {
-            if ($field->getType() !== 'reference' || ReferenceFieldType::targetModule($field) !== $module->getKey()) {
-                continue;
-            }
+        // Every installed module, not only this one (XIV-13). A company's people
+        // are contacts pointing at a contact; a contact's orders are a different
+        // module pointing at this one, and the page cannot know in advance which
+        // modules those are — the customer decides that by installing them.
+        foreach ($this->metadata->all() as $other) {
+            foreach ($other->getFields() as $field) {
+                if ($field->getType() !== 'reference' || ReferenceFieldType::targetModule($field) !== $module->getKey()) {
+                    continue;
+                }
 
-            // Scoped like the list is. These are other people's records shown on
-            // this page, so leaving them unrestricted would be a way to read
-            // colleagues' contacts by opening the company they point at.
-            $found = $this->records->findBy($module, new RecordQuery(
-                [new Filter($field->getKey(), Operator::Equals, (int) $record->id)],
-            ), $this->accessFor($module, ModuleAction::View));
+                // Scoped like the other module's own list is, and by *its*
+                // permission rather than this one's: these are that module's
+                // records, and being allowed to open a contact is not being
+                // allowed to read the orders that name it.
+                $access = $this->accessFor($other, ModuleAction::View);
 
-            if ($found !== []) {
-                $linked[$field->getLabel()] = $found;
+                if ($access->matchesNothing()) {
+                    continue;
+                }
+
+                $found = $this->records->findBy($other, new RecordQuery(
+                    [new Filter($field->getKey(), Operator::Equals, (int) $record->id)],
+                ), $access);
+
+                if ($found !== []) {
+                    // Keyed by module and field, because two modules may both
+                    // call their link "Contact" and one would otherwise replace
+                    // the other silently.
+                    $linked[] = new LinkedRecords($other, $field, $found);
+                }
             }
         }
 

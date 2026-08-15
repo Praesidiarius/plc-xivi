@@ -16,11 +16,18 @@ namespace Xivi\Core\Query;
 /**
  * One condition: a field, a comparison, and a value (§7.3).
  *
- * The field may live on the module or on one of its collections, which is the
- * whole difficulty. `collection` is what tells the compiler which of the two it
- * is, and therefore whether this becomes an ordinary predicate or a semi-join —
- * a contact with two addresses in Zürich is one contact, not two, so a child
- * condition can never be a plain JOIN (§5.1).
+ * The field may live on the module, on one of its collections, or on a record
+ * this one links to — which is the whole difficulty. `through` names the step
+ * that gets there, and what it names decides what the condition compiles to:
+ *
+ * - nothing: an ordinary predicate on the module's own row;
+ * - a collection: a semi-join, because a contact with two addresses in Zürich is
+ *   one contact and not two (§5.1);
+ * - a reference field: a join into the linked module's table (§7.6, XIV-13).
+ *
+ * The compiler decides which by asking the shape, rather than the path carrying
+ * a marker — `addresses.city` and `company.name` are the same syntax, and the
+ * definitions already know which of the two `addresses` and `company` are.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
@@ -30,15 +37,18 @@ final readonly class Filter
         public string $field,
         public Operator $operator,
         public mixed $value = null,
-        /** Null for a field on the module itself. */
-        public ?string $collection = null,
+        /**
+         * The collection or reference field this condition reaches through.
+         * Null for a field on the module itself.
+         */
+        public ?string $through = null,
     ) {
     }
 
-    /** As it appears in a URL and in the form: "city" or "addresses.city". */
+    /** As it appears in a URL and in the form: "city", "addresses.city", "company.name". */
     public function path(): string
     {
-        return $this->collection === null ? $this->field : $this->collection . '.' . $this->field;
+        return $this->through === null ? $this->field : $this->through . '.' . $this->field;
     }
 
     /** Splits "addresses.city" into its parts; anything else is a module field. */

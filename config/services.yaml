@@ -76,6 +76,12 @@ services:
         arguments:
             $connection: '@doctrine.dbal.tenant_connection'
 
+    # Which records of a module a link may reach (XIV-13). Core asks by module
+    # key, because a filter following a reference cannot know in advance which
+    # module it will land in; the application resolves it from the same grants
+    # every other check uses.
+    Xivi\Core\Permission\RecordAccessProvider: '@App\Tenant\Security\CurrentUserRecordAccess'
+
     Xivi\Core\Record\RecordWriter:
         arguments:
             $connection: '@doctrine.dbal.tenant_connection'
