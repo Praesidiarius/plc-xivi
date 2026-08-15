@@ -106,6 +106,13 @@ class FieldDefinition
          */
         #[ORM\Column(name: 'is_system')]
         private bool $system = false,
+        /**
+         * Computed rather than typed (XIV-20). Shown on the form and never
+         * offered for editing, because a value somebody can type over is not
+         * derived — it is a default with extra steps.
+         */
+        #[ORM\Column(name: 'is_derived')]
+        private bool $derived = false,
     ) {
         $shape->addField($this);
     }
@@ -252,6 +259,16 @@ class FieldDefinition
     public function setOptions(array $options): void
     {
         $this->options = $options;
+    }
+
+    public function isDerived(): bool
+    {
+        return $this->derived;
+    }
+
+    public function setDerived(bool $derived): void
+    {
+        $this->derived = $derived;
     }
 
     public function getOption(string $name, mixed $default = null): mixed

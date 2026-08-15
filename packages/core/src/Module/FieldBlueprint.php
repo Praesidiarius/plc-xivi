@@ -38,6 +38,12 @@ final readonly class FieldBlueprint
          */
         public array $variants = [],
         public int $position = 0,
+        /**
+         * Computed rather than typed (XIV-20): a line's total, a subtotal's
+         * figure. The form shows it and does not offer to edit it, and whatever
+         * derives it is the module's business.
+         */
+        public bool $derived = false,
         public array $options = [],
     ) {
     }

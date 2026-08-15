@@ -15,6 +15,7 @@ namespace App\Tests\Support\Module;
 
 use Xivi\Core\Lifecycle\Lifecycle;
 use Xivi\Core\Lifecycle\LifecycleTransition;
+use Xivi\Core\Module\CollectionBlueprint;
 use Xivi\Core\Module\FieldBlueprint;
 use Xivi\Core\Module\ModuleBlueprint;
 use Xivi\Core\Module\ModuleProvider;
@@ -42,6 +43,10 @@ final class JobModule implements ModuleProvider
     public const string ACTIVE = 'active';
     public const string DONE = 'done';
     public const string CANCELLED = 'cancelled';
+
+    /** The kinds a line comes in (XIV-20). */
+    public const string ITEM = 'item';
+    public const string COMMENT = 'comment';
 
     public function blueprint(): ModuleBlueprint
     {
@@ -75,6 +80,52 @@ final class JobModule implements ModuleProvider
                         self::DONE => 'Done',
                         self::CANCELLED => 'Cancelled',
                     ]],
+                ),
+            ],
+            collections: [
+                // Rows of two kinds, which is what XIV-20 exists for: an item
+                // carries an amount and a comment carries nothing but words.
+                new CollectionBlueprint(
+                    key: 'lines',
+                    label: 'Lines',
+                    table: 'job_line',
+                    fields: [
+                        new FieldBlueprint(
+                            key: 'kind',
+                            label: 'Kind',
+                            type: 'choice',
+                            required: true,
+                            position: 5,
+                            options: ['choices' => [self::ITEM => 'Item', self::COMMENT => 'Comment']],
+                        ),
+                        new FieldBlueprint(
+                            key: 'text',
+                            label: 'Text',
+                            type: 'text',
+                            required: true,
+                            position: 10,
+                        ),
+                        new FieldBlueprint(
+                            key: 'amount',
+                            label: 'Amount',
+                            type: 'currency',
+                            variants: [self::ITEM],
+                            position: 20,
+                        ),
+                        // Shown, never typed. What fills it in is XIV-16's
+                        // business; that it is not offered for editing is this
+                        // ticket's.
+                        new FieldBlueprint(
+                            key: 'line_total',
+                            label: 'Line total',
+                            type: 'currency',
+                            variants: [self::ITEM],
+                            position: 30,
+                            derived: true,
+                        ),
+                    ],
+                    position: 10,
+                    variantField: 'kind',
                 ),
             ],
             icon: 'clipboard-check',

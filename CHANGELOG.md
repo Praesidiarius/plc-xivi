@@ -151,6 +151,22 @@ of every page, and is not yet tied to git tags.
 
 ### Changed
 
+- **A collection's rows can come in kinds** ([XIV-20]) — §5.5 one level down. A
+  contact is a person or a company; an order line will be an item, a comment or a
+  subtotal. The same choice field decides which of the shape's fields apply, and
+  the machinery was already there: `ShapeDefinition` carried a variant field all
+  along, and `CollectionDefinition` simply never passed one up.
+- **Adding a row is choosing its kind**, and needs no JavaScript: the form ends
+  with one blank row per kind rather than one blank row, so typing in the one you
+  want is how a kind gets picked. The same trick "new person or new company"
+  plays a level up, for the same reason.
+- **A row's kind is fixed once it exists.** It travels as a hidden value rather
+  than a select, because offering to change it is offering to make a row
+  disagree with the fields it is showing.
+- **A field can be derived rather than typed** — a line's total, a subtotal's
+  figure. The form shows it and does not offer to edit it, enforced by
+  `disabled`, so a hand-edited request cannot type over a total either. What
+  fills it in is [XIV-16].
 - **Records can have a lifecycle** ([XIV-14]), built on **symfony/workflow**. A
   module declares its states and the moves between them beside its fields, the
   engine refuses an illegal move and says what was possible instead, and a record
@@ -523,6 +539,8 @@ began and is recorded here as one entry rather than invented as a history.
 [XIV-12]: https://xivi.youtrack.cloud/issue/XIV-12
 [XIV-13]: https://xivi.youtrack.cloud/issue/XIV-13
 [XIV-14]: https://xivi.youtrack.cloud/issue/XIV-14
+[XIV-16]: https://xivi.youtrack.cloud/issue/XIV-16
+[XIV-20]: https://xivi.youtrack.cloud/issue/XIV-20
 [XIV-8]: https://xivi.youtrack.cloud/issue/XIV-8
 [XIV-9]: https://xivi.youtrack.cloud/issue/XIV-9
 [XIV-10]: https://xivi.youtrack.cloud/issue/XIV-10

@@ -38,6 +38,11 @@ final readonly class CollectionBlueprint
         public array $fields,
         /** Where it sits among its siblings in the parent's form. */
         public int $position = 0,
+        /**
+         * The key of the choice field deciding what kind a row is (§5.5, XIV-20).
+         * Null for a collection whose rows are all the same thing.
+         */
+        public ?string $variantField = null,
     ) {
     }
 }
