@@ -282,6 +282,13 @@ order module carrying a hook that fills in its own lines, and a module with code
 in it is what §1 exists to avoid. One option, and it works for any field of any
 shape pointing anywhere.
 
+**Numbers come in three kinds, and the difference is meaning rather than
+storage** (XIV-22): `integer` for things you count, `decimal` for things you
+measure, `currency` for money. The last two are the same string in the database
+and differ in what they print — a currency symbol beside a number of hours is
+wrong in a way no amount of formatting fixes, which is why the engine grew the
+middle one rather than letting quantities borrow the money type.
+
 **A field can be derived rather than typed** — a line's total, a subtotal's
 figure. It is shown and never offered for editing, enforced with `disabled` so a
 hand-edited request cannot type over it either. A derived value somebody can type

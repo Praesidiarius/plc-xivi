@@ -32,6 +32,18 @@ of every page, and is not yet tied to git tags.
 
 ### Added
 
+- **A `decimal` field type** ([XIV-22]). The engine had `integer` and it had
+  `currency` and nothing in between, so an order line could sell three lamps and
+  could not sell two and a half hours — the only field type carrying a fraction
+  printed a currency symbol beside it. Stored as a decimal string and never a
+  float, because a quantity is usually one side of a multiplication and the error
+  would compound into the money.
+- **How many places is the field's own setting** — a quantity of hours wants two
+  and a weight in kilos might want three. A scale outside what the storage
+  promises is clamped rather than refused: forty places means "lots".
+- **An order line's quantity uses it.** A unit — hours, kilos, metres — stays
+  deliberately absent: it belongs to the article rather than to the line, and a
+  unit that only decorates the number is worse than none.
 - **An order module** ([XIV-18]) — a customer, a date, a status and its lines.
   The third module and the first one that is mostly *relationships*: it names a
   contact and its lines name articles, and neither of those packages knows it
@@ -592,6 +604,7 @@ began and is recorded here as one entry rather than invented as a history.
 [XIV-18]: https://xivi.youtrack.cloud/issue/XIV-18
 [XIV-20]: https://xivi.youtrack.cloud/issue/XIV-20
 [XIV-21]: https://xivi.youtrack.cloud/issue/XIV-21
+[XIV-22]: https://xivi.youtrack.cloud/issue/XIV-22
 [XIV-23]: https://xivi.youtrack.cloud/issue/XIV-23
 [XIV-8]: https://xivi.youtrack.cloud/issue/XIV-8
 [XIV-9]: https://xivi.youtrack.cloud/issue/XIV-9
