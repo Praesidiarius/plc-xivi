@@ -97,6 +97,7 @@ final readonly class ModuleInstaller
                 label: $this->label($collection->label, $domain, $locale),
                 tableName: $collection->table,
                 position: $collection->position,
+                variantField: $collection->variantField,
             );
             $this->defineFields($definition, $collection->fields, $domain, $locale);
         }
@@ -299,6 +300,7 @@ final readonly class ModuleInstaller
                 title: $field->title,
                 position: $field->position,
                 system: true,
+                derived: $field->derived,
             );
             $definition->setOptions($this->translatedOptions($field->options, $domain, $locale));
             $definition->setVariants($field->variants);

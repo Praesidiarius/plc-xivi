@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Xivi\Core\Form;
 
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Xivi\Core\Entity\ShapeDefinition;
@@ -55,6 +56,17 @@ final class RecordType extends AbstractType
         // is not asked for one — and RecordValidator scopes itself the same way,
         // so it is not required to have one either.
         foreach ($shape->getFieldsFor($options['variant']) as $field) {
+            // **A locked variant travels hidden** (XIV-20). A collection row's
+            // kind is decided when the row is added and fixed thereafter, so a
+            // select offering to change it would be offering to make the row
+            // disagree with the fields it is showing. It still has to be
+            // submitted, which rules out `disabled`.
+            if ($options['lock_variant'] && $field->getKey() === $shape->getVariantField()) {
+                $builder->add($field->getKey(), HiddenType::class);
+
+                continue;
+            }
+
             $type = $this->fieldTypes->get($field->getType());
 
             $builder->add($field->getKey(), $type->formType(), [
@@ -62,8 +74,13 @@ final class RecordType extends AbstractType
                 'label' => $field->getLabel(),
                 // Only a hint to the browser. The definition is what actually
                 // decides, and it is enforced server-side by RecordValidator.
-                'required' => $field->isRequired(),
+                'required' => $field->isRequired() && !$field->isDerived(),
                 'constraints' => [],
+                // A derived value is shown and never taken (XIV-20). `disabled`
+                // is the whole enforcement: Symfony ignores whatever arrives for
+                // a disabled field, so a hand-edited request cannot type over a
+                // total any more than the form can.
+                'disabled' => $field->isDerived(),
             ]);
         }
     }
@@ -75,6 +92,8 @@ final class RecordType extends AbstractType
             ->setAllowedTypes('shape', ShapeDefinition::class)
             ->setDefault('variant', null)
             ->setAllowedTypes('variant', ['null', 'string'])
+            ->setDefault('lock_variant', false)
+            ->setAllowedTypes('lock_variant', 'bool')
             ->setDefaults([
                 // A record is an array, not an object.
                 'data_class' => null,

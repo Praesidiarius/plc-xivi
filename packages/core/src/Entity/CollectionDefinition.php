@@ -56,8 +56,14 @@ class CollectionDefinition extends ShapeDefinition
         /** Where it sits among its siblings in the parent's form. */
         #[ORM\Column]
         private int $position = 0,
+        /*
+         * Which field says what kind a row is (XIV-20). The column lives on the
+         * base shape, so a collection having kinds costs no schema of its own —
+         * §5.5 was always describing shapes rather than modules.
+         */
+        ?string $variantField = null,
     ) {
-        parent::__construct($key, $label, $tableName);
+        parent::__construct($key, $label, $tableName, variantField: $variantField);
 
         $parent->addCollection($this);
     }

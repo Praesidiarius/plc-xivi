@@ -209,6 +209,31 @@ That is the claim in §1 being tested by something harder than one flat module,
 and it is why the two kinds share a base rather than the engine growing a
 parallel path for children.
 
+**A collection's rows may come in kinds** (§5.5, XIV-20). An order line is an
+item, a comment or a subtotal, and which fields it carries follows from which it
+is — a comment line has no price. This is the same mechanism a module's variants
+use and it needed almost nothing: `ShapeDefinition` carried a variant field all
+along and `CollectionDefinition` simply never passed one up, which is what §5.5
+meant by describing *shapes* rather than modules.
+
+Three decisions fell out of building it:
+
+- **Adding a row is choosing its kind**, so the form ends with one blank row per
+  kind rather than one blank row. Switching a row's fields as somebody picks
+  would need JavaScript; asking first is the same answer §5.5 gives a level up.
+- **A kind is fixed once the row exists**, and travels hidden rather than as a
+  select. Offering to change it is offering to make a row disagree with the
+  fields it is showing. (A *module's* variant is still editable on its form —
+  that is a separate question, and nobody has asked it yet.)
+- **A blank row carries its kind and is still blank.** Otherwise saving any
+  record would mint one empty line of every kind, which is the bug this rule
+  exists to have already fixed.
+
+**A field can be derived rather than typed** — a line's total, a subtotal's
+figure. It is shown and never offered for editing, enforced with `disabled` so a
+hand-edited request cannot type over it either. A derived value somebody can type
+over is a default with extra steps.
+
 **A collection is deliberately not a link between modules.** Contact → Company is
 a different thing: both sides exist independently, either can be browsed, and the
 target module may not even be installed for that customer (§3). Conflating the

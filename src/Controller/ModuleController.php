@@ -549,7 +549,19 @@ final class ModuleController extends AbstractController
                 static fn (Record $child): array => ['id' => (string) $child->id, 'fields' => $child->data],
                 $children,
             );
-            $rows[] = ['id' => '', 'fields' => []];
+
+            // One blank row per kind, rather than one blank row (XIV-20).
+            // Choosing which to fill in *is* choosing the kind, which is the
+            // same trick "new person or new company" plays a level up (§5.5) and
+            // for the same reason: switching a form's fields as somebody picks
+            // needs JavaScript, and these forms do not depend on any.
+            foreach (array_keys($collection->getVariants()) as $variant) {
+                $rows[] = ['id' => '', 'fields' => [(string) $collection->getVariantField() => $variant]];
+            }
+
+            if (!$collection->hasVariants()) {
+                $rows[] = ['id' => '', 'fields' => []];
+            }
 
             $data['collections'][$collection->getKey()] = $rows;
         }
@@ -584,7 +596,15 @@ final class ModuleController extends AbstractController
             foreach ($collections[$collection->getKey()] ?? [] as $index => $entry) {
                 $fields = $entry['fields'] ?? [];
 
-                if (self::isBlank($fields)) {
+                // The kind does not count as something typed (XIV-20). Every
+                // blank row now arrives carrying one, so a row that only says
+                // what it *would* have been is still a row nobody filled in —
+                // and without this, saving a record would mint an empty line of
+                // every kind the collection has.
+                $typed = $fields;
+                unset($typed[(string) $collection->getVariantField()]);
+
+                if (self::isBlank($typed)) {
                     continue;
                 }
 
