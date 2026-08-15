@@ -1,0 +1,26 @@
+# German, informal ("du") — the register was chosen deliberately (XIV-8).
+
+operator:
+    eq: ist
+    neq: ist nicht
+    contains: enthält
+    starts: beginnt mit
+    gt: nach
+    gte: ab
+    lt: vor
+    lte: bis
+    empty: ist leer
+    filled: ist nicht leer
+
+permission:
+    action:
+        view: Ansehen
+        list: Auflisten
+        add: Hinzufügen
+        edit: Bearbeiten
+        delete: Löschen
+        export: Exportieren
+        import: Importieren
+    scope:
+        own: Eigene Datensätze
+        all: Alle Datensätze

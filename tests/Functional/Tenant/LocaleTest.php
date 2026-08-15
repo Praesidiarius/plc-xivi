@@ -39,6 +39,7 @@ final class LocaleTest extends WebTestCase
     private const string SLUG = 'test_locale';
     private const string HOST = 'locale.localhost';
     private const string EMAIL = 'member@locale.test';
+    private const string ADMIN = 'admin@locale.test';
     private const string PASSWORD = 'a-long-enough-password';
 
     private KernelBrowser $client;
@@ -51,7 +52,11 @@ final class LocaleTest extends WebTestCase
 
         $this->tenant = $this->sharedTenant(self::SLUG, [self::HOST]);
 
-        self::service(UserCreator::class)->create($this->tenant, self::EMAIL, 'Member', self::PASSWORD, []);
+        $users = self::service(UserCreator::class);
+        $users->create($this->tenant, self::EMAIL, 'Member', self::PASSWORD, []);
+        // The user list is administrators only, and that is where the icon-only
+        // actions live.
+        $users->create($this->tenant, self::ADMIN, 'Admin', self::PASSWORD, ['ROLE_ADMIN']);
     }
 
     /** English until somebody says otherwise. */
@@ -154,6 +159,48 @@ final class LocaleTest extends WebTestCase
         self::assertSame('de', $this->client->getRequest()->getLocale());
     }
 
+    /**
+     * The icon-only buttons say what they do (XIV-8).
+     *
+     * They already carried a visually-hidden label, so a screen reader was never
+     * the problem — a sighted person hovering a row of three identical grey
+     * squares was. The title is on the element whether or not the script that
+     * turns it into a Bootstrap tooltip runs, so the hint survives a failed
+     * asset load.
+     */
+    public function testIconOnlyActionsSayWhatTheyDo(): void
+    {
+        $this->signIn(self::ADMIN);
+
+        $page = $this->client->request('GET', $this->url('/users'));
+
+        $titles = $page->filter('[data-bs-toggle="tooltip"]')->each(
+            static fn (\Symfony\Component\DomCrawler\Crawler $node): string => (string) $node->attr('title'),
+        );
+
+        self::assertNotEmpty($titles, 'the user list has icon-only actions');
+
+        foreach ($titles as $title) {
+            self::assertNotSame('', $title, 'every tooltip says something');
+        }
+    }
+
+    /** And in the language the person reads. */
+    public function testTooltipsAreTranslated(): void
+    {
+        $this->signIn(self::ADMIN);
+
+        $this->client->request('GET', $this->url('/account'));
+        $this->client->submitForm('Save language', ['locale' => 'de']);
+
+        $page = $this->client->request('GET', $this->url('/users'));
+        $titles = $page->filter('[data-bs-toggle="tooltip"]')->each(
+            static fn (\Symfony\Component\DomCrawler\Crawler $node): string => (string) $node->attr('title'),
+        );
+
+        self::assertContains('Benutzer bearbeiten', $titles);
+    }
+
     // -- helpers ------------------------------------------------------------
 
     private function token(): string
@@ -173,11 +220,11 @@ final class LocaleTest extends WebTestCase
         });
     }
 
-    private function signIn(): void
+    private function signIn(?string $email = null): void
     {
         $crawler = $this->client->request('GET', $this->url('/login'));
         $this->client->submit($crawler->selectButton('Sign in')->form([
-            'email' => self::EMAIL,
+            'email' => $email ?? self::EMAIL,
             'password' => self::PASSWORD,
         ]));
     }

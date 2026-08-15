@@ -269,7 +269,9 @@ final class PermissionUiTest extends WebTestCase
         $text = $this->client->request('GET', $this->url('/users/' . $member->getId()))
             ->filter('main')->text();
 
-        self::assertStringContainsString('from groups: all', $text);
+        // The scope reads as its own label now rather than as its stored value,
+        // because that label is translated (XIV-8).
+        self::assertStringContainsString('from groups: All records', $text);
     }
 
     /**

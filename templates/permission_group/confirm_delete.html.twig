@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Delete {{ group.label }}{% endblock %}
+{% block title %}{{ 'group.delete_title'|trans({'%group%': group.label}) }}{% endblock %}
 
 {% block body %}
 	{{ include('_topbar.html.twig') }}
@@ -8,7 +8,7 @@
 	<main class="container page-shell" style="max-width: 36rem;">
 		{{ include('_flashes.html.twig') }}
 
-		<h1 class="h3 mb-3">Delete “{{ group.label }}”?</h1>
+		<h1 class="h3 mb-3">{{ 'group.delete_heading'|trans({'%group%': group.label}) }}</h1>
 
 		{#
 			The numbers are the point. Somebody deleting a group is deciding for
@@ -17,23 +17,21 @@
 			field).
 		#}
 		<div class="alert alert-warning">
-			{{ members }} {{ members == 1 ? 'person' : 'people' }}
-			{{ members == 1 ? 'is' : 'are' }} in this group, and it grants
-			{{ grants }} permission{{ grants == 1 ? '' : 's' }}.
+			{{ 'group.delete_members'|trans({'%count%': members}) }}
+			{{ 'group.delete_grants'|trans({'%count%': grants}) }}
 			{% if members > 0 %}
-				They lose what it gave them, unless another group gives them the same.
+				{{ 'group.delete_warning'|trans }}
 			{% endif %}
 		</div>
 
 		<p class="text-body-secondary">
-			Nobody is deleted and nothing they own is touched — only the group and what
-			it granted. It cannot be undone, but it can be made again.
+			{{ 'group.delete_note'|trans }}
 		</p>
 
 		<form method="post" action="{{ path('group_delete', {id: group.id}) }}" class="d-flex gap-2">
 			<input type="hidden" name="_token" value="{{ csrf_token('manage-groups') }}">
-			<button type="submit" class="btn btn-danger">Delete the group</button>
-			<a class="btn btn-link" href="{{ path('group_index') }}">Cancel</a>
+			<button type="submit" class="btn btn-danger">{{ 'group.delete_confirm'|trans }}</button>
+			<a class="btn btn-link" href="{{ path('group_index') }}">{{ 'common.cancel'|trans }}</a>
 		</form>
 	</main>
 {% endblock %}

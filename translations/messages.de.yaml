@@ -1,10 +1,234 @@
-# German, informal ("du"), decided deliberately: changing the register later
-# means rewriting every string.
+# German, informal ("du") — the register was chosen deliberately (XIV-8), because
+# changing it later means rewriting every string rather than editing a few.
+#
+# Keys match messages.en.yaml exactly, in both directions; TranslationCatalogueTest
+# fails the build otherwise. A missing one would fall back to English and show up
+# as a single odd paragraph on somebody else's screen, which is the quietest kind
+# of bug this project can ship.
+
+common:
+    actions: Aktionen
+    add: Hinzufügen
+    back: Zurück
+    cancel: Abbrechen
+    create: Erstellen
+    delete: Löschen
+    edit: Bearbeiten
+    email: E-Mail
+    export: Exportieren
+    fields: Felder
+    import: Importieren
+    module: Modul
+    name: Name
+    new: Neu
+    none: Keine.
+    password: Passwort
+    remove: Entfernen
+    save: Speichern
+    view: Ansehen
+
+nav:
+    overview: Übersicht
+    users: Benutzer
+    sign_out: Abmelden
+
+login:
+    title: Anmelden
+    submit: Anmelden
+
+dashboard:
+    no_access: Du hast noch auf kein Modul Zugriff. Eine Administratorin oder ein Administrator kann ihn dir geben.
+    none_installed: 'Noch keine Module installiert. Installiere eines mit'
 
 account:
     title: Dein Konto
+    details: Angaben
+    name_help: Wird auf Datensätzen angezeigt, die dir gehören, und in deren Verlauf.
+    email_help: Deine Anmeldung. Die Administration kann sie für dich ändern.
+    hold_title: Wähle zuerst dein eigenes Passwort.
+    hold_body: >-
+        Das Passwort, mit dem du dich angemeldet hast, wurde erzeugt und dir
+        weitergegeben — jemand anderes kennt es also. Alles Weitere wartet, bis du es
+        ersetzt hast.
+    current_password: Aktuelles Passwort
+    current_password_help: Wird abgefragt, damit eine unbeaufsichtigte Sitzung nicht genügt, um dein Konto zu übernehmen.
+    new_password: Neues Passwort
+    repeat_password: Wiederholen
+    change_password: Passwort ändern
     language: Sprache
     language_help: Die Sprache, in der dir diese Anwendung angezeigt wird.
     language_default: 'Standard verwenden (%locale%)'
     save_language: Sprache speichern
     language_saved: Sprache gespeichert.
+
+module:
+    view_record: Datensatz ansehen
+    edit_record: Datensatz bearbeiten
+    delete_record: Datensatz löschen
+    new_title: Neue %module%
+    edit_title: '%module% bearbeiten'
+    what_kind: Welche Art?
+    filter: Filtern
+    filter_value: Wert
+    clear_filter: Zurücksetzen
+    no_matches: Dazu passt nichts.
+    empty_title: Noch keine %module%
+    empty_body: >-
+        Entweder ein frischer Start oder eine sehr ruhige Woche. Lege den ersten an,
+        dann wird diese Seite deutlich interessanter.
+    add_first: Den ersten anlegen
+    add_row: '%collection% hinzufügen'
+    owner: Besitzer
+    record: Datensatz
+    created: Erstellt
+    changed: Geändert
+    created_at: 'Erstellt am %when%'
+    pages: Seiten
+    history: Verlauf
+    history_empty: >-
+        Nichts aufgezeichnet. Datensätze, die es schon vor dem Verlauf gab, haben
+        keinen, bis sie das nächste Mal geändert werden.
+    action_by: 'von %who%'
+    action_by_system: System
+    action:
+        created: Erstellt
+        updated: Geändert
+        deleted: Gelöscht
+    row_action:
+        added: hinzugefügt
+        updated: geändert
+        removed: entfernt
+
+field:
+    label: Bezeichnung
+    label_placeholder: Umsatzsteuer-ID
+    type: Typ
+    rules: Regeln
+    order: Reihenfolge
+    back_to: Zurück zu %module%
+    rule_required: Pflichtfeld
+    rule_unique: eindeutig
+    rule_filterable: filterbar
+    rule_listed: in der Liste
+    rule_title: benennt ihn
+    remove_title: „%field%“ entfernen?
+    remove_body: >-
+        Das Feld verschwindet aus dem Formular, der Liste, den Filtern und der
+        Validierung. <strong>Die Werte bleiben gespeichert.</strong> Legst du wieder ein
+        Feld namens <code>%key%</code> an, sind sie zurück.
+    remove_none_hold: Zurzeit hat kein Datensatz einen Wert dafür.
+    remove_note: >-
+        Hier wird nichts gelöscht. Die Werte endgültig zu entfernen ist ein eigener
+        Vorgang und existiert noch nicht — siehe docs/architecture.md §7.2.
+    remove_confirm: Feld entfernen
+
+import:
+    file: Tabelle
+    file_help: 'Ein Export dieses Moduls hat genau die erwartete Form, mit einem Blatt pro Form: %sheets%.'
+    check: Prüfen
+    back_to_list: Zurück zur Liste
+    dry_run: Es wurde nichts geändert — so würde der Import aussehen.
+    how_title: Wie eine Datei gelesen wird
+    how_columns: Eine Spalte darf nach dem Schlüssel eines Feldes oder nach seiner Bezeichnung benannt sein.
+    how_missing: Ein Feld ohne Spalte behält seinen Wert; eine leere Spalte löscht ihn.
+    how_id: Eine Zeile mit <code>id</code> aktualisiert diesen Datensatz. Eine leere <code>id</code> legt einen neuen an.
+    how_names: >-
+        Alles andere in <code>id</code> — etwa <code>ada</code> — benennt einen Datensatz,
+        den diese Datei anlegt. So kommen neue Datensätze mit Unterzeilen herein: gib jedem
+        neuen Datensatz in <code>id</code> einen eigenen Namen und trage denselben Namen in
+        <code>parent_id</code> der Unterzeile ein. Ein Datensatz mit leerer <code>id</code>
+        wird ebenfalls angelegt, aber nichts in der Datei kann auf ihn zeigen.
+    how_collections: >-
+        Ein Unterblatt spricht für die ganze Sammlung: eine Zeile, die es nicht aufführt,
+        wird vom Datensatz entfernt. Lass das Blatt weg, um sie unangetastet zu lassen.
+    how_atomic: Ein einziges Problem lehnt die ganze Datei ab. Einen halb importierten Zustand gibt es nicht.
+
+user:
+    tooltip_edit: Benutzer bearbeiten
+    tooltip_reset: Passwort zurücksetzen
+    tooltip_deactivate: Benutzer deaktivieren
+    tooltip_reactivate: Benutzer reaktivieren
+    add: Benutzer hinzufügen
+    edit_title: '%email% bearbeiten'
+    role: Rolle
+    administrator: Administration
+    member: Mitglied
+    last_signed_in: Zuletzt angemeldet
+    never: nie
+    you: du
+    deactivated: deaktiviert
+    password_not_set: Passwort noch nicht gesetzt
+    email_help: Das ist die Anmeldung. Sie muss hier eindeutig sein, nicht überall.
+    name_help: Wird auf eigenen Datensätzen und im Verlauf angezeigt. Standard ist die E-Mail-Adresse.
+    administrator_help: >-
+        Die Administration darf alles und verwaltet Benutzer, Gruppen und die Felder eines
+        Moduls. Die Berechtigungen unten haben darauf keinen Einfluss.
+    generated_password_note: Beim Speichern wird ein Passwort erzeugt und dir einmalig angezeigt, damit du es weitergeben kannst.
+    groups: Gruppen
+    groups_help: >-
+        Von hier kommen Berechtigungen normalerweise: eine Berechtigung für eine Aufgabe
+        überdauert die Person, die sie verlässt. <a href="%link%">Gruppen verwalten</a>.
+    no_groups: 'Es gibt noch keine Gruppen. <a href="%link%">Lege eine an</a>.'
+    extra_permissions: Zusätzliche Berechtigungen für diese Person
+    extra_permissions_help: >-
+        Nur für das, was die Gruppen noch nicht abdecken. Diese kommen zu dem
+        <strong>hinzu</strong>, was die Gruppen geben — nichts hier kann eine Berechtigung
+        wegnehmen, weshalb sich nicht auswählen lässt, was die Gruppen bereits abdecken.
+    admin_permissions_note: >-
+        Diese Person gehört zur Administration und darf ohnehin alles. Was hier gesetzt
+        wird, greift erst, wenn ihr das genommen würde.
+    from_groups: 'aus Gruppen: %scope%'
+    permissions_note: >-
+        Die Administration darf alles. Alle anderen starten ohne Rechte und bekommen das,
+        was ihre <a href="%link%">Berechtigungsgruppen</a> ihnen geben, pro Modul und pro
+        Aktion.
+    edit_aria: '%email% bearbeiten'
+    reset_aria: 'Passwort von %email% zurücksetzen'
+    deactivate_aria: '%email% deaktivieren'
+    reactivate_aria: '%email% reaktivieren'
+
+group:
+    tooltip_edit: Gruppe bearbeiten
+    tooltip_delete: Gruppe löschen
+    title: Berechtigungsgruppen
+    one: Gruppe
+    new: Neue Gruppe
+    members: Mitglieder
+    permissions: Berechtigungen
+    intro: >-
+        Eine Gruppe ist ein Satz Berechtigungen für eine Aufgabe statt für eine Person und
+        überdauert deshalb, wenn jemand sie verlässt. Alles ist additiv: eine Person hat,
+        was all ihre Gruppen ihr geben, und nichts hier kann eine Berechtigung wegnehmen.
+    empty_title: Noch keine Gruppen
+    empty_body: >-
+        Die Administration darf ohnehin alles. Alle anderen dürfen nichts, bis eine Gruppe
+        etwas anderes sagt.
+    make_first: Die erste anlegen
+    name_placeholder: Vertrieb, Support, Nur lesen…
+    name_help: Wie die Aufgabe heißt. Du kannst sie später umbenennen.
+    what_it_may_do: Was diese Gruppe darf
+    matrix_help: >-
+        Eine Zeile pro Modul dieses Kunden, eine Spalte pro Aktion.
+        <strong>Eigene Datensätze</strong> heißt nur die, die diese Person angelegt hat —
+        das gilt für Aktionen, die einen bereits vorhandenen Datensatz benennen, weshalb
+        Hinzufügen und Importieren nur ganz oder gar nicht gehen.
+    no_modules: Es sind keine Module installiert, also gibt es noch nichts zu vergeben.
+    who_is_in_it: Wer darin ist
+    members_help: >-
+        Die Administration steht nicht in der Liste: sie darf ohnehin alles, und sie in
+        eine Gruppe zu stecken würde nahelegen, dass man ihr das wieder nehmen könnte.
+    no_members_available: Hier gehören alle zur Administration, es gibt also noch niemanden hinzuzufügen.
+    delete_title: '%group% löschen'
+    delete_heading: „%group%“ löschen?
+    delete_warning: Sie verlieren, was die Gruppe ihnen gab — es sei denn, eine andere Gruppe gibt ihnen dasselbe.
+    delete_note: >-
+        Es wird niemand gelöscht und nichts angetastet, was jemandem gehört — nur die
+        Gruppe und das, was sie vergeben hat. Das lässt sich nicht rückgängig machen, aber
+        neu anlegen.
+    delete_confirm: Gruppe löschen
+    edit_aria: '%group% bearbeiten'
+    delete_aria: '%group% löschen'
+
+permission:
+    yes: 'Ja'
+    no: 'Nein'

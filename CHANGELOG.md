@@ -137,6 +137,18 @@ of every page, and is not yet tied to git tags.
   wrong language on somebody else's screen.
 - A customer's own labels are deliberately **not** translated: module names, field
   labels and choice options are their data, in the language they typed.
+- **Every string in the interface is now a catalogue entry**, across all nineteen
+  templates. Counted sentences use ICU plurals rather than a ternary, because
+  "one" and "other" are not the only two answers every language has and building
+  the sentence in Twig bakes English grammar into the template.
+- The engine ships **its own catalogue** from `packages/core/translations`, so
+  core can name a filter operator or a permission action without reaching into
+  the application's file. A module package would do the same.
+- **Tooltips on the icon-only buttons** in the record list, the user list and the
+  group list. Bootstrap's JavaScript is now shipped for them — it was deliberately
+  absent, and the rule it was protecting still holds: the forms work without
+  scripting, and a `title` stays on the element either way, so a failed asset load
+  costs a hint rather than a feature.
 
 ### Changed
 

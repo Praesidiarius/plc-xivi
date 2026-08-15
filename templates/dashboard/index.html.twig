@@ -19,12 +19,12 @@
 			#}
 			{% if chrome.isAnyModuleInstalled %}
 				<div class="alert alert-secondary">
-					You do not have access to any modules yet. An administrator can grant it.
+					{{ 'dashboard.no_access'|trans }}
 				</div>
 			{% else %}
 				<div class="alert alert-secondary">
-					No modules installed yet. Install one with
-					<code>bin/console tenant:module:install {{ tenant.slug }} contact</code>.
+					{{ 'dashboard.none_installed'|trans }}
+					<code>bin/console tenant:module:install {{ tenant.slug }} contact</code>
 				</div>
 			{% endif %}
 		{% else %}
@@ -35,7 +35,7 @@
 							<div class="card-body">
 								<h2 class="h6 card-title mb-1">{{ module.label }}</h2>
 								<p class="card-text text-body-secondary small mb-0">
-									{{ module.fields|length }} field{{ module.fields|length == 1 ? '' : 's' }}
+									{{ 'dashboard.field_count'|trans({'%count%': module.fields|length}) }}
 								</p>
 							</div>
 						</a>

@@ -76,17 +76,10 @@ enum ModuleAction: string
         };
     }
 
-    public function label(): string
+    /** A key in the `xivi` domain — see Operator::labelKey() (XIV-8). */
+    public function labelKey(): string
     {
-        return match ($this) {
-            self::View => 'View',
-            self::List => 'List',
-            self::Add => 'Add',
-            self::Edit => 'Edit',
-            self::Delete => 'Delete',
-            self::Export => 'Export',
-            self::Import => 'Import',
-        };
+        return 'permission.action.' . $this->value;
     }
 
     /** @return list<string> */

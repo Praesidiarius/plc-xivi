@@ -39,7 +39,7 @@
 					<a class="btn btn-outline-secondary"
 					   href="{{ path('module_export', app.request.query.all|merge({module: module.key})) }}">
 						<i class="bi bi-download" aria-hidden="true"></i>
-						<span class="d-none d-sm-inline">Export</span>
+						<span class="d-none d-sm-inline">{{ 'common.export'|trans }}</span>
 					</a>
 				{% endif %}
 				{# Its own permission now, not ROLE_ADMIN — so somebody granted it
@@ -47,19 +47,19 @@
 				{% if can('import', module) %}
 					<a class="btn btn-outline-secondary" href="{{ path('module_import', {module: module.key}) }}">
 							<i class="bi bi-upload" aria-hidden="true"></i>
-							<span class="d-none d-sm-inline">Import</span>
+							<span class="d-none d-sm-inline">{{ 'common.import'|trans }}</span>
 						</a>
 				{% endif %}
 				{# The metadata editor stays an administrator's job: it changes what
 				   the module *is*, which is not one of its permissions (§5.4). #}
 				{% if is_granted('ROLE_ADMIN') %}
 					<a class="btn btn-outline-secondary" href="{{ path('field_index', {module: module.key}) }}">
-							<i class="bi bi-sliders" aria-hidden="true"></i> Fields
+							<i class="bi bi-sliders" aria-hidden="true"></i> {{ 'common.fields'|trans }}
 						</a>
 				{% endif %}
 				{% if can('add', module) %}
 					<a class="btn btn-primary" href="{{ path('module_new', {module: module.key}) }}">
-							<i class="bi bi-plus-lg" aria-hidden="true"></i> Add
+							<i class="bi bi-plus-lg" aria-hidden="true"></i> {{ 'common.add'|trans }}
 						</a>
 				{% endif %}
 			</div>
@@ -88,16 +88,16 @@
 							<div class="col-sm-3">
 								<select name="filter[{{ i }}][op]" class="form-select form-select-sm">
 									{% for operator in operators %}
-										<option value="{{ operator.value }}" {{ filter and filter.operator == operator ? 'selected' : '' }}>{{ operator.label }}</option>
+										<option value="{{ operator.value }}" {{ filter and filter.operator == operator ? 'selected' : '' }}>{{ operator.labelKey|trans({}, 'xivi') }}</option>
 									{% endfor %}
 								</select>
 							</div>
 							<div class="col-sm-4">
 								<input type="text" class="form-control form-control-sm" name="filter[{{ i }}][value]"
-									   value="{{ filter ? filter.value : '' }}" placeholder="value">
+									   value="{{ filter ? filter.value : '' }}" placeholder="{{ 'module.filter_value'|trans }}">
 							</div>
 							<div class="col-sm-1 text-end">
-								{% if loop.last %}<button class="btn btn-sm btn-primary" type="submit">Filter</button>{% endif %}
+								{% if loop.last %}<button class="btn btn-sm btn-primary" type="submit">{{ 'module.filter'|trans }}</button>{% endif %}
 							</div>
 						</div>
 					{% endfor %}
@@ -109,7 +109,7 @@
 					{% endif %}
 
 					{% if query.isFiltered %}
-						<a class="btn btn-sm btn-link ps-0" href="{{ path('module_index', {module: module.key}) }}">Clear</a>
+						<a class="btn btn-sm btn-link ps-0" href="{{ path('module_index', {module: module.key}) }}">{{ 'module.clear_filter'|trans }}</a>
 					{% endif %}
 				</div>
 			</form>
@@ -120,7 +120,7 @@
 				{# A filter finding nothing is information, not an occasion. #}
 				<div class="alert alert-secondary d-flex align-items-center gap-2">
 					<i class="bi bi-funnel" aria-hidden="true"></i>
-					Nothing matches that.
+					{{ 'module.no_matches'|trans }}
 				</div>
 			{% else %}
 				{# An empty module is somebody's first day, so point at the way in
@@ -128,14 +128,13 @@
 				<div class="card">
 					<div class="card-body text-center py-5">
 						<i class="bi bi-{{ module.icon }} display-4 text-body-secondary" aria-hidden="true"></i>
-						<h2 class="h5 mt-3">No {{ module.label|lower }} yet</h2>
+						<h2 class="h5 mt-3">{{ 'module.empty_title'|trans({'%module%': module.label|lower}) }}</h2>
 						<p class="text-body-secondary mb-4">
-							Either a fresh start or a very quiet week. Add the first one and this
-							page gets considerably more interesting.
+							{{ 'module.empty_body'|trans }}
 						</p>
 						{% if can('add', module) %}
 							<a class="btn btn-primary" href="{{ path('module_new', {module: module.key}) }}">
-								<i class="bi bi-plus-lg" aria-hidden="true"></i> Add the first one
+								<i class="bi bi-plus-lg" aria-hidden="true"></i> {{ 'module.add_first'|trans }}
 							</a>
 						{% endif %}
 					</div>
@@ -151,14 +150,14 @@
 								   whatever variant it is (§5.5), and the only sensible thing to
 								   click. Then the customer's own listed fields, in their order. #}
 								<th scope="col" class="text-body-secondary small text-uppercase">
-									{{ h.sortable(module, query, nameSort, 'Name') }}
+									{{ h.sortable(module, query, nameSort, 'common.name'|trans) }}
 								</th>
 								{% for field in columns %}
 									<th scope="col" class="text-body-secondary small text-uppercase">
 										{{ h.sortable(module, query, field.key, field.label) }}
 									</th>
 								{% endfor %}
-								<th scope="col" class="text-body-secondary small text-uppercase">Owner</th>
+								<th scope="col" class="text-body-secondary small text-uppercase">{{ 'module.owner'|trans }}</th>
 								<th scope="col"></th>
 							</tr>
 						</thead>
@@ -183,25 +182,28 @@
 										   "own", the answer differs from one line to the next. #}
 										{% if can('view', module, record) %}
 											<a class="btn btn-sm btn-outline-secondary"
+											   data-bs-toggle="tooltip" title="{{ 'module.view_record'|trans }}"
 											   href="{{ path('module_show', {module: module.key, id: record.id}) }}">
 												<i class="bi bi-eye" aria-hidden="true"></i>
-												<span class="visually-hidden">View</span>
+												<span class="visually-hidden">{{ 'common.view'|trans }}</span>
 											</a>
 										{% endif %}
 										{% if can('edit', module, record) %}
 											<a class="btn btn-sm btn-outline-secondary"
+											   data-bs-toggle="tooltip" title="{{ 'module.edit_record'|trans }}"
 											   href="{{ path('module_edit', {module: module.key, id: record.id}) }}">
 												<i class="bi bi-pencil" aria-hidden="true"></i>
-												<span class="visually-hidden">Edit</span>
+												<span class="visually-hidden">{{ 'common.edit'|trans }}</span>
 											</a>
 										{% endif %}
 										{% if can('delete', module, record) %}
 											<form method="post" class="d-inline"
 											      action="{{ path('module_delete', {module: module.key, id: record.id}) }}">
 												<input type="hidden" name="_token" value="{{ csrf_token('delete-record-' ~ record.id) }}">
-												<button type="submit" class="btn btn-sm btn-outline-danger">
+												<button type="submit" class="btn btn-sm btn-outline-danger"
+												        data-bs-toggle="tooltip" title="{{ 'module.delete_record'|trans }}">
 													<i class="bi bi-trash" aria-hidden="true"></i>
-													<span class="visually-hidden">Delete</span>
+													<span class="visually-hidden">{{ 'common.delete'|trans }}</span>
 												</button>
 											</form>
 										{% endif %}
@@ -214,12 +216,17 @@
 			</div>
 
 			<div class="d-flex align-items-center justify-content-between mt-2">
+				{#
+					ICU rather than a ternary, because "one" and "other" are not the
+					only two answers every language has, and building the sentence in
+					Twig would bake English grammar into the template (XIV-8).
+				#}
 				<p class="text-body-secondary small mb-0">
-					{{ total }} record{{ total == 1 ? '' : 's' }}{{ query.isFiltered ? ' matching' : '' }}.
+					{{ (query.isFiltered ? 'module.record_count_matching' : 'module.record_count')|trans({'%count%': total}) }}
 				</p>
 
 				{% if pages > 1 %}
-					<nav aria-label="Pages">
+					<nav aria-label="{{ 'module.pages'|trans }}">
 						<ul class="pagination pagination-sm mb-0">
 							{% for page in 1..pages %}
 								<li class="page-item {{ page == query.page ? 'active' : '' }}">

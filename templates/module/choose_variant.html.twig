@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}New {{ module.label|lower }}{% endblock %}
+{% block title %}{{ 'module.new_title'|trans({'%module%': module.label|lower}) }}{% endblock %}
 
 {% block body %}
 	{{ include('_topbar.html.twig') }}
@@ -9,8 +9,8 @@
 		{{ include('_flashes.html.twig') }}
 
 		<div class="d-flex align-items-center justify-content-between mb-3">
-			<h1 class="h3 mb-0">What kind?</h1>
-			<a class="btn btn-link" href="{{ path('module_index', {module: module.key}) }}">Back</a>
+			<h1 class="h3 mb-0">{{ 'module.what_kind'|trans }}</h1>
+			<a class="btn btn-link" href="{{ path('module_index', {module: module.key}) }}">{{ 'common.back'|trans }}</a>
 		</div>
 
 		{#

@@ -21,13 +21,13 @@
 		{% endfor %}
 
 		<div class="d-flex align-items-center justify-content-between mb-3">
-			<h1 class="h3 mb-0">Users</h1>
+			<h1 class="h3 mb-0">{{ 'nav.users'|trans }}</h1>
 			<div class="d-flex gap-2">
 				<a class="btn btn-outline-secondary" href="{{ path('group_index') }}">
-					<i class="bi bi-shield-lock" aria-hidden="true"></i> Permission groups
+					<i class="bi bi-shield-lock" aria-hidden="true"></i> {{ 'group.title'|trans }}
 				</a>
 				<a class="btn btn-primary" href="{{ path('user_new') }}">
-					<i class="bi bi-person-plus" aria-hidden="true"></i> Add user
+					<i class="bi bi-person-plus" aria-hidden="true"></i> {{ 'user.add'|trans }}
 				</a>
 			</div>
 		</div>
@@ -36,11 +36,11 @@
 			<table class="table align-middle">
 				<thead>
 					<tr>
-						<th scope="col">Name</th>
-						<th scope="col">Email</th>
-						<th scope="col">Role</th>
-						<th scope="col">Last signed in</th>
-						<th scope="col"><span class="visually-hidden">Actions</span></th>
+						<th scope="col">{{ 'common.name'|trans }}</th>
+						<th scope="col">{{ 'common.email'|trans }}</th>
+						<th scope="col">{{ 'user.role'|trans }}</th>
+						<th scope="col">{{ 'user.last_signed_in'|trans }}</th>
+						<th scope="col"><span class="visually-hidden">{{ 'common.actions'|trans }}</span></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -49,36 +49,38 @@
 							<td>
 								{{ user.name }}
 								{% if user.id == app.user.id %}
-									<span class="badge text-bg-light">you</span>
+									<span class="badge text-bg-light">{{ 'user.you'|trans }}</span>
 								{% endif %}
 								{% if not user.active %}
-									<span class="badge text-bg-secondary">deactivated</span>
+									<span class="badge text-bg-secondary">{{ 'user.deactivated'|trans }}</span>
 								{% endif %}
 								{#
 									Worth showing: it means the password you handed them is still
 									the one in use, so it is still a credential two people know.
 								#}
 								{% if user.mustChangePassword %}
-									<span class="badge text-bg-light">password not set yet</span>
+									<span class="badge text-bg-light">{{ 'user.password_not_set'|trans }}</span>
 								{% endif %}
 							</td>
 							<td>{{ user.email }}</td>
-							<td>{{ 'ROLE_ADMIN' in user.roles ? 'Administrator' : 'Member' }}</td>
+							<td>{{ ('ROLE_ADMIN' in user.roles ? 'user.administrator' : 'user.member')|trans }}</td>
 							<td>
-								{{ user.lastLoginAt ? user.lastLoginAt|date('Y-m-d H:i') : 'never' }}
+								{{ user.lastLoginAt ? user.lastLoginAt|date('Y-m-d H:i') : 'user.never'|trans }}
 							</td>
 							<td class="text-end">
 								<div class="d-inline-flex gap-1">
-									<a class="btn btn-sm btn-outline-secondary" href="{{ path('user_edit', {id: user.id}) }}">
+									<a class="btn btn-sm btn-outline-secondary" href="{{ path('user_edit', {id: user.id}) }}"
+									   data-bs-toggle="tooltip" title="{{ 'user.tooltip_edit'|trans }}">
 										<i class="bi bi-pencil" aria-hidden="true"></i>
-										<span class="visually-hidden">Edit {{ user.email }}</span>
+										<span class="visually-hidden">{{ 'user.edit_aria'|trans({'%email%': user.email}) }}</span>
 									</a>
 
 									<form method="post" action="{{ path('user_password', {id: user.id}) }}">
 										<input type="hidden" name="_token" value="{{ csrf_token('manage-users') }}">
-										<button class="btn btn-sm btn-outline-secondary" type="submit">
+										<button class="btn btn-sm btn-outline-secondary" type="submit"
+										        data-bs-toggle="tooltip" title="{{ 'user.tooltip_reset'|trans }}">
 											<i class="bi bi-key" aria-hidden="true"></i>
-											<span class="visually-hidden">Reset the password of {{ user.email }}</span>
+											<span class="visually-hidden">{{ 'user.reset_aria'|trans({'%email%': user.email}) }}</span>
 										</button>
 									</form>
 
@@ -91,10 +93,12 @@
 									<form method="post" action="{{ path('user_active', {id: user.id}) }}">
 										<input type="hidden" name="_token" value="{{ csrf_token('manage-users') }}">
 										<input type="hidden" name="active" value="{{ user.active ? '0' : '1' }}">
-										<button class="btn btn-sm btn-outline-secondary" type="submit">
+										<button class="btn btn-sm btn-outline-secondary" type="submit"
+										        data-bs-toggle="tooltip"
+										        title="{{ (user.active ? 'user.tooltip_deactivate' : 'user.tooltip_reactivate')|trans }}">
 											<i class="bi bi-{{ user.active ? 'person-slash' : 'person-check' }}" aria-hidden="true"></i>
 											<span class="visually-hidden">
-												{{ user.active ? 'Deactivate' : 'Reactivate' }} {{ user.email }}
+												{{ (user.active ? 'user.deactivate_aria' : 'user.reactivate_aria')|trans({'%email%': user.email}) }}
 											</span>
 										</button>
 									</form>
@@ -112,9 +116,7 @@
 			is one somebody asks while looking at this page.
 		#}
 		<p class="text-body-secondary small mb-0">
-			Administrators may do everything. Everybody else starts with nothing and gets
-			what their <a href="{{ path('group_index') }}">permission groups</a> give them,
-			per module and per action.
+			{{ 'user.permissions_note'|trans({'%link%': path('group_index')})|raw }}
 		</p>
 	</main>
 {% endblock %}

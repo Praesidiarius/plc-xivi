@@ -41,7 +41,9 @@ final class UnsupportedQuery extends \InvalidArgumentException
             'Cannot ask whether "%s" (%s) %s. That type accepts: %s.',
             $path,
             $type,
-            $operator->label(),
+            // The stored value rather than the label, which is now a translation
+            // key (XIV-8) — and consistent with how the supported ones are listed.
+            $operator->value,
             implode(', ', array_map(static fn (Operator $o): string => $o->value, $supported)),
         ));
     }

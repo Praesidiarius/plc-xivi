@@ -1,0 +1,33 @@
+# The engine's own vocabulary (XIV-8).
+#
+# Its own domain and its own file, shipped with the bundle, because these are
+# words core chose and core should not need the application's catalogue to say
+# them. A module package would ship its own the same way.
+#
+# What is *not* here: anything a customer named. Module labels, field labels and
+# choice options are their data, in their language.
+
+operator:
+    eq: is
+    neq: is not
+    contains: contains
+    starts: starts with
+    gt: after
+    gte: from
+    lt: before
+    lte: until
+    empty: is empty
+    filled: is not empty
+
+permission:
+    action:
+        view: View
+        list: List
+        add: Add
+        edit: Edit
+        delete: Delete
+        export: Export
+        import: Import
+    scope:
+        own: Own records
+        all: All records

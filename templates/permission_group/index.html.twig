@@ -9,21 +9,19 @@
 		{{ include('_flashes.html.twig') }}
 
 		<div class="d-flex align-items-center justify-content-between mb-3">
-			<h1 class="h3 mb-0">Permission groups</h1>
+			<h1 class="h3 mb-0">{{ 'group.title'|trans }}</h1>
 			<div class="d-flex gap-2">
 				<a class="btn btn-outline-secondary" href="{{ path('user_index') }}">
-					<i class="bi bi-people" aria-hidden="true"></i> Users
+					<i class="bi bi-people" aria-hidden="true"></i> {{ 'nav.users'|trans }}
 				</a>
 				<a class="btn btn-primary" href="{{ path('group_new') }}">
-					<i class="bi bi-plus-lg" aria-hidden="true"></i> New group
+					<i class="bi bi-plus-lg" aria-hidden="true"></i> {{ 'group.new'|trans }}
 				</a>
 			</div>
 		</div>
 
 		<p class="text-body-secondary">
-			A group is a set of permissions given to a job rather than to a person, so it
-			survives somebody leaving it. Everything is additive: a user has whatever all
-			their groups give them, and nothing here can take a permission away.
+			{{ 'group.intro'|trans }}
 		</p>
 
 		{% if groups is empty %}
@@ -34,13 +32,12 @@
 			<div class="card">
 				<div class="card-body text-center py-5">
 					<i class="bi bi-shield-lock display-4 text-body-secondary" aria-hidden="true"></i>
-					<h2 class="h5 mt-3">No groups yet</h2>
+					<h2 class="h5 mt-3">{{ 'group.empty_title'|trans }}</h2>
 					<p class="text-body-secondary mb-4">
-						Administrators can already do everything. Everybody else can do nothing
-						until a group says otherwise.
+						{{ 'group.empty_body'|trans }}
 					</p>
 					<a class="btn btn-primary" href="{{ path('group_new') }}">
-						<i class="bi bi-plus-lg" aria-hidden="true"></i> Make the first one
+						<i class="bi bi-plus-lg" aria-hidden="true"></i> {{ 'group.make_first'|trans }}
 					</a>
 				</div>
 			</div>
@@ -49,10 +46,10 @@
 				<table class="table align-middle">
 					<thead>
 						<tr>
-							<th scope="col">Group</th>
-							<th scope="col">Members</th>
-							<th scope="col">Permissions</th>
-							<th scope="col"><span class="visually-hidden">Actions</span></th>
+							<th scope="col">{{ 'group.one'|trans }}</th>
+							<th scope="col">{{ 'group.members'|trans }}</th>
+							<th scope="col">{{ 'group.permissions'|trans }}</th>
+							<th scope="col"><span class="visually-hidden">{{ 'common.actions'|trans }}</span></th>
 						</tr>
 					</thead>
 					<tbody>
@@ -64,13 +61,15 @@
 								<td class="text-body-secondary">{{ group.members|length }}</td>
 								<td class="text-body-secondary">{{ group.grants|length }}</td>
 								<td class="text-end">
-									<a class="btn btn-sm btn-outline-secondary" href="{{ path('group_edit', {id: group.id}) }}">
+									<a class="btn btn-sm btn-outline-secondary" href="{{ path('group_edit', {id: group.id}) }}"
+									   data-bs-toggle="tooltip" title="{{ 'group.tooltip_edit'|trans }}">
 										<i class="bi bi-pencil" aria-hidden="true"></i>
-										<span class="visually-hidden">Edit {{ group.label }}</span>
+										<span class="visually-hidden">{{ 'group.edit_aria'|trans({'%group%': group.label}) }}</span>
 									</a>
-									<a class="btn btn-sm btn-outline-danger" href="{{ path('group_confirm_delete', {id: group.id}) }}">
+									<a class="btn btn-sm btn-outline-danger" href="{{ path('group_confirm_delete', {id: group.id}) }}"
+									   data-bs-toggle="tooltip" title="{{ 'group.tooltip_delete'|trans }}">
 										<i class="bi bi-trash" aria-hidden="true"></i>
-										<span class="visually-hidden">Delete {{ group.label }}</span>
+										<span class="visually-hidden">{{ 'group.delete_aria'|trans({'%group%': group.label}) }}</span>
 									</a>
 								</td>
 							</tr>

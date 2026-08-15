@@ -10,7 +10,7 @@
 
 		<div class="d-flex align-items-center justify-content-between mb-3">
 			<h1 class="h3 mb-0">{{ group.label }}</h1>
-			<a class="btn btn-link" href="{{ path('group_index') }}">Back</a>
+			<a class="btn btn-link" href="{{ path('group_index') }}">{{ 'common.back'|trans }}</a>
 		</div>
 
 		<form method="post">
@@ -18,22 +18,19 @@
 
 			<div class="card mb-4">
 				<div class="card-body">
-					<label class="form-label" for="label">Name</label>
+					<label class="form-label" for="label">{{ 'common.name'|trans }}</label>
 					<input class="form-control" id="label" name="label" required value="{{ group.label }}">
 				</div>
 			</div>
 
-			<h2 class="h5 mb-2">What this group may do</h2>
+			<h2 class="h5 mb-2">{{ 'group.what_it_may_do'|trans }}</h2>
 			<p class="text-body-secondary">
-				One row per module this customer has, one column per action.
-				<strong>Own records</strong> means only the ones that person created —
-				it applies to the actions that name a record which already exists, so
-				adding and importing are all-or-nothing.
+				{{ 'group.matrix_help'|trans|raw }}
 			</p>
 
 			{% if modules is empty %}
 				<div class="alert alert-secondary">
-					No modules are installed, so there is nothing to grant yet.
+					{{ 'group.no_modules'|trans }}
 				</div>
 			{% else %}
 				<div class="card mb-4">
@@ -41,9 +38,9 @@
 						<table class="table align-middle mb-0">
 							<thead>
 								<tr>
-									<th scope="col" class="text-body-secondary small text-uppercase">Module</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'common.module'|trans }}</th>
 									{% for action in actions %}
-										<th scope="col" class="text-body-secondary small text-uppercase">{{ action.label }}</th>
+										<th scope="col" class="text-body-secondary small text-uppercase">{{ action.labelKey|trans({}, 'xivi') }}</th>
 									{% endfor %}
 								</tr>
 							</thead>
@@ -65,12 +62,12 @@
 												#}
 												<select class="form-select form-select-sm"
 												        name="grants[{{ module.key }}][{{ action.value }}]"
-												        aria-label="{{ action.label }} {{ module.label }}">
-													<option value="">No</option>
+												        aria-label="{{ action.labelKey|trans({}, 'xivi') }} {{ module.label }}">
+													<option value="">{{ 'permission.no'|trans }}</option>
 													{% for scope in scopes %}
 														{% if action.isScopable or scope.value == 'all' %}
 															<option value="{{ scope.value }}" {{ current == scope.value ? 'selected' : '' }}>
-																{{ action.isScopable ? scope.label : 'Yes' }}
+																{{ action.isScopable ? scope.labelKey|trans({}, 'xivi') : 'permission.yes'|trans }}
 															</option>
 														{% endif %}
 													{% endfor %}
@@ -85,10 +82,9 @@
 				</div>
 			{% endif %}
 
-			<h2 class="h5 mb-2">Who is in it</h2>
+			<h2 class="h5 mb-2">{{ 'group.who_is_in_it'|trans }}</h2>
 			<p class="text-body-secondary">
-				Administrators are not listed: they may already do everything, and putting
-				one in a group would suggest it could be taken away again.
+				{{ 'group.members_help'|trans }}
 			</p>
 
 			<div class="card mb-4">
@@ -103,7 +99,7 @@
 								{{ user.name }}
 								<span class="text-body-secondary">{{ user.email }}</span>
 								{% if not user.active %}
-									<span class="badge text-bg-secondary">Deactivated</span>
+									<span class="badge text-bg-secondary">{{ 'user.deactivated'|trans }}</span>
 								{% endif %}
 							</label>
 						</div>
@@ -111,15 +107,15 @@
 
 					{% if members_available is empty %}
 						<p class="text-body-secondary mb-0">
-							Everybody here is an administrator, so there is nobody to add yet.
+							{{ 'group.no_members_available'|trans }}
 						</p>
 					{% endif %}
 				</div>
 			</div>
 
 			<div class="d-flex gap-2">
-				<button type="submit" class="btn btn-primary">Save</button>
-				<a class="btn btn-link" href="{{ path('group_index') }}">Cancel</a>
+				<button type="submit" class="btn btn-primary">{{ 'common.save'|trans }}</button>
+				<a class="btn btn-link" href="{{ path('group_index') }}">{{ 'common.cancel'|trans }}</a>
 			</div>
 		</form>
 	</main>

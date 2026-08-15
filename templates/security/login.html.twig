@@ -1,36 +1,38 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Sign in{% endblock %}
+{% block title %}{{ 'login.title'|trans }}{% endblock %}
 
 {% block body %}
 	<main class="signin-shell">
 		<div class="card shadow-sm" style="width: 22rem;">
 			<div class="card-body p-4">
-				<h1 class="h4 mb-1">Sign in</h1>
+				<h1 class="h4 mb-1">{{ 'login.title'|trans }}</h1>
 				<p class="text-body-secondary small mb-4">{{ app.request.host }}</p>
 
 				{% if error %}
-					{# messageKey is readable English on its own; symfony/translation is not
-					   installed yet, so there is no |trans filter to run it through. #}
-					<div class="alert alert-danger py-2 small" role="alert">{{ error.messageKey }}</div>
+					{# The security domain is Symfony's own, so "Invalid credentials."
+					   is translated by the framework rather than by us (XIV-8). #}
+					<div class="alert alert-danger py-2 small" role="alert">
+						{{ error.messageKey|trans(error.messageData, 'security') }}
+					</div>
 				{% endif %}
 
 				<form method="post" action="{{ path('login') }}">
 					<div class="mb-3">
-						<label for="email" class="form-label">Email</label>
+						<label for="email" class="form-label">{{ 'common.email'|trans }}</label>
 						<input type="email" id="email" name="email" value="{{ last_email }}"
 						       class="form-control" autocomplete="username" required autofocus>
 					</div>
 
 					<div class="mb-4">
-						<label for="password" class="form-label">Password</label>
+						<label for="password" class="form-label">{{ 'common.password'|trans }}</label>
 						<input type="password" id="password" name="password"
 						       class="form-control" autocomplete="current-password" required>
 					</div>
 
 					<input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
 
-					<button type="submit" class="btn btn-primary w-100">Sign in</button>
+					<button type="submit" class="btn btn-primary w-100">{{ 'login.submit'|trans }}</button>
 				</form>
 			</div>
 		</div>

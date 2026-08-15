@@ -31,12 +31,10 @@ enum PermissionScope: string
     case Own = 'own';
     case All = 'all';
 
-    public function label(): string
+    /** A key in the `xivi` domain — see Operator::labelKey() (XIV-8). */
+    public function labelKey(): string
     {
-        return match ($this) {
-            self::Own => 'Own records',
-            self::All => 'All records',
-        };
+        return 'permission.scope.' . $this->value;
     }
 
     /**

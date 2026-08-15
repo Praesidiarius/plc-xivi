@@ -3,14 +3,238 @@
 # English is the source and the fallback: a key with no German translation shows
 # the English sentence rather than the key itself, which is the difference
 # between a page with one odd word on it and a page reading "account.title".
+# TranslationCatalogueTest makes sure that never has to happen.
 #
-# Keys are named for where the string lives and what it says, not for the words
-# themselves — renaming a sentence should not mean renaming its key.
+# Keys are named for where the string lives and what it does, not for the words
+# themselves — rewriting a sentence should not mean renaming its key.
+#
+# Counted strings live in messages+intl-icu.en.yaml instead, because "one" and
+# "other" are not the only two answers every language has.
+#
+# The engine's own vocabulary — filter operators, permission actions — is in
+# packages/core/translations/xivi.*.yaml, so core can name its own concepts
+# without reaching into this file.
+
+common:
+    actions: Actions
+    add: Add
+    back: Back
+    cancel: Cancel
+    create: Create
+    delete: Delete
+    edit: Edit
+    email: Email
+    export: Export
+    fields: Fields
+    import: Import
+    module: Module
+    name: Name
+    new: New
+    none: None.
+    password: Password
+    remove: Remove
+    save: Save
+    view: View
+
+nav:
+    overview: Overview
+    users: Users
+    sign_out: Sign out
+
+login:
+    title: Sign in
+    submit: Sign in
+
+dashboard:
+    no_access: You do not have access to any modules yet. An administrator can grant it.
+    none_installed: 'No modules installed yet. Install one with'
 
 account:
     title: Your account
+    details: Details
+    name_help: What shows up on records you own and in their history.
+    email_help: Your login. An administrator can change it for you.
+    hold_title: Choose your own password before you carry on.
+    hold_body: >-
+        The one you signed in with was generated and passed on to you, so somebody
+        else has seen it. Everything else waits until you have replaced it.
+    current_password: Current password
+    current_password_help: Asked for so that an unattended session is not enough to take your account over.
+    new_password: New password
+    repeat_password: Repeat it
+    change_password: Change password
     language: Language
     language_help: The language this application is shown to you in.
     language_default: 'Follow the default (%locale%)'
     save_language: Save language
     language_saved: Language saved.
+
+module:
+    view_record: View record
+    edit_record: Edit record
+    delete_record: Delete record
+    new_title: New %module%
+    edit_title: Edit %module%
+    what_kind: What kind?
+    filter: Filter
+    filter_value: value
+    clear_filter: Clear
+    no_matches: Nothing matches that.
+    empty_title: No %module% yet
+    empty_body: >-
+        Either a fresh start or a very quiet week. Add the first one and this page
+        gets considerably more interesting.
+    add_first: Add the first one
+    add_row: Add %collection%
+    owner: Owner
+    record: Record
+    created: Created
+    changed: Changed
+    created_at: 'Created %when%'
+    pages: Pages
+    history: History
+    history_empty: >-
+        Nothing recorded. Records that existed before history did have none until
+        the next time they change.
+    action_by: 'by %who%'
+    action_by_system: System
+    action:
+        created: Created
+        updated: Updated
+        deleted: Deleted
+    row_action:
+        added: added
+        updated: updated
+        removed: removed
+
+field:
+    label: Label
+    label_placeholder: VAT number
+    type: Type
+    rules: Rules
+    order: Order
+    back_to: Back to %module%
+    rule_required: required
+    rule_unique: unique
+    rule_filterable: filterable
+    rule_listed: on list
+    rule_title: titles it
+    remove_title: Remove “%field%”?
+    remove_body: >-
+        The field disappears from the form, the list, the filters and validation.
+        <strong>The values stay in storage.</strong> Adding a field named
+        <code>%key%</code> again brings them back.
+    remove_none_hold: No records currently hold a value for it.
+    remove_note: >-
+        Nothing here deletes data. Permanently removing the values is a separate
+        operation and does not exist yet — see docs/architecture.md §7.2.
+    remove_confirm: Remove the field
+
+import:
+    file: Spreadsheet
+    file_help: 'An export of this module is exactly the shape it expects, with one sheet per shape: %sheets%.'
+    check: Check
+    back_to_list: Back to the list
+    dry_run: Nothing was changed — this is what importing would do.
+    how_title: How a file is read
+    how_columns: A column may be named by a field's key or by its label.
+    how_missing: A field with no column keeps the value it had; a column left empty clears it.
+    how_id: A row with an <code>id</code> updates that record. An empty <code>id</code> adds one.
+    how_names: >-
+        Anything else in <code>id</code> — <code>ada</code>, say — names a record this
+        file is creating. That is how new records arrive with child rows: give each new
+        record a name of your own in <code>id</code>, and put the same name in the
+        child's <code>parent_id</code>. A record whose <code>id</code> is empty is
+        created too, but nothing in the file can point at it.
+    how_collections: >-
+        A child sheet speaks for the whole collection: a row it does not list is removed
+        from the record. Leave the sheet out to keep them untouched.
+    how_atomic: One problem anywhere refuses the whole file. There is no half-imported state.
+
+user:
+    tooltip_edit: Edit user
+    tooltip_reset: Reset password
+    tooltip_deactivate: Deactivate user
+    tooltip_reactivate: Reactivate user
+    add: Add user
+    edit_title: 'Edit %email%'
+    role: Role
+    administrator: Administrator
+    member: Member
+    last_signed_in: Last signed in
+    never: never
+    you: you
+    deactivated: deactivated
+    password_not_set: password not set yet
+    email_help: This is the login. It has to be unique here, not everywhere.
+    name_help: Shown on records they own and in history. Defaults to the email.
+    administrator_help: >-
+        Administrators may do everything, and manage users, groups and a module's fields.
+        The permissions below have no effect on one.
+    generated_password_note: A password is generated when you save, and shown to you once so you can pass it on.
+    groups: Groups
+    groups_help: >-
+        Where permissions normally come from: a grant made to a job survives the person
+        leaving it. <a href="%link%">Manage groups</a>.
+    no_groups: 'No groups exist yet. <a href="%link%">Make one</a>.'
+    extra_permissions: Extra permissions for this person
+    extra_permissions_help: >-
+        Only for what the groups do not already cover. These <strong>add</strong> to what
+        the groups give — nothing here can take a permission away, which is why anything
+        the groups already cover cannot be chosen.
+    admin_permissions_note: >-
+        This person is an administrator and may already do everything. Anything set here
+        would take effect only if that were taken away.
+    from_groups: 'from groups: %scope%'
+    permissions_note: >-
+        Administrators may do everything. Everybody else starts with nothing and gets what
+        their <a href="%link%">permission groups</a> give them, per module and per action.
+    edit_aria: 'Edit %email%'
+    reset_aria: 'Reset the password of %email%'
+    deactivate_aria: 'Deactivate %email%'
+    reactivate_aria: 'Reactivate %email%'
+
+group:
+    tooltip_edit: Edit group
+    tooltip_delete: Delete group
+    title: Permission groups
+    one: Group
+    new: New group
+    members: Members
+    permissions: Permissions
+    intro: >-
+        A group is a set of permissions given to a job rather than to a person, so it
+        survives somebody leaving it. Everything is additive: a user has whatever all their
+        groups give them, and nothing here can take a permission away.
+    empty_title: No groups yet
+    empty_body: >-
+        Administrators can already do everything. Everybody else can do nothing until a
+        group says otherwise.
+    make_first: Make the first one
+    name_placeholder: Sales, Support, Read only…
+    name_help: What the job is called. You can rename it later.
+    what_it_may_do: What this group may do
+    matrix_help: >-
+        One row per module this customer has, one column per action.
+        <strong>Own records</strong> means only the ones that person created — it applies
+        to the actions that name a record which already exists, so adding and importing
+        are all-or-nothing.
+    no_modules: No modules are installed, so there is nothing to grant yet.
+    who_is_in_it: Who is in it
+    members_help: >-
+        Administrators are not listed: they may already do everything, and putting one in
+        a group would suggest it could be taken away again.
+    no_members_available: Everybody here is an administrator, so there is nobody to add yet.
+    delete_title: 'Delete %group%'
+    delete_heading: Delete “%group%”?
+    delete_warning: They lose what it gave them, unless another group gives them the same.
+    delete_note: >-
+        Nobody is deleted and nothing they own is touched — only the group and what it
+        granted. It cannot be undone, but it can be made again.
+    delete_confirm: Delete the group
+    edit_aria: 'Edit %group%'
+    delete_aria: 'Delete %group%'
+
+permission:
+    yes: 'Yes'
+    no: 'No'
