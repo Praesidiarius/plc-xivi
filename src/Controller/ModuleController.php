@@ -40,6 +40,7 @@ use Xivi\Core\History\HistoryRepository;
 use Xivi\Core\History\HistorySection;
 use Xivi\Core\Lifecycle\Lifecycles;
 use Xivi\Core\Lifecycle\TransitionRefused;
+use Xivi\Core\Metadata\AvailableVariants;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Metadata\ModuleNotInstalled;
 use Xivi\Core\Permission\ModuleAction;
@@ -89,6 +90,7 @@ final class ModuleController extends AbstractController
         private readonly DocumentTemplateRepository $templates,
         private readonly Lifecycles $lifecycles,
         private readonly InheritedValues $inherited,
+        private readonly AvailableVariants $variants,
     ) {
     }
 
@@ -183,7 +185,8 @@ final class ModuleController extends AbstractController
     public function new(string $module, Request $request): Response
     {
         $definition = $this->definition($module);
-        $variants = $definition->getVariants();
+        // Only the kinds this customer can actually fill in (XIV-23).
+        $variants = $this->variants->of($definition);
         $record = new Record();
 
         if ($variants !== []) {
@@ -593,7 +596,7 @@ final class ModuleController extends AbstractController
             // same trick "new person or new company" plays a level up (§5.5) and
             // for the same reason: switching a form's fields as somebody picks
             // needs JavaScript, and these forms do not depend on any.
-            foreach (array_keys($collection->getVariants()) as $variant) {
+            foreach (array_keys($this->variants->of($collection)) as $variant) {
                 $rows[] = [
                     'id' => '',
                     'position' => null,

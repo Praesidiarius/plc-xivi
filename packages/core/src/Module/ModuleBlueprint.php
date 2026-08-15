@@ -62,6 +62,28 @@ final readonly class ModuleBlueprint
          * them (XIV-14). Null for a module whose records simply are.
          */
         public ?Lifecycle $lifecycle = null,
+        /**
+         * Modules this one cannot work without (XIV-23).
+         *
+         * A *runtime* requirement, not the code dependency §3 forbids: these are
+         * keys, and this package imports nothing from the packages behind them.
+         * An order cannot exist without a contact to name, so installing it into
+         * a customer who has no contacts is refused rather than allowed to
+         * produce a module nobody can save a record in.
+         *
+         * @var list<string>
+         */
+        public array $requires = [],
+        /**
+         * Modules this one works better with, and works without.
+         *
+         * A service business sells custom lines and never opens an Articles
+         * module. Installing is allowed; the parts that need the missing module
+         * — a kind of row whose required link points at it — are not offered.
+         *
+         * @var list<string>
+         */
+        public array $uses = [],
     ) {
     }
 

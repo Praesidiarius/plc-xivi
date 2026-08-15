@@ -106,8 +106,8 @@ final class OrderModule implements ModuleProvider
                     key: 'note',
                     label: 'field.note',
                     type: 'textarea',
-                    position: 40,
                     listed: false,
+                    position: 40,
                 ),
             ],
             collections: [
@@ -196,6 +196,12 @@ final class OrderModule implements ModuleProvider
                 ),
             ],
             icon: 'receipt',
+            // Every order names a customer, so this one is not optional (XIV-23).
+            requires: ['contact'],
+            // And an order that sells only custom lines is an ordinary order, so
+            // this one is: without it, the article line kind is simply not
+            // offered.
+            uses: [self::ARTICLE_MODULE],
             lifecycle: new Lifecycle(
                 field: 'status',
                 initial: self::DRAFT,

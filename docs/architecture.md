@@ -64,6 +64,22 @@ with automated read-only subtree splits. Add it later; do not pay for it now.
 **Per-customer module availability is a runtime concern** — "is this module enabled for
 this tenant" — not a packaging concern.
 
+**Which is where modules are allowed to need each other** (XIV-23). The rule above forbids
+a *code* dependency: no bundle importing another bundle's classes, and the order module
+obeys it by naming contact and article as string keys. What it says nothing about is the
+runtime question — an order names a contact, so a customer with no contacts cannot have
+orders — and that gap let `order` install into a tenant where every order then failed
+validation on a required reference with an empty picker. Broken rather than degraded, and
+not the case §7.6 covers: a link nobody can *create* is not a link that has gone stale.
+
+So a module declares two lists. It **requires** what it cannot work without, and installing
+without one is refused, naming what to install first. It **uses** what it works better
+with, and installing without one succeeds — the parts that depend on it are simply not
+offered, so an order in a tenant with no articles has no "article line" kind and its other
+three kinds behave as normal. Both hard would have been simpler and would have made
+"required" mean "including the things you can work without", which is how a requirement
+list stops being read.
+
 ---
 
 ## 4. Deployment topology: single instance, database per tenant

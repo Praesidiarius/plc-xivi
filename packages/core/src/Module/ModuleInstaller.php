@@ -69,6 +69,7 @@ final readonly class ModuleInstaller
             return $existing;
         }
 
+        $this->assertRequirementsAreInstalled($blueprint);
         $this->assertTypesExist($blueprint);
         $this->assertTableNameFits($blueprint->table);
 
@@ -165,6 +166,30 @@ final readonly class ModuleInstaller
      * Fails loudly before anything is written, rather than at the first save,
      * when the definitions would already exist and the data be unreadable.
      */
+    /**
+     * Refuses a module whose requirements this customer has not got (XIV-23).
+     *
+     * Checked before anything is created, so a refusal leaves no half-installed
+     * module behind. Optional modules — `uses` — are deliberately not checked:
+     * what depends on them is simply not offered.
+     *
+     * @throws ModuleRequirementMissing
+     */
+    private function assertRequirementsAreInstalled(ModuleBlueprint $blueprint): void
+    {
+        $missing = [];
+
+        foreach ($blueprint->requires as $required) {
+            if ($this->metadata->find($required) === null) {
+                $missing[] = $required;
+            }
+        }
+
+        if ($missing !== []) {
+            throw ModuleRequirementMissing::of($blueprint->key, $missing);
+        }
+    }
+
     private function assertTypesExist(ModuleBlueprint $blueprint): void
     {
         foreach ($blueprint->fields as $field) {
