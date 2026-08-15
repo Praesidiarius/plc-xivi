@@ -234,9 +234,12 @@ meant by describing *shapes* rather than modules.
 
 Three decisions fell out of building it:
 
-- **Adding a row is choosing its kind**, so the form ends with one blank row per
-  kind rather than one blank row. Switching a row's fields as somebody picks
-  would need JavaScript; asking first is the same answer §5.5 gives a level up.
+- **Adding a row is choosing its kind.** The form ended with one blank row per
+  kind, because switching a row's fields as somebody picks needed scripting and
+  the forms did not depend on any. That guarantee is gone (§8.3) and this is the
+  first thing it was holding up: a button per kind, and no blank rows (XIV-29).
+  What survives the change is the rule underneath — a row's fields follow from
+  its kind, so the kind is settled before the fields are drawn.
 - **A kind is fixed once the row exists**, and travels hidden rather than as a
   select. Offering to change it is offering to make a row disagree with the
   fields it is showing. (A *module's* variant is still editable on its form —
@@ -250,8 +253,11 @@ column beside the parent id — a system column, not a field: it is not theirs t
 name or delete, and every read of a collection sorts by it. Numbered in **tens**
 and renumbered on every save, so a row can be moved between two others by typing
 a number between theirs and the next insertion still has room. Typing a number
-rather than pressing move-up and move-down, because those are a form submission
-each where this is one save.
+rather than pressing move-up and move-down, which used to be the difference
+between a form submission each and one save. Since §8.3 that reason is spent and
+the choice is open again — though typing 15 between 10 and 20 is a thing people
+already know how to do, and buttons that swap two rows are a worse fit for moving
+one line past nine others.
 
 **Moving a row is not a change to it.** The id does not move and the history says
 nothing happened, because nothing about the row did — where it sits is a property
@@ -570,9 +576,12 @@ somebody's data — the same reason removing a field leaves its values alone
 (§7.2). Validation lets those keys through unchecked while still rejecting a key
 the shape has never heard of.
 
-**Adding a record asks which kind first.** The fields depend on the answer, and
-switching them as somebody picks would need JavaScript, which these forms do not
-depend on. "New person" or "new company" is also how a CRM usually puts it.
+**Adding a record asks which kind first.** The fields depend on the answer, so
+something has to settle it before the form is drawn. This used to be forced —
+switching them as somebody picked would have needed scripting, which the forms
+did not depend on — and since §8.3 it is a choice, kept because "new person" or
+"new company" is how a CRM usually puts it and a record's kind is a bigger
+decision than a row's.
 
 **The list names records rather than showing their fields.** With variants the
 only thing every row has is its name (§5.4), so that is the first column and it
@@ -728,10 +737,11 @@ this one is bounded on purpose.
 
 **Choosing is a page, shown as a modal.** A record carries one button, not a
 list: fifty templates on a contact would be a column of a hundred buttons. The
-button links to a chooser page and Bootstrap opens that same form in a modal when
-its JavaScript is there — so the download is an ordinary GET form either way,
-which is also why the route takes its template and format as query parameters
-rather than in the path.
+button links to a chooser page and Bootstrap opens that same form in a modal —
+the modal and the page are one form, which is why the route takes its template
+and format as query parameters rather than in the path. That arrangement was
+built so the download worked either way (§8.3); what it is worth now is that
+there is one route and one form rather than two.
 
 **Word's placeholder text has to be settled before converting.** A letterhead is
 mostly content controls — the boxes somebody clicks into — and one nobody has
@@ -1223,6 +1233,38 @@ frontend was its own build, which meant a per-customer `yarn build` at signup, t
 enabled-module list compiled into each customer's bundle, and customers landing on
 whatever commit was current the day they signed up. §3 wants module availability to
 be a runtime concern; a build artefact per customer is the opposite of that.
+
+**It assumes JavaScript, and it did not use to** (XIV-28). The old rule was that
+the forms worked with scripting turned off, and it earned its keep: it kept the
+UI honest, and several decisions here are the better for having been made under
+it. It was dropped because of what it cost at the other end — a collection form
+ending in one blank row of every kind, because switching a row's fields as
+somebody picks needs scripting. At four kinds that is a mess, and the number of
+kinds only grows.
+
+**What replaces it is htmx, and the distinction worth keeping is exact.**
+Server-rendered stays true: every page and every fragment is Twig, and nothing in
+`assets/` builds HTML. What is gone is "works with JavaScript off". The two were
+always separate claims and only the second has been given up.
+
+htmx over Symfony's own UX Live Components, which is a departure from the rule of
+reaching for the framework first (§5.7) and so wants a reason. Live Components
+carries a heavier idea — props dehydrated into attributes, signed, rehydrated,
+the DOM morphed — which is machinery to debug when it misbehaves, and it has
+moved under people's feet across its 2.x line. htmx is one small file with
+essentially one concept: an element makes a request and swaps the response
+somewhere. It needs no build step and asset-mapper serves it from our own host,
+which keeps the no-CDN rule that exists because a CDN reports every customer's IP
+to a third party on every page load.
+
+**The cost to watch is the endpoints, not the library.** Every `hx-*` target is a
+route returning a fragment: a second rendering surface for data the generic
+controller already renders, and a second place permissions have to be checked. A
+fragment route stays **generic over module, record and shape** like everything
+else here, and checks the same permission the full page does. One route that
+re-renders a collection is fine; ten special-purpose ones would quietly become
+the module-specific code §1 exists to avoid — a finding about the engine rather
+than a shortcut worth taking.
 
 ### 8.4 Authorization: grants, resolved per person
 

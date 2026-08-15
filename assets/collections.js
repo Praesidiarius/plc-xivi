@@ -1,14 +1,17 @@
 /*
  * Adding and removing rows in a record's collections — a contact's addresses.
  *
- * Enhancement only, per the rule in app.js that the forms work without
- * scripting. With no JavaScript the page still renders one blank row at the
- * bottom, so a save can always add one more, and clearing a row's fields still
- * removes it, because the server does not store an empty row. All this does is
- * save the round trip.
+ * **On its way out** (XIV-29), and worth knowing why while it is still here.
+ * It was written as an enhancement over a form that worked without scripting,
+ * and that guarantee is gone (XIV-28, §8.3). Worse, its Add button is wrong for
+ * a collection with kinds: it clones Symfony's prototype, a prototype is built
+ * with no data, so the row comes out carrying every field of every kind with an
+ * empty hidden `kind`. XIV-29 replaces it with a button per kind and a row the
+ * server renders.
  *
- * The Add button is markup-hidden until this runs, so it never appears as a
- * button that does nothing.
+ * What still holds and must survive that: clearing a row's fields removes it,
+ * because the server does not store an empty row. A remove button is a
+ * convenience over that rule, never the only way.
  */
 
 const ROW_CLASS = 'row-of-collection border-top pt-3 mt-3';

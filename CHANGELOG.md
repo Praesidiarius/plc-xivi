@@ -62,6 +62,26 @@ of every page, and is not yet tied to git tags.
 
 ### Changed
 
+- **The UI now needs JavaScript** ([XIV-28]). It used to work with scripting
+  turned off, and that is no longer promised. If you run Xivi behind a policy
+  that blocks scripts, this release is the one that breaks it — the forms will
+  render and will not be fully usable.
+- **htmx is why.** The old guarantee earned its keep, but it was also what put
+  one blank row of *every* kind at the bottom of an order form: switching a row's
+  fields as somebody picks needs scripting. At four kinds that is a mess and the
+  number only grows. Buttons per kind come next ([XIV-29]); this release is the
+  groundwork.
+- **Server-rendered is still true**, and the distinction is exact: every page and
+  every fragment is Twig, and nothing in `assets/` builds HTML. What is gone is
+  "works with JavaScript off". They were always two claims and only the second
+  has been given up.
+- **Chosen over Symfony UX Live Components**, which is a departure from reaching
+  for the framework first and so wants a reason: Live Components dehydrates props
+  into attributes, signs them, rehydrates and morphs the DOM, which is machinery
+  to debug when it misbehaves, and it has moved across its 2.x line. htmx is one
+  small file with one idea. It is served from this application's own host through
+  the importmap, never a CDN — the reason that rule exists has not changed.
+
 - **Line totals are a declaration rather than a module's own class** ([XIV-19]).
   The order module worked out its own money in `OrderTotals`; the invoice module
   wanted the same arithmetic, which §3 forbids it from importing and nobody
@@ -760,6 +780,8 @@ began and is recorded here as one entry rather than invented as a history.
 [XIV-18]: https://xivi.youtrack.cloud/issue/XIV-18
 [XIV-19]: https://xivi.youtrack.cloud/issue/XIV-19
 [XIV-26]: https://xivi.youtrack.cloud/issue/XIV-26
+[XIV-28]: https://xivi.youtrack.cloud/issue/XIV-28
+[XIV-29]: https://xivi.youtrack.cloud/issue/XIV-29
 [XIV-20]: https://xivi.youtrack.cloud/issue/XIV-20
 [XIV-21]: https://xivi.youtrack.cloud/issue/XIV-21
 [XIV-22]: https://xivi.youtrack.cloud/issue/XIV-22
