@@ -1,0 +1,11 @@
+# Deutsch, per „du“ — dieselbe Anrede wie überall sonst (XIV-8).
+#
+# Wird **einmal bei der Installation** gelesen und in die Definitionen dieser
+# Kundin geschrieben; danach gehört die Bezeichnung ihr.
+
+module: Artikel
+
+field:
+    title: Titel
+    description: Beschreibung
+    price: Preis

@@ -1,8 +1,10 @@
 twig:
     file_name_pattern: '*.twig'
     # Symfony ships the Bootstrap 5 markup for forms, so a field rendered from a
-    # definition gets the same structure a hand-written form would.
-    form_themes: ['bootstrap_5_layout.html.twig']
+    # definition gets the same structure a hand-written form would. The engine's
+    # own widgets sit on top of it: a price is drawn with the instance's currency
+    # in front of it, which no Bootstrap block knows about (XIV-11).
+    form_themes: ['bootstrap_5_layout.html.twig', '@XiviCore/form/fields.html.twig']
     globals:
         # Tenant name and module navigation, needed by every signed-in page.
         # Lazy: the login page renders without a tenant.

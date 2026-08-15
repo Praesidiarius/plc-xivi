@@ -286,6 +286,9 @@
             "config/routes/web_profiler.yaml"
         ]
     },
+    "xivi/article": {
+        "version": "1.0.0"
+    },
     "xivi/contact": {
         "version": "dev-main"
     },

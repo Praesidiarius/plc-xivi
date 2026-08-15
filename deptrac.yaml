@@ -25,6 +25,11 @@ deptrac:
         - type: directory
           value: ^packages/contact/src/.*
 
+    - name: ModuleArticle
+      collectors:
+        - type: directory
+          value: ^packages/article/src/.*
+
     - name: App
       collectors:
         - type: directory
@@ -38,6 +43,10 @@ deptrac:
     ModuleContact:
       - Core
 
+    ModuleArticle:
+      - Core
+
     App:
       - Core
       - ModuleContact
+      - ModuleArticle

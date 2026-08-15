@@ -1,0 +1,12 @@
+# What the Article module calls itself and its fields (XIV-8).
+#
+# Read **once, at install time**, and written into that customer's definitions —
+# see contact.en.yaml, which says why at length. A label is the customer's data
+# from the moment the module is installed, and this stops having a say.
+
+module: Articles
+
+field:
+    title: Title
+    description: Description
+    price: Price

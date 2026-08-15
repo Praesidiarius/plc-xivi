@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "20760f7ac058ece5252ae50af0fccfba",
+    "content-hash": "d1eb5a7ff93af42ffb78a18f6daeb573",
     "packages": [
         {
             "name": "composer/semver",
@@ -6419,6 +6419,33 @@
                 }
             ],
             "time": "2026-07-03T20:44:34+00:00"
+        },
+        {
+            "name": "xivi/article",
+            "version": "1.0.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/article",
+                "reference": "2561c13bf4ce47438f323ad261b921965c87d5a6"
+            },
+            "require": {
+                "php": ">=8.4",
+                "symfony/framework-bundle": "8.1.*",
+                "xivi/core": "^1.0"
+            },
+            "type": "symfony-bundle",
+            "autoload": {
+                "psr-4": {
+                    "Xivi\\Article\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Article module: things a customer sells, with a price",
+            "transport-options": {
+                "relative": true
+            }
         },
         {
             "name": "xivi/contact",

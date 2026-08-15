@@ -1,0 +1,18 @@
+{
+    "name": "xivi/article",
+    "description": "Article module: things a customer sells, with a price",
+    "type": "symfony-bundle",
+    "version": "1.0.0",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.4",
+        "symfony/framework-bundle": "8.1.*",
+        "xivi/core": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Xivi\\Article\\": "src/"
+        }
+    },
+    "minimum-stability": "stable"
+}
