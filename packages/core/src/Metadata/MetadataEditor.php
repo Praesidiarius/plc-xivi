@@ -95,7 +95,9 @@ final readonly class MetadataEditor
             // makes it removable later.
             system: false,
         );
-        $field->setOptions($options);
+        // Through the same merge as an edit, so a setting somebody left blank is
+        // an absent option rather than a null stored in the JSON.
+        $field->setOptions(self::withOptions([], $options));
 
         $this->assertRecordsSurvive($shape, $field, $required, $unique);
 
@@ -143,9 +145,45 @@ final readonly class MetadataEditor
         $field->setListed($listed);
         $field->setTitle($title);
         $field->setPosition($position);
-        $field->setOptions($options);
+        $field->setOptions(self::withOptions($field->getOptions(), $options));
 
         $this->entityManager->flush();
+    }
+
+    /**
+     * The options a field ends up with after a change to some of them (XIV-26).
+     *
+     * **What is not named is not touched**, and that is the whole point. Options
+     * are where the declarative half of the engine lives — a choice field's
+     * `choices`, a reference's `module`, an order line's `inherit`, a numbered
+     * field's `sequence` — and the editor's form knows about three of them. It
+     * used to replace the lot, so renaming a label wiped everything the form had
+     * never heard of: a module's states, a shape's variants, a link's target.
+     * None of it typeable back in, since the editor has no control for any of it.
+     *
+     * A caller that means to *clear* a setting says so by naming it with null.
+     * The distinction between "not mentioned" and "mentioned as nothing" is what
+     * lets a form both leave alone what it does not know and still empty the
+     * boxes it draws.
+     *
+     * @param array<string, mixed> $existing
+     * @param array<string, mixed> $changes  null clears one; anything unnamed is left alone
+     *
+     * @return array<string, mixed>
+     */
+    private static function withOptions(array $existing, array $changes): array
+    {
+        foreach ($changes as $key => $value) {
+            if ($value === null) {
+                unset($existing[$key]);
+
+                continue;
+            }
+
+            $existing[$key] = $value;
+        }
+
+        return $existing;
     }
 
     /**

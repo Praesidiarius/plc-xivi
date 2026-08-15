@@ -57,6 +57,15 @@ use Xivi\Core\Metadata\ModuleNotInstalled;
 )]
 final class FieldController extends AbstractController
 {
+    /**
+     * The settings this form draws, and therefore the only ones it may change.
+     *
+     * A short list on purpose: everything else a field carries is declared by
+     * its module and has no control here (XIV-26). Which settings a *type*
+     * would let a customer set is a better question and a different ticket.
+     */
+    private const array SETTINGS = ['max_length', 'min', 'max'];
+
     public function __construct(
         private readonly MetadataRepository $metadata,
         private readonly MetadataEditor $editor,
@@ -219,20 +228,27 @@ final class FieldController extends AbstractController
     }
 
     /**
-     * Per-type settings. Only what a type actually reads is kept.
+     * The per-type settings this form draws, and only those (XIV-26).
      *
-     * @return array<string, int>
+     * **Every one of them is named on every save, cleared ones as null**, and
+     * nothing else is named at all. That is the contract MetadataEditor merges
+     * on: what the form does not mention it does not touch, so a field's
+     * `choices`, its `module`, what it inherits and how it is numbered all
+     * survive an edit this form has no idea it is next to.
+     *
+     * Blank means gone rather than absent, so a limit somebody has emptied out
+     * really is emptied — a form that could only ever add a setting would be the
+     * opposite bug.
+     *
+     * @return array<string, int|null>
      */
     private static function optionsFrom(Request $request): array
     {
         $options = [];
 
-        foreach (['max_length', 'min', 'max'] as $option) {
+        foreach (self::SETTINGS as $option) {
             $value = trim((string) $request->request->get($option, ''));
-
-            if ($value !== '') {
-                $options[$option] = (int) $value;
-            }
+            $options[$option] = $value === '' ? null : (int) $value;
         }
 
         return $options;
