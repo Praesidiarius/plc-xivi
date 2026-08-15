@@ -156,6 +156,56 @@
 							</table>
 						</div>
 					{% endif %}
+
+					{#
+						The instance's own surfaces, not a module's records (XIV-12). Same
+						floor rule as above: a group's grant cannot be taken away here, only
+						added to — which for an area is yes or nothing.
+					#}
+					<h3 class="h6 mt-4">{{ 'group.instance'|trans }}</h3>
+
+					<div class="table-responsive">
+						<table class="table align-middle mb-0">
+							<thead>
+								<tr>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'common.area'|trans }}</th>
+									{% for action in actions %}
+										<th scope="col" class="text-body-secondary small text-uppercase">{{ action.labelKey|trans({}, 'xivi') }}</th>
+									{% endfor %}
+								</tr>
+							</thead>
+							<tbody>
+								{% for area in areas %}
+									<tr>
+										<th scope="row" class="fw-normal">
+											<i class="bi bi-{{ area.icon }} text-body-secondary" aria-hidden="true"></i>
+											{{ area.labelKey|trans }}
+										</th>
+										{% for action in actions %}
+											<td>
+												{% if area.allows(action) %}
+													{% set from_group = inherited[area.value][action.value]|default('') %}
+													{% set effective = from_group or matrix[area.value][action.value]|default('') %}
+													<select class="form-select form-select-sm"
+													        name="grants[{{ area.value }}][{{ action.value }}]"
+													        aria-label="{{ action.labelKey|trans({}, 'xivi') }} {{ area.labelKey|trans }}">
+														<option value="" {{ effective ? '' : 'selected' }}
+														        {{ from_group ? 'disabled' : '' }}>{{ 'permission.no'|trans }}</option>
+														<option value="all" {{ effective ? 'selected' : '' }}>{{ 'permission.yes'|trans }}</option>
+													</select>
+													{% if from_group %}
+														<div class="form-text mb-0">
+															{{ 'user.from_groups'|trans({'%scope%': ('permission.scope.all')|trans({}, 'xivi')}) }}
+														</div>
+													{% endif %}
+												{% endif %}
+											</td>
+										{% endfor %}
+									</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
 				</div>
 
 				<div class="card-body border-top">

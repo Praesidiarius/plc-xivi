@@ -15,6 +15,7 @@ namespace App\Controller;
 
 use App\Tenant\Entity\User;
 use App\Tenant\Repository\UserRepository;
+use App\Tenant\Security\PermissionArea;
 use App\Tenant\Security\PermissionManager;
 use App\Tenant\Security\UserChangeRefused;
 use App\Tenant\Security\UserManager;
@@ -142,6 +143,8 @@ final class UserController extends AbstractController
             'user' => $user,
             'submitted' => [],
             'modules' => $this->metadata->all(),
+            // Grantable, and no module's — see PermissionArea (XIV-12).
+            'areas' => PermissionArea::all(),
             'actions' => ModuleAction::cases(),
             'scopes' => PermissionScope::cases(),
             'groups' => $this->permissions->all(),

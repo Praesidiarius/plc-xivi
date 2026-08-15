@@ -13,7 +13,9 @@
 <nav class="navbar navbar-expand bg-body border-bottom mb-4 pb-0">
 	<div class="container page-shell flex-wrap">
 		<div class="d-flex w-100 align-items-center">
-			<a class="navbar-brand fw-semibold" href="{{ path('dashboard') }}">{{ chrome.tenant.name }}</a>
+			{# Their company name once they have set one, the registry's label for them
+			   until then — see AppChrome::getName (XIV-12). #}
+			<a class="navbar-brand fw-semibold" href="{{ path('dashboard') }}">{{ chrome.name }}</a>
 
 			{#
 				Plain links rather than a dropdown under the email. Bootstrap's
@@ -29,8 +31,23 @@
 			#}
 			{% set route = app.request.attributes.get('_route')|default('') %}
 			{% set on_users = route starts with 'user_' or route starts with 'group_' %}
+			{% set on_profile = route starts with 'tenant_profile' %}
 
 			<div class="d-flex align-items-center gap-2 ms-auto">
+				{#
+					Granted rather than admin-only (XIV-12): the instance's settings are
+					somebody's job, and not always the same somebody who manages users.
+					Hidden when they may not read it, which is a courtesy — the route
+					refuses on its own account.
+				#}
+				{% if can('view', chrome.profileArea) %}
+					<a class="btn btn-sm btn-outline-secondary{{ on_profile ? ' active' : '' }}"
+					   href="{{ path('tenant_profile') }}" {{ on_profile ? 'aria-current="page"' : '' }}>
+						<i class="bi bi-building-gear" aria-hidden="true"></i>
+						<span class="d-none d-sm-inline">{{ 'nav.profile'|trans }}</span>
+					</a>
+				{% endif %}
+
 				{% if is_granted('ROLE_ADMIN') %}
 					<a class="btn btn-sm btn-outline-secondary{{ on_users ? ' active' : '' }}"
 					   href="{{ path('user_index') }}" {{ on_users ? 'aria-current="page"' : '' }}>

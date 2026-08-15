@@ -706,6 +706,19 @@ and none to migrate when a new action ships. Nothing can drift out of step with
 the code, because nothing is written down twice. It is §5's field-type registry
 argument applied to a second thing.
 
+**Not everything grantable is a module** (XIV-12). The tenant profile (§8.6) is
+the first thing worth granting that no module owns, so the catalogue is the enum
+crossed with the customer's modules **and** a closed set of *areas* — still
+worked out at runtime, still nothing seeded and nothing migrated. An area is
+stored in `permission_grant.module_key`, which needs no schema change because
+that column was never a join: it holds a string precisely so a grant can name
+something the definitions do not have. Area keys begin with `@`, which a module
+key cannot, so the two can never collide however a customer names a module. The
+verbs stay ModuleAction's, and scope does not apply — there is one profile and it
+is nobody's own. When something wants a verb this enum has not got — the store's
+browse and install (XIV-6) — that is the moment to add a second axis, with a real
+second case to design it against rather than a guess.
+
 **Only grants are stored.** A grant says one holder may do one action to one
 module's records, this far. The holder is a group or a person, in one table with
 a check constraint enforcing exactly one — resolving somebody is a union of the
@@ -868,6 +881,35 @@ password, which is a different system from the one this is trying to be. Changin
 it afterwards belongs to the account owner, on `/account`, and needs the current
 one — not because a password is secret from its owner, but because an unattended
 session should not be enough to take an account over.
+
+### 8.6 The instance's own settings (XIV-12)
+
+One profile per customer: what they call themselves, and the currency they work
+in. `/account` is one person's settings and everybody has one; this is the
+installation's, and it is granted.
+
+**In the tenant's database, not the control plane.** It is the customer's data,
+edited by the customer, and the request already holds that connection. The
+control plane's `tenant.name` stays what it always was — the operator's label in
+the registry, which the customer cannot see and has no business renaming — and
+the profile's company name is what they call themselves. Two facts rather than
+one, and the chrome shows the second when it exists and the first until then, so
+they never look like they disagree.
+
+**One row, enforced by the primary key**, which is a constant rather than a
+sequence: a second profile is a duplicate key rather than something to notice
+later. The migration inserts it for every tenant carrying no opinions — an empty
+name and no currency are exactly what "nobody has filled this in" looks like.
+
+**The currency is a code, never a symbol or a formatted string.** symfony/intl
+turns ISO 4217 into either, in whatever language is being read, and the list of
+what exists is not ours to keep. Null rather than a default, because a currency
+guessed for a customer is wrong quietly — it would surface on the first priced
+thing they ever printed.
+
+**Read and change are separate grants** (§8.4). Somebody may need to look up what
+the instance prices in without being the person who decides it, so the page shows
+its fields disabled rather than refusing them outright.
 
 ---
 

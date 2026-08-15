@@ -18,6 +18,7 @@
 common:
     actions: Actions
     add: Add
+    area: Area
     back: Back
     cancel: Cancel
     create: Create
@@ -40,6 +41,7 @@ common:
 nav:
     overview: Overview
     users: Users
+    profile: Company
     sign_out: Sign out
 
 login:
@@ -223,6 +225,11 @@ group:
         to the actions that name a record which already exists, so adding and importing
         are all-or-nothing.
     no_modules: No modules are installed, so there is nothing to grant yet.
+    instance: The instance itself
+    instance_help: >-
+        The parts of this installation that are not a module's records. There is one of
+        each, so the only question is whether somebody may see it and whether they may
+        change it.
     who_is_in_it: Who is in it
     members_help: >-
         Administrators are not listed: they may already do everything, and putting one in
@@ -238,9 +245,23 @@ group:
     edit_aria: 'Edit %group%'
     delete_aria: 'Delete %group%'
 
+profile:
+    title: Company profile
+    intro: >-
+        What this installation is called, and the currency it works in. It applies to
+        everybody here, not just to you.
+    company_name: Company name
+    company_name_help: What you call yourselves. It replaces the name in the bar above once set.
+    currency: Currency
+    currency_help: What prices are in. Nothing forces one, and modules that need it will ask for this.
+    currency_none: Not chosen yet
+    read_only: You may see this but not change it.
+
 permission:
     yes: 'Yes'
     no: 'No'
+    area:
+        profile: Company profile
 
 refusal:
     last_admin: This is the only active administrator. Make somebody else an administrator first.
@@ -254,6 +275,7 @@ refusal:
 
 flash:
     saved: Saved.
+    profile_saved: Saved. This is how the instance describes itself from now on.
     shape_renamed: 'Renamed to "%shape%".'
     deleted: Deleted.
     passwords_differ: Those two passwords are not the same.
