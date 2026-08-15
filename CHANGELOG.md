@@ -95,6 +95,25 @@ of every page, and is not yet tied to git tags.
 
 ### Changed
 
+- **A record's history is compact, and no longer the whole thing** ([XIV-3]). An
+  entry is one line — when, what, who, and how many things it touched — with the
+  changes themselves behind a native `<details>`. Native rather than a Bootstrap
+  collapse: no JavaScript, and a timeline is exactly the sort of thing somebody
+  reads with the keyboard.
+- **The record page shows the latest five and says how many there are**, linking
+  to a history page of its own that pages twenty-five at a time. The card is now
+  the same height on a record edited once and one edited daily for a year; before
+  this it rendered up to fifty entries with every change expanded under each, and
+  said nothing at all about the fifty-first.
+- **Older entries fold away**: the timeline is grouped into today, this week,
+  this month, this year and earlier, and anything older than a month opens
+  closed. The first section on a page is always open, so a page deep enough to
+  hold only old entries is not a screen of shut boxes.
+- **The timeline is ordered by when things happened**, with the id breaking ties,
+  where it used to be by id alone. The same answer as long as rows are only
+  appended as things happen, and a different one as soon as anything backfills an
+  entry with an older timestamp — which would put a section boundary in the
+  middle of a day.
 - **The export's content type comes from `symfony/mime`** ([XIV-5]) instead of a
   constant copied into `ModuleController`. The package is now a direct
   dependency, and the MIME type is looked up from the `.xlsx` extension the
@@ -394,6 +413,7 @@ began and is recorded here as one entry rather than invented as a history.
   and real PostgreSQL roles.
 
 [XIV-2]: https://xivi.youtrack.cloud/issue/XIV-2
+[XIV-3]: https://xivi.youtrack.cloud/issue/XIV-3
 [XIV-5]: https://xivi.youtrack.cloud/issue/XIV-5
 [XIV-6]: https://xivi.youtrack.cloud/issue/XIV-6
 [XIV-7]: https://xivi.youtrack.cloud/issue/XIV-7

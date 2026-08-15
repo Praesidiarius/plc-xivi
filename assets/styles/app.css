@@ -38,3 +38,34 @@
 	--bs-nav-tabs-link-active-bg: var(--bs-tertiary-bg);
 	--bs-nav-tabs-link-active-border-color: var(--bs-border-color) var(--bs-border-color) var(--bs-tertiary-bg);
 }
+
+/*
+ * The record timeline (XIV-3).
+ *
+ * One line per entry, with the changes behind a native <details> — no
+ * JavaScript, and open to the keyboard for free. What is styled here is only
+ * what the browser gets wrong on its own: the disclosure marker sits on its own
+ * line unless the summary is made a flex row, and Safari needs the vendor
+ * pseudo-element to accept a marker at all.
+ */
+.history-entry > summary {
+	cursor: pointer;
+	list-style-position: inside;
+}
+
+.history-entry > summary::-webkit-details-marker {
+	display: none;
+}
+
+/*
+ * An entry with nothing to open — a record being created — has no marker, so its
+ * time would start where the others' markers do. This keeps the column of times
+ * straight either way.
+ */
+.history-entry-plain {
+	padding-left: 1.15em;
+}
+
+.history-section > summary {
+	cursor: pointer;
+}

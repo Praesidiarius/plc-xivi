@@ -12,6 +12,14 @@ operator:
     empty: ist leer
     filled: ist nicht leer
 
+history:
+    period:
+        today: Heute
+        week: Diese Woche
+        month: Diesen Monat
+        year: Dieses Jahr
+        older: Früher
+
 permission:
     action:
         view: Ansehen

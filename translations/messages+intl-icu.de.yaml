@@ -10,6 +10,8 @@ account:
     password_minimum: '{count, plural, one {Mindestens # Zeichen.} other {Mindestens # Zeichen.}}'
 
 module:
+    history_all: '{count, plural, one {Ein Eintrag} other {Alle # Einträge}}'
+    history_changes: '{count, plural, one {# Änderung} other {# Änderungen}}'
     record_count: '{count, plural, one {# Datensatz.} other {# Datensätze.}}'
     record_count_matching: '{count, plural, one {# passender Datensatz.} other {# passende Datensätze.}}'
 
