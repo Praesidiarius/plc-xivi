@@ -15,4 +15,5 @@ return [
     Xivi\Core\XiviCoreBundle::class => ['all' => true],
     Xivi\Contact\XiviContactBundle::class => ['all' => true],
     Xivi\Article\XiviArticleBundle::class => ['all' => true],
+    Xivi\Order\XiviOrderBundle::class => ['all' => true],
 ];

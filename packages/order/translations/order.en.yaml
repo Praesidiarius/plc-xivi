@@ -1,0 +1,39 @@
+# What the Order module calls itself, its fields and its steps (XIV-8).
+#
+# Read once, at install time, and written into that customer's definitions —
+# see contact.en.yaml, which explains at length why this is a seed rather than a
+# lookup table.
+
+module: Orders
+
+collection:
+    lines: Lines
+
+field:
+    contact: Customer
+    ordered_on: Ordered on
+    status: Status
+    note: Note
+    kind: Kind
+    article: Article
+    description: Description
+    quantity: Quantity
+    unit_price: Unit price
+    line_total: Line total
+
+status:
+    draft: Draft
+    confirmed: Confirmed
+    delivered: Delivered
+    cancelled: Cancelled
+
+line:
+    article: Article line
+    custom: Custom line
+    comment: Comment
+    subtotal: Subtotal
+
+transition:
+    confirm: Confirm
+    deliver: Mark delivered
+    cancel: Cancel

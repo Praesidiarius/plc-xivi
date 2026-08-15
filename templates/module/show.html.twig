@@ -124,10 +124,22 @@
 										</thead>
 										<tbody>
 											{% for row in rows %}
+												{# What this row has taken from elsewhere and since diverged from
+												   (XIV-18). Said on the row rather than in a footnote, because the
+												   question it answers — "is this price negotiated or stale?" — is
+												   asked while looking at the row. #}
+												{% set apart = drifted[collection.key][row.id]|default([]) %}
 												<tr>
 													{% for field in collection.fields %}
 														{% set shown = display(field, row.get(field.key)) %}
-														<td>{{ shown is empty ? '<span class="text-body-secondary">—</span>'|raw : shown }}</td>
+														<td>
+															{{ shown is empty ? '<span class="text-body-secondary">—</span>'|raw : shown }}
+															{% if field.label in apart %}
+																<i class="bi bi-pencil-square text-body-secondary small"
+																   title="{{ 'module.drifted'|trans({'%field%': field.label}) }}"
+																   aria-hidden="true"></i>
+															{% endif %}
+														</td>
 													{% endfor %}
 												</tr>
 											{% endfor %}

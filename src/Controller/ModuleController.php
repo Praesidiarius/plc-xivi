@@ -49,6 +49,7 @@ use Xivi\Core\Query\Operator;
 use Xivi\Core\Query\RecordQuery;
 use Xivi\Core\Query\RecordQueryFactory;
 use Xivi\Core\Query\UnsupportedQuery;
+use Xivi\Core\Record\InheritedValues;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordAction;
 use Xivi\Core\Record\RecordRepository;
@@ -87,6 +88,7 @@ final class ModuleController extends AbstractController
         private readonly TranslatorInterface $translator,
         private readonly DocumentTemplateRepository $templates,
         private readonly Lifecycles $lifecycles,
+        private readonly InheritedValues $inherited,
     ) {
     }
 
@@ -229,6 +231,10 @@ final class ModuleController extends AbstractController
             'record' => $record,
             'fields' => $definition->getFieldsFor($definition->variantOf($record->data)),
             'children' => $children,
+            // Which of a row's inherited values no longer match what they came
+            // from (XIV-18) — a negotiated price and a stale copy look the same
+            // until something says which is which.
+            'drifted' => $this->driftedRows($definition, $children),
             'linked' => $this->linkedTo($definition, $record),
             'owner' => $record->ownerId === null ? null : ($this->ownerNames([$record])[$record->ownerId] ?? null),
             // The latest few and how many there are in total (XIV-3). A record
@@ -294,6 +300,34 @@ final class ModuleController extends AbstractController
             'page' => $page,
             'pages' => $pages,
         ]);
+    }
+
+    /**
+     * Per collection and row id, the labels of the fields that have drifted from
+     * the record they were copied out of.
+     *
+     * @param array<string, list<Record>> $children
+     *
+     * @return array<string, array<int, list<string>>>
+     */
+    private function driftedRows(ModuleDefinition $definition, array $children): array
+    {
+        $drifted = [];
+
+        foreach ($definition->getCollections() as $collection) {
+            foreach ($children[$collection->getKey()] ?? [] as $row) {
+                $fields = $this->inherited->driftedIn($collection, $row->data);
+
+                if ($fields !== []) {
+                    $drifted[$collection->getKey()][(int) $row->id] = array_map(
+                        static fn (FieldDefinition $field): string => $field->getLabel(),
+                        $fields,
+                    );
+                }
+            }
+        }
+
+        return $drifted;
     }
 
     /**
@@ -466,7 +500,7 @@ final class ModuleController extends AbstractController
         if ($form->isSubmitted()) {
             /** @var array{fields: array<string, mixed>} $submitted */
             $submitted = $form->getData();
-            $children = self::childRows($definition, $form->getData());
+            $children = $this->childRows($definition, $form->getData());
 
             // Each part is checked against its own definitions: the contact
             // against the contact's, every address against the address ones. The
@@ -592,7 +626,7 @@ final class ModuleController extends AbstractController
      *
      * @return array<string, list<array{index: int, id: int|null, data: array<string, mixed>}>>
      */
-    private static function childRows(ModuleDefinition $definition, array $submitted): array
+    private function childRows(ModuleDefinition $definition, array $submitted): array
     {
         /** @var array<string, array<int, array{id?: string|null, fields?: array<string, mixed>}>> $collections */
         $collections = $submitted['collections'] ?? [];
@@ -620,7 +654,9 @@ final class ModuleController extends AbstractController
                 $rows[$collection->getKey()][] = [
                     'index' => $index,
                     'id' => $id,
-                    'data' => $fields,
+                    // What the row takes from the record it points at, filled in
+                    // once and never over something typed (XIV-18).
+                    'data' => $this->inherited->fillIn($collection, $fields),
                     // A row nobody numbered goes to the end, which is where a
                     // blank row somebody has just filled in belongs.
                     'position' => ($entry['position'] ?? '') === '' ? \PHP_INT_MAX : (int) $entry['position'],

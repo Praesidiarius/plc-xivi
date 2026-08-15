@@ -43,6 +43,7 @@
             <directory>packages/core/src</directory>
             <directory>packages/contact/src</directory>
             <directory>packages/article/src</directory>
+            <directory>packages/order/src</directory>
         </include>
 
         <deprecationTrigger>
