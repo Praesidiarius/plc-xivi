@@ -21,8 +21,8 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
  * What a page loads, and from where (XIV-28).
  *
  * Two claims worth a test rather than a comment, because both are the kind that
- * quietly stops being true: **every asset comes from this host**, and **htmx is
- * actually on the page**. The first is a promise to customers — a CDN reports
+ * quietly stops being true: **every asset comes from this host**, and **the
+ * front-end library is actually on the page**. The first is a promise to customers — a CDN reports
  * every visitor's IP to a third party on every page load, which is an odd
  * footnote under a product sold on physical data isolation. The second is the
  * thing everything built on it assumes.
@@ -51,10 +51,10 @@ final class FrontEndAssetsTest extends WebTestCase
         $this->sharedTenant(self::SLUG, [self::HOST]);
     }
 
-    /** htmx is in the importmap the page ships, so anything using it will run. */
-    public function testHtmxIsOnThePage(): void
+    /** Live Components is in the importmap the page ships, so a component will run. */
+    public function testTheFrontEndLibraryIsOnThePage(): void
     {
-        self::assertStringContainsString('htmx.org', $this->page());
+        self::assertStringContainsString('@symfony/ux-live-component', $this->page());
     }
 
     /**
@@ -77,7 +77,7 @@ final class FrontEndAssetsTest extends WebTestCase
             );
         }
 
-        self::assertMatchesRegularExpression('#"/assets/[^"]*htmx[^"]*"#', $page, 'served from our own host');
+        self::assertMatchesRegularExpression('#"/assets/[^"]*live_controller[^"]*"#', $page, 'served from our own host');
     }
 
     private function page(): string

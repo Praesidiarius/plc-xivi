@@ -27,11 +27,10 @@ use Xivi\Order\OrderModule;
 /**
  * The three things only a browser can see (XIV-31).
  *
- * Every other test in this suite drives the server: it presses the submit
- * buttons behind the collection's add and remove, which is what makes it honest
- * about what the server does and blind to whether the page does anything. The
- * `hx-post`, `hx-target` and `hx-swap` attributes that turn those buttons into
- * an in-place swap are, without this file, asserted by nobody.
+ * Every other test in this suite calls the component: it invokes `addRow` and
+ * `save` directly, which is what makes it honest about what the server does and
+ * blind to whether the page does anything. The Stimulus attributes that turn
+ * those buttons into a request are, without this file, asserted by nobody.
  *
  * That is not a hypothetical gap. Building the Live Components spikes I wrote
  * `data-live-action` where Stimulus wants `data-action` — buttons that would
@@ -97,19 +96,26 @@ final class CollectionRowsTest extends PantherTestCase
     /**
      * The assertion everything else here depends on.
      *
-     * If htmx fails to load — a bad importmap, an asset that was never
-     * installed, a CSP — every other test in this file would pass by doing
-     * nothing, because the buttons are real submit buttons and the browser would
-     * simply submit them. A safety net that cannot fail is not one.
+     * If Stimulus never starts — a bad importmap, an asset that was never
+     * installed, a CSP — every other test in this file would be asserting
+     * against a page that simply does nothing, and a safety net that cannot fail
+     * is not one. A live component announces itself by getting its controller
+     * connected, which is what this looks for.
      */
-    public function testHtmxIsRunningInTheBrowser(): void
+    public function testTheComponentIsConnectedInTheBrowser(): void
     {
         $this->browser->request('GET', '/m/order/new');
         $this->browser->waitForVisibility('form');
 
         self::assertTrue(
-            $this->browser->executeScript('return typeof window.htmx === "object";'),
-            'htmx is loaded and running',
+            $this->browser->executeScript('return typeof window.Stimulus === "object";'),
+            'Stimulus started, so the component can be live at all',
+        );
+        self::assertTrue(
+            $this->browser->executeScript(
+                'return document.querySelector("[data-controller~=\'live\']") !== null;',
+            ),
+            'and the record form is one',
         );
     }
 
@@ -171,7 +177,10 @@ final class CollectionRowsTest extends PantherTestCase
     {
         $this->browser->executeScript(sprintf(
             'document.querySelector(%s).click();',
-            json_encode(sprintf('button[name="add"][value="lines:%s"]', $kind), \JSON_THROW_ON_ERROR),
+            json_encode(
+                sprintf('[data-live-action-param="addRow"][data-live-kind-param="%s"]', $kind),
+                \JSON_THROW_ON_ERROR,
+            ),
         ));
     }
 

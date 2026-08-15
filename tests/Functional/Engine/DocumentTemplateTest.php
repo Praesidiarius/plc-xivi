@@ -19,6 +19,7 @@ use App\Tenant\Entity\PermissionGrant;
 use App\Tenant\Entity\User;
 use App\Tenant\Repository\UserRepository;
 use App\Tenant\Security\UserCreator;
+use App\Tests\Support\SavesRecords;
 use App\Tests\Support\SharesATenant;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -47,15 +48,17 @@ use Xivi\Core\Permission\PermissionScope;
  */
 final class DocumentTemplateTest extends WebTestCase
 {
+    use SavesRecords;
     use SharesATenant;
 
     private const string SLUG = 'test_documents';
     private const string HOST = 'documents.localhost';
     private const string ADMIN = 'admin@documents.test';
+    /** Whose session a record is saved under unless a test says otherwise (XIV-33). */
+    private const string EMAIL = self::ADMIN;
     private const string WRITER = 'writer@documents.test';
     private const string SENDER = 'sender@documents.test';
     private const string PASSWORD = 'documents-password';
-    private const string FORM = 'module_record';
 
     private KernelBrowser $client;
     private Tenant $tenant;
@@ -490,19 +493,11 @@ final class DocumentTemplateTest extends WebTestCase
     /** @param array<string, string> $values */
     private function aContact(array $values = []): int
     {
-        $this->client->request('GET', $this->url('/m/contact/new?variant=person'));
-        $this->client->submitForm('Save', [
-            self::field('first_name') => 'Ada',
-            self::field('last_name') => 'Lovelace',
-            ...array_combine(
-                array_map(self::field(...), array_keys($values)),
-                array_values($values),
-            ),
-        ]);
-
-        $this->client->followRedirect();
-
-        return (int) basename((string) parse_url((string) $this->client->getRequest()->getUri(), \PHP_URL_PATH));
+        return $this->savedId($this->saveRecord(
+            ContactModule::KEY,
+            ['kind' => 'person', 'first_name' => 'Ada', 'last_name' => 'Lovelace', ...$values],
+            variant: 'person',
+        ));
     }
 
     private function grant(string $email, ModuleAction $action): void
@@ -517,11 +512,6 @@ final class DocumentTemplateTest extends WebTestCase
             $manager->persist(PermissionGrant::forUser($user, ContactModule::KEY, $action, PermissionScope::All));
             $manager->flush();
         });
-    }
-
-    private static function field(string $key): string
-    {
-        return sprintf('%s[fields][%s]', self::FORM, $key);
     }
 
     private function signIn(string $email): void

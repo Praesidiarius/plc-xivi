@@ -13,8 +13,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Engine;
 
+use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Security\UserCreator;
+use App\Tests\Support\SavesRecords;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -36,6 +38,7 @@ use Xivi\Core\Module\ModuleRegistry;
  */
 final class ModuleUiTest extends WebTestCase
 {
+    use SavesRecords;
     use SharesATenant;
 
     private const string ALPHA = 'test_ui_alpha';
@@ -53,6 +56,9 @@ final class ModuleUiTest extends WebTestCase
     private const string FORM = 'module_record';
 
     private KernelBrowser $client;
+    private ?Response $saved = null;
+    /** The one the record form saves into; beta exists only to be a second tenant. */
+    private Tenant $tenant;
 
     protected function setUp(): void
     {
@@ -61,7 +67,7 @@ final class ModuleUiTest extends WebTestCase
 
         // Both tenants belong to the class; each test is rolled back in both of
         // them (see SharesATenant).
-        $alpha = $this->sharedTenant(self::ALPHA, [self::HOST]);
+        $alpha = $this->tenant = $this->sharedTenant(self::ALPHA, [self::HOST]);
         $beta = $this->sharedTenant(self::BETA, ['ui-beta.localhost']);
 
         $switcher = self::service(TenantSwitcher::class);
@@ -206,7 +212,9 @@ final class ModuleUiTest extends WebTestCase
     {
         $this->submitContact(['first_name' => '', 'last_name' => 'Babbage']);
 
-        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        // **Not a 422** (XIV-33): a refused save is a component that re-rendered,
+        // which is a successful render, so only the body says no.
+        self::assertNull($this->saved?->headers->get('Location'), 'nothing was saved');
         self::assertSelectorExists(sprintf('#%s_fields_first_name', self::FORM));
         self::assertStringContainsString('should not be null', (string) $this->client->getResponse()->getContent());
     }
@@ -218,8 +226,10 @@ final class ModuleUiTest extends WebTestCase
 
         $this->submitContact(['first_name' => 'Someone', 'last_name' => 'Else', 'email' => 'ada@example.com']);
 
-        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
-        self::assertStringContainsString('already uses this value', (string) $this->client->getResponse()->getContent());
+        // **Not a 422** (XIV-33): a refused save is a component that re-rendered,
+        // which is a successful render, so only the body says no.
+        self::assertNull($this->saved?->headers->get('Location'), 'nothing was saved');
+        self::assertStringContainsString('already uses this value', (string) $this->saved?->getContent());
     }
 
     public function testEditingARecord(): void
@@ -230,7 +240,11 @@ final class ModuleUiTest extends WebTestCase
         // The form comes back filled from storage.
         self::assertSame('Ada', $crawler->filter(sprintf('[name="%s"]', self::field('first_name')))->attr('value'));
 
-        $this->client->submitForm('Save', [self::field('first_name') => 'Augusta']);
+        $this->saveRecord(
+            ContactModule::KEY,
+            ['kind' => 'person', 'first_name' => 'Augusta', 'last_name' => 'Lovelace'],
+            recordId: $this->firstRecordId(),
+        );
         $this->client->followRedirect();
 
         self::assertSelectorTextContains('h1', 'Augusta Lovelace');
@@ -283,12 +297,19 @@ final class ModuleUiTest extends WebTestCase
         $addressId = $crawler->filter(sprintf('[name="%s[collections][addresses][0][id]"]', self::FORM))->attr('value');
         self::assertNotSame('', (string) $addressId);
 
-        $this->client->submitForm('Save', [
-            self::addressField(0, 'street') => 'Baker Street 2',
-            // The blank row the page always renders is where the second one goes.
-            self::addressField(1, 'street') => 'Bahnhofstrasse 5',
-            self::addressField(1, 'city') => 'Bern',
-        ]);
+        $values = self::formValuesOn($crawler);
+        $values['collections']['addresses'][0]['fields']['street'] = 'Baker Street 2';
+        // The blank row the page always renders for a collection without kinds
+        // is where the second one goes.
+        $values['collections']['addresses'][1]['fields']['street'] = 'Bahnhofstrasse 5';
+        $values['collections']['addresses'][1]['fields']['city'] = 'Bern';
+
+        $this->saveRecord(
+            ContactModule::KEY,
+            $values['fields'],
+            $values['collections'],
+            $this->firstRecordId(),
+        );
 
         $crawler = $this->openFirstRecordForEditing();
 
@@ -304,11 +325,16 @@ final class ModuleUiTest extends WebTestCase
     {
         $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace'], [['street' => 'Baker Street 1', 'city' => 'Zürich']]);
 
-        $this->openFirstRecordForEditing();
-        $this->client->submitForm('Save', [
-            self::addressField(0, 'street') => '',
-            self::addressField(0, 'city') => '',
-        ]);
+        $values = self::formValuesOn($this->openFirstRecordForEditing());
+        $values['collections']['addresses'][0]['fields']['street'] = '';
+        $values['collections']['addresses'][0]['fields']['city'] = '';
+
+        $this->saveRecord(
+            ContactModule::KEY,
+            $values['fields'],
+            $values['collections'],
+            $this->firstRecordId(),
+        );
 
         $crawler = $this->openFirstRecordForEditing();
 
@@ -327,7 +353,9 @@ final class ModuleUiTest extends WebTestCase
             [['city' => 'Zürich']],
         );
 
-        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        // **Not a 422** (XIV-33): a refused save is a component that re-rendered,
+        // which is a successful render, so only the body says no.
+        self::assertNull($this->saved?->headers->get('Location'), 'nothing was saved');
         self::assertStringContainsString('should not be null', (string) $this->client->getResponse()->getContent());
     }
 
@@ -341,7 +369,11 @@ final class ModuleUiTest extends WebTestCase
         $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
 
         $this->openFirstRecordForEditing();
-        $this->client->submitForm('Save', [self::field('first_name') => 'Augusta']);
+        $this->saveRecord(
+            ContactModule::KEY,
+            ['kind' => 'person', 'first_name' => 'Augusta', 'last_name' => 'Lovelace'],
+            recordId: $this->firstRecordId(),
+        );
 
         $crawler = $this->openFirstRecord();
         $history = $crawler->filter('.card:contains("History")')->text();
@@ -357,11 +389,16 @@ final class ModuleUiTest extends WebTestCase
     {
         $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
 
-        $this->openFirstRecordForEditing();
-        $this->client->submitForm('Save', [
-            self::addressField(0, 'street') => 'Baker Street 1',
-            self::addressField(0, 'city') => 'Zürich',
-        ]);
+        $values = self::formValuesOn($this->openFirstRecordForEditing());
+        $values['collections']['addresses'][0]['fields']['street'] = 'Baker Street 1';
+        $values['collections']['addresses'][0]['fields']['city'] = 'Zürich';
+
+        $this->saveRecord(
+            ContactModule::KEY,
+            $values['fields'],
+            $values['collections'],
+            $this->firstRecordId(),
+        );
 
         $history = $this->openFirstRecord()->filter('.card:contains("History")')->text();
 
@@ -475,7 +512,11 @@ final class ModuleUiTest extends WebTestCase
     public function testACompanyAndAPersonAppearInTheSameList(): void
     {
         $this->client->request('GET', $this->url('/m/contact/new?variant=company'));
-        $this->client->submitForm('Save', [self::field('company_name') => 'Acme AG']);
+        $this->saveRecord(
+            ContactModule::KEY,
+            ['kind' => 'company', 'company_name' => 'Acme AG'],
+            variant: 'company',
+        );
         $this->client->followRedirect();
         self::assertSelectorTextContains('h1', 'Acme AG');
 
@@ -495,7 +536,11 @@ final class ModuleUiTest extends WebTestCase
     public function testAPersonCanBeLinkedToACompanyThroughTheForm(): void
     {
         $this->client->request('GET', $this->url('/m/contact/new?variant=company'));
-        $this->client->submitForm('Save', [self::field('company_name') => 'Acme AG']);
+        $this->saveRecord(
+            ContactModule::KEY,
+            ['kind' => 'company', 'company_name' => 'Acme AG'],
+            variant: 'company',
+        );
         $this->client->followRedirect();
 
         $this->submitContact(['first_name' => 'Grace', 'last_name' => 'Hopper']);
@@ -570,20 +615,12 @@ final class ModuleUiTest extends WebTestCase
      */
     private function submitContact(array $values, array $addresses = []): void
     {
-        $this->client->request('GET', $this->url('/m/contact/new?variant=person'));
-
-        $fields = [];
-        foreach ($values as $key => $value) {
-            $fields[self::field($key)] = $value;
-        }
-
-        foreach ($addresses as $index => $address) {
-            foreach ($address as $key => $value) {
-                $fields[self::addressField($index, $key)] = $value;
-            }
-        }
-
-        $this->client->submitForm('Save', $fields);
+        $this->saved = $this->saveRecord(
+            ContactModule::KEY,
+            ['kind' => 'person', ...$values],
+            $addresses === [] ? [] : ['addresses' => array_map(self::row(...), $addresses)],
+            variant: 'person',
+        );
     }
 
     /** The record page of the only record in the list. */
@@ -595,6 +632,15 @@ final class ModuleUiTest extends WebTestCase
     }
 
     /** Its edit form, which is a different page now. */
+    /** The id of the record the edit page is for. */
+    private function firstRecordId(): int
+    {
+        $crawler = $this->client->request('GET', $this->url('/m/contact'));
+        $link = (string) $crawler->filter('a:contains("Edit")')->link()->getUri();
+
+        return (int) basename((string) parse_url(str_replace('/edit', '', $link), \PHP_URL_PATH));
+    }
+
     private function openFirstRecordForEditing(): Crawler
     {
         $crawler = $this->client->request('GET', $this->url('/m/contact'));

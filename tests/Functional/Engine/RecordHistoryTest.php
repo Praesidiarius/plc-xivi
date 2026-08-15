@@ -16,6 +16,7 @@ namespace App\Tests\Functional\Engine;
 use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Security\UserCreator;
+use App\Tests\Support\SavesRecords;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -41,14 +42,16 @@ use Xivi\Core\Record\RecordChanges;
  */
 final class RecordHistoryTest extends WebTestCase
 {
+    use SavesRecords;
     use SharesATenant;
 
     private const string SLUG = 'test_history';
     private const string HOST = 'history.localhost';
     private const string ADMIN = 'history@example.test';
+    /** Whose session a record is saved under unless a test says otherwise (XIV-33). */
+    private const string EMAIL = self::ADMIN;
     private const string MEMBER = 'member@history.test';
     private const string PASSWORD = 'history-password';
-    private const string FORM = 'module_record';
 
     /** Mirrors ModuleController's own constants; the numbers are the design. */
     private const int ON_RECORD = 5;
@@ -115,8 +118,11 @@ final class RecordHistoryTest extends WebTestCase
     public function testAnEntryIsOneLineWithItsChangesBehindADisclosure(): void
     {
         $id = $this->aContact();
-        $this->client->request('GET', $this->url('/m/contact/' . $id . '/edit'));
-        $this->client->submitForm('Save', [self::field('first_name') => 'Augusta']);
+        $this->saveRecord(
+            ContactModule::KEY,
+            ['kind' => 'person', 'first_name' => 'Augusta', 'last_name' => 'Lovelace'],
+            recordId: $id,
+        );
 
         $crawler = $this->client->request('GET', $this->url('/m/contact/' . $id . '/history'));
         $updated = $crawler->filter('details.history-entry')->first();
@@ -222,15 +228,11 @@ final class RecordHistoryTest extends WebTestCase
     /** One contact, through the UI, so its history starts the way a record's does. */
     private function aContact(): int
     {
-        $this->client->request('GET', $this->url('/m/contact/new?variant=person'));
-        $this->client->submitForm('Save', [
-            self::field('first_name') => 'Ada',
-            self::field('last_name') => 'Lovelace',
-        ]);
-
-        $this->client->followRedirect();
-
-        return (int) basename((string) parse_url((string) $this->client->getRequest()->getUri(), \PHP_URL_PATH));
+        return $this->savedId($this->saveRecord(
+            ContactModule::KEY,
+            ['kind' => 'person', 'first_name' => 'Ada', 'last_name' => 'Lovelace'],
+            variant: 'person',
+        ));
     }
 
     /**
@@ -270,11 +272,6 @@ final class RecordHistoryTest extends WebTestCase
         return $crawler->filter('.history-entry time')->each(
             static fn (Crawler $node): string => (string) $node->attr('datetime'),
         );
-    }
-
-    private static function field(string $key): string
-    {
-        return sprintf('%s[fields][%s]', self::FORM, $key);
     }
 
     private function signIn(string $email): void

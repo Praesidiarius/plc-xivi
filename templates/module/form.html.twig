@@ -17,32 +17,18 @@
 				: path('module_show', {module: module.key, id: record.id}) }}">{{ 'common.back'|trans }}</a>
 		</div>
 
-		{{ form_start(form) }}
-		{{ form_errors(form) }}
-
-		<div class="card">
-			<div class="card-body">
-				{# Every field here came from a definition row — including any the
-				   customer added themselves, which is the point. #}
-				{{ form_widget(form.fields) }}
-			</div>
-		</div>
-
-		{# And every one of these came from the same kind of row, on a shape that
-		   happens to be a collection rather than a module. Its own template because
-		   htmx swaps it on its own when a row is added or removed (XIV-29). #}
-		{{ include('module/_collections.html.twig') }}
-
-		<div class="d-flex align-items-center gap-3 mt-4">
-			<button type="submit" class="btn btn-primary">{{ 'common.save'|trans }}</button>
-			{% if not record.isNew and record.createdAt %}
-				<span class="text-body-secondary small">{{ 'module.created_at'|trans({'%when%': record.createdAt|date('Y-m-d H:i')}) }}</span>
-			{% endif %}
-		</div>
-		{# Everything above is rendered by hand, so form_rest would only re-emit the
-		   collection containers as empty wrappers. The token is the one thing it
-		   would otherwise have added, so it is added here instead. #}
-		{% if form.children._token is defined %}{{ form_widget(form._token) }}{% endif %}
-		{{ form_end(form, {render_rest: false}) }}
+		{#
+			The whole form is a Live Component (XIV-33). The page hands it scalars
+			and it builds the rest itself — the form, the row buttons and the save
+			— which is the shape the library documents and the reason the
+			controller no longer takes a POST here.
+		#}
+		<twig:RecordForm
+			module="{{ module.key }}"
+			:recordId="record.id"
+			:variant="module.variantOf(record.data)"
+			:seeded="seeded|default({})"
+			:seededFields="seededFields|default({})"
+		/>
 	</main>
 {% endblock %}

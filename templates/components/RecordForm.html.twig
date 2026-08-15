@@ -1,0 +1,95 @@
+{#
+	The whole record form as a Live Component — the documented shape.
+
+	Everything is an action: adding a row, removing one, and saving. Note what is
+	not here — no route, no method, no target, no swap. The component re-renders
+	itself entire after each one and the library works out the difference.
+
+	The `<form>` element is still a form, but nothing ever posts it: `live#action`
+	on submit intercepts, and `:prevent` stops the browser doing it as well.
+#}
+<div{{ attributes }}>
+	{{ form_start(form, {attr: {
+		'data-action': 'live#action:prevent',
+		'data-live-action-param': 'save',
+	}}) }}
+	{{ form_errors(form) }}
+
+	<div class="card">
+		<div class="card-body">
+			{# Every field here came from a definition row — including any the
+			   customer added themselves, which is the point. #}
+			{{ form_widget(form.fields) }}
+		</div>
+	</div>
+
+	{% for collection in this.moduleDefinition.collections|filter(c => not c.derived) %}
+		{% set entries = form.collections[collection.key] %}
+
+		<div class="card mt-3">
+			<div class="card-body">
+				<h2 class="h5 mb-3">{{ collection.label }}</h2>
+
+				{% for entry in entries %}
+					<div class="row-of-collection border-top pt-3 mt-3">
+						{# Where the row sits (XIV-21): type 15 to put something between
+						   10 and 20, and the save renumbers everything in tens again. #}
+						<div class="row-position-cell">
+							{{ form_widget(entry.position, {attr: {class: 'form-control form-control-sm'}}) }}
+						</div>
+						{# A row's kind is fixed once it exists (XIV-20), so it is a
+						   heading rather than a control. #}
+						{% if collection.hasVariants %}
+							{% set kind = entry.vars.data.fields[collection.variantField]|default(null) %}
+							{% if kind %}
+								<h3 class="h6 text-body-secondary">{{ collection.getVariants[kind]|default(kind) }}</h3>
+							{% endif %}
+						{% endif %}
+						{{ form_widget(entry) }}
+
+						<button type="button" class="btn btn-outline-danger btn-sm"
+						        data-action="live#action"
+						        data-live-action-param="removeRow"
+						        data-live-collection-param="{{ collection.key }}"
+						        data-live-index-param="{{ loop.index0 }}">
+							{{ 'common.remove'|trans }}
+						</button>
+					</div>
+				{% endfor %}
+
+				{# One button per kind, and only the kinds this customer can fill in
+				   (XIV-23). #}
+				<div class="d-flex flex-wrap gap-2 mt-3">
+					{% for kind, label in this.kinds[collection.key]|default({}) %}
+						<button type="button" class="btn btn-outline-secondary btn-sm"
+						        data-action="live#action"
+						        data-live-action-param="addRow"
+						        data-live-collection-param="{{ collection.key }}"
+						        data-live-kind-param="{{ kind }}">
+							{{ 'module.add_kind'|trans({'%kind%': label}) }}
+						</button>
+					{% endfor %}
+
+					{% if this.kinds[collection.key]|default({}) is empty %}
+						<button type="button" class="btn btn-outline-secondary btn-sm"
+						        data-action="live#action"
+						        data-live-action-param="addRow"
+						        data-live-collection-param="{{ collection.key }}"
+						        data-live-kind-param="">
+							{{ 'module.add_row'|trans({'%collection%': collection.label|lower}) }}
+						</button>
+					{% endif %}
+				</div>
+			</div>
+		</div>
+	{% endfor %}
+
+	<div class="d-flex align-items-center gap-3 mt-4">
+		<button type="submit" class="btn btn-primary">{{ 'common.save'|trans }}</button>
+		{% if not this.record.isNew and this.record.createdAt %}
+			<span class="text-body-secondary small">{{ 'module.created_at'|trans({'%when%': this.record.createdAt|date('Y-m-d H:i')}) }}</span>
+		{% endif %}
+	</div>
+	{% if form.children._token is defined %}{{ form_widget(form._token) }}{% endif %}
+	{{ form_end(form, {render_rest: false}) }}
+</div>

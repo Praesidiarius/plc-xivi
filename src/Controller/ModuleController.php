@@ -13,14 +13,12 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
-use App\Record\RecordSubmission;
 use App\Tenant\Entity\User;
 use App\Tenant\Repository\UserRepository;
 use App\Tenant\Security\ModuleRecord;
 use App\Tenant\Security\PermissionResolver;
 use App\View\LinkedRecords;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Mime\MimeTypes;
@@ -30,12 +28,10 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Xivi\Core\Document\DocumentFormat;
 use Xivi\Core\Document\DocumentTemplateRepository;
-use Xivi\Core\Entity\CollectionDefinition;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Export\RecordExporter;
 use Xivi\Core\Field\Type\ReferenceFieldType;
-use Xivi\Core\Form\ModuleRecordType;
 use Xivi\Core\History\HistoryRepository;
 use Xivi\Core\History\HistorySection;
 use Xivi\Core\Lifecycle\Lifecycles;
@@ -82,7 +78,6 @@ final class ModuleController extends AbstractController
         private readonly RecordWriter $writer,
         // What a submitted form means: which rows were really typed in, whether
         // it is valid, and what gets written (XIV-30).
-        private readonly RecordSubmission $submission,
         private readonly Seeder $seeder,
         private readonly HistoryRepository $history,
         private readonly RecordQueryFactory $queries,
@@ -214,7 +209,7 @@ final class ModuleController extends AbstractController
         $seeded = $this->seeded($definition, $request);
         $record->data = [...$record->data, ...$seeded['fields']];
 
-        return $this->edit($definition, $record, $request, $seeded['rows']);
+        return $this->edit($definition, $record, $request, $seeded['rows'], $seeded['fields']);
     }
 
     /**
@@ -582,213 +577,34 @@ final class ModuleController extends AbstractController
         return $this->redirectToRoute('module_index', ['module' => $module]);
     }
 
-    /** @param array<string, list<array<string, mixed>>> $seeded rows a new record starts with (XIV-19) */
-    private function edit(ModuleDefinition $definition, Record $record, Request $request, array $seeded = []): Response
-    {
-        $form = $this->createForm(ModuleRecordType::class, $this->formData($definition, $record, $seeded), [
-            'module' => $definition,
-            'variant' => $definition->variantOf($record->data),
-        ]);
-        $form->handleRequest($request);
-
-        // **A row was added or taken away, and that is not a save** (XIV-29).
-        // The form comes back with everything already typed in it and one row
-        // more or less; nothing is written and nothing is validated, because
-        // somebody halfway through filling a form has not asked for either.
-        $rearranged = $this->rearranged($definition, $form, $request);
-
-        if ($rearranged !== null) {
-            return $this->renderForm($definition, $record, $rearranged, $request);
-        }
-
-        if ($form->isSubmitted()) {
-            /** @var array{fields: array<string, mixed>} $submitted */
-            $submitted = $form->getData();
-            $rows = $this->submission->rows($definition, $form->getData());
-
-            if ($this->submission->validate($definition, $form, $submitted['fields'], $rows, $record->id)) {
-                $saved = $this->submission->save(
-                    $definition,
-                    $record,
-                    $submitted['fields'],
-                    $rows,
-                    $this->currentUserId(),
-                );
-
-                $this->addFlash('success', $this->translator->trans('flash.saved'));
-
-                // Back to the record rather than the list: it is what was just
-                // worked on, and its history now says what the save did.
-                return $this->redirectToRoute('module_show', [
-                    'module' => $definition->getKey(),
-                    'id' => $saved->id,
-                ]);
-            }
-        }
-
-        return $this->renderForm($definition, $record, $form, $request);
-    }
-
     /**
-     * The record's form, whole or in part.
+     * The page a record is edited on.
      *
-     * htmx asks for the collections on their own when a row is added or removed
-     * (XIV-28's convention: generic over module, record and shape, and behind
-     * the same permission as the page). Anything else gets the page, so the
-     * fragment is a shortcut rather than a second way of doing it.
+     * **It renders, and nothing else** (XIV-33). Everything that used to happen
+     * here on a POST — building the form, adding and removing rows, validating,
+     * merging, saving, redirecting — belongs to the Live Component now, so this
+     * route exists to put that component on a page with the props it needs.
      *
-     * @param FormInterface<array<string, mixed>> $form
-     */
-    private function renderForm(
-        ModuleDefinition $definition,
-        Record $record,
-        FormInterface $form,
-        Request $request,
-    ): Response {
-        $template = $request->headers->has('HX-Request')
-            ? 'module/_collections.html.twig'
-            : 'module/form.html.twig';
-
-        return $this->render($template, [
-            'module' => $definition,
-            'record' => $record,
-            'form' => $form,
-            'kinds' => $this->kindsPerCollection($definition),
-        ]);
-    }
-
-    /**
-     * The form again with one row more or fewer, or null when this save is a
-     * save (XIV-29).
-     *
-     * Rebuilt rather than mutated: the form's children are decided when it is
-     * created, so a form that has already been submitted cannot grow one. What
-     * carries over is the submitted data, which is what somebody typed.
-     *
-     * @param FormInterface<array<string, mixed>> $form
-     *
-     * @return FormInterface<array<string, mixed>>|null
-     */
-    private function rearranged(
-        ModuleDefinition $definition,
-        FormInterface $form,
-        Request $request,
-    ): ?FormInterface {
-        if (!$form->isSubmitted()) {
-            return null;
-        }
-
-        $add = self::rowRequest($request, 'add');
-        $remove = self::rowRequest($request, 'remove');
-
-        if ($add === null && $remove === null) {
-            return null;
-        }
-
-        /** @var array<string, mixed> $data */
-        $data = $form->getData();
-        /** @var array<string, list<array<string, mixed>>> $collections */
-        $collections = $data['collections'] ?? [];
-
-        if ($add !== null) {
-            $collection = $definition->getCollection($add[0]);
-
-            // A kind the module does not have, or one this customer cannot fill
-            // in (XIV-23) — a hand-edited form rather than a button anybody was
-            // offered, and the answer to it is to change nothing.
-            if ($collection === null || !$this->offers($collection, $add[1])) {
-                return null;
-            }
-
-            $collections[$add[0]][] = [
-                'id' => '',
-                'position' => null,
-                // The kind travels with the row from the moment it exists (§5.1)
-                // — which button was pressed *is* the choice the blank rows used
-                // to ask for by being several.
-                'fields' => $add[1] === '' ? [] : [(string) $collection->getVariantField() => $add[1]],
-            ];
-        }
-
-        if ($remove !== null) {
-            unset($collections[$remove[0]][(int) $remove[1]]);
-            $collections[$remove[0]] = array_values($collections[$remove[0]] ?? []);
-        }
-
-        $data['collections'] = $collections;
-
-        $rebuilt = $this->createForm(ModuleRecordType::class, $data, [
-            'module' => $definition,
-            'variant' => $definition->variantOf($data['fields'] ?? []),
-        ]);
-
-        return $rebuilt;
-    }
-
-    /**
-     * `lines:article` from the button that was pressed — the collection, and the
-     * kind or row index after it.
-     *
-     * @return array{0: string, 1: string}|null
-     */
-    private static function rowRequest(Request $request, string $key): ?array
-    {
-        $value = trim((string) $request->request->get($key, ''));
-
-        if ($value === '') {
-            return null;
-        }
-
-        $parts = explode(':', $value, 2);
-
-        return [$parts[0], $parts[1] ?? ''];
-    }
-
-    /** Whether a collection offers that kind — or has no kinds at all. */
-    private function offers(CollectionDefinition $collection, string $kind): bool
-    {
-        if ($kind === '') {
-            return !$collection->hasVariants();
-        }
-
-        return isset($this->variants->of($collection)[$kind]);
-    }
-
-    /**
-     * The kinds each collection offers a button for, keyed by collection.
-     *
-     * Empty for a collection without kinds, which gets one unlabelled button
-     * instead — and only kinds this customer can actually fill in (XIV-23), so a
-     * service business with no article module is not offered an article line.
-     *
-     * @return array<string, array<string, string>>
-     */
-    private function kindsPerCollection(ModuleDefinition $definition): array
-    {
-        $kinds = [];
-
-        foreach ($definition->getCollections() as $collection) {
-            $kinds[$collection->getKey()] = $collection->hasVariants() ? $this->variants->of($collection) : [];
-        }
-
-        return $kinds;
-    }
-
-    /**
-     * What the form starts with: the record's own values, plus the rows of each
-     * collection it owns, plus one blank row.
-     *
-     * The blank row is what makes the page work with scripting turned off — it
-     * is somewhere to type the first address without a button that adds one.
-     * Left alone it costs nothing, since an empty row is not saved.
+     * There is no POST to this route any more. A second way to save would be a
+     * second place for the rules to live, and the one nobody exercises is the
+     * one that rots.
      *
      * @param array<string, list<array<string, mixed>>> $seeded rows a new record starts with (XIV-19)
-     *
-     * @return array<string, mixed>
+     * @param array<string, mixed>                      $values its own values, likewise
      */
-    private function formData(ModuleDefinition $definition, Record $record, array $seeded = []): array
-    {
-        return $this->submission->initial($definition, $record, $seeded);
+    private function edit(
+        ModuleDefinition $definition,
+        Record $record,
+        Request $request,
+        array $seeded = [],
+        array $values = [],
+    ): Response {
+        return $this->render('module/form.html.twig', [
+            'module' => $definition,
+            'record' => $record,
+            'seeded' => $seeded,
+            'seededFields' => $values,
+        ]);
     }
 
     /**

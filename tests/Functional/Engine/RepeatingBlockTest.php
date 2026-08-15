@@ -16,7 +16,7 @@ namespace App\Tests\Functional\Engine;
 use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Security\UserCreator;
-use App\Tests\Support\AddsCollectionRows;
+use App\Tests\Support\SavesRecords;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -38,14 +38,13 @@ use Xivi\Order\OrderModule;
  */
 final class RepeatingBlockTest extends WebTestCase
 {
-    use AddsCollectionRows;
+    use SavesRecords;
     use SharesATenant;
 
     private const string SLUG = 'test_blocks';
     private const string HOST = 'blocks.localhost';
     private const string EMAIL = 'blocks@example.test';
     private const string PASSWORD = 'blocks-password';
-    private const string FORM = 'module_record';
 
     private KernelBrowser $client;
     private Tenant $tenant;
@@ -434,56 +433,32 @@ final class RepeatingBlockTest extends WebTestCase
     /** @param list<array{0: string, 1: array<string, string>}> $lines */
     private function anOrder(array $lines): int
     {
-        $customer = $this->aCompany();
+        // Every line in one save (XIV-33): a component takes the whole
+        // collection, where the old form had to be given a row at a time.
+        $rows = [];
 
-        $this->client->request('GET', $this->url('/m/order/new'));
-        $this->client->submitForm('Save', [
-            self::field('contact') => (string) $customer,
-            self::field('ordered_on') => '2026-08-15',
-            self::field('status') => OrderModule::DRAFT,
-        ]);
-        $this->client->followRedirect();
-
-        $order = $this->idOfCurrentPage();
-
-        foreach ($lines as $offset => [$kind, $values]) {
-            $page = $this->client->request('GET', $this->url('/m/order/' . $order . '/edit'));
-            $page = $this->addRow($this->client, $page, OrderModule::LINES, $kind);
-
-            $form = $page->selectButton('Save')->form();
-
-            foreach ($values as $key => $value) {
-                $form[self::row($offset, 'fields][' . $key)] = $value;
-            }
-
-            $this->client->submit($form);
+        foreach ($lines as [$kind, $values]) {
+            $rows[] = self::row([OrderModule::KIND => $kind, ...$values]);
         }
 
-        return $order;
+        return $this->savedId($this->saveRecord(
+            OrderModule::KEY,
+            [
+                'contact' => (string) $this->aCompany(),
+                'ordered_on' => '2026-08-15',
+                'status' => OrderModule::DRAFT,
+            ],
+            $rows === [] ? [] : [OrderModule::LINES => $rows],
+        ));
     }
 
     private function aCompany(): int
     {
-        $this->client->request('GET', $this->url('/m/contact/new?variant=company'));
-        $this->client->submitForm('Save', [self::field('company_name') => 'Acme AG']);
-        $this->client->followRedirect();
-
-        return $this->idOfCurrentPage();
-    }
-
-    private function idOfCurrentPage(): int
-    {
-        return (int) basename((string) parse_url((string) $this->client->getRequest()->getUri(), \PHP_URL_PATH));
-    }
-
-    private static function field(string $key): string
-    {
-        return sprintf('%s[fields][%s]', self::FORM, $key);
-    }
-
-    private static function row(int $index, string $key): string
-    {
-        return sprintf('%s[collections][lines][%d][%s]', self::FORM, $index, $key);
+        return $this->savedId($this->saveRecord(
+            ContactModule::KEY,
+            ['kind' => 'company', 'company_name' => 'Acme AG'],
+            variant: 'company',
+        ));
     }
 
     private function signIn(): void

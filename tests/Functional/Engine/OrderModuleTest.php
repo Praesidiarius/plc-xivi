@@ -16,7 +16,7 @@ namespace App\Tests\Functional\Engine;
 use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Security\UserCreator;
-use App\Tests\Support\AddsCollectionRows;
+use App\Tests\Support\SavesRecords;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -43,7 +43,7 @@ use Xivi\Order\OrderModule;
  */
 final class OrderModuleTest extends WebTestCase
 {
-    use AddsCollectionRows;
+    use SavesRecords;
     use SharesATenant;
 
     private const string SLUG = 'test_orders';
@@ -96,12 +96,13 @@ final class OrderModuleTest extends WebTestCase
 
         self::assertSame(
             [
-                'lines:' . OrderModule::ARTICLE_LINE,
-                'lines:' . OrderModule::CUSTOM_LINE,
-                'lines:' . OrderModule::COMMENT_LINE,
-                'lines:' . OrderModule::SUBTOTAL_LINE,
+                OrderModule::ARTICLE_LINE,
+                OrderModule::CUSTOM_LINE,
+                OrderModule::COMMENT_LINE,
+                OrderModule::SUBTOTAL_LINE,
             ],
-            $page->filter('button[name="add"]')->each(static fn (Crawler $node): string => (string) $node->attr('value')),
+            $page->filter('[data-live-action-param="addRow"][data-live-collection-param="lines"]')
+                ->each(static fn (Crawler $node): string => (string) $node->attr('data-live-kind-param')),
         );
 
         self::assertCount(0, $page->filter('[name$="[fields][kind]"]'), 'and nothing to fill in yet');
@@ -110,14 +111,14 @@ final class OrderModuleTest extends WebTestCase
     /** Pressing one adds a row of that kind, carrying its fields and no others. */
     public function testAButtonAddsARowOfItsOwnKind(): void
     {
-        $page = $this->client->request('GET', $this->url('/m/order/new'));
-        $page = $this->addRow($this->client, $page, OrderModule::LINES, OrderModule::COMMENT_LINE);
+        $html = self::liveService(TenantSwitcher::class)->runFor($this->tenant, fn (): string => $this
+            ->recordForm(OrderModule::KEY)
+            ->call('addRow', ['collection' => OrderModule::LINES, 'kind' => OrderModule::COMMENT_LINE])
+            ->render()
+            ->toString());
 
-        self::assertSame(
-            OrderModule::COMMENT_LINE,
-            (string) $page->filter('[name$="[fields][kind]"]')->attr('value'),
-        );
-        self::assertCount(0, $page->filter('[name$="[fields][unit_price]"]'), 'a comment has no price');
+        self::assertStringContainsString('value="' . OrderModule::COMMENT_LINE . '"', $html);
+        self::assertStringNotContainsString('[fields][unit_price]', $html, 'a comment has no price');
     }
 
     /**
@@ -130,8 +131,8 @@ final class OrderModuleTest extends WebTestCase
         $article = $this->anArticle('Desk lamp', '19.90');
 
         $order = $this->anOrder($customer, [
-            self::line(0, 'fields][article') => (string) $article,
-            self::line(0, 'fields][quantity') => '3',
+            'article' => (string) $article,
+            'quantity' => '3',
         ]);
 
         $line = $this->linesOf($order)[0];
@@ -148,8 +149,8 @@ final class OrderModuleTest extends WebTestCase
         $article = $this->anArticle('Desk lamp', '19.90');
 
         $order = $this->anOrder($customer, [
-            self::line(0, 'fields][article') => (string) $article,
-            self::line(0, 'fields][quantity') => '3',
+            'article' => (string) $article,
+            'quantity' => '3',
         ]);
 
         // The article goes up.
@@ -169,8 +170,8 @@ final class OrderModuleTest extends WebTestCase
         $article = $this->anArticle('Desk lamp', '19.90');
 
         $order = $this->anOrder($customer, [
-            self::line(0, 'fields][article') => (string) $article,
-            self::line(0, 'fields][quantity') => '3',
+            'article' => (string) $article,
+            'quantity' => '3',
         ]);
 
         $before = $this->client->request('GET', $this->url('/m/order/' . $order))
@@ -178,8 +179,7 @@ final class OrderModuleTest extends WebTestCase
             ->count();
         self::assertSame(0, $before, 'nothing has drifted yet');
 
-        $this->client->request('GET', $this->url('/m/article/' . $article . '/edit'));
-        $this->client->submitForm('Save', [self::field('price') => '24.90']);
+        $this->saveRecord(ArticleModule::KEY, ['title' => 'Desk lamp', 'price' => '24.90'], recordId: $article);
 
         $after = $this->client->request('GET', $this->url('/m/order/' . $order))
             ->filter('[title*="differs"]')
@@ -194,9 +194,9 @@ final class OrderModuleTest extends WebTestCase
         $article = $this->anArticle('Desk lamp', '19.90');
 
         $order = $this->anOrder($customer, [
-            self::line(0, 'fields][article') => (string) $article,
-            self::line(0, 'fields][quantity') => '3',
-            self::line(0, 'fields][unit_price') => '17.90',
+            'article' => (string) $article,
+            'quantity' => '3',
+            'unit_price' => '17.90',
         ]);
 
         self::assertSame('17.90', $this->linesOf($order)[0]->get('unit_price'), 'a negotiated price');
@@ -209,7 +209,7 @@ final class OrderModuleTest extends WebTestCase
         $customer = $this->aCompany('Acme AG');
 
         $order = $this->anOrder($customer, [
-            self::line(0, 'fields][description') => 'Everything below is optional',
+            'description' => 'Everything below is optional',
         ], OrderModule::COMMENT_LINE);
 
         $lines = $this->linesOf($order);
@@ -242,44 +242,29 @@ final class OrderModuleTest extends WebTestCase
      */
     private function anOrder(int $customer, array $lines = [], string $kind = OrderModule::ARTICLE_LINE): int
     {
-        $page = $this->client->request('GET', $this->url('/m/order/new'));
-
-        if ($lines !== []) {
-            $page = $this->addRow($this->client, $page, OrderModule::LINES, $kind);
-        }
-
-        $form = $page->selectButton('Save')->form([
-            self::field('contact') => (string) $customer,
-            self::field('ordered_on') => '2026-08-15',
-            self::field('status') => OrderModule::DRAFT,
-            ...$lines,
-        ]);
-
-        $this->client->submit($form);
-        $this->client->followRedirect();
-
-        return (int) basename((string) parse_url((string) $this->client->getRequest()->getUri(), \PHP_URL_PATH));
+        return $this->savedId($this->saveRecord(
+            OrderModule::KEY,
+            [
+                'contact' => (string) $customer,
+                'ordered_on' => '2026-08-15',
+                'status' => OrderModule::DRAFT,
+            ],
+            $lines === [] ? [] : [OrderModule::LINES => [self::row([OrderModule::KIND => $kind, ...$lines])]],
+        ));
     }
 
     private function aCompany(string $name): int
     {
-        $this->client->request('GET', $this->url('/m/contact/new?variant=company'));
-        $this->client->submitForm('Save', [self::field('company_name') => $name]);
-        $this->client->followRedirect();
-
-        return (int) basename((string) parse_url((string) $this->client->getRequest()->getUri(), \PHP_URL_PATH));
+        return $this->savedId($this->saveRecord(
+            ContactModule::KEY,
+            ['kind' => 'company', 'company_name' => $name],
+            variant: 'company',
+        ));
     }
 
     private function anArticle(string $title, string $price): int
     {
-        $this->client->request('GET', $this->url('/m/article/new'));
-        $this->client->submitForm('Save', [
-            self::field('title') => $title,
-            self::field('price') => $price,
-        ]);
-        $this->client->followRedirect();
-
-        return (int) basename((string) parse_url((string) $this->client->getRequest()->getUri(), \PHP_URL_PATH));
+        return $this->savedId($this->saveRecord(ArticleModule::KEY, ['title' => $title, 'price' => $price]));
     }
 
     /** @return list<Record> */
@@ -318,11 +303,6 @@ final class OrderModuleTest extends WebTestCase
     private static function field(string $key): string
     {
         return sprintf('%s[fields][%s]', self::FORM, $key);
-    }
-
-    private static function line(int $index, string $key): string
-    {
-        return sprintf('%s[collections][lines][%d][%s]', self::FORM, $index, $key);
     }
 
     private function signIn(): void

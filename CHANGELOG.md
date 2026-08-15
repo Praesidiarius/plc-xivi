@@ -91,6 +91,20 @@ of every page, and is not yet tied to git tags.
 
 ### Changed
 
+- **The record form is a Symfony UX Live Component, and htmx is gone**
+  ([XIV-33]). Adding a row, removing one and saving are all actions on the
+  component; `new` and `edit` are GET routes that put it on a page and no longer
+  accept a POST. htmx did the one button well and would have fought the next one:
+  a form that redraws while somebody is typing has to update the changed nodes
+  rather than replace the region, or the caret goes with it mid-number.
+- **A refused save now answers 200 rather than 422.** A component that
+  re-rendered is a successful render, so only the body says no. If anything you
+  have reads these responses over HTTP, this is the release that changes what it
+  sees.
+- **Nothing else about saving changed**, because XIV-30 had already moved what a
+  submitted form *means* out of the controller: the component calls the same
+  service the controller did.
+
 - **What a submitted record form means is no longer the controller's**
   ([XIV-30]). Four things moved out of `ModuleController`: what a form starts
   with, which submitted rows were really typed in, whether the submission is
@@ -836,6 +850,7 @@ began and is recorded here as one entry rather than invented as a history.
 [XIV-29]: https://xivi.youtrack.cloud/issue/XIV-29
 [XIV-30]: https://xivi.youtrack.cloud/issue/XIV-30
 [XIV-31]: https://xivi.youtrack.cloud/issue/XIV-31
+[XIV-33]: https://xivi.youtrack.cloud/issue/XIV-33
 [XIV-20]: https://xivi.youtrack.cloud/issue/XIV-20
 [XIV-21]: https://xivi.youtrack.cloud/issue/XIV-21
 [XIV-22]: https://xivi.youtrack.cloud/issue/XIV-22
