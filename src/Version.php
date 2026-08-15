@@ -44,7 +44,7 @@ namespace App;
  */
 final class Version
 {
-    public const string CURRENT = '17.0.1';
+    public const string CURRENT = '17.0.2';
 
     /** The generation, for anywhere that wants to say "Xivi 17". */
     public const string GENERATION = '17';
