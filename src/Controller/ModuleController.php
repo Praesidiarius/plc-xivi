@@ -13,13 +13,13 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Record\RecordSubmission;
 use App\Tenant\Entity\User;
 use App\Tenant\Repository\UserRepository;
 use App\Tenant\Security\ModuleRecord;
 use App\Tenant\Security\PermissionResolver;
 use App\View\LinkedRecords;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -27,7 +27,6 @@ use Symfony\Component\Mime\MimeTypes;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use Symfony\Component\Validator\ConstraintViolationListInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Xivi\Core\Document\DocumentFormat;
 use Xivi\Core\Document\DocumentTemplateRepository;
@@ -57,7 +56,6 @@ use Xivi\Core\Record\RecordAction;
 use Xivi\Core\Record\RecordRepository;
 use Xivi\Core\Record\RecordWriter;
 use Xivi\Core\Seed\Seeder;
-use Xivi\Core\Validation\RecordValidator;
 
 /**
  * Browsing and editing records, for every module.
@@ -82,8 +80,10 @@ final class ModuleController extends AbstractController
         // Every write goes through the writer, never the repository: it owns the
         // transaction and the history entry (§5.2).
         private readonly RecordWriter $writer,
+        // What a submitted form means: which rows were really typed in, whether
+        // it is valid, and what gets written (XIV-30).
+        private readonly RecordSubmission $submission,
         private readonly Seeder $seeder,
-        private readonly RecordValidator $validator,
         private readonly HistoryRepository $history,
         private readonly RecordQueryFactory $queries,
         private readonly RecordExporter $exporter,
@@ -604,49 +604,16 @@ final class ModuleController extends AbstractController
         if ($form->isSubmitted()) {
             /** @var array{fields: array<string, mixed>} $submitted */
             $submitted = $form->getData();
-            $children = $this->childRows($definition, $form->getData());
+            $rows = $this->submission->rows($definition, $form->getData());
 
-            // Each part is checked against its own definitions: the contact
-            // against the contact's, every address against the address ones. The
-            // validator is handed a shape and never asks which kind it is.
-            $violations = $this->validator->validate($definition, $submitted['fields'], $record->id);
-            self::mapViolations($violations, $form->get('fields'));
-            $valid = \count($violations) === 0;
-
-            foreach ($children as $key => $rows) {
-                $collection = $definition->getCollection($key);
-                \assert($collection !== null);
-
-                foreach ($rows as $row) {
-                    $rowViolations = $this->validator->validate($collection, $row['data'], $row['id']);
-
-                    if (\count($rowViolations) > 0) {
-                        $valid = false;
-                        self::mapViolations(
-                            $rowViolations,
-                            $form->get('collections')->get($key)->get((string) $row['index'])->get('fields'),
-                        );
-                    }
-                }
-            }
-
-            if ($valid) {
-                // Merged, not replaced. The form only carries this variant's
-                // fields, and a value belonging to another variant is somebody's
-                // data — the same reason removing a field leaves its values
-                // alone (§7.2).
-                $record->data = [...$record->data, ...$submitted['fields']];
-                $record->ownerId ??= $this->currentUserId();
-
-                // One call, one transaction, one history entry — the record and
-                // its collections are one action, not several.
-                $this->writer->save($definition, $record, array_map(
-                    static fn (array $rows): array => array_map(
-                        static fn (array $row): array => ['id' => $row['id'], 'data' => $row['data']],
-                        $rows,
-                    ),
-                    $children,
-                ));
+            if ($this->submission->validate($definition, $form, $submitted['fields'], $rows, $record->id)) {
+                $saved = $this->submission->save(
+                    $definition,
+                    $record,
+                    $submitted['fields'],
+                    $rows,
+                    $this->currentUserId(),
+                );
 
                 $this->addFlash('success', $this->translator->trans('flash.saved'));
 
@@ -654,7 +621,7 @@ final class ModuleController extends AbstractController
                 // worked on, and its history now says what the save did.
                 return $this->redirectToRoute('module_show', [
                     'module' => $definition->getKey(),
-                    'id' => $record->id,
+                    'id' => $saved->id,
                 ]);
             }
         }
@@ -821,168 +788,7 @@ final class ModuleController extends AbstractController
      */
     private function formData(ModuleDefinition $definition, Record $record, array $seeded = []): array
     {
-        $data = ['fields' => $record->data];
-
-        foreach ($definition->getCollections() as $collection) {
-            // Not on the form at all (XIV-16), so it needs no starting rows.
-            if ($collection->isDerived()) {
-                continue;
-            }
-
-            $children = $record->isNew() ? [] : $this->records->findChildren($collection, (int) $record->id);
-
-            $rows = array_map(
-                static fn (Record $child): array => [
-                    'id' => (string) $child->id,
-                    'position' => $child->position,
-                    'fields' => $child->data,
-                ],
-                $children,
-            );
-
-            // Rows copied from another record (XIV-19). They have no id — they
-            // are new rows somebody is about to save — and they come before the
-            // blank ones, so the form reads as the document it is becoming.
-            foreach ($seeded[$collection->getKey()] ?? [] as $values) {
-                $rows[] = ['id' => '', 'position' => null, 'fields' => $values];
-            }
-
-            // **No blank rows when a collection has kinds** (XIV-29). There
-            // used to be one of each, because choosing which to fill in was how
-            // a kind got chosen without scripting — four of them at the bottom
-            // of an order, each showing different fields. A button per kind says
-            // the same thing and shows nothing until it is asked to.
-            //
-            // A collection *without* kinds keeps its one blank row. One row to
-            // type an address into is an affordance rather than a mess; four
-            // rows showing four different sets of fields is the mess, and it is
-            // the plural that made it one.
-            if (!$collection->hasVariants()) {
-                $rows[] = ['id' => '', 'position' => null, 'fields' => []];
-            }
-
-            $data['collections'][$collection->getKey()] = $rows;
-        }
-
-        return $data;
-    }
-
-    /**
-     * The submitted collection rows, keyed by collection, carrying the position
-     * they hold in the form so a violation can be put back on the row it came
-     * from.
-     *
-     * Rows the person added and left completely empty are dropped rather than
-     * validated: clicking "add address" and changing your mind is not an attempt
-     * to save a blank address. The same rule means clearing every field of an
-     * existing row deletes it, which is what emptying something out looks like
-     * to anyone who is not thinking about databases.
-     *
-     * @param array<string, mixed> $submitted
-     *
-     * @return array<string, list<array{index: int, id: int|null, data: array<string, mixed>}>>
-     */
-    private function childRows(ModuleDefinition $definition, array $submitted): array
-    {
-        /** @var array<string, array<int, array{id?: string|null, fields?: array<string, mixed>}>> $collections */
-        $collections = $submitted['collections'] ?? [];
-        $rows = [];
-
-        foreach ($definition->getCollections() as $collection) {
-            // A derived collection is not submitted and must not be listed here
-            // as empty: the writer reads an empty list as "delete every row"
-            // (XIV-16), and the deriver has not had its turn yet.
-            if ($collection->isDerived()) {
-                continue;
-            }
-
-            $rows[$collection->getKey()] = [];
-
-            foreach ($collections[$collection->getKey()] ?? [] as $index => $entry) {
-                $fields = $entry['fields'] ?? [];
-
-                // **Nothing the engine put there counts as something typed.**
-                // The kind does not (XIV-20): every blank row arrives carrying
-                // one, so a row that only says what it *would* have been is
-                // still a row nobody filled in, and without this a save would
-                // mint an empty line of every kind the collection has.
-                //
-                // Nor does a derived value, for the same reason and a sharper
-                // one: a disabled field keeps its value through a submit, so a
-                // row somebody has emptied out still arrives carrying its line
-                // total and, on a seeded row, the id of the row it came from
-                // (XIV-19). Counting those, emptying a row stopped deleting it
-                // and started failing validation instead.
-                $typed = $fields;
-                unset($typed[(string) $collection->getVariantField()]);
-
-                foreach ($collection->getFields() as $field) {
-                    if ($field->isDerived()) {
-                        unset($typed[$field->getKey()]);
-                    }
-                }
-
-                if (self::isBlank($typed)) {
-                    continue;
-                }
-
-                $id = ($entry['id'] ?? '') === '' ? null : (int) $entry['id'];
-                $rows[$collection->getKey()][] = [
-                    'index' => $index,
-                    'id' => $id,
-                    // What the row takes from the record it points at, filled in
-                    // once and never over something typed (XIV-18).
-                    'data' => $this->inherited->fillIn($collection, $fields),
-                    // A row nobody numbered goes to the end, which is where a
-                    // blank row somebody has just filled in belongs.
-                    'position' => ($entry['position'] ?? '') === '' ? \PHP_INT_MAX : (int) $entry['position'],
-                ];
-            }
-
-            // Sorted by what the customer typed, and stable within it (XIV-21):
-            // two rows sharing a number keep the order they were shown in, which
-            // is the only answer that does not shuffle a list when somebody
-            // numbers two rows the same by accident.
-            usort(
-                $rows[$collection->getKey()],
-                static fn (array $a, array $b): int => [$a['position'], $a['index']] <=> [$b['position'], $b['index']],
-            );
-        }
-
-        return $rows;
-    }
-
-    /** @param array<string, mixed> $fields */
-    private static function isBlank(array $fields): bool
-    {
-        foreach ($fields as $value) {
-            if ($value !== null && $value !== '') {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * The engine validates an array, so its violations point at array keys
-     * ("[email]"). Putting each one back on the field it came from is what lets a
-     * single validator serve the form, an import, and whatever API comes later.
-     *
-     * @param FormInterface<array<string, mixed>> $form
-     */
-    private static function mapViolations(ConstraintViolationListInterface $violations, FormInterface $form): void
-    {
-        foreach ($violations as $violation) {
-            $field = trim($violation->getPropertyPath(), '[]');
-
-            $target = $form->has($field) ? $form->get($field) : $form;
-            $target->addError(new FormError(
-                // Unknown keys report against the form itself, where they are at
-                // least visible, rather than being dropped for having no field.
-                $form->has($field) ? (string) $violation->getMessage() : sprintf('%s: %s', $field, $violation->getMessage()),
-            ));
-        }
+        return $this->submission->initial($definition, $record, $seeded);
     }
 
     /**

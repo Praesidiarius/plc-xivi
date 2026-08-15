@@ -76,6 +76,18 @@ of every page, and is not yet tied to git tags.
 
 ### Changed
 
+- **What a submitted record form means is no longer the controller's**
+  ([XIV-30]). Four things moved out of `ModuleController`: what a form starts
+  with, which submitted rows were really typed in, whether the submission is
+  valid, and what gets written. None of them is a fact about HTTP — they are
+  facts about the shape and the values, and a controller was holding them only
+  because it was the first thing that needed them. What a form starts with is
+  core's; what a submission means needs the validator, the writer and Symfony's
+  form errors together, so it lives in the application.
+- **Behaviour is unchanged and no test moved**, which is the whole claim: the
+  controller keeps the routes, the permissions, adding and removing rows, the
+  redirects and the rendering.
+
 - **The UI now needs JavaScript** ([XIV-28]). It used to work with scripting
   turned off, and that is no longer promised. If you run Xivi behind a policy
   that blocks scripts, this release is the one that breaks it — the forms will
@@ -807,6 +819,7 @@ began and is recorded here as one entry rather than invented as a history.
 [XIV-26]: https://xivi.youtrack.cloud/issue/XIV-26
 [XIV-28]: https://xivi.youtrack.cloud/issue/XIV-28
 [XIV-29]: https://xivi.youtrack.cloud/issue/XIV-29
+[XIV-30]: https://xivi.youtrack.cloud/issue/XIV-30
 [XIV-20]: https://xivi.youtrack.cloud/issue/XIV-20
 [XIV-21]: https://xivi.youtrack.cloud/issue/XIV-21
 [XIV-22]: https://xivi.youtrack.cloud/issue/XIV-22
