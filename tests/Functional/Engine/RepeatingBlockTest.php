@@ -188,6 +188,26 @@ final class RepeatingBlockTest extends WebTestCase
         self::assertMatchesRegularExpression('/380[.,]00/', $text);
     }
 
+    /** A reference field prints the record it points at. */
+    public function testAReferenceFieldPrintsTheRecordItPointsAt(): void
+    {
+        $template = $this->upload(
+            'Lines',
+            [['[lines.description]', '[lines.line_total]']],
+            'Position',
+            'For [contact] on [ordered_on]',
+        );
+
+        $order = $this->anOrder([
+            [OrderModule::CUSTOM_LINE, ['description' => 'Consulting', 'quantity' => '1', 'unit_price' => '100.00']],
+        ]);
+
+        $text = $this->generate($template, $order);
+
+        self::assertStringNotContainsString('[contact]', $text, 'the marker is gone');
+        self::assertStringContainsString('Acme AG', $text, 'and the customer is there');
+    }
+
     /** A second collection in the same document draws its own rows. */
     public function testTwoCollectionsEachDrawTheirOwn(): void
     {
