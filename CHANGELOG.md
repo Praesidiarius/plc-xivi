@@ -37,6 +37,14 @@ of every page, and is not yet tied to git tags.
   Word and uploads themselves. Both formats every time: the PDF is what gets
   sent, and the .docx is what somebody edits when a letter needs a sentence the
   template has not got.
+- **General placeholders have a section of their own** — `[today]`,
+  `[tenant.name]`, `[user.name]`, `[user.email]`. They describe the moment rather
+  than the record, so listing them under every variant read as something a person
+  or a company *has*. Their keys are namespaced because a customer's fields become
+  markers under their own names and the contact module already ships a
+  `company_name`. Core declares what it cannot know and the application answers,
+  the same seam the currency uses — so the next general marker needs no change to
+  the engine.
 - **The placeholder list comes from the customer's own definitions.** A field
   they added this morning is `[a_marker]` this afternoon, and one they removed
   stops being offered — the same claim the form and the list already make, so

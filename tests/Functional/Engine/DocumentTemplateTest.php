@@ -95,9 +95,48 @@ final class DocumentTemplateTest extends WebTestCase
             self::assertStringContainsString($marker, $page);
         }
 
-        // Not only the fields: every template ends up wanting these.
+        // Not only the fields: every template ends up wanting the record's number.
         self::assertStringContainsString('[record_id]', $page);
-        self::assertStringContainsString('[today]', $page);
+    }
+
+    /**
+     * A date is not a property of a person or of a company.
+     *
+     * The general markers are about the moment rather than the record, so they
+     * get their own section instead of being repeated under every variant, where
+     * they read as something the contact has.
+     */
+    public function testMarkersThatAreNotAboutTheRecordHaveTheirOwnSection(): void
+    {
+        $crawler = $this->client->request('GET', $this->url('/m/contact/templates'));
+
+        $general = $crawler->filter('#general-markers')->text();
+        $everything = $crawler->filter('main')->text();
+        $perVariant = str_replace($general, '', $everything);
+
+        foreach (['[today]', '[tenant.name]', '[user.name]', '[user.email]'] as $marker) {
+            self::assertStringContainsString($marker, $general);
+            self::assertStringNotContainsString($marker, $perVariant, $marker . ' is not a field of anything');
+        }
+
+        // And the record's own markers stay where they belong.
+        self::assertStringNotContainsString('[first_name]', $general);
+        self::assertStringNotContainsString('[record_id]', $general);
+    }
+
+    /** The general markers are filled in like any other. */
+    public function testAGeneralMarkerIsSubstitutedToo(): void
+    {
+        $template = $this->upload('Letter', 'From [tenant.name], written by [user.name] on [today].');
+        $id = $this->aContact();
+
+        $this->client->request('GET', $this->url(sprintf('/m/contact/%d/document/download?template=%d&format=docx', $id, $template)));
+
+        $text = $this->textOf((string) $this->client->getResponse()->getContent());
+
+        self::assertStringContainsString('From ' . $this->tenant->getName(), $text);
+        self::assertStringContainsString('written by Admin', $text);
+        self::assertStringContainsString('on ' . date('Y-m-d') . '.', $text);
     }
 
     /**

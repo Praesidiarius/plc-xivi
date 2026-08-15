@@ -280,6 +280,13 @@ document:
     format_docx: Word — for editing first
     download: Download
     none_for_record: No template applies to this record yet.
+    marker:
+        tenant_name: This company
+        user_name: Who is generating it
+        user_email: Their email
+    general: General
+    general_help: Available in every template, whatever it is about.
+    for_variant: 'For %variant%'
     placeholders: Placeholders
     placeholders_help: >-
         Type these into the Word document, brackets included. They are replaced with this

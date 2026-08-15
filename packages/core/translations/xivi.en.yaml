@@ -20,6 +20,11 @@ operator:
     filled: is not empty
 
 document:
+    marker:
+        record_id: Record number
+        created_at: Created
+        updated_at: Changed
+        today: Today's date
     problem:
         not_a_docx: '"%file%" is not a Word document this can read. Save it as .docx and try again.'
         could_not_fill: 'Template "%template%" could not be filled in. It may have been saved in a format Word itself would repair.'

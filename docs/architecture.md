@@ -564,6 +564,17 @@ feature that works until a field is renamed. Values are rendered through the
 field type, so a date reads as a date and a price as "CHF 19.90" — the same
 `display()` the list already uses.
 
+**Two kinds of marker, and the difference is what they are about.** A record
+marker describes the contact being written to, and there is one list per variant
+because a person and a company hold different fields. A general marker —
+`[today]`, `[tenant.name]`, `[user.name]` — describes the moment, and belongs
+under none of the variants; listing them per variant read as something the
+contact *has*. General keys are namespaced, because a customer's fields become
+markers under their own names and the contact module already ships a
+`company_name`. Core declares the general ones it cannot know as an interface and
+the application answers with whole markers rather than values, so the next one
+needs no change to the engine.
+
 **A template may name a variant** (§5.5): a letter to a person is a different
 document from a letter to a company, and one naming no variant is offered
 everywhere.
