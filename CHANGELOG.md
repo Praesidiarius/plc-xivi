@@ -68,7 +68,9 @@ lands in `Unreleased` here.
 - **Releases are published on GitHub**, from the changelog file the release
   procedure already writes. Pushing a `v*` tag posts
   `docs/changelog/<version>.md` as the release notes — and refuses if that file
-  does not exist, or if the tag disagrees with `src/Version.php`.
+  does not exist, or if the tag disagrees with `src/Version.php`. Releases can
+  also be published by hand for a tag that predates the changelog file, which is
+  how 17.0.0 and 17.0.1 got theirs.
 
 ## Releases
 

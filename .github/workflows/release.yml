@@ -24,9 +24,20 @@ jobs:
       contents: write
 
     steps:
+      # Two modes, and the difference is which tree the notes come from.
+      #
+      # A **tag push** is the real path: it publishes what that tag contains, so
+      # the notes and the version are read from the tag itself and both gates
+      # below mean something.
+      #
+      # A **manual dispatch** is the backfill: 17.0.0 and 17.0.1 were released
+      # before docs/changelog/ existed, so their notes are not in their own tags
+      # and never will be. Those come from the default branch, where every
+      # release's file lives — an archive file never changes once written, so
+      # reading a past release's notes from today's main is the same text.
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.repository.default_branch || github.ref }}
 
       # The tag names the version; everything downstream derives from it rather
       # than being typed a second time.
@@ -52,6 +63,15 @@ jobs:
           if [ ! -f "$notes" ]; then
             echo "::error::$notes does not exist. Cut the release first — see 'Cutting a release' in CHANGELOG.md."
             exit 1
+          fi
+
+          # Only on a tag push. A dispatch is reading a past release's notes off
+          # the default branch, whose src/Version.php is the *current* version by
+          # definition — comparing them would fail every backfill and prove
+          # nothing.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Dispatch: notes from the default branch, version check skipped."
+            exit 0
           fi
 
           shipped=$(grep -oP "CURRENT = '\K[^']+" src/Version.php)
