@@ -141,6 +141,9 @@ lands in `Unreleased` here.
   to a history page that pages twenty-five at a time. See §5.2.
 - **The export's content type comes from `symfony/mime`** ([XIV-5]) instead of a
   constant copied into `ModuleController`.
+- **Pages are wider** — the content shell and the top bar go from 992px to
+  1440px, which is what a list with a dozen columns wanted all along. It had been
+  *narrowing* Bootstrap's own container rather than setting a width of its own.
 - **This file is now one release per file** ([XIV-34]). Released versions live in
   [docs/changelog/](docs/changelog/) and `CHANGELOG.md` keeps only what has not
   shipped, plus an index. Entries are short, because a changelog that grows as

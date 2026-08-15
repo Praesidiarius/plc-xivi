@@ -1,7 +1,20 @@
 /* Everything Bootstrap does not already do. Deliberately short. */
 
+/*
+ * How wide a page gets. Loaded after Bootstrap and equally specific, so this
+ * beats `.container`'s own ceiling rather than adding to it — one number, not a
+ * set of breakpoints.
+ *
+ * 90rem is 1440px, chosen against a 1080p desktop: wide enough for a list with
+ * a dozen columns and for fields sitting side by side, with a gutter left over
+ * so the page still reads as a page. Bootstrap's own maximum is 1320px, which
+ * was drawn for narrower screens than the ones this is used on.
+ *
+ * Narrower is still a per-page decision — the delete confirmations set their own
+ * width inline, because a question with two buttons does not want a metre of it.
+ */
 .page-shell {
-	max-width: 62rem;
+	max-width: 90rem;
 }
 
 .signin-shell {
