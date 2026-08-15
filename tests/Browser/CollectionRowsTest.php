@@ -170,7 +170,113 @@ final class CollectionRowsTest extends PantherTestCase
         );
     }
 
+    /**
+     * The caret stays where it was while the totals update around it (XIV-32).
+     *
+     * **This is the assertion the framework was chosen for.** A form that
+     * redraws while somebody is typing has to update the changed nodes rather
+     * than replace the region — replace it, and the input goes with it, taking
+     * the cursor mid-number. Nothing on the server can see that happen: to the
+     * server both mechanisms produce the same HTML, and the difference is
+     * entirely in what the browser does with it.
+     *
+     * So: type a price, put the caret in the middle of it, wait for the figure
+     * to arrive, and check the caret has not moved.
+     */
+    public function testTheCaretSurvivesTheTotalsUpdating(): void
+    {
+        $this->browser->request('GET', '/m/order/new');
+        $this->browser->waitForVisibility('form');
+
+        $this->addLine(OrderModule::CUSTOM_LINE);
+        $this->browser->waitFor('[name$="[fields][unit_price]"]');
+
+        $price = $this->browser->getCrawler()->filter('[name$="[fields][unit_price]"]')->attr('name');
+        self::assertIsString($price);
+        $quantity = str_replace('[unit_price]', '[quantity]', $price);
+
+        // A quantity first, so the line has something to multiply by.
+        $this->typeInto($quantity, '3');
+
+        // Then the price, with the caret parked three characters in — between
+        // the 9 and the . of "19.90", which is where somebody correcting a
+        // number actually stands.
+        $this->typeInto($price, '19.90');
+        $this->browser->executeScript(sprintf(
+            'const el = document.getElementsByName(%s)[0]; el.focus(); el.setSelectionRange(3, 3);',
+            json_encode($price, \JSON_THROW_ON_ERROR),
+        ));
+
+        // The debounce is 400ms; the figure arrives after it.
+        $total = str_replace('[unit_price]', '[line_total]', $price);
+        $this->waitForValue($total, '59.70');
+
+        self::assertSame(
+            3,
+            $this->browser->executeScript(sprintf(
+                'return document.getElementsByName(%s)[0].selectionStart;',
+                json_encode($price, \JSON_THROW_ON_ERROR),
+            )),
+            'the caret is still between the 9 and the point',
+        );
+
+        self::assertSame(
+            $price,
+            $this->browser->executeScript('return document.activeElement.getAttribute("name");'),
+            'and the field somebody was typing in still has the focus',
+        );
+    }
+
     // -- helpers ------------------------------------------------------------
+
+    /**
+     * Wait until a field holds a value.
+     *
+     * Not `waitForElementToContain`, which reads an element's *text*: a total
+     * lives in an input's value and an input has no text, so that wait would sit
+     * there for thirty seconds while the right number was on the screen the
+     * whole time.
+     */
+    private function waitForValue(string $name, string $expected): void
+    {
+        $script = sprintf(
+            'const el = document.getElementsByName(%s)[0]; return el ? el.value : null;',
+            json_encode($name, \JSON_THROW_ON_ERROR),
+        );
+
+        for ($attempt = 0; $attempt < 60; ++$attempt) {
+            if ($this->browser->executeScript($script) === $expected) {
+                return;
+            }
+
+            usleep(250_000);
+        }
+
+        self::fail(sprintf(
+            '"%s" never reached "%s" — it holds "%s".',
+            $name,
+            $expected,
+            (string) $this->browser->executeScript($script),
+        ));
+    }
+
+    /**
+     * Type into a field the way a person does — a real `input` event, so the
+     * component notices. Setting `.value` alone changes the DOM and tells
+     * nothing, which is fine where a test only wants a value parked somewhere
+     * and useless where it wants the form to react.
+     */
+    private function typeInto(string $name, string $value): void
+    {
+        $this->browser->executeScript(sprintf(
+            'const el = document.getElementsByName(%s)[0];'
+            .' el.value = %s;'
+            .' el.dispatchEvent(new Event("input", {bubbles: true}));'
+            .' el.dispatchEvent(new Event("change", {bubbles: true}));',
+            json_encode($name, \JSON_THROW_ON_ERROR),
+            json_encode($value, \JSON_THROW_ON_ERROR),
+        ));
+    }
 
     /** Press the button that adds a line of that kind. */
     private function addLine(string $kind): void

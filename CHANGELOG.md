@@ -65,6 +65,11 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **Totals update while you type** ([XIV-32]). A line's total and the order's
+  net, VAT and gross follow the quantity and the price as they are entered,
+  before anything is saved. The arithmetic is the server's — the same derivers
+  the save runs, so there is no second copy of the rounding rule to disagree
+  with the first. See §5.9.
 - **Releases are published on GitHub**, from the changelog file the release
   procedure already writes. Pushing a `v*` tag posts
   `docs/changelog/<version>.md` as the release notes — and refuses if that file
@@ -79,3 +84,5 @@ lands in `Unreleased` here.
 | [17.0.2](docs/changelog/17.0.2.md) | 2026-08-16 | Four modules, the money and documents they needed, and a front end that changed twice |
 | [17.0.1](docs/changelog/17.0.1.md) | 2026-08-15 | Permissions, localization, and the test suite from 165s to 10s |
 | [17.0.0](docs/changelog/17.0.0.md) | 2026-08-14 | The first numbered version: the engine, tenancy, and everything built before versioning began |
+
+[XIV-32]: https://xivi.youtrack.cloud/issue/XIV-32

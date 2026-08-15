@@ -31,6 +31,7 @@ use Xivi\Core\Lifecycle\Lifecycles;
 use Xivi\Core\Metadata\AvailableVariants;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Permission\ModuleAction;
+use Xivi\Core\Record\DerivedValues;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordRepository;
 
@@ -96,6 +97,7 @@ final class RecordForm extends AbstractController
         private readonly MetadataRepository $metadata,
         private readonly RecordRepository $records,
         private readonly RecordSubmission $submission,
+        private readonly DerivedValues $derived,
         private readonly AvailableVariants $variants,
         private readonly Lifecycles $lifecycles,
         private readonly TranslatorInterface $translator,
@@ -217,6 +219,33 @@ final class RecordForm extends AbstractController
         return $this->recordFor($this->definition());
     }
 
+    /**
+     * When the form tells the server it changed (XIV-32).
+     *
+     * The trait's default is `on(change)|*`, which fires when a field is left —
+     * so a total would appear only once somebody tabbed out of the price, which
+     * is after the moment they wanted it. `debounce(400)|*` follows the typing
+     * instead, and the debounce is what keeps a five-digit number to one request
+     * rather than five.
+     *
+     * 400ms is a guess with a reason: below about 250 a fast typist generates a
+     * request per keystroke, above about 600 the figure feels detached from the
+     * typing that caused it.
+     *
+     * The trait documents overriding this as the way to change it — the
+     * alternative, an `attr` on `form_start`, happens to win today and only
+     * because of the order two things write the same attribute.
+     *
+     * @phpstan-ignore method.unused (the trait calls it; PHPStan does not see a
+     *                 trait's call reach the copy this class overrides it with —
+     *                 checked against the rendered form, which carries the
+     *                 debounce this returns)
+     */
+    private function getDataModelValue(): string
+    {
+        return 'debounce(400)|*';
+    }
+
     /** @return FormInterface<array<string, mixed>> */
     protected function instantiateForm(): FormInterface
     {
@@ -225,9 +254,80 @@ final class RecordForm extends AbstractController
 
         return $this->createForm(
             ModuleRecordType::class,
-            $this->submission->initial($definition, $record, $this->seeded),
+            $this->withLiveTotals($definition, $this->submission->initial($definition, $record, $this->seeded)),
             ['module' => $definition, 'variant' => $definition->variantOf($record->data)],
         );
+    }
+
+    /**
+     * The figures, worked out from what is in the form right now (XIV-32).
+     *
+     * **Why this goes into the form's initial data rather than into the
+     * submitted values.** A derived field is `disabled` (XIV-16), and a disabled
+     * field ignores what is submitted and keeps the data the form was built
+     * with. That is the rule that stops a hand-edited request typing over a
+     * total, and it is also the reason the only way to *show* a new one is to
+     * build the form with it.
+     *
+     * **Nothing is validated and nothing is written.** `RecordSubmission::rows()`
+     * shapes the values the same way a save does — blank rows dropped,
+     * inheritance filled in — and then the same derivers the writer uses do the
+     * arithmetic, through `Money\Amount` and its one rounding rule (§5.9). What
+     * does not happen is the shape validation: somebody who has typed `2.` is
+     * mid-number, not wrong, and only {@see self::save()} has an opinion about
+     * that.
+     *
+     * @param array<string, mixed> $initial
+     *
+     * @return array<string, mixed>
+     */
+    private function withLiveTotals(ModuleDefinition $definition, array $initial): array
+    {
+        // Empty on the first render, when the form is being built to *produce*
+        // these values rather than from them — and the stored figures are
+        // already the right ones to show.
+        if ($this->formValues === []) {
+            return $initial;
+        }
+
+        /** @var array<string, mixed> $fields */
+        $fields = $this->formValues['fields'] ?? [];
+        $derivation = $this->derived->preview($definition, $fields, $this->submission->rows($definition, $this->formValues));
+
+        if ($derivation === null) {
+            return $initial;
+        }
+
+        foreach ($definition->getFields() as $field) {
+            if ($field->isDerived()) {
+                $initial['fields'][$field->getKey()] = $derivation->fields[$field->getKey()] ?? null;
+            }
+        }
+
+        foreach ($definition->getCollections() as $collection) {
+            // A derived collection is not on the form at all — the VAT table is
+            // read on the record's page, not typed into here.
+            if ($collection->isDerived()) {
+                continue;
+            }
+
+            foreach ($derivation->rowsOf($collection->getKey()) as $row) {
+                // The index the row came in with, carried through the derivation
+                // rather than inferred from where it ended up.
+                if (!isset($row['index'])) {
+                    continue;
+                }
+
+                foreach ($collection->getFields() as $field) {
+                    if ($field->isDerived()) {
+                        $initial['collections'][$collection->getKey()][$row['index']]['fields'][$field->getKey()]
+                            = $row['data'][$field->getKey()] ?? null;
+                    }
+                }
+            }
+        }
+
+        return $initial;
     }
 
     private function definition(): ModuleDefinition
