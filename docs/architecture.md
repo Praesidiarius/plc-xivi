@@ -229,6 +229,24 @@ Three decisions fell out of building it:
   record would mint one empty line of every kind, which is the bug this rule
   exists to have already fixed.
 
+**Rows keep the order the customer put them in** (XIV-21), on a `position`
+column beside the parent id — a system column, not a field: it is not theirs to
+name or delete, and every read of a collection sorts by it. Numbered in **tens**
+and renumbered on every save, so a row can be moved between two others by typing
+a number between theirs and the next insertion still has room. Typing a number
+rather than pressing move-up and move-down, because those are a form submission
+each where this is one save.
+
+**Moving a row is not a change to it.** The id does not move and the history says
+nothing happened, because nothing about the row did — where it sits is a property
+of the list. That also makes an import keep the order of its file for free: rows
+are numbered as they arrive, whether they arrive from a form or a spreadsheet.
+
+The column is added to existing collection tables by a **data-driven migration**,
+which is unusual here and unavoidable: a collection's table is created per
+customer by the installer rather than by a migration, so only the tenant's own
+`shape_definition` knows which tables exist.
+
 **A field can be derived rather than typed** — a line's total, a subtotal's
 figure. It is shown and never offered for editing, enforced with `disabled` so a
 hand-edited request cannot type over it either. A derived value somebody can type

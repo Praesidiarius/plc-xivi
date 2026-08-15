@@ -42,6 +42,9 @@ use Xivi\Core\Event\RecordChanged;
  */
 final readonly class RecordWriter
 {
+    /** The gap left between rows, so one can be moved between two (XIV-21). */
+    private const int POSITION_STEP = 10;
+
     public function __construct(
         private Connection $connection,
         private RecordRepository $records,
@@ -154,10 +157,20 @@ final readonly class RecordWriter
 
         $touched = [];
         $kept = [];
+        // Numbered in tens, in the order they arrived (XIV-21). Tens rather than
+        // ones so that a row can later be typed in between two others without
+        // renumbering anything; renumbering on every save is what keeps them
+        // from drifting into 11, 12, 13 after a few insertions.
+        $position = 0;
 
         foreach ($rows as $row) {
+            $position += self::POSITION_STEP;
+
             if ($row['id'] === null) {
-                $added = $this->records->save($collection, new Record(data: $row['data'], parentId: $parentId));
+                $added = $this->records->save(
+                    $collection,
+                    new Record(data: $row['data'], parentId: $parentId, position: $position),
+                );
 
                 $touched[] = [
                     'action' => 'added',
@@ -177,6 +190,10 @@ final readonly class RecordWriter
 
             $changed = $this->diff($collection, $child->data, $row['data']);
             $child->data = $row['data'];
+            // Where it sits is not one of its values, so moving a row is not a
+            // change to what it *is* — the timeline stays about the record
+            // rather than about the arrangement of its lines.
+            $child->position = $position;
             $this->records->save($collection, $child);
             $kept[$row['id']] = true;
 

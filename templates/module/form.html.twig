@@ -48,6 +48,15 @@
 									blank rows at the bottom are one per kind — so picking which one
 									to type in is how a kind gets chosen.
 								#}
+								{#
+									Where the row sits (XIV-21). Small and to the left of the row's
+									own fields, because it is about the list rather than about the
+									row: type 15 to put something between 10 and 20, and the save
+									renumbers everything in tens again.
+								#}
+								<div class="row-position-cell">
+									{{ form_widget(entry.position, {attr: {class: 'form-control form-control-sm'}}) }}
+								</div>
 								{% if collection.hasVariants %}
 									{% set kind = entry.vars.data.fields[collection.variantField]|default(null) %}
 									{% if kind %}

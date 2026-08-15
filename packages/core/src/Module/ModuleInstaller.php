@@ -369,6 +369,9 @@ final readonly class ModuleInstaller
             $table->addColumn('owner_id', Types::INTEGER, ['notnull' => false]);
         } else {
             $table->addColumn(CollectionDefinition::PARENT_COLUMN, Types::INTEGER);
+            // Where the row sits among its siblings (XIV-21). Not null: every
+            // row has a place, even if it is the place it was created in.
+            $table->addColumn(CollectionDefinition::POSITION_COLUMN, Types::INTEGER, ['default' => 0]);
             // A real foreign key, per §5. The cascade is the backstop for a hard
             // delete; the ordinary path is a soft delete, which the repository
             // cascades itself so that children disappear with their parent.
@@ -379,8 +382,12 @@ final readonly class ModuleInstaller
                 ['onDelete' => 'CASCADE'],
                 sprintf('fk_%s_parent', $name),
             );
-            // Every read of a collection is "the rows belonging to this record".
-            $table->addIndex([CollectionDefinition::PARENT_COLUMN], sprintf('idx_%s_parent', $name));
+            // Every read of a collection is "the rows belonging to this record,
+            // in order", which is one index rather than two.
+            $table->addIndex(
+                [CollectionDefinition::PARENT_COLUMN, CollectionDefinition::POSITION_COLUMN],
+                sprintf('idx_%s_parent', $name),
+            );
         }
 
         $schemaManager->createTable($table);

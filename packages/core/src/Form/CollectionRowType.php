@@ -15,6 +15,7 @@ namespace Xivi\Core\Form;
 
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
+use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Form\FormEvent;
 use Symfony\Component\Form\FormEvents;
@@ -57,6 +58,15 @@ final class CollectionRowType extends AbstractType
         // one that already exists. It is checked against the parent on save —
         // see RecordRepository::replaceChildren().
         $builder->add('id', HiddenType::class, ['required' => false]);
+        // Where the row sits, as a number somebody can type over (XIV-21). A
+        // plain input rather than move-up and move-down buttons, because those
+        // are a form submission each and this is one save — and because typing
+        // 15 between 10 and 20 is a thing people already know how to do.
+        $builder->add('position', IntegerType::class, [
+            'required' => false,
+            'label' => false,
+            'attr' => ['class' => 'row-position', 'aria-label' => 'Position'],
+        ]);
 
         if (!$collection->hasVariants()) {
             $builder->add('fields', RecordType::class, ['shape' => $collection, 'label' => false]);
