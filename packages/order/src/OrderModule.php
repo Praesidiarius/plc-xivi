@@ -158,14 +158,19 @@ final class OrderModule implements ModuleProvider
                                 ...InheritedValue::from('article', 'title'),
                             ],
                         ),
+                        // Decimal, because two and a half hours is an ordinary
+                        // thing to sell (XIV-22). A unit — hours, kilos, metres —
+                        // is deliberately absent: it belongs to the article
+                        // rather than to this line, and a unit that only
+                        // decorates the number is worse than none.
                         new FieldBlueprint(
                             key: 'quantity',
                             label: 'field.quantity',
-                            type: 'integer',
+                            type: 'decimal',
                             required: true,
                             variants: [self::ARTICLE_LINE, self::CUSTOM_LINE],
                             position: 30,
-                            options: ['min' => 1],
+                            options: ['min' => 0, 'scale' => 2],
                         ),
                         new FieldBlueprint(
                             key: 'unit_price',
