@@ -602,6 +602,16 @@ backup, restore and export-on-churn keep working per customer with nothing added
 Attachments are many, large and long-lived, and will want a different answer;
 this one is bounded on purpose.
 
+**Word's placeholder text has to be settled before converting.** A letterhead is
+mostly content controls — the boxes somebody clicks into — and one nobody has
+typed in yet carries `showingPlcHdr`. Word displays that text and prints it;
+LibreOffice renders nothing for it, so a document came out complete as a .docx
+and missing its whole sender block as a PDF. The generator drops the flag on the
+way out, which is all it takes: the words are the control's own content, and
+without the flag every reader treats them as ordinary text. The first bug this
+feature had, and a fair warning about the class: **Word and LibreOffice agreeing
+about a file is not the same as their agreeing about what to draw.**
+
 **A converter that is down is not a broken record.** The .docx is offered beside
 the PDF for exactly that case, and the page says so rather than showing a stack
 trace.

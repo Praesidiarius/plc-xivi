@@ -55,6 +55,14 @@ of every page, and is not yet tied to git tags.
   pure-PHP PDF library is LGPL or GPL and none of them can read a .docx at all.
   DomPDF would have meant docx → HTML → PDF, which throws away the header, the
   footer and the fonts the template was made in Word for.
+- **Word's own placeholder text is settled on the way out.** A letterhead is
+  built from content controls — the "Sender's name", "address street" boxes
+  somebody clicks into — and until one is typed in it is flagged as still showing
+  its placeholder. Word displays that text and prints it; LibreOffice renders
+  nothing for it, so the same document came out complete as a .docx and with its
+  whole sender block missing as a PDF. The flag is dropped from the generated
+  document, which is all it takes: the text was the control's own content the
+  entire time.
 - **The first files this system keeps live in the tenant's own database**, in a
   bytea column. Templates are small and few, so the isolation §4 already provides
   costs nothing extra here — no volume, no bucket, no paths to get wrong.
