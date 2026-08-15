@@ -46,6 +46,20 @@ enum ModuleAction: string
     case Import = 'import';
 
     /**
+     * Managing the module's document templates: uploading one, replacing it,
+     * removing it (XIV-4).
+     *
+     * Separate from Document on purpose, and the ticket asked for it in as many
+     * words: whoever designs the invoice is not whoever sends one. A template is
+     * also the one upload that decides what every future document of that kind
+     * looks like, which is a larger thing to hand out than the documents.
+     */
+    case Templates = 'templates';
+
+    /** Generating a document for one record from one of those templates (XIV-4). */
+    case Document = 'document';
+
+    /**
      * Whether "only the records I own" is a question this action can answer.
      *
      * Adding a record and importing a file name nothing that already exists, so
@@ -56,8 +70,10 @@ enum ModuleAction: string
     public function isScopable(): bool
     {
         return match ($this) {
-            self::View, self::List, self::Edit, self::Delete, self::Export => true,
-            self::Add, self::Import => false,
+            self::View, self::List, self::Edit, self::Delete, self::Export, self::Document => true,
+            // Templates names no record: it is the module's stationery, not
+            // anybody's row.
+            self::Add, self::Import, self::Templates => false,
         };
     }
 
@@ -71,8 +87,10 @@ enum ModuleAction: string
     public function isMutating(): bool
     {
         return match ($this) {
-            self::Add, self::Edit, self::Delete, self::Import => true,
-            self::View, self::List, self::Export => false,
+            self::Add, self::Edit, self::Delete, self::Import, self::Templates => true,
+            // Generating a document changes nothing about the record; it is a
+            // read that happens to come back as a file, like the export.
+            self::View, self::List, self::Export, self::Document => false,
         };
     }
 

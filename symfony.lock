@@ -83,6 +83,9 @@
             "bin/phpunit"
         ]
     },
+    "sensiolabs/gotenberg-bundle": {
+        "version": "v1.4.0"
+    },
     "symfony/asset-mapper": {
         "version": "8.1",
         "recipe": {

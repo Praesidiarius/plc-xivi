@@ -250,6 +250,28 @@ profile:
     currency_none: Noch nicht gewählt
     read_only: Du darfst das sehen, aber nicht ändern.
 
+document:
+    documents: Dokumente
+    templates: Vorlagen
+    templates_intro: >-
+        Die .docx-Dateien, aus denen Dokumente für %module% entstehen. Schreibe eine in
+        Word, setze die Platzhalter von unten an die richtigen Stellen und lade sie hier hoch.
+    uploaded: Hochgeladene Vorlagen
+    none_yet: Noch keine Vorlagen. Ohne eine lässt sich nichts erzeugen.
+    upload: Vorlage hochladen
+    file: Die .docx-Datei
+    file_help: 'Nur Word-Dokumente, bis %size% MB.'
+    name_placeholder: Brief, Rechnung, Datenblatt…
+    name_help: Wie sie am Datensatz heißt. Wird aus dem Dateinamen übernommen, wenn du das Feld leer lässt.
+    applies_to: Gilt für
+    applies_to_help: Eine Vorlage für eine Art von Datensatz wird auch nur dort angeboten.
+    every_record: Jeden Datensatz
+    uploaded_when: Hochgeladen
+    placeholders: Platzhalter
+    placeholders_help: >-
+        Schreibe diese samt Klammern ins Word-Dokument. Beim Erzeugen werden sie durch die
+        Werte dieses Datensatzes ersetzt. Was du weglässt, bleibt weg.
+
 permission:
     yes: 'Ja'
     no: 'Nein'
@@ -268,6 +290,8 @@ refusal:
 
 flash:
     saved: Gespeichert.
+    template_uploaded: Vorlage hochgeladen. Sie wird an jedem passenden Datensatz angeboten.
+    template_deleted: '„%template%“ entfernt. Bereits heruntergeladene Dokumente bleiben davon unberührt.'
     profile_saved: Gespeichert. So beschreibt sich die Instanz von jetzt an.
     shape_renamed: 'Umbenannt in „%shape%“.'
     deleted: Gelöscht.

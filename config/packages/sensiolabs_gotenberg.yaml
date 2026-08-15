@@ -1,0 +1,23 @@
+# Where a filled .docx becomes a PDF (XIV-4).
+#
+# Gotenberg is a service, not a library: a container wrapping LibreOffice, which
+# is what turns the finished document into a PDF that still looks like the Word
+# template somebody uploaded. The alternative was rendering it to HTML and laying
+# it out again in PHP, which loses the header, the footer, the page numbering and
+# the fonts — everything the template was made in Word for.
+#
+# It is also MIT, as is this bundle, where every pure-PHP PDF library on offer is
+# LGPL or GPL (docs/architecture.md §5.7).
+framework:
+    http_client:
+        scoped_clients:
+            # A scoped client rather than the default one, so the base URI and the
+            # timeout belong to this conversation and nothing else inherits them.
+            # Converting a document with images is seconds, not milliseconds.
+            gotenberg.client:
+                base_uri: '%env(GOTENBERG_URL)%'
+                timeout: 30
+                max_duration: 60
+
+sensiolabs_gotenberg:
+    http_client: 'gotenberg.client'

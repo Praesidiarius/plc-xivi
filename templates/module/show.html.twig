@@ -148,6 +148,40 @@
 					</div>
 				</div>
 
+				{#
+					This record, on paper (XIV-4). Only the templates that apply to its
+					variant, and only when they may generate one — the card is absent
+					rather than empty for somebody without the grant.
+
+					Both formats every time: the PDF is what gets sent, the .docx is
+					what somebody edits when the letter needs a sentence the template
+					has not got.
+				#}
+				{% if documents is not empty %}
+					<div class="card mb-3">
+						<div class="card-body">
+							<h2 class="h6 text-uppercase text-body-secondary mb-3">{{ 'document.documents'|trans }}</h2>
+
+							<ul class="list-unstyled small mb-0">
+								{% for template in documents %}
+									<li class="d-flex align-items-center justify-content-between gap-2 {{ loop.first ? '' : 'border-top pt-2 mt-2' }}">
+										<span>
+											<i class="bi bi-file-earmark-text text-body-secondary" aria-hidden="true"></i>
+											{{ template.name }}
+										</span>
+										<span class="text-nowrap">
+											<a class="btn btn-sm btn-outline-secondary"
+											   href="{{ path('module_document', {module: module.key, id: record.id, template: template.id, format: 'pdf'}) }}">PDF</a>
+											<a class="btn btn-sm btn-outline-secondary"
+											   href="{{ path('module_document', {module: module.key, id: record.id, template: template.id, format: 'docx'}) }}">DOCX</a>
+										</span>
+									</li>
+								{% endfor %}
+							</ul>
+						</div>
+					</div>
+				{% endif %}
+
 				{# History belongs on the record, not on the form: it is something you
 				   read about a record, not something you edit (§5.2). The latest few
 				   of it, at least — the whole timeline has a page of its own, so this

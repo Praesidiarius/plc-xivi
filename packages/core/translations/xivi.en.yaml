@@ -19,6 +19,12 @@ operator:
     empty: is empty
     filled: is not empty
 
+document:
+    problem:
+        not_a_docx: '"%file%" is not a Word document this can read. Save it as .docx and try again.'
+        could_not_fill: 'Template "%template%" could not be filled in. It may have been saved in a format Word itself would repair.'
+        no_converter: The PDF converter could not be reached, so only the .docx is available right now.
+
 history:
     period:
         today: Today
@@ -36,6 +42,8 @@ permission:
         delete: Delete
         export: Export
         import: Import
+        templates: Templates
+        document: Documents
     scope:
         own: Own records
         all: All records

@@ -13,6 +13,9 @@ services:
       # Control-plane connection. Per-tenant DSNs are resolved at runtime from
       # the control-plane database, not from this variable.
       DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-!ChangeMe!}@database:5432/${POSTGRES_DB:-app}?serverVersion=${POSTGRES_VERSION:-18}&charset=${POSTGRES_CHARSET:-utf8}
+      # Where a filled .docx is turned into a PDF (XIV-4). A service rather than
+      # a library, because the converter is LibreOffice.
+      GOTENBERG_URL: ${GOTENBERG_URL:-http://gotenberg:3000}
     volumes:
       - caddy_data:/data
       - caddy_config:/config
@@ -29,6 +32,20 @@ services:
         target: 443
         published: ${HTTP3_PORT:-443}
         protocol: udp
+
+  # Document conversion (XIV-4): a filled .docx in, a PDF out, converted by the
+  # LibreOffice inside this image. Stateless and reachable only on the compose
+  # network — it is never published, and it holds nothing between requests.
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    restart: unless-stopped
+    # The default entrypoint enables every module including Chromium; only the
+    # LibreOffice one is used here, and a converter that cannot also fetch URLs
+    # is a smaller thing to have running.
+    command:
+      - gotenberg
+      - --chromium-disable-javascript=true
+      - --api-timeout=60s
 
 ###> doctrine/doctrine-bundle ###
   database:
