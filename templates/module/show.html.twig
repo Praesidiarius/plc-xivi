@@ -29,6 +29,20 @@
 				{% if can('list', module) %}
 					<a class="btn btn-link" href="{{ path('module_index', {module: module.key}) }}">{{ 'common.back'|trans }}</a>
 				{% endif %}
+				{#
+					One button, whether the record has one template or fifty (XIV-4).
+					The href is a real page, so this works with JavaScript off; with it
+					on, Bootstrap intercepts the click and the same form opens in the
+					modal at the bottom of this page.
+				#}
+				{% if documents is not empty %}
+					<a class="btn btn-outline-secondary"
+					   href="{{ path('module_document_choose', {module: module.key, id: record.id}) }}"
+					   data-bs-toggle="modal" data-bs-target="#document-modal">
+						<i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+						<span class="d-none d-sm-inline">{{ 'document.documents'|trans }}</span>
+					</a>
+				{% endif %}
 				{% if can('edit', module, record) %}
 					<a class="btn btn-primary" href="{{ path('module_edit', {module: module.key, id: record.id}) }}">
 						<i class="bi bi-pencil" aria-hidden="true"></i> {{ 'common.edit'|trans }}
@@ -148,40 +162,6 @@
 					</div>
 				</div>
 
-				{#
-					This record, on paper (XIV-4). Only the templates that apply to its
-					variant, and only when they may generate one — the card is absent
-					rather than empty for somebody without the grant.
-
-					Both formats every time: the PDF is what gets sent, the .docx is
-					what somebody edits when the letter needs a sentence the template
-					has not got.
-				#}
-				{% if documents is not empty %}
-					<div class="card mb-3">
-						<div class="card-body">
-							<h2 class="h6 text-uppercase text-body-secondary mb-3">{{ 'document.documents'|trans }}</h2>
-
-							<ul class="list-unstyled small mb-0">
-								{% for template in documents %}
-									<li class="d-flex align-items-center justify-content-between gap-2 {{ loop.first ? '' : 'border-top pt-2 mt-2' }}">
-										<span>
-											<i class="bi bi-file-earmark-text text-body-secondary" aria-hidden="true"></i>
-											{{ template.name }}
-										</span>
-										<span class="text-nowrap">
-											<a class="btn btn-sm btn-outline-secondary"
-											   href="{{ path('module_document', {module: module.key, id: record.id, template: template.id, format: 'pdf'}) }}">PDF</a>
-											<a class="btn btn-sm btn-outline-secondary"
-											   href="{{ path('module_document', {module: module.key, id: record.id, template: template.id, format: 'docx'}) }}">DOCX</a>
-										</span>
-									</li>
-								{% endfor %}
-							</ul>
-						</div>
-					</div>
-				{% endif %}
-
 				{# History belongs on the record, not on the form: it is something you
 				   read about a record, not something you edit (§5.2). The latest few
 				   of it, at least — the whole timeline has a page of its own, so this
@@ -212,4 +192,26 @@
 			</div>
 		</div>
 	</main>
+
+	{#
+		The chooser, as a modal (XIV-4). Its contents are the same form the page at
+		module_document_choose renders, so there is one description of what
+		"generate a document" asks for — and the link above still goes to that page
+		when Bootstrap's JavaScript is not there to intercept it.
+	#}
+	{% if documents is not empty %}
+		<div class="modal fade" id="document-modal" tabindex="-1" aria-labelledby="document-modal-title" aria-hidden="true">
+			<div class="modal-dialog modal-dialog-centered">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h2 class="modal-title h5" id="document-modal-title">{{ 'document.documents'|trans }}</h2>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'common.cancel'|trans }}"></button>
+					</div>
+					<div class="modal-body">
+						{{ include('document/_choose.html.twig', {templates: documents, formats: formats, id: 'modal'}) }}
+					</div>
+				</div>
+			</div>
+		</div>
+	{% endif %}
 {% endblock %}

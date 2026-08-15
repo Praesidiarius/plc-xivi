@@ -42,6 +42,11 @@ of every page, and is not yet tied to git tags.
   stops being offered — the same claim the form and the list already make, so
   there is no documentation to go stale. Values are written the way the field
   type shows them, so a date reads as a date and a price as "CHF 19.90".
+- **One Documents button beside Edit**, opening a chooser for the template and
+  the format, rather than a card listing every template on the record. A contact
+  with fifty templates was a column of a hundred buttons. The button's href is a
+  page of its own, so the choice still works with JavaScript off; with it on,
+  Bootstrap opens the same form in a modal.
 - **A template may name a variant** (§5.5) — a letter to a person is a different
   document from a letter to a company, and one naming no variant is offered on
   every record of the module.
