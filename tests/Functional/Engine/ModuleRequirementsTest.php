@@ -120,12 +120,19 @@ final class ModuleRequirementsTest extends WebTestCase
 
     // -- helpers ------------------------------------------------------------
 
-    /** @return list<string> the kinds of line the order form offers */
+    /**
+     * The kinds of line the order form offers, read off its buttons (XIV-29).
+     *
+     * The form draws no rows until one is pressed, so what a customer is offered
+     * is exactly the list of buttons.
+     *
+     * @return list<string>
+     */
     private function kindsOffered(): array
     {
         return $this->client->request('GET', $this->url('/m/order/new'))
-            ->filter('[name$="[fields][kind]"]')
-            ->each(static fn (Crawler $node): string => (string) $node->attr('value'));
+            ->filter('button[name="add"]')
+            ->each(static fn (Crawler $node): string => substr((string) $node->attr('value'), \strlen('lines:')));
     }
 
     private function install(string $key): \Xivi\Core\Entity\ModuleDefinition

@@ -21,7 +21,6 @@ import { Tooltip } from 'bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.min.css';
 import './styles/app.css';
-import './collections.js';
 
 // Bootstrap does not scan for these itself; each one is constructed. The title
 // attribute stays on the element either way, so a page that fails to run this

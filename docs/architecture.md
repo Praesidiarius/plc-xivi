@@ -234,12 +234,27 @@ meant by describing *shapes* rather than modules.
 
 Three decisions fell out of building it:
 
-- **Adding a row is choosing its kind.** The form ended with one blank row per
-  kind, because switching a row's fields as somebody picks needed scripting and
-  the forms did not depend on any. That guarantee is gone (§8.3) and this is the
-  first thing it was holding up: a button per kind, and no blank rows (XIV-29).
-  What survives the change is the rule underneath — a row's fields follow from
-  its kind, so the kind is settled before the fields are drawn.
+- **Adding a row is choosing its kind**, and since XIV-29 that is a **button per
+  kind** rather than a blank row of each. The old arrangement existed because
+  switching a row's fields as somebody picks needed scripting and the forms did
+  not depend on any; the guarantee is gone (§8.3) and this is the first thing it
+  was holding up. The rule underneath survives unchanged — a row's fields follow
+  from its kind, so the kind is settled before the fields are drawn, and which
+  button was pressed is how it gets settled.
+  A collection *without* kinds keeps its one blank row: one row to type an
+  address into is an affordance, and it was the plural that made the other a
+  mess.
+  **The buttons are real submit buttons the controller handles**, with htmx over
+  the top swapping only the collection. So there is one mechanism and htmx
+  changes how much of the page comes back — which is also what lets the tests
+  drive the real thing rather than a shortcut. Adding or removing a row is
+  explicitly *not* a save: nothing is written and nothing is validated, because
+  somebody halfway through a form has asked for neither.
+  **A row that arrives from the browser gets its fields from what was sent.**
+  `allow_add` builds a submitted row from nothing, so the kind is not there to
+  read at PRE_SET_DATA time and the row would come back holding only the fields
+  every kind shares — dropping, on the way in, values somebody had typed. The
+  fields are built again at PRE_SUBMIT, where the kind is legible.
 - **A kind is fixed once the row exists**, and travels hidden rather than as a
   select. Offering to change it is offering to make a row disagree with the
   fields it is showing. (A *module's* variant is still editable on its form —

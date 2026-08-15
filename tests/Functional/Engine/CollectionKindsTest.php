@@ -16,6 +16,7 @@ namespace App\Tests\Functional\Engine;
 use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Security\UserCreator;
+use App\Tests\Support\AddsCollectionRows;
 use App\Tests\Support\Module\JobModule;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -36,6 +37,7 @@ use Xivi\Core\Module\ModuleRegistry;
  */
 final class CollectionKindsTest extends WebTestCase
 {
+    use AddsCollectionRows;
     use SharesATenant;
 
     private const string SLUG = 'test_row_kinds';
@@ -67,38 +69,79 @@ final class CollectionKindsTest extends WebTestCase
     }
 
     /**
-     * One blank row per kind, which is how a kind gets chosen without any
-     * JavaScript: you type in the one you want.
+     * A button per kind, and nothing drawn until one is pressed (XIV-29).
+     *
+     * The form used to end with one blank row of each kind, which is how a kind
+     * got chosen when the page could not add one.
      */
-    public function testTheFormOffersABlankRowForEachKind(): void
+    public function testTheFormOffersAButtonForEachKind(): void
     {
-        $crawler = $this->client->request('GET', $this->url('/m/job/new'));
+        $page = $this->client->request('GET', $this->url('/m/job/new'));
 
         self::assertSame(
-            [JobModule::ITEM, JobModule::COMMENT],
-            $crawler->filter('[name$="[fields][kind]"]')->each(
-                static fn (Crawler $node): string => (string) $node->attr('value'),
-            ),
+            ['lines:' . JobModule::ITEM, 'lines:' . JobModule::COMMENT],
+            $page->filter('button[name="add"]')->each(static fn (Crawler $node): string => (string) $node->attr('value')),
         );
+
+        self::assertCount(0, $page->filter('[name$="[fields][kind]"]'), 'and no rows yet');
     }
 
-    /** And each blank row asks only for what its kind has. */
-    public function testEachBlankRowAsksOnlyForItsOwnFields(): void
+    /** And a row asks only for what its kind has. */
+    public function testARowAsksOnlyForItsOwnFields(): void
     {
-        $crawler = $this->client->request('GET', $this->url('/m/job/new'));
+        $page = $this->client->request('GET', $this->url('/m/job/new'));
 
-        // The item row: text and an amount. The comment row: text alone.
-        self::assertCount(1, $crawler->filter(sprintf('[name="%s"]', self::line(0, 'amount'))));
-        self::assertCount(1, $crawler->filter(sprintf('[name="%s"]', self::line(0, 'text'))));
-        self::assertCount(0, $crawler->filter(sprintf('[name="%s"]', self::line(1, 'amount'))));
-        self::assertCount(1, $crawler->filter(sprintf('[name="%s"]', self::line(1, 'text'))));
+        // The item: text and an amount. The comment: text alone.
+        $item = $this->addRow($this->client, $page, 'lines', JobModule::ITEM);
+        self::assertCount(1, $item->filter(sprintf('[name="%s"]', self::line(0, 'amount'))));
+        self::assertCount(1, $item->filter(sprintf('[name="%s"]', self::line(0, 'text'))));
+
+        $comment = $this->addRow($this->client, $item, 'lines', JobModule::COMMENT);
+        self::assertCount(0, $comment->filter(sprintf('[name="%s"]', self::line(1, 'amount'))));
+        self::assertCount(1, $comment->filter(sprintf('[name="%s"]', self::line(1, 'text'))));
+    }
+
+    /** A row already typed into survives adding another. */
+    public function testAddingARowKeepsWhatIsAlreadyTypedIn(): void
+    {
+        $page = $this->client->request('GET', $this->url('/m/job/new'));
+        $page = $this->addRow($this->client, $page, 'lines', JobModule::ITEM);
+
+        $form = $page->selectButton('Save')->form();
+        $form[self::field('title')] = 'Rewire the office';
+        $form[self::line(0, 'text')] = 'Cabling';
+        $values = $form->getPhpValues();
+        $values['add'] = 'lines:' . JobModule::COMMENT;
+        $page = $this->client->request('POST', $form->getUri(), $values);
+
+        self::assertSame('Cabling', (string) $page->filter(sprintf('[name="%s"]', self::line(0, 'text')))->attr('value'));
+        self::assertCount(1, $page->filter(sprintf('[name="%s"]', self::line(1, 'text'))), 'and the new row is there');
+    }
+
+    /** A row can be taken away again, and takes its values with it. */
+    public function testARowCanBeRemoved(): void
+    {
+        $page = $this->client->request('GET', $this->url('/m/job/new'));
+        $page = $this->addRow($this->client, $page, 'lines', JobModule::ITEM);
+        $page = $this->addRow($this->client, $page, 'lines', JobModule::COMMENT);
+
+        $form = $page->selectButton('Save')->form();
+        $form[self::line(1, 'text')] = 'Going away';
+        $values = $form->getPhpValues();
+        $values['remove'] = 'lines:1';
+        $page = $this->client->request('POST', $form->getUri(), $values);
+
+        self::assertCount(1, $page->filter('[name$="[fields][kind]"]'), 'one row left');
+        self::assertStringNotContainsString('Going away', $page->filter('main')->html());
     }
 
     /** A derived value is shown and never taken. */
     public function testADerivedFieldIsShownWithoutBeingOffered(): void
     {
-        $crawler = $this->client->request('GET', $this->url('/m/job/new'));
-        $total = $crawler->filter(sprintf('[name="%s"]', self::line(0, 'line_total')));
+        $page = $this->client->request('GET', $this->url('/m/job/new'));
+        $page = $this->addRow($this->client, $page, 'lines', JobModule::ITEM);
+
+        $total = $page->filter(sprintf('[name="%s"]', self::line(0, 'line_total')));
 
         self::assertCount(1, $total, 'it is on the form');
         self::assertNotNull($total->attr('disabled'), 'and not for typing');
@@ -139,12 +182,14 @@ final class CollectionKindsTest extends WebTestCase
      */
     public function testAKindWithNoPriceIsSavedLikeAnyOther(): void
     {
-        $this->client->request('GET', $this->url('/m/job/new'));
-        $this->client->submitForm('Save', [
+        $page = $this->client->request('GET', $this->url('/m/job/new'));
+        $page = $this->addRow($this->client, $page, 'lines', JobModule::COMMENT);
+
+        $this->client->submit($page->selectButton('Save')->form([
             self::field('title') => 'Just a note',
             self::field('status') => JobModule::DRAFT,
-            self::line(1, 'text') => 'Nothing to charge for',
-        ]);
+            self::line(0, 'text') => 'Nothing to charge for',
+        ]));
 
         $this->client->followRedirect();
         $page = $this->client->getCrawler()->filter('main')->text();
@@ -156,14 +201,17 @@ final class CollectionKindsTest extends WebTestCase
 
     private function aJobWithLines(): int
     {
-        $this->client->request('GET', $this->url('/m/job/new'));
-        $this->client->submitForm('Save', [
+        $page = $this->client->request('GET', $this->url('/m/job/new'));
+        $page = $this->addRow($this->client, $page, 'lines', JobModule::ITEM);
+        $page = $this->addRow($this->client, $page, 'lines', JobModule::COMMENT);
+
+        $this->client->submit($page->selectButton('Save')->form([
             self::field('title') => 'Rewire the office',
             self::field('status') => JobModule::DRAFT,
             self::line(0, 'text') => 'Cabling',
             self::line(0, 'amount') => '240.00',
             self::line(1, 'text') => 'Anything below is optional',
-        ]);
+        ]));
 
         $this->client->followRedirect();
 

@@ -89,6 +89,7 @@ module:
         gets considerably more interesting.
     add_first: Add the first one
     add_row: Add %collection%
+    add_kind: 'Add %kind%'
     owner: Owner
     record: Record
     created: Created
