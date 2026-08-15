@@ -1,0 +1,34 @@
+{#
+	Pick a template, pick a format, get a document.
+
+	One form, rendered twice: inside the modal on the record page, and on its own
+	page for whoever arrives without JavaScript. A plain GET form, so the browser
+	builds the URL and nothing here needs a script to work — which is also why the
+	download route takes its template and format as query parameters.
+
+	A select rather than a row of buttons because a contact may have fifty
+	templates, and fifty buttons is the layout this replaced.
+#}
+<form method="get" action="{{ path('module_document', {module: module.key, id: record.id}) }}">
+	<div class="mb-3">
+		<label class="form-label" for="{{ id|default('document') }}-template">{{ 'document.template'|trans }}</label>
+		<select class="form-select" id="{{ id|default('document') }}-template" name="template" required>
+			{% for template in templates %}
+				<option value="{{ template.id }}">{{ template.name }}</option>
+			{% endfor %}
+		</select>
+	</div>
+
+	<div class="mb-3">
+		<label class="form-label" for="{{ id|default('document') }}-format">{{ 'document.format'|trans }}</label>
+		<select class="form-select" id="{{ id|default('document') }}-format" name="format">
+			{% for format in formats %}
+				<option value="{{ format.value }}">{{ ('document.format_' ~ format.value)|trans }}</option>
+			{% endfor %}
+		</select>
+	</div>
+
+	<button class="btn btn-primary" type="submit">
+		<i class="bi bi-download" aria-hidden="true"></i> {{ 'document.download'|trans }}
+	</button>
+</form>

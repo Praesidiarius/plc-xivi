@@ -100,14 +100,47 @@ final class DocumentTemplateTest extends WebTestCase
         self::assertStringContainsString('[today]', $page);
     }
 
+    /**
+     * One button beside the record, and the templates behind it.
+     *
+     * Not a card listing them: a contact with fifty templates would have been a
+     * column of a hundred buttons (XIV-4).
+     */
     public function testAnUploadedTemplateIsOfferedOnTheRecord(): void
     {
         $this->upload('Letter', 'Dear [first_name] [last_name].');
         $id = $this->aContact();
 
-        $page = $this->client->request('GET', $this->url('/m/contact/' . $id))->filter('main')->text();
+        $crawler = $this->client->request('GET', $this->url('/m/contact/' . $id));
+        $button = $crawler->filter(sprintf('a[href*="/m/contact/%d/document"]', $id));
 
-        self::assertStringContainsString('Letter', $page);
+        self::assertCount(1, $button, 'one button, whatever the number of templates');
+        self::assertSame('modal', $button->attr('data-bs-toggle'), 'which opens the chooser');
+        self::assertStringContainsString('Letter', $crawler->filter('#document-modal option')->text());
+    }
+
+    /**
+     * And the same choice as a page, for whoever has no JavaScript.
+     *
+     * The button's href goes here; Bootstrap only intercepts the click when it is
+     * there to do it, which is why this is a page rather than a fragment.
+     */
+    public function testTheChooserIsAlsoAPageOfItsOwn(): void
+    {
+        $this->upload('Letter', 'Dear [first_name] [last_name].');
+        $id = $this->aContact();
+
+        $crawler = $this->client->request('GET', $this->url('/m/contact/' . $id . '/document'));
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Letter', $crawler->filter('select[name="template"] option')->text());
+        self::assertCount(2, $crawler->filter('select[name="format"] option'), 'PDF and Word');
+
+        // And the form leads where the modal's does, with the format it was asked for.
+        $this->client->submit($crawler->selectButton('Download')->form(['format' => 'docx']));
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Dear Ada Lovelace.', $this->textOf((string) $this->client->getResponse()->getContent()));
     }
 
     /** A letter to a person is not a letter to a company (§5.5). */
@@ -127,7 +160,7 @@ final class DocumentTemplateTest extends WebTestCase
         $template = $this->upload('Company letter', 'Dear [company_name].', ContactModule::COMPANY);
         $id = $this->aContact();
 
-        $this->client->request('GET', $this->url(sprintf('/m/contact/%d/document/%d/docx', $id, $template)));
+        $this->client->request('GET', $this->url(sprintf('/m/contact/%d/document/download?template=%d&format=docx', $id, $template)));
 
         self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
     }
@@ -138,7 +171,7 @@ final class DocumentTemplateTest extends WebTestCase
         $template = $this->upload('Letter', 'Dear [first_name] [last_name], your number is [record_id].');
         $id = $this->aContact();
 
-        $this->client->request('GET', $this->url(sprintf('/m/contact/%d/document/%d/docx', $id, $template)));
+        $this->client->request('GET', $this->url(sprintf('/m/contact/%d/document/download?template=%d&format=docx', $id, $template)));
 
         self::assertResponseIsSuccessful();
         self::assertStringContainsString(
@@ -159,7 +192,7 @@ final class DocumentTemplateTest extends WebTestCase
         $template = $this->upload('Birthday note', 'Born on [birthday].');
         $id = $this->aContact(['birthday' => '1815-12-10']);
 
-        $this->client->request('GET', $this->url(sprintf('/m/contact/%d/document/%d/docx', $id, $template)));
+        $this->client->request('GET', $this->url(sprintf('/m/contact/%d/document/download?template=%d&format=docx', $id, $template)));
 
         self::assertStringContainsString('Born on 1815-12-10', $this->textOf((string) $this->client->getResponse()->getContent()));
     }
@@ -176,7 +209,7 @@ final class DocumentTemplateTest extends WebTestCase
         $template = $this->upload('Letter', 'Dear [first_name].');
         $id = $this->aContact();
 
-        $this->client->request('GET', $this->url(sprintf('/m/contact/%d/document/%d/pdf', $id, $template)));
+        $this->client->request('GET', $this->url(sprintf('/m/contact/%d/document/download?template=%d&format=pdf', $id, $template)));
 
         if ($this->client->getResponse()->isRedirection()) {
             self::markTestSkipped('The document converter is not running.');
@@ -203,7 +236,7 @@ final class DocumentTemplateTest extends WebTestCase
         $template = $this->upload('Letterhead', 'Dear [first_name].', null, "Sender's name");
         $id = $this->aContact();
 
-        $this->client->request('GET', $this->url(sprintf('/m/contact/%d/document/%d/docx', $id, $template)));
+        $this->client->request('GET', $this->url(sprintf('/m/contact/%d/document/download?template=%d&format=docx', $id, $template)));
 
         $docx = (string) $this->client->getResponse()->getContent();
 
@@ -261,11 +294,11 @@ final class DocumentTemplateTest extends WebTestCase
         $this->client->request('GET', $this->url('/m/contact/templates'));
         self::assertResponseIsSuccessful('whoever keeps the templates may open them');
 
-        $this->client->request('GET', $this->url(sprintf('/m/contact/%d/document/%d/docx', $id, $template)));
+        $this->client->request('GET', $this->url(sprintf('/m/contact/%d/document/download?template=%d&format=docx', $id, $template)));
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN, 'and may not send one');
 
         $this->signIn(self::SENDER);
-        $this->client->request('GET', $this->url(sprintf('/m/contact/%d/document/%d/docx', $id, $template)));
+        $this->client->request('GET', $this->url(sprintf('/m/contact/%d/document/download?template=%d&format=docx', $id, $template)));
         self::assertResponseIsSuccessful('whoever sends letters may generate one');
 
         $this->client->request('GET', $this->url('/m/contact/templates'));

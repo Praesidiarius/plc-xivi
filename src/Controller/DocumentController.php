@@ -144,19 +144,53 @@ final class DocumentController extends AbstractController
     }
 
     /**
+     * Choosing what to make, as a page of its own.
+     *
+     * The record page opens this in a modal; without JavaScript the same link
+     * lands here instead, which is why it is a page and not a fragment. A record
+     * with fifty templates has to be a list somebody picks from either way —
+     * fifty buttons beside the record would be a worse answer than a dropdown.
+     */
+    #[Route('/{id}/document', name: 'module_document_choose', requirements: ['id' => Requirement::POSITIVE_INT], methods: ['GET'])]
+    #[IsGranted(ModuleAction::Document->value, subject: 'module')]
+    public function choose(string $module, int $id): Response
+    {
+        $definition = $this->definition($module);
+        $record = $this->recordFor($definition, $id);
+
+        return $this->render('document/choose.html.twig', [
+            'module' => $definition,
+            'record' => $record,
+            'templates' => $this->templates->forRecord($definition->getKey(), $definition->variantOf($record->data)),
+            'formats' => DocumentFormat::cases(),
+        ]);
+    }
+
+    /**
      * One record, as a document.
      *
      * Both formats from one route: the PDF is what gets sent and the .docx is
      * what somebody edits when the letter needs a sentence the template has not
      * got. The record is fetched through the same check the record page uses, so
      * a document is never a way to read a record you could not open.
+     *
+     * The template and the format arrive as query parameters rather than in the
+     * path, so that the chooser can be an ordinary GET form and need no
+     * JavaScript to build a URL.
      */
-    #[Route('/{id}/document/{template}/{format}', name: 'module_document', requirements: ['id' => Requirement::POSITIVE_INT, 'template' => Requirement::POSITIVE_INT, 'format' => 'pdf|docx'], methods: ['GET'])]
+    #[Route('/{id}/document/download', name: 'module_document', requirements: ['id' => Requirement::POSITIVE_INT], methods: ['GET'])]
     #[IsGranted(ModuleAction::Document->value, subject: 'module')]
-    public function document(string $module, int $id, int $template, string $format): Response
+    public function document(string $module, int $id, Request $request): Response
     {
         $definition = $this->definition($module);
         $record = $this->recordFor($definition, $id);
+
+        $template = $request->query->getInt('template');
+        $format = (string) $request->query->get('format', DocumentFormat::Pdf->value);
+
+        // Hand-editable, both of them: an unknown format is the one everybody
+        // means, and an unknown template is a 404 like any other id.
+        $wanted = DocumentFormat::tryFrom($format) ?? DocumentFormat::Pdf;
         $found = $this->template($definition, $template);
 
         if (!$found->appliesTo($definition->variantOf($record->data))) {
@@ -165,8 +199,6 @@ final class DocumentController extends AbstractController
             // anything either.
             throw $this->createNotFoundException();
         }
-
-        $wanted = DocumentFormat::from($format);
 
         try {
             $document = $wanted === DocumentFormat::Pdf

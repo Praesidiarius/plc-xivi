@@ -602,6 +602,13 @@ backup, restore and export-on-churn keep working per customer with nothing added
 Attachments are many, large and long-lived, and will want a different answer;
 this one is bounded on purpose.
 
+**Choosing is a page, shown as a modal.** A record carries one button, not a
+list: fifty templates on a contact would be a column of a hundred buttons. The
+button links to a chooser page and Bootstrap opens that same form in a modal when
+its JavaScript is there — so the download is an ordinary GET form either way,
+which is also why the route takes its template and format as query parameters
+rather than in the path.
+
 **Word's placeholder text has to be settled before converting.** A letterhead is
 mostly content controls — the boxes somebody clicks into — and one nobody has
 typed in yet carries `showingPlcHdr`. Word displays that text and prints it;

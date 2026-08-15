@@ -28,6 +28,7 @@ use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use Xivi\Core\Document\DocumentFormat;
 use Xivi\Core\Document\DocumentTemplateRepository;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
@@ -235,6 +236,7 @@ final class ModuleController extends AbstractController
             'documents' => $this->isGranted(ModuleAction::Document->value, $module)
                 ? $this->templates->forRecord($definition->getKey(), $definition->variantOf($record->data))
                 : [],
+            'formats' => DocumentFormat::cases(),
         ]);
     }
 

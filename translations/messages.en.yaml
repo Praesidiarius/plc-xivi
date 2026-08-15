@@ -274,6 +274,12 @@ document:
     applies_to_help: A template for one kind of record is only offered on that kind.
     every_record: Every record
     uploaded_when: Uploaded
+    template: Template
+    format: Format
+    format_pdf: PDF — for sending
+    format_docx: Word — for editing first
+    download: Download
+    none_for_record: No template applies to this record yet.
     placeholders: Placeholders
     placeholders_help: >-
         Type these into the Word document, brackets included. They are replaced with this

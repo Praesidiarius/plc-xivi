@@ -1,0 +1,35 @@
+{% extends 'base.html.twig' %}
+
+{% set title = record_title(module, record.data, record.id) %}
+
+{% block title %}{{ 'document.documents'|trans }} — {{ title }}{% endblock %}
+
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<div class="d-flex align-items-start justify-content-between gap-3 mb-3">
+			<div>
+				<h1 class="h3 mb-1">{{ 'document.documents'|trans }}</h1>
+				<p class="text-body-secondary mb-0">
+					<a href="{{ path('module_show', {module: module.key, id: record.id}) }}">{{ title }}</a>
+				</p>
+			</div>
+			<a class="btn btn-link" href="{{ path('module_show', {module: module.key, id: record.id}) }}">
+				{{ 'common.back'|trans }}
+			</a>
+		</div>
+
+		<div class="card">
+			<div class="card-body">
+				{% if templates is empty %}
+					<p class="text-body-secondary mb-0">{{ 'document.none_for_record'|trans }}</p>
+				{% else %}
+					{{ include('document/_choose.html.twig', {id: 'page'}) }}
+				{% endif %}
+			</div>
+		</div>
+	</main>
+{% endblock %}

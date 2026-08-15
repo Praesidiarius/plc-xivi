@@ -267,6 +267,12 @@ document:
     applies_to_help: Eine Vorlage für eine Art von Datensatz wird auch nur dort angeboten.
     every_record: Jeden Datensatz
     uploaded_when: Hochgeladen
+    template: Vorlage
+    format: Format
+    format_pdf: PDF — zum Verschicken
+    format_docx: Word — zum vorher Bearbeiten
+    download: Herunterladen
+    none_for_record: Für diesen Datensatz passt noch keine Vorlage.
     placeholders: Platzhalter
     placeholders_help: >-
         Schreibe diese samt Klammern ins Word-Dokument. Beim Erzeugen werden sie durch die

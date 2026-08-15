@@ -26,8 +26,10 @@ use Symfony\Component\Mime\MimeTypes;
  */
 enum DocumentFormat: string
 {
-    case Docx = 'docx';
+    /** First, because it is the one being asked for nine times in ten. */
     case Pdf = 'pdf';
+
+    case Docx = 'docx';
 
     /**
      * The MIME type, looked up from the extension rather than written out here
