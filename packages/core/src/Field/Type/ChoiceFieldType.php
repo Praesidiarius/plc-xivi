@@ -142,4 +142,14 @@ final class ChoiceFieldType implements FieldType
 
         return $clean;
     }
+
+    /**
+     * A select is as wide as its longest option, which is a label rather than a
+     * sentence. Stretching it to the page makes the arrow float away from the
+     * word it belongs to.
+     */
+    public function defaultWidth(): int
+    {
+        return 4;
+    }
 }

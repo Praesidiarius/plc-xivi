@@ -138,4 +138,13 @@ final class TextareaFieldType implements FieldType
     {
         return max(1, (int) $field->getOption('max_length', self::DEFAULT_MAX_LENGTH));
     }
+
+    /**
+     * The one type whose entire point is room to write. Anything narrower would be
+     * a box you cannot see a sentence in.
+     */
+    public function defaultWidth(): int
+    {
+        return 12;
+    }
 }

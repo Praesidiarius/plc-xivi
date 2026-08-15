@@ -168,6 +168,9 @@ final class FieldController extends AbstractController
                     title: $request->request->getBoolean('title'),
                     position: $request->request->getInt('position', $target->getPosition()),
                     options: self::optionsFrom($request),
+                    // Blank means "however wide this kind of field usually is"
+                    // (XIV-43), which is a real answer and not a missing one.
+                    width: self::widthFrom($request),
                 );
 
                 $this->addFlash('success', $this->translator->trans('flash.field_saved', ['%field%' => $target->getLabel()]));
@@ -177,6 +180,28 @@ final class FieldController extends AbstractController
         }
 
         return $this->redirectToRoute('field_index', ['module' => $module]);
+    }
+
+    /**
+     * The width a form sent, or null for "follow the field type" (XIV-43).
+     *
+     * An empty box is the default rather than a zero: the control offers a blank
+     * option and that blank is what almost every field should keep. Anything
+     * outside 1-12 is nonsense from a hand-edited form and is treated as blank
+     * rather than clamped, because a form that quietly turns 40 into 12 tells
+     * somebody they got what they asked for.
+     */
+    private static function widthFrom(Request $request): ?int
+    {
+        $width = trim((string) $request->request->get('width'));
+
+        if ($width === '' || !ctype_digit($width)) {
+            return null;
+        }
+
+        $width = (int) $width;
+
+        return $width >= 1 && $width <= 12 ? $width : null;
     }
 
     /**

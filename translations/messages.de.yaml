@@ -118,6 +118,8 @@ field:
     type: Typ
     rules: Regeln
     order: Reihenfolge
+    width: Breite
+    width_default: Feldtyp-Standard
     back_to: Zurück zu %module%
     rule_required: Pflichtfeld
     rule_unique: eindeutig

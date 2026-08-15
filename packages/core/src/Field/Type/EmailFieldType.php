@@ -130,4 +130,13 @@ final class EmailFieldType implements FieldType
     {
         return $accessor;
     }
+
+    /**
+     * An address is long but never as long as a page, and it sits naturally beside
+     * a name or a phone number.
+     */
+    public function defaultWidth(): int
+    {
+        return 6;
+    }
 }

@@ -124,4 +124,24 @@ interface FieldType
      * changes the accessor without touching any of this.
      */
     public function comparableSql(string $accessor): string;
+
+    /**
+     * How wide this type wants to be drawn, in twelfths of a row (XIV-43).
+     *
+     * A type already owns how a value is stored, validated, formed and shown; how
+     * much room it needs is the same kind of knowledge and belongs beside them.
+     * The alternative was one number for everything, which is not a neutral
+     * default but a wrong one — it made a form of twelve short fields into
+     * twelve rows, and every module would have had to correct it by hand.
+     *
+     * A guess with a reason is what a default is: a `text` holding a subject line
+     * wants the whole row, and says so on the field. What this decides is what
+     * happens when nobody has said anything, which is the common case and the one
+     * that shapes how the application looks out of the box.
+     *
+     * **Twelfths, not a class name.** What the grid is called is the template's
+     * business (§8.3) and a proportion outlives whichever CSS framework renders
+     * it. Twelve is a whole row; nothing may return more or less than 1 to 12.
+     */
+    public function defaultWidth(): int;
 }

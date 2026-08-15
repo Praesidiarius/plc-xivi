@@ -128,4 +128,14 @@ final class TextFieldType implements FieldType
     {
         return $accessor;
     }
+
+    /**
+     * A name, a street, a reference number: short, and the sort of thing that
+     * pairs — first name beside last name is the case this whole feature exists
+     * for.
+     */
+    public function defaultWidth(): int
+    {
+        return 6;
+    }
 }
