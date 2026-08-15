@@ -25,6 +25,7 @@ use Xivi\Core\Import\ImportReport;
 use Xivi\Core\Import\RecordImporter;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Metadata\ModuleNotInstalled;
+use Xivi\Core\Permission\ModuleAction;
 
 /**
  * A spreadsheet back into a module (§5.6).
@@ -36,14 +37,21 @@ use Xivi\Core\Metadata\ModuleNotInstalled;
  * picking the file again to apply it, which is a fair trade for a page that
  * leaves nothing behind.
  *
- * Admin only, for now. Importing is not a more dangerous way to edit a record
- * than the form is, but it is a much faster one, and a file can empty a
- * collection across every record it names. §7.5 is where that gets a real answer.
+ * Its own permission, per module — §7.5's answer to what used to be "admin
+ * only, for now". Importing is not a more dangerous way to edit a record than
+ * the form is, but it is a much faster one, and a file can empty a collection
+ * across every record it names, so it is granted separately from editing rather
+ * than following from it.
+ *
+ * Unscoped, and that is not an oversight: a file names the records it changes,
+ * so "import, but only your own" would have to refuse individual rows halfway
+ * through a transaction that is all-or-nothing by design (§5.6). Whoever may
+ * import may import.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[Route('/m/{module}/import', requirements: ['module' => '[a-z][a-z0-9_]*'])]
-#[IsGranted('ROLE_ADMIN')]
+#[IsGranted(ModuleAction::Import->value, subject: 'module')]
 final class ImportController extends AbstractController
 {
     public function __construct(

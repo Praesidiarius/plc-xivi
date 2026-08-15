@@ -17,6 +17,7 @@ use OpenSpout\Common\Entity\Row;
 use OpenSpout\Writer\XLSX\Writer;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
+use Xivi\Core\Permission\RecordAccess;
 use Xivi\Core\Query\RecordQuery;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordRepository;
@@ -78,8 +79,14 @@ final readonly class RecordExporter
      *
      * Takes a path rather than a stream because openspout writes zip entries and
      * needs to seek; the caller streams the finished file and deletes it.
+     *
+     * The access restriction rides along with the query, and it has to: an export
+     * is the fastest way there is to leave with records somebody was only ever
+     * shown one page of. The collection sheets need no restriction of their own —
+     * they are fetched for exactly the ids this wrote, so children follow their
+     * parents in or out (§5.1).
      */
-    public function toFile(ModuleDefinition $module, RecordQuery $query, string $path): void
+    public function toFile(ModuleDefinition $module, RecordQuery $query, RecordAccess $access, string $path): void
     {
         $writer = new Writer();
         $writer->openToFile($path);
@@ -92,7 +99,7 @@ final readonly class RecordExporter
         // export must not carry somebody else's addresses.
         $exported = [];
 
-        foreach ($this->batches($module, $query) as $batch) {
+        foreach ($this->batches($module, $query, $access) as $batch) {
             foreach ($batch as $record) {
                 $exported[] = (int) $record->id;
                 $writer->addRow(Row::fromValues([$record->id, ...$this->valuesOf($module, $record)]));
@@ -125,7 +132,7 @@ final readonly class RecordExporter
      *
      * @return iterable<list<Record>>
      */
-    private function batches(ModuleDefinition $module, RecordQuery $query): iterable
+    private function batches(ModuleDefinition $module, RecordQuery $query, RecordAccess $access): iterable
     {
         $page = 1;
 
@@ -135,7 +142,7 @@ final readonly class RecordExporter
                 $query->sorts,
                 $page,
                 $this->batch,
-            ));
+            ), $access);
 
             if ($batch !== []) {
                 yield $batch;

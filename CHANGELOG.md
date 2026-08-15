@@ -26,6 +26,81 @@ of every page, and is not yet tied to git tags.
 
 ### Added
 
+- **A fine-grained permission system** ([XIV-2]), settling §7.5 and replacing
+  "authenticated, plus `ROLE_ADMIN`". What can be done is a closed `ModuleAction`
+  enum — view, list, add, edit, delete, export, import — so the catalogue of
+  permissions is that enum crossed with the modules a customer has installed,
+  worked out at runtime. There is nothing to seed when a module is installed and
+  nothing to migrate when an action ships.
+- **Groups and grants.** A grant says "this holder may do this to this module,
+  this far", held by either a group or one user, with the database enforcing that
+  exactly one of them is set. Resolution is a union with no denies, so it is a
+  maximum rather than a precedence table, and a user's own grants only ever add
+  to what their groups gave them.
+- **Scope: all records, or only your own.** It applies to every action that names
+  a record which already exists — view, list, export, edit, delete — and not to
+  adding or importing, which name none.
+- **Record access is a WHERE clause**, not a check after loading. A voter is
+  handed one subject and cannot answer "which twenty-five am I looking at"; the
+  page and its total are separate queries, so a restriction reaching one and not
+  the other would print the number of records somebody may not see directly
+  underneath the ones they may. The predicate sits beside the soft-delete one in
+  `QueryCompiler`, and the export carries it too.
+- **Two voters** for the point checks: one for "may you do this to any of this
+  module's records", annotated on the routes, and one for a single record. A
+  record you may not view answers 404 rather than 403, so guessing ids cannot be
+  used to find out which ones exist; one you may view but not change answers 403,
+  because that is the true answer.
+- **Importing is its own permission per module**, no longer `ROLE_ADMIN` — the
+  answer §5.6 said §7.5 would give it.
+- **Grants can also be made to one person**, on their own page, alongside their
+  group membership — the exception the group model cannot express without
+  inventing a group of one that nobody can read the purpose of. What their groups
+  already give is shown beside each cell and never merged into it: merged,
+  somebody grants a thing twice and then cannot work out why removing it changed
+  nothing. Each cell shows what the person can actually do — groups and personal
+  grant folded together — and cannot be set below what the groups give, since
+  grants only ever add. Only the part wider than the groups is stored, so saving
+  the form back unchanged writes nothing and a grant a group has since covered is
+  tidied away.
+- **A screen for granting permissions**, at `/users/groups`. Until it existed the
+  only way to grant anything was a console command against the customer's
+  database, which is not a thing a customer has — the same argument §8.4.1 made
+  for building the user manager before the permissions themselves. A group is
+  named, given a matrix of modules against actions with each cell reading no /
+  own records / all records, and given members. Creating one goes straight to the
+  matrix, because a group with no grants does nothing.
+- The matrix offers scope only where scope means something: `add` and `import`
+  read no / yes, since "add, but only the ones you own" describes nothing. The
+  form asks the enum rather than knowing.
+- Saving replaces the group's grants rather than merging them, so setting a cell
+  back to "no" is how a permission is taken away. Deleting a group says how many
+  people are in it first, and deletes none of them.
+- **The navigation shows only the modules you may open.** A module you cannot
+  list is not in the topbar and not on the dashboard: navigation that advertises
+  doors and then refuses them is worse than navigation that is honest about the
+  building. The empty dashboard now tells its two states apart — "nothing is
+  installed", which an administrator can fix with a command, and "nothing is
+  yours", which they cannot.
+- **Buttons follow the same rule**, through a `can()` Twig function, and the
+  per-row ones are asked about the record rather than the module, since with a
+  scope of "own" the answer differs from one line to the next. This hides
+  controls and protects nothing — every route still decides for itself.
+- **The build fails when a module route names no permission.** The surface is
+  defined by the URL — any route whose path contains `{module}` — rather than by a
+  list of controllers, so a new controller is covered the day it is written and
+  there is no list to drift. It also catches a mistyped attribute string, which
+  would otherwise 403 for everybody including administrators and read as a
+  permissions problem rather than a spelling one; a permission with no subject,
+  which fails closed and silently; and an action added to the enum that nothing
+  uses, which would appear in the admin screen as a control that does nothing.
+  `#[NoModulePermission('why')]` is the deliberate opt-out, and it demands a
+  reason.
+- **`tenant:permissions:grant-all`**, the deliberate upgrade path for an
+  installation that predates this, and the way back into one that has locked
+  itself out. The migration is structural and writes no grants: it lands for every
+  tenant at once, and deciding what a customer's people may do is not something to
+  do to them in passing.
 - **Demo data generation** (`tenant:demo:generate`), for finding out what the
   list, the query layer and the paging do at a size nobody types by hand. It
   walks a module's own definitions and asks each field *type* for a plausible
@@ -41,6 +116,21 @@ of every page, and is not yet tied to git tags.
   somebody typed into the same module survives the cleanup.
 - Both commands are registered in dev and test only, and are absent from a
   production image entirely.
+
+### Changed
+
+- **The session no longer carries a user's groups and grants.** `User` is
+  serialized into the security token, and a Doctrine collection in there comes
+  back detached — so touching it throws rather than loading lazily, and a person
+  in several groups would have written their whole permission model into the
+  session on every request only for it to be refreshed from the database anyway
+  (§8.2). The excluded properties are listed one by one rather than derived, so a
+  column silently missing from the session is not a thing that can happen quietly.
+- **`bin/ci` refuses a branch that adds no changelog entry**, before it starts the
+  stack, so forgetting costs seconds rather than the whole suite. It also notes
+  when a branch name carries no issue number. `--no-changelog` is the deliberate
+  escape hatch for a branch that genuinely changed nothing anybody would be told
+  about — a check with no way out is one that gets deleted rather than answered.
 
 ## [17.0.0] — 2026-08-14
 
@@ -139,3 +229,5 @@ began and is recorded here as one entry rather than invented as a history.
   the production image.
 - 220 tests, with functional tests that provision real tenants — real databases
   and real PostgreSQL roles.
+
+[XIV-2]: https://xivi.youtrack.cloud/issue/XIV-2

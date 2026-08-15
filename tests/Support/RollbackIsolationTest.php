@@ -21,6 +21,7 @@ use Xivi\Core\Metadata\MetadataEditor;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
+use Xivi\Core\Permission\RecordAccess;
 use Xivi\Core\Query\RecordQuery;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordRepository;
@@ -102,6 +103,7 @@ final class RollbackIsolationTest extends KernelTestCase
         return $this->switcher->runFor($this->tenant, fn (): array => self::service(RecordRepository::class)->findBy(
             self::service(MetadataRepository::class)->get(ContactModule::KEY),
             new RecordQuery(),
+            RecordAccess::unrestricted(),
         ));
     }
 

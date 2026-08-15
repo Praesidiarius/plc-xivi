@@ -14,9 +14,9 @@ the engine honest.
 > metadata engine are built and tested. A customer can list, filter, create, edit,
 > delete, export and import records, change their own fields, and read what
 > happened to a record — every page of it built from definitions in their own
-> database, and an administrator can manage the people who sign in. What is
-> missing is templates deciding which modules a customer is given, a second
-> module, and an authorization model finer than a single admin role.
+> database. An administrator can manage the people who sign in and decide, per
+> module and per action, what each of them may do. What is missing is templates
+> deciding which modules a customer is given, and a second module.
 
 The design is written down first and the code follows it. Read
 **[docs/architecture.md](docs/architecture.md)** before anything else; it explains
@@ -115,6 +115,19 @@ Nobody is ever deleted — records carry the id of whoever owns them and history
 id of whoever changed them, so deactivating keeps all of it attributable and is
 reversible. Every refusal here is about lock-out: you cannot deactivate yourself,
 demote yourself, or leave the installation with no administrator.
+
+**Permissions, per module and per action** (§8.4). What can be done is a closed
+list — view, list, add, edit, delete, export, import — so the set of permissions
+is that list crossed with the modules a customer has installed, with nothing to
+seed and nothing to keep in step. Grants are given to a group and inherited by
+its members, or to one person on top of that; they only ever add, so resolving
+somebody is a maximum rather than a precedence table nobody can hold in their
+head. Mutating and reading alike can be narrowed to **only the records that
+person owns**, which is a WHERE clause rather than a check after loading — a page
+filtered after fetching shows four rows under a total that says twenty-five.
+Administrators bypass all of it, because a permission that can be taken from the
+last administrator is a locked-out installation. Everybody else starts with
+nothing.
 
 **Classic PHP execution, on purpose.** FrankenPHP runs without worker mode, so no
 PHP state survives a request boundary and cross-tenant leakage (§7.4) is
@@ -237,6 +250,7 @@ the container is the better instrument.
 | `tenant:module:install <slug> <module>` | Installs a module for one tenant: its table and field definitions; `--preset` picks which fields |
 | `tenant:list` | Shows the registry |
 | `tenant:migrate [--slug=]` | Applies tenant migrations to every tenant; run it on every deploy |
+| `tenant:permissions:grant-all <slug>` | Grants every action on every installed module to one tenant's non-admin users; the upgrade path for an installation that predates permissions, and the way back into a locked-out one |
 | `tenant:rotate-secrets` | Re-encrypts stored passwords with the active key |
 | `doctrine:migrations:migrate --em=control` | Control-plane schema only |
 

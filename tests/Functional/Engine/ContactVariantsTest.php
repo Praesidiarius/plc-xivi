@@ -21,6 +21,7 @@ use Xivi\Contact\ContactModule;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
+use Xivi\Core\Permission\RecordAccess;
 use Xivi\Core\Query\Filter;
 use Xivi\Core\Query\Operator;
 use Xivi\Core\Query\RecordQuery;
@@ -200,6 +201,7 @@ final class ContactVariantsTest extends KernelTestCase
         $found = $this->switcher->runFor($this->tenant, fn (): array => self::service(RecordRepository::class)->findBy(
             $this->module(),
             new RecordQuery([new Filter('company', Operator::Equals, (int) $company->id)]),
+            RecordAccess::unrestricted(),
         ));
 
         $names = array_map(static fn (Record $r): string => (string) $r->get('first_name'), $found);
@@ -215,12 +217,13 @@ final class ContactVariantsTest extends KernelTestCase
         $this->save(['kind' => ContactModule::PERSON, 'first_name' => 'Ada', 'last_name' => 'Lovelace']);
 
         $all = $this->switcher->runFor($this->tenant, fn (): array => self::service(RecordRepository::class)
-            ->findBy($this->module(), new RecordQuery()));
+            ->findBy($this->module(), new RecordQuery(), RecordAccess::unrestricted()));
         self::assertCount(2, $all);
 
         $companies = $this->switcher->runFor($this->tenant, fn (): array => self::service(RecordRepository::class)->findBy(
             $this->module(),
             new RecordQuery([new Filter('kind', Operator::Equals, ContactModule::COMPANY)]),
+            RecordAccess::unrestricted(),
         ));
         self::assertCount(1, $companies);
         self::assertSame('Acme AG', $companies[0]->get('company_name'));

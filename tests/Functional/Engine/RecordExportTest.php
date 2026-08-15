@@ -23,6 +23,7 @@ use Xivi\Core\Export\RecordExporter;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
+use Xivi\Core\Permission\RecordAccess;
 use Xivi\Core\Query\Filter;
 use Xivi\Core\Query\Operator;
 use Xivi\Core\Query\RecordQuery;
@@ -227,6 +228,7 @@ final class RecordExportTest extends KernelTestCase
             $exporter->toFile(
                 self::service(MetadataRepository::class)->get(ContactModule::KEY),
                 $query,
+                RecordAccess::unrestricted(),
                 $this->path,
             );
         });

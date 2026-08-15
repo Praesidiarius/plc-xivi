@@ -23,6 +23,7 @@ use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
+use Xivi\Core\Permission\RecordAccess;
 use Xivi\Core\Query\Direction;
 use Xivi\Core\Query\Filter;
 use Xivi\Core\Query\Operator;
@@ -346,6 +347,7 @@ final class RecordQueryTest extends KernelTestCase
         return $this->switcher->runFor($this->tenant, fn (): array => self::service(RecordRepository::class)->findBy(
             self::service(MetadataRepository::class)->get(ContactModule::KEY),
             $query,
+            RecordAccess::unrestricted(),
         ));
     }
 
@@ -354,6 +356,7 @@ final class RecordQueryTest extends KernelTestCase
         return $this->switcher->runFor($this->tenant, fn (): int => self::service(RecordRepository::class)->countBy(
             self::service(MetadataRepository::class)->get(ContactModule::KEY),
             $query,
+            RecordAccess::unrestricted(),
         ));
     }
 

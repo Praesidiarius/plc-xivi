@@ -15,6 +15,7 @@ namespace App\Controller;
 
 use App\Tenant\Entity\User;
 use App\Tenant\Repository\UserRepository;
+use App\Tenant\Security\PermissionManager;
 use App\Tenant\Security\UserChangeRefused;
 use App\Tenant\Security\UserManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -23,6 +24,9 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Xivi\Core\Metadata\MetadataRepository;
+use Xivi\Core\Permission\ModuleAction;
+use Xivi\Core\Permission\PermissionScope;
 
 /**
  * The people who can sign in to this customer's installation (§8).
@@ -44,6 +48,8 @@ final class UserController extends AbstractController
     public function __construct(
         private readonly UserManager $users,
         private readonly UserRepository $repository,
+        private readonly PermissionManager $permissions,
+        private readonly MetadataRepository $metadata,
     ) {
     }
 
@@ -81,6 +87,9 @@ final class UserController extends AbstractController
             }
         }
 
+        // No permissions section when adding: grants need somebody to belong to,
+        // and asking for them before the account exists would be two screens
+        // pretending to be one.
         return $this->render('user/form.html.twig', [
             'user' => null,
             'submitted' => $request->request->all(),
@@ -106,6 +115,20 @@ final class UserController extends AbstractController
                     $this->currentUser(),
                 );
 
+                // Read before the groups change: the matrix that was submitted
+                // was drawn against *this* floor, and unticking a group in the
+                // same save would otherwise turn its grant into a personal one.
+                $inherited = PermissionManager::inheritedMatrixOf($user);
+
+                $this->permissions->setGroupsOf($user, array_values(array_map(
+                    static fn (mixed $id): int => (int) $id,
+                    $request->request->all('groups'),
+                )));
+
+                /** @var array<string, array<string, string>> $matrix */
+                $matrix = $request->request->all('grants');
+                $this->permissions->applyUserGrants($user, $matrix, $inherited);
+
                 $this->addFlash('success', sprintf('Saved %s.', $user->getEmail()));
 
                 return $this->redirectToRoute('user_index');
@@ -117,6 +140,19 @@ final class UserController extends AbstractController
         return $this->render('user/form.html.twig', [
             'user' => $user,
             'submitted' => [],
+            'modules' => $this->metadata->all(),
+            'actions' => ModuleAction::cases(),
+            'scopes' => PermissionScope::cases(),
+            'groups' => $this->permissions->all(),
+            'inGroups' => array_map(
+                static fn ($group): int => (int) $group->getId(),
+                $user->getPermissionGroups()->toArray(),
+            ),
+            // The person's own grants are the only cells this screen may edit;
+            // what their groups give them is shown beside those, never merged
+            // into them (see PermissionManager::inheritedMatrixOf).
+            'matrix' => PermissionManager::ownMatrixOf($user),
+            'inherited' => PermissionManager::inheritedMatrixOf($user),
         ]);
     }
 

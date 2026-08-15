@@ -20,6 +20,7 @@ use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Permission\RecordAccess;
 
 /**
  * Turns a RecordQuery into SQL (§7.3) — the highest-risk component in the
@@ -38,9 +39,11 @@ use Xivi\Core\Field\FieldTypeRegistry;
  * 3. **Sorting by a collection is refused.** With two addresses there are two
  *    cities and no answer, so this raises rather than picking one.
  *
- * What it does not do is decide *which* records a person may see. That is §7.5,
- * and when it arrives it is another predicate alongside the soft-delete one in
- * conditions() — a WHERE clause, not a check after loading.
+ * 4. **Which records a person may see is a predicate here, not a check after
+ *    loading** (§7.5). It arrived exactly where this docblock said it would:
+ *    beside the soft-delete condition in compile(). A page filtered after
+ *    fetching shows four rows under a total that says twenty-five, and the total
+ *    is what somebody believes.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
@@ -55,12 +58,46 @@ final readonly class QueryCompiler
     /** The alias the records table carries, so a semi-join can name its parent. */
     public const string ALIAS = 'r';
 
-    public function compile(ModuleDefinition $module, RecordQuery $query): CompiledQuery
+    /**
+     * Where a module's row records who it belongs to.
+     *
+     * A module's own table only — a collection's rows carry a parent instead
+     * (§5.1), which is why access to a child resolves through the record that
+     * owns it rather than being asked here.
+     */
+    public const string OWNER_COLUMN = 'owner_id';
+
+    /**
+     * The access restriction is a separate argument and deliberately **not** part
+     * of RecordQuery.
+     *
+     * RecordQuery is built from request parameters by RecordQueryFactory. A
+     * permission that travelled in the same object as the filters would be one
+     * URL edit away from being chosen by the person it restricts, and a
+     * permission the user can set is not a permission. Two arguments, two
+     * origins, no way to confuse them.
+     */
+    public function compile(ModuleDefinition $module, RecordQuery $query, RecordAccess $access): CompiledQuery
     {
         $conditions = [sprintf('%s.deleted_at IS NULL', self::ALIAS)];
         $parameters = [];
         $types = [];
         $slot = 0;
+
+        if ($access->isRestricted()) {
+            $ownerId = $access->ownerId();
+
+            if ($ownerId === null) {
+                // Nobody's records. A false predicate rather than an early
+                // return, so the count and the page still go through the same
+                // statement shape and cannot come to different conclusions.
+                $conditions[] = 'FALSE';
+            } else {
+                $conditions[] = sprintf('%s.%s = :access_owner', self::ALIAS, self::OWNER_COLUMN);
+                $parameters['access_owner'] = $ownerId;
+                $types['access_owner'] = ParameterType::INTEGER;
+            }
+        }
 
         foreach ($query->filters as $filter) {
             $conditions[] = $filter->collection === null

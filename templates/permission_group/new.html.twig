@@ -1,0 +1,37 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}New group{% endblock %}
+
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell" style="max-width: 32rem;">
+		{{ include('_flashes.html.twig') }}
+
+		<h1 class="h3 mb-4">New group</h1>
+
+		{#
+			Only the name here. What the group may do is the next screen, because a
+			blank matrix beside an empty name box asks somebody to make two decisions
+			at once and the second one is the real work.
+		#}
+		<form method="post" class="card">
+			<div class="card-body">
+				<input type="hidden" name="_token" value="{{ csrf_token('manage-groups') }}">
+
+				<div class="mb-3">
+					<label class="form-label" for="label">Name</label>
+					<input class="form-control" id="label" name="label" required autofocus
+					       value="{{ submitted.label ?? '' }}"
+					       placeholder="Sales, Support, Read only…">
+					<div class="form-text">What the job is called. You can rename it later.</div>
+				</div>
+
+				<div class="d-flex gap-2">
+					<button type="submit" class="btn btn-primary">Create</button>
+					<a class="btn btn-link" href="{{ path('group_index') }}">Cancel</a>
+				</div>
+			</div>
+		</form>
+	</main>
+{% endblock %}

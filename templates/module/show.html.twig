@@ -43,16 +43,24 @@
 			</div>
 
 			<div class="d-flex align-items-center gap-2">
-				<a class="btn btn-link" href="{{ path('module_index', {module: module.key}) }}">Back</a>
-				<a class="btn btn-primary" href="{{ path('module_edit', {module: module.key, id: record.id}) }}">
-					<i class="bi bi-pencil" aria-hidden="true"></i> Edit
-				</a>
-				<form method="post" action="{{ path('module_delete', {module: module.key, id: record.id}) }}">
-					<input type="hidden" name="_token" value="{{ csrf_token('delete-record-' ~ record.id) }}">
-					<button type="submit" class="btn btn-outline-danger">
-						<i class="bi bi-trash" aria-hidden="true"></i> Delete
-					</button>
-				</form>
+				{# Back only leads anywhere if the list does: somebody may be allowed
+				   to open a record they cannot browse to. #}
+				{% if can('list', module) %}
+					<a class="btn btn-link" href="{{ path('module_index', {module: module.key}) }}">Back</a>
+				{% endif %}
+				{% if can('edit', module, record) %}
+					<a class="btn btn-primary" href="{{ path('module_edit', {module: module.key, id: record.id}) }}">
+						<i class="bi bi-pencil" aria-hidden="true"></i> Edit
+					</a>
+				{% endif %}
+				{% if can('delete', module, record) %}
+					<form method="post" action="{{ path('module_delete', {module: module.key, id: record.id}) }}">
+						<input type="hidden" name="_token" value="{{ csrf_token('delete-record-' ~ record.id) }}">
+						<button type="submit" class="btn btn-outline-danger">
+							<i class="bi bi-trash" aria-hidden="true"></i> Delete
+						</button>
+					</form>
+				{% endif %}
 			</div>
 		</div>
 

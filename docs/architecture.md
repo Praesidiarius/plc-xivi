@@ -596,6 +596,11 @@ Not yet decided. Decide deliberately rather than by accident.
    check performed after loading. See §8.4. Collections inherit the answer rather
    than needing their own: a child's access resolves through its parent, which is
    why its rows carry a parent and no owner of their own (§5.1).
+   *Settled — see §8.4.* The entanglement was real and load-bearing: the record-level
+   half could not be a voter, because a voter is handed one subject and a list is
+   twenty-five plus a total. What remains open is narrower than the question was:
+   whether a reference picker should be scoped, and what a permission means for a
+   module the customer has since uninstalled.
 6. **Links between records.** *Half built.* A link **is** a field type — that question is
    answered: `reference` stores the target's id, and the widget, the display and the
    filtering all come from the type like any other value. A person points at their company
@@ -646,23 +651,93 @@ enabled-module list compiled into each customer's bundle, and customers landing 
 whatever commit was current the day they signed up. §3 wants module availability to
 be a runtime concern; a build artefact per customer is the opposite of that.
 
-### 8.4 Authorization is deliberately unfinished
+### 8.4 Authorization: grants, resolved per person
 
-Authenticated or not, plus `ROLE_ADMIN`. The real model — roles versus
-permissions, per-module access, record-level rules such as "may I see contacts I do
-not own" — is an open question, because record-level rules become WHERE clauses and
-so cannot be designed apart from §7.3. Deciding it before a single module exists is
-the speculative generalisation §1 warns against.
+Waiting was the right call. The record-level half turned out to be a query
+problem rather than a security-layer one, and designing it before the query layer
+existed would have produced a check performed after loading — which is the wrong
+answer in a way that looks right.
 
-`ROLE_ADMIN` currently gates the metadata editor (§5.4), the import (§5.6) and
-user management. Everything else is open to anybody who can sign in.
+**What can be done is a closed enum**: view, list, add, edit, delete, export,
+import, per module. That closure is what makes the *catalogue* free — it is the
+enum crossed with the modules a customer has installed, worked out at runtime —
+so there is no table of available permissions to seed when a module is installed
+and none to migrate when a new action ships. Nothing can drift out of step with
+the code, because nothing is written down twice. It is §5's field-type registry
+argument applied to a second thing.
+
+**Only grants are stored.** A grant says one holder may do one action to one
+module's records, this far. The holder is a group or a person, in one table with
+a check constraint enforcing exactly one — resolving somebody is a union of the
+two, and two tables would mean writing that union twice and having it disagree
+once.
+
+**Scope is all records or only your own**, and it applies to every action that
+names a record which already exists. Adding and importing name none, so the enum
+says they cannot be scoped and every screen asks it rather than knowing.
+
+**Nothing can deny.** Grants are additive, so resolution is a maximum rather than
+a precedence table, and therefore order-independent. "Why can this person still
+see that" never becomes a question with a complicated answer. The cost is that
+"everything except one thing" has to be expressed as a smaller grant, which is
+the trade every deny-list eventually wishes it had made.
+
+**`ROLE_ADMIN` stays a bypass, not a group.** A group somebody can be removed
+from would reintroduce exactly the lock-out §8.4.1 was built to refuse, and there
+is no support desk behind this.
+
+**Three enforcement seams, and the third is why this was entangled with §7.3:**
+
+- A route carries `#[IsGranted]`, checked before the action runs.
+- A record is decided by a voter, which is what a voter can do.
+- **A list is decided by a WHERE clause**, which is what a voter cannot. By the
+  time a voter runs, the page is fetched and the total is counted separately — a
+  restriction reaching one and not the other prints the number of records
+  somebody may not see directly underneath the ones they may. The predicate sits
+  beside the soft-delete one in the compiler, exactly where §5.3 reserved the
+  slot. The export carries it too, being the fastest way to leave with records
+  you were shown one page of.
+
+The two seams must agree, and the shape of their disagreement is the
+vulnerability: a record kept out of a list that can still be opened by typing its
+id is not protected, merely inconvenient to find. Refusing it answers 404 rather
+than 403, so guessing ids reveals nothing; a record you may view but not change
+answers 403, because that is true.
+
+**Default deny, and the upgrade path is a command rather than a migration.**
+Before this, anybody who could sign in could do anything. The migration that
+added the tables writes no grants: it lands for every tenant at once (§4), and
+deciding what a customer's people may do is not something to do to them in
+passing. `tenant:permissions:grant-all` is the deliberate act, and also the way
+back into an installation that has locked itself out.
+
+**The build fails when a route names no permission.** The catalogue needs no
+maintenance, but nothing in PHP makes somebody annotate a new route, and an
+unprotected one is invisible — it works, for everybody, which is what a correct
+one looks like. The surface is defined by the URL rather than by a list of
+controllers, so a new controller is covered the day it is written.
+
+`ROLE_ADMIN` still gates the metadata editor (§5.4), user management and the
+permission screens themselves — the last because gating them with a module
+permission would be circular. Importing is no longer among them: it is its own
+grant, which is the answer §5.6 said this section would give it.
+
+Still open: whether a reference picker should show only records the person may
+see, which is a real question about whether a link can point at something you
+cannot read; and what a grant means for a module the customer has uninstalled,
+which is inert today and deliberately not deleted.
 
 ### 8.4.1 Managing users, before managing permissions
 
 Permissions need something to be granted *to*, and until there was a screen for
 users the only way to have a second one was a console command against the
 customer's database — which is not a thing a customer has. So the user manager
-came first, deliberately, and is where the model of §8.4 will attach.
+came first, deliberately, and is where the model of §8.4 attached: group
+membership and a person's own grants are edited on the same page as their name.
+
+The same argument ran a second time and produced the group screens. A permission
+model with no screen is one only its author can use, and "run this command
+against your customer's database" is not an answer.
 
 **Deactivate, never delete.** Records carry the id of whoever owns them and
 history carries the id of whoever made each change, so deleting a row leaves
@@ -777,6 +852,10 @@ decisions was taken, in the sections above, and what is still open, below.
   needed a dispatch point and not a decision about whether a subscriber may cancel
   a host action. Worth noticing: the passive half of §6 was usable all along, and
   the veto question was never actually blocking it.
+- **Permissions are grants, and record-level access is a WHERE clause** — see
+  §8.4. The design was blocked on §7.3 for a real reason rather than a cautious
+  one: a voter is handed one subject, and a list is a page plus a total counted
+  by a second query.
 - **Tests are isolated by a transaction, one tenant database per test class.** Each
   test runs inside a transaction on the tenant connection and is rolled back after
   it, so nothing it writes — records, definitions, users, history — can reach the
@@ -804,6 +883,9 @@ decisions was taken, in the sections above, and what is still open, below.
   nothing has to remember which kind it is.
 
 ### 9.3 Next
+
+**The permission system is built** (§8.4, §7.5). What is left of it is small and
+named at the end of that section.
 
 **Templates** (§6.1), the other half of provisioning: which modules a
 customer gets, with which presets. They need nothing new from the engine — a

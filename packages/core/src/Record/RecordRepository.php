@@ -21,6 +21,7 @@ use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Permission\RecordAccess;
 use Xivi\Core\Query\QueryCompiler;
 use Xivi\Core\Query\RecordQuery;
 
@@ -70,11 +71,17 @@ final readonly class RecordRepository
      * it — and to keep LIMIT and OFFSET as bound integers rather than as numbers
      * pasted into it.
      *
+     * The access restriction is required rather than defaulted, because a
+     * default would be a decision made by whoever wrote this signature on behalf
+     * of every caller that ever forgets. Written out, a read that shows
+     * everybody's records says so, and slice by slice they can be found by
+     * grepping for RecordAccess::unrestricted().
+     *
      * @return list<Record>
      */
-    public function findBy(ModuleDefinition $module, RecordQuery $query): array
+    public function findBy(ModuleDefinition $module, RecordQuery $query, RecordAccess $access): array
     {
-        $compiled = $this->queries->compile($module, $query);
+        $compiled = $this->queries->compile($module, $query, $access);
 
         $rows = $this->connection->fetchAllAssociative(
             sprintf(
@@ -96,11 +103,14 @@ final readonly class RecordRepository
      *
      * Counted with the same compiled predicate as the page itself, so the total
      * under a list can never disagree with the list — which it would the moment
-     * two code paths built the same WHERE clause separately.
+     * two code paths built the same WHERE clause separately. That was already
+     * true of filters; it now carries the access restriction too, which is the
+     * case where disagreeing would not just look wrong but say out loud how many
+     * records somebody is not allowed to see.
      */
-    public function countBy(ModuleDefinition $module, RecordQuery $query): int
+    public function countBy(ModuleDefinition $module, RecordQuery $query, RecordAccess $access): int
     {
-        $compiled = $this->queries->compile($module, $query);
+        $compiled = $this->queries->compile($module, $query, $access);
 
         return (int) $this->connection->fetchOne(
             sprintf(

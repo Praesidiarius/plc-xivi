@@ -26,6 +26,7 @@ use Xivi\Core\Import\RecordImporter;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
+use Xivi\Core\Permission\RecordAccess;
 use Xivi\Core\Query\RecordQuery;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordRepository;
@@ -449,7 +450,7 @@ final class RecordImportTest extends KernelTestCase
         );
 
         $this->switcher->runFor($this->tenant, fn () => self::service(\Xivi\Core\Export\RecordExporter::class)
-            ->toFile(self::module(), new RecordQuery(), $this->path));
+            ->toFile(self::module(), new RecordQuery(), RecordAccess::unrestricted(), $this->path));
 
         $report = $this->apply();
 
@@ -528,7 +529,7 @@ final class RecordImportTest extends KernelTestCase
     private function all(): array
     {
         return $this->switcher->runFor($this->tenant, fn (): array => self::service(RecordRepository::class)
-            ->findBy(self::module(), new RecordQuery()));
+            ->findBy(self::module(), new RecordQuery(), RecordAccess::unrestricted()));
     }
 
     /** @return list<Record> */

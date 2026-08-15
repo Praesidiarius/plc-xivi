@@ -19,6 +19,7 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Metadata\ModuleNotInstalled;
+use Xivi\Core\Permission\RecordAccess;
 use Xivi\Core\Query\Filter;
 use Xivi\Core\Query\Operator;
 use Xivi\Core\Query\RecordQuery;
@@ -99,11 +100,16 @@ final class RecordReferenceType extends AbstractType
             $filters[] = new Filter($module->getVariantField(), Operator::Equals, $variant);
         }
 
+        // Unrestricted, and this is one of the places §7.5 has still to decide
+        // about: a picker showing only your own companies is defensible, and so
+        // is one that shows every company you are allowed to point at. Widening
+        // it later is a change to this line; narrowing it silently would have
+        // been a picker that quietly omits the right answer.
         $candidates = $this->records->findBy($module, new RecordQuery(
             filters: $filters,
             sorts: self::sortByTitle($module),
             perPage: self::MAX_CHOICES,
-        ));
+        ), RecordAccess::unrestricted());
 
         $choices = [];
 
