@@ -730,9 +730,9 @@ about a file is not the same as their agreeing about what to draw.**
 the PDF for exactly that case, and the page says so rather than showing a stack
 trace.
 
-Still to decide: repeating blocks, so a template can lay out a contact's
-addresses or an invoice's lines. A marker is one value, and a table that grows is
-a different feature in the Word document as much as in the code.
+*Repeating blocks, once still to decide, are §5.11 — a template can lay out a
+contact's addresses or an invoice's lines, and a table row carrying a collection
+marker is what grows.*
 
 ### 5.8 Lifecycles (XIV-14)
 
@@ -888,6 +888,57 @@ at, which is exactly what somebody asking about it wants.
 **The year is the year the number is allocated in**, never a date on the record.
 Otherwise backdating an order to December reaches into last year's numbering,
 which is a book that is closed.
+
+---
+
+### 5.11 Repeating blocks in templates (XIV-17)
+
+An invoice whose template cannot list its lines is not an invoice. §5.7 left this
+open and it is now closed: **a table row containing a collection marker draws
+itself once per row of that collection.**
+
+`anourvalar/office` does not do it — its repeating rows are a spreadsheet
+feature, and for a .docx it substitutes flat markers and nothing else. So the
+document is preprocessed before the library ever sees it: **the rows are
+multiplied first and substituted second**, and the library still only ever
+substitutes markers. Doing it the other way round would mean copying rows that
+have already lost the markers saying which row they were.
+
+**No syntax to open and close a block.** Writing `[lines.description]` in a cell
+is what makes that row repeat, because a marker naming a collection can only mean
+"once per row of it". The `<w:tr>` is the unit because it is the unit Word gives
+a person: they build the row they want and it comes out that many times.
+
+**How much the template cares about kinds is the template's business**, which is
+the decision the ticket asked for and it is deliberately not a single answer:
+
+- a row whose markers name a kind — `[lines:article.description]` — is drawn only
+  for lines of that kind, so a template can lay out one row per kind and give the
+  comment line no money columns and the subtotal line a bold figure;
+- a row whose markers name no kind is drawn for every line.
+
+So the simple template stays one row and the careful one is possible. The
+rejected alternative was for the engine to hand each row a pre-formatted set of
+markers so that one block fits all — less to lay out, and it would have meant the
+engine choosing how somebody's invoice looks, which is the one thing a template
+is for.
+
+**Consecutive blocks for one collection are a group**, replaced as a whole by the
+rows in the order the collection holds them (XIV-21). They have to be: a comment
+sits *between* two article lines, so drawing all the article rows and then all
+the comment rows would sort the invoice by kind. A row no block was laid out for
+is not drawn at all — falling back to another kind's row prints a comment through
+an article line's columns, and a template that lists only what it has a row for
+is a template somebody meant.
+
+**An empty collection leaves nothing behind**, not one blank row: the table's
+heading is still there, which is the sensible page for a document with no lines.
+The record's own markers — the totals, the number — sit outside the table and are
+written once, because they are values rather than columns.
+
+Markers are found in the row's *text* and replaced tolerantly of markup, because
+Word cuts a placeholder somebody typed in one go across several runs. That is the
+same problem §5.7 describes and the same technique answers it.
 
 ---
 

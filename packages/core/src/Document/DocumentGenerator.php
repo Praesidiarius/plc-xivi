@@ -42,6 +42,7 @@ final readonly class DocumentGenerator
 {
     public function __construct(
         private DocumentMarkers $markers,
+        private RepeatingBlocks $blocks,
         private PdfConverter $converter,
         private EventDispatcherInterface $events,
     ) {
@@ -115,6 +116,13 @@ final readonly class DocumentGenerator
         $target = self::temporary('xivi-document-', '');
 
         try {
+            // The rows are multiplied first and substituted second (XIV-17), so
+            // by the time the library reads the file every line item is an
+            // ordinary table row with ordinary text in it. Doing it the other way
+            // round would mean copying rows that have already lost the markers
+            // saying which row they were.
+            $this->blocks->expand($source, $module, $record);
+
             (new DocumentService())
                 ->generate($source, $data)
                 ->saveAs($target);

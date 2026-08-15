@@ -32,6 +32,36 @@ of every page, and is not yet tied to git tags.
 
 ### Added
 
+- **Repeating blocks in document templates** ([XIV-17]). A table row containing a
+  collection marker — `[lines.description]` — draws itself once per row of that
+  collection, so an invoice template can finally list what it is invoicing. There
+  is nothing to open and close: a marker naming a collection can only mean "once
+  per row of it", and the `<w:tr>` is the unit because it is the unit Word gives
+  a person.
+- **How much a template cares about kinds is the template's business.** A row
+  whose markers name a kind — `[lines:article.description]` — is drawn only for
+  lines of that kind, so a comment line gets no money columns and a subtotal gets
+  a bold figure; a row naming no kind is drawn for every line. The rejected
+  alternative was for the engine to hand each row pre-formatted markers so one
+  block fits all, which would have meant the engine deciding how somebody's
+  invoice looks — the one thing a template is for.
+- **Rows are drawn in the order the collection holds them**, interleaved rather
+  than grouped by kind: a comment sits *between* two article lines and means
+  nothing anywhere else. A line no block was laid out for is not drawn at all,
+  because falling back to another kind's row prints a comment through an article
+  line's columns.
+- **An empty collection leaves nothing behind** rather than one blank row — the
+  table's heading survives, which is the sensible page for a document with no
+  lines. Totals and the document number sit outside the table and are written
+  once, being values rather than columns.
+- **The library never sees a repeating block.** `anourvalar/office` does not do
+  them for .docx, so the rows are multiplied first and substituted second; by the
+  time it reads the file every line item is an ordinary row of ordinary text.
+  Markers are matched tolerantly of markup, because Word cuts a placeholder typed
+  in one go across several runs — including one in a table cell.
+- **The placeholder reference lists them**, one section per collection and one
+  sub-list per kind, with a line saying what putting one in a cell does.
+
 - **Document numbers** ([XIV-15]). A field can be numbered from a sequence, and
   an order now carries `ORD-2026-0001`. It is what the order is *called* — the
   heading on its page and the text of every link to it — because "the Acme one
@@ -671,6 +701,7 @@ began and is recorded here as one entry rather than invented as a history.
 [XIV-14]: https://xivi.youtrack.cloud/issue/XIV-14
 [XIV-15]: https://xivi.youtrack.cloud/issue/XIV-15
 [XIV-16]: https://xivi.youtrack.cloud/issue/XIV-16
+[XIV-17]: https://xivi.youtrack.cloud/issue/XIV-17
 [XIV-18]: https://xivi.youtrack.cloud/issue/XIV-18
 [XIV-20]: https://xivi.youtrack.cloud/issue/XIV-20
 [XIV-21]: https://xivi.youtrack.cloud/issue/XIV-21

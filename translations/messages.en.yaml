@@ -296,6 +296,14 @@ document:
     placeholders_help: >-
         Type these into the Word document, brackets included. They are replaced with this
         record's values when the document is generated. Anything you leave out stays out.
+    collection_help: >-
+        Put one of these in a cell and the whole table row repeats — once for every row of
+        this list, in the order they are in. Totals and anything else about the record
+        belong outside the table, where they are written once.
+    collection_kinds_help: >-
+        A row whose placeholders name a kind is only drawn for that kind, so you can lay out
+        one table row per kind and give each the columns it needs. Drop the kind — write
+        [%example%] — and the row is drawn for every one of them.
 
 permission:
     yes: 'Yes'
