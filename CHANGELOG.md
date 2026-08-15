@@ -30,7 +30,14 @@ of every page, and is not yet tied to git tags.
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- **The export's content type comes from `symfony/mime`** ([XIV-5]) instead of a
+  constant copied into `ModuleController`. The package is now a direct
+  dependency, and the MIME type is looked up from the `.xlsx` extension the
+  export is already named for — a table worth having somebody else maintain.
+  Looked up rather than sniffed: the response would otherwise ask libmagic what
+  the bytes are, which is a different answer per image for a file we wrote.
 
 ## [17.0.1] — 2026-08-15
 
@@ -324,6 +331,7 @@ began and is recorded here as one entry rather than invented as a history.
   and real PostgreSQL roles.
 
 [XIV-2]: https://xivi.youtrack.cloud/issue/XIV-2
+[XIV-5]: https://xivi.youtrack.cloud/issue/XIV-5
 [XIV-8]: https://xivi.youtrack.cloud/issue/XIV-8
 [XIV-9]: https://xivi.youtrack.cloud/issue/XIV-9
 [XIV-10]: https://xivi.youtrack.cloud/issue/XIV-10
