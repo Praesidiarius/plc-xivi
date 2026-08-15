@@ -1,0 +1,95 @@
+name: Release
+
+# A tag is what publishes a release. The notes are not written here and not
+# written twice: they are `docs/changelog/<version>.md`, the file the release
+# procedure in CHANGELOG.md already produces, so the thing announced on GitHub
+# and the thing in the repository cannot drift apart.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish, e.g. v17.0.2'
+        required: true
+
+jobs:
+  release:
+    name: Publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    # Creating a release writes to the repository. Nothing else here does.
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      # The tag names the version; everything downstream derives from it rather
+      # than being typed a second time.
+      - name: Read the version from the tag
+        id: version
+        run: |
+          tag="${{ inputs.tag || github.ref_name }}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      # Two gates, both of which exist because the failure they catch is silent.
+      #
+      # A tag with no changelog file means somebody tagged without cutting a
+      # release, and the release would go out with empty notes. A tag that
+      # disagrees with src/Version.php means the footer of every page will name
+      # a different version from the one just published — invisible until
+      # somebody reports a bug against a version that was never built.
+      - name: Check the release was actually cut
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          notes="docs/changelog/${version}.md"
+
+          if [ ! -f "$notes" ]; then
+            echo "::error::$notes does not exist. Cut the release first — see 'Cutting a release' in CHANGELOG.md."
+            exit 1
+          fi
+
+          shipped=$(grep -oP "CURRENT = '\K[^']+" src/Version.php)
+
+          if [ "$shipped" != "$version" ]; then
+            echo "::error::Tag says $version, src/Version.php says $shipped."
+            exit 1
+          fi
+
+      # The file is written to be read inside the repository, and a release body
+      # is not inside it: the `# Xivi 17.0.2` heading would repeat the title
+      # GitHub renders above it, and the links in the header paragraph are
+      # relative to docs/changelog/ and resolve to nothing once lifted out.
+      # Both come off; everything the release is actually about stays.
+      - name: Turn the changelog file into release notes
+        run: |
+          python3 - <<'PY' > release-notes.md
+          import re
+
+          version = "${{ steps.version.outputs.version }}"
+          text = open(f"docs/changelog/{version}.md").read()
+
+          text = re.sub(r'\A# .*\n', '', text)
+          text = re.sub(r'\A\s*Part of the \[changelog\].*?\n\s*\n', '', text, flags=re.S)
+
+          print(text.strip())
+          PY
+
+          if [ ! -s release-notes.md ]; then
+            echo "::error::The notes came out empty."
+            exit 1
+          fi
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            --title "Xivi ${{ steps.version.outputs.version }}" \
+            --notes-file release-notes.md \
+            --verify-tag

@@ -54,13 +54,21 @@ first**. An entry is not the place a design decision lives.
    with it. Sections drop one level: `###` becomes `##`.
 2. Add a line to the [release index](#releases) below.
 3. Bump [`src/Version.php`](src/Version.php).
+4. Tag the merge commit `v<version>` and push the tag. That is what publishes:
+   `.github/workflows/release.yml` posts the file from step 1 as the GitHub
+   release, and fails if the file is missing or the tag disagrees with step 3.
 
 `bin/ci` gates on this file having changed, which keeps working: new work always
 lands in `Unreleased` here.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **Releases are published on GitHub**, from the changelog file the release
+  procedure already writes. Pushing a `v*` tag posts
+  `docs/changelog/<version>.md` as the release notes — and refuses if that file
+  does not exist, or if the tag disagrees with `src/Version.php`.
 
 ## Releases
 
