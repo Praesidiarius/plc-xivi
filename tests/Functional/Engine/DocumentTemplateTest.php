@@ -187,6 +187,31 @@ final class DocumentTemplateTest extends WebTestCase
         self::assertStringStartsWith('%PDF-', (string) $this->client->getResponse()->getContent());
     }
 
+    /**
+     * Word's own placeholder text survives into the document, and therefore into
+     * the PDF.
+     *
+     * A letterhead is built from content controls — the "Sender's name",
+     * "address street" boxes somebody clicks into. Until one is typed in it
+     * carries `showingPlcHdr`, which Word displays and prints and **LibreOffice
+     * renders as nothing** — so the same document came out complete as a .docx
+     * and with its whole sender block missing as a PDF. The flag is dropped on
+     * the way out; the text was always there.
+     */
+    public function testWordsOwnPlaceholderTextSurvivesIntoTheDocument(): void
+    {
+        $template = $this->upload('Letterhead', 'Dear [first_name].', null, "Sender's name");
+        $id = $this->aContact();
+
+        $this->client->request('GET', $this->url(sprintf('/m/contact/%d/document/%d/docx', $id, $template)));
+
+        $docx = (string) $this->client->getResponse()->getContent();
+
+        self::assertStringContainsString("Sender's name", $this->textOf($docx), 'the control keeps its words');
+        self::assertStringNotContainsString('showingPlcHdr', $this->xmlOf($docx), 'and stops being ignorable');
+        self::assertStringContainsString('Dear Ada.', $this->textOf($docx), 'the markers still work');
+    }
+
     /** A .docx is a zip with a document in it, and the extension proves nothing. */
     public function testSomethingThatIsNotADocxIsRefused(): void
     {
@@ -250,9 +275,9 @@ final class DocumentTemplateTest extends WebTestCase
     // -- helpers ------------------------------------------------------------
 
     /** Uploads a template through the browser and returns its id. */
-    private function upload(string $name, string $body, ?string $variant = null): int
+    private function upload(string $name, string $body, ?string $variant = null, ?string $placeholderControl = null): int
     {
-        $path = self::aDocx($body);
+        $path = self::aDocx($body, $placeholderControl);
 
         $crawler = $this->client->request('GET', $this->url('/m/contact/templates'));
         $values = ['name' => $name];
@@ -297,7 +322,7 @@ final class DocumentTemplateTest extends WebTestCase
      * Three parts is all Word needs to open a file: the content types, the
      * relationship naming the main document, and the document itself.
      */
-    private static function aDocx(string $text): string
+    private static function aDocx(string $text, ?string $placeholderControl = null): string
     {
         $path = tempnam(sys_get_temp_dir(), 'xivi-test-template-') . '.docx';
 
@@ -313,8 +338,15 @@ final class DocumentTemplateTest extends WebTestCase
             . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
             . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
             . '</Relationships>');
+        // A Word content control that is still showing its placeholder text —
+        // the "click here to type" boxes a letterhead is built from.
+        $control = $placeholderControl === null ? '' : '<w:p><w:sdt><w:sdtPr><w:temporary/><w:showingPlcHdr/><w:text/></w:sdtPr>'
+            . '<w:sdtContent><w:r><w:t>' . htmlspecialchars($placeholderControl, \ENT_XML1) . '</w:t></w:r></w:sdtContent>'
+            . '</w:sdt></w:p>';
+
         $zip->addFromString('word/document.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'
+            . $control
             . '<w:p><w:r><w:t xml:space="preserve">' . htmlspecialchars($text, \ENT_XML1) . '</w:t></w:r></w:p>'
             . '</w:body></w:document>');
         $zip->close();
@@ -324,6 +356,12 @@ final class DocumentTemplateTest extends WebTestCase
 
     /** The words inside a .docx, with the XML taken off. */
     private function textOf(string $docx): string
+    {
+        return strip_tags($this->xmlOf($docx));
+    }
+
+    /** The main document part of a .docx, as it was written. */
+    private function xmlOf(string $docx): string
     {
         $path = tempnam(sys_get_temp_dir(), 'xivi-test-read-') . '.docx';
         file_put_contents($path, $docx);
@@ -335,7 +373,7 @@ final class DocumentTemplateTest extends WebTestCase
 
         @unlink($path);
 
-        return strip_tags($xml);
+        return $xml;
     }
 
     /** @param array<string, string> $values */

@@ -59,6 +59,8 @@ final readonly class DocumentGenerator
                 ->generate($source, $data)
                 ->saveAs($target);
 
+            self::settlePlaceholderControls($target);
+
             return (string) file_get_contents($target);
         } catch (\Throwable $e) {
             throw DocumentFailed::couldNotFill($template->getName(), $e);
@@ -66,6 +68,50 @@ final readonly class DocumentGenerator
             @unlink($source);
             @unlink($target);
         }
+    }
+
+    /**
+     * Makes Word's own placeholder text real, so the PDF says what the .docx says.
+     *
+     * Letterhead templates are usually built from Word *content controls* — the
+     * "Sender's name", "Company Name", "address street" boxes you click into.
+     * Until somebody types in one, it carries `<w:showingPlcHdr/>`: still showing
+     * its placeholder. Word displays that text and prints it; **LibreOffice
+     * renders nothing for it**, so the same document came out complete as a .docx
+     * and with its whole sender block missing as a PDF.
+     *
+     * Dropping the flag is what settles it. The text is already in the file — it
+     * is the control's own content — and without the flag every reader treats it
+     * as ordinary text, which is what Word was showing all along. Nothing is
+     * added, removed or substituted; one attribute stops meaning "ignore this".
+     *
+     * Headers and footers get the same treatment, because a letterhead is mostly
+     * header.
+     */
+    private static function settlePlaceholderControls(string $path): void
+    {
+        $zip = new \ZipArchive();
+
+        if ($zip->open($path) !== true) {
+            return;
+        }
+
+        for ($i = 0; $i < $zip->numFiles; ++$i) {
+            $name = (string) $zip->getNameIndex($i);
+
+            if (preg_match('#^word/(document|header\d*|footer\d*)\.xml$#', $name) !== 1) {
+                continue;
+            }
+
+            $xml = (string) $zip->getFromIndex($i);
+            $settled = (string) preg_replace('#<w:showingPlcHdr\s*/>|<w:showingPlcHdr\b[^>]*>.*?</w:showingPlcHdr>#s', '', $xml);
+
+            if ($settled !== $xml) {
+                $zip->addFromString($name, $settled);
+            }
+        }
+
+        $zip->close();
     }
 
     /**
