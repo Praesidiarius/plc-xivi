@@ -160,6 +160,25 @@ final readonly class MetadataEditor
      *
      * @throws MetadataChangeRefused
      */
+    /**
+     * What a customer calls one of their own shapes (XIV-8).
+     *
+     * Refused when empty rather than silently kept, because a module with no
+     * name is a blank tab nobody can click. There is nothing else to check: a
+     * label names nothing but itself.
+     *
+     * @throws MetadataChangeRefused
+     */
+    public function renameShape(ShapeDefinition $shape, string $label): void
+    {
+        if (trim($label) === '') {
+            throw MetadataChangeRefused::emptyLabel();
+        }
+
+        $shape->setLabel($label);
+        $this->entityManager->flush();
+    }
+
     public function removeField(FieldDefinition $field): void
     {
         if ($field->isSystem()) {

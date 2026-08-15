@@ -95,6 +95,18 @@ final readonly class UserManager
     }
 
     /**
+     * The language this person reads the application in (XIV-8).
+     *
+     * Null follows the application default rather than pinning English, which
+     * are different promises: one keeps following the default if it moves.
+     */
+    public function setLocale(User $user, ?string $locale): void
+    {
+        $user->setLocale($locale);
+        $this->entityManager->flush();
+    }
+
+    /**
      * @param list<string> $roles
      *
      * @throws UserChangeRefused

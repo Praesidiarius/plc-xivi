@@ -23,6 +23,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Permission\ModuleAction;
 use Xivi\Core\Permission\PermissionScope;
@@ -55,6 +56,7 @@ final class PermissionGroupController extends AbstractController
         private readonly PermissionManager $groups,
         private readonly MetadataRepository $metadata,
         private readonly UserManager $users,
+        private readonly TranslatorInterface $translator,
     ) {
     }
 
@@ -75,11 +77,11 @@ final class PermissionGroupController extends AbstractController
 
                 // Straight to the matrix: a group with no grants does nothing,
                 // so naming one is the beginning of the job rather than the end.
-                $this->addFlash('success', sprintf('Created "%s". Now say what it may do.', $group->getLabel()));
+                $this->addFlash('success', $this->translator->trans('flash.group_created', ['%group%' => $group->getLabel()]));
 
                 return $this->redirectToRoute('group_edit', ['id' => $group->getId()]);
             } catch (GroupChangeRefused $e) {
-                $this->addFlash('warning', $e->getMessage());
+                $this->addFlash('warning', $e->translatable()->trans($this->translator));
             }
         }
 
@@ -108,11 +110,11 @@ final class PermissionGroupController extends AbstractController
                     $request->request->all('members'),
                 )));
 
-                $this->addFlash('success', sprintf('Saved "%s".', $group->getLabel()));
+                $this->addFlash('success', $this->translator->trans('flash.group_saved', ['%group%' => $group->getLabel()]));
 
                 return $this->redirectToRoute('group_index');
             } catch (GroupChangeRefused $e) {
-                $this->addFlash('warning', $e->getMessage());
+                $this->addFlash('warning', $e->translatable()->trans($this->translator));
             }
         }
 
@@ -150,7 +152,7 @@ final class PermissionGroupController extends AbstractController
             $label = $group->getLabel();
             $this->groups->delete($group);
 
-            $this->addFlash('success', sprintf('Deleted "%s". Nobody was removed, only what the group gave them.', $label));
+            $this->addFlash('success', $this->translator->trans('flash.group_deleted', ['%group%' => $label]));
         }
 
         return $this->redirectToRoute('group_index');

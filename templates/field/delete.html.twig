@@ -8,7 +8,7 @@
 	<main class="container page-shell">
 		{{ include('_flashes.html.twig') }}
 
-		<h1 class="h3 mb-3">Remove “{{ field.label }}”?</h1>
+		<h1 class="h3 mb-3">{{ 'field.remove_title'|trans({'%field%': field.label}) }}</h1>
 
 		<div class="card">
 			<div class="card-body">
@@ -16,31 +16,28 @@
 				   assumes the data goes too. It does not, and saying so afterwards would
 				   be too late (§5.4). #}
 				<p>
-					The field disappears from the form, the list, the filters and validation.
-					<strong>The values stay in storage.</strong> Adding a field named
-					<code>{{ field.key }}</code> again brings them back.
+					{{ 'field.remove_body'|trans({'%key%': field.key})|raw }}
 				</p>
 
 				<p class="mb-0">
 					{% if holding == 0 %}
-						No records currently hold a value for it.
+						{{ 'field.remove_none_hold'|trans }}
 					{% else %}
-						<strong>{{ holding }}</strong> record{{ holding == 1 ? '' : 's' }} currently hold{{ holding == 1 ? 's' : '' }} a value for it.
+						{{ 'field.remove_holding'|trans({'%count%': holding})|raw }}
 					{% endif %}
 				</p>
 
 				<p class="text-body-secondary small mt-3 mb-0">
-					Nothing here deletes data. Permanently removing the values is a separate
-					operation and does not exist yet — see docs/architecture.md §7.2.
+					{{ 'field.remove_note'|trans }}
 				</p>
 			</div>
 		</div>
 
 		<div class="d-flex align-items-center gap-2 mt-3">
-			<a class="btn btn-link" href="{{ path('field_index', {module: module.key}) }}">Cancel</a>
+			<a class="btn btn-link" href="{{ path('field_index', {module: module.key}) }}">{{ 'common.cancel'|trans }}</a>
 			<form method="post" action="{{ path('field_delete', {module: module.key, field: field.id}) }}">
 				<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
-				<button class="btn btn-danger" type="submit">Remove the field</button>
+				<button class="btn btn-danger" type="submit">{{ 'field.remove_confirm'|trans }}</button>
 			</form>
 		</div>
 	</main>

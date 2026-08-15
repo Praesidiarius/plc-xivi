@@ -117,6 +117,57 @@ of every page, and is not yet tied to git tags.
 - Both commands are registered in dev and test only, and are absent from a
   production image entirely.
 
+- **Localization** ([XIV-8]), in progress. `symfony/translation` does the work and
+  `symfony/intl` names the languages, so the picker offers "Deutsch" rather than
+  "German" — somebody looking for their own language is not reading the one they
+  cannot. English is the source and the fallback; German is informal (*du*),
+  decided deliberately because changing the register later means rewriting every
+  string.
+- **The language is per person, not per customer**, on `app_user.locale`, chosen
+  on the account page. One office is not one language. Null means "follow the
+  application default", which is a different promise from choosing English: one
+  keeps following the default if it moves.
+- Resolved per request from the signed-in user and **never parked in the
+  session** — that would be state outliving the request that made it, which this
+  runtime otherwise does not have (§7.4, §9.2). The login page has nobody to ask,
+  so it asks the browser.
+- **A missing translation fails the build.** The catalogues are compared key for
+  key in both directions: a key with no German is the quietest bug here, since the
+  fallback keeps the page working and merely serves one paragraph of it in the
+  wrong language on somebody else's screen.
+- **A module's labels are seeded from its own catalogue**, read once at install
+  time: `tenant:module:install --locale=de` gives that customer "Kontakte" and
+  "Vorname" rather than the blueprint's English. Once written they are the
+  customer's data (§5) and stop following the catalogue — resolving a label on
+  every render would overrule a rename every page load, which would make the
+  screen offering that rename a lie.
+- **A module can be renamed**, which it could not be before. Field labels were
+  already the customer's to change; the shape holding them was not, so a module
+  installed in the wrong language could not be corrected at all.
+- Labels therefore stay one language *per tenant*, not per reader: two colleagues
+  share one row, and a label that changed with who was looking would have stopped
+  being data.
+- **Every string in the interface is now a catalogue entry**, across all nineteen
+  templates. Counted sentences use ICU plurals rather than a ternary, because
+  "one" and "other" are not the only two answers every language has and building
+  the sentence in Twig bakes English grammar into the template.
+- The engine ships **its own catalogue** from `packages/core/translations`, so
+  core can name a filter operator or a permission action without reaching into
+  the application's file. A module package would do the same.
+- **Flash messages and refusals are translated too.** A refusal carries a key
+  beside its message rather than instead of it: the exception's own text stays
+  English and goes to the log, where the reader is a developer, and the customer
+  gets the same fact in their own language. Two audiences, two sentences, neither
+  a compromise for the other.
+- Import problems carry a key and their parameters, with the sheet and row
+  wrapped around them as a nested translatable rather than concatenated — so a
+  translator can reorder the parts, which German wants often enough to matter.
+- **Tooltips on the icon-only buttons** in the record list, the user list and the
+  group list. Bootstrap's JavaScript is now shipped for them — it was deliberately
+  absent, and the rule it was protecting still holds: the forms work without
+  scripting, and a `title` stays on the element either way, so a failed asset load
+  costs a hint rather than a feature.
+
 ### Changed
 
 - **The session no longer carries a user's groups and grants.** `User` is
@@ -231,3 +282,4 @@ began and is recorded here as one entry rather than invented as a history.
   and real PostgreSQL roles.
 
 [XIV-2]: https://xivi.youtrack.cloud/issue/XIV-2
+[XIV-8]: https://xivi.youtrack.cloud/issue/XIV-8

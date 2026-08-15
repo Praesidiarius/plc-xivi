@@ -1,0 +1,24 @@
+# Localization (XIV-8).
+#
+# The application's own strings are translated; a customer's are not. Module
+# labels, field labels and choice options live in that customer's database in
+# whatever language they typed them, and translating somebody's data would be
+# guessing at what they meant (§5).
+framework:
+    default_locale: en
+
+    # The languages this build actually has. Listing them turns the locale into a
+    # closed set — a request asking for one that is not here falls back rather
+    # than being served a half-translated page, and the language picker is
+    # generated from this rather than from a second list that can disagree.
+    enabled_locales: ['en', 'de']
+
+    translator:
+        default_path: '%kernel.project_dir%/translations'
+
+        # English is the source language and therefore the fallback. A key with
+        # no German translation shows the English sentence rather than the key
+        # itself, which is the difference between a page with one odd word on it
+        # and a page reading "permission.scope.all".
+        fallbacks:
+            - en

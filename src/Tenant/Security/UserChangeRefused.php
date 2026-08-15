@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 namespace App\Tenant\Security;
 
+use Symfony\Component\Translation\TranslatableMessage;
+
 /**
  * A change to a user that the application will not make.
  *
@@ -25,33 +27,55 @@ namespace App\Tenant\Security;
  */
 final class UserChangeRefused extends \RuntimeException
 {
+    /**
+     * What to show the person who caused it, in their language (XIV-8).
+     *
+     * The exception's own message stays English for the log, where the reader is
+     * a developer. Two audiences, two sentences.
+     */
+    private TranslatableMessage $translatable;
+
+    public function translatable(): TranslatableMessage
+    {
+        return $this->translatable;
+    }
+
+    /** @param array<string, mixed> $parameters */
+    private static function of(string $message, string $key, array $parameters = []): self
+    {
+        $refusal = new self($message);
+        $refusal->translatable = new TranslatableMessage($key, $parameters, 'messages');
+
+        return $refusal;
+    }
+
     public static function lastAdmin(): self
     {
-        return new self('This is the only active administrator. Make somebody else an administrator first.');
+        return self::of('This is the only active administrator. Make somebody else an administrator first.', 'refusal.last_admin');
     }
 
     public static function ownAdminRole(): self
     {
-        return new self('You cannot take administrator away from yourself. Ask another administrator to do it.');
+        return self::of('You cannot take administrator away from yourself. Ask another administrator to do it.', 'refusal.own_admin_role');
     }
 
     public static function ownAccount(): self
     {
-        return new self('You cannot deactivate your own account.');
+        return self::of('You cannot deactivate your own account.', 'refusal.own_account');
     }
 
     public static function emailTaken(string $email): self
     {
-        return new self(sprintf('Somebody here already signs in as "%s".', $email));
+        return self::of(sprintf('Somebody here already signs in as "%s".', $email), 'refusal.email_taken', ['%email%' => $email]);
     }
 
     public static function noEmail(): self
     {
-        return new self('A user needs an email address: it is the login.');
+        return self::of('A user needs an email address: it is the login.', 'refusal.no_email');
     }
 
     public static function wrongPassword(): self
     {
-        return new self('That is not your current password.');
+        return self::of('That is not your current password.', 'refusal.wrong_password');
     }
 }

@@ -20,6 +20,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Import\ImportReport;
 use Xivi\Core\Import\RecordImporter;
@@ -57,6 +58,7 @@ final class ImportController extends AbstractController
     public function __construct(
         private readonly MetadataRepository $metadata,
         private readonly RecordImporter $importer,
+        private readonly TranslatorInterface $translator,
     ) {
     }
 
@@ -72,12 +74,11 @@ final class ImportController extends AbstractController
             if ($report?->applied === true) {
                 // Named off the definitions, like every other word this
                 // application uses for a module's records.
-                $this->addFlash('success', sprintf(
-                    'Imported. %s: %d added, %d updated.',
-                    $definition->getLabel(),
-                    $report->created,
-                    $report->updated,
-                ));
+                $this->addFlash('success', $this->translator->trans('flash.imported', [
+                    '%module%' => $definition->getLabel(),
+                    '%added%' => $report->created,
+                    '%updated%' => $report->updated,
+                ]));
 
                 return $this->redirectToRoute('module_index', ['module' => $module]);
             }
@@ -104,8 +105,8 @@ final class ImportController extends AbstractController
             // Covers the empty submission and the file that exceeded a PHP limit,
             // which arrives looking like an upload and is not one.
             $this->addFlash('warning', $file instanceof UploadedFile
-                ? sprintf('That file did not arrive intact (%s).', $file->getErrorMessage())
-                : 'Choose a spreadsheet to import.');
+                ? $this->translator->trans('flash.upload_broken', ['%reason%' => $file->getErrorMessage()])
+                : $this->translator->trans('flash.no_file'));
 
             return null;
         }

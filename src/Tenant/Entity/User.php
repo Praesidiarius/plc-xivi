@@ -117,6 +117,20 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $lastLoginAt = null;
 
+    /**
+     * Which language this person reads the application in (XIV-8).
+     *
+     * Null means "whatever the application defaults to", which is not the same
+     * as storing 'en': somebody who never chose keeps following the default if
+     * it ever moves, and somebody who chose English keeps English. Two facts,
+     * two values.
+     *
+     * Per person rather than per customer, because one office is not one
+     * language — a Swiss company has German and French speakers in it.
+     */
+    #[ORM\Column(length: 5, nullable: true)]
+    private ?string $locale = null;
+
     public function __construct(
         /** The login, and therefore also the security identifier. */
         #[ORM\Column(length: 180)]
@@ -258,6 +272,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->permissionGrants->removeElement($grant);
     }
 
+    public function getLocale(): ?string
+    {
+        return $this->locale;
+    }
+
+    /** @param string|null $locale null to follow the application default */
+    public function setLocale(?string $locale): void
+    {
+        $this->locale = $locale === null || trim($locale) === '' ? null : $locale;
+    }
+
     public function getLastLoginAt(): ?\DateTimeImmutable
     {
         return $this->lastLoginAt;
@@ -319,6 +344,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             'createdAt' => $this->createdAt,
             'updatedAt' => $this->updatedAt,
             'lastLoginAt' => $this->lastLoginAt,
+            'locale' => $this->locale,
         ];
     }
 
@@ -344,6 +370,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->createdAt = $data['createdAt'];
         $this->updatedAt = $data['updatedAt'];
         $this->lastLoginAt = $data['lastLoginAt'];
+        $this->locale = $data['locale'] === null ? null : (string) $data['locale'];
 
         // Empty rather than absent: a typed property left uninitialised throws on
         // read, and this object is live until the provider replaces it.

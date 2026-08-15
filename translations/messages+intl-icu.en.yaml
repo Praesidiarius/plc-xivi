@@ -1,0 +1,36 @@
+# Strings that count something (XIV-8).
+#
+# ICU rather than a ternary in the template, because "one" and "other" are not
+# the only two answers every language has — and building the sentence in Twig
+# would bake English grammar into a file that is supposed to be language-neutral.
+# German needs no more forms than English does; the next language might.
+#
+# `#` renders the number. Parameters arrive as %count% and are matched by name.
+
+dashboard:
+    field_count: '{count, plural, one {# field} other {# fields}}'
+
+account:
+    password_minimum: '{count, plural, one {At least # character.} other {At least # characters.}}'
+
+module:
+    record_count: '{count, plural, one {# record.} other {# records.}}'
+    record_count_matching: '{count, plural, one {# record matching.} other {# records matching.}}'
+
+field:
+    remove_holding: '{count, plural, one {<strong>#</strong> record currently holds a value for it.} other {<strong>#</strong> records currently hold a value for it.}}'
+
+import:
+    written: '{added, plural, one {# added} other {# added}}, {updated, plural, one {# updated} other {# updated}}'
+    rows_written: '{count, plural, one {# written} other {# written}}'
+    rows_removed: '{count, plural, one {# <strong>removed</strong>, because the file does not list it} other {# <strong>removed</strong>, because the file does not list them}}'
+    rows_removed_none: '{count, plural, other {# removed}}'
+    problems: '{count, plural, one {Nothing was changed. # problem to fix first:} other {Nothing was changed. # problems to fix first:}}'
+
+group:
+    delete_members: '{count, plural, =0 {Nobody is in this group,} one {# person is in this group,} other {# people are in this group,}}'
+    delete_grants: '{count, plural, one {and it grants # permission.} other {and it grants # permissions.}}'
+
+flash:
+    password_too_short: '{count, plural, one {Use at least # character.} other {Use at least # characters.}}'
+    imported: 'Imported. {module}: {added, plural, other {# added}}, {updated, plural, other {# updated}}.'

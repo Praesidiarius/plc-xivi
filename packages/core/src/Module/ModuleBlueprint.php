@@ -49,7 +49,19 @@ final readonly class ModuleBlueprint
          * Null for a module whose records are all the same thing.
          */
         public ?string $variantField = null,
+        /**
+         * The catalogue its labels are keys in, read once at install time
+         * (XIV-8). Null uses the module's own key, so a module that ships
+         * `contact.en.yaml` beside its bundle needs to say nothing here.
+         */
+        public ?string $translationDomain = null,
     ) {
+    }
+
+    /** @see $translationDomain */
+    public function domain(): string
+    {
+        return $this->translationDomain ?? $this->key;
     }
 
     public function preset(string $key): ?ModulePreset

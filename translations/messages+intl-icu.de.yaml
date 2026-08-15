@@ -1,0 +1,32 @@
+# Counted strings in German (XIV-8), informal ("du") like the rest.
+#
+# German needs the same two plural forms English does, so these read like their
+# counterparts — the point of ICU is that the *next* language does not have to.
+
+dashboard:
+    field_count: '{count, plural, one {# Feld} other {# Felder}}'
+
+account:
+    password_minimum: '{count, plural, one {Mindestens # Zeichen.} other {Mindestens # Zeichen.}}'
+
+module:
+    record_count: '{count, plural, one {# Datensatz.} other {# Datensätze.}}'
+    record_count_matching: '{count, plural, one {# passender Datensatz.} other {# passende Datensätze.}}'
+
+field:
+    remove_holding: '{count, plural, one {<strong>#</strong> Datensatz hat zurzeit einen Wert dafür.} other {<strong>#</strong> Datensätze haben zurzeit einen Wert dafür.}}'
+
+import:
+    written: '{added, plural, one {# hinzugefügt} other {# hinzugefügt}}, {updated, plural, one {# geändert} other {# geändert}}'
+    rows_written: '{count, plural, one {# geschrieben} other {# geschrieben}}'
+    rows_removed: '{count, plural, one {# <strong>entfernt</strong>, weil die Datei ihn nicht aufführt} other {# <strong>entfernt</strong>, weil die Datei sie nicht aufführt}}'
+    rows_removed_none: '{count, plural, other {# entfernt}}'
+    problems: '{count, plural, one {Es wurde nichts geändert. # Problem ist zuerst zu beheben:} other {Es wurde nichts geändert. # Probleme sind zuerst zu beheben:}}'
+
+group:
+    delete_members: '{count, plural, =0 {Niemand ist in dieser Gruppe,} one {# Person ist in dieser Gruppe,} other {# Personen sind in dieser Gruppe,}}'
+    delete_grants: '{count, plural, one {und sie vergibt # Berechtigung.} other {und sie vergibt # Berechtigungen.}}'
+
+flash:
+    password_too_short: '{count, plural, one {Verwende mindestens # Zeichen.} other {Verwende mindestens # Zeichen.}}'
+    imported: 'Importiert. {module}: {added, plural, other {# hinzugefügt}}, {updated, plural, other {# geändert}}.'

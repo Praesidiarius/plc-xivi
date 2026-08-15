@@ -21,6 +21,7 @@ use OpenSpout\Writer\XLSX\Writer;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Xivi\Contact\ContactModule;
 use Xivi\Core\History\HistoryRepository;
+use Xivi\Core\Import\ImportProblem;
 use Xivi\Core\Import\ImportReport;
 use Xivi\Core\Import\RecordImporter;
 use Xivi\Core\Metadata\MetadataRepository;
@@ -519,10 +520,23 @@ final class RecordImportTest extends KernelTestCase
             ->check(self::module(), $this->path));
     }
 
-    /** @return list<string> */
+    /**
+     * The problems as somebody would read them.
+     *
+     * Translated rather than read raw, because a problem carries a key now
+     * (XIV-8) — and asserting on the key would stop noticing whether the
+     * sentence it names still exists.
+     *
+     * @return list<string>
+     */
     private function messages(ImportReport $report): array
     {
-        return array_map(static fn (object $problem): string => $problem->describe(), $report->problems);
+        $translator = self::service(\Symfony\Contracts\Translation\TranslatorInterface::class);
+
+        return array_map(
+            static fn (ImportProblem $problem): string => $problem->translatable()->trans($translator, 'en'),
+            $report->problems,
+        );
     }
 
     /** @return list<Record> */

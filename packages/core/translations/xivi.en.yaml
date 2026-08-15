@@ -1,0 +1,63 @@
+# The engine's own vocabulary (XIV-8).
+#
+# Its own domain and its own file, shipped with the bundle, because these are
+# words core chose and core should not need the application's catalogue to say
+# them. A module package would ship its own the same way.
+#
+# What is *not* here: anything a customer named. Module labels, field labels and
+# choice options are their data, in their language.
+
+operator:
+    eq: is
+    neq: is not
+    contains: contains
+    starts: starts with
+    gt: after
+    gte: from
+    lt: before
+    lte: until
+    empty: is empty
+    filled: is not empty
+
+permission:
+    action:
+        view: View
+        list: List
+        add: Add
+        edit: Edit
+        delete: Delete
+        export: Export
+        import: Import
+    scope:
+        own: Own records
+        all: All records
+
+import:
+    at_sheet: '%sheet%: %problem%'
+    at_row: '%sheet% row %row%: %problem%'
+    problem:
+        unknown_column: 'Column "%column%" matches no field of "%shape%".'
+        duplicate_column: 'Two columns both fill "%field%".'
+        unreadable: 'This file could not be read as a spreadsheet (%reason%).'
+        missing_sheet: 'The file has no sheet named "%sheet%". An export of this module is the shape it expects.'
+        unknown_sheet: This sheet matches no part of the module, and its rows would be ignored.
+        missing_parent_column: 'A "%shape%" sheet needs a parent_id column saying which record each row belongs to.'
+        duplicate_id: 'Id "%id%" appears more than once.'
+        wrong_parent: 'Row %row% does not belong to record %parent%.'
+        unknown_parent_name: 'No row of the %sheet% sheet is called "%name%". Put that same name in the id column of the row this belongs to.'
+        unknown_id: 'There is no record with id %id%. Leave the id empty to create a new one.'
+        no_parent: 'This row names no parent record. Put the id of the %module% it belongs to in parent_id.'
+        invalid_value: '%field%: %reason%'
+
+metadata:
+    empty_label: 'A shape needs a label: it is what the navigation and every page heading call it.'
+    bad_key: 'A field name must start with a letter and contain only lowercase letters, numbers and underscores. "%key%" does not.'
+    key_taken: '"%shape%" already has a field named "%key%".'
+    system_field: 'The field "%key%" came with the module and cannot be removed. Fields you added yourself can be.'
+    module_not_installed: 'No module named "%module%" is installed here.'
+
+query:
+    unknown_field: 'There is nothing called "%path%" on "%shape%" to filter or sort by.'
+    unknown_collection: '"%module%" has no collection called "%collection%".'
+    unsupported_operator: 'Cannot ask whether "%path%" (%type%) %operator%. That type accepts: %supported%.'
+    sort_by_collection: 'Cannot sort by "%path%": it belongs to a collection, and a record with two of them has two values. Which one would be the record''s?'

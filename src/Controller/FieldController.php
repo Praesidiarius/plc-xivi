@@ -20,6 +20,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
@@ -60,6 +61,7 @@ final class FieldController extends AbstractController
         private readonly MetadataRepository $metadata,
         private readonly MetadataEditor $editor,
         private readonly FieldTypeRegistry $fieldTypes,
+        private readonly TranslatorInterface $translator,
     ) {
     }
 
@@ -73,6 +75,35 @@ final class FieldController extends AbstractController
             'shapes' => self::shapesOf($definition),
             'types' => $this->fieldTypes->all(),
         ]);
+    }
+
+    /**
+     * What a customer calls one of their own shapes (XIV-8).
+     *
+     * Their module arrived named by whatever language it was installed in, and
+     * "Contacts" is not the word a German office uses. Renaming it is the same
+     * kind of change as relabelling a field, so it lives on the same screen and
+     * goes through the same editor.
+     */
+    #[Route('/{shape}/rename', name: 'shape_rename', requirements: ['shape' => Requirement::POSITIVE_INT], methods: ['POST'])]
+    public function rename(string $module, int $shape, Request $request): Response
+    {
+        $definition = $this->definition($module);
+
+        if ($this->isCsrfTokenValid('edit-fields', (string) $request->request->get('_token'))) {
+            try {
+                $target = $this->shape($definition, $shape);
+                $this->editor->renameShape($target, (string) $request->request->get('label'));
+
+                $this->addFlash('success', $this->translator->trans('flash.shape_renamed', [
+                    '%shape%' => $target->getLabel(),
+                ]));
+            } catch (MetadataChangeRefused $e) {
+                $this->addFlash('warning', $e->translatable()->trans($this->translator));
+            }
+        }
+
+        return $this->redirectToRoute('field_index', ['module' => $module]);
     }
 
     #[Route('/add', name: 'field_add', methods: ['POST'])]
@@ -97,12 +128,12 @@ final class FieldController extends AbstractController
                     options: self::optionsFrom($request),
                 );
 
-                $this->addFlash('success', sprintf('Added "%s".', $field->getLabel()));
+                $this->addFlash('success', $this->translator->trans('flash.field_added', ['%field%' => $field->getLabel()]));
                 // UnknownFieldType too: the select is built from the registry, so a
                 // type it does not know means a tampered form, which is a message
                 // rather than a stack trace.
             } catch (MetadataChangeRefused|UnknownFieldType $e) {
-                $this->addFlash('warning', $e->getMessage());
+                $this->addFlash('warning', $e->translatable()->trans($this->translator));
             }
         }
 
@@ -130,9 +161,9 @@ final class FieldController extends AbstractController
                     options: self::optionsFrom($request),
                 );
 
-                $this->addFlash('success', sprintf('Saved "%s".', $target->getLabel()));
+                $this->addFlash('success', $this->translator->trans('flash.field_saved', ['%field%' => $target->getLabel()]));
             } catch (MetadataChangeRefused $e) {
-                $this->addFlash('warning', $e->getMessage());
+                $this->addFlash('warning', $e->translatable()->trans($this->translator));
             }
         }
 
@@ -168,9 +199,9 @@ final class FieldController extends AbstractController
 
             try {
                 $this->editor->removeField($target);
-                $this->addFlash('success', sprintf('Removed "%s". Its values are still stored.', $target->getLabel()));
+                $this->addFlash('success', $this->translator->trans('flash.field_removed', ['%field%' => $target->getLabel()]));
             } catch (MetadataChangeRefused $e) {
-                $this->addFlash('warning', $e->getMessage());
+                $this->addFlash('warning', $e->translatable()->trans($this->translator));
             }
         }
 

@@ -109,6 +109,23 @@ abstract class ShapeDefinition
         return $this->key;
     }
 
+    /**
+     * Renaming a shape is a presentation change and nothing more (XIV-8).
+     *
+     * The key stays put, because that is what the table and every stored value
+     * are named by — the same split §5.4 makes for a field, for the same reason.
+     * What this exists for is the customer whose module was installed with an
+     * English label: their data, their word for it.
+     */
+    public function setLabel(string $label): void
+    {
+        $label = trim($label);
+
+        if ($label !== '') {
+            $this->label = $label;
+        }
+    }
+
     public function getLabel(): string
     {
         return $this->label;

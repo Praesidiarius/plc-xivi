@@ -116,6 +116,16 @@ id of whoever changed them, so deactivating keeps all of it attributable and is
 reversible. Every refusal here is about lock-out: you cannot deactivate yourself,
 demote yourself, or leave the installation with no administrator.
 
+**English and German** (XIV-8). Each person picks their language on their account
+page; the login page follows the browser, since there is nobody to ask yet. A
+module's own labels are seeded from its catalogue at install time —
+`tenant:module:install acme contact --locale=de` gives that customer *Kontakte*
+and *Vorname* — and from then on they are the customer's data, renameable and no
+longer following the catalogue: resolving a label on every render would overrule
+that rename every page load. Which means labels are one language per *tenant*,
+while everything else follows each reader. A key with no German translation fails
+the build rather than falling back quietly.
+
 **Permissions, per module and per action** (§8.4). What can be done is a closed
 list — view, list, add, edit, delete, export, import — so the set of permissions
 is that list crossed with the modules a customer has installed, with nothing to
@@ -247,7 +257,7 @@ the container is the better instrument.
 | --- | --- |
 | `tenant:provision <slug> <hostname...>` | Creates the row, the role, the database and its schema; `--admin-email` adds the first user |
 | `tenant:user:create <slug> <email>` | Adds a user to one tenant; `--admin` grants ROLE_ADMIN |
-| `tenant:module:install <slug> <module>` | Installs a module for one tenant: its table and field definitions; `--preset` picks which fields |
+| `tenant:module:install <slug> <module>` | Installs a module for one tenant: its table and field definitions; `--preset` picks which fields, `--locale` which language its labels are seeded in |
 | `tenant:list` | Shows the registry |
 | `tenant:migrate [--slug=]` | Applies tenant migrations to every tenant; run it on every deploy |
 | `tenant:permissions:grant-all <slug>` | Grants every action on every installed module to one tenant's non-admin users; the upgrade path for an installation that predates permissions, and the way back into a locked-out one |

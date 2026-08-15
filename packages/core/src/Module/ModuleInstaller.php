@@ -17,6 +17,7 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Xivi\Core\Entity\CollectionDefinition;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
@@ -44,6 +45,7 @@ final readonly class ModuleInstaller
         private Connection $connection,
         private MetadataRepository $metadata,
         private FieldTypeRegistry $fieldTypes,
+        private TranslatorInterface $translator,
     ) {
     }
 
@@ -55,7 +57,11 @@ final readonly class ModuleInstaller
      * here would quietly overrule that. Bringing an existing installation up to a
      * newer blueprint is a different operation and needs §7.2 answered first.
      */
-    public function install(ModuleBlueprint $blueprint, ?string $preset = null): ModuleDefinition
+    /**
+     * @param string|null $locale which language to seed the labels in (XIV-8);
+     *                            null takes the application's default
+     */
+    public function install(ModuleBlueprint $blueprint, ?string $preset = null, ?string $locale = null): ModuleDefinition
     {
         $existing = $this->metadata->find($blueprint->key);
 
@@ -71,14 +77,16 @@ final readonly class ModuleInstaller
         $this->createRecordTable($blueprint->table, parentTable: null);
         $this->createHistoryTable($blueprint->table);
 
+        $domain = $blueprint->domain();
+
         $module = new ModuleDefinition(
             $blueprint->key,
-            $blueprint->label,
+            $this->label($blueprint->label, $domain, $locale),
             $blueprint->table,
             $blueprint->icon,
             $blueprint->variantField,
         );
-        $this->defineFields($module, $fields);
+        $this->defineFields($module, $fields, $domain, $locale);
 
         foreach ($blueprint->collections as $collection) {
             $this->createRecordTable($collection->table, parentTable: $blueprint->table);
@@ -86,11 +94,11 @@ final readonly class ModuleInstaller
             $definition = new CollectionDefinition(
                 parent: $module,
                 key: $collection->key,
-                label: $collection->label,
+                label: $this->label($collection->label, $domain, $locale),
                 tableName: $collection->table,
                 position: $collection->position,
             );
-            $this->defineFields($definition, $collection->fields);
+            $this->defineFields($definition, $collection->fields, $domain, $locale);
         }
 
         $this->entityManager->persist($module);
@@ -256,14 +264,33 @@ final readonly class ModuleInstaller
         ));
     }
 
+    /**
+     * A label as this customer will read it, from the module's own catalogue
+     * (XIV-8).
+     *
+     * **Resolved once, here, and then stored.** A label is the customer's data
+     * (§5) and they may rename it; looking the translation up on every render
+     * would overrule that rename every page load, which would make the screen
+     * that offers it a lie. So this is a seed, exactly like the preset it
+     * arrives with (§6.1), and it stops having a say the moment it is written.
+     *
+     * A key with no entry falls back to itself, which is what makes a module
+     * that ships no catalogue at all still install — with its keys as labels,
+     * visibly wrong rather than quietly empty.
+     */
+    private function label(string $key, string $domain, ?string $locale): string
+    {
+        return $this->translator->trans($key, [], $domain, $locale);
+    }
+
     /** @param list<FieldBlueprint> $fields */
-    private function defineFields(ShapeDefinition $shape, array $fields): void
+    private function defineFields(ShapeDefinition $shape, array $fields, string $domain, ?string $locale): void
     {
         foreach ($fields as $field) {
             $definition = new FieldDefinition(
                 shape: $shape,
                 key: $field->key,
-                label: $field->label,
+                label: $this->label($field->label, $domain, $locale),
                 type: $field->type,
                 required: $field->required,
                 unique: $field->unique,
@@ -273,9 +300,35 @@ final readonly class ModuleInstaller
                 position: $field->position,
                 system: true,
             );
-            $definition->setOptions($field->options);
+            $definition->setOptions($this->translatedOptions($field->options, $domain, $locale));
             $definition->setVariants($field->variants);
         }
+    }
+
+    /**
+     * A choice field's options, with its labels seeded the same way.
+     *
+     * Only the labels: the stored values are what every record holds and what
+     * a variant is named by, so translating one would rewrite data.
+     *
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, mixed>
+     */
+    private function translatedOptions(array $options, string $domain, ?string $locale): array
+    {
+        if (!isset($options['choices']) || !\is_array($options['choices'])) {
+            return $options;
+        }
+
+        $choices = [];
+        foreach ($options['choices'] as $value => $label) {
+            $choices[$value] = \is_string($label) ? $this->label($label, $domain, $locale) : $label;
+        }
+
+        $options['choices'] = $choices;
+
+        return $options;
     }
 
     /**

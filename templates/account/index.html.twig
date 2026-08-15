@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Your account{% endblock %}
+{% block title %}{{ 'account.title'|trans }}{% endblock %}
 
 {% block body %}
 	{{ include('_topbar.html.twig') }}
@@ -8,7 +8,7 @@
 	<main class="container page-shell">
 		{{ include('_flashes.html.twig') }}
 
-		<h1 class="h3 mb-3">Your account</h1>
+		<h1 class="h3 mb-3">{{ 'account.title'|trans }}</h1>
 
 		{#
 			The hold, explained rather than merely enforced: somebody bounced back
@@ -17,10 +17,9 @@
 		#}
 		{% if held %}
 			<div class="alert alert-warning">
-				<h2 class="h6">Choose your own password before you carry on.</h2>
+				<h2 class="h6">{{ 'account.hold_title'|trans }}</h2>
 				<p class="mb-0">
-					The one you signed in with was generated and passed on to you, so somebody
-					else has seen it. Everything else waits until you have replaced it.
+					{{ 'account.hold_body'|trans }}
 				</p>
 			</div>
 		{% endif %}
@@ -29,28 +28,28 @@
 			<div class="col-12 col-lg-6">
 				<form method="post" class="card h-100">
 					<div class="card-body">
-						<h2 class="h6">Details</h2>
+						<h2 class="h6">{{ 'account.details'|trans }}</h2>
 						<input type="hidden" name="_token" value="{{ csrf_token('account') }}">
 						<input type="hidden" name="action" value="details">
 
 						<div class="mb-3">
-							<label class="form-label" for="name">Name</label>
+							<label class="form-label" for="name">{{ 'common.name'|trans }}</label>
 							<input class="form-control" type="text" id="name" name="name" value="{{ account.name }}">
-							<div class="form-text">What shows up on records you own and in their history.</div>
+							<div class="form-text">{{ 'account.name_help'|trans }}</div>
 						</div>
 
 						<div class="mb-3">
-							<label class="form-label" for="email">Email</label>
+							<label class="form-label" for="email">{{ 'common.email'|trans }}</label>
 							<input class="form-control" type="email" id="email" value="{{ account.email }}" disabled>
 							{#
 								Read-only here on purpose: it is the login and the identifier the
 								session holds, so changing it under your own session signs you out.
 								An administrator does it from the users page.
 							#}
-							<div class="form-text">Your login. An administrator can change it for you.</div>
+							<div class="form-text">{{ 'account.email_help'|trans }}</div>
 						</div>
 
-						<button class="btn btn-primary" type="submit">Save</button>
+						<button class="btn btn-primary" type="submit">{{ 'common.save'|trans }}</button>
 					</div>
 				</form>
 			</div>
@@ -58,34 +57,64 @@
 			<div class="col-12 col-lg-6">
 				<form method="post" class="card h-100">
 					<div class="card-body">
-						<h2 class="h6">Password</h2>
+						<h2 class="h6">{{ 'common.password'|trans }}</h2>
 						<input type="hidden" name="_token" value="{{ csrf_token('account') }}">
 						<input type="hidden" name="action" value="password">
 
 						<div class="mb-3">
-							<label class="form-label" for="current_password">Current password</label>
+							<label class="form-label" for="current_password">{{ 'account.current_password'|trans }}</label>
 							<input class="form-control" type="password" id="current_password"
 								   name="current_password" autocomplete="current-password" required>
 							<div class="form-text">
-								Asked for so that an unattended session is not enough to take your account over.
+								{{ 'account.current_password_help'|trans }}
 							</div>
 						</div>
 
 						<div class="mb-3">
-							<label class="form-label" for="new_password">New password</label>
+							<label class="form-label" for="new_password">{{ 'account.new_password'|trans }}</label>
 							<input class="form-control" type="password" id="new_password" name="new_password"
 								   autocomplete="new-password" minlength="{{ minimum }}" required>
-							<div class="form-text">At least {{ minimum }} characters.</div>
+							<div class="form-text">{{ 'account.password_minimum'|trans({'%count%': minimum}) }}</div>
 						</div>
 
 						<div class="mb-3">
-							<label class="form-label" for="repeat_password">Repeat it</label>
+							<label class="form-label" for="repeat_password">{{ 'account.repeat_password'|trans }}</label>
 							<input class="form-control" type="password" id="repeat_password" name="repeat_password"
 								   autocomplete="new-password" minlength="{{ minimum }}" required>
 						</div>
 
-						<button class="btn btn-primary" type="submit">Change password</button>
+						<button class="btn btn-primary" type="submit">{{ 'account.change_password'|trans }}</button>
 					</div>
+				</form>
+			</div>
+		</div>
+
+		{#
+			Its own form, because it is its own decision: changing your language
+			should not require typing your current password, and saving a password
+			should not quietly change your language.
+		#}
+		<div class="card mt-4">
+			<div class="card-body">
+				<h2 class="h5 mb-3">{{ 'account.language'|trans }}</h2>
+
+				<form method="post">
+					<input type="hidden" name="_token" value="{{ csrf_token('account') }}">
+					<input type="hidden" name="action" value="language">
+
+					<div class="mb-3">
+						<label class="form-label" for="locale">{{ 'account.language'|trans }}</label>
+						<select class="form-select" id="locale" name="locale">
+							{% for value, label in locales %}
+								<option value="{{ value }}" {{ account.locale|default('') == value ? 'selected' : '' }}>
+									{{ label }}
+								</option>
+							{% endfor %}
+						</select>
+						<div class="form-text">{{ 'account.language_help'|trans }}</div>
+					</div>
+
+					<button class="btn btn-primary" type="submit">{{ 'account.save_language'|trans }}</button>
 				</form>
 			</div>
 		</div>

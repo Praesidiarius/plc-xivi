@@ -24,6 +24,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Permission\ModuleAction;
 use Xivi\Core\Permission\PermissionScope;
@@ -50,6 +51,7 @@ final class UserController extends AbstractController
         private readonly UserRepository $repository,
         private readonly PermissionManager $permissions,
         private readonly MetadataRepository $metadata,
+        private readonly TranslatorInterface $translator,
     ) {
     }
 
@@ -75,15 +77,14 @@ final class UserController extends AbstractController
                 // The one moment this password exists in the clear. There is no
                 // mailer yet (§8.5), so it is read off the screen — and said
                 // plainly that it will not be shown again, because it will not.
-                $this->addFlash('password', sprintf(
-                    'Created %s. Their password is %s — copy it now, it cannot be shown again.',
-                    $user->getEmail(),
-                    $password,
-                ));
+                $this->addFlash('password', $this->translator->trans('flash.user_created', [
+                    '%email%' => $user->getEmail(),
+                    '%password%' => $password,
+                ]));
 
                 return $this->redirectToRoute('user_index');
             } catch (UserChangeRefused $e) {
-                $this->addFlash('warning', $e->getMessage());
+                $this->addFlash('warning', $e->translatable()->trans($this->translator));
             }
         }
 
@@ -129,11 +130,11 @@ final class UserController extends AbstractController
                 $matrix = $request->request->all('grants');
                 $this->permissions->applyUserGrants($user, $matrix, $inherited);
 
-                $this->addFlash('success', sprintf('Saved %s.', $user->getEmail()));
+                $this->addFlash('success', $this->translator->trans('flash.user_saved', ['%email%' => $user->getEmail()]));
 
                 return $this->redirectToRoute('user_index');
             } catch (UserChangeRefused $e) {
-                $this->addFlash('warning', $e->getMessage());
+                $this->addFlash('warning', $e->translatable()->trans($this->translator));
             }
         }
 
@@ -166,13 +167,12 @@ final class UserController extends AbstractController
 
             try {
                 $this->users->setActive($user, $active, $this->currentUser());
-                $this->addFlash('success', sprintf(
-                    '%s can %s sign in.',
-                    $user->getEmail(),
-                    $active ? 'now' : 'no longer',
+                $this->addFlash('success', $this->translator->trans(
+                    $active ? 'flash.user_reactivated' : 'flash.user_deactivated',
+                    ['%email%' => $user->getEmail()],
                 ));
             } catch (UserChangeRefused $e) {
-                $this->addFlash('warning', $e->getMessage());
+                $this->addFlash('warning', $e->translatable()->trans($this->translator));
             }
         }
 
@@ -191,11 +191,10 @@ final class UserController extends AbstractController
         $user = $this->user($id);
 
         if ($this->isCsrfTokenValid('manage-users', (string) $request->request->get('_token'))) {
-            $this->addFlash('password', sprintf(
-                'New password for %s: %s — copy it now, it cannot be shown again.',
-                $user->getEmail(),
-                $this->users->resetPassword($user),
-            ));
+            $this->addFlash('password', $this->translator->trans('flash.password_reset', [
+                '%email%' => $user->getEmail(),
+                '%password%' => $this->users->resetPassword($user),
+            ]));
         }
 
         return $this->redirectToRoute('user_index');

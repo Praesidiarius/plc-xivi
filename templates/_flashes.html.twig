@@ -1,4 +1,7 @@
-{# No dismiss buttons: they need Bootstrap's JavaScript, which this app does not ship. #}
+{# No dismiss buttons. Bootstrap's JavaScript is shipped now (for tooltips,
+   XIV-8), so they would work — they are simply not wanted: a message worth
+   showing is worth reading, and one worth dismissing should not have been a
+   message. #}
 {% set styles = {success: 'success', warning: 'warning', error: 'danger'} %}
 
 {% for type, messages in app.flashes(styles|keys) %}

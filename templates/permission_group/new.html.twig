@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}New group{% endblock %}
+{% block title %}{{ 'group.new'|trans }}{% endblock %}
 
 {% block body %}
 	{{ include('_topbar.html.twig') }}
@@ -8,7 +8,7 @@
 	<main class="container page-shell" style="max-width: 32rem;">
 		{{ include('_flashes.html.twig') }}
 
-		<h1 class="h3 mb-4">New group</h1>
+		<h1 class="h3 mb-4">{{ 'group.new'|trans }}</h1>
 
 		{#
 			Only the name here. What the group may do is the next screen, because a
@@ -20,16 +20,16 @@
 				<input type="hidden" name="_token" value="{{ csrf_token('manage-groups') }}">
 
 				<div class="mb-3">
-					<label class="form-label" for="label">Name</label>
+					<label class="form-label" for="label">{{ 'common.name'|trans }}</label>
 					<input class="form-control" id="label" name="label" required autofocus
 					       value="{{ submitted.label ?? '' }}"
-					       placeholder="Sales, Support, Read only…">
-					<div class="form-text">What the job is called. You can rename it later.</div>
+					       placeholder="{{ 'group.name_placeholder'|trans }}">
+					<div class="form-text">{{ 'group.name_help'|trans }}</div>
 				</div>
 
 				<div class="d-flex gap-2">
-					<button type="submit" class="btn btn-primary">Create</button>
-					<a class="btn btn-link" href="{{ path('group_index') }}">Cancel</a>
+					<button type="submit" class="btn btn-primary">{{ 'common.create'|trans }}</button>
+					<a class="btn btn-link" href="{{ path('group_index') }}">{{ 'common.cancel'|trans }}</a>
 				</div>
 			</div>
 		</form>

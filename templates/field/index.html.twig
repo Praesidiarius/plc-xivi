@@ -10,32 +10,44 @@
 
 		<div class="d-flex align-items-center justify-content-between mb-3">
 			<div>
-				<h1 class="h3 mb-0">Fields</h1>
+				<h1 class="h3 mb-0">{{ 'common.fields'|trans }}</h1>
 				<p class="text-body-secondary small mb-0">
 					{{ module.label }} — your copy. Changes apply to this customer only and take effect
 					immediately.
 				</p>
 			</div>
-			<a class="btn btn-link" href="{{ path('module_index', {module: module.key}) }}">Back to {{ module.label|lower }}</a>
+			<a class="btn btn-link" href="{{ path('module_index', {module: module.key}) }}">{{ 'field.back_to'|trans({'%module%': module.label|lower}) }}</a>
 		</div>
 
 		{% for shape in shapes %}
 			<div class="card mb-3">
 				<div class="card-body">
-					<h2 class="h5 mb-3">
-						{{ shape.label }}
-						{% if not loop.first %}<span class="text-body-secondary fw-normal small">— rows inside a {{ module.label|lower }}</span>{% endif %}
-					</h2>
+					{#
+						The heading is an input, because the label is the customer's word
+						and their module arrived named in whatever language it was
+						installed in (XIV-8). Same change as relabelling a field, so it
+						sits on the same screen.
+					#}
+					<form method="post" action="{{ path('shape_rename', {module: module.key, shape: shape.id}) }}"
+					      class="d-flex align-items-center gap-2 mb-3">
+						<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
+						<input class="form-control form-control-sm w-auto" name="label" value="{{ shape.label }}"
+						       aria-label="{{ 'field.shape_name'|trans }}" required>
+						<button class="btn btn-sm btn-outline-secondary" type="submit">{{ 'common.rename'|trans }}</button>
+						{% if not loop.first %}
+							<span class="text-body-secondary small">{{ 'field.rows_inside'|trans({'%module%': module.label|lower}) }}</span>
+						{% endif %}
+					</form>
 
 					<div class="table-responsive">
 						<table class="table table-sm align-middle mb-0">
 							<thead>
 								<tr>
-									<th scope="col" class="text-body-secondary small text-uppercase">Name</th>
-									<th scope="col" class="text-body-secondary small text-uppercase">Label</th>
-									<th scope="col" class="text-body-secondary small text-uppercase">Type</th>
-									<th scope="col" class="text-body-secondary small text-uppercase">Rules</th>
-									<th scope="col" class="text-body-secondary small text-uppercase">Order</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'common.name'|trans }}</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.label'|trans }}</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.type'|trans }}</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.rules'|trans }}</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.order'|trans }}</th>
 									<th scope="col"></th>
 								</tr>
 							</thead>
@@ -56,21 +68,21 @@
 										</td>
 										<td class="text-nowrap">
 											<label class="form-check-label small me-2">
-												<input form="f{{ field.id }}" type="checkbox" name="required" value="1" {{ field.required ? 'checked' : '' }}> required
+												<input form="f{{ field.id }}" type="checkbox" name="required" value="1" {{ field.required ? 'checked' : '' }}> {{ 'field.rule_required'|trans }}
 											</label>
 											<label class="form-check-label small me-2">
-												<input form="f{{ field.id }}" type="checkbox" name="unique" value="1" {{ field.unique ? 'checked' : '' }}> unique
+												<input form="f{{ field.id }}" type="checkbox" name="unique" value="1" {{ field.unique ? 'checked' : '' }}> {{ 'field.rule_unique'|trans }}
 											</label>
 											<label class="form-check-label small me-2">
-												<input form="f{{ field.id }}" type="checkbox" name="filterable" value="1" {{ field.filterable ? 'checked' : '' }}> filterable
+												<input form="f{{ field.id }}" type="checkbox" name="filterable" value="1" {{ field.filterable ? 'checked' : '' }}> {{ 'field.rule_filterable'|trans }}
 											</label>
 											<label class="form-check-label small me-2">
-												<input form="f{{ field.id }}" type="checkbox" name="listed" value="1" {{ field.listed ? 'checked' : '' }}> on list
+												<input form="f{{ field.id }}" type="checkbox" name="listed" value="1" {{ field.listed ? 'checked' : '' }}> {{ 'field.rule_listed'|trans }}
 											</label>
 											{# What the record is called: its heading, and whatever names it
 											   in a link later (§5.4). #}
 											<label class="form-check-label small">
-												<input form="f{{ field.id }}" type="checkbox" name="title" value="1" {{ field.title ? 'checked' : '' }}> titles it
+												<input form="f{{ field.id }}" type="checkbox" name="title" value="1" {{ field.title ? 'checked' : '' }}> {{ 'field.rule_title'|trans }}
 											</label>
 										</td>
 										<td>
@@ -84,14 +96,14 @@
 												{% if field.getOption('max_length') %}
 													<input type="hidden" name="max_length" value="{{ field.getOption('max_length') }}">
 												{% endif %}
-												<button class="btn btn-sm btn-outline-secondary" type="submit">Save</button>
+												<button class="btn btn-sm btn-outline-secondary" type="submit">{{ 'common.save'|trans }}</button>
 											</form>
 											{% if field.system %}
 												{# Came with the module; removing it is §7.2's other half. #}
 												<span class="text-body-secondary small">module field</span>
 											{% else %}
 												<a class="btn btn-sm btn-outline-danger"
-												   href="{{ path('field_confirm_delete', {module: module.key, field: field.id}) }}">Remove</a>
+												   href="{{ path('field_confirm_delete', {module: module.key, field: field.id}) }}">{{ 'common.remove'|trans }}</a>
 											{% endif %}
 										</td>
 									</tr>
@@ -106,16 +118,16 @@
 
 						<div class="row g-2 align-items-end">
 							<div class="col-sm-3">
-								<label class="form-label small mb-1" for="key{{ shape.id }}">Name</label>
+								<label class="form-label small mb-1" for="key{{ shape.id }}">{{ 'common.name'|trans }}</label>
 								<input id="key{{ shape.id }}" class="form-control form-control-sm" name="key"
 									   placeholder="vat_number" pattern="[a-z][a-z0-9_]*" required>
 							</div>
 							<div class="col-sm-3">
-								<label class="form-label small mb-1" for="label{{ shape.id }}">Label</label>
-								<input id="label{{ shape.id }}" class="form-control form-control-sm" name="label" placeholder="VAT number">
+								<label class="form-label small mb-1" for="label{{ shape.id }}">{{ 'field.label'|trans }}</label>
+								<input id="label{{ shape.id }}" class="form-control form-control-sm" name="label" placeholder="{{ 'field.label_placeholder'|trans }}">
 							</div>
 							<div class="col-sm-2">
-								<label class="form-label small mb-1" for="type{{ shape.id }}">Type</label>
+								<label class="form-label small mb-1" for="type{{ shape.id }}">{{ 'field.type'|trans }}</label>
 								<select id="type{{ shape.id }}" class="form-select form-select-sm" name="type">
 									{% for key, type in types %}
 										<option value="{{ key }}">{{ type.label }}</option>
@@ -124,25 +136,25 @@
 							</div>
 							<div class="col-sm-4 text-nowrap">
 								<label class="form-check-label small me-2">
-									<input type="checkbox" name="required" value="1"> required
+									<input type="checkbox" name="required" value="1"> {{ 'field.rule_required'|trans }}
 								</label>
 								<label class="form-check-label small me-2">
-									<input type="checkbox" name="unique" value="1"> unique
+									<input type="checkbox" name="unique" value="1"> {{ 'field.rule_unique'|trans }}
 								</label>
 								<label class="form-check-label small me-2">
-									<input type="checkbox" name="filterable" value="1"> filterable
+									<input type="checkbox" name="filterable" value="1"> {{ 'field.rule_filterable'|trans }}
 								</label>
 								{# Unticked on purpose: a field added later should not widen a list
 								   somebody reads every day without being asked. #}
 								<label class="form-check-label small me-2">
-									<input type="checkbox" name="listed" value="1"> on list
+									<input type="checkbox" name="listed" value="1"> {{ 'field.rule_listed'|trans }}
 								</label>
 								<label class="form-check-label small">
-									<input type="checkbox" name="title" value="1"> titles it
+									<input type="checkbox" name="title" value="1"> {{ 'field.rule_title'|trans }}
 								</label>
 							</div>
 							<div class="col-sm-1 text-end">
-								<button class="btn btn-sm btn-primary" type="submit">Add</button>
+								<button class="btn btn-sm btn-primary" type="submit">{{ 'common.add'|trans }}</button>
 							</div>
 						</div>
 						<p class="text-body-secondary small mb-0 mt-2">

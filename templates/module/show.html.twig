@@ -46,18 +46,18 @@
 				{# Back only leads anywhere if the list does: somebody may be allowed
 				   to open a record they cannot browse to. #}
 				{% if can('list', module) %}
-					<a class="btn btn-link" href="{{ path('module_index', {module: module.key}) }}">Back</a>
+					<a class="btn btn-link" href="{{ path('module_index', {module: module.key}) }}">{{ 'common.back'|trans }}</a>
 				{% endif %}
 				{% if can('edit', module, record) %}
 					<a class="btn btn-primary" href="{{ path('module_edit', {module: module.key, id: record.id}) }}">
-						<i class="bi bi-pencil" aria-hidden="true"></i> Edit
+						<i class="bi bi-pencil" aria-hidden="true"></i> {{ 'common.edit'|trans }}
 					</a>
 				{% endif %}
 				{% if can('delete', module, record) %}
 					<form method="post" action="{{ path('module_delete', {module: module.key, id: record.id}) }}">
 						<input type="hidden" name="_token" value="{{ csrf_token('delete-record-' ~ record.id) }}">
 						<button type="submit" class="btn btn-outline-danger">
-							<i class="bi bi-trash" aria-hidden="true"></i> Delete
+							<i class="bi bi-trash" aria-hidden="true"></i> {{ 'common.delete'|trans }}
 						</button>
 					</form>
 				{% endif %}
@@ -93,7 +93,7 @@
 							<h2 class="h6 text-uppercase text-body-secondary border-top pt-3 mt-4">{{ collection.label }}</h2>
 
 							{% if rows is empty %}
-								<p class="text-body-secondary mb-0">None.</p>
+								<p class="text-body-secondary mb-0">{{ 'common.none'|trans }}</p>
 							{% else %}
 								<div class="table-responsive">
 									<table class="table table-sm align-middle mb-0">
@@ -151,16 +151,16 @@
 			<div class="col-lg-4">
 				<div class="card mb-3">
 					<div class="card-body">
-						<h2 class="h6 text-uppercase text-body-secondary mb-3">Record</h2>
+						<h2 class="h6 text-uppercase text-body-secondary mb-3">{{ 'module.record'|trans }}</h2>
 						<dl class="row small mb-0">
-							<dt class="col-5 fw-normal text-body-secondary">Owner</dt>
+							<dt class="col-5 fw-normal text-body-secondary">{{ 'module.owner'|trans }}</dt>
 							<dd class="col-7">{{ owner ?? '—' }}</dd>
 							{% if record.createdAt %}
-								<dt class="col-5 fw-normal text-body-secondary">Created</dt>
+								<dt class="col-5 fw-normal text-body-secondary">{{ 'module.created'|trans }}</dt>
 								<dd class="col-7">{{ record.createdAt|date('Y-m-d H:i') }}</dd>
 							{% endif %}
 							{% if record.updatedAt %}
-								<dt class="col-5 fw-normal text-body-secondary">Changed</dt>
+								<dt class="col-5 fw-normal text-body-secondary">{{ 'module.changed'|trans }}</dt>
 								<dd class="col-7 mb-0">{{ record.updatedAt|date('Y-m-d H:i') }}</dd>
 							{% endif %}
 						</dl>
@@ -171,21 +171,25 @@
 				   read about a record, not something you edit (§5.2). #}
 				<div class="card">
 					<div class="card-body">
-						<h2 class="h6 text-uppercase text-body-secondary mb-3">History</h2>
+						<h2 class="h6 text-uppercase text-body-secondary mb-3">{{ 'module.history'|trans }}</h2>
 
 						{% if history is empty %}
 							<p class="text-body-secondary small mb-0">
-								Nothing recorded. Records that existed before history did have none
-								until the next time they change.
+								{{ 'module.history_empty'|trans }}
 							</p>
 						{% else %}
 							<ul class="list-unstyled mb-0 small">
 								{% for entry in history %}
 									<li class="{{ loop.first ? '' : 'border-top pt-3 mt-3' }}">
 										<div>
-											<strong>{{ entry.action.value|capitalize }}</strong>
-											{# Nobody signed in is an import or a console command, not a gap. #}
-											by {{ entry.userLabel ?? 'System' }}
+											{#
+												The verb is a key rather than the stored value capitalised:
+												"updated" is English, and the timeline is read by whoever owns
+												the record (XIV-8). Nobody signed in is an import or a console
+												command, not a gap.
+											#}
+											<strong>{{ ('module.action.' ~ entry.action.value)|trans }}</strong>
+											{{ 'module.action_by'|trans({'%who%': entry.userLabel ?? ('module.action_by_system'|trans)}) }}
 										</div>
 										<time class="text-body-secondary" datetime="{{ entry.occurredAt|date('c') }}">
 											{{ entry.occurredAt|date('Y-m-d H:i') }}
@@ -205,7 +209,8 @@
 												{% set collection = module.getCollection(collectionKey) %}
 												{% for row in rows %}
 													<li>
-														{{ collection ? collection.label : collectionKey }} {{ row.action }}:
+														{{ collection ? collection.label : collectionKey }}
+														{{ ('module.row_action.' ~ row.action)|trans }}:
 														{% if row.action == 'updated' %}
 															{% for key, change in in_field_order(collection, row.changes) %}
 																{{ change.label }}

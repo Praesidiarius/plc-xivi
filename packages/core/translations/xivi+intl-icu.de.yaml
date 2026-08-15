@@ -1,0 +1,4 @@
+# Die eine Engine-Meldung, die etwas zählt (XIV-8).
+
+metadata:
+    would_invalidate: '{count, plural, one {Diese Regel würde # bestehenden Datensatz ungültig machen, und er ließe sich nicht mehr speichern, bis jemand ihn korrigiert. Korrigiere zuerst den Datensatz, oder lass „{key}“ wie es ist.} other {Diese Regel würde # bestehende Datensätze ungültig machen, und sie ließen sich nicht mehr speichern, bis jemand sie korrigiert. Korrigiere zuerst die Datensätze, oder lass „{key}“ wie es ist.}}'

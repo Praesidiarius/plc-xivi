@@ -44,20 +44,16 @@ enum Operator: string
         return !\in_array($this, [self::IsEmpty, self::IsNotEmpty], true);
     }
 
-    /** Reads as a comparison in a filter row, not as a sentence. */
-    public function label(): string
+    /**
+     * A key in the `xivi` domain, not a word.
+     *
+     * The engine's own vocabulary is translated by the engine's own catalogue
+     * (XIV-8), so it reads in the customer's language without the application
+     * having to know what an operator is. Reads as a comparison in a filter row,
+     * not as a sentence.
+     */
+    public function labelKey(): string
     {
-        return match ($this) {
-            self::Equals => 'is',
-            self::NotEquals => 'is not',
-            self::Contains => 'contains',
-            self::StartsWith => 'starts with',
-            self::GreaterThan => 'after',
-            self::AtLeast => 'from',
-            self::LessThan => 'before',
-            self::AtMost => 'until',
-            self::IsEmpty => 'is empty',
-            self::IsNotEmpty => 'is not empty',
-        };
+        return 'operator.' . $this->value;
     }
 }

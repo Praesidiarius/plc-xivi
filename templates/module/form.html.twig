@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}{{ record.isNew ? 'New' : 'Edit' }} — {{ module.label }}{% endblock %}
+{% block title %}{{ (record.isNew ? 'common.new' : 'common.edit')|trans }} — {{ module.label }}{% endblock %}
 
 {% block body %}
 	{{ include('_topbar.html.twig') }}
@@ -9,12 +9,12 @@
 		{{ include('_flashes.html.twig') }}
 
 		<div class="d-flex align-items-center justify-content-between mb-3">
-			<h1 class="h3 mb-0">{{ record.isNew ? 'New' : 'Edit' }} {{ module.label|lower }}</h1>
+			<h1 class="h3 mb-0">{{ (record.isNew ? 'module.new_title' : 'module.edit_title')|trans({'%module%': module.label|lower}) }}</h1>
 			{# Back to wherever you came from: the record being edited, or the list
 			   when there is no record yet. #}
 			<a class="btn btn-link" href="{{ record.isNew
 				? path('module_index', {module: module.key})
-				: path('module_show', {module: module.key, id: record.id}) }}">Back</a>
+				: path('module_show', {module: module.key, id: record.id}) }}">{{ 'common.back'|trans }}</a>
 		</div>
 
 		{{ form_start(form) }}
@@ -43,7 +43,7 @@
 						{% for entry in entries %}
 							<div class="row-of-collection border-top pt-3 mt-3">
 								{{ form_widget(entry) }}
-								<button type="button" class="btn btn-outline-danger btn-sm" data-collection-remove>Remove</button>
+								<button type="button" class="btn btn-outline-danger btn-sm" data-collection-remove>{{ 'common.remove'|trans }}</button>
 							</div>
 						{% endfor %}
 					</div>
@@ -52,16 +52,16 @@
 					   the bottom still takes one more, and clearing a row's fields
 					   still removes it, because an empty row is not saved. #}
 					<button type="button" class="btn btn-outline-secondary btn-sm mt-3" data-collection-add hidden>
-						Add {{ collection.label|lower }}
+						{{ 'module.add_row'|trans({'%collection%': collection.label|lower}) }}
 					</button>
 				</div>
 			</div>
 		{% endfor %}
 
 		<div class="d-flex align-items-center gap-3 mt-4">
-			<button type="submit" class="btn btn-primary">Save</button>
+			<button type="submit" class="btn btn-primary">{{ 'common.save'|trans }}</button>
 			{% if not record.isNew and record.createdAt %}
-				<span class="text-body-secondary small">Created {{ record.createdAt|date('Y-m-d H:i') }}</span>
+				<span class="text-body-secondary small">{{ 'module.created_at'|trans({'%when%': record.createdAt|date('Y-m-d H:i')}) }}</span>
 			{% endif %}
 		</div>
 		{# Everything above is rendered by hand, so form_rest would only re-emit the
