@@ -1,0 +1,16 @@
+# The application's own strings, in the source language (XIV-8).
+#
+# English is the source and the fallback: a key with no German translation shows
+# the English sentence rather than the key itself, which is the difference
+# between a page with one odd word on it and a page reading "account.title".
+#
+# Keys are named for where the string lives and what it says, not for the words
+# themselves — renaming a sentence should not mean renaming its key.
+
+account:
+    title: Your account
+    language: Language
+    language_help: The language this application is shown to you in.
+    language_default: 'Follow the default (%locale%)'
+    save_language: Save language
+    language_saved: Language saved.

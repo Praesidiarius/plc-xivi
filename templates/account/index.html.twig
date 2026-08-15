@@ -89,5 +89,35 @@
 				</form>
 			</div>
 		</div>
+
+		{#
+			Its own form, because it is its own decision: changing your language
+			should not require typing your current password, and saving a password
+			should not quietly change your language.
+		#}
+		<div class="card mt-4">
+			<div class="card-body">
+				<h2 class="h5 mb-3">{{ 'account.language'|trans }}</h2>
+
+				<form method="post">
+					<input type="hidden" name="_token" value="{{ csrf_token('account') }}">
+					<input type="hidden" name="action" value="language">
+
+					<div class="mb-3">
+						<label class="form-label" for="locale">{{ 'account.language'|trans }}</label>
+						<select class="form-select" id="locale" name="locale">
+							{% for value, label in locales %}
+								<option value="{{ value }}" {{ account.locale|default('') == value ? 'selected' : '' }}>
+									{{ label }}
+								</option>
+							{% endfor %}
+						</select>
+						<div class="form-text">{{ 'account.language_help'|trans }}</div>
+					</div>
+
+					<button class="btn btn-primary" type="submit">{{ 'account.save_language'|trans }}</button>
+				</form>
+			</div>
+		</div>
 	</main>
 {% endblock %}

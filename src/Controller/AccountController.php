@@ -17,9 +17,12 @@ use App\Tenant\Entity\User;
 use App\Tenant\Security\UserChangeRefused;
 use App\Tenant\Security\UserManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Intl\Locales;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Your own account: your name, and your password.
@@ -41,8 +44,40 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/account')]
 final class AccountController extends AbstractController
 {
-    public function __construct(private readonly UserManager $users)
+    /** @param list<string> $enabledLocales */
+    public function __construct(
+        private readonly UserManager $users,
+        private readonly TranslatorInterface $translator,
+        #[Autowire('%kernel.enabled_locales%')]
+        private readonly array $enabledLocales,
+        #[Autowire('%kernel.default_locale%')]
+        private readonly string $defaultLocale,
+    ) {
+    }
+
+    /**
+     * The languages this build has, named in themselves.
+     *
+     * "Deutsch" rather than "German", because somebody looking for their own
+     * language is not reading the one they cannot. symfony/intl knows the names,
+     * so adding a language to `enabled_locales` adds it here with nothing else
+     * touched.
+     *
+     * @return array<string, string> locale => what to call it
+     */
+    private function localeChoices(string $current): array
     {
+        $choices = [
+            '' => $this->translator->trans('account.language_default', [
+                '%locale%' => Locales::getName($this->defaultLocale, $current),
+            ]),
+        ];
+
+        foreach ($this->enabledLocales as $locale) {
+            $choices[$locale] = Locales::getName($locale, $locale);
+        }
+
+        return $choices;
     }
 
     #[Route('', name: 'account', methods: ['GET', 'POST'])]
@@ -73,12 +108,30 @@ final class AccountController extends AbstractController
             'account' => $user,
             'minimum' => User::MINIMUM_PASSWORD_LENGTH,
             'held' => $user->mustChangePassword(),
+            // Named from the enabled set rather than from a list kept here, so
+            // adding a language to the build adds it to this picker (XIV-8).
+            'locales' => $this->localeChoices($request->getLocale()),
         ]);
     }
 
     private function handle(User $user, Request $request): void
     {
         try {
+            if ($request->request->get('action') === 'language') {
+                $chosen = (string) $request->request->get('locale');
+
+                // Anything this build does not have becomes "follow the
+                // default" rather than being stored and silently ignored later.
+                $this->users->setLocale(
+                    $user,
+                    \in_array($chosen, $this->enabledLocales, true) ? $chosen : null,
+                );
+
+                $this->addFlash('success', $this->translator->trans('account.language_saved'));
+
+                return;
+            }
+
             if ($request->request->get('action') === 'password') {
                 $new = (string) $request->request->get('new_password');
                 $repeat = (string) $request->request->get('repeat_password');

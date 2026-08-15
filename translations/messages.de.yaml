@@ -1,0 +1,10 @@
+# German, informal ("du"), decided deliberately: changing the register later
+# means rewriting every string.
+
+account:
+    title: Dein Konto
+    language: Sprache
+    language_help: Die Sprache, in der dir diese Anwendung angezeigt wird.
+    language_default: 'Standard verwenden (%locale%)'
+    save_language: Sprache speichern
+    language_saved: Sprache gespeichert.

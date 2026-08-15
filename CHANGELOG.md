@@ -117,6 +117,27 @@ of every page, and is not yet tied to git tags.
 - Both commands are registered in dev and test only, and are absent from a
   production image entirely.
 
+- **Localization** ([XIV-8]), in progress. `symfony/translation` does the work and
+  `symfony/intl` names the languages, so the picker offers "Deutsch" rather than
+  "German" — somebody looking for their own language is not reading the one they
+  cannot. English is the source and the fallback; German is informal (*du*),
+  decided deliberately because changing the register later means rewriting every
+  string.
+- **The language is per person, not per customer**, on `app_user.locale`, chosen
+  on the account page. One office is not one language. Null means "follow the
+  application default", which is a different promise from choosing English: one
+  keeps following the default if it moves.
+- Resolved per request from the signed-in user and **never parked in the
+  session** — that would be state outliving the request that made it, which this
+  runtime otherwise does not have (§7.4, §9.2). The login page has nobody to ask,
+  so it asks the browser.
+- **A missing translation fails the build.** The catalogues are compared key for
+  key in both directions: a key with no German is the quietest bug here, since the
+  fallback keeps the page working and merely serves one paragraph of it in the
+  wrong language on somebody else's screen.
+- A customer's own labels are deliberately **not** translated: module names, field
+  labels and choice options are their data, in the language they typed.
+
 ### Changed
 
 - **The session no longer carries a user's groups and grants.** `User` is
@@ -231,3 +252,4 @@ began and is recorded here as one entry rather than invented as a history.
   and real PostgreSQL roles.
 
 [XIV-2]: https://xivi.youtrack.cloud/issue/XIV-2
+[XIV-8]: https://xivi.youtrack.cloud/issue/XIV-8
