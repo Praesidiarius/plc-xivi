@@ -13,6 +13,11 @@ operator:
     filled: ist nicht leer
 
 document:
+    marker:
+        record_id: Datensatznummer
+        created_at: Erstellt
+        updated_at: Geändert
+        today: Heutiges Datum
     problem:
         not_a_docx: '„%file%“ ist kein lesbares Word-Dokument. Speichere es als .docx und versuche es erneut.'
         could_not_fill: 'Die Vorlage „%template%“ konnte nicht befüllt werden. Möglicherweise ist sie in einem Format gespeichert, das Word selbst reparieren würde.'

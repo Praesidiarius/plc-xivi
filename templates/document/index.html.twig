@@ -126,20 +126,36 @@
 						<h2 class="h6 text-uppercase text-body-secondary mb-2">{{ 'document.placeholders'|trans }}</h2>
 						<p class="text-body-secondary small">{{ 'document.placeholders_help'|trans }}</p>
 
-						{% for variant, list in markers %}
-							{% if variant %}
-								<h3 class="h6 mt-3">{{ variants[variant]|default(variant) }}</h3>
-							{% endif %}
-
+						{% macro list(markers) %}
 							<dl class="row small mb-0">
-								{% for marker in list %}
+								{% for marker in markers %}
 									<dt class="col-6 fw-normal">
 										<code>{{ marker.token }}</code>
 									</dt>
 									<dd class="col-6 text-body-secondary">{{ marker.label }}</dd>
 								{% endfor %}
 							</dl>
+						{% endmacro %}
+
+						{#
+							One section per kind of record, because a person and a company
+							hold different fields (§5.5) — and the general ones below, which
+							belong under neither.
+						#}
+						{% for variant, markerList in markers %}
+							{% if variant %}
+								<h3 class="h6 mt-3">{{ 'document.for_variant'|trans({'%variant%': variants[variant]|default(variant)}) }}</h3>
+							{% endif %}
+
+							{{ _self.list(markerList) }}
 						{% endfor %}
+
+						<section id="general-markers">
+							<h3 class="h6 mt-4">{{ 'document.general'|trans }}</h3>
+							<p class="text-body-secondary small mb-2">{{ 'document.general_help'|trans }}</p>
+
+							{{ _self.list(general) }}
+						</section>
 					</div>
 				</div>
 			</div>

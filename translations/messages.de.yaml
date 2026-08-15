@@ -273,6 +273,13 @@ document:
     format_docx: Word — zum vorher Bearbeiten
     download: Herunterladen
     none_for_record: Für diesen Datensatz passt noch keine Vorlage.
+    marker:
+        tenant_name: Diese Firma
+        user_name: Wer es erzeugt
+        user_email: Deren E-Mail
+    general: Allgemein
+    general_help: In jeder Vorlage verfügbar, worum es auch geht.
+    for_variant: 'Für %variant%'
     placeholders: Platzhalter
     placeholders_help: >-
         Schreibe diese samt Klammern ins Word-Dokument. Beim Erzeugen werden sie durch die

@@ -87,8 +87,10 @@ final class DocumentController extends AbstractController
             'templates' => $this->templates->forModule($definition->getKey()),
             'variants' => $definition->getVariants(),
             // One reference list per variant, because a letter to a person and a
-            // letter to a company are different documents (§5.5).
+            // letter to a company are different documents (§5.5) — and one more
+            // for the markers that are about neither.
             'markers' => $this->markersPerVariant($definition),
+            'general' => $this->markers->general(),
             'maxBytes' => self::MAX_UPLOAD_BYTES,
         ]);
     }

@@ -15,9 +15,9 @@ namespace App\Twig;
 
 use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantContext;
-use App\Tenant\Repository\TenantProfileRepository;
 use App\Tenant\Security\PermissionArea;
 use App\Tenant\Security\PermissionResolver;
+use App\Tenant\Settings\InstanceName;
 use Symfony\Bundle\SecurityBundle\Security;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Metadata\MetadataRepository;
@@ -40,7 +40,7 @@ final class AppChrome
         private readonly MetadataRepository $metadata,
         private readonly PermissionResolver $permissions,
         private readonly Security $security,
-        private readonly TenantProfileRepository $profiles,
+        private readonly InstanceName $instance,
     ) {
     }
 
@@ -59,15 +59,7 @@ final class AppChrome
      */
     public function getName(): string
     {
-        $tenant = $this->getTenant();
-
-        if ($tenant === null) {
-            return '';
-        }
-
-        $company = $this->profiles->current()->getCompanyName();
-
-        return $company !== '' ? $company : $tenant->getName();
+        return $this->instance->current();
     }
 
     /**

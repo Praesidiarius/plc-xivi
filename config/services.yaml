@@ -105,6 +105,10 @@ services:
     # a service on the compose network. Same seam as the currency above.
     Xivi\Core\Document\PdfConverter: '@App\Tenant\Document\GotenbergPdfConverter'
 
+    # And what a document can say that is not about the record: who this
+    # installation is, and who is generating it (XIV-4).
+    Xivi\Core\Document\DocumentContext: '@App\Tenant\Document\InstanceContext'
+
     Xivi\Core\Document\DocumentTemplateRepository:
         arguments:
             $entityManager: '@doctrine.orm.tenant_entity_manager'
