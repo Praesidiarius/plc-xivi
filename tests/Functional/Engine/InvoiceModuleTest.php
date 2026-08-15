@@ -16,7 +16,7 @@ namespace App\Tests\Functional\Engine;
 use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Security\UserCreator;
-use App\Tests\Support\AddsCollectionRows;
+use App\Tests\Support\SavesRecords;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -44,14 +44,13 @@ use Xivi\Order\OrderModule;
  */
 final class InvoiceModuleTest extends WebTestCase
 {
-    use AddsCollectionRows;
+    use SavesRecords;
     use SharesATenant;
 
     private const string SLUG = 'test_invoices';
     private const string HOST = 'invoices.localhost';
     private const string EMAIL = 'invoices@example.test';
     private const string PASSWORD = 'invoices-password';
-    private const string FORM = 'module_record';
 
     private KernelBrowser $client;
     private Tenant $tenant;
@@ -104,7 +103,8 @@ final class InvoiceModuleTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame(
             'Consulting',
-            (string) $this->client->getCrawler()->filter('[name="' . self::line(0, 'description') . '"]')->attr('value'),
+            (string) $this->client->getCrawler()
+                ->filter('[name="module_record[collections][lines][0][fields][description]"]')->attr('value'),
             'the order line is already on the form',
         );
     }
@@ -135,10 +135,10 @@ final class InvoiceModuleTest extends WebTestCase
         $invoice = $this->invoice($order);
 
         // The order is renegotiated after the invoice went out.
-        $crawler = $this->client->request('GET', $this->url('/m/order/' . $order . '/edit'));
-        $form = $crawler->selectButton('Save')->form();
-        $form[self::row(0, 'unit_price')] = '99.00';
-        $this->client->submit($form);
+        $values = self::formValuesOn($this->client->request('GET', $this->url('/m/order/' . $order . '/edit')));
+        $values['collections'][OrderModule::LINES][0]['fields']['unit_price'] = '99.00';
+
+        $this->saveRecord(OrderModule::KEY, $values['fields'], $values['collections'], $order);
 
         self::assertSame('150.00', $this->linesOf($invoice)[0]->get(InvoiceModule::UNIT_PRICE));
     }
@@ -187,9 +187,9 @@ final class InvoiceModuleTest extends WebTestCase
         // Invoice it, dropping the travel line — the subtotal must not still
         // claim 380.
         $invoice = $this->invoice($order, [
-            self::line(1, 'description') => '',
-            self::line(1, 'quantity') => '',
-            self::line(1, 'unit_price') => '',
+            [1, 'description', ''],
+            [1, 'quantity', ''],
+            [1, 'unit_price', ''],
         ]);
 
         $lines = $this->linesOf($invoice);
@@ -267,7 +267,7 @@ final class InvoiceModuleTest extends WebTestCase
         ]);
 
         // A deposit: four of the ten.
-        $this->invoice($order, [self::line(0, 'quantity') => '4']);
+        $this->invoice($order, [[0, 'quantity', '4']]);
 
         $page = $this->client->request('GET', $this->url('/m/order/' . $order))->filter('main')->text();
         self::assertStringContainsString('6.00 left', $page, 'the order says what is still to invoice');
@@ -288,9 +288,9 @@ final class InvoiceModuleTest extends WebTestCase
 
         // Invoice the consulting in full and nothing of the travel.
         $this->invoice($order, [
-            self::line(1, 'description') => '',
-            self::line(1, 'quantity') => '',
-            self::line(1, 'unit_price') => '',
+            [1, 'description', ''],
+            [1, 'quantity', ''],
+            [1, 'unit_price', ''],
         ]);
 
         $this->client->click(
@@ -313,67 +313,81 @@ final class InvoiceModuleTest extends WebTestCase
      * Makes an invoice from an order through the button and the form, and
      * returns its id.
      *
-     * @param array<string, string> $adjust what somebody changes before saving
+     * @param list<array{0: int, 1: string, 2: string}> $adjust row index, field and value
+     *                                                          somebody changes before saving
      */
     private function invoice(int $order, array $adjust = []): int
     {
+        // Through the button, so the seeding is exercised: the page comes back
+        // already filled in, and what it is showing is what a save would send.
         $page = $this->client->request('GET', $this->url('/m/order/' . $order));
-        $crawler = $this->client->click($page->selectLink('Invoice what is left')->link());
+        $seeded = $this->client->click($page->selectLink('Invoice what is left')->link());
 
-        $form = $crawler->selectButton('Save')->form();
-        $form[self::field('issued_on')] = '2026-08-15';
-        $form[self::field('status')] = InvoiceModule::DRAFT;
+        $values = self::formValuesOn($seeded);
 
-        foreach ($adjust as $name => $value) {
-            $form[$name] = $value;
+        // What the seeding put there, before anybody typed: the order and the
+        // customer. Taken now because the component is later mounted with them
+        // and only with them — handing it the whole edited form would give a
+        // date field a string where it wants a date.
+        $seedFields = array_filter($values['fields'], static fn (mixed $v): bool => $v !== '');
+
+        $values['fields']['issued_on'] = '2026-08-15';
+        $values['fields']['status'] = InvoiceModule::DRAFT;
+
+        foreach ($adjust as [$index, $field, $value]) {
+            $values['collections'][InvoiceModule::LINES][$index]['fields'][$field] = $value;
         }
 
-        $this->client->submit($form);
-        $this->client->followRedirect();
+        $rows = $values['collections'] ?? [];
 
-        return $this->idOfCurrentPage();
+        return $this->savedId($this->saveRecord(
+            InvoiceModule::KEY,
+            $values['fields'],
+            $rows,
+            // Empty controls are values nobody set, and the seeding that really
+            // produced this page would have passed null rather than "" — which
+            // a decimal field refuses.
+            seeded: array_map(
+                static fn (array $lines): array => array_values(array_map(
+                    static fn (array $row): array => array_filter(
+                        (array) $row['fields'],
+                        static fn (mixed $v): bool => $v !== '',
+                    ),
+                    $lines,
+                )),
+                $rows,
+            ),
+            seededFields: $seedFields,
+        ));
     }
 
     /** @param list<array{0: string, 1: array<string, string>}> $lines */
     private function anOrderWith(array $lines): int
     {
-        $customer = $this->aCompany();
+        $rows = [];
 
-        $this->client->request('GET', $this->url('/m/order/new'));
-        $this->client->submitForm('Save', [
-            self::field('contact') => (string) $customer,
-            self::field('ordered_on') => '2026-08-15',
-            self::field('status') => OrderModule::DRAFT,
-        ]);
-        $this->client->followRedirect();
-
-        $order = $this->idOfCurrentPage();
-
-        // One line per save, each added by its own button (XIV-29): the new row
-        // is the last, so its index is however many were there before.
-        foreach ($lines as $offset => [$kind, $values]) {
-            $page = $this->client->request('GET', $this->url('/m/order/' . $order . '/edit'));
-            $page = $this->addRow($this->client, $page, OrderModule::LINES, $kind);
-
-            $form = $page->selectButton('Save')->form();
-
-            foreach ($values as $key => $value) {
-                $form[self::row($offset, $key)] = $value;
-            }
-
-            $this->client->submit($form);
+        foreach ($lines as [$kind, $values]) {
+            $rows[] = self::row([OrderModule::KIND => $kind, ...$values]);
         }
 
-        return $order;
+        return $this->savedId($this->saveRecord(
+            OrderModule::KEY,
+            [
+                'contact' => (string) $this->aCompany(),
+                'ordered_on' => '2026-08-15',
+                'status' => OrderModule::DRAFT,
+            ],
+            $rows === [] ? [] : [OrderModule::LINES => $rows],
+        ));
     }
 
     private function aCompany(): int
     {
-        $this->client->request('GET', $this->url('/m/contact/new?variant=company'));
-        $this->client->submitForm('Save', [self::field('company_name') => 'Acme AG']);
-        $this->client->followRedirect();
-
-        return $this->idOfCurrentPage();
+        return $this->savedId($this->saveRecord(
+            ContactModule::KEY,
+            ['kind' => 'company', 'company_name' => 'Acme AG'],
+            variant: 'company',
+        ));
     }
 
     /** @return list<Record> */
@@ -420,28 +434,6 @@ final class InvoiceModuleTest extends WebTestCase
             $this->url(sprintf('/m/invoice/%d/transition/%s', $invoice, $name)),
             ['_token' => $tokens[0] ?? 'no-token'],
         );
-    }
-
-    private function idOfCurrentPage(): int
-    {
-        return (int) basename((string) parse_url((string) $this->client->getRequest()->getUri(), \PHP_URL_PATH));
-    }
-
-    private static function field(string $key): string
-    {
-        return sprintf('%s[fields][%s]', self::FORM, $key);
-    }
-
-    /** A row of the *order's* lines. */
-    private static function row(int $index, string $key): string
-    {
-        return sprintf('%s[collections][lines][%d][fields][%s]', self::FORM, $index, $key);
-    }
-
-    /** A row of the *invoice's* lines, which are seeded and so come first. */
-    private static function line(int $index, string $key): string
-    {
-        return sprintf('%s[collections][lines][%d][fields][%s]', self::FORM, $index, $key);
     }
 
     private function signIn(): void

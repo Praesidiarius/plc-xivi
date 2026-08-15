@@ -19,6 +19,7 @@ use App\Tenant\Entity\PermissionGrant;
 use App\Tenant\Entity\User;
 use App\Tenant\Repository\UserRepository;
 use App\Tenant\Security\UserCreator;
+use App\Tests\Support\SavesRecords;
 use App\Tests\Support\SharesATenant;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -47,11 +48,14 @@ use Xivi\Core\Permission\PermissionScope;
  */
 final class CrossModuleLinkTest extends WebTestCase
 {
+    use SavesRecords;
     use SharesATenant;
 
     private const string SLUG = 'test_cross_links';
     private const string HOST = 'crosslinks.localhost';
     private const string ADMIN = 'admin@crosslinks.test';
+    /** Whose session a record is saved under unless a test says otherwise (XIV-33). */
+    private const string EMAIL = self::ADMIN;
     private const string MEMBER = 'member@crosslinks.test';
     private const string PASSWORD = 'crosslinks-password';
     private const string FORM = 'module_record';
@@ -195,43 +199,31 @@ final class CrossModuleLinkTest extends WebTestCase
 
     private function aCompany(string $name): int
     {
-        $this->client->request('GET', $this->url('/m/contact/new?variant=company'));
-        $this->client->submitForm('Save', [self::field('company_name') => $name]);
-
-        return $this->idOfTheRecordJustSaved();
+        return $this->savedId($this->saveRecord(
+            ContactModule::KEY,
+            ['kind' => 'company', 'company_name' => $name],
+            variant: 'company',
+        ));
     }
 
     private function aPerson(string $first, string $last): int
     {
-        $this->client->request('GET', $this->url('/m/contact/new?variant=person'));
-        $this->client->submitForm('Save', [
-            self::field('first_name') => $first,
-            self::field('last_name') => $last,
-        ]);
-
-        return $this->idOfTheRecordJustSaved();
+        return $this->savedId($this->saveRecord(
+            ContactModule::KEY,
+            ['kind' => 'person', 'first_name' => $first, 'last_name' => $last],
+            variant: 'person',
+        ));
     }
 
     private function anArticle(string $title, ?int $supplier = null): int
     {
-        $this->client->request('GET', $this->url('/m/article/new'));
-
-        $values = [self::field('title') => $title];
+        $fields = ['title' => $title];
 
         if ($supplier !== null) {
-            $values[self::field(self::SUPPLIER)] = (string) $supplier;
+            $fields[self::SUPPLIER] = (string) $supplier;
         }
 
-        $this->client->submitForm('Save', $values);
-
-        return $this->idOfTheRecordJustSaved();
-    }
-
-    private function idOfTheRecordJustSaved(): int
-    {
-        $this->client->followRedirect();
-
-        return (int) basename((string) parse_url((string) $this->client->getRequest()->getUri(), \PHP_URL_PATH));
+        return $this->savedId($this->saveRecord(ArticleModule::KEY, $fields));
     }
 
     private function grant(string $email, string $module, ModuleAction $action): void

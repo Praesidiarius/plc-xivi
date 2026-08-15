@@ -16,8 +16,8 @@ namespace App\Tests\Functional\Engine;
 use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Security\UserCreator;
-use App\Tests\Support\AddsCollectionRows;
 use App\Tests\Support\Module\JobModule;
+use App\Tests\Support\SavesRecords;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -37,7 +37,7 @@ use Xivi\Core\Module\ModuleRegistry;
  */
 final class CollectionKindsTest extends WebTestCase
 {
-    use AddsCollectionRows;
+    use SavesRecords;
     use SharesATenant;
 
     private const string SLUG = 'test_row_kinds';
@@ -79,8 +79,9 @@ final class CollectionKindsTest extends WebTestCase
         $page = $this->client->request('GET', $this->url('/m/job/new'));
 
         self::assertSame(
-            ['lines:' . JobModule::ITEM, 'lines:' . JobModule::COMMENT],
-            $page->filter('button[name="add"]')->each(static fn (Crawler $node): string => (string) $node->attr('value')),
+            [JobModule::ITEM, JobModule::COMMENT],
+            $page->filter('[data-live-action-param="addRow"][data-live-collection-param="lines"]')
+                ->each(static fn (Crawler $node): string => (string) $node->attr('data-live-kind-param')),
         );
 
         self::assertCount(0, $page->filter('[name$="[fields][kind]"]'), 'and no rows yet');
@@ -89,62 +90,66 @@ final class CollectionKindsTest extends WebTestCase
     /** And a row asks only for what its kind has. */
     public function testARowAsksOnlyForItsOwnFields(): void
     {
-        $page = $this->client->request('GET', $this->url('/m/job/new'));
+        $item = $this->afterAdding([JobModule::ITEM]);
 
         // The item: text and an amount. The comment: text alone.
-        $item = $this->addRow($this->client, $page, 'lines', JobModule::ITEM);
-        self::assertCount(1, $item->filter(sprintf('[name="%s"]', self::line(0, 'amount'))));
-        self::assertCount(1, $item->filter(sprintf('[name="%s"]', self::line(0, 'text'))));
+        self::assertStringContainsString(self::line(0, 'amount'), $item);
+        self::assertStringContainsString(self::line(0, 'text'), $item);
 
-        $comment = $this->addRow($this->client, $item, 'lines', JobModule::COMMENT);
-        self::assertCount(0, $comment->filter(sprintf('[name="%s"]', self::line(1, 'amount'))));
-        self::assertCount(1, $comment->filter(sprintf('[name="%s"]', self::line(1, 'text'))));
+        $both = $this->afterAdding([JobModule::ITEM, JobModule::COMMENT]);
+
+        self::assertStringNotContainsString(self::line(1, 'amount'), $both);
+        self::assertStringContainsString(self::line(1, 'text'), $both);
     }
 
     /** A row already typed into survives adding another. */
     public function testAddingARowKeepsWhatIsAlreadyTypedIn(): void
     {
-        $page = $this->client->request('GET', $this->url('/m/job/new'));
-        $page = $this->addRow($this->client, $page, 'lines', JobModule::ITEM);
+        $html = self::liveService(TenantSwitcher::class)->runFor($this->tenant, fn (): string => $this
+            ->recordForm(JobModule::KEY)
+            ->call('addRow', ['collection' => 'lines', 'kind' => JobModule::ITEM])
+            ->set('module_record', [
+                'fields' => ['title' => 'Rewire the office', 'status' => JobModule::DRAFT],
+                'collections' => ['lines' => [self::row([
+                    'kind' => JobModule::ITEM,
+                    'text' => 'Cabling',
+                ])]],
+            ])
+            ->call('addRow', ['collection' => 'lines', 'kind' => JobModule::COMMENT])
+            ->render()
+            ->toString());
 
-        $form = $page->selectButton('Save')->form();
-        $form[self::field('title')] = 'Rewire the office';
-        $form[self::line(0, 'text')] = 'Cabling';
-        $values = $form->getPhpValues();
-        $values['add'] = 'lines:' . JobModule::COMMENT;
-        $page = $this->client->request('POST', $form->getUri(), $values);
-
-        self::assertSame('Cabling', (string) $page->filter(sprintf('[name="%s"]', self::line(0, 'text')))->attr('value'));
-        self::assertCount(1, $page->filter(sprintf('[name="%s"]', self::line(1, 'text'))), 'and the new row is there');
+        self::assertStringContainsString('value="Cabling"', $html, 'the row that was there kept what was typed');
+        self::assertStringContainsString(self::line(1, 'text'), $html, 'and the new row is there');
     }
 
     /** A row can be taken away again, and takes its values with it. */
     public function testARowCanBeRemoved(): void
     {
-        $page = $this->client->request('GET', $this->url('/m/job/new'));
-        $page = $this->addRow($this->client, $page, 'lines', JobModule::ITEM);
-        $page = $this->addRow($this->client, $page, 'lines', JobModule::COMMENT);
+        $html = self::liveService(TenantSwitcher::class)->runFor($this->tenant, fn (): string => $this
+            ->recordForm(JobModule::KEY)
+            ->set('module_record', [
+                'fields' => ['title' => 'Rewire the office', 'status' => JobModule::DRAFT],
+                'collections' => ['lines' => [
+                    self::row(['kind' => JobModule::ITEM, 'text' => 'Staying']),
+                    self::row(['kind' => JobModule::COMMENT, 'text' => 'Going away']),
+                ]],
+            ])
+            ->call('removeRow', ['collection' => 'lines', 'index' => 1])
+            ->render()
+            ->toString());
 
-        $form = $page->selectButton('Save')->form();
-        $form[self::line(1, 'text')] = 'Going away';
-        $values = $form->getPhpValues();
-        $values['remove'] = 'lines:1';
-        $page = $this->client->request('POST', $form->getUri(), $values);
-
-        self::assertCount(1, $page->filter('[name$="[fields][kind]"]'), 'one row left');
-        self::assertStringNotContainsString('Going away', $page->filter('main')->html());
+        self::assertStringContainsString('value="Staying"', $html, 'one row left');
+        self::assertStringNotContainsString('Going away', $html);
     }
 
     /** A derived value is shown and never taken. */
     public function testADerivedFieldIsShownWithoutBeingOffered(): void
     {
-        $page = $this->client->request('GET', $this->url('/m/job/new'));
-        $page = $this->addRow($this->client, $page, 'lines', JobModule::ITEM);
+        $html = $this->afterAdding([JobModule::ITEM]);
 
-        $total = $page->filter(sprintf('[name="%s"]', self::line(0, 'line_total')));
-
-        self::assertCount(1, $total, 'it is on the form');
-        self::assertNotNull($total->attr('disabled'), 'and not for typing');
+        self::assertStringContainsString(self::line(0, 'line_total'), $html, 'it is on the form');
+        self::assertMatchesRegularExpression('#line_total[^>]*disabled#', $html, 'and not for typing');
     }
 
     /** Rows of both kinds save, and each keeps only its own fields. */
@@ -182,45 +187,47 @@ final class CollectionKindsTest extends WebTestCase
      */
     public function testAKindWithNoPriceIsSavedLikeAnyOther(): void
     {
-        $page = $this->client->request('GET', $this->url('/m/job/new'));
-        $page = $this->addRow($this->client, $page, 'lines', JobModule::COMMENT);
+        $id = $this->savedId($this->saveRecord(
+            JobModule::KEY,
+            ['title' => 'Just a note', 'status' => JobModule::DRAFT],
+            ['lines' => [self::row(['kind' => JobModule::COMMENT, 'text' => 'Nothing to charge for'])]],
+        ));
 
-        $this->client->submit($page->selectButton('Save')->form([
-            self::field('title') => 'Just a note',
-            self::field('status') => JobModule::DRAFT,
-            self::line(0, 'text') => 'Nothing to charge for',
-        ]));
-
-        $this->client->followRedirect();
-        $page = $this->client->getCrawler()->filter('main')->text();
+        $page = $this->client->request('GET', $this->url('/m/job/' . $id))->filter('main')->text();
 
         self::assertStringContainsString('Nothing to charge for', $page);
     }
 
     // -- helpers ------------------------------------------------------------
 
-    private function aJobWithLines(): int
+    /**
+     * The form's HTML after pressing the add button for each kind in turn.
+     *
+     * @param list<string> $kinds
+     */
+    private function afterAdding(array $kinds): string
     {
-        $page = $this->client->request('GET', $this->url('/m/job/new'));
-        $page = $this->addRow($this->client, $page, 'lines', JobModule::ITEM);
-        $page = $this->addRow($this->client, $page, 'lines', JobModule::COMMENT);
+        return self::liveService(TenantSwitcher::class)->runFor($this->tenant, function () use ($kinds): string {
+            $form = $this->recordForm(JobModule::KEY);
 
-        $this->client->submit($page->selectButton('Save')->form([
-            self::field('title') => 'Rewire the office',
-            self::field('status') => JobModule::DRAFT,
-            self::line(0, 'text') => 'Cabling',
-            self::line(0, 'amount') => '240.00',
-            self::line(1, 'text') => 'Anything below is optional',
-        ]));
+            foreach ($kinds as $kind) {
+                $form = $form->call('addRow', ['collection' => 'lines', 'kind' => $kind]);
+            }
 
-        $this->client->followRedirect();
-
-        return (int) basename((string) parse_url((string) $this->client->getRequest()->getUri(), \PHP_URL_PATH));
+            return $form->render()->toString();
+        });
     }
 
-    private static function field(string $key): string
+    private function aJobWithLines(): int
     {
-        return sprintf('%s[fields][%s]', self::FORM, $key);
+        return $this->savedId($this->saveRecord(
+            JobModule::KEY,
+            ['title' => 'Rewire the office', 'status' => JobModule::DRAFT],
+            ['lines' => [
+                self::row(['kind' => JobModule::ITEM, 'text' => 'Cabling', 'amount' => '240.00']),
+                self::row(['kind' => JobModule::COMMENT, 'text' => 'Anything below is optional']),
+            ]],
+        ));
     }
 
     private static function line(int $index, string $key): string

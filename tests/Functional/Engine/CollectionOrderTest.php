@@ -16,8 +16,8 @@ namespace App\Tests\Functional\Engine;
 use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Security\UserCreator;
-use App\Tests\Support\AddsCollectionRows;
 use App\Tests\Support\Module\JobModule;
+use App\Tests\Support\SavesRecords;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -38,14 +38,13 @@ use Xivi\Core\Record\RecordRepository;
  */
 final class CollectionOrderTest extends WebTestCase
 {
-    use AddsCollectionRows;
+    use SavesRecords;
     use SharesATenant;
 
     private const string SLUG = 'test_row_order';
     private const string HOST = 'roworder.localhost';
     private const string EMAIL = 'order@example.test';
     private const string PASSWORD = 'order-password';
-    private const string FORM = 'module_record';
 
     private KernelBrowser $client;
     private Tenant $tenant;
@@ -87,10 +86,7 @@ final class CollectionOrderTest extends WebTestCase
         $id = $this->aJobWithLines(['First', 'Second', 'Third']);
 
         // Send the third one to the front by numbering it below the first.
-        $crawler = $this->client->request('GET', $this->url('/m/job/' . $id . '/edit'));
-        $form = $crawler->selectButton('Save')->form();
-        $form[self::row(2, 'position')] = '5';
-        $this->client->submit($form);
+        $this->renumber($id, 2, '5');
 
         self::assertSame(['Third', 'First', 'Second'], $this->textsOf($id));
         // And renumbered in tens again, so the next insertion has room.
@@ -103,10 +99,7 @@ final class CollectionOrderTest extends WebTestCase
         $id = $this->aJobWithLines(['First', 'Second']);
         $before = $this->idsByText($id);
 
-        $crawler = $this->client->request('GET', $this->url('/m/job/' . $id . '/edit'));
-        $form = $crawler->selectButton('Save')->form();
-        $form[self::row(1, 'position')] = '5';
-        $this->client->submit($form);
+        $this->renumber($id, 1, '5');
 
         $after = $this->idsByText($id);
         ksort($before);
@@ -122,10 +115,7 @@ final class CollectionOrderTest extends WebTestCase
         $id = $this->aJobWithLines(['First', 'Second']);
         $before = $this->timelineLength($id);
 
-        $crawler = $this->client->request('GET', $this->url('/m/job/' . $id . '/edit'));
-        $form = $crawler->selectButton('Save')->form();
-        $form[self::row(1, 'position')] = '5';
-        $this->client->submit($form);
+        $this->renumber($id, 1, '5');
 
         self::assertSame(['Second', 'First'], $this->textsOf($id), 'it did move');
         self::assertSame($before, $this->timelineLength($id), 'and the timeline says nothing happened');
@@ -143,12 +133,12 @@ final class CollectionOrderTest extends WebTestCase
     {
         $id = $this->aJobWithLines(['First']);
 
-        $page = $this->client->request('GET', $this->url('/m/job/' . $id . '/edit'));
-        // A row somebody has just added, which the form puts after the saved one.
-        $page = $this->addRow($this->client, $page, 'lines', JobModule::ITEM);
-        $form = $page->selectButton('Save')->form();
-        $form[self::row(1, 'fields][text')] = 'Added later';
-        $this->client->submit($form);
+        // A row somebody has just added: no id and no position, which is what
+        // sends it to the end rather than to the front.
+        $values = self::formValuesOn($this->client->request('GET', $this->url('/m/job/' . $id . '/edit')));
+        $values['collections']['lines'][] = self::row(['kind' => JobModule::ITEM, 'text' => 'Added later']);
+
+        $this->saveRecord(JobModule::KEY, $values['fields'], $values['collections'], $id);
 
         self::assertSame(['First', 'Added later'], $this->textsOf($id));
     }
@@ -158,30 +148,29 @@ final class CollectionOrderTest extends WebTestCase
     /** @param list<string> $texts */
     private function aJobWithLines(array $texts): int
     {
-        $page = $this->client->request('GET', $this->url('/m/job/new'));
-        $page = $this->addRow($this->client, $page, 'lines', JobModule::ITEM);
+        return $this->savedId($this->saveRecord(
+            JobModule::KEY,
+            ['title' => 'Rewire the office', 'status' => JobModule::DRAFT],
+            ['lines' => array_map(
+                static fn (string $text): array => self::row(['kind' => JobModule::ITEM, 'text' => $text]),
+                $texts,
+            )],
+        ));
+    }
 
-        $this->client->submit($page->selectButton('Save')->form([
-            self::field('title') => 'Rewire the office',
-            self::field('status') => JobModule::DRAFT,
-            self::row(0, 'fields][text') => $texts[0],
-        ]));
-        $this->client->followRedirect();
+    /**
+     * Save the record again with one row renumbered, everything else unchanged.
+     *
+     * Read off the page first, so what is sent back is what a person would have
+     * been looking at — the rows keep their ids, which is what makes this a move
+     * rather than a delete and an insert.
+     */
+    private function renumber(int $id, int $index, string $position): void
+    {
+        $values = self::formValuesOn($this->client->request('GET', $this->url('/m/job/' . $id . '/edit')));
+        $values['collections']['lines'][$index]['position'] = $position;
 
-        $id = (int) basename((string) parse_url((string) $this->client->getRequest()->getUri(), \PHP_URL_PATH));
-
-        // One row per save, each added by its button and then filled in: the new
-        // one is the last, so its index is however many were there before.
-        foreach (\array_slice($texts, 1) as $offset => $text) {
-            $page = $this->client->request('GET', $this->url('/m/job/' . $id . '/edit'));
-            $page = $this->addRow($this->client, $page, 'lines', JobModule::ITEM);
-
-            $form = $page->selectButton('Save')->form();
-            $form[self::row($offset + 1, 'fields][text')] = $text;
-            $this->client->submit($form);
-        }
-
-        return $id;
+        $this->saveRecord(JobModule::KEY, $values['fields'], $values['collections'], $id);
     }
 
     /** @return list<int> */
@@ -224,16 +213,6 @@ final class CollectionOrderTest extends WebTestCase
 
             return self::service(RecordRepository::class)->findChildren($lines, $id);
         });
-    }
-
-    private static function field(string $key): string
-    {
-        return sprintf('%s[fields][%s]', self::FORM, $key);
-    }
-
-    private static function row(int $index, string $key): string
-    {
-        return sprintf('%s[collections][lines][%d][%s]', self::FORM, $index, $key);
     }
 
     private function signIn(): void

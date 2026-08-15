@@ -13,8 +13,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Engine;
 
+use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Security\UserCreator;
+use App\Tests\Support\SavesRecords;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -34,15 +36,19 @@ use Xivi\Core\Module\ModuleRegistry;
  */
 final class FieldUiTest extends WebTestCase
 {
+    use SavesRecords;
     use SharesATenant;
 
     private const string SLUG = 'test_fieldui';
     private const string HOST = 'fieldui.localhost';
     private const string ADMIN = 'admin@fieldui.test';
+    /** Whose session the record form is saved under (XIV-33). */
+    private const string EMAIL = self::ADMIN;
     private const string MEMBER = 'member@fieldui.test';
     private const string PASSWORD = 'field-password';
 
     private KernelBrowser $client;
+    private Tenant $tenant;
 
     protected function setUp(): void
     {
@@ -52,7 +58,7 @@ final class FieldUiTest extends WebTestCase
         // A class that adds and removes fields, so it needs each test to start
         // from the shipped ones — which is a rollback, not a new database (see
         // SharesATenant). The users are made inside it and go the same way.
-        $tenant = $this->sharedTenant(self::SLUG, [self::HOST]);
+        $tenant = $this->tenant = $this->sharedTenant(self::SLUG, [self::HOST]);
 
         self::service(TenantSwitcher::class)->runFor($tenant, fn () => self::service(ModuleInstaller::class)->install(
             self::service(ModuleRegistry::class)->get(ContactModule::KEY),
@@ -195,12 +201,11 @@ final class FieldUiTest extends WebTestCase
     /** The list only renders a table when there is something in it. */
     private function addContact(string $first, string $last): void
     {
-        $this->client->request('GET', $this->url('/m/contact/new?variant=person'));
-        $this->client->submitForm('Save', [
-            'module_record[fields][first_name]' => $first,
-            'module_record[fields][last_name]' => $last,
-        ]);
-        $this->client->followRedirect();
+        $this->saveRecord(
+            ContactModule::KEY,
+            ['kind' => 'person', 'first_name' => $first, 'last_name' => $last],
+            variant: 'person',
+        );
     }
 
     /** @param array<string, string> $values */

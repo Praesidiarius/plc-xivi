@@ -17,6 +17,7 @@ use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Security\UserCreator;
 use App\Tenant\Settings\TenantProfileManager;
+use App\Tests\Support\SavesRecords;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -38,6 +39,7 @@ use Xivi\Core\Module\ModuleRegistry;
  */
 final class ArticleModuleTest extends WebTestCase
 {
+    use SavesRecords;
     use SharesATenant;
 
     private const string SLUG = 'test_article';
@@ -47,6 +49,7 @@ final class ArticleModuleTest extends WebTestCase
     private const string FORM = 'module_record';
 
     private KernelBrowser $client;
+    private ?Response $saved = null;
     private Tenant $tenant;
 
     protected function setUp(): void
@@ -121,8 +124,7 @@ final class ArticleModuleTest extends WebTestCase
         $this->setCurrency('CHF');
         $this->submit(['title' => 'Desk lamp', 'description' => "Brass.\nTwo bulbs.", 'price' => '19.90']);
 
-        self::assertResponseRedirects();
-        $crawler = $this->client->followRedirect();
+        $crawler = $this->client->request('GET', $this->url('/m/article/' . $this->savedId($this->saved ?? new Response())));
 
         self::assertSelectorTextContains('h1', 'Desk lamp');
         self::assertStringContainsString('19.90', $crawler->filter('dl')->text());
@@ -166,10 +168,15 @@ final class ArticleModuleTest extends WebTestCase
     {
         $this->submit(['title' => 'Desk lamp', 'price' => '-5.00']);
 
-        // Refused, so the form comes back with the reason rather than
+        // Refused, so the component comes back with the reason rather than
         // redirecting to a record that should not exist.
-        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
-        self::assertSelectorExists('.invalid-feedback');
+        //
+        // **Not a 422** (XIV-33): a refused save is a component that re-rendered,
+        // which is a successful render, so the status says 200 and only the body
+        // says no. Written down here because it is the one thing the migration
+        // took away that anything speaking HTTP could previously read.
+        self::assertNull($this->saved?->headers->get('Location'), 'nothing was saved');
+        self::assertStringContainsString('invalid-feedback', (string) $this->saved?->getContent());
     }
 
     // -- helpers ------------------------------------------------------------
@@ -177,14 +184,7 @@ final class ArticleModuleTest extends WebTestCase
     /** @param array<string, string> $values */
     private function submit(array $values): void
     {
-        $this->client->request('GET', $this->url('/m/article/new'));
-
-        $fields = [];
-        foreach ($values as $key => $value) {
-            $fields[self::field($key)] = $value;
-        }
-
-        $this->client->submitForm('Save', $fields);
+        $this->saved = $this->saveRecord(ArticleModule::KEY, $values);
     }
 
     private function setCurrency(string $code): void

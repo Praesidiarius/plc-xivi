@@ -47,16 +47,21 @@ at build time, and the files keep their own licence headers. They are then serve
 from this application's own host rather than a CDN, so no third party is
 contacted when a customer loads a page.
 
-**htmx** — 0BSD, Copyright (c) 2020 Big Sky Software.
-<https://github.com/bigskysoftware/htmx>
+**Symfony UX** — MIT, Copyright (c) Fabien Potencier.
+<https://github.com/symfony/ux>
 
-The Zero-Clause BSD licence is public-domain-equivalent: it grants use for any
-purpose with no conditions at all, not even attribution. This notice is here
-because the file is shipped, not because the licence asks for it.
+`ux-live-component`, `ux-twig-component` and `stimulus-bundle`, which is what
+makes a form re-render itself on the server. Their JavaScript is served from this
+application's own host like everything else, out of the packages themselves
+rather than a download.
 
-Adopted in XIV-28, when the promise that the forms work with scripting turned off
-was dropped. Same arrangement as the rest: fetched into `assets/vendor/` by
-`importmap:install` and self-hosted.
+**Stimulus** — MIT, Copyright (c) 2021 Basecamp, LLC.
+<https://github.com/hotwired/stimulus>
+
+Brought in by the above and fetched into `assets/vendor/` by `importmap:install`.
+
+*htmx (0BSD) was here between XIV-28 and XIV-33 and has been removed; see brief
+§8.3 for why the choice changed.*
 
 **Bootstrap Icons** — MIT, Copyright (c) 2019-2024 The Bootstrap Authors.
 <https://github.com/twbs/icons>

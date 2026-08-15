@@ -16,7 +16,7 @@ namespace App\Tests\Functional\Engine;
 use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Security\UserCreator;
-use App\Tests\Support\AddsCollectionRows;
+use App\Tests\Support\SavesRecords;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -45,14 +45,13 @@ use Xivi\Order\OrderModule;
  */
 final class OrderTotalsTest extends WebTestCase
 {
-    use AddsCollectionRows;
+    use SavesRecords;
     use SharesATenant;
 
     private const string SLUG = 'test_totals';
     private const string HOST = 'totals.localhost';
     private const string EMAIL = 'totals@example.test';
     private const string PASSWORD = 'totals-password';
-    private const string FORM = 'module_record';
 
     private KernelBrowser $client;
     private Tenant $tenant;
@@ -91,13 +90,18 @@ final class OrderTotalsTest extends WebTestCase
     /** And nobody can type it: the control is there to read and disabled. */
     public function testALineTotalCannotBeTypedInto(): void
     {
-        $page = $this->client->request('GET', $this->url('/m/order/new'));
-        $page = $this->addRow($this->client, $page, OrderModule::LINES, OrderModule::CUSTOM_LINE);
+        $html = self::liveService(TenantSwitcher::class)->runFor($this->tenant, fn (): string => $this
+            ->recordForm(OrderModule::KEY)
+            ->call('addRow', ['collection' => OrderModule::LINES, 'kind' => OrderModule::CUSTOM_LINE])
+            ->render()
+            ->toString());
 
-        $total = $page->filter('[name$="[fields][line_total]"]')->first();
-
-        self::assertGreaterThan(0, $total->count(), 'it is shown');
-        self::assertNotNull($total->attr('disabled'), 'and it is not an input');
+        self::assertStringContainsString('[fields][line_total]', $html, 'it is shown');
+        self::assertMatchesRegularExpression(
+            '#line_total[^>]*disabled#',
+            $html,
+            'and it is not an input',
+        );
     }
 
     /** Net, VAT and gross land on the order itself, so a list can ask about them. */
@@ -329,10 +333,26 @@ final class OrderTotalsTest extends WebTestCase
 
         $before = array_map(static fn (Record $row): ?int => $row->id, $this->taxesOf($order));
 
-        $crawler = $this->client->request('GET', $this->url('/m/order/' . $order . '/edit'));
-        $form = $crawler->selectButton('Save')->form();
-        $form[self::row(0, 'fields][quantity')] = '2';
-        $this->client->submit($form);
+        // Saved again with the quantity doubled, and the row keeps its id.
+        $line = $this->linesOf($order)[0];
+        $record = $this->orderRecord($order);
+
+        $this->saveRecord(
+            OrderModule::KEY,
+            [
+                'contact' => (string) $record->get('contact'),
+                'ordered_on' => '2026-08-15',
+                'status' => OrderModule::DRAFT,
+            ],
+            [OrderModule::LINES => [self::row([
+                OrderModule::KIND => OrderModule::CUSTOM_LINE,
+                'description' => 'Consulting',
+                OrderModule::QUANTITY => '2',
+                OrderModule::UNIT_PRICE => '100.00',
+                OrderModule::TAX_RATE => '8.10',
+            ], (int) $line->id)]],
+            $order,
+        );
 
         $after = $this->taxesOf($order);
 
@@ -352,57 +372,42 @@ final class OrderTotalsTest extends WebTestCase
      */
     private function anOrder(array $lines): int
     {
-        $customer = $this->aCompany();
+        // Every line in one save (XIV-33). The old form could only be given one
+        // row at a time, because a row had to be added by a button before it
+        // could be filled in; a component takes the whole collection.
+        $rows = [];
 
-        $this->client->request('GET', $this->url('/m/order/new'));
-        $this->client->submitForm('Save', [
-            self::field('contact') => (string) $customer,
-            self::field('ordered_on') => '2026-08-15',
-            self::field('status') => OrderModule::DRAFT,
-        ]);
-        $this->client->followRedirect();
-
-        $order = $this->idOfCurrentPage();
-
-        // One line per save, each one added by its own button (XIV-29) and then
-        // filled in. The new row is the last, so its index is however many were
-        // there before.
-        foreach ($lines as $offset => [$kind, $values]) {
-            $page = $this->client->request('GET', $this->url('/m/order/' . $order . '/edit'));
-            $page = $this->addRow($this->client, $page, OrderModule::LINES, $kind);
-
-            $form = $page->selectButton('Save')->form();
-
-            foreach ($values as $key => $value) {
-                $form[self::row($offset, 'fields][' . $key)] = $value;
-            }
-
-            $this->client->submit($form);
+        foreach ($lines as [$kind, $values]) {
+            $rows[] = self::row([OrderModule::KIND => $kind, ...$values]);
         }
 
-        return $order;
+        return $this->savedId($this->saveRecord(
+            OrderModule::KEY,
+            [
+                'contact' => (string) $this->aCompany(),
+                'ordered_on' => '2026-08-15',
+                'status' => OrderModule::DRAFT,
+            ],
+            $rows === [] ? [] : [OrderModule::LINES => $rows],
+        ));
     }
 
     private function aCompany(): int
     {
-        $this->client->request('GET', $this->url('/m/contact/new?variant=company'));
-        $this->client->submitForm('Save', [self::field('company_name') => 'Acme AG']);
-        $this->client->followRedirect();
-
-        return $this->idOfCurrentPage();
+        return $this->savedId($this->saveRecord(
+            ContactModule::KEY,
+            ['kind' => 'company', 'company_name' => 'Acme AG'],
+            variant: 'company',
+        ));
     }
 
     private function anArticle(string $title, string $price, ?string $taxRate = null): int
     {
-        $this->client->request('GET', $this->url('/m/article/new'));
-        $this->client->submitForm('Save', [
-            self::field('title') => $title,
-            self::field('price') => $price,
-            self::field('tax_rate') => $taxRate ?? '',
-        ]);
-        $this->client->followRedirect();
-
-        return $this->idOfCurrentPage();
+        return $this->savedId($this->saveRecord(ArticleModule::KEY, [
+            'title' => $title,
+            'price' => $price,
+            'tax_rate' => $taxRate ?? '',
+        ]));
     }
 
     private function transition(int $order, string $name): void
@@ -453,21 +458,6 @@ final class OrderTotalsTest extends WebTestCase
 
             return $record;
         });
-    }
-
-    private function idOfCurrentPage(): int
-    {
-        return (int) basename((string) parse_url((string) $this->client->getRequest()->getUri(), \PHP_URL_PATH));
-    }
-
-    private static function field(string $key): string
-    {
-        return sprintf('%s[fields][%s]', self::FORM, $key);
-    }
-
-    private static function row(int $index, string $key): string
-    {
-        return sprintf('%s[collections][lines][%d][%s]', self::FORM, $index, $key);
     }
 
     private function signIn(): void

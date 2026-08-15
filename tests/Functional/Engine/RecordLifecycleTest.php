@@ -20,6 +20,7 @@ use App\Tenant\Entity\User;
 use App\Tenant\Repository\UserRepository;
 use App\Tenant\Security\UserCreator;
 use App\Tests\Support\Module\JobModule;
+use App\Tests\Support\SavesRecords;
 use App\Tests\Support\SharesATenant;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -43,14 +44,16 @@ use Xivi\Core\Permission\PermissionScope;
  */
 final class RecordLifecycleTest extends WebTestCase
 {
+    use SavesRecords;
     use SharesATenant;
 
     private const string SLUG = 'test_lifecycle';
     private const string HOST = 'lifecycle.localhost';
     private const string ADMIN = 'admin@lifecycle.test';
+    /** Whose session a record is saved under unless a test says otherwise (XIV-33). */
+    private const string EMAIL = self::ADMIN;
     private const string MEMBER = 'member@lifecycle.test';
     private const string PASSWORD = 'lifecycle-password';
-    private const string FORM = 'module_record';
 
     private KernelBrowser $client;
     private Tenant $tenant;
@@ -228,15 +231,10 @@ final class RecordLifecycleTest extends WebTestCase
 
     private function aJob(): int
     {
-        $this->client->request('GET', $this->url('/m/job/new'));
-        $this->client->submitForm('Save', [
-            self::field('title') => 'Rewire the office',
-            self::field('status') => JobModule::DRAFT,
-        ]);
-
-        $this->client->followRedirect();
-
-        return (int) basename((string) parse_url((string) $this->client->getRequest()->getUri(), \PHP_URL_PATH));
+        return $this->savedId($this->saveRecord(JobModule::KEY, [
+            'title' => 'Rewire the office',
+            'status' => JobModule::DRAFT,
+        ]));
     }
 
     private function grant(string $email, ModuleAction $action): void
@@ -251,11 +249,6 @@ final class RecordLifecycleTest extends WebTestCase
             $manager->persist(PermissionGrant::forUser($user, JobModule::KEY, $action, PermissionScope::All));
             $manager->flush();
         });
-    }
-
-    private static function field(string $key): string
-    {
-        return sprintf('%s[fields][%s]', self::FORM, $key);
     }
 
     private function signIn(string $email): void

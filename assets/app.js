@@ -10,21 +10,20 @@
  * (XIV-28). That rule shaped real decisions — a collection form ended with one
  * blank row of every kind because switching a row's fields as somebody picked
  * would have needed scripting — and it was dropped deliberately rather than
- * eroded. What replaces it is htmx: the server still renders every page and
- * every fragment, and the browser swaps them in. Nothing here builds HTML.
+ * eroded.
  *
- * That is the line worth holding. Server-rendered stays true (§8.3); "works
- * with JavaScript off" does not.
+ * What replaces it is Symfony UX Live Components (XIV-33): a component
+ * re-renders itself on the server when something about it changes, and Stimulus
+ * morphs the result into the page. It replaced htmx, which did the same job for
+ * one button and would have fought the next one — a form that redraws while
+ * somebody is typing in it has to update the changed nodes rather than swap the
+ * region, or the caret goes with it.
+ *
+ * That is the line worth holding. Server-rendered stays true (§8.3) — every page
+ * and every re-render is Twig, and nothing here builds HTML. "Works with
+ * JavaScript off" does not.
  */
-// Named, and put on `window` — which the import alone does not do. htmx works
-// either way: the module initialises itself and processes `hx-*` attributes on
-// load. What the global buys is a way to ask whether it is really there, from a
-// console or from a browser test (XIV-31), and that question turns out to be
-// worth being able to ask: an importmap that fails to resolve leaves every
-// button quietly submitting its form instead of swapping.
-import htmx from 'htmx.org';
-
-window.htmx = htmx;
+import './stimulus_bootstrap.js';
 import { Tooltip } from 'bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.min.css';

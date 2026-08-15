@@ -30,6 +30,7 @@
         "symfony/security-bundle": "8.1.*",
         "symfony/translation": "8.1.*",
         "symfony/twig-bundle": "8.1.*",
+        "symfony/ux-live-component": "^3.4",
         "symfony/validator": "8.1.*",
         "symfony/workflow": "8.1.*",
         "symfony/yaml": "8.1.*",

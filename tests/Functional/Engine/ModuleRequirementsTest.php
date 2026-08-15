@@ -131,8 +131,8 @@ final class ModuleRequirementsTest extends WebTestCase
     private function kindsOffered(): array
     {
         return $this->client->request('GET', $this->url('/m/order/new'))
-            ->filter('button[name="add"]')
-            ->each(static fn (Crawler $node): string => substr((string) $node->attr('value'), \strlen('lines:')));
+            ->filter('[data-live-action-param="addRow"][data-live-collection-param="lines"]')
+            ->each(static fn (Crawler $node): string => (string) $node->attr('data-live-kind-param'));
     }
 
     private function install(string $key): \Xivi\Core\Entity\ModuleDefinition

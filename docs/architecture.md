@@ -244,12 +244,10 @@ Three decisions fell out of building it:
   A collection *without* kinds keeps its one blank row: one row to type an
   address into is an affordance, and it was the plural that made the other a
   mess.
-  **The buttons are real submit buttons the controller handles**, with htmx over
-  the top swapping only the collection. So there is one mechanism and htmx
-  changes how much of the page comes back — which is also what lets the tests
-  drive the real thing rather than a shortcut. Adding or removing a row is
-  explicitly *not* a save: nothing is written and nothing is validated, because
-  somebody halfway through a form has asked for neither.
+  **The buttons are live actions on the component that owns the form** (§8.3),
+  so pressing one re-renders it with a row more and nothing else happens: adding
+  or removing a row is explicitly *not* a save, because somebody halfway through
+  a form has asked for neither writing nor validating.
   **A row that arrives from the browser gets its fields from what was sent.**
   `allow_add` builds a submitted row from nothing, so the kind is not there to
   read at PRE_SET_DATA time and the row would come back holding only the fields
@@ -1257,25 +1255,44 @@ ending in one blank row of every kind, because switching a row's fields as
 somebody picks needs scripting. At four kinds that is a mess, and the number of
 kinds only grows.
 
-**What replaces it is htmx, and the distinction worth keeping is exact.**
-Server-rendered stays true: every page and every fragment is Twig, and nothing in
-`assets/` builds HTML. What is gone is "works with JavaScript off". The two were
-always separate claims and only the second has been given up.
+**What replaces it is Symfony UX Live Components, and the distinction worth
+keeping is exact.** Server-rendered stays true: every page and every re-render is
+Twig, and nothing in `assets/` builds HTML. What is gone is "works with
+JavaScript off". The two were always separate claims and only the second has been
+given up.
 
-htmx over Symfony's own UX Live Components, which is a departure from the rule of
-reaching for the framework first (§5.7) and so wants a reason. Live Components
-carries a heavier idea — props dehydrated into attributes, signed, rehydrated,
-the DOM morphed — which is machinery to debug when it misbehaves, and it has
-moved under people's feet across its 2.x line. htmx is one small file with
-essentially one concept: an element makes a request and swaps the response
-somewhere. It needs no build step and asset-mapper serves it from our own host,
-which keeps the no-CDN rule that exists because a CDN reports every customer's IP
-to a third party on every page load.
+**It was htmx first, and the swap is worth recording rather than quietly
+rewriting** (XIV-28, then XIV-33). htmx did the job for one button and did it
+well. Three things decided against it for the next one:
+
+- **Morphing.** A form that redraws while somebody is typing in it has to update
+  the changed nodes, not replace the region — swap the block a quantity field
+  sits in and the caret goes with it, mid-number. Live Components morphs by
+  default; htmx swaps, and preserving the caret means the idiomorph extension
+  plus hand-managed `hx-preserve`.
+- **State.** htmx has no model for state that is not in the markup or the URL. A
+  component holds props, which is what a wizard step, a "show advanced" toggle or
+  a dependent field needs.
+- **One vendor.** The UI library being the framework's own is worth something on
+  a codebase that reaches for the framework first everywhere else (§5.7).
+
+The cost, accepted with open eyes: **the write path is now a function of the UI
+library**, and the tests that used to press what a person presses now call the
+component instead — which is why the browser layer below is not optional.
+
+Three spike branches did the comparison rather than an argument: the whole form
+as a component, only a collection as one, and the documented shape with the save
+included. The middle one works and is not a pattern the library documents; the
+last one is what shipped.
+
+**A refused save answers 200, not 422.** A component that re-rendered is a
+successful render, so only the body says no. That is a real loss — anything
+speaking HTTP could previously tell a rejection from an acceptance — and it is
+recorded here rather than discovered by whatever reads these responses next.
 
 **One browser runs, and only over what only a browser can see** (XIV-31). Every
-other test drives the server: the collection buttons are real submit buttons, so
-BrowserKit presses the same thing a person does and learns nothing about whether
-`hx-post` and `hx-swap` do anything. Three assertions in a real browser close
+other test calls the component directly and learns nothing about whether the page
+it sits on does anything. Three assertions in a real browser close
 that — the library is loaded, a row appears without the page reloading, and what
 was already typed survives it. Deliberately three: an end-to-end layer is where
 flakiness lives, flaky tests get skipped, and a skipped safety net is worse than

@@ -16,6 +16,7 @@ namespace App\Tests\Functional\Engine;
 use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Security\UserCreator;
+use App\Tests\Support\SavesRecords;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -40,6 +41,7 @@ use Xivi\Order\OrderModule;
  */
 final class DocumentNumberTest extends WebTestCase
 {
+    use SavesRecords;
     use SharesATenant;
 
     private const string SLUG = 'test_numbers';
@@ -230,26 +232,20 @@ final class DocumentNumberTest extends WebTestCase
 
     private function anOrder(?int $customer = null): int
     {
-        $customer ??= $this->aCompany();
-
-        $this->client->request('GET', $this->url('/m/order/new'));
-        $this->client->submitForm('Save', [
-            self::field('contact') => (string) $customer,
-            self::field('ordered_on') => '2026-08-15',
-            self::field('status') => OrderModule::DRAFT,
-        ]);
-        $this->client->followRedirect();
-
-        return $this->idOfCurrentPage();
+        return $this->savedId($this->saveRecord(OrderModule::KEY, [
+            'contact' => (string) ($customer ?? $this->aCompany()),
+            'ordered_on' => '2026-08-15',
+            'status' => OrderModule::DRAFT,
+        ]));
     }
 
     private function aCompany(): int
     {
-        $this->client->request('GET', $this->url('/m/contact/new?variant=company'));
-        $this->client->submitForm('Save', [self::field('company_name') => 'Acme AG']);
-        $this->client->followRedirect();
-
-        return $this->idOfCurrentPage();
+        return $this->savedId($this->saveRecord(
+            ContactModule::KEY,
+            ['kind' => 'company', 'company_name' => 'Acme AG'],
+            variant: 'company',
+        ));
     }
 
     private function numberOf(int $order, bool $includeDeleted = false): string
@@ -285,11 +281,6 @@ final class DocumentNumberTest extends WebTestCase
             $this->url(sprintf('/m/order/%d/transition/%s', $order, $name)),
             ['_token' => $tokens[0] ?? 'no-token'],
         );
-    }
-
-    private function idOfCurrentPage(): int
-    {
-        return (int) basename((string) parse_url((string) $this->client->getRequest()->getUri(), \PHP_URL_PATH));
     }
 
     private static function field(string $key): string
