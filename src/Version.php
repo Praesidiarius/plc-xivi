@@ -26,17 +26,25 @@ namespace App;
  * which is a deliberate departure from semantic versioning and the reason this
  * comment exists.
  *
- * The two numbers after it move on **release**, not on feature: the middle one
- * when a version is cut that somebody would be told about, the last one for
- * fixes to a version already out there. Work in progress accumulates under
- * "Unreleased" in CHANGELOG.md and moves nothing, so the number cannot creep on
- * its own — cutting a release is something a person does.
+ * The two numbers after it move on **release**, not on feature. The last one is
+ * the release counter and moves every time one is cut — which while this project
+ * is going at its current pace is roughly daily, so a year of it looks like
+ * 17.0.351 rather than like semver. The middle one is for a release big enough
+ * to be worth naming, and has not moved yet.
+ *
+ * Deliberately *not* "patches are fixes". That rule was here first and was
+ * already false the day two features shipped under it; a version scheme nobody
+ * follows is worse than an unusual one everybody does.
+ *
+ * Work in progress accumulates under "Unreleased" in CHANGELOG.md and moves
+ * nothing, so the number cannot creep on its own — cutting a release is
+ * something a person does.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class Version
 {
-    public const string CURRENT = '17.0.0';
+    public const string CURRENT = '17.0.1';
 
     /** The generation, for anywhere that wants to say "Xivi 17". */
     public const string GENERATION = '17';

@@ -11,8 +11,14 @@ The format is `17.MINOR.PATCH`, and it is **not** semantic versioning.
 - **17** is a *generation*, not a semver major. It says which Xivi this is, and
   changes only when there is a new one — a business decision rather than a
   technical one. Breaking changes inside a generation do not touch it.
-- **MINOR** moves when a release is cut that somebody would be told about.
-- **PATCH** moves for fixes to a version already released.
+- **PATCH** is the release counter. It moves every time a release is cut, which
+  at this project's current pace is roughly daily — so a year of it reads
+  17.0.351, not like semver. Features move it; so do fixes.
+- **MINOR** is for a release big enough to be worth naming. It has not moved yet.
+
+Deliberately *not* "patches are fixes, minors are features". That rule was here
+first and was false the day 17.0.1 shipped two large features under it. A version
+scheme nobody follows is worse than an unusual one everybody does.
 
 **The version moves on release, not on feature.** Work lands under *Unreleased*
 and moves nothing; cutting a release is the deliberate act of renaming that
@@ -23,6 +29,14 @@ The number lives in [`src/Version.php`](src/Version.php), is shown in the footer
 of every page, and is not yet tied to git tags.
 
 ## [Unreleased]
+
+Nothing yet.
+
+## [17.0.1] — 2026-08-15
+
+Two features that had been open questions since the brief was written — who may
+do what, and in which language — plus the test suite going from 165s to 10s along
+the way.
 
 ### Added
 
