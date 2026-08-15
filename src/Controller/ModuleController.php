@@ -31,6 +31,7 @@ use Symfony\Component\Validator\ConstraintViolationListInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Xivi\Core\Document\DocumentFormat;
 use Xivi\Core\Document\DocumentTemplateRepository;
+use Xivi\Core\Entity\CollectionDefinition;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Export\RecordExporter;
@@ -590,6 +591,16 @@ final class ModuleController extends AbstractController
         ]);
         $form->handleRequest($request);
 
+        // **A row was added or taken away, and that is not a save** (XIV-29).
+        // The form comes back with everything already typed in it and one row
+        // more or less; nothing is written and nothing is validated, because
+        // somebody halfway through filling a form has not asked for either.
+        $rearranged = $this->rearranged($definition, $form, $request);
+
+        if ($rearranged !== null) {
+            return $this->renderForm($definition, $record, $rearranged, $request);
+        }
+
         if ($form->isSubmitted()) {
             /** @var array{fields: array<string, mixed>} $submitted */
             $submitted = $form->getData();
@@ -648,11 +659,152 @@ final class ModuleController extends AbstractController
             }
         }
 
-        return $this->render('module/form.html.twig', [
+        return $this->renderForm($definition, $record, $form, $request);
+    }
+
+    /**
+     * The record's form, whole or in part.
+     *
+     * htmx asks for the collections on their own when a row is added or removed
+     * (XIV-28's convention: generic over module, record and shape, and behind
+     * the same permission as the page). Anything else gets the page, so the
+     * fragment is a shortcut rather than a second way of doing it.
+     *
+     * @param FormInterface<array<string, mixed>> $form
+     */
+    private function renderForm(
+        ModuleDefinition $definition,
+        Record $record,
+        FormInterface $form,
+        Request $request,
+    ): Response {
+        $template = $request->headers->has('HX-Request')
+            ? 'module/_collections.html.twig'
+            : 'module/form.html.twig';
+
+        return $this->render($template, [
             'module' => $definition,
             'record' => $record,
             'form' => $form,
+            'kinds' => $this->kindsPerCollection($definition),
         ]);
+    }
+
+    /**
+     * The form again with one row more or fewer, or null when this save is a
+     * save (XIV-29).
+     *
+     * Rebuilt rather than mutated: the form's children are decided when it is
+     * created, so a form that has already been submitted cannot grow one. What
+     * carries over is the submitted data, which is what somebody typed.
+     *
+     * @param FormInterface<array<string, mixed>> $form
+     *
+     * @return FormInterface<array<string, mixed>>|null
+     */
+    private function rearranged(
+        ModuleDefinition $definition,
+        FormInterface $form,
+        Request $request,
+    ): ?FormInterface {
+        if (!$form->isSubmitted()) {
+            return null;
+        }
+
+        $add = self::rowRequest($request, 'add');
+        $remove = self::rowRequest($request, 'remove');
+
+        if ($add === null && $remove === null) {
+            return null;
+        }
+
+        /** @var array<string, mixed> $data */
+        $data = $form->getData();
+        /** @var array<string, list<array<string, mixed>>> $collections */
+        $collections = $data['collections'] ?? [];
+
+        if ($add !== null) {
+            $collection = $definition->getCollection($add[0]);
+
+            // A kind the module does not have, or one this customer cannot fill
+            // in (XIV-23) — a hand-edited form rather than a button anybody was
+            // offered, and the answer to it is to change nothing.
+            if ($collection === null || !$this->offers($collection, $add[1])) {
+                return null;
+            }
+
+            $collections[$add[0]][] = [
+                'id' => '',
+                'position' => null,
+                // The kind travels with the row from the moment it exists (§5.1)
+                // — which button was pressed *is* the choice the blank rows used
+                // to ask for by being several.
+                'fields' => $add[1] === '' ? [] : [(string) $collection->getVariantField() => $add[1]],
+            ];
+        }
+
+        if ($remove !== null) {
+            unset($collections[$remove[0]][(int) $remove[1]]);
+            $collections[$remove[0]] = array_values($collections[$remove[0]] ?? []);
+        }
+
+        $data['collections'] = $collections;
+
+        $rebuilt = $this->createForm(ModuleRecordType::class, $data, [
+            'module' => $definition,
+            'variant' => $definition->variantOf($data['fields'] ?? []),
+        ]);
+
+        return $rebuilt;
+    }
+
+    /**
+     * `lines:article` from the button that was pressed — the collection, and the
+     * kind or row index after it.
+     *
+     * @return array{0: string, 1: string}|null
+     */
+    private static function rowRequest(Request $request, string $key): ?array
+    {
+        $value = trim((string) $request->request->get($key, ''));
+
+        if ($value === '') {
+            return null;
+        }
+
+        $parts = explode(':', $value, 2);
+
+        return [$parts[0], $parts[1] ?? ''];
+    }
+
+    /** Whether a collection offers that kind — or has no kinds at all. */
+    private function offers(CollectionDefinition $collection, string $kind): bool
+    {
+        if ($kind === '') {
+            return !$collection->hasVariants();
+        }
+
+        return isset($this->variants->of($collection)[$kind]);
+    }
+
+    /**
+     * The kinds each collection offers a button for, keyed by collection.
+     *
+     * Empty for a collection without kinds, which gets one unlabelled button
+     * instead — and only kinds this customer can actually fill in (XIV-23), so a
+     * service business with no article module is not offered an article line.
+     *
+     * @return array<string, array<string, string>>
+     */
+    private function kindsPerCollection(ModuleDefinition $definition): array
+    {
+        $kinds = [];
+
+        foreach ($definition->getCollections() as $collection) {
+            $kinds[$collection->getKey()] = $collection->hasVariants() ? $this->variants->of($collection) : [];
+        }
+
+        return $kinds;
     }
 
     /**
@@ -695,19 +847,16 @@ final class ModuleController extends AbstractController
                 $rows[] = ['id' => '', 'position' => null, 'fields' => $values];
             }
 
-            // One blank row per kind, rather than one blank row (XIV-20).
-            // Choosing which to fill in *is* choosing the kind, which is the
-            // same trick "new person or new company" plays a level up (§5.5) and
-            // for the same reason: switching a form's fields as somebody picks
-            // needs JavaScript, and these forms do not depend on any.
-            foreach (array_keys($this->variants->of($collection)) as $variant) {
-                $rows[] = [
-                    'id' => '',
-                    'position' => null,
-                    'fields' => [(string) $collection->getVariantField() => $variant],
-                ];
-            }
-
+            // **No blank rows when a collection has kinds** (XIV-29). There
+            // used to be one of each, because choosing which to fill in was how
+            // a kind got chosen without scripting — four of them at the bottom
+            // of an order, each showing different fields. A button per kind says
+            // the same thing and shows nothing until it is asked to.
+            //
+            // A collection *without* kinds keeps its one blank row. One row to
+            // type an address into is an affordance rather than a mess; four
+            // rows showing four different sets of fields is the mess, and it is
+            // the plural that made it one.
             if (!$collection->hasVariants()) {
                 $rows[] = ['id' => '', 'position' => null, 'fields' => []];
             }

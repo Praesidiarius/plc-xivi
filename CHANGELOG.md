@@ -32,6 +32,20 @@ of every page, and is not yet tied to git tags.
 
 ### Added
 
+- **A button per kind of line, instead of a blank row of every kind** ([XIV-29]).
+  An order's form ended with four blank rows, each showing a different subset of
+  fields, and it was the first thing anybody noticed about it. Now it draws
+  nothing until a button is pressed, and the button says which kind it adds —
+  only the kinds this customer can actually fill in, so a service business with
+  no article module is not offered an article line.
+- **Rows can be removed without saving**, and emptying one still removes it on
+  save. Adding or removing is deliberately not a save: nothing is written and
+  nothing is validated, because somebody halfway through a form has asked for
+  neither.
+- **The buttons are real submit buttons the controller handles**, with htmx
+  swapping only the collection. One mechanism, and htmx changes how much of the
+  page comes back — which is also what lets the tests drive the real thing.
+
 - **An invoice module** ([XIV-19]) — the fourth module, and the measure of the
   six tickets before it. It names an order, copies its lines, carries a number, a
   lifecycle, totals and a VAT table, and can be printed from a Word template. It
@@ -89,6 +103,17 @@ of every page, and is not yet tied to git tags.
   `LineTotals`, and both modules now name their fields and get the rest.
 
 ### Fixed
+
+- **A row added by the browser no longer loses what was typed into it**
+  ([XIV-29]). A collection row's fields follow from its kind, and a row arriving
+  from a submission is built from nothing — so the kind was not there to read,
+  and the row came back holding only the fields every kind shares. Everything
+  else was dropped on the way in and the save then failed on values somebody had
+  entered. The fields are now built again at submit time, where the kind is
+  legible.
+- **`assets/collections.js` is gone** ([XIV-29]), and with it a button that
+  cloned Symfony's prototype and produced a row carrying every field of every
+  kind with no kind at all.
 
 - **Editing a field no longer discards the options the form does not know**
   ([XIV-26]). Saving a field replaced its whole options array with the three

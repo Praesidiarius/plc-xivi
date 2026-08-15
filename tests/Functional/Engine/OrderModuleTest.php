@@ -16,6 +16,7 @@ namespace App\Tests\Functional\Engine;
 use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Security\UserCreator;
+use App\Tests\Support\AddsCollectionRows;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -42,6 +43,7 @@ use Xivi\Order\OrderModule;
  */
 final class OrderModuleTest extends WebTestCase
 {
+    use AddsCollectionRows;
     use SharesATenant;
 
     private const string SLUG = 'test_orders';
@@ -87,22 +89,35 @@ final class OrderModuleTest extends WebTestCase
         self::assertStringContainsString('Orders', $contact, 'the reverse list, across modules');
     }
 
-    /** Four kinds of line, and one blank row for each. */
+    /** Four kinds of line, and a button for each — and no rows until one is pressed. */
     public function testTheFormOffersEachKindOfLine(): void
     {
-        $this->client->request('GET', $this->url('/m/order/new'));
+        $page = $this->client->request('GET', $this->url('/m/order/new'));
 
         self::assertSame(
             [
-                OrderModule::ARTICLE_LINE,
-                OrderModule::CUSTOM_LINE,
-                OrderModule::COMMENT_LINE,
-                OrderModule::SUBTOTAL_LINE,
+                'lines:' . OrderModule::ARTICLE_LINE,
+                'lines:' . OrderModule::CUSTOM_LINE,
+                'lines:' . OrderModule::COMMENT_LINE,
+                'lines:' . OrderModule::SUBTOTAL_LINE,
             ],
-            $this->client->getCrawler()->filter('[name$="[fields][kind]"]')->each(
-                static fn (Crawler $node): string => (string) $node->attr('value'),
-            ),
+            $page->filter('button[name="add"]')->each(static fn (Crawler $node): string => (string) $node->attr('value')),
         );
+
+        self::assertCount(0, $page->filter('[name$="[fields][kind]"]'), 'and nothing to fill in yet');
+    }
+
+    /** Pressing one adds a row of that kind, carrying its fields and no others. */
+    public function testAButtonAddsARowOfItsOwnKind(): void
+    {
+        $page = $this->client->request('GET', $this->url('/m/order/new'));
+        $page = $this->addRow($this->client, $page, OrderModule::LINES, OrderModule::COMMENT_LINE);
+
+        self::assertSame(
+            OrderModule::COMMENT_LINE,
+            (string) $page->filter('[name$="[fields][kind]"]')->attr('value'),
+        );
+        self::assertCount(0, $page->filter('[name$="[fields][unit_price]"]'), 'a comment has no price');
     }
 
     /**
@@ -194,8 +209,8 @@ final class OrderModuleTest extends WebTestCase
         $customer = $this->aCompany('Acme AG');
 
         $order = $this->anOrder($customer, [
-            self::line(2, 'fields][description') => 'Everything below is optional',
-        ]);
+            self::line(0, 'fields][description') => 'Everything below is optional',
+        ], OrderModule::COMMENT_LINE);
 
         $lines = $this->linesOf($order);
 
@@ -220,17 +235,27 @@ final class OrderModuleTest extends WebTestCase
 
     // -- helpers ------------------------------------------------------------
 
-    /** @param array<string, string> $lines */
-    private function anOrder(int $customer, array $lines = []): int
+    /**
+     * An order, and one line of the given kind if any values are offered for it.
+     *
+     * @param array<string, string> $lines values for the row, keyed by field
+     */
+    private function anOrder(int $customer, array $lines = [], string $kind = OrderModule::ARTICLE_LINE): int
     {
-        $this->client->request('GET', $this->url('/m/order/new'));
-        $this->client->submitForm('Save', [
+        $page = $this->client->request('GET', $this->url('/m/order/new'));
+
+        if ($lines !== []) {
+            $page = $this->addRow($this->client, $page, OrderModule::LINES, $kind);
+        }
+
+        $form = $page->selectButton('Save')->form([
             self::field('contact') => (string) $customer,
             self::field('ordered_on') => '2026-08-15',
             self::field('status') => OrderModule::DRAFT,
             ...$lines,
         ]);
 
+        $this->client->submit($form);
         $this->client->followRedirect();
 
         return (int) basename((string) parse_url((string) $this->client->getRequest()->getUri(), \PHP_URL_PATH));

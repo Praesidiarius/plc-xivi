@@ -16,6 +16,7 @@ namespace App\Tests\Functional\Engine;
 use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Security\UserCreator;
+use App\Tests\Support\AddsCollectionRows;
 use App\Tests\Support\Module\JobModule;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -37,6 +38,7 @@ use Xivi\Core\Record\RecordRepository;
  */
 final class CollectionOrderTest extends WebTestCase
 {
+    use AddsCollectionRows;
     use SharesATenant;
 
     private const string SLUG = 'test_row_order';
@@ -141,9 +143,10 @@ final class CollectionOrderTest extends WebTestCase
     {
         $id = $this->aJobWithLines(['First']);
 
-        $crawler = $this->client->request('GET', $this->url('/m/job/' . $id . '/edit'));
-        $form = $crawler->selectButton('Save')->form();
-        // The blank item row the form always ends with.
+        $page = $this->client->request('GET', $this->url('/m/job/' . $id . '/edit'));
+        // A row somebody has just added, which the form puts after the saved one.
+        $page = $this->addRow($this->client, $page, 'lines', JobModule::ITEM);
+        $form = $page->selectButton('Save')->form();
         $form[self::row(1, 'fields][text')] = 'Added later';
         $this->client->submit($form);
 
@@ -155,25 +158,25 @@ final class CollectionOrderTest extends WebTestCase
     /** @param list<string> $texts */
     private function aJobWithLines(array $texts): int
     {
-        $this->client->request('GET', $this->url('/m/job/new'));
+        $page = $this->client->request('GET', $this->url('/m/job/new'));
+        $page = $this->addRow($this->client, $page, 'lines', JobModule::ITEM);
 
-        $values = [
+        $this->client->submit($page->selectButton('Save')->form([
             self::field('title') => 'Rewire the office',
             self::field('status') => JobModule::DRAFT,
-        ];
-
-        // The form offers one blank row per kind; this fills the item one and
-        // then edits the record to add the rest, which is how somebody with no
-        // JavaScript actually does it.
-        $values[self::row(0, 'fields][text')] = $texts[0];
-        $this->client->submitForm('Save', $values);
+            self::row(0, 'fields][text') => $texts[0],
+        ]));
         $this->client->followRedirect();
 
         $id = (int) basename((string) parse_url((string) $this->client->getRequest()->getUri(), \PHP_URL_PATH));
 
+        // One row per save, each added by its button and then filled in: the new
+        // one is the last, so its index is however many were there before.
         foreach (\array_slice($texts, 1) as $offset => $text) {
-            $crawler = $this->client->request('GET', $this->url('/m/job/' . $id . '/edit'));
-            $form = $crawler->selectButton('Save')->form();
+            $page = $this->client->request('GET', $this->url('/m/job/' . $id . '/edit'));
+            $page = $this->addRow($this->client, $page, 'lines', JobModule::ITEM);
+
+            $form = $page->selectButton('Save')->form();
             $form[self::row($offset + 1, 'fields][text')] = $text;
             $this->client->submit($form);
         }

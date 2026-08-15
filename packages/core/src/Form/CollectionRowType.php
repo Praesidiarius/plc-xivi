@@ -19,6 +19,7 @@ use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Form\FormEvent;
 use Symfony\Component\Form\FormEvents;
+use Symfony\Component\Form\FormInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Xivi\Core\Entity\CollectionDefinition;
 
@@ -76,19 +77,43 @@ final class CollectionRowType extends AbstractType
 
         // **A row's kind decides its fields, and the kind is in the row's own
         // data** (XIV-20) — which the form only learns when the data arrives.
-        // PRE_SET_DATA is the framework's answer to exactly that, and using it
-        // is what lets a collection hold an article line and a comment line in
-        // one list without the two knowing about each other.
-        $builder->addEventListener(FormEvents::PRE_SET_DATA, static function (FormEvent $event) use ($collection): void {
-            $data = $event->getData();
+        // Events are the framework's answer to exactly that, and using them is
+        // what lets a collection hold an article line and a comment line in one
+        // list without the two knowing about each other.
+        $fields = static function (FormInterface $form, mixed $data) use ($collection): void {
             $values = \is_array($data) && \is_array($data['fields'] ?? null) ? $data['fields'] : [];
 
-            $event->getForm()->add('fields', RecordType::class, [
+            $form->add('fields', RecordType::class, [
                 'shape' => $collection,
                 'variant' => $collection->variantOf($values),
                 'lock_variant' => true,
                 'label' => false,
             ]);
+        };
+
+        // A row the server put there: its kind is in the data it was given.
+        $builder->addEventListener(
+            FormEvents::PRE_SET_DATA,
+            static fn (FormEvent $event) => $fields($event->getForm(), $event->getData()),
+        );
+
+        // **And a row that arrives from the browser** (XIV-29). `allow_add`
+        // builds a submitted row from nothing, so PRE_SET_DATA sees null, asks
+        // for the fields of no variant — and a shape's variant-scoped fields
+        // belong to *no* variant when there is none, so the row comes out with
+        // only the fields every kind shares. Everything else is then dropped on
+        // the way in and the save fails on values somebody did type.
+        //
+        // PRE_SUBMIT is where the kind is legible, so the fields are built again
+        // from what was sent. Only when it says something: a row being emptied
+        // must keep the fields it had, or clearing one would stop deleting it.
+        $builder->addEventListener(FormEvents::PRE_SUBMIT, static function (FormEvent $event) use ($collection, $fields): void {
+            $data = $event->getData();
+            $values = \is_array($data) && \is_array($data['fields'] ?? null) ? $data['fields'] : [];
+
+            if ($collection->variantOf($values) !== null) {
+                $fields($event->getForm(), $data);
+            }
         });
     }
 

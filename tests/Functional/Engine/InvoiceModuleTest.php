@@ -16,6 +16,7 @@ namespace App\Tests\Functional\Engine;
 use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Security\UserCreator;
+use App\Tests\Support\AddsCollectionRows;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -43,6 +44,7 @@ use Xivi\Order\OrderModule;
  */
 final class InvoiceModuleTest extends WebTestCase
 {
+    use AddsCollectionRows;
     use SharesATenant;
 
     private const string SLUG = 'test_invoices';
@@ -50,14 +52,6 @@ final class InvoiceModuleTest extends WebTestCase
     private const string EMAIL = 'invoices@example.test';
     private const string PASSWORD = 'invoices-password';
     private const string FORM = 'module_record';
-
-    /** Where each kind's blank row sits among the ones the form adds. */
-    private const array KINDS = [
-        OrderModule::ARTICLE_LINE => 0,
-        OrderModule::CUSTOM_LINE => 1,
-        OrderModule::COMMENT_LINE => 2,
-        OrderModule::SUBTOTAL_LINE => 3,
-    ];
 
     private KernelBrowser $client;
     private Tenant $tenant;
@@ -355,12 +349,16 @@ final class InvoiceModuleTest extends WebTestCase
 
         $order = $this->idOfCurrentPage();
 
+        // One line per save, each added by its own button (XIV-29): the new row
+        // is the last, so its index is however many were there before.
         foreach ($lines as $offset => [$kind, $values]) {
-            $crawler = $this->client->request('GET', $this->url('/m/order/' . $order . '/edit'));
-            $form = $crawler->selectButton('Save')->form();
+            $page = $this->client->request('GET', $this->url('/m/order/' . $order . '/edit'));
+            $page = $this->addRow($this->client, $page, OrderModule::LINES, $kind);
+
+            $form = $page->selectButton('Save')->form();
 
             foreach ($values as $key => $value) {
-                $form[self::row($offset + self::KINDS[$kind], $key)] = $value;
+                $form[self::row($offset, $key)] = $value;
             }
 
             $this->client->submit($form);

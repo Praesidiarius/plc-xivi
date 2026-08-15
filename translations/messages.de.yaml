@@ -81,6 +81,7 @@ module:
         dann wird diese Seite deutlich interessanter.
     add_first: Den ersten anlegen
     add_row: '%collection% hinzufügen'
+    add_kind: '%kind% hinzufügen'
     owner: Besitzer
     record: Datensatz
     created: Erstellt

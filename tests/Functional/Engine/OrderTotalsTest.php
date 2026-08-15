@@ -16,6 +16,7 @@ namespace App\Tests\Functional\Engine;
 use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Security\UserCreator;
+use App\Tests\Support\AddsCollectionRows;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -44,6 +45,7 @@ use Xivi\Order\OrderModule;
  */
 final class OrderTotalsTest extends WebTestCase
 {
+    use AddsCollectionRows;
     use SharesATenant;
 
     private const string SLUG = 'test_totals';
@@ -51,14 +53,6 @@ final class OrderTotalsTest extends WebTestCase
     private const string EMAIL = 'totals@example.test';
     private const string PASSWORD = 'totals-password';
     private const string FORM = 'module_record';
-
-    /** Where each kind's blank row sits among the ones the form adds. */
-    private const array KINDS = [
-        OrderModule::ARTICLE_LINE => 0,
-        OrderModule::CUSTOM_LINE => 1,
-        OrderModule::COMMENT_LINE => 2,
-        OrderModule::SUBTOTAL_LINE => 3,
-    ];
 
     private KernelBrowser $client;
     private Tenant $tenant;
@@ -97,9 +91,10 @@ final class OrderTotalsTest extends WebTestCase
     /** And nobody can type it: the control is there to read and disabled. */
     public function testALineTotalCannotBeTypedInto(): void
     {
-        $this->client->request('GET', $this->url('/m/order/new'));
+        $page = $this->client->request('GET', $this->url('/m/order/new'));
+        $page = $this->addRow($this->client, $page, OrderModule::LINES, OrderModule::CUSTOM_LINE);
 
-        $total = $this->client->getCrawler()->filter('[name$="[fields][line_total]"]')->first();
+        $total = $page->filter('[name$="[fields][line_total]"]')->first();
 
         self::assertGreaterThan(0, $total->count(), 'it is shown');
         self::assertNotNull($total->attr('disabled'), 'and it is not an input');
@@ -369,12 +364,17 @@ final class OrderTotalsTest extends WebTestCase
 
         $order = $this->idOfCurrentPage();
 
+        // One line per save, each one added by its own button (XIV-29) and then
+        // filled in. The new row is the last, so its index is however many were
+        // there before.
         foreach ($lines as $offset => [$kind, $values]) {
-            $crawler = $this->client->request('GET', $this->url('/m/order/' . $order . '/edit'));
-            $form = $crawler->selectButton('Save')->form();
+            $page = $this->client->request('GET', $this->url('/m/order/' . $order . '/edit'));
+            $page = $this->addRow($this->client, $page, OrderModule::LINES, $kind);
+
+            $form = $page->selectButton('Save')->form();
 
             foreach ($values as $key => $value) {
-                $form[self::row($offset + self::KINDS[$kind], 'fields][' . $key)] = $value;
+                $form[self::row($offset, 'fields][' . $key)] = $value;
             }
 
             $this->client->submit($form);
