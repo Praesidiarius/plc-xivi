@@ -295,4 +295,13 @@ final class ReferenceFieldType implements FieldType
 
         return (string) $value;
     }
+
+    /**
+     * It shows a record's name (§5.4), and a name can be a company with three
+     * words in it — so the same width as the text it is standing in for.
+     */
+    public function defaultWidth(): int
+    {
+        return 6;
+    }
 }

@@ -131,4 +131,13 @@ final class DateFieldType implements FieldType
     {
         return $accessor;
     }
+
+    /**
+     * A date is a known width in every locale that writes one, and the picker
+     * beside it is a fixed size.
+     */
+    public function defaultWidth(): int
+    {
+        return 4;
+    }
 }

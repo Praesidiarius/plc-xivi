@@ -318,6 +318,29 @@ figure. It is shown and never offered for editing, enforced with `disabled` so a
 hand-edited request cannot type over it either. A derived value somebody can type
 over is a default with extra steps.
 
+**How wide a field is drawn is the field type's answer, until somebody disagrees**
+(XIV-43). A type already owns storage, validation, the form control and the
+display; how much room it needs is the same kind of knowledge. So `text` asks for
+half a row, `textarea` for all of it, a count for a quarter — and a form of twelve
+short fields stops being twelve rows without any module declaring anything.
+
+One blanket number would not have been a neutral default but a wrong one, correct
+for `textarea` and wrong for everything else, leaving every module to fix it by
+hand.
+
+The stored width is **nullable, and null is not the same as storing the type's
+number**: null means "whatever this kind of field wants" and keeps following it,
+so improving a type's default reaches every field nobody has an opinion about. A
+number means somebody chose. The same promise `User::locale` makes with null
+(§8.4.2), for the same reason.
+
+It is a **proportion, in twelfths, never a class name** — what the grid is called
+belongs to §8.3 and outlives whichever framework renders it — and it is always a
+full row below `md`, because a column of half-width fields on a phone is
+unusable. Ordering (XIV-21) plus width *is* the layout: the grid wraps a line once
+its columns pass twelve, which is why this needed no layout editor, no rows as an
+entity, and no drag surface in the metadata editor.
+
 **A collection is deliberately not a link between modules.** Contact → Company is
 a different thing: both sides exist independently, either can be browsed, and the
 target module may not even be installed for that customer (§3). Conflating the

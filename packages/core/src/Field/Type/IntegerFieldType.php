@@ -127,4 +127,13 @@ final class IntegerFieldType implements FieldType
     {
         return sprintf('(%s)::numeric', $accessor);
     }
+
+    /**
+     * A count is a few characters and a label. Given a whole row it reads as a
+     * mistake — a quantity of 3 stretched across a screen.
+     */
+    public function defaultWidth(): int
+    {
+        return 3;
+    }
 }

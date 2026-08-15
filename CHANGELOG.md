@@ -70,6 +70,12 @@ lands in `Unreleased` here.
   entered, before anything is saved, and read in the reader's own number format.
   The arithmetic is the server's — the same derivers the save runs, so there is
   no second copy of the rounding rule to disagree with the first. See §5.9.
+- **Fields have a width, and forms stop being one column** ([XIV-43]). A field is
+  drawn in twelfths of a row, so a first name and a last name sit side by side.
+  The default comes from the *field type* — a text is half a row, a textarea the
+  whole one, a count three twelfths — and a tenant can override it per field in
+  the metadata editor. Existing forms change appearance on upgrade, which is the
+  point; nothing is migrated and no value is written. See §5.
 - **Releases are published on GitHub**, from the changelog file the release
   procedure already writes. Pushing a `v*` tag posts
   `docs/changelog/<version>.md` as the release notes — and refuses if that file
@@ -86,4 +92,5 @@ lands in `Unreleased` here.
 | [17.0.0](docs/changelog/17.0.0.md) | 2026-08-14 | The first numbered version: the engine, tenancy, and everything built before versioning began |
 
 [XIV-32]: https://xivi.youtrack.cloud/issue/XIV-32
+[XIV-43]: https://xivi.youtrack.cloud/issue/XIV-43
 [XIV-44]: https://xivi.youtrack.cloud/issue/XIV-44

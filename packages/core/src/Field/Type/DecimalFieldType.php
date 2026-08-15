@@ -183,4 +183,12 @@ final class DecimalFieldType implements FieldType
         // promise.
         return \is_int($scale) ? max(0, min(6, $scale)) : self::DEFAULT_SCALE;
     }
+
+    /**
+     * A measured quantity, the same shape as a count with a fraction on the end.
+     */
+    public function defaultWidth(): int
+    {
+        return 3;
+    }
 }

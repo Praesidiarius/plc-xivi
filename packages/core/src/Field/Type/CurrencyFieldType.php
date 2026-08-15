@@ -199,4 +199,13 @@ final class CurrencyFieldType implements FieldType
     {
         return number_format($value, self::SCALE, '.', '');
     }
+
+    /**
+     * Wider than a plain number: there is a symbol beside it and the figures run
+     * to thousands more often than a count does.
+     */
+    public function defaultWidth(): int
+    {
+        return 4;
+    }
 }

@@ -48,6 +48,7 @@
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.type'|trans }}</th>
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.rules'|trans }}</th>
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.order'|trans }}</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.width'|trans }}</th>
 									<th scope="col"></th>
 								</tr>
 							</thead>
@@ -88,6 +89,18 @@
 										<td>
 											<input form="f{{ field.id }}" type="number" class="form-control form-control-sm"
 												   name="position" value="{{ field.position }}" style="width: 5.5rem">
+										</td>
+										{# How wide, in twelfths (XIV-43). Blank is the useful answer for
+										   almost every field: it follows whatever that kind of field
+										   usually wants, and keeps following it. #}
+										<td>
+											<select form="f{{ field.id }}" class="form-select form-select-sm"
+													name="width" style="width: 7rem">
+												<option value="">{{ 'field.width_default'|trans }}</option>
+												{% for n in 1..12 %}
+													<option value="{{ n }}" {{ field.width == n ? 'selected' : '' }}>{{ n }}/12</option>
+												{% endfor %}
+											</select>
 										</td>
 										<td class="text-end text-nowrap">
 											<form id="f{{ field.id }}" method="post"

@@ -326,6 +326,7 @@ final readonly class ModuleInstaller
                 position: $field->position,
                 system: true,
                 derived: $field->derived,
+                width: $field->width,
             );
             $definition->setOptions($this->translatedOptions($field->options, $domain, $locale));
             $definition->setVariants($field->variants);

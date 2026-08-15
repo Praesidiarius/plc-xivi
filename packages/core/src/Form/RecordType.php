@@ -81,8 +81,30 @@ final class RecordType extends AbstractType
                 // a disabled field, so a hand-edited request cannot type over a
                 // total any more than the form can.
                 'disabled' => $field->isDerived(),
+                // How wide, as a class on the field's own wrapper (XIV-43). The
+                // theme appends its spacing to whatever is here, so the template
+                // still renders the whole set in one call and never asks what
+                // kind of field it is holding.
+                'row_attr' => ['class' => self::columns($field->getWidth() ?? $type->defaultWidth())],
             ]);
         }
+    }
+
+    /**
+     * Twelfths, as the grid spells them.
+     *
+     * **Full width below `md`, the chosen width above it.** A column of
+     * half-width fields on a phone is unusable, and somebody setting 6 is saying
+     * "half a row on a screen with room for two" rather than "half a phone".
+     *
+     * The class name is built here and never stored (§8.3): what the grid is
+     * called is this layer's business, and a proportion outlives it.
+     */
+    private static function columns(int $width): string
+    {
+        $width = max(1, min(12, $width));
+
+        return $width === 12 ? 'col-12' : sprintf('col-12 col-md-%d', $width);
     }
 
     public function configureOptions(OptionsResolver $resolver): void

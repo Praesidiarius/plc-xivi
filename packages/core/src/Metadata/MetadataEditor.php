@@ -128,6 +128,7 @@ final readonly class MetadataEditor
         bool $title,
         int $position,
         array $options = [],
+        ?int $width = null,
     ): void {
         $this->assertRecordsSurvive(
             $field->getShape(),
@@ -145,6 +146,10 @@ final readonly class MetadataEditor
         $field->setListed($listed);
         $field->setTitle($title);
         $field->setPosition($position);
+        // Null is "follow the field type" rather than "unchanged" (XIV-43) — the
+        // editor always draws this control, so what it sends is always what the
+        // customer meant, including empty.
+        $field->setWidth($width);
         $field->setOptions(self::withOptions($field->getOptions(), $options));
 
         $this->entityManager->flush();
