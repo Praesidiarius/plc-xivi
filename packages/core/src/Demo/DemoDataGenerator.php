@@ -173,6 +173,11 @@ final readonly class DemoDataGenerator
         $children = [];
 
         foreach ($module->getCollections() as $collection) {
+            // Nothing to invent: its rows follow from the others (XIV-16).
+            if ($collection->isDerived()) {
+                continue;
+            }
+
             $rows = [];
             // A plain counter, not range(): range(1, 0) counts *down* in PHP and
             // would give two rows to the records meant to have none.

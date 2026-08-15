@@ -580,6 +580,11 @@ final class ModuleController extends AbstractController
         $data = ['fields' => $record->data];
 
         foreach ($definition->getCollections() as $collection) {
+            // Not on the form at all (XIV-16), so it needs no starting rows.
+            if ($collection->isDerived()) {
+                continue;
+            }
+
             $children = $record->isNew() ? [] : $this->records->findChildren($collection, (int) $record->id);
 
             $rows = array_map(
@@ -636,6 +641,13 @@ final class ModuleController extends AbstractController
         $rows = [];
 
         foreach ($definition->getCollections() as $collection) {
+            // A derived collection is not submitted and must not be listed here
+            // as empty: the writer reads an empty list as "delete every row"
+            // (XIV-16), and the deriver has not had its turn yet.
+            if ($collection->isDerived()) {
+                continue;
+            }
+
             $rows[$collection->getKey()] = [];
 
             foreach ($collections[$collection->getKey()] ?? [] as $index => $entry) {

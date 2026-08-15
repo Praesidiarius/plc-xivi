@@ -5,6 +5,7 @@
     "version": "1.0.0",
     "license": "MIT",
     "require": {
+        "brick/math": "^0.19",
         "doctrine/dbal": "^4.4",
         "doctrine/orm": "^3.6",
         "php": ">=8.4",

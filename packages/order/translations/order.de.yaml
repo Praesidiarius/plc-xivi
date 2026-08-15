@@ -7,6 +7,7 @@ module: Aufträge
 
 collection:
     lines: Positionen
+    taxes: MWST-Aufteilung
 
 field:
     contact: Kundin
@@ -19,6 +20,13 @@ field:
     quantity: Menge
     unit_price: Einzelpreis
     line_total: Positionssumme
+    tax_rate: MWST-Satz (%)
+    net_total: Total netto
+    tax_total: MWST
+    gross_total: Total
+    rate: Satz (%)
+    taxable_net: Netto
+    tax_amount: MWST
 
 status:
     draft: Entwurf
