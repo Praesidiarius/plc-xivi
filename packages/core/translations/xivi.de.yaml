@@ -23,6 +23,11 @@ document:
         could_not_fill: 'Die Vorlage „%template%“ konnte nicht befüllt werden. Möglicherweise ist sie in einem Format gespeichert, das Word selbst reparieren würde.'
         no_converter: Der PDF-Dienst war nicht erreichbar, deshalb gibt es gerade nur die .docx-Datei.
 
+lifecycle:
+    refused: 'Das ist aus „%state%“ nicht möglich. Von hier aus: %possible%.'
+    refused_final: 'Dieser Datensatz steht auf „%state%“ und geht von dort nicht weiter.'
+    refused_unknown: Diesen Schritt gibt es für diesen Datensatz nicht.
+
 history:
     period:
         today: Heute
@@ -42,6 +47,7 @@ permission:
         import: Importieren
         templates: Vorlagen
         document: Dokumente
+        transition: Status ändern
     scope:
         own: Eigene Datensätze
         all: Alle Datensätze

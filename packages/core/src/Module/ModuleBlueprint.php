@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 namespace Xivi\Core\Module;
 
+use Xivi\Core\Lifecycle\Lifecycle;
+
 /**
  * What a module declares about itself in code, before any customer has it.
  *
@@ -55,6 +57,11 @@ final readonly class ModuleBlueprint
          * `contact.en.yaml` beside its bundle needs to say nothing here.
          */
         public ?string $translationDomain = null,
+        /**
+         * The states its records move through, and the moves allowed between
+         * them (XIV-14). Null for a module whose records simply are.
+         */
+        public ?Lifecycle $lifecycle = null,
     ) {
     }
 
