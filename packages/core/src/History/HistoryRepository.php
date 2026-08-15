@@ -69,21 +69,57 @@ final readonly class HistoryRepository
      * A record's timeline, newest first — the only question this table is asked,
      * and the reason its one index is on (record_id, id).
      *
+     * Always a window, never the whole thing: a record edited daily for a year
+     * has a timeline nobody reads to the end, and the page that tried would be
+     * fetching, hydrating and rendering every row of it (XIV-3).
+     *
+     * **Ordered by when it happened, with the id breaking ties.** It used to be
+     * by id alone, which is the same answer as long as rows are only ever
+     * appended as things happen — and a different one the moment something
+     * writes an entry with an older timestamp, which an import backfilling a
+     * history reasonably would. Once the page groups entries by age (XIV-3),
+     * "the same answer nearly always" stops being good enough: one row out of
+     * date order puts a section boundary in the middle of a day. The id is still
+     * the tiebreaker, because two entries can share a second and paging over an
+     * unstable order repeats rows.
+     *
      * @return list<HistoryEntry>
      */
-    public function findFor(ModuleDefinition $module, int $recordId, int $limit = 50): array
+    public function findFor(ModuleDefinition $module, int $recordId, int $limit = 50, int $offset = 0): array
     {
         $rows = $this->connection->fetchAllAssociative(
             sprintf(
                 'SELECT id, occurred_at, user_id, user_label, action, changes
-                 FROM %s WHERE record_id = :record ORDER BY id DESC LIMIT :limit',
+                 FROM %s WHERE record_id = :record
+                 ORDER BY occurred_at DESC, id DESC LIMIT :limit OFFSET :offset',
                 $this->table($module),
             ),
-            ['record' => $recordId, 'limit' => $limit],
-            ['record' => ParameterType::INTEGER, 'limit' => ParameterType::INTEGER],
+            ['record' => $recordId, 'limit' => max(1, $limit), 'offset' => max(0, $offset)],
+            [
+                'record' => ParameterType::INTEGER,
+                'limit' => ParameterType::INTEGER,
+                'offset' => ParameterType::INTEGER,
+            ],
         );
 
         return array_map(self::hydrate(...), $rows);
+    }
+
+    /**
+     * How long the timeline is.
+     *
+     * Its own query rather than a window function beside the rows: the page
+     * needs the number even when it is showing five of five hundred, and a count
+     * over one record's slice of an index is cheap enough not to be worth
+     * fusing with a query that returns different columns.
+     */
+    public function countFor(ModuleDefinition $module, int $recordId): int
+    {
+        return (int) $this->connection->fetchOne(
+            sprintf('SELECT COUNT(*) FROM %s WHERE record_id = :record', $this->table($module)),
+            ['record' => $recordId],
+            ['record' => ParameterType::INTEGER],
+        );
     }
 
     /** @param array<string, mixed> $row */

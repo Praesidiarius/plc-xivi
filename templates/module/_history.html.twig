@@ -1,0 +1,120 @@
+{#
+	The timeline, in the two places it is read: a card on the record and a page of
+	its own (XIV-3).
+
+	One entry is one line — when, what, who, and how many things it touched — with
+	the changes themselves behind a native <details>. Native, not a Bootstrap
+	collapse: it needs no JavaScript, it is open to find-in-page in some browsers,
+	and a timeline is exactly the kind of thing somebody reads with the keyboard.
+
+	Both callers import this, so the compact row and the detail under it are
+	described once. Before this the record page carried the whole thing inline and
+	every entry showed every change, which is what made fifty of them unreadable
+	and five hundred of them a wall.
+#}
+
+{#
+	One stored value, rendered as the field it describes.
+
+	History keeps values in storage form and carries the label it had at the time
+	(§5.2), so an entry stays readable after the field is renamed — and after it is
+	deleted, when there is no definition left to ask. That is the fallback here:
+	the type formats it when the field still exists, and the raw stored value shows
+	when it does not.
+#}
+{% macro value(shape, key, stored) %}
+	{%- set field = shape ? shape.getField(key) : null -%}
+	{%- if stored is null -%}
+		<span class="text-body-secondary">empty</span>
+	{%- elseif field -%}
+		{{ display_stored(field, stored) }}
+	{%- else -%}
+		{{ stored }}
+	{%- endif -%}
+{% endmacro %}
+
+{# What changed, listed. Only ever rendered inside an entry that has some. #}
+{% macro detail(module, entry) %}
+	{% import _self as h %}
+	<ul class="text-body-secondary small mt-2 mb-0 ps-3">
+		{# Ordered by the definitions, because jsonb does not keep the order these
+		   were written in. #}
+		{% for key, change in in_field_order(module, entry.fieldChanges) %}
+			<li>
+				{{ change.label }}:
+				{{ h.value(module, key, change.from) }} → {{ h.value(module, key, change.to) }}
+			</li>
+		{% endfor %}
+
+		{% for collectionKey, rows in entry.collectionChanges %}
+			{% set collection = module.getCollection(collectionKey) %}
+			{% for row in rows %}
+				<li>
+					{{ collection ? collection.label : collectionKey }}
+					{{ ('module.row_action.' ~ row.action)|trans }}:
+					{% if row.action == 'updated' %}
+						{% for key, change in in_field_order(collection, row.changes) %}
+							{{ change.label }}
+							{{ h.value(collection, key, change.from) }} → {{ h.value(collection, key, change.to) }}{{ loop.last ? '' : ',' }}
+						{% endfor %}
+					{% else %}
+						{% for key, held in in_field_order(collection, row.values) %}
+							{{ h.value(collection, key, held.value) }}{{ loop.last ? '' : ',' }}
+						{% endfor %}
+					{% endif %}
+				</li>
+			{% endfor %}
+		{% endfor %}
+	</ul>
+{% endmacro %}
+
+{#
+	One entry, compact: a line you scan, and a detail you open.
+
+	The line is built once and rendered inside a <summary> or a plain div, so an
+	entry with nothing to show — a record being created — reads the same as one
+	that opens, minus the marker.
+#}
+{% macro entry(module, entry) %}
+	{% import _self as h %}
+
+	{% set line %}
+		<time class="text-body-secondary font-monospace" datetime="{{ entry.occurredAt|date('c') }}">
+			{{- entry.occurredAt|date('Y-m-d H:i') -}}
+		</time>
+		{#
+			The verb is a key rather than the stored value capitalised: "updated" is
+			English, and the timeline is read by whoever owns the record (XIV-8).
+			Nobody signed in is an import or a console command, not a gap.
+		#}
+		<strong class="ms-2">{{ ('module.action.' ~ entry.action.value)|trans }}</strong>
+		<span class="text-body-secondary">
+			{{- ' ' }}{{ 'module.action_by'|trans({'%who%': entry.userLabel ?? ('module.action_by_system'|trans)}) -}}
+		</span>
+		{% if entry.hasDetail %}
+			<span class="badge text-bg-light fw-normal ms-1">
+				{{- 'module.history_changes'|trans({'%count%': entry.changeCount}) -}}
+			</span>
+		{% endif %}
+	{% endset %}
+
+	{% if entry.hasDetail %}
+		<details class="history-entry">
+			<summary class="d-block">{{ line }}</summary>
+			{{ h.detail(module, entry) }}
+		</details>
+	{% else %}
+		{# Aligned with the ones that open, so a column of times stays a column. #}
+		<div class="history-entry history-entry-plain">{{ line }}</div>
+	{% endif %}
+{% endmacro %}
+
+{# A list of entries, one line each. #}
+{% macro entries(module, list) %}
+	{% import _self as h %}
+	<ul class="list-unstyled small mb-0">
+		{% for entry in list %}
+			<li class="py-1 {{ loop.first ? '' : 'border-top' }}">{{ h.entry(module, entry) }}</li>
+		{% endfor %}
+	</ul>
+{% endmacro %}

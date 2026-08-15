@@ -63,4 +63,29 @@ final readonly class HistoryEntry
 
         return $collections;
     }
+
+    /**
+     * How many things this entry touched, fields and collection rows together.
+     *
+     * What a compact timeline says instead of the detail (XIV-3): "3 changes" is
+     * the line somebody scans, and the changes themselves are what they open it
+     * for. Rows count as one each rather than by the fields inside them —
+     * an address being added is one thing that happened, not five.
+     */
+    public function changeCount(): int
+    {
+        $count = \count($this->fieldChanges());
+
+        foreach ($this->collectionChanges() as $rows) {
+            $count += \count($rows);
+        }
+
+        return $count;
+    }
+
+    /** Whether there is anything to open: a created record lists no changes. */
+    public function hasDetail(): bool
+    {
+        return $this->changeCount() > 0;
+    }
 }

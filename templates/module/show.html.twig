@@ -1,26 +1,7 @@
 {% extends 'base.html.twig' %}
 
-{% import _self as h %}
-
-{#
-	One stored value, rendered as the field it describes.
-
-	History keeps values in storage form and carries the label it had at the time
-	(§5.2), so an entry stays readable after the field is renamed — and after it is
-	deleted, when there is no definition left to ask. That is the fallback here:
-	the type formats it when the field still exists, and the raw stored value shows
-	when it does not.
-#}
-{% macro value(shape, key, stored) %}
-	{%- set field = shape ? shape.getField(key) : null -%}
-	{%- if stored is null -%}
-		<span class="text-body-secondary">empty</span>
-	{%- elseif field -%}
-		{{ display_stored(field, stored) }}
-	{%- else -%}
-		{{ stored }}
-	{%- endif -%}
-{% endmacro %}
+{# The timeline is described once and read in two places — see the partial. #}
+{% import 'module/_history.html.twig' as h %}
 
 {# One answer to "what is this record called", from the engine (§5.4). #}
 {% set title = record_title(module, record.data, record.id) %}
@@ -168,7 +149,10 @@
 				</div>
 
 				{# History belongs on the record, not on the form: it is something you
-				   read about a record, not something you edit (§5.2). #}
+				   read about a record, not something you edit (§5.2). The latest few
+				   of it, at least — the whole timeline has a page of its own, so this
+				   card is the same height on a record edited once and one edited every
+				   day for a year (XIV-3). #}
 				<div class="card">
 					<div class="card-body">
 						<h2 class="h6 text-uppercase text-body-secondary mb-3">{{ 'module.history'|trans }}</h2>
@@ -178,56 +162,16 @@
 								{{ 'module.history_empty'|trans }}
 							</p>
 						{% else %}
-							<ul class="list-unstyled mb-0 small">
-								{% for entry in history %}
-									<li class="{{ loop.first ? '' : 'border-top pt-3 mt-3' }}">
-										<div>
-											{#
-												The verb is a key rather than the stored value capitalised:
-												"updated" is English, and the timeline is read by whoever owns
-												the record (XIV-8). Nobody signed in is an import or a console
-												command, not a gap.
-											#}
-											<strong>{{ ('module.action.' ~ entry.action.value)|trans }}</strong>
-											{{ 'module.action_by'|trans({'%who%': entry.userLabel ?? ('module.action_by_system'|trans)}) }}
-										</div>
-										<time class="text-body-secondary" datetime="{{ entry.occurredAt|date('c') }}">
-											{{ entry.occurredAt|date('Y-m-d H:i') }}
-										</time>
+							{{ h.entries(module, history) }}
 
-										<ul class="text-body-secondary mt-2 mb-0 ps-3">
-											{# Ordered by the definitions, because jsonb does not keep
-											   the order these were written in. #}
-											{% for key, change in in_field_order(module, entry.fieldChanges) %}
-												<li>
-													{{ change.label }}:
-													{{ h.value(module, key, change.from) }} → {{ h.value(module, key, change.to) }}
-												</li>
-											{% endfor %}
-
-											{% for collectionKey, rows in entry.collectionChanges %}
-												{% set collection = module.getCollection(collectionKey) %}
-												{% for row in rows %}
-													<li>
-														{{ collection ? collection.label : collectionKey }}
-														{{ ('module.row_action.' ~ row.action)|trans }}:
-														{% if row.action == 'updated' %}
-															{% for key, change in in_field_order(collection, row.changes) %}
-																{{ change.label }}
-																{{ h.value(collection, key, change.from) }} → {{ h.value(collection, key, change.to) }}{{ loop.last ? '' : ',' }}
-															{% endfor %}
-														{% else %}
-															{% for key, held in in_field_order(collection, row.values) %}
-																{{ h.value(collection, key, held.value) }}{{ loop.last ? '' : ',' }}
-															{% endfor %}
-														{% endif %}
-													</li>
-												{% endfor %}
-											{% endfor %}
-										</ul>
-									</li>
-								{% endfor %}
-							</ul>
+							{# Said whenever there is more, and it says how much more: a
+							   list that silently stopped at five is a list that lies. #}
+							{% if historyTotal > historyShown %}
+								<a class="small d-inline-block mt-3"
+								   href="{{ path('module_history', {module: module.key, id: record.id}) }}">
+									{{ 'module.history_all'|trans({'%count%': historyTotal}) }}
+								</a>
+							{% endif %}
 						{% endif %}
 					</div>
 				</div>

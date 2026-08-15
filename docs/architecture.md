@@ -303,6 +303,21 @@ when it does not, because history outlives the schema that produced it. That is
 feature with roughly a hundred times the volume and a different retention answer;
 it is an optional extra later, not part of this.
 
+**Reading it back is paged, and an entry is one line** (XIV-3). A timeline is the
+one part of a record that grows without limit, so the record page shows a fixed
+handful and says how many there are, and the whole thing is a page of its own —
+twenty-five at a time, grouped into today, this week, this month, this year and
+earlier, with anything older than a month opening closed. What each entry
+*changed* sits behind a native `<details>` rather than under every row: printing
+every diff is what made fifty entries unreadable, and it is also what made the
+page's cost grow with the record's age instead of with the window being shown.
+
+It is ordered by **when things happened**, with the id breaking ties. Ordering by
+id alone gives the same answer for as long as rows are only appended as things
+happen — and a different one the moment anything writes an entry with an older
+timestamp, which a backfilling import reasonably would. That was invisible while
+the page was one flat list and is not once it draws a boundary between days.
+
 Still to decide: retention and whether `occurred_at` wants range partitioning.
 Cheap now, expensive at 60M rows. And field types will need a way to say "do not
 record this value" before the first sensitive type ships.

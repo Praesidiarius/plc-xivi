@@ -34,6 +34,7 @@ use Xivi\Core\Export\RecordExporter;
 use Xivi\Core\Field\Type\ReferenceFieldType;
 use Xivi\Core\Form\ModuleRecordType;
 use Xivi\Core\History\HistoryRepository;
+use Xivi\Core\History\HistorySection;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Metadata\ModuleNotInstalled;
 use Xivi\Core\Permission\ModuleAction;
@@ -60,6 +61,11 @@ use Xivi\Core\Validation\RecordValidator;
 #[Route('/m/{module}', requirements: ['module' => '[a-z][a-z0-9_]*'])]
 final class ModuleController extends AbstractController
 {
+    /** How much of the timeline the record page itself shows (XIV-3). */
+    private const int HISTORY_ON_RECORD = 5;
+
+    private const int HISTORY_PER_PAGE = 25;
+
     public function __construct(
         private readonly MetadataRepository $metadata,
         private readonly RecordRepository $records,
@@ -215,7 +221,55 @@ final class ModuleController extends AbstractController
             'children' => $children,
             'linked' => $this->linkedTo($definition, $record),
             'owner' => $record->ownerId === null ? null : ($this->ownerNames([$record])[$record->ownerId] ?? null),
-            'history' => $this->history->findFor($definition, $id),
+            // The latest few and how many there are in total (XIV-3). A record
+            // page renders the same small number whether its timeline is six
+            // entries or six hundred; the rest is a page of its own.
+            'history' => $this->history->findFor($definition, $id, self::HISTORY_ON_RECORD),
+            'historyTotal' => $this->history->countFor($definition, $id),
+            'historyShown' => self::HISTORY_ON_RECORD,
+        ]);
+    }
+
+    /**
+     * The whole timeline, a page at a time (XIV-3).
+     *
+     * Its own page because a record's own content should not get shorter as its
+     * history gets longer, and because five hundred entries want the width — the
+     * card beside the record shows the latest few and links here.
+     *
+     * Granted by `view`, the same as the record: history is a way of reading the
+     * record, and a separate permission would be a second answer to a question
+     * that already has one.
+     */
+    #[Route('/{id}/history', name: 'module_history', requirements: ['id' => Requirement::POSITIVE_INT], methods: ['GET'])]
+    #[IsGranted(ModuleAction::View->value, subject: 'module')]
+    public function history(string $module, int $id, Request $request): Response
+    {
+        $definition = $this->definition($module);
+        // Through the same check as the record page: a timeline of a record
+        // somebody may not open is the record, told slowly.
+        $record = $this->recordFor($definition, $id, ModuleAction::View);
+
+        $total = $this->history->countFor($definition, $id);
+        $pages = max(1, (int) ceil($total / self::HISTORY_PER_PAGE));
+        // Clamped rather than trusted: the page number is in the URL, and asking
+        // for page 900 of 21 should show the last page, not an empty one.
+        $page = min($pages, max(1, $request->query->getInt('page', 1)));
+
+        $entries = $this->history->findFor(
+            $definition,
+            $id,
+            self::HISTORY_PER_PAGE,
+            ($page - 1) * self::HISTORY_PER_PAGE,
+        );
+
+        return $this->render('module/history.html.twig', [
+            'module' => $definition,
+            'record' => $record,
+            'sections' => HistorySection::of($entries),
+            'total' => $total,
+            'page' => $page,
+            'pages' => $pages,
         ]);
     }
 

@@ -19,6 +19,14 @@ operator:
     empty: is empty
     filled: is not empty
 
+history:
+    period:
+        today: Today
+        week: This week
+        month: This month
+        year: This year
+        older: Earlier
+
 permission:
     action:
         view: View
