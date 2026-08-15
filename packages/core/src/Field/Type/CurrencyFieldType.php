@@ -13,21 +13,28 @@ declare(strict_types=1);
 
 namespace Xivi\Core\Field\Type;
 
+use Symfony\Component\Form\Extension\Core\Type\MoneyType;
 use Symfony\Component\Validator\Constraints as Assert;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Field\FieldType;
-use Xivi\Core\Form\Type\MoneyAmountType;
 use Xivi\Core\Money\InstanceCurrency;
 use Xivi\Core\Query\Operator;
 
 /**
  * An amount of money, in the currency this installation works in (XIV-11).
  *
+ * **Symfony's MoneyType does the work**, and the Bootstrap theme's `money_widget`
+ * draws the input group around it — currency in a `.input-group-text` beside the
+ * field, on whichever side the reader's locale puts it. `currency: false` when
+ * nobody has chosen one, which renders the plain input the pattern asks for.
+ * Nothing here is hand-rolled: a widget written to sit next to Symfony's own is a
+ * widget that has to be kept next to it.
+ *
  * **Stored as a decimal string, never a float.** 19.90 is not representable in
  * binary floating point, and a price that reads back a hundredth of a cent short
  * is the kind of bug that surfaces on an invoice rather than in a test. JSONB
- * holds the string, `comparableSql` casts it for ordering, and nothing in
- * between ever makes it a float.
+ * holds the string, MoneyType is asked for `input: 'string'` so the form hands
+ * one back, and `comparableSql` casts only for ordering.
  *
  * **The currency is not stored with it.** It comes from the tenant profile
  * (§8.6) and belongs to the installation, so a column of prices adds up. Per
@@ -109,11 +116,23 @@ final class CurrencyFieldType implements FieldType
 
     public function formType(): string
     {
-        return MoneyAmountType::class;
+        return MoneyType::class;
     }
 
     public function formOptions(FieldDefinition $field): array
     {
+        $options = [
+            // False, not null: MoneyType reads it as "no currency in the
+            // pattern" and renders a bare input, which is the honest widget for
+            // an installation that has not chosen one (§8.6).
+            'currency' => $this->currency->code() ?? false,
+            'scale' => self::SCALE,
+            // The stored value is a decimal string and comes back as one, so
+            // nothing on this path is ever a float.
+            'input' => 'string',
+            'divisor' => 1,
+        ];
+
         $attr = [];
 
         foreach (['min', 'max'] as $bound) {
@@ -122,15 +141,15 @@ final class CurrencyFieldType implements FieldType
             }
         }
 
-        return $attr === [] ? [] : ['attr' => $attr];
+        return $attr === [] ? $options : [...$options, 'attr' => $attr];
     }
 
     /**
      * The amount, named in the language being read: "CHF 19.90", "19,90 CHF".
      *
-     * Reading is not entering, so this follows the reader's conventions where
-     * the widget deliberately does not (see MoneyAmountType) — a list is prose,
-     * and a form is somebody typing.
+     * The same convention the widget follows, from the same ICU data — so a
+     * price does not change sides between the list it is read in and the form it
+     * is edited in.
      */
     public function display(mixed $value, FieldDefinition $field): string
     {

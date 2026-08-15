@@ -42,13 +42,15 @@ of every page, and is not yet tied to git tags.
   because everything that follows from the length differs — a box instead of a
   line, a default maximum in the thousands, and no "starts with" filter, which is
   not a question anybody asks of a description.
-- **A `currency` field type**, drawn as a Bootstrap input group with the
-  instance's currency in front of the amount ([XIV-12] supplies it). Stored as a
-  decimal string and never a float: 19.90 has no exact binary representation, and
-  the place a lost hundredth of a cent turns up is an invoice. The currency is
-  not stored beside the amount — one per installation means a column of prices
-  adds up, where per record it would need exchange rates behind it to mean
-  anything.
+- **A `currency` field type**, built on Symfony's `MoneyType`: the Bootstrap
+  theme's own `money_widget` draws the input group, with the instance's currency
+  ([XIV-12] supplies it) beside the amount on whichever side the reader's locale
+  puts it, and no currency at all until one is chosen. Stored as a decimal string
+  and never a float — 19.90 has no exact binary representation, and the place a
+  lost hundredth of a cent turns up is an invoice, so the form is asked for
+  `input: 'string'` and hands one back. The currency is not stored beside the
+  amount: one per installation means a column of prices adds up, where per record
+  it would need exchange rates behind it to mean anything.
 - **A field type may now ask the application something it cannot know** (§5): core
   declares `InstanceCurrency` and the application answers it from the tenant
   profile, the same shape as the entity manager and the connection being bound in
