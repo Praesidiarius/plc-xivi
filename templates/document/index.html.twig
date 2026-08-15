@@ -156,6 +156,35 @@
 
 							{{ _self.list(general) }}
 						</section>
+
+						{#
+							The rows a document lists rather than states (XIV-17). Their
+							own section because they behave differently in Word: the
+							marker names a column and the table row it sits in is what
+							repeats, which nobody would guess from the token alone.
+						#}
+						{% for section in collections %}
+							<section class="mt-4">
+								<h3 class="h6">{{ section.collection.label }}</h3>
+								<p class="text-body-secondary small mb-2">{{ 'document.collection_help'|trans }}</p>
+
+								{% for variant, markerList in section.lists %}
+									{% if variant %}
+										<h4 class="h6 small fw-semibold mt-3">
+											{{ 'document.for_variant'|trans({
+												'%variant%': section.collection.variants[variant]|default(variant),
+											}) }}
+										</h4>
+									{% endif %}
+
+									{{ _self.list(markerList) }}
+								{% endfor %}
+
+								{% if section.collection.hasVariants %}
+									<p class="text-body-secondary small mt-2 mb-0">{{ 'document.collection_kinds_help'|trans({'%example%': section.example}) }}</p>
+								{% endif %}
+							</section>
+						{% endfor %}
 					</div>
 				</div>
 			</div>

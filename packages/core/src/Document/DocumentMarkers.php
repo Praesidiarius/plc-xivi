@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Xivi\Core\Document;
 
 use Symfony\Contracts\Translation\TranslatorInterface;
+use Xivi\Core\Entity\CollectionDefinition;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
@@ -43,9 +44,12 @@ use Xivi\Core\Record\Record;
  * as a date and a price as "CHF 19.90", which is what a letter should say and
  * what `display()` already knows how to produce.
  *
- * Collections are deliberately not here yet. A contact's addresses are a
- * repeating block rather than a marker, which is a different feature in the
- * template as well as in the code.
+ * **A collection is a third kind** (XIV-17), and its markers are written
+ * `[lines.description]` — the collection, a dot, the field. A row of a table
+ * containing one repeats once per row of the collection ({@see RepeatingBlocks}),
+ * so unlike the other two these are not substituted here: they name a *column*
+ * rather than a value, and which value they are worth depends on which row is
+ * being drawn.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
@@ -119,6 +123,54 @@ final readonly class DocumentMarkers
     }
 
     /**
+     * The reference list for one collection, per kind of row (XIV-17).
+     *
+     * Keyed by variant, like the module's own lists are, and by the empty string
+     * for a collection whose rows are all the same thing. The tokens carry the
+     * variant — `[lines:article.description]` — because that is what decides
+     * which template row a line is drawn with, and a list that showed the
+     * variant-less form would be showing something that does something else.
+     *
+     * @return array<string, list<DocumentMarker>>
+     */
+    public function forCollection(CollectionDefinition $collection): array
+    {
+        $variants = array_keys($collection->getVariants());
+
+        if ($variants === []) {
+            return ['' => $this->markersOf($collection, null)];
+        }
+
+        $lists = [];
+
+        foreach ($variants as $variant) {
+            $lists[$variant] = $this->markersOf($collection, $variant);
+        }
+
+        return $lists;
+    }
+
+    /**
+     * What one row of a collection is worth, ready to be substituted into a copy
+     * of the block it is drawn with.
+     *
+     * Keyed by field, not by token: the token depends on how the template wrote
+     * it — with a variant or without — and both mean this same value.
+     *
+     * @return array<string, string>
+     */
+    public function valuesOf(CollectionDefinition $collection, Record $row): array
+    {
+        $values = [];
+
+        foreach ($collection->getFields() as $field) {
+            $values[$field->getKey()] = $this->render($field, $row->get($field->getKey()));
+        }
+
+        return $values;
+    }
+
+    /**
      * What each marker is worth for this record, ready to be substituted.
      *
      * Every key either list offers is present, empty ones included: a marker left
@@ -134,11 +186,47 @@ final readonly class DocumentMarkers
     {
         $data = [];
 
+        // Every collection marker, worth nothing (XIV-17). The ones inside a
+        // repeating block are gone by the time this runs — a copy of the block
+        // carries values rather than markers — so what is left is a collection
+        // marker written somewhere no row could be drawn, and the same rule
+        // applies to it as to any other unfilled marker: blank beats brackets.
+        foreach ($module->getCollections() as $collection) {
+            foreach (['', ...array_keys($collection->getVariants())] as $variant) {
+                foreach ($collection->getFields() as $field) {
+                    $data[self::collectionKey($collection->getKey(), $variant, $field->getKey())] = '';
+                }
+            }
+        }
+
         foreach ([...$this->general(), ...$this->forShape($module, $module->variantOf($record->data), $record)] as $marker) {
             $data[$marker->key] = $marker->example ?? '';
         }
 
         return $data;
+    }
+
+    /** `lines.description`, or `lines:article.description` when it names a kind. */
+    public static function collectionKey(string $collection, ?string $variant, string $field): string
+    {
+        return ($variant === null || $variant === '')
+            ? sprintf('%s.%s', $collection, $field)
+            : sprintf('%s:%s.%s', $collection, $variant, $field);
+    }
+
+    /** @return list<DocumentMarker> */
+    private function markersOf(CollectionDefinition $collection, ?string $variant): array
+    {
+        $markers = [];
+
+        foreach ($collection->getFieldsFor($variant) as $field) {
+            $markers[] = new DocumentMarker(
+                self::collectionKey($collection->getKey(), $variant, $field->getKey()),
+                $field->getLabel(),
+            );
+        }
+
+        return $markers;
     }
 
     private function render(FieldDefinition $field, mixed $value): string

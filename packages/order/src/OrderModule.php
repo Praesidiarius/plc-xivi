@@ -348,11 +348,6 @@ final class OrderModule implements ModuleProvider
             ],
             icon: 'receipt',
             // Every order names a customer, so this one is not optional (XIV-23).
-            requires: ['contact'],
-            // And an order that sells only custom lines is an ordinary order, so
-            // this one is: without it, the article line kind is simply not
-            // offered.
-            uses: [self::ARTICLE_MODULE],
             lifecycle: new Lifecycle(
                 field: 'status',
                 initial: self::DRAFT,
@@ -373,6 +368,11 @@ final class OrderModule implements ModuleProvider
                 // and a cancelled one is a record of what did not.
                 locked: [self::DELIVERED, self::CANCELLED],
             ),
+            // And an order that sells only custom lines is an ordinary order, so
+            // this one is: without it, the article line kind is simply not
+            // offered.
+            requires: ['contact'],
+            uses: [self::ARTICLE_MODULE],
         );
     }
 }

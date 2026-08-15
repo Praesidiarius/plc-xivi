@@ -289,6 +289,15 @@ document:
     placeholders_help: >-
         Schreibe diese samt Klammern ins Word-Dokument. Beim Erzeugen werden sie durch die
         Werte dieses Datensatzes ersetzt. Was du weglässt, bleibt weg.
+    collection_help: >-
+        Setze einen davon in eine Zelle, und die ganze Tabellenzeile wiederholt sich — einmal
+        pro Zeile dieser Liste, in ihrer Reihenfolge. Summen und alles andere zum Datensatz
+        gehören ausserhalb der Tabelle, wo sie einmal stehen.
+    collection_kinds_help: >-
+        Eine Zeile, deren Platzhalter eine Art nennen, wird nur für diese Art gezeichnet — so
+        kannst du pro Art eine Tabellenzeile anlegen und ihr genau die Spalten geben, die sie
+        braucht. Lässt du die Art weg — schreibst also [%example%] —, wird die Zeile für jede
+        gezeichnet.
 
 permission:
     yes: 'Ja'

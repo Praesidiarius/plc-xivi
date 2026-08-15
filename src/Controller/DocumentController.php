@@ -28,6 +28,7 @@ use Xivi\Core\Document\DocumentFormat;
 use Xivi\Core\Document\DocumentGenerator;
 use Xivi\Core\Document\DocumentMarkers;
 use Xivi\Core\Document\DocumentTemplateRepository;
+use Xivi\Core\Entity\CollectionDefinition;
 use Xivi\Core\Entity\DocumentTemplate;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Metadata\MetadataRepository;
@@ -91,6 +92,11 @@ final class DocumentController extends AbstractController
             // for the markers that are about neither.
             'markers' => $this->markersPerVariant($definition),
             'general' => $this->markers->general(),
+            // And one per collection (XIV-17). Their own sections because they
+            // behave differently in the document: a marker names a column and
+            // the row it sits in repeats, which is a thing somebody has to be
+            // told once rather than guess from a list of tokens.
+            'collections' => $this->collectionMarkers($definition),
             'maxBytes' => self::MAX_UPLOAD_BYTES,
         ]);
     }
@@ -251,6 +257,33 @@ final class DocumentController extends AbstractController
         }
 
         return $lists;
+    }
+
+    /**
+     * The reference list for each collection the module owns (XIV-17).
+     *
+     * A collection with no rows to draw still gets a section: what a template
+     * *may* say does not depend on what this customer has typed yet.
+     *
+     * @return list<array{collection: CollectionDefinition, lists: array<string, list<\Xivi\Core\Document\DocumentMarker>>, example: string}>
+     */
+    private function collectionMarkers(ModuleDefinition $definition): array
+    {
+        $sections = [];
+
+        foreach ($definition->getCollections() as $collection) {
+            $fields = $collection->getFieldKeys();
+
+            $sections[] = [
+                'collection' => $collection,
+                'lists' => $this->markers->forCollection($collection),
+                // A token from this very collection, so the sentence explaining
+                // the kind-less form shows something somebody could paste.
+                'example' => DocumentMarkers::collectionKey($collection->getKey(), null, $fields[1] ?? ($fields[0] ?? 'field')),
+            ];
+        }
+
+        return $sections;
     }
 
     /** @throws DocumentFailed when it is not a .docx anybody could open */
