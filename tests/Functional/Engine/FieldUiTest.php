@@ -142,11 +142,15 @@ final class FieldUiTest extends WebTestCase
 
         $crawler = $this->client->request('GET', $this->url('/m/contact/new?variant=person'));
 
-        self::assertNotNull(
-            $crawler->filter('[name="module_record[fields][vat_number]"]')->closest('.col-md-6'),
-            'a text field is half a row',
+        // **A direct child of the row**, which is the whole assertion. A column
+        // whose parent is not a row is an ordinary div: every width is correct
+        // and every field still stacks. Asserting the classes exist, or that
+        // there is a `.row` somewhere above, passes against exactly that bug —
+        // which is how it shipped.
+        self::assertSelectorExists(
+            '.row > .col-md-6 [name="module_record[fields][vat_number]"]',
+            'a text field is half a row, in a row',
         );
-        self::assertSelectorExists('.row [name="module_record[fields][vat_number]"]', 'inside a grid, or the width means nothing');
     }
 
     /** A textarea gets the whole row, because that is what it is for. */
@@ -161,6 +165,7 @@ final class FieldUiTest extends WebTestCase
 
         self::assertNotNull($wrapper, 'it is still in the grid');
         self::assertStringNotContainsString('col-md-', (string) $wrapper->attr('class'), 'and nothing narrows it');
+        self::assertSelectorExists('.row > .col-12 [name="module_record[fields][remarks]"]', 'still a direct child of the row');
     }
 
     /** And somebody can disagree with the type, per field. */
@@ -173,8 +178,8 @@ final class FieldUiTest extends WebTestCase
 
         $crawler = $this->client->request('GET', $this->url('/m/contact/new?variant=person'));
 
-        self::assertNotNull(
-            $crawler->filter('[name="module_record[fields][vat_number]"]')->closest('.col-md-3'),
+        self::assertSelectorExists(
+            '.row > .col-md-3 [name="module_record[fields][vat_number]"]',
             'the field carries what was chosen, not what the type wanted',
         );
     }
