@@ -306,7 +306,12 @@ storage** (XIV-22): `integer` for things you count, `decimal` for things you
 measure, `currency` for money. The last two are the same string in the database
 and differ in what they print — a currency symbol beside a number of hours is
 wrong in a way no amount of formatting fixes, which is why the engine grew the
-middle one rather than letting quantities borrow the money type.
+middle one rather than letting quantities borrow the money type. **How many
+places is the field's own setting** — hours want two, kilos might want three —
+and a scale beyond what the storage promises is clamped rather than refused, so
+forty places means "lots" instead of an error about a number nobody was going to
+type. A *unit* is deliberately absent: it belongs to the article rather than to
+the line, and one that only decorates the number is worse than none.
 
 **A field can be derived rather than typed** — a line's total, a subtotal's
 figure. It is shown and never offered for editing, enforced with `disabled` so a
@@ -861,6 +866,10 @@ make the same ones.
   ordinary week in Switzerland. The article carries the rate, the line copies it
   like the price (§5.1's inherited values), and the per-rate breakdown is stored
   as a derived collection — so it cannot disagree with the tax total beside it.
+  The rate on the article is **a number, not a choice of the three Swiss ones**:
+  those are this year's rates and this is not a Swiss engine. Empty means no VAT,
+  which is the right answer for a customer who is not registered for it, and such
+  a customer sees no VAT table at all rather than one full of zeroes.
 - **Rounding has one answer**, written down in `Money\Amount` and nowhere else: a
   line total is rounded to two places as it is computed, so the printed column
   adds up to the printed total; **VAT is grouped per rate before it is rounded**,
@@ -1025,6 +1034,14 @@ the other module's records, and being allowed to open an order is not being
 allowed to read the invoices made from it (§8.4). Somebody without that grant is
 told the order is wholly uninvoiced — the safe direction to be wrong in, and they
 cannot make an invoice either way.
+
+**A sent document is not edited; it is corrected by another document.** An
+invoice that has gone out loses both the transition back to draft and the right
+to be changed, because the customer is holding a copy and the two would disagree.
+Correcting one is a credit note — a second document that says what it corrects —
+which is also the only version of the fix an auditor can follow. This is the
+lifecycle rule (§5.8) doing the work rather than a special case: a state that
+ends editing already existed, and *sent* is one.
 
 **Two things are deliberately not copied**: a line's total and a subtotal's
 figure. Both are derived on save (§5.9), so a partial invoice restates its own
@@ -1290,6 +1307,17 @@ successful render, so only the body says no. That is a real loss — anything
 speaking HTTP could previously tell a rejection from an acceptance — and it is
 recorded here rather than discovered by whatever reads these responses next.
 
+**What a submitted record form *means* is not the controller's** (XIV-30), and
+that is why the move above was a change of caller rather than a rewrite. Four
+things are held outside it: what a form starts with, which submitted rows were
+really typed into, whether the submission is valid, and what gets written. None
+of them is a fact about HTTP. What a form starts with is core's, since it follows
+from the shape; what a submission *means* needs the validator, the writer and
+Symfony's form errors together, so it lives in the application. The rule to keep:
+whatever renders the form — a controller, a component, an import, whatever comes
+next — asks the same service, and none of them gets its own idea of what a valid
+record is.
+
 **One browser runs, and only over what only a browser can see** (XIV-31). Every
 other test calls the component directly and learns nothing about whether the page
 it sits on does anything. Three assertions in a real browser close
@@ -1306,14 +1334,14 @@ resolves *both* from the browser's container and from the application's own,
 because the web server binds to the name it will later be asked for; the service
 name will not do, because that one is deliberately served without a tenant.
 
-**The cost to watch is the endpoints, not the library.** Every `hx-*` target is a
-route returning a fragment: a second rendering surface for data the generic
-controller already renders, and a second place permissions have to be checked. A
-fragment route stays **generic over module, record and shape** like everything
-else here, and checks the same permission the full page does. One route that
-re-renders a collection is fine; ten special-purpose ones would quietly become
-the module-specific code §1 exists to avoid — a finding about the engine rather
-than a shortcut worth taking.
+**The cost to watch is the components, not the library.** A live action is a
+second way into the write path and a second place permissions have to be
+answered, and the temptation is one component per module the moment something
+does not quite fit. A component stays **generic over module, record and shape**
+like everything else here, and mounts on a module key and an id rather than on
+anything a particular module knows. One component that renders any record form is
+fine; a `OrderForm` beside it would quietly become the module-specific code §1
+exists to avoid — a finding about the engine rather than a shortcut worth taking.
 
 ### 8.4 Authorization: grants, resolved per person
 
