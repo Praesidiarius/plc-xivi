@@ -101,6 +101,20 @@
 			<span class="badge text-bg-light fw-normal ms-1">
 				{{- entry.document.template }} · {{ entry.document.format|upper -}}
 			</span>
+		{% elseif entry.email %}
+			{#
+				A mail that left the building, or one that tried to (XIV-39).
+				*Whether* it went is the verb above and not repeated here — a
+				timeline is scanned down its left-hand column, and a failure that
+				only announced itself in the badge would be a failure somebody
+				reads past. What the badge adds is the part the verb cannot: which
+				template, and which address it was sent to, both as they were at
+				the time rather than as the contact reads today.
+			#}
+			<span class="badge text-bg-light fw-normal ms-1">
+				{{- entry.email.template }} · {{ entry.email.recipient -}}
+			</span>
+			<span class="text-body-secondary">{{ entry.email.subject }}</span>
 		{% endif %}
 	{% endset %}
 

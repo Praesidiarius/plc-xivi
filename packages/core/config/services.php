@@ -21,6 +21,10 @@ return static function (ContainerConfigurator $container): void {
             ->exclude([
                 __DIR__ . '/../src/Entity/',
                 __DIR__ . '/../src/Module/{ModuleBlueprint,CollectionBlueprint,FieldBlueprint}.php',
+                // Declarations and answers, not services: a module writes the
+                // first in its blueprint and the resolver hands back the second
+                // (XIV-39).
+                __DIR__ . '/../src/Mail/{MailRecipient,Recipient}.php',
                 __DIR__ . '/../src/Money/Amount.php',
                 __DIR__ . '/../src/Numbering/NumberFormat.php',
                 __DIR__ . '/../src/Record/{Record,Derivation}.php',

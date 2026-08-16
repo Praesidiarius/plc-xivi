@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Xivi\Core\Module;
 
 use Xivi\Core\Lifecycle\Lifecycle;
+use Xivi\Core\Mail\MailRecipient;
 use Xivi\Core\Money\LineTotals;
 use Xivi\Core\Seed\Seed;
 
@@ -75,6 +76,16 @@ final readonly class ModuleBlueprint
          * nothing, which is most of them.
          */
         public ?Seed $seed = null,
+        /**
+         * Where a mail about one of these records goes (XIV-39) — a contact's
+         * own address, or the address of the contact an invoice names. Null for
+         * a module nobody writes to, which an articles list is.
+         *
+         * The engine cannot work this out and does not try: which field holds an
+         * address is a fact about this module's shape, the same way `$seed` and
+         * `$lineTotals` are, so it is declared here beside them.
+         */
+        public ?MailRecipient $mailRecipient = null,
         /**
          * Modules this one cannot work without (XIV-23).
          *

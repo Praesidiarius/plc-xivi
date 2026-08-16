@@ -44,4 +44,25 @@ enum RecordAction: string
      * document and a timeline that called both "updated" would bury the first.
      */
     case Transitioned = 'transitioned';
+
+    /**
+     * An email about this record went out (XIV-39).
+     *
+     * The second verb that changes nothing, and the stronger case of the two
+     * §5.2 admits: a document can be regenerated and a mail cannot be recalled.
+     */
+    case EmailSent = 'email_sent';
+
+    /**
+     * An email about this record was attempted and did not go (XIV-39).
+     *
+     * **Its own verb rather than a flag inside the entry**, and that is the
+     * whole point of recording failures at all. "Nothing in the timeline" and
+     * "it went out" must not look the same, and they still would if a failure
+     * were an `email_sent` row somebody has to open to discover it did not
+     * happen. A timeline is read by scanning the left-hand column, so the
+     * difference has to be in the column — the same argument that made
+     * {@see self::Transitioned} its own verb rather than an update.
+     */
+    case EmailFailed = 'email_failed';
 }

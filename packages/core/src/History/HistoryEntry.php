@@ -82,6 +82,30 @@ final readonly class HistoryEntry
     }
 
     /**
+     * What was sent, for an entry that put a mail outside the building (XIV-39).
+     *
+     * Present on a failure exactly as it is on a success — the entry's verb is
+     * what says which it was, so that a timeline answers "did that invoice go
+     * out" by being read rather than by being opened.
+     *
+     * @return array{template: string, recipient: string, subject: string}|null
+     */
+    public function email(): ?array
+    {
+        $email = $this->changes['email'] ?? null;
+
+        if (!\is_array($email) || !isset($email['template'], $email['recipient'], $email['subject'])) {
+            return null;
+        }
+
+        return [
+            'template' => (string) $email['template'],
+            'recipient' => (string) $email['recipient'],
+            'subject' => (string) $email['subject'],
+        ];
+    }
+
+    /**
      * How many things this entry touched, fields and collection rows together.
      *
      * What a compact timeline says instead of the detail (XIV-3): "3 changes" is

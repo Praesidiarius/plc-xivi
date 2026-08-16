@@ -16,6 +16,7 @@ namespace Xivi\Order;
 use Xivi\Core\Field\Type\ReferenceFieldType;
 use Xivi\Core\Lifecycle\Lifecycle;
 use Xivi\Core\Lifecycle\LifecycleTransition;
+use Xivi\Core\Mail\MailRecipient;
 use Xivi\Core\Module\CollectionBlueprint;
 use Xivi\Core\Module\FieldBlueprint;
 use Xivi\Core\Module\ModuleBlueprint;
@@ -399,6 +400,11 @@ final class OrderModule implements ModuleProvider
             // XIV-19). The arithmetic belongs to the engine; what this module
             // knows is which of its own fields mean what.
             uses: [self::ARTICLE_MODULE],
+            // An order confirmation goes to whoever ordered, and an order holds
+            // no address of its own (XIV-39). One hop through the contact it
+            // already names — the very link `requires` above is about, doing a
+            // second job.
+            mailRecipient: new MailRecipient(field: 'email', through: 'contact'),
         );
     }
 }

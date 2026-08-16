@@ -108,6 +108,8 @@ module:
         updated: Geändert
         deleted: Gelöscht
         document_generated: Dokument erzeugt
+        email_sent: E-Mail gesendet
+        email_failed: E-Mail nicht gesendet
         transitioned: Status geändert
     row_action:
         added: hinzugefügt
@@ -383,9 +385,30 @@ refusal:
     mail_server_without_address: 'Ein SMTP-Server braucht eine Absenderadresse: Sie ist es, von der eure Mail zu kommen behauptet.'
     mail_not_an_address: '„%address%“ ist keine E-Mail-Adresse.'
 
+# Eine dieser Vorlagen aus einem Datensatz heraus senden (XIV-39). „Empfänger“
+# statt „An“, weil dieses Feld das eine auf dem Bildschirm ist, das geprüft und
+# nicht ausgefüllt werden soll.
 mail:
     send_failed: Die Nachricht konnte nicht gesendet werden. Es ist nichts hinausgegangen — versuch es erneut oder prüfe die Einstellungen für ausgehende E-Mails.
     no_sender: Diese Installation hat noch keine Absenderadresse. Trag im Firmenprofil eine ein.
+    send_email: E-Mail senden
+    send: Senden
+    preview: Vorschau
+    preview_and_send: Vorschau und senden
+    template: Vorlage
+    subject: Betreff
+    subject_placeholder: Leer lassen für den Betreff der Vorlage
+    subject_help: Gilt nur für diese eine Nachricht. Leer bedeutet den Betreff aus der Vorlage, und beides versteht dieselben Platzhalter.
+    recipient: Empfänger
+    recipient_help: Änderst du ihn, geht nur diese Nachricht woandershin — der Datensatz bleibt unverändert.
+    recipient_from_field: 'Übernommen aus %field%.'
+    recipient_from_link: 'Übernommen aus %field% des %via%, den dieser Datensatz nennt.'
+    from: Von
+    reply_to: Antwort an
+    none_for_record: Für diesen Datensatz gibt es noch keine passende E-Mail-Vorlage.
+    not_sendable: Aus diesem Datensatz kann nichts gesendet werden.
+    no_template_chosen: Wähl eine der Vorlagen. Es wurde nichts gesendet.
+    recipient_invalid: '„%address%“ ist keine E-Mail-Adresse. Es wurde nichts gesendet.'
 
 flash:
     saved: Gespeichert.
@@ -394,6 +417,7 @@ flash:
     template_deleted: '„%template%“ entfernt. Bereits heruntergeladene Dokumente bleiben davon unberührt.'
     email_template_saved: Gespeichert. Sie wird an jedem passenden Datensatz angeboten.
     email_template_deleted: '„%template%“ entfernt. Bereits verschickte E-Mails bleiben davon unberührt.'
+    email_sent: 'An %recipient% gesendet. Es steht im Verlauf dieses Datensatzes.'
     profile_saved: Gespeichert. So beschreibt sich die Instanz von jetzt an.
     shape_renamed: 'Umbenannt in „%shape%“.'
     deleted: Gelöscht.

@@ -54,6 +54,31 @@
 					</a>
 				{% endif %}
 				{#
+					Sending one of the module's emails from this record (XIV-39), and
+					deliberately the button beside Documents rather than a different kind
+					of thing: one button, whether there are two templates or fifty.
+
+					Three states, and the middle one is the ticket's. A module that never
+					said where its recipient comes from shows nothing at all — an
+					articles list has nobody to write to, and that is an answer rather
+					than a fault. A record whose address cannot be resolved shows the
+					reason *instead of* the button, because a modal that opens and cannot
+					be completed is worse than no button: it costs somebody three clicks
+					to learn what one sentence could have told them.
+				#}
+				{% if emails.templates is not empty %}
+					{% if emails.recipient.resolved %}
+						<a class="btn btn-outline-secondary"
+						   href="{{ path('module_email_choose', {module: module.key, id: record.id}) }}"
+						   data-bs-toggle="modal" data-bs-target="#email-modal">
+							<i class="bi bi-envelope" aria-hidden="true"></i>
+							<span class="d-none d-sm-inline">{{ 'mail.send_email'|trans }}</span>
+						</a>
+					{% elseif emails.recipient.offered %}
+						<p class="text-body-secondary small mb-0 align-self-center">{{ emails.recipient.reason|trans }}</p>
+					{% endif %}
+				{% endif %}
+				{#
 					Where the record is, and where it may go from here (XIV-14). Only
 					the legal moves are drawn: a button that answers "not from there"
 					is a button that should not have been offered.
@@ -319,6 +344,34 @@
 					</div>
 					<div class="modal-body">
 						{{ include('document/_choose.html.twig', {templates: documents, formats: formats, id: 'modal'}) }}
+					</div>
+				</div>
+			</div>
+		</div>
+	{% endif %}
+
+	{#
+		The send chooser, as a modal (XIV-39) — the same arrangement the document
+		one above uses, and the same reason: its contents are the very form the page
+		at module_email_choose renders, so there is one description of what a send
+		asks for, and the link still leads to that page when Bootstrap's JavaScript
+		is not there to intercept it.
+	#}
+	{% if emails.templates is not empty and emails.recipient.resolved %}
+		<div class="modal fade" id="email-modal" tabindex="-1" aria-labelledby="email-modal-title" aria-hidden="true">
+			<div class="modal-dialog modal-dialog-centered">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h2 class="modal-title h5" id="email-modal-title">{{ 'mail.send_email'|trans }}</h2>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'common.cancel'|trans }}"></button>
+					</div>
+					<div class="modal-body">
+						{{ include('mail/_choose.html.twig', {
+							templates: emails.templates,
+							recipient: emails.recipient,
+							draft: emails.draft,
+							id: 'modal',
+						}) }}
 					</div>
 				</div>
 			</div>
