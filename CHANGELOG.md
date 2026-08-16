@@ -69,6 +69,11 @@ lands in `Unreleased` here.
 
 ### Fixed
 
+- **No environment file the production image cannot use is inside it any more**
+  ([XIV-56]). `.dockerignore` listed `.env.test` and not `.env.dev`, so the dev
+  file shipped — naming a mail catcher that does not exist there. It is now a
+  pattern rather than a list, so a new env file is excluded by default instead of
+  by somebody remembering.
 - **`tenant:reset` survives a real `--records`** ([XIV-74]) — turning the one knob
   a developer reaches for used to exhaust the memory limit, because the whole
   rebuild happens in one process and Symfony's profiler keeps every statement it
@@ -109,6 +114,7 @@ lands in `Unreleased` here.
   before the next run rather than after.
 
 [XIV-78]: https://xivi.youtrack.cloud/issue/XIV-78
+[XIV-56]: https://xivi.youtrack.cloud/issue/XIV-56
 
 [XIV-74]: https://xivi.youtrack.cloud/issue/XIV-74
 
