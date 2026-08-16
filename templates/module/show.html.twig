@@ -183,20 +183,23 @@
 						{% endfor %}
 					</div>
 				</div>
-			</div>
 
-			{#
-				Records pointing at this one (§7.6) — a company's people. Read from
-				the reference on their side rather than stored here, so the two can
-				never disagree about who works where.
-			#}
-			{% for group in linked %}
-				{# The heading names the field as well only when one module points
-				   here twice — "Orders" beats "Orders: Contact" and says the same. #}
-				{% set twice = linked|filter(g => g.module.key == group.module.key)|length > 1 %}
+				{#
+					Records pointing at this one (§7.6) — a company's people. Read from
+					the reference on their side rather than stored here, so the two can
+					never disagree about who works where.
 
-				<div class="col-lg-8">
-					<div class="card">
+					**Inside the main column, not beside it.** These used to be cards of
+					their own in the row, and the grid lays a row out in order: the
+					sidebar came after them, so it settled next to the *last* of these
+					with a hole above it wherever there was more than one.
+				#}
+				{% for group in linked %}
+					{# The heading names the field as well only when one module points
+					   here twice — "Orders" beats "Orders: Contact" and says the same. #}
+					{% set twice = linked|filter(g => g.module.key == group.module.key)|length > 1 %}
+
+					<div class="card mt-3">
 						<div class="card-body">
 							{# Closed by default: a contact with forty invoices is a page you
 							   scroll past to reach anything else, and the heading and the
@@ -228,8 +231,9 @@
 							</details>
 						</div>
 					</div>
-				</div>
-			{% endfor %}
+				{% endfor %}
+
+			</div>
 
 			<div class="col-lg-4">
 				<div class="card mb-3">

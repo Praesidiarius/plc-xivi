@@ -134,6 +134,33 @@ final class CrossModuleLinkTest extends WebTestCase
     }
 
     /**
+     * The page is two columns, whatever is on it.
+     *
+     * The sidebar is laid out after the main content, and a grid row places
+     * things in order — so a second card competing for the main column used to
+     * push the sidebar down beside the *last* of them, leaving a gap above it.
+     * One column holding the cards, rather than a column per card.
+     */
+    public function testTheSidebarStaysBesideTheMainColumn(): void
+    {
+        $company = $this->aCompany('Acme AG');
+        $this->anArticle('Desk lamp', $company);
+        $this->anArticle('Desk chair', $company);
+
+        $row = $this->client->request('GET', $this->url('/m/contact/' . $company))
+            ->filter('main > .row')
+            ->first();
+
+        self::assertCount(1, $row->children('.col-lg-8'), 'one main column, not one per card');
+        self::assertCount(1, $row->children('.col-lg-4'), 'and one sidebar beside it');
+        self::assertGreaterThan(
+            1,
+            $row->filter('.col-lg-8 .card')->count(),
+            'with more than one card inside the main column, which is the case that broke',
+        );
+    }
+
+    /**
      * The list of what points here is folded away until asked for.
      *
      * A contact with forty invoices is otherwise a page you scroll past to reach
