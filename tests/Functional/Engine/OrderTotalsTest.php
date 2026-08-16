@@ -26,6 +26,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Xivi\Article\ArticleModule;
 use Xivi\Contact\ContactModule;
+use Xivi\Core\Field\FieldTypeRegistry;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
@@ -643,6 +644,30 @@ final class OrderTotalsTest extends WebTestCase
         // 1000 × 1234.50 = 1.234.500,00 for a German reader.
         self::assertStringContainsString('1.234.500,00', $html, 'the line total is grouped');
         self::assertStringNotContainsString('1234500,00', $html, 'and the ungrouped figure is gone');
+    }
+
+    /**
+     * An installation with no currency chosen still reads its money properly.
+     *
+     * This is not an exotic case: a tenant has no currency until somebody fills
+     * in the profile (§8.6), so it is what *every* installation looks like on
+     * its first day — and what this one still looked like. The figure used to
+     * come back from `number_format` with a dot and no separators, in nobody's
+     * language.
+     */
+    public function testMoneyIsFormattedEvenWithNoCurrencyChosen(): void
+    {
+        $shown = self::liveService(TenantSwitcher::class)->runFor($this->tenant, function (): string {
+            $orders = self::service(MetadataRepository::class)->get(OrderModule::KEY);
+            $field = $orders->getField(OrderModule::GROSS_TOTAL);
+            self::assertNotNull($field);
+
+            return self::service(FieldTypeRegistry::class)
+                ->get($field->getType())
+                ->display('296627.85', $field);
+        });
+
+        self::assertStringContainsString('296,627.85', $shown, 'grouped, in the reader own way');
     }
 
     /** What somebody types into is left alone, because typing into it has to keep working. */
