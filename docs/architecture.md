@@ -1709,10 +1709,13 @@ are all derived from the directory. A git worktree is then a first-class
 checkout: its own stack, its own databases, no files copied anywhere. The main
 checkout keeps every name and port it had, so a single-checkout run is unchanged.
 
-The database *server* is not duplicated and should not be: the prefix already
-separates the data, and a second Postgres is another tmpfs for nothing. What has
-to be per-checkout is the container that mounts the code and the browser whose
-session slots would otherwise be shared.
+What actually keeps two checkouts apart today is that each has its own stack,
+including its own database server — so the tenant names never meet in the first
+place. The prefix carries the checkout regardless, which is belt and braces now
+and the only thing that would work if anyone later pointed both at one server to
+save the tmpfs. It also has to be handed to the container explicitly: `docker
+compose exec` carries none of the host's environment, so a variable exported in
+`bin/ci` alone is a mechanism that looks switched on and is not.
 
 
 - **The runtime is classic PHP, not a worker.** One long-lived kernel serving every

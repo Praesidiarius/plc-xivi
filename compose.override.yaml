@@ -54,6 +54,18 @@ services:
       # See https://xdebug.org/docs/all_settings#mode
       XDEBUG_MODE: "${XDEBUG_MODE:-develop}"
       APP_ENV: "${APP_ENV:-dev}"
+      # Which checkout's test databases these are (XIV-51). Empty for the main
+      # one, so its names are exactly what they have always been.
+      #
+      # It has to be declared here or it never arrives: `docker compose exec`
+      # runs a process in a container and carries none of the host's environment
+      # with it, so exporting this in `bin/ci` alone left the prefix mechanism
+      # switched off while looking switched on.
+      #
+      # Two checkouts already have a database server each, so this is not what
+      # keeps them apart today — it is what would, if anyone ever pointed both at
+      # one server to save the tmpfs.
+      TEST_RUN: "${TEST_RUN:-}"
       # That user has no home directory in the image.
       HOME: /tmp
       COMPOSER_HOME: /tmp/composer
