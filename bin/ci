@@ -129,6 +129,25 @@ docker compose up -d --wait
 step 'composer.json is valid and composer.lock matches it'
 docker compose exec -T php composer validate --strict
 
+# **The stack is warm, which means it believes things** (XIV-63). `up --wait`
+# above is a no-op on a running stack, so vendor/ is whatever the last install
+# left and the compiled service container is whatever the last boot compiled —
+# from the tree as it was then. Every check below reads one of those: cs-fixer,
+# deptrac and PHPStan are binaries *in* vendor/, and PHPStan reads the dumped
+# container XML directly. Analysing this tree against yesterday's artifacts
+# produced two afternoons' worth of PHPStan errors that looked like code defects
+# and were not.
+#
+# So this comes before them, and after `validate`: install works from the lock
+# file, and the one check that can tell you the lock itself is out of date has
+# just run. The timing is printed because "reconciling is cheap" is the claim
+# the whole arrangement rests on — if this line ever stops reading as one or two
+# seconds on a warm run, the arrangement needs revisiting rather than tolerating.
+step 'The stack matches this tree'
+reconcile_started=$(date +%s)
+docker compose exec -T php bin/reconcile
+printf '    %ss\n' "$(($(date +%s) - reconcile_started))"
+
 step 'Dependencies have no known vulnerabilities'
 docker compose exec -T php composer audit
 

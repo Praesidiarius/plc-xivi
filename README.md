@@ -400,6 +400,15 @@ module boundaries, PHPStan level 8, PHPUnit, and a build of the **production**
 image — the last one because the dev image installs dev dependencies and so proves
 nothing about what ships.
 
+Before any of that it runs `bin/reconcile` inside the container, which makes what
+the stack has cached match the tree being checked: vendor/ against
+`composer.lock`, and the compiled service container against the configuration it
+was built from (XIV-63). Starting a stack that is already running installs and
+compiles nothing, so without this a merge that added or dropped a dependency
+turned up as PHPStan errors about code. It costs about a second on a warm stack,
+runs from the container entrypoint too, and can be run by hand —
+`bin/compose exec php bin/reconcile` — after any merge that changes either.
+
 `composer cs-fix` writes the formatting fixes. It cannot write the `@author`
 annotation every class carries — no fixer adds one — so a new class needs it by
 hand; `.php-cs-fixer.dist.php` names the three Symfony rules deliberately turned
