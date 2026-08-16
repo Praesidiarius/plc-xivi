@@ -65,6 +65,11 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **Emails are written in Xivi, not uploaded** ([XIV-38]). A module can now have
+  email templates — a name, a subject and a message in Markdown, typed into a form
+  and edited in place, with the same placeholders documents already offer. The
+  frame around the message ships with Xivi so nobody can break it, and writing
+  templates is its own permission, separate from keeping the .docx ones. See §5.13.
 - **Totals update while you type** ([XIV-32], [XIV-44]). A line's total and the
   order's net, VAT and gross follow the quantity and the price as they are
   entered, before anything is saved, and read in the reader's own number format.
@@ -177,3 +182,4 @@ lands in `Unreleased` here.
 [XIV-53]: https://xivi.youtrack.cloud/issue/XIV-53
 [XIV-55]: https://xivi.youtrack.cloud/issue/XIV-55
 [XIV-44]: https://xivi.youtrack.cloud/issue/XIV-44
+[XIV-38]: https://xivi.youtrack.cloud/issue/XIV-38

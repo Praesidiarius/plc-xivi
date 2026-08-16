@@ -59,6 +59,14 @@
 							<span class="d-none d-sm-inline">{{ 'document.templates'|trans }}</span>
 						</a>
 				{% endif %}
+				{# And what its emails say, which is a wording job rather than a
+				   design one — its own grant for that reason (XIV-38). #}
+				{% if can('email_templates', module) %}
+					<a class="btn btn-outline-secondary" href="{{ path('email_template_index', {module: module.key}) }}">
+							<i class="bi bi-envelope" aria-hidden="true"></i>
+							<span class="d-none d-sm-inline">{{ 'email_template.templates'|trans }}</span>
+						</a>
+				{% endif %}
 				{# The metadata editor stays an administrator's job: it changes what
 				   the module *is*, which is not one of its permissions (§5.4). #}
 				{% if is_granted('ROLE_ADMIN') %}

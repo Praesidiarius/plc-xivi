@@ -131,6 +131,21 @@ services:
         arguments:
             $entityManager: '@doctrine.orm.tenant_entity_manager'
 
+    # Email templates are the customer's too, so they live where their records
+    # do (XIV-38). Text rather than a blob, and otherwise the same call.
+    Xivi\Core\Mail\EmailTemplateRepository:
+        arguments:
+            $entityManager: '@doctrine.orm.tenant_entity_manager'
+
+    # Which sanitizer policy an email's HTML goes through (XIV-38). The framework
+    # registers one service per named sanitizer and autowiring cannot guess which
+    # of them a class means, so the application says — the same shape as the
+    # connections above, one level up: there it says which database, here which
+    # policy. The policy itself is config/packages/html_sanitizer.yaml.
+    Xivi\Core\Mail\EmailRenderer:
+        arguments:
+            $sanitizer: '@html_sanitizer.sanitizer.email'
+
     # The words demo data is made of. Core's own lists by default, so generation
     # works with no dependency; dev and test replace this with Faker below,
     # which has hundreds of names where these have thirty.
@@ -198,4 +213,15 @@ when@test:
         # UI is the next thing to be built. Keeping it reachable so the engine can
         # be tested before something happens to use it.
         Xivi\Core\Validation\RecordValidator:
+            public: true
+
+        # Same reason, one ticket along (XIV-38): writing email templates and
+        # sending from them were deliberately split, and the sending half is
+        # XIV-39 — so the thing that turns a template into a message has no
+        # caller in the application yet. What it produces is still this ticket's
+        # to prove, and a test that could not reach it would be a test of the
+        # form and nothing else.
+        Xivi\Core\Mail\EmailRenderer:
+            arguments:
+                $sanitizer: '@html_sanitizer.sanitizer.email'
             public: true

@@ -1,0 +1,81 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'email_template.templates'|trans }} — {{ module.label }}{% endblock %}
+
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<div class="d-flex align-items-start justify-content-between gap-3 mb-3">
+			<div>
+				<h1 class="h3 mb-1">{{ 'email_template.templates'|trans }}</h1>
+				<p class="text-body-secondary mb-0">{{ 'email_template.templates_intro'|trans({'%module%': module.label}) }}</p>
+			</div>
+			<div class="d-flex align-items-center gap-2">
+				<a class="btn btn-link" href="{{ path('module_index', {module: module.key}) }}">{{ 'common.back'|trans }}</a>
+				<a class="btn btn-primary" href="{{ path('email_template_new', {module: module.key}) }}">
+					<i class="bi bi-plus-lg" aria-hidden="true"></i> {{ 'email_template.write'|trans }}
+				</a>
+			</div>
+		</div>
+
+		<div class="card">
+			<div class="card-body">
+				{% if templates is empty %}
+					<p class="text-body-secondary mb-0">{{ 'email_template.none_yet'|trans }}</p>
+				{% else %}
+					<div class="table-responsive">
+						<table class="table align-middle mb-0">
+							<thead>
+								<tr>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'common.name'|trans }}</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'email_template.subject'|trans }}</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'document.applies_to'|trans }}</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'email_template.written_when'|trans }}</th>
+									<th scope="col"></th>
+								</tr>
+							</thead>
+							<tbody>
+								{% for template in templates %}
+									<tr>
+										<th scope="row" class="fw-normal">
+											<i class="bi bi-envelope text-body-secondary" aria-hidden="true"></i>
+											<a href="{{ path('email_template_edit', {module: module.key, template: template.id}) }}">{{ template.name }}</a>
+										</th>
+										{#
+											The subject with its markers still in it, which is the
+											useful thing to show: it is what tells two reminders
+											apart at a glance.
+										#}
+										<td class="small text-body-secondary"><code>{{ template.subject }}</code></td>
+										<td>
+											{# A template naming no variant is offered on every record. #}
+											{{ template.variant ? (variants[template.variant]|default(template.variant)) : ('document.every_record'|trans) }}
+										</td>
+										<td class="small text-body-secondary">
+											{{ template.updatedAt|date('Y-m-d H:i') }}
+											{% if template.updatedBy %}
+												<div>{{ 'module.action_by'|trans({'%who%': template.updatedBy}) }}</div>
+											{% endif %}
+										</td>
+										<td class="text-end row-actions">
+											<form method="post"
+											      action="{{ path('email_template_delete', {module: module.key, template: template.id}) }}">
+												<input type="hidden" name="_token" value="{{ csrf_token('module-email-templates') }}">
+												<button class="btn btn-sm btn-outline-danger" type="submit">
+													{{ 'common.delete'|trans }}
+												</button>
+											</form>
+										</td>
+									</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+				{% endif %}
+			</div>
+		</div>
+	</main>
+{% endblock %}
