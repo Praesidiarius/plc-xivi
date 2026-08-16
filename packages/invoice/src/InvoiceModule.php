@@ -160,12 +160,28 @@ final class InvoiceModule implements ModuleProvider
                     required: true,
                     filterable: true,
                     position: 40,
-                    options: ['choices' => [
-                        self::DRAFT => 'status.draft',
-                        self::SENT => 'status.sent',
-                        self::PAID => 'status.paid',
-                        self::CANCELLED => 'status.cancelled',
-                    ]],
+                    options: [
+                        'choices' => [
+                            self::DRAFT => 'status.draft',
+                            self::SENT => 'status.sent',
+                            self::PAID => 'status.paid',
+                            self::CANCELLED => 'status.cancelled',
+                        ],
+                        // A ledger somebody could actually read, for demo data
+                        // (§5.17): mostly settled, a working tail of outstanding
+                        // ones, a couple being prepared and the odd write-off.
+                        // The generator walks a record to the state drawn from
+                        // here rather than writing it (XIV-73), which is what
+                        // makes the sent and paid ones carry the due date §5.16
+                        // materialises on the way out — a demo tenant of nothing
+                        // but drafts would have no due dates at all, and so
+                        // nothing that could be overdue.
+                        'samples' => [
+                            self::DRAFT, self::SENT, self::SENT,
+                            self::PAID, self::PAID, self::PAID, self::PAID,
+                            self::CANCELLED,
+                        ],
+                    ],
                 ),
                 new FieldBlueprint(
                     key: 'note',
@@ -281,7 +297,19 @@ final class InvoiceModule implements ModuleProvider
                             type: 'decimal',
                             variants: [self::ARTICLE_LINE, self::CUSTOM_LINE],
                             position: 45,
-                            options: ['min' => 0, 'max' => 100, 'scale' => 2],
+                            options: [
+                                'min' => 0,
+                                'max' => 100,
+                                'scale' => 2,
+                                // The rates this country has, for demo data
+                                // (§5.17, XIV-73). An invoiced line normally
+                                // arrives from the order that was seeded into
+                                // it and carries the rate that was agreed; a
+                                // *generated* invoice is made straight from the
+                                // definitions, so without this it would show a
+                                // VAT percentage no tax authority has ever set.
+                                'samples' => [8.1, 8.1, 8.1, 2.6, 3.8, null],
+                            ],
                         ),
                         new FieldBlueprint(
                             key: self::LINE_TOTAL,

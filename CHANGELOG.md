@@ -191,6 +191,27 @@ lands in `Unreleased` here.
 
 ### Fixed
 
+- **Demo data no longer invents what the engine works out** ([XIV-73]). Generated
+  orders and invoices were numbered `Distinctio voluptatem dolorum` and fell due
+  in 1996, because the generator filled in every field — including the ones the
+  engine derives — before the engine saw the record, and a number or a due date
+  is only ever written into an *empty* field. Generated records now carry the
+  engine's own numbers, totals and due dates, and demo records reach their status
+  by being moved through the lifecycle, so a cancelled order was cancelled and
+  says so on its timeline. Orders and invoices also draw sample VAT rates and
+  payment terms somebody can read a document off, instead of 63.9% over 287 days.
+  See §5.17.
+- **Generating demo data no longer spends a tenant's document numbering**
+  ([XIV-73]). It used to hand out a real number to the handful of records whose
+  invented one came out empty: three hundred generated orders left the counter at
+  29, so the next genuine order was `ORD-2026-0030` with twenty-nine numberless
+  records in front of it — and clearing the demo records did not give those
+  numbers back. Generating *n* records now leaves the counter at exactly *n*.
+- **Regenerate any demo data you have, and check the counter.** Nothing is
+  migrated: records already generated keep their invented numbers, totals and due
+  dates. `tenant:demo:clear` removes them, and on a tenant that had demo data
+  generated into it you may want to reset `number_sequence` afterwards — the
+  numbering it consumed is not returned by clearing.
 - **The pager no longer draws every page** ([XIV-69]). A list of a thousand
   records offered forty numbered links, ten thousand offered four hundred, and
   the page you were on was lost somewhere among them. It is now First, Previous,
@@ -214,6 +235,7 @@ lands in `Unreleased` here.
 [XIV-52]: https://xivi.youtrack.cloud/issue/XIV-52
 [XIV-69]: https://xivi.youtrack.cloud/issue/XIV-69
 [XIV-63]: https://xivi.youtrack.cloud/issue/XIV-63
+[XIV-73]: https://xivi.youtrack.cloud/issue/XIV-73
 
 ## Releases
 

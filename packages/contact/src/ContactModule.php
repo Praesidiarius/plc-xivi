@@ -164,7 +164,20 @@ final class ContactModule implements ModuleProvider
                     filterable: true,
                     listed: false,
                     position: 70,
-                    options: ['min' => 0, 'max' => 365],
+                    options: [
+                        'min' => 0,
+                        'max' => 365,
+                        // Terms somebody might actually have agreed, for demo
+                        // data (§5.17, XIV-73). The empty one is the common case
+                        // and belongs in the list rather than being weighted
+                        // out: a customer on nobody's special terms is what
+                        // makes the installation's own default apply, so this is
+                        // also the only way a demo tenant exercises both layers
+                        // of §5.16. A uniform draw over 0 to 365 was giving
+                        // generated invoices eleven-month deadlines, which is
+                        // arithmetic nobody can check by eye.
+                        'samples' => [30, 30, 30, 30, 14, 60, null],
+                    ],
                 ),
             ],
             collections: [

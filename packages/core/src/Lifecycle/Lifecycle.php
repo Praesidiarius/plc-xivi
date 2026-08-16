@@ -73,6 +73,66 @@ final readonly class Lifecycle
         return $states;
     }
 
+    /**
+     * The shortest run of transitions that gets a record from one state to
+     * another, or nothing at all when there is no way (XIV-73).
+     *
+     * **Asked by whoever has a state in mind and only the front door to reach it
+     * with.** Demo data is the first such caller: it is handed a plausible
+     * status to aim at and must arrive there the way a person would, one legal
+     * move at a time, so that the record collects the history entries and the
+     * derived values each of those moves produces (§5.17). Writing the state
+     * straight onto the record would be quicker and would produce a `paid`
+     * invoice nobody ever sent.
+     *
+     * **Shortest, and that is a real choice.** An order can be cancelled from
+     * `draft` or from `confirmed`, so "get to cancelled" has more than one
+     * answer; breadth-first takes the direct one. The alternative — a wander
+     * that happens to end up there — would be a second, invisible distribution
+     * on top of whatever the caller asked for, and a caller that wants a long
+     * road can ask for the state in the middle of it first.
+     *
+     * An empty list means two different things and deliberately does not
+     * distinguish them: the record is already there, or it can never get there.
+     * Both leave the caller with nothing to do.
+     *
+     * @return list<LifecycleTransition>
+     */
+    public function pathTo(string $from, string $to): array
+    {
+        if ($from === $to) {
+            return [];
+        }
+
+        // Reached states rather than visited ones: marked as they go on the
+        // queue, so a state with two ways into it is not queued twice and a
+        // lifecycle with a loop in it terminates.
+        $reached = [$from => true];
+        /** @var list<array{string, list<LifecycleTransition>}> $queue */
+        $queue = [[$from, []]];
+
+        while ($queue !== []) {
+            [$state, $path] = array_shift($queue);
+
+            foreach ($this->transitions as $transition) {
+                if (!\in_array($state, $transition->from, true) || isset($reached[$transition->to])) {
+                    continue;
+                }
+
+                $next = [...$path, $transition];
+
+                if ($transition->to === $to) {
+                    return $next;
+                }
+
+                $reached[$transition->to] = true;
+                $queue[] = [$transition->to, $next];
+            }
+        }
+
+        return [];
+    }
+
     /** Whether a record in this state has stopped being editable. */
     public function isLocked(?string $state): bool
     {

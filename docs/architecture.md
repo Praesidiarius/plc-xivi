@@ -1667,6 +1667,70 @@ the uniform tax rates it was given; a tenant installed after gets rates somebody
 can read an invoice off. Migrating them would be the engine overruling the rule
 that the customer's definitions are the truth, for demo data.
 
+#### And a field the engine owns, the generator says nothing about (XIV-73)
+
+The other half of the same question, found on a freshly generated tenant whose
+orders were numbered `Distinctio voluptatem dolorum praesentiu`. The generator
+had always skipped a *collection* the definition marks derived — its rows follow
+from the others — and had never asked the same about a **field**, so every value
+the engine computes was overwritten with a random one before the engine saw the
+record.
+
+**A deriver that always recomputes survives that; one that fills only when the
+field is empty is defeated by it.** `DerivesTotals` is the first kind, which is
+why the totals were never actually wrong. `AssignsNumbers` (§5.10) and
+`DerivesDueDate` (§5.16) are the second, because "assigned once and never
+restated" reduces to exactly that condition — so the invented value did not lose
+an argument with them, it *suppressed* them. That is the pattern worth carrying
+away: a derived value nothing can be typed over is safe, and a derived value that
+is agreed once has to be protected at the point where values are made up.
+
+**It also spent numbering nobody could give back.** The handful of records whose
+invented value happened to come out empty *did* allocate, so three hundred
+generated orders left the tenant's counter reading 29, with two hundred and
+seventy-one records in front of the next genuine order carrying no number at all.
+Clearing the demo records does not undo that. Generating demo data must leave a
+counter at exactly the number of records generated, and the suite asserts the
+counter rather than the numbers alone.
+
+#### Demo data drives the lifecycle rather than assigning a state
+
+The state is not derived and never will be — it is an ordinary `choice` field a
+person moves through a workflow (§5.8) — so skipping it is not the answer to the
+same question. But sampling it wrote records that were `cancelled` or `paid`
+having never been cancelled or paid: no history, and states the lifecycle would
+not have allowed anything to reach directly.
+
+**The decision is that the generator walks the lifecycle.** The sampled state is
+read as a *destination*: the record is created in the module's initial state and
+then moved along the shortest run of legal transitions, through the same
+`RecordLifecycle::apply()` and `RecordWriter::save()` that a person's click goes
+through. `Lifecycle::pathTo()` is the graph search that answers "how does
+something get from here to there", and it lives on the lifecycle because that is
+where the transitions are declared.
+
+The alternative — accept the initial state, leave every demo record a draft — is
+cheaper and was rejected on what it fails to produce. A tenant of nothing but
+drafts exercises no transition, locks no record, and has **no due dates at all**,
+because §5.16 materialises one on the way into `sent` and on no other save. The
+feature this ticket found broken would have had no demo data to be broken in.
+Driving the lifecycle also turns the generator into the broadest test of the
+engine there is: it is the only caller that writes every field of every module,
+and now the only one that moves every record through every module's workflow.
+
+**It costs a save per transition**, and that is the honest price: 5,000 contacts
+are unchanged at about 2.5 seconds, while 5,000 orders went from 3.5 to 5.2 —
+roughly half as long again, for 1.3 extra saves per record on average and a
+history entry each. A module with no lifecycle pays nothing.
+
+**How far a record gets is the module's business, not the generator's.** Drawing
+uniformly over an order's four states would make a quarter of every demo tenant
+cancelled, which is not a business anybody runs — so the distribution is declared
+where every other opinion about demo values is declared, as a `samples` list on
+the status field, weighted by repetition like all the others. The generator picks
+a destination and walks to it, and knows neither what a draft is nor how many
+there should be.
+
 ---
 
 ## 6. Extensibility

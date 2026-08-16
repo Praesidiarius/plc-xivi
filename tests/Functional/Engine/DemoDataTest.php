@@ -27,16 +27,22 @@ use Xivi\Core\Demo\FieldSampler;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\History\HistoryEntry;
 use Xivi\Core\History\HistoryRepository;
+use Xivi\Core\Lifecycle\Lifecycles;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
 use Xivi\Core\Permission\RecordAccess;
 use Xivi\Core\Query\RecordQuery;
+use Xivi\Core\Record\DerivedValues;
 use Xivi\Core\Record\Record;
+use Xivi\Core\Record\RecordAction;
 use Xivi\Core\Record\RecordRepository;
 use Xivi\Core\Record\RecordWriter;
 use Xivi\Core\Validation\RecordValidator;
+use Xivi\Invoice\InvoiceModule;
+use Xivi\Order\OrderModule;
 
 /**
  * Demo data generated from a module's own definitions.
@@ -216,11 +222,17 @@ final class DemoDataTest extends KernelTestCase
      * The criterion that protects every field nobody has said anything about
      * (XIV-24), asserted rather than assumed.
      *
-     * Contact declares no `samples` on any of its fields, so for every one of
-     * them the sampler has to return what the field's own type returns *and*
-     * leave the seeded sequence in the same place — a single extra call to
-     * mt_rand anywhere on this path would shift every value after it, which is
-     * how "nothing changed" quietly becomes "everything changed by one".
+     * For every field that has *not* declared anything, the sampler has to
+     * return what the field's own type returns *and* leave the seeded sequence
+     * in the same place — a single extra call to mt_rand anywhere on this path
+     * would shift every value after it, which is how "nothing changed" quietly
+     * becomes "everything changed by one".
+     *
+     * The declared ones are taken out of both runs rather than allowed to
+     * disagree in one of them: a field that says something is supposed to be
+     * sampled differently, and leaving it in would make this assert the opposite
+     * of what it is for. Contact carried none of them until XIV-73 gave
+     * `payment_terms` a list, which is exactly the drift this filter absorbs.
      *
      * Compared value for value against the types themselves rather than against
      * a recorded snapshot, because a snapshot would also be asserting which
@@ -229,7 +241,10 @@ final class DemoDataTest extends KernelTestCase
     public function testAFieldThatDeclaresNothingIsSampledExactlyAsItWasBefore(): void
     {
         $this->switcher->runFor($this->tenant, function (): void {
-            $fields = self::everyFieldOf(self::module());
+            $fields = array_values(array_filter(
+                self::everyFieldOf(self::module()),
+                static fn (FieldDefinition $field): bool => $field->getOption(FieldSampler::OPTION) === null,
+            ));
             self::assertNotEmpty($fields);
 
             $sampler = self::service(FieldSampler::class);
@@ -420,6 +435,295 @@ final class DemoDataTest extends KernelTestCase
         self::assertSame($mine->id, $left[0]->id);
     }
 
+    /**
+     * The acceptance criterion of XIV-73, and the reason it is worth writing
+     * here rather than anywhere else.
+     *
+     * A stored record is read back with its rows and put through the engine's
+     * own derivers a second time. Everything they produce has to come back
+     * identical — which is the difference between a value the generator invented
+     * and a value the engine worked out, said in one assertion instead of one
+     * per field.
+     *
+     * The generator is the only caller in the system that writes *every* field
+     * of *every* module, so this is where that assertion is both cheap and
+     * broad: a module that grows a derived field tomorrow is covered by it
+     * without anybody adding a line, and a deriver that fills only an empty
+     * field — which is the shape the bug was hiding behind, since an invented
+     * value silently suppresses it — cannot pass it.
+     *
+     * Ordering is under test here too, though it does not look like it. Totals
+     * follow from the lines, so a generator that wrote the header before the
+     * rows existed would store zeroes against rows that turn up afterwards, and
+     * every one of those records would fail this comparison.
+     *
+     * **What it cannot see, and why the three tests below exist.** A stored
+     * record is a fixed point of the derivers that *always recompute*; it is
+     * also a fixed point of the ones that fill only an empty field, whatever is
+     * in that field — which is the whole reason nonsense document numbers and
+     * 1996 due dates survived in plain sight. Re-deriving them here would mean
+     * emptying the field first, and a number cannot be re-derived at all without
+     * taking a second one out of the counter. So they are asserted against the
+     * counter and against the customer's terms instead, one test each.
+     */
+    public function testEveryDerivedValueIsWhatTheEngineWouldHaveProduced(): void
+    {
+        $this->installDocuments();
+        $this->generate(12);
+        $this->generate(12, module: OrderModule::KEY);
+        $this->generate(12, module: InvoiceModule::KEY);
+
+        foreach ([OrderModule::KEY, InvoiceModule::KEY] as $key) {
+            $this->switcher->runFor($this->tenant, function () use ($key): void {
+                $module = self::module($key);
+                $records = self::service(RecordRepository::class);
+                $derived = self::service(DerivedValues::class);
+                $seen = 0;
+
+                foreach ($records->findBy($module, new RecordQuery(perPage: 50), RecordAccess::unrestricted()) as $record) {
+                    $rows = [];
+
+                    foreach ($module->getCollections() as $collection) {
+                        $rows[$collection->getKey()] = array_map(
+                            static fn (Record $child): array => ['id' => (int) $child->id, 'data' => $child->data],
+                            $records->findChildren($collection, (int) $record->id),
+                        );
+                    }
+
+                    $again = $derived->of($module, $record->data, $rows);
+                    self::assertNotNull($again, sprintf('%s derives nothing at all', $key));
+
+                    self::assertSame(
+                        $records->storageValues($module, $record->data),
+                        $records->storageValues($module, $again->fields),
+                        sprintf('%s %d: a stored field is not what the derivers make of it', $key, (int) $record->id),
+                    );
+
+                    // Compared by value and not by row, because a derived
+                    // collection is rebuilt from scratch on every save and its
+                    // rows carry no id until the writer matches them by position.
+                    foreach ($module->getCollections() as $collection) {
+                        $of = static fn (array $list): array => array_map(
+                            static fn (array $row): array => $records->storageValues($collection, $row['data']),
+                            $list,
+                        );
+
+                        self::assertSame(
+                            $of($rows[$collection->getKey()]),
+                            $of($again->rowsOf($collection->getKey())),
+                            sprintf(
+                                '%s %d: the stored "%s" rows are not what the derivers make of them',
+                                $key,
+                                (int) $record->id,
+                                $collection->getKey(),
+                            ),
+                        );
+                    }
+
+                    ++$seen;
+                }
+
+                self::assertSame(12, $seen);
+            });
+        }
+    }
+
+    /**
+     * What the bug looked like from the outside: orders numbered "Distinctio
+     * voluptatem dolorum" because an invented value suppressed the allocation
+     * (XIV-73, §5.10).
+     */
+    public function testGeneratedDocumentsAreNumberedFromTheModulesOwnCounter(): void
+    {
+        $this->installDocuments();
+        $this->generate(10);
+        $this->generate(25, module: OrderModule::KEY);
+
+        $year = (new \DateTimeImmutable())->format('Y');
+        $expected = [];
+
+        for ($i = 1; $i <= 25; ++$i) {
+            $expected[] = sprintf('ORD-%s-%04d', $year, $i);
+        }
+
+        $numbers = array_map(
+            static fn (Record $record): mixed => $record->data['number'],
+            $this->records(50, OrderModule::KEY),
+        );
+
+        // Sorted rather than taken in order, because which record got which
+        // number is the writer's business and not this test's. Zero-padding is
+        // what makes sorting the text sort the numbers.
+        sort($numbers);
+
+        self::assertSame($expected, $numbers);
+    }
+
+    /**
+     * Generating demo data must not spend a tenant's real numbering.
+     *
+     * The counter is the part of the bug that could not have been cleaned up
+     * afterwards: three hundred generated orders left it reading 29, so the next
+     * genuine order was ORD-2026-0030 with twenty-nine records in front of it
+     * carrying no number at all. Deleting the demo records would not have given
+     * those numbers back.
+     */
+    public function testGeneratingLeavesTheCounterAtExactlyWhatWasGenerated(): void
+    {
+        $this->installDocuments();
+        $this->generate(10);
+        $this->generate(25, module: OrderModule::KEY);
+
+        $this->switcher->runFor($this->tenant, function (): void {
+            $next = self::tenantConnection()->fetchOne(
+                'SELECT next_value FROM number_sequence WHERE shape_key = :shape AND field_key = :field',
+                ['shape' => OrderModule::KEY, 'field' => 'number'],
+            );
+
+            // Twenty-five numbers handed out and the twenty-sixth waiting. One
+            // record that failed to allocate, or one that allocated twice, shows
+            // up here and nowhere else.
+            self::assertSame(26, (int) $next);
+        });
+    }
+
+    /**
+     * A due date is worked out from what the customer agreed, on the way into
+     * `sent`, and never drawn from the date sampler (XIV-67, §5.16).
+     *
+     * Checked against the contact's own `payment_terms` rather than against the
+     * resolver, so this is arithmetic somebody can do on paper rather than the
+     * engine agreeing with itself. A draft has no due date and must not acquire
+     * one — nobody owes anything for a document that has not gone out.
+     */
+    public function testAGeneratedInvoiceFallsDueOnTheTermsItWasSentUnder(): void
+    {
+        $this->installDocuments();
+        $this->generate(20);
+        $this->generate(20, module: OrderModule::KEY);
+        $this->generate(30, module: InvoiceModule::KEY);
+
+        $checked = 0;
+
+        foreach ($this->records(50, InvoiceModule::KEY) as $invoice) {
+            $status = $invoice->data[InvoiceModule::STATUS];
+            $due = self::asDate($invoice->data[InvoiceModule::DUE_DATE]);
+
+            if (!\in_array($status, [InvoiceModule::SENT, InvoiceModule::PAID], true)) {
+                self::assertNull($due, sprintf('a %s invoice was given a deadline', (string) $status));
+
+                continue;
+            }
+
+            $terms = $this->contactOf($invoice)->data['payment_terms'];
+
+            if ($terms === null) {
+                continue;
+            }
+
+            $issued = self::asDate($invoice->data[InvoiceModule::ISSUED_ON]);
+            self::assertNotNull($issued);
+            self::assertNotNull($due, 'a sent invoice on agreed terms has no due date');
+
+            self::assertSame(
+                $issued->modify(sprintf('+%d days', (int) $terms))->format('Y-m-d'),
+                $due->format('Y-m-d'),
+            );
+
+            ++$checked;
+        }
+
+        self::assertGreaterThan(0, $checked, 'not one generated invoice ever went out');
+    }
+
+    /**
+     * **The lifecycle decision, asserted** (XIV-73, §5.17). A generated record
+     * arrives at its state by being moved there, so the timeline says how it got
+     * there and no record is in a state the lifecycle forbids reaching directly.
+     *
+     * The count is what makes this more than a smoke test: a delivered order
+     * carries *two* transition entries, because there is no way from draft to
+     * delivered that does not go through confirmed.
+     */
+    public function testARecordArrivesAtItsStateByBeingMovedThere(): void
+    {
+        $this->installDocuments();
+        $this->generate(10);
+        $this->generate(40, module: OrderModule::KEY);
+
+        $states = [];
+
+        $this->switcher->runFor($this->tenant, function () use (&$states): void {
+            $module = self::module(OrderModule::KEY);
+            $lifecycle = self::service(Lifecycles::class)->for(OrderModule::KEY)?->lifecycle;
+            self::assertNotNull($lifecycle);
+
+            $history = self::service(HistoryRepository::class);
+
+            foreach (self::service(RecordRepository::class)->findBy($module, new RecordQuery(perPage: 50), RecordAccess::unrestricted()) as $record) {
+                $state = (string) $record->data['status'];
+                $states[$state] = ($states[$state] ?? 0) + 1;
+
+                $entries = $history->findFor($module, (int) $record->id);
+                $moves = array_values(array_filter(
+                    $entries,
+                    static fn (HistoryEntry $entry): bool => $entry->action === RecordAction::Transitioned,
+                ));
+
+                self::assertCount(
+                    \count($lifecycle->pathTo($lifecycle->initial, $state)),
+                    $moves,
+                    sprintf('order %d is %s without having been moved there', (int) $record->id, $state),
+                );
+
+                // The creation, and then one entry per move. Nothing else edits
+                // a generated record.
+                self::assertCount(\count($moves) + 1, $entries);
+            }
+        });
+
+        self::assertArrayHasKey(OrderModule::DRAFT, $states, 'nothing was left where it started');
+        self::assertArrayHasKey(
+            OrderModule::DELIVERED,
+            $states,
+            'nothing was walked the whole way, so the two-step path is untested',
+        );
+    }
+
+    /**
+     * The same question asked of the variant field, which is sampled before the
+     * others and would otherwise be the one place the rule did not reach.
+     *
+     * Nothing declares a derived variant field today, so the definition is bent
+     * for this test rather than waited for: a derived `kind` would mean the
+     * engine decides what sort of record this is, and a generator has as little
+     * to say about that as it has about a total. With nothing choosing a variant
+     * the variant-scoped fields are not filled either, which is §5.5 behaving
+     * exactly as it does for a record whose kind has not been picked yet.
+     */
+    public function testAVariantFieldTheEngineOwnsIsNotSampledEither(): void
+    {
+        $made = $this->switcher->runFor($this->tenant, function (): array {
+            $module = self::module();
+            $kind = $module->getField('kind');
+            self::assertNotNull($kind);
+            $kind->setDerived(true);
+
+            self::generator()->generate($module, 12);
+
+            return self::service(RecordRepository::class)
+                ->findBy($module, new RecordQuery(perPage: 50), RecordAccess::unrestricted());
+        });
+
+        self::assertCount(12, $made);
+
+        foreach ($made as $record) {
+            self::assertNull($record->data['kind'], 'the generator decided what kind of contact this is');
+            self::assertNull($record->data['first_name']);
+            self::assertNull($record->data['company_name']);
+        }
+    }
+
     /** Their addresses and history go with them, rather than being orphaned. */
     public function testClearingTakesCollectionsAndHistoryWithIt(): void
     {
@@ -437,15 +741,83 @@ final class DemoDataTest extends KernelTestCase
 
     private function generate(int $amount, ?int $seed = null, string $module = ContactModule::KEY): int
     {
-        return $this->switcher->runFor($this->tenant, fn (): int => new DemoDataGenerator(
+        return $this->switcher->runFor(
+            $this->tenant,
+            fn (): int => self::generator()->generate(self::module($module), $amount, $seed),
+        );
+    }
+
+    /**
+     * Built by hand rather than taken from the container, so the batch size can
+     * be one a test can afford to walk.
+     */
+    private static function generator(): DemoDataGenerator
+    {
+        return new DemoDataGenerator(
             self::tenantConnection(),
             self::service(RecordWriter::class),
             self::service(FieldSampler::class),
             self::service(DemoLedger::class),
+            self::service(Lifecycles::class),
             // A small batch, so the paging is walked without writing hundreds of
             // records to prove it.
             batch: 7,
-        )->generate(self::module($module), $amount, $seed));
+        );
+    }
+
+    /**
+     * The two modules with something to derive, installed only where they are
+     * wanted.
+     *
+     * Not in setUp: every test in this class is rolled back, so an install there
+     * is four modules created and thrown away for each of twenty tests, most of
+     * which are about a contact.
+     */
+    private function installDocuments(): void
+    {
+        $this->switcher->runFor($this->tenant, function (): void {
+            $installer = self::service(ModuleInstaller::class);
+            $modules = self::service(ModuleRegistry::class);
+
+            $installer->install($modules->get(OrderModule::KEY));
+            $installer->install($modules->get(InvoiceModule::KEY));
+        });
+    }
+
+    /** The customer an invoice was addressed to, for the terms it was sent under. */
+    private function contactOf(Record $invoice): Record
+    {
+        $id = $invoice->data[InvoiceModule::CONTACT];
+        self::assertIsNumeric($id);
+
+        $contact = $this->switcher->runFor(
+            $this->tenant,
+            fn (): ?Record => self::service(RecordRepository::class)->find(self::module(), (int) $id),
+        );
+
+        self::assertNotNull($contact);
+
+        return $contact;
+    }
+
+    /**
+     * A stored date, however the repository handed it back. Dates come out of a
+     * record as strings or as objects depending on the field type's own reading,
+     * and this test is about the day rather than about which.
+     */
+    private static function asDate(mixed $value): ?\DateTimeImmutable
+    {
+        if ($value instanceof \DateTimeImmutable) {
+            return $value;
+        }
+
+        if (!\is_string($value) || $value === '') {
+            return null;
+        }
+
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+
+        return $date === false ? null : $date;
     }
 
     private function purge(string $module = ContactModule::KEY): int
