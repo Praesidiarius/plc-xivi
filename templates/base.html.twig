@@ -6,7 +6,15 @@
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<title>{% block title %}Xivi{% endblock %}</title>
-		<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><text y=%2214%22>17</text></svg>">
+		{# The installation's own mark when it has one (XIV-48), and the generation
+		   drawn as text when it has not — which is what a fresh clone shows. No
+		   `type`: the deployment chooses the format, and a wrong one stated here
+		   is worse than none stated at all. #}
+		{% if chrome.logo %}
+			<link rel="icon" href="{{ asset(chrome.logo) }}">
+		{% else %}
+			<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><text y=%2214%22>17</text></svg>">
+		{% endif %}
 
 		{# Bootstrap does not follow the operating system's setting on its own, and
 		   this has to run before the body paints or the page flashes white. #}

@@ -78,6 +78,11 @@ lands in `Unreleased` here.
   are the same thing one level down — and an order or invoice line now declares
   its own widths, so a whole line sits on one row instead of six. Existing forms change appearance on upgrade, which is the
   point; nothing is migrated and no value is written. See §5.
+- **The installation can show a logo** ([XIV-48]), in the top bar and on the
+  login page. It is supplied by the deployment rather than committed: name a
+  file in `APP_LOGO` and put it in `assets/brand/`, which is gitignored. It is the
+  favicon too. Unset — the default, and what a fresh clone has — falls back to
+  the name in text and the mark drawn as `17`.
 - **The record page is two columns again.** Each card used to be its own grid
   column, so once a record had more than one thing pointing at it the sidebar
   settled beside the last of them with a gap above it.
@@ -108,4 +113,5 @@ lands in `Unreleased` here.
 [XIV-32]: https://xivi.youtrack.cloud/issue/XIV-32
 [XIV-42]: https://xivi.youtrack.cloud/issue/XIV-42
 [XIV-43]: https://xivi.youtrack.cloud/issue/XIV-43
+[XIV-48]: https://xivi.youtrack.cloud/issue/XIV-48
 [XIV-44]: https://xivi.youtrack.cloud/issue/XIV-44
