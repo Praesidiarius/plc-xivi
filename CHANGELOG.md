@@ -80,6 +80,22 @@ lands in `Unreleased` here.
   two new grants, on the new **The store** section of the group and user screens.
   Nothing was migrated and nothing needs to be: the grant table already held a
   subject, a verb and a scope. See §8.4.3.
+- **A tenant can be removed from a command, and rebuilt with one** ([XIV-72]).
+  `tenant:deprovision <slug>` drops the control-plane row, the database and the
+  role through the same code provisioning uses — it names what it is about to
+  destroy and how many records are in there, defaults to *no*, and **refuses an
+  unattended run unless `--force` was typed**, because `--no-interaction` alone
+  is a default rather than consent. It ships: removing a customer is a real
+  operation, and an operator who cannot do it from the console will do it in
+  `psql`. See §4.1, which also argues why a status of `suspended` was *not* made
+  a prerequisite.
+- **`tenant:reset <slug>` rebuilds a test tenant in one step** ([XIV-72]) —
+  deprovision, provision, install modules, generate demo records, print the admin
+  password. Module install order comes from each blueprint's own requirements, so
+  `--modules=invoice,order,contact` works in any order somebody types it, and an
+  unknown module or an unsatisfiable set is refused **before** anything is
+  destroyed. Development only: it is excluded from the production image beside
+  the demo commands.
 - **An invoice knows when it falls due, and says when it is late** ([XIV-67]).
   The company profile sets how long customers get to pay and a contact may be
   given its own terms; the date is written onto the invoice as it is sent and
@@ -281,3 +297,4 @@ lands in `Unreleased` here.
 [XIV-24]: https://xivi.youtrack.cloud/issue/XIV-24
 [XIV-6]: https://xivi.youtrack.cloud/issue/XIV-6
 [XIV-70]: https://xivi.youtrack.cloud/issue/XIV-70
+[XIV-72]: https://xivi.youtrack.cloud/issue/XIV-72

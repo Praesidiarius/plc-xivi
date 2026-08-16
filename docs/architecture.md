@@ -125,6 +125,71 @@ each module is (§6.2). One row per tenant is what it started as, not what it is
 the same codebase pointed at a tenant registry containing one row. A config choice,
 never a fork.
 
+### 4.1 Removing a tenant, and why `suspended` is not a prerequisite
+
+Provisioning being a console command is only half a lifecycle. Until XIV-72,
+undoing one meant reading `TenantProvisioner::deprovision()` and reimplementing
+it by hand in `psql` — which gets the details wrong in exactly the ways that
+method exists to get right: it clears the tenant switcher first, so our own open
+connection cannot block the `DROP DATABASE`, and it resolves the database and the
+role **out of the stored DSN** rather than assuming they follow the slug. A DSN
+that disagrees with the slug is not exotic; it is what the `--dsn` option on
+`tenant:provision` is for.
+
+So there is a `tenant:deprovision`, and it **ships** — it is not excluded from the
+production image the way the demo commands are. That is the decision, and it is
+not the comfortable one. The argument is that an operator who cannot remove a
+customer from the console will remove them from `psql` instead, and the `psql`
+version is the failure this replaces rather than a fallback it can afford to push
+people towards. What ships is therefore made hard to do *by accident*, not hard to
+do: it names the database, the role, the hostnames and how many records are in
+there before it asks, the interactive default is *no*, and an unattended run is
+**refused outright** unless `--force` was typed. `--no-interaction` on its own is
+specifically not enough, because Symfony answers an unanswered question with its
+default and a default is not consent.
+
+**Rejected: requiring `TenantStatus::Suspended` before a tenant may be removed.**
+The idea is sound in shape — removal as two deliberate acts, with a state in the
+registry between them that somebody might notice. It was not adopted, for three
+reasons that compound:
+
+1. **It is a speed bump the same hand can remove.** Nothing stops an operator
+   suspending and deprovisioning in the same second, so the ceremony buys no
+   delay and no second opinion. A guard that only the careful obey is a guard
+   that only inconveniences the careful.
+2. **It would block the case the command is most needed for.** A tenant whose
+   provisioning died halfway is `provisioning`, not `suspended`, and a row whose
+   database was never created cannot meaningfully be suspended at all. A hard
+   prerequisite would leave exactly the wreckage nothing else can clear — which
+   is why the record count is best-effort and an unreadable database is reported
+   rather than treated as a refusal.
+3. **Its most frequent caller would route around it.** `tenant:reset` would have
+   to suspend first on every run, and a rule whose busiest user's first act is to
+   satisfy it mechanically is one nobody reads as meaning anything.
+
+What is kept instead is the information the rule was trying to force somebody to
+notice, delivered where the decision is made: when the tenant still serves
+requests, the confirmation says so in as many words before asking. Suspending
+first remains good practice for a real customer removal — it stops the service
+while a final export is taken (§4 makes export-on-churn a per-customer operation)
+— but it is practice, not a gate, and the command says so rather than pretending
+to enforce it.
+
+`tenant:reset` — deprovision, provision, install modules, generate demo records,
+print the admin password — is the development counterpart and is **excluded from
+the production image** in `config/services.yaml`, beside the demo commands. Note
+that the two exclusions are not the same argument: the demo commands are excluded
+because generating fiction into a customer's database is dangerous, while
+`tenant:reset` is excluded because it is *meaningless* where the records are
+real. Neither is "it is destructive" — the destructive one of the pair is the one
+that ships. It resolves module install order from each blueprint's own `requires`
+(§6, `Xivi\Core\Module\ModuleInstallOrder`) rather than from the order somebody
+typed, and every refusal it can make it makes **before** the existing tenant is
+touched: an unknown module, a requirement missing from the requested set, a
+hostname another tenant owns. A reset that destroys a database and then discovers
+it cannot spell "invoice" has left the developer worse off than the state they
+asked to leave.
+
 ---
 
 ## 5. Data model: metadata-driven, not EAV

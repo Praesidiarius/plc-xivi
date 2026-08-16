@@ -46,6 +46,12 @@ services:
         exclude:
             - '../src/Command/GenerateDemoDataCommand.php'
             - '../src/Command/ClearDemoDataCommand.php'
+            # Rebuilding a tenant from nothing and filling it with fiction
+            # (XIV-72). Excluded for the same reason and not for the dangerous
+            # one: tenant:deprovision is the more destructive command of the two
+            # and ships, because removing a customer is a real operation. This
+            # one is simply meaningless where the records are real.
+            - '../src/Command/ResetTenantCommand.php'
             # Faker is a dev dependency; this class would not even load in a
             # production build.
             - '../src/Demo/FakerSampleValues.php'
@@ -205,6 +211,7 @@ when@dev:
 
         App\Command\GenerateDemoDataCommand: ~
         App\Command\ClearDemoDataCommand: ~
+        App\Command\ResetTenantCommand: ~
 
         App\Demo\FakerSampleValues: ~
         Xivi\Core\Demo\SampleValues: '@App\Demo\FakerSampleValues'
@@ -234,6 +241,7 @@ when@test:
 
         App\Command\GenerateDemoDataCommand: ~
         App\Command\ClearDemoDataCommand: ~
+        App\Command\ResetTenantCommand: ~
 
         App\Demo\FakerSampleValues: ~
         Xivi\Core\Demo\SampleValues: '@App\Demo\FakerSampleValues'
