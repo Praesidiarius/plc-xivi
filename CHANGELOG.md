@@ -83,6 +83,9 @@ lands in `Unreleased` here.
   file in `APP_LOGO` and put it in `assets/brand/`, which is gitignored. It is the
   favicon too. Unset — the default, and what a fresh clone has — falls back to
   the name in text and the mark drawn as `17`.
+- **The sign-in card is centred**, with a larger logo. What somebody types into
+  is not: text that moves as it is typed is worse on the one field on that page
+  anybody has to be careful with.
 - **The record page is two columns again.** Each card used to be its own grid
   column, so once a record had more than one thing pointing at it the sidebar
   settled beside the last of them with a gap above it.
