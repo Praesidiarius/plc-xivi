@@ -16,6 +16,10 @@ store:
 
 follow_up:
     more_due: '{count, plural, one {Und # weitere.} other {Und # weitere.}}'
+    # Der Zähler für das Archiv am Datensatz (XIV-82). Zahl und Wort, weil eine
+    # „3“ allein neben offenen Wiedervorlagen wie drei weitere davon aussieht.
+    show_done: '{count, plural, one {# erledigt} other {# erledigt}}'
+    hide_done: '{count, plural, one {Die erledigte ausblenden} other {Die # erledigten ausblenden}}'
 
 module:
     history_all: '{count, plural, one {Ein Eintrag} other {Alle # Einträge}}'

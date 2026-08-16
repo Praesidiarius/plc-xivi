@@ -25,6 +25,11 @@ follow_up:
     # saying how much was left out is what stops it from being a summary somebody
     # trusts to be complete.
     more_due: '{count, plural, one {And # more.} other {And # more.}}'
+    # The archive counter on the record page (XIV-82). A number and a word,
+    # because "3" on its own beside a panel of open work reads as three more of
+    # them.
+    show_done: '{count, plural, one {# done} other {# done}}'
+    hide_done: '{count, plural, one {Hide the one that is done} other {Hide the # that are done}}'
 
 module:
     history_all: '{count, plural, one {One entry} other {All # entries}}'

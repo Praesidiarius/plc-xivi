@@ -515,6 +515,31 @@ follow_up:
         today: Nothing due today.
         week: Nothing due this week.
         all: Nothing on your list.
+    # The panel on the record page (XIV-82). "Due" and "Done" rather than dates
+    # on their own: a bare timestamp in a list of them stops saying which of the
+    # two moments it is.
+    due: 'Due %when%'
+    assigned_to: 'for %who%'
+    opened_by: 'Opened by %who%, %when%'
+    done_at: 'Done %when%'
+    mark_done: Done
+    reopen: Reopen
+    add: Add a follow-up
+    # Said only to somebody who can open one, so it is an invitation rather than
+    # a report about an empty table.
+    none: Nothing outstanding on this record.
+    open_it: Open it
+    due_label: When
+    priority_label: How loud
+    assignee_label: Whose
+    # Not "unassigned", which sounds like something unfinished. A follow-up
+    # nobody owns is a note the office keeps, and that is a legitimate answer.
+    nobody: Nobody in particular
+    what_label: What needs doing
+    what_placeholder: 'Call them back — they asked about the second invoice'
+    note_placeholder: Add a note
+    add_note: Add
+    edited: (edited)
 
 # The invitation email itself (XIV-1). Here rather than in an XIV-38 email
 # template, because those are per-module, customer-facing and tenant-editable and
@@ -568,6 +593,13 @@ mail:
 flash:
     saved: Saved.
     transitioned: 'Now %state%.'
+    # Follow-ups (XIV-82). The success says where the thing went, because it went
+    # somewhere other than the page's middle and a reader who does not look up
+    # will think nothing happened.
+    follow_up_opened: Opened. It sits at the top of this record until somebody marks it done.
+    # Only a hand-made request reaches this: the control is a required
+    # datetime-local, so a browser refuses before the server has to.
+    follow_up_no_date: A follow-up needs a date to be about. Nothing was opened.
     template_uploaded: Template uploaded. It is offered on every record it applies to.
     template_deleted: 'Removed "%template%". Documents already downloaded are unaffected.'
     email_template_saved: Saved. It is offered on every record it applies to.

@@ -11,14 +11,6 @@
 #}
 {% set now = date() %}
 
-{#
-	How loudly each priority is drawn. Here rather than on FollowUpPriority
-	because `text-bg-*` is Bootstrap's vocabulary and the enum is what the
-	database holds — the same split ModuleAction makes when it hands out a label
-	*key* instead of a label. The enum's own docblock says as much.
-#}
-{% set priorityStyles = {'info': 'secondary', 'warning': 'warning', 'important': 'danger'} %}
-
 <div class="card">
 	<div class="card-header d-flex flex-wrap gap-2 justify-content-between align-items-center">
 		{#
@@ -88,7 +80,15 @@
 								<span class="mx-1">·</span>
 							{% endif %}
 
-							<span class="badge text-bg-{{ priorityStyles[followUp.priority.value] }}">
+							{#
+								The one mapping of priority to Bootstrap context, shared with
+								the record page's panel (XIV-82) — see `follow_up_tone()` for
+								why it is a function rather than a table in each template that
+								draws one, and for why `important` is `danger`. This used to
+								be a `{% set %}` here, written as a stopgap until that ticket
+								landed.
+							#}
+							<span class="badge text-bg-{{ follow_up_tone(followUp.priority) }}">
 								{{ followUp.priority.labelKey|trans }}
 							</span>
 						</div>

@@ -1,0 +1,339 @@
+{#
+	What is outstanding on this record, above the record itself (XIV-82).
+
+	**Nothing in here posts to a live action, and every form posts to a route.**
+	That is not the shape RecordForm has and it is deliberate — see the component
+	class: the write path has to be a URL carrying `{module}`, because that is the
+	surface PermissionCoverageTest can see. The `live#action` buttons below change
+	only what is on the screen: the archive, the create form, and which note is
+	being rewritten.
+
+	**Every action is drawn from a grant, and hiding one protects nothing.** A
+	person with only the module's `view` reads all of this and is offered no
+	control at all. Somebody who rebuilds the POST by hand meets FollowUpManager,
+	which refuses on the same rules this template asks about — the hiding is a
+	courtesy, so that a screen full of buttons answering "no" is not how anybody
+	learns what their job is.
+#}
+{# The thread is described once and drawn twice, for the open list and the
+   archive. Imported rather than reached through `_self` directly, which is the
+   form the documentation gives and the one the history partial uses. #}
+{% import _self as notes %}
+
+<div{{ attributes }}>
+	{#
+		Switched off for this module: nothing at all. Not a heading, not a counter
+		reading zero, not an empty state (§5.18). The record page asks the same
+		question before it mounts this, so in the ordinary case nothing here is
+		even built; this is the page that was open across the moment somebody
+		turned the feature off.
+	#}
+	{% if this.enabled %}
+		{% set module = this.moduleDefinition %}
+		{% set record = this.record %}
+		{% set mayCreate = can('follow_up_create', module, record) %}
+		{% set mayComplete = can('follow_up_complete', module, record) %}
+		{% set active = this.active %}
+
+		{#
+			And nothing when there is nothing and no way to make one either: a
+			reader with `view` on a record nobody has left work on gets the record,
+			not a heading over a blank space.
+		#}
+		{% if active is not empty or this.doneCount > 0 or mayCreate %}
+			{#
+				The anchor the writes come back to. On the section rather than on a
+				card, because a follow-up that has just been marked done is not there
+				any more and an anchor pointing at it would point at nothing.
+			#}
+			<section id="follow-ups" class="mb-3">
+				{% for followUp in active %}
+					{#
+						Priority as a coloured left border, which is the whole of how
+						urgency reads here. The tone comes from `follow_up_tone()` and
+						never from the stored word: two of the three names happen to be
+						Bootstrap contexts and `important` is not, so interpolating the
+						enum's value would leave the loudest priority with no colour at
+						all. The dashboard widget draws its badge from the same function,
+						because two copies of a mapping that is not an identity is how
+						two screens end up disagreeing about three words.
+					#}
+					<div class="card mb-2 border-start border-4 border-{{ follow_up_tone(followUp.priority) }}">
+						<div class="card-body">
+							<div class="d-flex align-items-start justify-content-between gap-3">
+								<div>
+									<div class="mb-1">
+										<span class="badge text-bg-{{ follow_up_tone(followUp.priority) }}">
+											{{- followUp.priority.labelKey|trans -}}
+										</span>
+										{#
+											The due moment, plainly and never coloured late. Overdue is
+											XIV-81's to define — the widget is what has to decide what
+											"due" means, and two screens deciding it separately is two
+											answers to one question. `|date` alone is right because the
+											listener has already told Twig which zone to print in
+											(XIV-83); converting here by hand would be a second opinion
+											about the same clock.
+										#}
+										<span class="ms-1">{{ 'follow_up.due'|trans({'%when%': followUp.dueAt|date('Y-m-d H:i')}) }}</span>
+										{#
+											Whose it is, if anybody's. Nobody's is a real answer rather
+											than a missing one (§5.18) and reads as nothing at all: a
+											line saying "unassigned" on every office note would be
+											three quarters of this panel.
+										#}
+										{% if followUp.assigneeLabel %}
+											<span class="text-body-secondary ms-1">· {{ 'follow_up.assigned_to'|trans({'%who%': followUp.assigneeLabel}) }}</span>
+										{% endif %}
+									</div>
+									<div class="text-body-secondary small">
+										{{ 'follow_up.opened_by'|trans({'%who%': followUp.createdByLabel, '%when%': followUp.createdAt|date('Y-m-d H:i')}) }}
+									</div>
+								</div>
+
+								{% if mayComplete %}
+									<form method="post" action="{{ path('follow_up_done', {module: module.key, id: record.id, followUp: followUp.id}) }}">
+										<input type="hidden" name="_token" value="{{ csrf_token('done-follow-up-' ~ followUp.id) }}">
+										<button type="submit" class="btn btn-outline-success btn-sm text-nowrap">
+											<i class="bi bi-check2" aria-hidden="true"></i> {{ 'follow_up.mark_done'|trans }}
+										</button>
+									</form>
+								{% endif %}
+							</div>
+
+							{#
+								The thread. A follow-up has no text of its own — what it is
+								about is its first note, which is why FollowUpManager::create()
+								takes one (§5.18) — so this list is both the record of the
+								conversation and the sentence somebody opened it with. Oldest
+								first, which is the one place in this application where newest
+								first would be wrong: a thread reads forwards.
+							#}
+							{{ notes.thread(this, followUp, module, record, mayCreate) }}
+						</div>
+					</div>
+				{% else %}
+					{#
+						"Nothing outstanding", which is only ever reached when this section
+						exists for another reason — an add button, or an archive with
+						something in it. A record nobody has left work on, read by somebody
+						who cannot leave any, draws no panel at all rather than a sentence
+						about an empty table.
+
+						Withdrawn while the form is open, because a form is the answer to
+						it and the two together read as an argument.
+					#}
+					{% if not this.adding %}
+						<p class="text-body-secondary small mb-2">{{ 'follow_up.none'|trans }}</p>
+					{% endif %}
+				{% endfor %}
+
+				<div class="d-flex flex-wrap align-items-center gap-3">
+					{#
+						Opening one. A live action rather than a link because what it reveals
+						is a form whose assignee picker costs a permission resolution per
+						person in the tenant — most records never get a follow-up, and that
+						list should not be built to fill a form nobody opened.
+					#}
+					{% if mayCreate and not this.adding %}
+						<button type="button" class="btn btn-outline-primary btn-sm"
+						        data-action="live#action"
+						        data-live-action-param="startAdding">
+							<i class="bi bi-plus-lg" aria-hidden="true"></i> {{ 'follow_up.add'|trans }}
+						</button>
+					{% endif %}
+
+					{#
+						The archive is a counter and not a section. A record with forty
+						settled follow-ups must not push its own fields off the screen, so
+						what sits here is one small button — and what it reveals is markup
+						that was never sent until it was asked for, which a <details>
+						could not have promised.
+					#}
+					{% if this.doneCount > 0 %}
+						<button type="button" class="btn btn-link btn-sm text-body-secondary p-0"
+						        data-action="live#action"
+						        data-live-action-param="{{ this.showDone ? 'hideArchive' : 'revealArchive' }}">
+							{{ (this.showDone ? 'follow_up.hide_done' : 'follow_up.show_done')|trans({'%count%': this.doneCount}) }}
+						</button>
+					{% endif %}
+				</div>
+
+				{% if mayCreate and this.adding %}
+					<div class="card mt-2">
+						<div class="card-body">
+							<form method="post" action="{{ path('follow_up_open', {module: module.key, id: record.id}) }}">
+								<input type="hidden" name="_token" value="{{ csrf_token('open-follow-up-' ~ record.id) }}">
+
+								<div class="row g-2 align-items-end">
+									<div class="col-sm-4">
+										<label class="form-label small mb-1" for="follow-up-due">{{ 'follow_up.due_label'|trans }}</label>
+										{#
+											`required`, so the browser refuses an empty or malformed
+											value before the server has to have an opinion about it —
+											which is what keeps the only refusal on this form the rare
+											one about a page that went stale.
+										#}
+										<input type="datetime-local" id="follow-up-due" name="due_at" required
+										       class="form-control form-control-sm" value="{{ this.defaultDueAt }}">
+									</div>
+									<div class="col-sm-3">
+										<label class="form-label small mb-1" for="follow-up-priority">{{ 'follow_up.priority_label'|trans }}</label>
+										<select id="follow-up-priority" name="priority" class="form-select form-select-sm">
+											{% for priority in this.priorities %}
+												<option value="{{ priority.value }}"{{ priority == this.defaultPriority ? ' selected' : '' }}>
+													{{- priority.labelKey|trans -}}
+												</option>
+											{% endfor %}
+										</select>
+									</div>
+									<div class="col-sm-5">
+										<label class="form-label small mb-1" for="follow-up-assignee">{{ 'follow_up.assignee_label'|trans }}</label>
+										{#
+											Only people who may open this record (§5.18). The list comes
+											from FollowUpAssignees, which asks the same PermissionResolver
+											the write path asks — so the picker cannot offer a name the
+											save would then refuse.
+										#}
+										<select id="follow-up-assignee" name="assignee" class="form-select form-select-sm">
+											<option value="0">{{ 'follow_up.nobody'|trans }}</option>
+											{% for user in this.assignees %}
+												<option value="{{ user.id }}">{{ user.name }}</option>
+											{% endfor %}
+										</select>
+									</div>
+								</div>
+
+								<div class="mt-2">
+									<label class="form-label small mb-1" for="follow-up-note">{{ 'follow_up.what_label'|trans }}</label>
+									<textarea id="follow-up-note" name="note" rows="2" required
+									          class="form-control form-control-sm"
+									          placeholder="{{ 'follow_up.what_placeholder'|trans }}"></textarea>
+								</div>
+
+								<div class="d-flex gap-2 mt-2">
+									<button type="submit" class="btn btn-primary btn-sm">{{ 'follow_up.open_it'|trans }}</button>
+									<button type="button" class="btn btn-link btn-sm"
+									        data-action="live#action"
+									        data-live-action-param="cancelAdding">{{ 'common.cancel'|trans }}</button>
+								</div>
+							</form>
+						</div>
+					</div>
+				{% endif %}
+
+				{#
+					The archive itself, once asked for. Quieter than the active ones — no
+					coloured border, muted background — because a settled follow-up is
+					history, and the border is what says "this wants doing".
+				#}
+				{% if this.showDone %}
+					{% for followUp in this.archived %}
+						<div class="card mt-2 bg-body-tertiary">
+							<div class="card-body">
+								<div class="d-flex align-items-start justify-content-between gap-3">
+									<div class="text-body-secondary">
+										<i class="bi bi-check2-circle text-{{ follow_up_tone(followUp.priority) }}" aria-hidden="true"></i>
+										{{ 'follow_up.done_at'|trans({'%when%': followUp.doneAt|date('Y-m-d H:i')}) }}
+										<span class="ms-1">· {{ 'follow_up.due'|trans({'%when%': followUp.dueAt|date('Y-m-d H:i')}) }}</span>
+									</div>
+
+									{% if mayComplete %}
+										<form method="post" action="{{ path('follow_up_reopen', {module: module.key, id: record.id, followUp: followUp.id}) }}">
+											<input type="hidden" name="_token" value="{{ csrf_token('reopen-follow-up-' ~ followUp.id) }}">
+											<button type="submit" class="btn btn-outline-secondary btn-sm text-nowrap">
+												{{ 'follow_up.reopen'|trans }}
+											</button>
+										</form>
+									{% endif %}
+								</div>
+
+								{{ notes.thread(this, followUp, module, record, mayCreate) }}
+							</div>
+						</div>
+					{% endfor %}
+				{% endif %}
+			</section>
+		{% endif %}
+	{% endif %}
+</div>
+
+{#
+	The note thread, written once and drawn by both lists.
+
+	A macro rather than a partial, because it needs the component itself — only
+	the component knows which notes are the reader's — and a macro is the shape
+	that takes arguments without pretending to be a template of its own.
+#}
+{% macro thread(component, followUp, module, record, mayCreate) %}
+	{% if followUp.notes|length or mayCreate %}
+		<ul class="list-unstyled mb-0 mt-3 ps-3 border-start">
+			{% for note in followUp.notes %}
+				<li class="{{ loop.first ? '' : 'mt-2' }}">
+					{% if component.editing == note.id and component.isMine(note) %}
+						{#
+							One textarea at a time — the component holds a single id, so a
+							thread cannot become a page of forms.
+						#}
+						<form method="post" action="{{ path('follow_up_note_edit', {module: module.key, id: record.id, followUp: followUp.id, note: note.id}) }}">
+							<input type="hidden" name="_token" value="{{ csrf_token('edit-note-' ~ note.id) }}">
+							<textarea name="note" rows="2" required class="form-control form-control-sm">{{ note.body }}</textarea>
+							<div class="d-flex gap-2 mt-1">
+								<button type="submit" class="btn btn-primary btn-sm">{{ 'common.save'|trans }}</button>
+								<button type="button" class="btn btn-link btn-sm"
+								        data-action="live#action"
+								        data-live-action-param="cancelEditing">{{ 'common.cancel'|trans }}</button>
+							</div>
+						</form>
+					{% else %}
+						{# The line breaks somebody typed are kept: a note is prose, and
+						   collapsing its whitespace would rewrite it on the way to the
+						   screen. #}
+						<div class="follow-up-note">{{ note.body }}</div>
+						<div class="text-body-secondary small d-flex flex-wrap align-items-baseline gap-1">
+							<span>{{ note.authorLabel }} · {{ note.createdAt|date('Y-m-d H:i') }}</span>
+							{% if note.isEdited %}<span class="fst-italic">{{ 'follow_up.edited'|trans }}</span>{% endif %}
+
+							{#
+								Edit and delete are offered to the author and to nobody else,
+								administrators included (§5.18). The manager enforces it; this
+								only declines to draw a button that would be refused.
+							#}
+							{% if component.isMine(note) %}
+								<button type="button" class="btn btn-link btn-sm p-0 align-baseline"
+								        data-action="live#action"
+								        data-live-action-param="startEditing"
+								        data-live-note-param="{{ note.id }}">{{ 'common.edit'|trans }}</button>
+								<form method="post" class="d-inline"
+								      action="{{ path('follow_up_note_delete', {module: module.key, id: record.id, followUp: followUp.id, note: note.id}) }}">
+									<input type="hidden" name="_token" value="{{ csrf_token('delete-note-' ~ note.id) }}">
+									<button type="submit" class="btn btn-link btn-sm p-0 align-baseline text-danger">{{ 'common.delete'|trans }}</button>
+								</form>
+							{% endif %}
+						</div>
+					{% endif %}
+				</li>
+			{% endfor %}
+
+			{#
+				Writing on the thread is `follow_up_create` and not a verb of its own:
+				a note is what a follow-up is for, and somebody who may open one but
+				not say anything about it has a feature with its mouth taped shut
+				(§5.18).
+			#}
+			{% if mayCreate %}
+				<li class="mt-2">
+					<form method="post" action="{{ path('follow_up_note_add', {module: module.key, id: record.id, followUp: followUp.id}) }}">
+						<input type="hidden" name="_token" value="{{ csrf_token('note-follow-up-' ~ followUp.id) }}">
+						<div class="input-group input-group-sm">
+							<input type="text" name="note" required class="form-control"
+							       aria-label="{{ 'follow_up.note_placeholder'|trans }}"
+							       placeholder="{{ 'follow_up.note_placeholder'|trans }}">
+							<button type="submit" class="btn btn-outline-secondary">{{ 'follow_up.add_note'|trans }}</button>
+						</div>
+					</form>
+				</li>
+			{% endif %}
+		</ul>
+	{% endif %}
+{% endmacro %}

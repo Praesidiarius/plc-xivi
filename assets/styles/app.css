@@ -192,3 +192,16 @@
 	height: 32rem;
 	background: #fff;
 }
+
+/*
+ * A follow-up's note, as it was typed (XIV-82).
+ *
+ * A note is prose somebody wrote into a textarea, so the line breaks in it are
+ * theirs. HTML collapses whitespace by default, which would silently reflow a
+ * two-line note into one and make a list of points read as a run-on sentence.
+ * `pre-wrap` rather than `pre`: the breaks are kept and long lines still wrap to
+ * the card, which is the only combination that survives a narrow screen.
+ */
+.follow-up-note {
+	white-space: pre-wrap;
+}

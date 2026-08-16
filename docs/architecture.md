@@ -2044,6 +2044,100 @@ work nobody has taken is a different screen with a different question behind it,
 closer to a queue than to a dashboard, and it should be built when somebody asks
 for the queue.
 
+#### The record page, and a Live Component that owns no writes (XIV-82)
+
+The panel sits **above the record's own fields, at full width, and nowhere else**.
+A follow-up is a claim on somebody's attention and a claim below the fold is one
+that has been missed — so it is not in the right-hand column, which is where the
+things you may want to read live rather than the things you have to. It is
+emphatically **not on the list**: twenty-five records each asking what is
+outstanding on them is the N+1 §5.16 warned about, and a list is for scanning
+records rather than for reading the work outstanding on them.
+
+**The component decides what is on the screen; routes do the writing.** This is
+the one place in the application where a Live Component does *not* own its own
+save, and it reverses what `RecordForm` established (§8.3), so it is worth the
+paragraph. `PermissionCoverageTest` defines the enforcement surface **by the
+URL** — every route carrying `{module}` must name a permission, and a permission
+no route names is reported as a control that lies. A `#[LiveAction]` is
+dispatched through the library's endpoint at `/_components/…`, which carries no
+module, so a write living only there would be invisible to the one check that
+exists because unprotected things are invisible. `FollowUpController` therefore
+holds six ordinary POST routes with `#[IsGranted]` on them — which is also what
+XIV-80 promised twice while building the engine — and the record page already
+worked this way for its other two mutations, since the lifecycle transitions and
+the delete are plain posted forms.
+
+What is left to the component is what a component is for. Three pieces of state —
+the archive, the create form, and which note is being rewritten — and each earns
+its keep by keeping markup **out of the document** rather than by hiding it with
+CSS. That is the whole reason it is not a `<details>`, which is what the linked
+records on the same page use: a `<details>` still has to be sent the forty settled
+follow-ups it is hiding, and the create form's assignee picker costs a permission
+resolution per user in the tenant that most record pages should never pay for.
+
+**The archive is a counter, not a section**, for the same reason. A record with
+forty settled follow-ups must not push its own fields off the screen, so what sits
+on the page is one small button saying how many there are.
+
+**Priority renders as a coloured left border, and the mapping is not an
+identity**: `info → info`, `warning → warning`, `important → danger`. Two of the
+three agree by coincidence, which is the trap — a template printing the stored
+word would look correct until `important`, which Bootstrap has no context for, and
+the loudest priority would render with no colour at all. The table is written out
+in full including the two identities, so that the arrow to `danger` reads as a
+decision and a fourth priority fails to compile.
+
+It lives in **one Twig function, `follow_up_tone()`**, which both screens that
+draw a priority go through: this panel and XIV-81's dashboard widget. Two copies
+were already drifting — the widget shipped first with a `{% set %}` of its own as
+an explicit stopgap, and that copy read `info → secondary` — which is exactly the
+failure a non-identity mapping invites. It is a Twig function rather than a method
+on `FollowUpPriority` because the enum is what the database holds and `text-bg-*`
+is the template's vocabulary; the enum's own docblock makes that argument, and
+`can()`, `display()`, `record_title()` and `is_overdue()` are the precedent for
+handing a template a computed answer.
+
+**A follow-up has no text of its own; its first note is what it is about.** That
+is why `create()` takes a note, and why the panel renders the whole thread rather
+than a title with a conversation underneath it. Notes read oldest first — the one
+place in this application where newest-first would be wrong — and each carries its
+author label and its timestamp. Edit and delete are drawn for the author alone;
+the hiding is a courtesy over the manager's rule, never the rule.
+
+**A module with follow-ups switched off renders nothing at all** — no panel, no
+counter, no empty state. The switch is reversible by design, and a customer who
+turned the feature off is entitled to a page with no trace of it; a box saying "no
+follow-ups" is the feature refusing to leave. The page asks before it mounts the
+component, and the component asks again for the page that was open across the
+moment somebody switched it.
+
+**Timestamps render through an ordinary `|date`**, because XIV-83's listener has
+already told Twig which zone the reader is on (§8.4.4). The input half is the
+mirror image and does need code: `datetime-local` sends a wall-clock reading with
+no zone attached, so the controller reads it *in the reader's zone* before storing
+it into a `timestamptz`. Getting that wrong is invisible in the country the server
+sits in and an hour or nine out everywhere else.
+
+**Overdue styling is deliberately absent.** The due moment is shown and never
+coloured late: what "due" means belongs to the dashboard widget (XIV-81), and two
+screens deciding it separately is two answers to one question.
+
+**One rule lives in the controller rather than in the manager**, and only one:
+that the follow-up named in the path is on the record named in the path. The
+`#[IsGranted]` votes on the module in the URL while the manager resolves the
+module off the follow-up row, so without the check the two would be talking about
+different records and both be satisfied. It answers 404, so that a wrong id and
+somebody else's id stay indistinguishable (§8.4).
+
+**`ENFORCED_WITHOUT_A_ROUTE` is gone.** XIV-80 shipped the engine before any
+screen called it, so its two verbs were granted, enforced by a service and named
+by no route — held in a documented list with the ticket that would empty it
+written into each entry. These routes emptied it, and the mechanism went with the
+entries: a hatch nothing goes through is one that rots open, and an empty list
+makes the test guarding it an assertion that cannot fail. The next engine-first
+ticket of that shape should put it back rather than weaken the check.
+
 ---
 
 ## 6. Extensibility
