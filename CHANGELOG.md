@@ -83,6 +83,10 @@ lands in `Unreleased` here.
   file in `APP_LOGO` and put it in `assets/brand/`, which is gitignored. It is the
   favicon too. Unset — the default, and what a fresh clone has — falls back to
   the name in text and the mark drawn as `17`.
+- **Two checkouts can run the suite at the same time** ([XIV-51]). A git worktree
+  gets its own compose project, ports and tenant databases, all derived from the
+  directory name; the main checkout keeps the names and ports it had. Two runs in
+  one checkout are refused with a message rather than left to interleave.
 - **Language and region are separate settings** ([XIV-50]). Choosing German used
   to mean German-from-Germany, so a Swiss reader saw `1.234.500,00` where their
   country writes `1’234’500.00`. Pick a country on your account, or set one for
@@ -135,4 +139,5 @@ lands in `Unreleased` here.
 [XIV-47]: https://xivi.youtrack.cloud/issue/XIV-47
 [XIV-48]: https://xivi.youtrack.cloud/issue/XIV-48
 [XIV-50]: https://xivi.youtrack.cloud/issue/XIV-50
+[XIV-51]: https://xivi.youtrack.cloud/issue/XIV-51
 [XIV-44]: https://xivi.youtrack.cloud/issue/XIV-44

@@ -1696,6 +1696,25 @@ decisions was taken, in the sections above, and what is still open, below.
 
 ### 9.2 Decided since this brief was written
 
+**A checkout is the unit of isolation for the test stack** (XIV-51). Everything
+here assumed one working copy: one compose project, one set of ports, and tenant
+databases namespaced per parallel worker (XIV-9). That last one is the sharp
+part — the worker token is paratest's, numbered from one, so two *runs* are
+handed the same eight numbers and fight over one set of databases, which is
+XIV-9's original failure arriving a layer up and looking like nothing in
+particular.
+
+So the compose project, the published ports, the bind mount and the tenant prefix
+are all derived from the directory. A git worktree is then a first-class
+checkout: its own stack, its own databases, no files copied anywhere. The main
+checkout keeps every name and port it had, so a single-checkout run is unchanged.
+
+The database *server* is not duplicated and should not be: the prefix already
+separates the data, and a second Postgres is another tmpfs for nothing. What has
+to be per-checkout is the container that mounts the code and the browser whose
+session slots would otherwise be shared.
+
+
 - **The runtime is classic PHP, not a worker.** One long-lived kernel serving every
   tenant is the §7.4 hazard in its most dangerous form: state that survives a
   request boundary. Booting per request removes it structurally, for a few

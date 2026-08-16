@@ -26,7 +26,14 @@ services:
       browser:
         condition: service_healthy
     volumes:
-      - ./:/app
+      # **The working tree this stack serves** (XIV-51). `./` for an ordinary
+      # checkout, and the whole reason a git worktree could not run the tests:
+      # a worktree is a *different directory*, so a container started from the
+      # main checkout cannot see it and the suite has nothing to run against.
+      #
+      # Compose resolves a relative path against this file's directory rather
+      # than the working directory, so a worktree points at itself absolutely.
+      - ${APP_ROOT:-./}:/app
       # Whatever this installation is branded with (XIV-48). Defaults to the
       # project's own (gitignored) directory mounted over itself, which does
       # nothing — point XIVI_BRAND_DIR somewhere else to use a logo that lives
@@ -205,7 +212,12 @@ services:
 ###> doctrine/doctrine-bundle ###
   database:
     ports:
-      # Fixed host port so external tools (PhpStorm's DB panel, psql) have a
-      # predictable DSN. Per-tenant databases all live on this same server.
-      - "5432:5432"
+      # A predictable host port so external tools (PhpStorm's DB panel, psql)
+      # have a DSN worth bookmarking. Per-tenant databases all live on this same
+      # server.
+      #
+      # Overridable because a second checkout cannot publish this one's port
+      # (XIV-51); `bin/ci` sets it per checkout, and the main one keeps 5432 so
+      # nothing anybody has already bookmarked moves.
+      - "${DATABASE_PORT:-5432}:5432"
 ###< doctrine/doctrine-bundle ###
