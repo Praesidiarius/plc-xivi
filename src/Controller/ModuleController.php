@@ -70,6 +70,17 @@ final class ModuleController extends AbstractController
 
     private const int HISTORY_PER_PAGE = 25;
 
+    /**
+     * How many linked records one card shows (XIV-52).
+     *
+     * A card is a glance at what points here, the way the history card is a
+     * glance at what happened — the module's own list is where somebody goes to
+     * read all 207 of them, and the card now says so and links there. Public
+     * because the test for that case has to build more records than this, and a
+     * cap the test hard-codes is a cap that stops being tested the day it moves.
+     */
+    public const int LINKED_ON_RECORD = 10;
+
     public function __construct(
         private readonly MetadataRepository $metadata,
         private readonly RecordRepository $records,
@@ -456,15 +467,31 @@ final class ModuleController extends AbstractController
                     continue;
                 }
 
-                $found = $this->records->findBy($other, new RecordQuery(
+                $query = new RecordQuery(
                     [new Filter($field->getKey(), Operator::Equals, (int) $record->id)],
-                ), $access);
+                    [],
+                    1,
+                    self::LINKED_ON_RECORD,
+                );
+
+                $found = $this->records->findBy($other, $query, $access);
 
                 if ($found !== []) {
+                    // Counted separately, the way the list does it (XIV-52). The
+                    // card is capped, so the length of what came back is how much
+                    // fits rather than how much there is — and a badge reading 10
+                    // over a customer with 207 orders is not a rounding error, it
+                    // is a different customer.
+                    //
+                    // The same query and the same access predicate: a count taken
+                    // any other way would answer for records the reader cannot
+                    // open (§8.4).
+                    $total = $this->records->countBy($other, $query, $access);
+
                     // Keyed by module and field, because two modules may both
                     // call their link "Contact" and one would otherwise replace
                     // the other silently.
-                    $linked[] = new LinkedRecords($other, $field, $found);
+                    $linked[] = new LinkedRecords($other, $field, $found, $total, (int) $record->id);
                 }
             }
         }

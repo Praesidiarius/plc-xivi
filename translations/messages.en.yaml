@@ -105,6 +105,7 @@ module:
     history_empty: >-
         Nothing recorded. Records that existed before history did have none until
         the next time they change.
+    linked_all: See them all
     action_by: 'by %who%'
     action_by_system: System
     action:

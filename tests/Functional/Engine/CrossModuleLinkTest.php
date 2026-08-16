@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Engine;
 
+use App\Controller\ModuleController;
 use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Entity\PermissionGrant;
@@ -140,6 +141,65 @@ final class CrossModuleLinkTest extends WebTestCase
         self::assertStringContainsString('Articles', $page, 'grouped by the module that points here');
         self::assertStringNotContainsString('Contacts 1', $page, 'and not filed under this record\'s own module');
         self::assertStringContainsString('Desk lamp', $page);
+    }
+
+    /**
+     * More linked records than the card shows (XIV-52).
+     *
+     * The case that used to be silent: the card read the first few and counted
+     * the array it had just capped, so a contact with 207 orders was reported as
+     * having as many as happened to fit. The badge is the count now, and the card
+     * says what it is holding back and where the rest are.
+     */
+    public function testACardSaysHowManyItIsNotShowing(): void
+    {
+        $company = $this->aCompany('Acme AG');
+        $total = ModuleController::LINKED_ON_RECORD + 2;
+
+        for ($i = 1; $i <= $total; ++$i) {
+            $this->anArticle(sprintf('Lamp %02d', $i), $company);
+        }
+
+        $page = $this->client->request('GET', $this->url('/m/contact/' . $company))->filter('main');
+        $text = $page->text();
+
+        self::assertStringContainsString(
+            sprintf('Articles %d', $total),
+            $text,
+            'the badge counts what points here, not what fitted on the card',
+        );
+        self::assertStringContainsString(
+            sprintf('Showing %d of %d.', ModuleController::LINKED_ON_RECORD, $total),
+            $text,
+            'and the card admits it is holding some back',
+        );
+        // Newest first, so the two oldest are the ones off the end of the card.
+        self::assertStringNotContainsString('Lamp 01', $text, 'which it is: this one is not on the page');
+
+        // The way to the rest: the article list, filtered to this contact — the
+        // same URL the filter bar would produce (XIV-13).
+        $link = $page->filter(sprintf(
+            'a[href*="filter%%5B0%%5D%%5Bpath%%5D=supplier"][href*="filter%%5B0%%5D%%5Bvalue%%5D=%d"]',
+            $company,
+        ));
+
+        self::assertCount(1, $link, 'a link to the whole list, filtered to this record');
+
+        $listed = $this->client->request('GET', (string) $link->attr('href'))->filter('table')->text();
+        self::assertStringContainsString('Lamp 01', $listed, 'and it really does reach the ones the card left out');
+    }
+
+    /** A card showing everything says nothing extra — "showing 2 of 2" is noise. */
+    public function testACardShowingEverythingSaysNothingExtra(): void
+    {
+        $company = $this->aCompany('Beta GmbH');
+        $this->anArticle('Desk lamp', $company);
+        $this->anArticle('Cable', $company);
+
+        $page = $this->client->request('GET', $this->url('/m/contact/' . $company))->filter('main')->text();
+
+        self::assertStringContainsString('Articles 2', $page);
+        self::assertStringNotContainsString('Showing', $page);
     }
 
     /** Filtering through the link: "articles whose supplier is in Zürich". */
