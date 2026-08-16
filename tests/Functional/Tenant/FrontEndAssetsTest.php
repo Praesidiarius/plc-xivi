@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Tenant;
 
 use App\Tests\Support\SharesATenant;
+use App\Twig\AppChrome;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -55,6 +56,29 @@ final class FrontEndAssetsTest extends WebTestCase
     public function testTheFrontEndLibraryIsOnThePage(): void
     {
         self::assertStringContainsString('@symfony/ux-live-component', $this->page());
+    }
+
+    /**
+     * A checkout with no logo renders, and says the name instead (XIV-48).
+     *
+     * This is not an edge case: a logo is supplied by the deployment and never
+     * committed, so *no logo* is what a fresh clone, CI and the production image
+     * build all have. The failure it guards against is specific — AssetMapper
+     * throws on an asset that is not there, so a template calling `asset()`
+     * unconditionally would take the login page down rather than fall back.
+     */
+    public function testAPageWithoutALogoStillRenders(): void
+    {
+        $chrome = self::getContainer()->get(AppChrome::class);
+        \assert($chrome instanceof AppChrome);
+
+        self::assertNull($chrome->getLogo(), 'nothing is configured in a test run');
+
+        $this->client->request('GET', sprintf('https://%s/login', self::HOST));
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorNotExists('img[src*="/brand/"]', 'and nothing tries to draw one');
+        self::assertSelectorExists('link[rel="icon"][href^="data:"]', 'the favicon falls back too');
     }
 
     /**

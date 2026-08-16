@@ -15,7 +15,16 @@
 		<div class="d-flex w-100 align-items-center">
 			{# Their company name once they have set one, the registry's label for them
 			   until then — see AppChrome::getName (XIV-12). #}
-			<a class="navbar-brand fw-semibold" href="{{ path('dashboard') }}">{{ chrome.name }}</a>
+			{# A logo when the deployment supplied one (XIV-48), the name in text
+			   otherwise — which is what a clean checkout does. The name stays as
+			   the alt text either way, so the mark is never the only thing
+			   saying whose installation this is. #}
+			<a class="navbar-brand fw-semibold d-flex align-items-center gap-2" href="{{ path('dashboard') }}">
+				{% if chrome.logo %}
+					<img src="{{ asset(chrome.logo) }}" alt="" height="28" class="d-block">
+				{% endif %}
+				{{ chrome.name }}
+			</a>
 
 			{#
 				Plain links rather than a dropdown under the email. Bootstrap's

@@ -27,6 +27,13 @@ services:
         condition: service_healthy
     volumes:
       - ./:/app
+      # Whatever this installation is branded with (XIV-48). Defaults to the
+      # project's own (gitignored) directory mounted over itself, which does
+      # nothing — point XIVI_BRAND_DIR somewhere else to use a logo that lives
+      # outside the project without copying it in. It must be a directory that
+      # exists: Docker silently creates one where a bind mount's source is
+      # missing, which is a confusing way to learn about a typo.
+      - ${XIVI_BRAND_DIR:-./assets/brand}:/app/assets/brand:ro
       - ./frankenphp/Caddyfile:/etc/frankenphp/Caddyfile:ro
       - ./frankenphp/conf.d/20-app.dev.ini:/usr/local/etc/php/app.conf.d/20-app.dev.ini:ro
       # Keep var/ off the bind-mount for faster I/O on Mac/Windows; comment to inspect from the host.
