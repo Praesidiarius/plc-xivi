@@ -2937,6 +2937,75 @@ the run that changed it.
 A warm, already-correct run costs about a second, which `bin/ci` prints every
 time so the claim the design rests on stays checkable.
 
+**The test tmpfs was enlarged three times, and the thing growing was the
+ceiling** (XIV-78). The test database server keeps everything in RAM (XIV-10) on
+a capped tmpfs, and that cap went 1g, 2g, 3g as `bin/ci` kept running out of
+disk. The third bump is where the number stopped being the problem: a clean full
+run measures **440 MB across 48 databases, 17% of 3g**. The size was never
+close.
+
+What accumulated was runs, not a run. A class's tenant database is not dropped
+when the class ends — DAMA holds the transaction, and therefore a connection,
+until the process does, and Postgres will not drop a database somebody is
+connected to — so a run leaves its databases behind and the next one reclaimed
+whatever it asked for again *by slug*. But the name carries paratest's worker
+number, and a class does not land on the same worker twice. A class that ran on
+worker 3 yesterday and worker 5 today leaves two, and over enough runs each class
+spreads across all eight. The set saturates at **classes × workers**, which is
+eight times one run and grows eight times faster than the suite does: 48 × 8 ×
+9 MB is 3.6 GB against a 3.0 GB volume. Measured, four consecutive runs from
+empty: 48 → 92 → 134 → 170 databases, 17% → 29% → 43% → 54%. It fills on the
+seventh.
+
+So the fix is not a fourth number. **`bin/ci` drops every database and role
+matching this checkout's test prefix before the suite starts**, which leaves the
+steady state at one run's worth and keeps 3g at roughly seven times what a run
+needs. On the *start* rather than at the end, because that also covers the case
+where leftovers are worst — a run that crashed or was killed, which has no
+teardown to reach.
+
+Three things about it are worth keeping.
+
+**It is free, which was the one thing worth checking rather than assuming.** The
+obvious objection is that this gives up the "next run reclaims by slug" warm
+start `SharesATenant` was written for. There was no warm start: that trait
+*deprovisions and re-provisions* whatever it finds, so a database waiting under
+the right slug was never reused, only deleted a moment later. Measured — a run
+straight after a full reclaim took 23.9s, against 23.6s and 24.5s for runs that
+found their databases waiting, and the reclaim itself is 0.3–0.7s.
+
+**Terminating sessions first is part of it, not a refinement.** The same
+subsystem breaks a run the other way: a Panther web server left running by an
+earlier browser suite holds a connection to a tenant database it knows nothing
+about, and every class that reclaims that tenant fails with `SQLSTATE[55006] …
+is being accessed by other users`. `TenantProvisioner::deprovision()` clears the
+switcher so its *own* connection cannot block a drop, which does nothing about
+somebody else's. A start-of-run reclaim that issued a plain `DROP` and hoped
+would have traded one confusing failure for another — so it terminates the
+backends over `pg_stat_activity` and then drops `WITH (FORCE)`: belt for the
+connection already there, braces for the client that reconnects in between. The
+roles go with the databases, because a role left behind without one is the same
+shape of failure and `CREATE ROLE` has no `IF NOT EXISTS`.
+
+**And a full volume now says it is a full volume.** That is the reason the number
+was chased three times: it does not present as a disk. Postgres aborts its
+checkpointer, the server restarts, and a hundred tests fail with "no connection
+to the server". `bin/ci` takes one `df` after reclaiming and refuses above 80%,
+which turns twenty minutes of reading test output into one line. The reclaim also
+asserts it is pointed at the throwaway server before dropping anything — `SHOW
+fsync` must be `off`, which `compose.override.yaml` sets precisely because this
+data is disposable, and which is a better gate than trusting a service name to
+still mean what it means today.
+
+One thing this deliberately does not touch. The suite's *control-plane*
+databases (`app_test<worker>`) live on the `database` server rather than the test
+one, because `DATABASE_URL` is set in the php container's environment and a real
+environment variable outranks `.env.test`. They are small, on disk, and no part
+of the tmpfs problem — but it means a registry row can outlive the tenant
+database the reclaim dropped, which is why `deprovision()` being `DROP … IF
+EXISTS` on both objects is load-bearing rather than defensive. Moving them onto
+the test server is a separate question and has not been answered here.
+
 **A mail catcher is visibility, and only that** (XIV-41). Development sends to
 Mailpit, a container that accepts everything and delivers nothing, because the
 mail this application is about to grow — Markdown rendered to HTML, wrapped in a
@@ -3008,7 +3077,8 @@ isolated by construction, and it works *because* nothing is delivered.
   next test. Provisioning stays outside that transaction, because `CREATE DATABASE`
   cannot run inside one; the database is therefore made once for the class and not
   dropped when it finishes, since the connection holding the transaction outlives
-  the class. The next run reclaims it.
+  the class. The next run reclaims it — `bin/ci` drops the lot before it starts,
+  and the trait still reclaims by slug for a run that goes another way (XIV-78).
 
   This needed one thing that is specific to database-per-tenant. DAMA keys its
   static connection per *configured* connection, and here one configured connection

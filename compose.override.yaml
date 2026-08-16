@@ -177,19 +177,38 @@ services:
       # Capped rather than left to the default half-of-RAM: a CI runner with 7 GB
       # should not be one runaway test away from having none.
       #
-      # 3g, up from 2g and 1g before that, because the number of test classes
-      # that provision a tenant only goes one way. A full parallel run from empty
-      # measures 420 MB across 36 databases — and nothing here is ever deleted,
-      # because a database cannot be dropped while DAMA still holds a connection
-      # to it (see SharesATenant). Several runs in one working session therefore
-      # accumulate, and the symptom when it fills is not a failing test: Postgres
-      # aborts its checkpointer, the server restarts, and a hundred tests fail
-      # with "no connection to the server", which reads like anything but a full
-      # disk.
+      # **3g, and it stays 3g** — this is the number that was raised twice, from
+      # 1g and then 2g, before it became clear that the thing growing was not the
+      # suite (XIV-78). A full parallel run from empty measures **440 MB across
+      # 48 databases, 17% of this**, so the size was never close to the problem.
       #
-      # Restarting the container empties it and costs nothing — the other half of
-      # the answer, and the one to reach for during a long session rather than
-      # raising this again.
+      # What accumulated was runs, not a run. Nothing here used to be deleted —
+      # a database cannot be dropped while DAMA still holds a connection to it,
+      # so the suite leaves its tenants behind (see SharesATenant) — and the next
+      # run only reclaimed the ones it happened to ask for again *by worker*. A
+      # class does not land on the same worker twice, so each one spread across
+      # all eight and the set saturated at classes × workers: 48 × 8 × 9 MB is
+      # 3.6 GB, a ceiling eight times one run and growing eight times faster than
+      # the suite does. Measured 2026-08-16: four runs from empty went 48 → 92 →
+      # 134 → 170 databases, 17% → 29% → 43% → 54%. It filled on the seventh.
+      #
+      # No size is above a ceiling like that, which is why the answer was not a
+      # fourth number here. **`bin/ci` now drops every database matching this
+      # checkout's prefix before it runs**, terminating whatever holds a
+      # connection first, so the steady state is one run's worth and this is
+      # roughly seven times what that needs. The reasoning is in `bin/ci`; the
+      # numbers above are the ones it is sized against.
+      #
+      # The trap this comment has warned about for three enlargements is still
+      # worth stating, because it is why the number was chased in the first
+      # place: a full volume does not fail as a full volume. Postgres aborts its
+      # checkpointer, the server restarts, and a hundred tests fail with "no
+      # connection to the server", which reads like anything but a disk. `bin/ci`
+      # now says so in one line instead, from a `df` it takes after reclaiming.
+      #
+      # Restarting the container empties it and costs nothing — still the thing
+      # to reach for by hand in the middle of a session, and still not a reason
+      # to raise this.
       - /var/lib/postgresql/data:size=3g
     healthcheck:
       test: ["CMD", "pg_isready", "-d", "${POSTGRES_DB:-app}", "-U", "${POSTGRES_USER:-app}"]

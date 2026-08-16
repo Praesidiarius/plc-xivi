@@ -35,10 +35,26 @@ use DAMA\DoctrineTestBundle\Doctrine\DBAL\StaticDriver;
  *
  * **The tenant is not dropped when the class finishes.** DAMA keeps its
  * connection open until the process ends, and Postgres will not drop a database
- * somebody is connected to. Nothing is lost by leaving it: the next run
- * deprovisions whatever it finds under the same slug before provisioning again,
- * so a stale database is reclaimed rather than accumulated — and a run that
- * dies halfway heals the same way.
+ * somebody is connected to. So every run ends with its databases still there,
+ * and the reclaim happens on the way *in* rather than on the way out — twice
+ * over, at two different scopes:
+ *
+ *   * `bin/ci` drops every test database matching this checkout's prefix before
+ *     the suite starts, killing any session that holds one (XIV-78). That is the
+ *     one that bounds the disk, because what is left over is namespaced per
+ *     paratest worker and a class does not land on the same worker twice — so
+ *     reclaiming only by slug let the set grow to classes × workers and fill the
+ *     test tmpfs. See the comment in `bin/ci`.
+ *   * The `deprovision()` below still reclaims by slug, which is what keeps a
+ *     plain `composer test` — and a run that died halfway — self-healing without
+ *     going through `bin/ci`. It costs nothing to keep: this trait re-provisions
+ *     whatever it finds either way, so nothing was ever being reused.
+ *
+ * The two overlap on purpose and cannot disagree. After `bin/ci`'s reclaim the
+ * registry row may outlive its database — the control plane is a separate
+ * database and is not dropped with them — and `deprovision()` is `DROP … IF
+ * EXISTS` on both the database and the role, so that case is a no-op rather than
+ * an error.
  *
  * A test that needs to drop a tenant of its own — the cross-tenant ones in
  * tests/Functional/Tenancy — should carry #[SkipDatabaseRollback] instead, which
