@@ -19,6 +19,7 @@ use App\ControlPlane\Repository\TenantRepository;
 use App\Tenancy\TenantSwitcher;
 use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bridge\Doctrine\Middleware\Debug\DebugDataHolder;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Command\Command;
@@ -165,14 +166,96 @@ final class TenantResetCommandTest extends KernelTestCase
     }
 
     /**
+     * XIV-74, from the side that can be asserted on in ten seconds.
+     *
+     * The bug was that the whole reset happens in **one** process while Doctrine's
+     * development query log keeps every statement it sees, with its parameters and
+     * a backtrace each — so a run at `--records=2000` exhausted 128 MB before the
+     * first module had finished filling. What cannot be tested here is the fatal
+     * itself: it is a fatal, it needs thousands of records to reach, and a test
+     * that provoked it would take the worker down with it.
+     *
+     * What *can* be tested is the property that makes the fatal impossible. The
+     * log is emptied at every seam and after every generated batch, so the number
+     * of statements it is still holding when the command returns is a function of
+     * nothing — not of the modules, and above all not of `--records`, which is the
+     * knob that broke it. Four hundred contacts is two batches and several
+     * thousand statements; if more than a handful survive, the resets have stopped
+     * happening and the ceiling is back.
+     */
+    public function testTheQueryLogDoesNotGrowWithTheNumberOfRecords(): void
+    {
+        $queryLog = self::getContainer()->get('doctrine.debug_data_holder');
+        \assert($queryLog instanceof DebugDataHolder);
+        $queryLog->reset();
+
+        $this->reset(['--modules' => 'contact', '--records' => 400])->assertCommandIsSuccessful();
+
+        $held = array_sum(array_map(\count(...), $queryLog->getData()));
+
+        self::assertLessThan(
+            50,
+            $held,
+            'the reset left the whole run in the query log; XIV-74 is back',
+        );
+    }
+
+    /**
+     * The other half of XIV-74: a reset destroys before it builds, so a failure
+     * after the drop costs the tenant. It is not made impossible — §4.1 argues why
+     * a temporary slug and a rename were rejected — so what it owes instead is a
+     * precise account of what is gone, what is standing and what to type next.
+     *
+     * **An empty `--admin-email` is the provocation**, and it is a good one for
+     * two reasons beyond being easy to arrange: it fails after the deprovision and
+     * after the provision, which is the worst moment; and `UserCreator` refuses it
+     * with an `\InvalidArgumentException`, which the handler this replaces —
+     * `catch (\RuntimeException)` — would have walked straight past, leaving a
+     * stack trace that never mentioned the database it had just dropped.
+     */
+    public function testAFailureAfterTheDestructionSaysExactlyWhatIsLeft(): void
+    {
+        $tester = $this->tester();
+
+        try {
+            $tester->execute([
+                'slug' => self::SLUG,
+                '--modules' => 'contact,article',
+                '--records' => 1,
+                '--admin-email' => ' ',
+            ], ['interactive' => false]);
+
+            self::fail('an empty admin email should not have been accepted');
+        } catch (\InvalidArgumentException) {
+            // Re-thrown on purpose, so Symfony renders it and `-v` still has a
+            // stack trace to show. The report below is printed before it.
+        }
+
+        $display = $tester->getDisplay();
+
+        self::assertStringContainsString('Where "test_reset" stands now', $display);
+        self::assertStringContainsString('destroyed', $display, 'the old tenant is gone and must be said to be');
+        self::assertStringContainsString('a row for "test_reset" in status "active"', $display, 'read back, not guessed');
+        self::assertStringContainsString('not created', $display, 'the admin user is the step that failed');
+        self::assertStringContainsString('contact not reached; article not reached', $display);
+
+        // The line to paste, with the options that were typed still on it.
+        self::assertStringContainsString(
+            'bin/console tenant:reset test_reset --modules=contact,article --records=1',
+            $display,
+        );
+
+        // And it is true: the wreckage is a tenant this command can reset again.
+        self::assertInstanceOf(Tenant::class, $this->findTenant());
+        $this->reset(['--modules' => 'contact', '--records' => 1])->assertCommandIsSuccessful();
+    }
+
+    /**
      * @param array<string, mixed> $arguments
      */
     private function reset(array $arguments): CommandTester
     {
-        $kernel = self::$kernel;
-        \assert($kernel instanceof KernelInterface);
-
-        $tester = new CommandTester((new Application($kernel))->find('tenant:reset'));
+        $tester = $this->tester();
 
         // Unattended, which for *this* command is allowed to go ahead — the
         // confirmation defaults to yes and the command does not exist in a build
@@ -181,6 +264,14 @@ final class TenantResetCommandTest extends KernelTestCase
         $tester->execute(['slug' => self::SLUG] + $arguments, ['interactive' => false]);
 
         return $tester;
+    }
+
+    private function tester(): CommandTester
+    {
+        $kernel = self::$kernel;
+        \assert($kernel instanceof KernelInterface);
+
+        return new CommandTester((new Application($kernel))->find('tenant:reset'));
     }
 
     private function countIn(string $moduleKey): int
