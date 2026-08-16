@@ -95,7 +95,13 @@ final class LoginTest extends WebTestCase
 
         $this->client->request('GET', 'https://login-alpha.localhost/');
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('body', self::EMAIL);
+
+        // The *name*, not the email. The bar showed the address until XIV-77 put
+        // the menu under the person's name instead — and the name is the better
+        // assertion here anyway: both tenants have a user at this address, so
+        // "the page says admin@example.test" was true of either database, which
+        // is the one thing this class exists to tell apart.
+        self::assertSelectorTextContains('body', 'Alpha Admin');
     }
 
     /** The passwords differ, so the wrong one proves the lookup hit the right database. */

@@ -3028,6 +3028,37 @@ isolated by construction, and it works *because* nothing is delivered.
   to provision per test method. Isolation is now the same for every class, and
   nothing has to remember which kind it is.
 
+**An avatar is generated here, never fetched** (XIV-77). The top bar's right-hand
+end became one menu under the signed-in person's name, and a menu under a name
+wants a face beside it. There were three ways to get one and only one of them is
+a design decision:
+
+- **Initials in a circle**, on a hue derived from the email address. No storage,
+  no upload, no dependency, and it works for every user the moment it ships. This
+  is what was built.
+- **Gravatar**, which is nearly free and was refused. The README promises a
+  customer's browser makes no CDN calls; this would send every signed-in user's
+  email hash to a third party on every page load, telling them who is at work
+  today. That is the same argument `assets/app.js` makes about scripts, and it is
+  a privacy decision rather than a styling one. If it is ever wanted it has to be
+  opt-in and argued here first.
+- **An uploaded picture**, which is the honest answer eventually and is blocked
+  on something bigger. Avatars are per user and kept forever, which is exactly
+  the attachments shape this section calls *half answered* — document templates
+  (§5.7) sit in the tenant's own database because they are small, few and
+  unmistakably one customer's, and that answer was bounded on purpose. A top bar
+  is not where the general one gets decided by accident, so the seam is left
+  where it belongs (`App\Twig\Avatar` would grow a source; the template would
+  draw an `<img>` where it now draws initials) and the question is left open.
+
+The other half of that ticket is worth one line, because the file it changed
+argues the opposite and the argument was sound: three always-visible links really
+did beat a menu, and then there were five. The premise moved rather than the
+principle, and the replacement comment in `_topbar.html.twig` says so, so nobody
+re-litigates it without counting first. A shut menu still names the page you are
+on — that item's icon and label ride on the button — because a bar that stops
+saying where you are has given up its other job.
+
 ### 9.3 Next
 
 **The permission system is built** (§8.4, §7.5). What is left of it is small and

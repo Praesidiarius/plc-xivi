@@ -105,7 +105,14 @@ final class CollectionRowsTest extends PantherTestCase
     public function testTheComponentIsConnectedInTheBrowser(): void
     {
         $this->browser->request('GET', '/m/order/new');
-        $this->browser->waitForVisibility('form');
+
+        // **`main form`, not `form`**, in this file's four waits. Waiting for
+        // visibility resolves the *first* element matching the selector and then
+        // waits for that one — and since XIV-77 the first form on every signed-in
+        // page is the sign-out form inside the top bar's menu, which is invisible
+        // until somebody opens the menu and is meant to be. The wait then sat out
+        // its thirty seconds beside a page that had been ready the whole time.
+        $this->browser->waitForVisibility('main form');
 
         self::assertTrue(
             $this->browser->executeScript('return typeof window.Stimulus === "object";'),
@@ -123,7 +130,7 @@ final class CollectionRowsTest extends PantherTestCase
     public function testAddingALineDoesNotReloadThePage(): void
     {
         $this->browser->request('GET', '/m/order/new');
-        $this->browser->waitForVisibility('form');
+        $this->browser->waitForVisibility('main form');
 
         // A mark on the page itself. If the swap turns into a navigation this is
         // gone, and the assertion below says so — which is the difference
@@ -144,7 +151,7 @@ final class CollectionRowsTest extends PantherTestCase
     public function testWhatIsAlreadyTypedSurvivesAddingALine(): void
     {
         $this->browser->request('GET', '/m/order/new');
-        $this->browser->waitForVisibility('form');
+        $this->browser->waitForVisibility('main form');
 
         $this->addLine(OrderModule::CUSTOM_LINE);
         $this->browser->waitFor('[name$="[fields][description]"]');
@@ -186,7 +193,7 @@ final class CollectionRowsTest extends PantherTestCase
     public function testTheCaretSurvivesTheTotalsUpdating(): void
     {
         $this->browser->request('GET', '/m/order/new');
-        $this->browser->waitForVisibility('form');
+        $this->browser->waitForVisibility('main form');
 
         $this->addLine(OrderModule::CUSTOM_LINE);
         $this->browser->waitFor('[name$="[fields][unit_price]"]');

@@ -400,7 +400,10 @@ final class PermissionUiTest extends WebTestCase
      * Overview used to light up on every page with no module in its URL, which
      * meant user management claimed to be the dashboard while plainly not being
      * it. There is no tab for users, so the answer is that no tab is active and
-     * the button in the bar above says so instead.
+     * the menu in the bar above says so instead — on its own button while it is
+     * shut, since XIV-77 turned those buttons into one menu. What that marking
+     * consists of is {@see TopbarMenuTest}'s business; here it only has to be
+     * *somewhere*, so that this assertion goes on being about the tabs.
      */
     public function testUserManagementDoesNotLightUpTheOverviewTab(): void
     {
@@ -410,7 +413,11 @@ final class PermissionUiTest extends WebTestCase
             $page = $this->client->request('GET', $this->url($path));
 
             self::assertCount(0, $page->filter('.nav-tabs .nav-link.active'), $path . ' lights up a tab');
-            self::assertCount(1, $page->filter('.navbar a.btn.active'), $path . ' does not mark the Users button');
+            self::assertCount(
+                1,
+                $page->filter('.navbar .dropdown-menu .dropdown-item.active'),
+                $path . ' does not mark the Users item',
+            );
         }
 
         // The dashboard still does light its own tab, so the assertion above is

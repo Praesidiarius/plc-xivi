@@ -27,13 +27,41 @@
 			</a>
 
 			{#
-				Plain links rather than a dropdown under the email. Bootstrap's
-				JavaScript is shipped now (for tooltips, XIV-8), so a dropdown would
-				open — but three links that are always visible beat a menu that has to
-				be found first.
+				One menu under the signed-in person's name, where there used to be a
+				row of buttons (XIV-77).
+
+				**The comment this replaces was right, and it was right about three.**
+				It read: "Plain links rather than a dropdown under the email.
+				Bootstrap's JavaScript is shipped now (for tooltips, XIV-8), so a
+				dropdown would open — but three links that are always visible beat a
+				menu that has to be found first." That is a true sentence about
+				profile, users and account. It was never an argument that dropdowns
+				are wrong; it was an argument about how much there was to show, and
+				the amount changed. The store (XIV-6) made four and sign out was
+				always the fifth, at which point "always visible" stops being a
+				feature: five icons in a row is a row of icons, and nobody reads a row
+				of icons — they hunt through it every time. A menu has to be found
+				once. So this is not overturning that decision; it is the same decision
+				with its premise moved, which is why it is quoted here rather than
+				deleted. Do not re-litigate it back without a count to go with it.
+
+				**Sign out went inside**, for the same reason and against the same
+				objection. Keeping it out was worth a second click on a shared
+				machine, except that signing out is the rarest thing anybody does here
+				— most people never do — and optimising a layout for its least-used
+				item is exactly how it ended up looking like this. Every desktop
+				operating system puts it two clicks deep. It is still a POST form with
+				a submit button inside the menu, not a link: moving a control into a
+				menu must not quietly turn a state change into something a prefetcher
+				can trigger.
+
+				**Nothing here is a security control.** Each item is hidden from
+				somebody who may not use it as a courtesy — a menu full of doors that
+				answer "no" is a worse way to learn your job than a short menu — and
+				every route refuses on its own account regardless.
 			#}
 			{#
-				Which route is being served, so the buttons below can say where you
+				Which route is being served, so the menu below can say where you
 				are. The module tabs cannot answer this: user management and the
 				account page are not modules, and marking Overview active on them
 				said "you are on the dashboard" while plainly not being there.
@@ -43,56 +71,146 @@
 			{% set on_profile = route starts with 'tenant_profile' %}
 			{% set on_store = route starts with 'store_' %}
 
-			<div class="d-flex align-items-center gap-2 ms-auto">
-				{#
-					Granted rather than admin-only (XIV-12): the instance's settings are
-					somebody's job, and not always the same somebody who manages users.
-					Hidden when they may not read it, which is a courtesy — the route
-					refuses on its own account.
-				#}
-				{% if can('view', chrome.profileArea) %}
-					<a class="btn btn-sm btn-outline-secondary{{ on_profile ? ' active' : '' }}"
-					   href="{{ path('tenant_profile') }}" {{ on_profile ? 'aria-current="page"' : '' }}>
-						<i class="bi bi-building-gear" aria-hidden="true"></i>
-						<span class="d-none d-sm-inline">{{ 'nav.profile'|trans }}</span>
-					</a>
-				{% endif %}
+			{#
+				The menu's items, built once and read twice: the list draws them, and
+				the closed button wears whichever of them you are currently on. One
+				list rather than two passes of the same conditions, so the shut menu
+				can never advertise a page this person is not allowed to open.
+
+				Your own account first, then the three things about the installation,
+				because the menu hangs off your own name and that is the item it is
+				named after.
+			#}
+			{% set items = [{
+				route: 'account',
+				icon: 'person-circle',
+				label: 'nav.account'|trans,
+				current: route == 'account',
+			}] %}
+
+			{#
+				Granted rather than admin-only (XIV-12): the instance's settings are
+				somebody's job, and not always the same somebody who manages users.
+			#}
+			{% if can('view', chrome.profileArea) %}
+				{% set items = items|merge([{
+					route: 'tenant_profile',
+					icon: 'building-gear',
+					label: 'nav.profile'|trans,
+					current: on_profile,
+				}]) %}
+			{% endif %}
+
+			{#
+				The store (XIV-6), granted on its own axis rather than on any
+				module's: browsing is about no module and installing is about one this
+				customer has not got, so there is nothing for a module grant to attach
+				to (§8.4.3).
+			#}
+			{% if can('browse', chrome.store) %}
+				{% set items = items|merge([{
+					route: 'store_index',
+					icon: 'shop',
+					label: 'nav.store'|trans,
+					current: on_store,
+				}]) %}
+			{% endif %}
+
+			{% if is_granted('ROLE_ADMIN') %}
+				{% set items = items|merge([{
+					route: 'user_index',
+					icon: 'people',
+					label: 'nav.users'|trans,
+					current: on_users,
+				}]) %}
+			{% endif %}
+
+			{#
+				**How a shut menu still says where you are.** A dropdown that only
+				marks its current item once it is open would take the answer away from
+				the bar entirely: you would have to open a menu to find out which page
+				you are reading. So the item you are on climbs onto the button — its
+				own icon and label, after the name, with the button drawn as active.
+				It is the same information the old row of buttons carried, in the one
+				place still visible, and it costs nothing on the pages that are not in
+				this menu because there is nothing to show there.
+
+				The alternative considered was marking the button active without
+				saying which item — one bit instead of the answer, which reads as "you
+				are somewhere in here" and sends you into the menu anyway. Not worth
+				the pixels it saves.
+			#}
+			{% set here = items|filter(item => item.current)|first %}
+			{% set me = avatar(app.user) %}
+
+			<div class="dropdown ms-auto">
+				<button class="btn btn-sm btn-outline-secondary dropdown-toggle d-flex align-items-center gap-2{{ here ? ' active' : '' }}"
+				        type="button" data-bs-toggle="dropdown" aria-expanded="false">
+					{#
+						The avatar. Initials in a circle, coloured from the email —
+						generated in {@see App\Twig\Avatar} and never fetched, so no
+						request leaves the browser for it and no third party is told
+						who is signed in. Where an uploaded picture would go later is
+						written down there, on the class that would grow the field.
+
+						Decorative, hence aria-hidden: it is the name beside it drawn
+						a second way, and a screen reader announcing "N B, Nina
+						Baumgartner" is reading the same thing twice.
+					#}
+					<span class="avatar" style="--avatar-hue: {{ me.hue }}" aria-hidden="true">{{ me.initials }}</span>
+					<span class="topbar-name text-truncate">{{ app.user.name }}</span>
+					{% if here %}
+						{#
+							Below the small breakpoint the label goes and the icon
+							stays, so the button cannot grow into the brand on a phone.
+							The label is then repeated to the accessible tree, because
+							`d-none` is `display: none` and takes a thing away from a
+							screen reader as thoroughly as from the eye — and "which
+							page am I on" answered only in an icon is answered only for
+							people who can see icons.
+						#}
+						<span class="vr d-none d-sm-inline mx-1 opacity-50"></span>
+						<i class="bi bi-{{ here.icon }}" aria-hidden="true"></i>
+						<span class="d-none d-sm-inline">{{ here.label }}</span>
+						<span class="visually-hidden d-sm-none">{{ here.label }}</span>
+					{% endif %}
+				</button>
 
 				{#
-					The store (XIV-6), granted on its own axis rather than on any
-					module's: browsing is about no module and installing is about one
-					this customer has not got, so there is nothing for a module grant to
-					attach to (§8.4.3). Hidden when they may not browse, which is a
-					courtesy — the route refuses on its own account.
+					Aligned to the button's right edge, which is also the page's: a
+					menu that opened leftwards from here would hang off the screen on
+					a narrow one. Bootstrap keeps it on screen from there by itself.
 				#}
-				{% if can('browse', chrome.store) %}
-					<a class="btn btn-sm btn-outline-secondary{{ on_store ? ' active' : '' }}"
-					   href="{{ path('store_index') }}" {{ on_store ? 'aria-current="page"' : '' }}>
-						<i class="bi bi-shop" aria-hidden="true"></i>
-						<span class="d-none d-sm-inline">{{ 'nav.store'|trans }}</span>
-					</a>
-				{% endif %}
+				<ul class="dropdown-menu dropdown-menu-end">
+					{% for item in items %}
+						<li>
+							{#
+								`aria-current` written inside an if rather than as a
+								printed expression: Twig escapes the quotes in
+								`{{ '...="page"' }}`, which the browser then reads back
+								as a value with the quotes in it. It survived because an
+								invalid value still counts as "current" — but only by
+								accident, and it is not what this is meant to say.
+							#}
+							<a class="dropdown-item d-flex align-items-center gap-2{{ item.current ? ' active' : '' }}"
+							   href="{{ path(item.route) }}"{% if item.current %} aria-current="page"{% endif %}>
+								<i class="bi bi-{{ item.icon }}" aria-hidden="true"></i>
+								<span>{{ item.label }}</span>
+							</a>
+						</li>
+					{% endfor %}
 
-				{% if is_granted('ROLE_ADMIN') %}
-					<a class="btn btn-sm btn-outline-secondary{{ on_users ? ' active' : '' }}"
-					   href="{{ path('user_index') }}" {{ on_users ? 'aria-current="page"' : '' }}>
-						<i class="bi bi-people" aria-hidden="true"></i>
-						<span class="d-none d-sm-inline">{{ 'nav.users'|trans }}</span>
-					</a>
-				{% endif %}
+					<li><hr class="dropdown-divider"></li>
 
-				<a class="btn btn-sm btn-outline-secondary{{ route == 'account' ? ' active' : '' }}"
-				   href="{{ path('account') }}" {{ route == 'account' ? 'aria-current="page"' : '' }}>
-					<i class="bi bi-person-circle" aria-hidden="true"></i>
-					<span class="d-none d-sm-inline">{{ app.user.email }}</span>
-				</a>
-
-				<form method="post" action="{{ path('logout') }}">
-					<button type="submit" class="btn btn-sm btn-outline-secondary">
-						<i class="bi bi-box-arrow-right" aria-hidden="true"></i>
-						<span class="d-none d-sm-inline">{{ 'nav.sign_out'|trans }}</span>
-					</button>
-				</form>
+					<li>
+						<form method="post" action="{{ path('logout') }}">
+							<button type="submit" class="dropdown-item d-flex align-items-center gap-2">
+								<i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+								<span>{{ 'nav.sign_out'|trans }}</span>
+							</button>
+						</form>
+					</li>
+				</ul>
 			</div>
 		</div>
 
