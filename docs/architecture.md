@@ -1259,6 +1259,20 @@ Not yet decided. Decide deliberately rather than by accident.
      soft-deleted, so nothing is destroyed; the link says `#id` rather than pretending,
      which is the same honesty the display already had.
 
+   - **A reference is a way to get to what it names, and the name is shown either way**
+     (XIV-42). Two questions, answered separately and on purpose. *The name* is read
+     unscoped: whoever may see the record holding the link can read what it points at, and
+     an order whose customer said `#14` would be an order nobody can use. *The link* is
+     offered only where the reader may actually open the target, because a record somebody
+     may not view answers **404** rather than 403 (§8.4) — so an anchor there would send
+     them to a page saying the thing does not exist, which is worse than not offering one.
+     A stale reference and one into an uninstalled module are the same: text, never an
+     anchor.
+
+     The link is a **second seam** rather than something `display()` returns, because that
+     method's output goes into .docx templates, spreadsheet cells and the record titles
+     the picker shows — an `<a>` in there is markup printed on a letter.
+
    Still open: nothing enforces that the id points at something, which is the price of the
    above and is deliberate rather than forgotten.
 

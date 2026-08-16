@@ -26,11 +26,15 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Xivi\Article\ArticleModule;
 use Xivi\Contact\ContactModule;
+use Xivi\Core\Field\FieldTypeRegistry;
 use Xivi\Core\Metadata\MetadataEditor;
+use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
 use Xivi\Core\Permission\ModuleAction;
 use Xivi\Core\Permission\PermissionScope;
+use Xivi\Core\Record\RecordRepository;
+use Xivi\Core\Record\RecordWriter;
 
 /**
  * A link that leaves its own module (§7.6, XIV-13).
@@ -89,6 +93,9 @@ final class CrossModuleLinkTest extends WebTestCase
                     'Supplier',
                     'reference',
                     filterable: true,
+                    // A column too, so the list is one of the places the link
+                    // has to work (XIV-42).
+                    listed: true,
                     options: ['module' => ContactModule::KEY, 'variant' => ContactModule::COMPANY],
                 );
             }
@@ -124,6 +131,126 @@ final class CrossModuleLinkTest extends WebTestCase
 
         self::assertStringContainsString('Acme AG', $page);
         self::assertStringNotContainsString('#' . $company, $page);
+    }
+
+    /**
+     * A link is drawn, never *stored* in the value (XIV-42).
+     *
+     * The mistake this feature invites is returning an `<a>` from `display()`,
+     * which would work on a page and then arrive inside a Word document, a
+     * spreadsheet cell, and the `<option>` label of every reference picker —
+     * because `recordTitle()` is built from the display of the title fields.
+     *
+     * So the anchor belongs to the template, and the value stays text. This is
+     * the test that says so, and it is here rather than anywhere prettier
+     * because it is the regression that would be embarrassing rather than
+     * merely wrong.
+     */
+    public function testTheValueItselfStaysPlainText(): void
+    {
+        $company = $this->aCompany('Acme AG');
+        $article = $this->anArticle('Desk lamp', $company);
+
+        $shown = self::service(TenantSwitcher::class)->runFor($this->tenant, function () use ($article): string {
+            $articles = self::service(MetadataRepository::class)->get(ArticleModule::KEY);
+            $record = self::service(RecordRepository::class)->find($articles, $article);
+            self::assertNotNull($record);
+
+            $field = $articles->getField(self::SUPPLIER);
+            self::assertNotNull($field);
+
+            return self::service(FieldTypeRegistry::class)
+                ->get($field->getType())
+                ->display($record->get(self::SUPPLIER), $field);
+        });
+
+        self::assertSame('Acme AG', $shown, 'the name, and nothing wrapped around it');
+    }
+
+    /** And the name is a way to get there (XIV-42). */
+    public function testALinkedRecordIsAWayToOpenIt(): void
+    {
+        $company = $this->aCompany('Acme AG');
+        $article = $this->anArticle('Desk lamp', $company);
+
+        $crawler = $this->client->request('GET', $this->url('/m/article/' . $article));
+        $link = $crawler->filter(sprintf('main a[href$="/m/contact/%d"]', $company));
+
+        self::assertCount(1, $link, 'the supplier is a link to the supplier');
+        self::assertSame('Acme AG', $link->text(), 'and it is the name that is the link');
+    }
+
+    /** The same in a list column, where a reference is most worth clicking. */
+    public function testALinkedRecordIsClickableFromTheList(): void
+    {
+        $company = $this->aCompany('Acme AG');
+        $this->anArticle('Desk lamp', $company);
+
+        $crawler = $this->client->request('GET', $this->url('/m/article'));
+
+        self::assertCount(
+            1,
+            $crawler->filter(sprintf('main table a[href$="/m/contact/%d"]', $company)),
+            'the column links to the record it names',
+        );
+    }
+
+    /**
+     * A reference at a record that is gone stays text (§7.6).
+     *
+     * A stale link reads as `#id` and always has; what must not happen is an
+     * anchor to a page that answers 404, which is worse than the text it
+     * replaced.
+     */
+    public function testAStaleReferenceIsNotALink(): void
+    {
+        $company = $this->aCompany('Acme AG');
+        $article = $this->anArticle('Desk lamp', $company);
+
+        self::service(TenantSwitcher::class)->runFor($this->tenant, function () use ($company): void {
+            $contacts = self::service(MetadataRepository::class)->get(ContactModule::KEY);
+            $record = self::service(RecordRepository::class)->find($contacts, $company);
+            self::assertNotNull($record);
+            self::service(RecordWriter::class)->delete($contacts, $record);
+        });
+
+        $crawler = $this->client->request('GET', $this->url('/m/article/' . $article));
+
+        self::assertStringContainsString('#' . $company, $crawler->filter('main')->text(), 'it says the link is stale');
+        self::assertCount(
+            0,
+            $crawler->filter(sprintf('main a[href$="/m/contact/%d"]', $company)),
+            'and does not offer to open what is not there',
+        );
+    }
+
+    /**
+     * Somebody who may not open the target sees its name and no link (XIV-42).
+     *
+     * Both halves matter. Hiding the name would leave an article whose supplier
+     * nobody can read; offering the link would offer a door that answers 404,
+     * since a record you may not view is one this application says does not
+     * exist rather than one it refuses (§8.4).
+     */
+    public function testAReferenceIsNotALinkForSomebodyWhoCannotOpenIt(): void
+    {
+        $company = $this->aCompany('Acme AG');
+        $article = $this->anArticle('Desk lamp', $company);
+
+        // Articles but not contacts: the case a picker was scoped for in XIV-13,
+        // one page over.
+        $this->grant(self::MEMBER, ArticleModule::KEY, ModuleAction::View);
+        $this->grant(self::MEMBER, ArticleModule::KEY, ModuleAction::List);
+        $this->signIn(self::MEMBER);
+
+        $crawler = $this->client->request('GET', $this->url('/m/article/' . $article));
+
+        self::assertStringContainsString('Acme AG', $crawler->filter('main')->text(), 'the name is still readable');
+        self::assertCount(
+            0,
+            $crawler->filter(sprintf('main a[href$="/m/contact/%d"]', $company)),
+            'and no link is offered to a page that would 404',
+        );
     }
 
     /**
