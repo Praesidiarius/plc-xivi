@@ -78,6 +78,11 @@ lands in `Unreleased` here.
   are the same thing one level down — and an order or invoice line now declares
   its own widths, so a whole line sits on one row instead of six. Existing forms change appearance on upgrade, which is the
   point; nothing is migrated and no value is written. See §5.
+- **A reference is a link to the record it names** ([XIV-42]), on the record
+  page, in a list column and in a collection row. The name is shown to anybody
+  who can see the record holding it; the *link* is offered only where the reader
+  may actually open the target, and a stale reference stays plain `#id` text.
+  See §7.6.
 - **Releases are published on GitHub**, from the changelog file the release
   procedure already writes. Pushing a `v*` tag posts
   `docs/changelog/<version>.md` as the release notes — and refuses if that file
@@ -94,5 +99,6 @@ lands in `Unreleased` here.
 | [17.0.0](docs/changelog/17.0.0.md) | 2026-08-14 | The first numbered version: the engine, tenancy, and everything built before versioning began |
 
 [XIV-32]: https://xivi.youtrack.cloud/issue/XIV-32
+[XIV-42]: https://xivi.youtrack.cloud/issue/XIV-42
 [XIV-43]: https://xivi.youtrack.cloud/issue/XIV-43
 [XIV-44]: https://xivi.youtrack.cloud/issue/XIV-44

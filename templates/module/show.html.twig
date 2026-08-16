@@ -1,3 +1,4 @@
+{% import '_record_link.html.twig' as link %}
 {% extends 'base.html.twig' %}
 
 {# The timeline is described once and read in two places — see the partial. #}
@@ -111,7 +112,11 @@
 									{% set shown = display(field, record.get(field.key)) %}
 									{# Empty reads quieter than filled, or a half-filled record
 									   looks busier than a full one. #}
-									{{ shown is empty ? '<span class="text-body-secondary">—</span>'|raw : shown }}
+									{% if shown is empty %}
+										<span class="text-body-secondary">—</span>
+									{% else %}
+										{{ link.linked(field, record.get(field.key), shown) }}
+									{% endif %}
 								</dd>
 							{% endfor %}
 						</dl>
@@ -151,7 +156,11 @@
 													{% for field in collection.fields %}
 														{% set shown = display(field, row.get(field.key)) %}
 														<td>
-															{{ shown is empty ? '<span class="text-body-secondary">—</span>'|raw : shown }}
+															{% if shown is empty %}
+																<span class="text-body-secondary">—</span>
+															{% else %}
+																{{ link.linked(field, row.get(field.key), shown) }}
+															{% endif %}
 															{% if field.label in apart %}
 																<i class="bi bi-pencil-square text-body-secondary small"
 																   title="{{ 'module.drifted'|trans({'%field%': field.label}) }}"

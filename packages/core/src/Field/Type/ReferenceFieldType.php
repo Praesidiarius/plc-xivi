@@ -16,10 +16,14 @@ namespace Xivi\Core\Field\Type;
 use Symfony\Component\DependencyInjection\Attribute\AutowireServiceClosure;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Field\FieldType;
+use Xivi\Core\Field\LinksToRecord;
+use Xivi\Core\Field\RecordLink;
 use Xivi\Core\Form\RecordReferenceType;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Metadata\ModuleNotInstalled;
+use Xivi\Core\Permission\ModuleAction;
 use Xivi\Core\Permission\RecordAccess;
+use Xivi\Core\Permission\RecordAccessProvider;
 use Xivi\Core\Query\Filter;
 use Xivi\Core\Query\Operator;
 use Xivi\Core\Query\RecordQuery;
@@ -49,7 +53,7 @@ use Xivi\Core\Record\RecordRepository;
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
-final class ReferenceFieldType implements FieldType
+final class ReferenceFieldType implements FieldType, LinksToRecord
 {
     public const string MODULE = 'module';
     public const string VARIANT = 'variant';
@@ -71,6 +75,18 @@ final class ReferenceFieldType implements FieldType
      * @var array<string, string>
      */
     private array $titles = [];
+
+    /**
+     * The records those titles were read off, kept for the same request.
+     *
+     * The name and the link are two questions about one record (XIV-42), and
+     * asking the database twice for it would double the queries a list already
+     * makes. `false` is a record that was looked for and is not there — a stale
+     * reference, which is a different answer from "not looked up yet".
+     *
+     * @var array<string, Record|false>
+     */
+    private array $targets = [];
 
     /**
      * Ids a generated link may point at, per field. Same lifetime as the titles
@@ -95,6 +111,7 @@ final class ReferenceFieldType implements FieldType
         private readonly MetadataRepository $metadata,
         #[AutowireServiceClosure(RecordRepository::class)]
         private readonly \Closure $records,
+        private readonly RecordAccessProvider $access,
     ) {
     }
 
@@ -261,7 +278,7 @@ final class ReferenceFieldType implements FieldType
             return sprintf('#%d', $id);
         }
 
-        $record = ($this->records)()->find($module, $id);
+        $record = $this->targetOf($moduleKey, $id);
 
         if ($record === null) {
             // Soft-deleted or gone. The link is stale rather than broken, and a
@@ -279,6 +296,84 @@ final class ReferenceFieldType implements FieldType
         }
 
         return $parts === [] ? sprintf('%s #%d', $module->getLabel(), $id) : implode(' ', $parts);
+    }
+
+    /**
+     * The record a value names, looked up once per request.
+     *
+     * Read **unscoped**, and that is a decision rather than an oversight (§8.4).
+     * The name of a linked record is shown to anybody who may see the record
+     * pointing at it: an order whose customer read `#14` would be an order
+     * nobody can use, and whoever may open the order can already see what it is
+     * for. What the reader's own permissions decide is whether they are offered
+     * a *link* — see {@see self::linkOf()}.
+     */
+    private function targetOf(string $moduleKey, int $id): ?Record
+    {
+        $key = $moduleKey . '#' . $id;
+
+        if (!isset($this->targets[$key])) {
+            try {
+                $module = $this->metadata->get($moduleKey);
+            } catch (ModuleNotInstalled) {
+                // Not installed here, so there is nothing to find and nothing
+                // worth remembering about it.
+                return null;
+            }
+
+            $this->targets[$key] = ($this->records)()->find($module, $id) ?? false;
+        }
+
+        $record = $this->targets[$key];
+
+        return $record === false ? null : $record;
+    }
+
+    /**
+     * Where this value points, when the reader may go there (XIV-42).
+     *
+     * Null for everything that should be text rather than an anchor: nothing
+     * filled in, a module this customer does not have, a record that is gone
+     * (§7.6), and a record this reader may not open.
+     *
+     * **That last one keeps the name and drops the link.** Hiding the name would
+     * make the record holding it unreadable; offering the link would be offering
+     * a door that answers 404, since a record somebody may not view is one this
+     * application says does not exist rather than one it refuses (§8.4). Showing
+     * what it is called and not pretending it can be opened is the honest half
+     * of both.
+     *
+     * The permission is answered from the record already loaded for the name, so
+     * this costs no query a page was not making anyway.
+     */
+    public function linkOf(mixed $value, FieldDefinition $field): ?RecordLink
+    {
+        $id = $this->fromStorage($value, $field);
+
+        if ($id === null) {
+            return null;
+        }
+
+        $moduleKey = self::targetModule($field);
+        $record = $this->targetOf($moduleKey, $id);
+
+        if ($record === null) {
+            return null;
+        }
+
+        $access = $this->access->accessFor($moduleKey, ModuleAction::View);
+
+        if ($access->matchesNothing()) {
+            return null;
+        }
+
+        // Scoped to their own: a link is offered only to the records that scope
+        // actually reaches, which is the same answer the list would give.
+        if ($access->isRestricted() && $record->ownerId !== $access->ownerId()) {
+            return null;
+        }
+
+        return new RecordLink($moduleKey, $id);
     }
 
     /**

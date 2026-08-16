@@ -1,0 +1,19 @@
+{#
+	A value that names another record, drawn as a way to get there (XIV-42).
+
+	The caller keeps its own idea of what an empty value looks like — a dash on a
+	record page, nothing in a list — and hands in the text it already resolved.
+	All this decides is whether that text is a link.
+
+	Nothing here asks what *kind* of field it is holding. `record_link()` asks the
+	field type, which either has an answer or has not, and a stale reference or
+	one the reader may not open answers null and stays text (§7.6, §8.4).
+#}
+{% macro linked(field, raw, shown) %}
+	{%- set link = record_link(field, raw) -%}
+	{%- if link is not null -%}
+		<a href="{{ path('module_show', {module: link.module, id: link.id}) }}">{{ shown }}</a>
+	{%- else -%}
+		{{- shown -}}
+	{%- endif -%}
+{% endmacro %}

@@ -1,3 +1,4 @@
+{% import '_record_link.html.twig' as link %}
 {% extends 'base.html.twig' %}
 
 {% block title %}{{ module.label }}{% endblock %}
@@ -180,7 +181,7 @@
 										</a>
 									</td>
 									{% for field in columns %}
-										<td>{{ display(field, record.get(field.key)) }}</td>
+										<td>{{ link.linked(field, record.get(field.key), display(field, record.get(field.key))) }}</td>
 									{% endfor %}
 									{# owner_id is a system column; the name is resolved by the
 									   application, since the engine does not know what a user is. #}
