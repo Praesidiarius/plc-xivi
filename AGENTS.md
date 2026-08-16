@@ -99,8 +99,10 @@ bin/compose exec php bin/console tenant:reset acme --modules=contact,article --r
 ```
 
 `tenant:reset` throws a development tenant away and rebuilds it end to end,
-resolving module install order from the modules' own requirements. Pass
-`--no-debug` for large record counts (XIV-74).
+resolving module install order from the modules' own requirements. It destroys
+before it builds and cannot do otherwise, so a failure part-way costs the tenant
+— when that happens it prints what is gone, what is standing and the line to type
+next (XIV-74). No flag is needed at any record count.
 
 **Do not seed, edit or delete records in a tenant you did not create.** The dev
 tenants are somebody's working state. The test suite provisions and drops its

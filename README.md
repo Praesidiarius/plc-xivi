@@ -274,6 +274,14 @@ Worth knowing:
 - `--seed` makes the records identical every run, which is what makes "it broke
   on record 4,312" something somebody else can see too.
 - Hostnames default to `<slug>.localhost`; pass your own as extra arguments.
+- **It destroys before it builds, and no flag changes that.** The slug, the
+  hostnames, the database and the Postgres role all belong to the tenant being
+  replaced, so the drop genuinely is the first act. If something fails after it,
+  the command prints what is gone, what is standing and the line to run again —
+  §4.1 argues why that is the answer rather than a temporary slug and a swap.
+- **No `--no-debug` needed at any size.** Turning `--records` up used to exhaust
+  the memory limit in Symfony's profiler collectors, since the whole rebuild is
+  one process; they are emptied as it goes now.
 - **Development only.** It is excluded from the production image in
   `config/services.yaml`, beside the demo commands.
 

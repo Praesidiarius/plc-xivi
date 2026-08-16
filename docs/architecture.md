@@ -190,6 +190,67 @@ hostname another tenant owns. A reset that destroys a database and then discover
 it cannot spell "invoice" has left the developer worse off than the state they
 asked to leave.
 
+#### Rejected: building the replacement under a temporary slug and swapping
+
+The refusals above cover everything a reset can *know* about in advance, and
+XIV-74 was the day something it could not know about happened anyway: the run ran
+out of memory in Doctrine's profiler query log, having already dropped the
+tenant. The obvious repair is to stop destroying first — provision the
+replacement under a temporary slug, then swap it into place — and it was
+considered and not adopted.
+
+The reason is that a tenant's identity is not one thing that can be handed over
+atomically. It is a slug, a set of hostnames, a Postgres database, a Postgres
+role and an encrypted DSN naming both, and the old tenant holds every one of them
+until it is dropped. A swap is therefore not one operation but five: drop the old
+tenant, `ALTER DATABASE … RENAME`, `ALTER ROLE … RENAME`, re-encrypt and rewrite
+the DSN, and move the hostnames across — all of it *after* the destruction, none
+of it transactional, and each step with its own failure. The window in which a
+reset can destroy and then die is narrowed, not closed, and what it leaves behind
+when it does die is strictly harder to clear by hand than what it leaves today: a
+database named after a temporary slug, or a role whose rename invalidated the
+password stored against it, rather than "the tenant is gone, run the command
+again". For a command that exists only in development and whose entire subject
+matter is disposable data, that is machinery bought at the price of the thing it
+was meant to buy.
+
+**So the destruction stays first and the command owes precision instead.** A run
+that dies after the drop prints what is gone for good, what is standing right now
+— read back out of the control plane rather than inferred from how far it got,
+because provisioning persists its row before it creates the database and the two
+can disagree — which modules were installed, which were filled, which were never
+reached, and the command line that starts over. The confirmation says the same
+thing before the drop, in one sentence, so nobody learns it from the wreckage.
+The exception itself is re-thrown rather than turned into a tidy message: how an
+unexpected error is rendered is Symfony's business, and swallowing it would cost
+the stack trace `-v` exists to show.
+
+#### The memory itself: one process, three accumulators
+
+The failure was not the generator. `tenant:demo:generate` had never hit it at
+5,000 records because each module was a process of its own; folding six commands
+into one leaves every debug collector in the process filling for the whole run.
+Two of them do it expensively — Doctrine's profiler query log, which keeps each
+statement with its parameters *and* a backtrace, and Monolog's debug processor,
+which keeps a record for every one of the same statements logged to the `doctrine`
+channel. Both are emptied at every seam of the reset and after every generated
+batch, which makes their cost a function of the batch size rather than of
+`--records`. Emptying only the first merely moved the wall: with the limit halved
+the same run then died inside Monolog.
+
+**Not turned off, because there is no supported way to turn it off** from inside a
+running command — the middleware is composed into the DBAL driver when the
+connection is built, and `reset()` is the only lever the holder exposes. A
+subclass registered over `doctrine.debug_data_holder` with a mute switch would be
+a service whose purpose is to lie to the profiler, and it would buy nothing:
+resetting at every seam is already flat in `--records`. The third collector, the
+profiler's stopwatch, is deliberately left alone: its only lever throws the
+sections away wholesale while `ConsoleProfilerListener` holds one open across the
+whole command, so resetting it would trade slow growth for a reliable explosion
+after the work had succeeded. It costs about a quarter of a kilobyte per
+statement, which puts the remaining ceiling tens of thousands of records past the
+count that broke it.
+
 ---
 
 ## 5. Data model: metadata-driven, not EAV

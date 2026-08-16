@@ -69,6 +69,21 @@ lands in `Unreleased` here.
 
 ### Fixed
 
+- **`tenant:reset` survives a real `--records`** ([XIV-74]) — turning the one knob
+  a developer reaches for used to exhaust the memory limit, because the whole
+  rebuild happens in one process and Symfony's profiler keeps every statement it
+  sees, with a backtrace each. `2000` records in four modules now takes about 36
+  seconds instead of dying at contact number 1,290, and no `--no-debug` is needed
+  at any size. `tenant:demo:generate` gets the same treatment.
+- **A reset that fails part-way says what it left behind** ([XIV-74]) — it has to
+  destroy the tenant before it can rebuild it, so a failure after that point costs
+  the tenant. It now prints what is gone, what the control plane holds right now,
+  which modules were installed and filled, and the command line to start over;
+  §4.1 of the brief argues why that rather than a temporary slug and a swap. Two
+  common failures (anything Doctrine throws, an empty `--admin-email`) previously
+  slipped past the handler and printed a stack trace that never mentioned the
+  dropped database.
+
 - **Cutting a release can no longer forget the README.** Its version line said
   `17.0.2` for the whole of 17.0.3, because nothing checked it — the release
   workflow verified `src/Version.php` and the changelog file and stopped there.
@@ -94,6 +109,8 @@ lands in `Unreleased` here.
   before the next run rather than after.
 
 [XIV-78]: https://xivi.youtrack.cloud/issue/XIV-78
+
+[XIV-74]: https://xivi.youtrack.cloud/issue/XIV-74
 
 ## Releases
 

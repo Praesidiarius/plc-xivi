@@ -24,6 +24,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\HttpKernel\Log\DebugLoggerInterface;
 use Xivi\Core\Demo\DemoDataGenerator;
 use Xivi\Core\Demo\DemoLedger;
 use Xivi\Core\Metadata\MetadataRepository;
@@ -64,6 +65,25 @@ final class GenerateDemoDataCommand extends Command
          */
         #[Autowire(service: 'doctrine.debug_data_holder')]
         private readonly ?DebugDataHolder $queryLog = null,
+        /**
+         * The second thing that remembers every query (XIV-74).
+         *
+         * Doctrine also *logs* each statement to the `doctrine` channel, and a
+         * debug build keeps every log record in memory so the profiler has a panel
+         * to render. Emptying the query log above and not this one leaves a
+         * smaller version of the same ceiling in place: the two accumulate
+         * together, the first is simply the greedier because it carries a
+         * backtrace per statement. Ten thousand invoices — the heaviest module,
+         * lifecycle walks and line items included — survived on the query log
+         * reset alone, so this was not the failure here that it was in
+         * `tenant:reset`; it is emptied anyway, because "the number nobody has
+         * typed yet" is the entire premise of this command.
+         *
+         * @see ResetTenantCommand::forgetQueries() for the argument
+         *      about why this is a reset at every seam and not a mute switch
+         */
+        #[Autowire(service: 'debug.log_processor')]
+        private readonly ?DebugLoggerInterface $logRecords = null,
     ) {
         parent::__construct();
     }
@@ -135,9 +155,10 @@ final class GenerateDemoDataCommand extends Command
                     $progress->advance($total - $last);
                     $last = $total;
 
-                    // Or the run dies in the query log rather than in anything
-                    // it was meant to be testing.
+                    // Or the run dies in the logs rather than in anything it was
+                    // meant to be testing.
                     $this->queryLog?->reset();
+                    $this->logRecords?->clear();
                 },
             );
 
