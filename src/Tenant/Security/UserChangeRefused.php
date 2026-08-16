@@ -78,4 +78,49 @@ final class UserChangeRefused extends \RuntimeException
     {
         return self::of('That is not your current password.', 'refusal.wrong_password');
     }
+
+    /**
+     * An invitation asked for on an account that can already sign in (XIV-1).
+     *
+     * Refused rather than sent, because an invitation link signs somebody in
+     * without their password — so offering one for an established account would
+     * turn "invite" into a way past a credential its owner chose. An
+     * administrator who needs to get a colleague back in resets their password
+     * instead, which is the tool that has always existed for it and which the
+     * colleague can see happened.
+     */
+    public static function alreadyHasPassword(string $email): self
+    {
+        return self::of(
+            sprintf('"%s" already has a password; reset it instead of inviting them again.', $email),
+            'refusal.already_has_password',
+            ['%email%' => $email],
+        );
+    }
+
+    /**
+     * A link nobody could use, refused at the point of sending it.
+     *
+     * `ActiveUserChecker` would turn the click away anyway (§8.5), so sending it
+     * would only be a promise the sign-in page then breaks. Saying so here is the
+     * difference between "reactivate them first" and a colleague staring at a
+     * refusal nobody can explain to them.
+     */
+    public static function inactiveInvitee(string $email): self
+    {
+        return self::of(
+            sprintf('"%s" is deactivated, and an invitation link would not let them in.', $email),
+            'refusal.inactive_invitee',
+            ['%email%' => $email],
+        );
+    }
+
+    /** The initial-password path, asked for on an account that is past it (XIV-1). */
+    public static function passwordAlreadySet(): self
+    {
+        return self::of(
+            'This account already has a password; changing it needs the current one.',
+            'refusal.password_already_set',
+        );
+    }
 }

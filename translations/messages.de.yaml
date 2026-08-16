@@ -38,6 +38,7 @@ nav:
 login:
     title: Anmelden
     submit: Anmelden
+    invitation_failed: Bitte die Administration um eine neue Einladung — jeder Link gilt einmal und 24 Stunden lang.
 
 dashboard:
     no_access: Du hast noch auf kein Modul Zugriff. Eine Administratorin oder ein Administrator kann ihn dir geben.
@@ -56,6 +57,12 @@ account:
         Das Passwort, mit dem du dich angemeldet hast, wurde erzeugt und dir
         weitergegeben — jemand anderes kennt es also. Alles Weitere wartet, bis du es
         ersetzt hast.
+    invited_title: Wähle ein Passwort, bevor es weitergeht.
+    invited_body: >-
+        Du bist über einen Einladungslink hereingekommen; der hat einmal funktioniert und
+        ist damit verbraucht. Ein eigenes Passwort ist es, was dich das nächste Mal wieder
+        hereinlässt.
+    set_password: Passwort setzen
     current_password: Aktuelles Passwort
     current_password_help: Wird abgefragt, damit eine unbeaufsichtigte Sitzung nicht genügt, um dein Konto zu übernehmen.
     new_password: Neues Passwort
@@ -170,6 +177,7 @@ user:
     tooltip_reset: Passwort zurücksetzen
     tooltip_deactivate: Benutzer deaktivieren
     tooltip_reactivate: Benutzer reaktivieren
+    tooltip_invite: Einladung erneut senden
     add: Benutzer hinzufügen
     edit_title: '%email% bearbeiten'
     role: Rolle
@@ -180,8 +188,16 @@ user:
     you: du
     deactivated: deaktiviert
     password_not_set: Passwort noch nicht gesetzt
+    invitation_pending: Einladung ausstehend
     email_help: Das ist die Anmeldung. Sie muss hier eindeutig sein, nicht überall.
     name_help: Wird auf eigenen Datensätzen und im Verlauf angezeigt. Standard ist die E-Mail-Adresse.
+    first_sign_in: Wie die Person das erste Mal hereinkommt
+    method_invite: Einladung per E-Mail senden
+    method_invite_help: >-
+        Ein Link zu dieser Installation, 24 Stunden lang und einmal gültig. Es wird kein
+        Passwort erzeugt, also gibt es auch keines, das jemand anderes kennt; die Person
+        wählt ihr eigenes, wenn sie ankommt.
+    method_password: Passwort erzeugen und selbst weitergeben
     administrator_help: >-
         Die Administration darf alles und verwaltet Benutzer, Gruppen und die Felder eines
         Moduls. Die Berechtigungen unten haben darauf keinen Einfluss.
@@ -206,6 +222,7 @@ user:
         Aktion.
     edit_aria: '%email% bearbeiten'
     reset_aria: 'Passwort von %email% zurücksetzen'
+    invite_aria: '%email% eine neue Einladung senden'
     deactivate_aria: '%email% deaktivieren'
     reactivate_aria: '%email% reaktivieren'
 
@@ -384,6 +401,29 @@ refusal:
     group_name_taken: 'Es gibt bereits eine Gruppe namens „%label%“.'
     mail_server_without_address: 'Ein SMTP-Server braucht eine Absenderadresse: Sie ist es, von der eure Mail zu kommen behauptet.'
     mail_not_an_address: '„%address%“ ist keine E-Mail-Adresse.'
+    already_has_password: '%email% hat bereits ein Passwort. Setze es zurück, statt eine Einladung zu senden.'
+    inactive_invitee: '%email% ist deaktiviert, und ein Einladungslink würde die Person nicht hereinlassen. Reaktiviere sie zuerst.'
+    password_already_set: Dieses Konto hat bereits ein Passwort; es zu ändern braucht daher das aktuelle.
+
+# Die Einladungs-E-Mail selbst (XIV-1). Hier statt in einer E-Mail-Vorlage aus
+# XIV-38: die sind pro Modul, an Kundschaft gerichtet und vom Mandanten
+# bearbeitbar, und das trifft hier auf nichts davon zu. Sie gehört zu keinem
+# Modul, sie geht an Kolleginnen und Kollegen, und wer den Link herausredigieren
+# könnte, sperrt jemanden aus einem Konto aus, das anders nicht erreichbar ist.
+#
+# In der Sprache der Person verfasst, die auf den Knopf gedrückt hat: wer
+# eingeladen wird, hat noch kein Konto geöffnet und damit keine hinterlegte
+# Sprache.
+invitation:
+    subject: 'Du wurdest zu %instance% eingeladen'
+    greeting: 'Hallo %name%,'
+    body: >-
+        Jemand bei %instance% hat ein Konto für dich eingerichtet. Folge dem Link unten,
+        um hereinzukommen — dort wirst du gebeten, ein Passwort zu wählen.
+    button: Einladung annehmen
+    expiry: 'Der Link funktioniert nach %hours% Stunden nicht mehr.'
+    once: Er funktioniert ausserdem nur einmal, wähle dein Passwort also am besten gleich.
+    unexpected: Wenn du damit nicht gerechnet hast, ist nichts zu tun und du kannst die Nachricht ignorieren.
 
 # Eine dieser Vorlagen aus einem Datensatz heraus senden (XIV-39). „Empfänger“
 # statt „An“, weil dieses Feld das eine auf dem Bildschirm ist, das geprüft und
@@ -435,6 +475,11 @@ flash:
     group_deleted: '„%group%“ gelöscht. Es wurde niemand entfernt, nur was die Gruppe gegeben hat.'
     user_saved: '%email% gespeichert.'
     user_created: '%email% erstellt. Das Passwort lautet %password% — kopiere es jetzt, es wird nicht wieder angezeigt.'
+    user_invited: '%email% eingeladen. Der Link gilt einmal und noch %hours% Stunden; ein früherer funktioniert nicht mehr.'
+    user_created_not_invited: >-
+        %email% erstellt, aber die Einladung konnte nicht gesendet werden (%reason%). Das
+        Konto wartet darauf — sende sie aus der Liste erneut, sobald der Mailversand geht.
+    invitation_failed: 'Die Einladung an %email% konnte nicht gesendet werden (%reason%).'
     password_reset: 'Neues Passwort für %email%: %password% — kopiere es jetzt, es wird nicht wieder angezeigt.'
     user_reactivated: '%email% kann sich jetzt anmelden.'
     user_deactivated: '%email% kann sich nicht mehr anmelden.'

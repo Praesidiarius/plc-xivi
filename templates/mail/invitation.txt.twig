@@ -1,0 +1,23 @@
+{#
+	The plain-text half of an invitation (XIV-1).
+
+	Written by hand rather than derived from the HTML one, for the reason
+	RenderedEmail gives: a text part made by stripping tags out of a table layout
+	is a text part nobody would want to read. It is short enough that keeping the
+	two in step is not a burden.
+
+	The URL is on its own line and nothing else is, because that is what makes a
+	mail client turn it into something clickable — and this message has exactly
+	one job.
+#}
+{{ 'invitation.greeting'|trans({'%name%': name}) }}
+
+{{ 'invitation.body'|trans({'%instance%': instance}) }}
+
+{{ url }}
+
+{{ 'invitation.expiry'|trans({'%hours%': hours}) }}
+
+{{ 'invitation.once'|trans }}
+
+{{ 'invitation.unexpected'|trans }}

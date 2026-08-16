@@ -162,7 +162,19 @@ final class AccountController extends AbstractController
                     return;
                 }
 
-                $this->users->changeOwnPassword($user, (string) $request->request->get('current_password'), $new);
+                // Two ways in, and which one applies is a fact about the account
+                // rather than about what was posted (XIV-1). Somebody invited by
+                // email has no current password to be asked for — none was ever
+                // generated — and the signed link they arrived on is what stands
+                // in for the proof this question normally collects. The manager
+                // checks the same fact again, so a caller cannot pick the wrong
+                // branch and be believed.
+                if ($user->hasPassword()) {
+                    $this->users->changeOwnPassword($user, (string) $request->request->get('current_password'), $new);
+                } else {
+                    $this->users->setInitialPassword($user, $new);
+                }
+
                 $this->addFlash('success', $this->translator->trans('flash.password_changed'));
 
                 return;

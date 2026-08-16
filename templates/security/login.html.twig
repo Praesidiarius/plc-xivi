@@ -17,6 +17,17 @@
 					   is translated by the framework rather than by us (XIV-8). #}
 					<div class="alert alert-danger py-2 small" role="alert">
 						{{ error.messageKey|trans(error.messageData, 'security') }}
+
+						{#
+							An invitation that has expired or has already been used
+							lands here, and the person reading it has no account to
+							sign in to yet — so the framework's sentence names the
+							cause and this one says what to do next (XIV-1). Without
+							it the page is a form they cannot fill in.
+						#}
+						{% if invitation_failed %}
+							<div class="mt-1">{{ 'login.invitation_failed'|trans }}</div>
+						{% endif %}
 					</div>
 				{% endif %}
 

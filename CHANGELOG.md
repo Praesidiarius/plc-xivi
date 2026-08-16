@@ -65,6 +65,10 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **A new colleague can be invited by email instead of handed a password**
+  ([XIV-1]). Adding a user now asks how they get in the first time; the invitation
+  is the default and **creates no password at all**, sending a link that works once
+  and for 24 hours. Inviting somebody again retires the earlier link. See §8.8.
 - **An installation can send mail, as itself** ([XIV-37]). The company profile
   now holds a sender address and, optionally, your own SMTP server: with one,
   mail is genuinely from you; without one it goes out through this installation
@@ -206,3 +210,4 @@ lands in `Unreleased` here.
 [XIV-38]: https://xivi.youtrack.cloud/issue/XIV-38
 [XIV-39]: https://xivi.youtrack.cloud/issue/XIV-39
 [XIV-40]: https://xivi.youtrack.cloud/issue/XIV-40
+[XIV-1]: https://xivi.youtrack.cloud/issue/XIV-1

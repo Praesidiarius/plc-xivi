@@ -93,6 +93,9 @@ final class UserManagementTest extends WebTestCase
         $this->client->submit($crawler->selectButton('Save')->form([
             'email' => 'new@users.test',
             'name' => 'Newcomer',
+            // Named rather than left to the form's default, which is the
+            // invitation now (XIV-1). This class is about the other path.
+            'method' => 'password',
         ]));
 
         $text = $this->client->followRedirect()->filter('main')->text();
@@ -345,6 +348,9 @@ final class UserManagementTest extends WebTestCase
         $this->client->submit($crawler->selectButton('Save')->form([
             'email' => $email,
             'name' => 'Newcomer',
+            // The generated-password path, asked for by name: the form's default
+            // is an invitation now (XIV-1), which is a different class's subject.
+            'method' => 'password',
         ]));
 
         return $this->passwordFrom($this->client->followRedirect()->filter('main')->text());
