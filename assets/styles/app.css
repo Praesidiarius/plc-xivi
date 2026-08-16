@@ -79,9 +79,20 @@
  * against the light page and against the dark one, and a second palette would be
  * a second thing to keep legible for no gain.
  */
+/*
+ * Deliberately taller than the button beside it. It was 1.5rem while it lived
+ * *inside* that button, where it had to be smaller than its container; matching
+ * the button's height afterwards was the same timidity one step on. The avatar
+ * is the thing a person looks for to find themselves in the page, so it is the
+ * biggest thing in this corner and the button is what sits beside *it*.
+ *
+ * The navbar's own padding is what stops this driving the bar's height — at
+ * 2.5rem the circle is still shorter than the row the brand and the tabs
+ * already make.
+ */
 .avatar {
-	inline-size: 1.5rem;
-	block-size: 1.5rem;
+	inline-size: 2.5rem;
+	block-size: 2.5rem;
 	flex: 0 0 auto;
 	display: inline-flex;
 	align-items: center;
@@ -89,7 +100,7 @@
 	border-radius: 50%;
 	background: hsl(var(--avatar-hue, 0) 45% 32%);
 	color: #fff;
-	font-size: .65rem;
+	font-size: .95rem;
 	font-weight: 600;
 	line-height: 1;
 }

@@ -143,21 +143,29 @@
 			{% set here = items|filter(item => item.current)|first %}
 			{% set me = avatar(app.user) %}
 
-			<div class="dropdown ms-auto">
+			{#
+				The avatar sits *beside* the button rather than inside it, and that
+				is what it looked like it should do. A circle inside a bordered
+				button is a control drawn inside another control: two rounded
+				shapes nested, the outer one framing something that already reads
+				as a thing in its own right. Outside, it is a person; inside, it
+				was a decoration on a menu.
+
+				Initials in a circle, coloured from the email — generated in
+				{@see App\Twig\Avatar} and never fetched, so no request leaves the
+				browser for it and no third party is told who is signed in. Where
+				an uploaded picture would go later is written down there, on the
+				class that would grow the field.
+
+				Decorative, hence aria-hidden: it is the name beside it drawn a
+				second way, and a screen reader announcing "N B, Nina Baumgartner"
+				is reading the same thing twice.
+			#}
+			<div class="dropdown ms-auto d-flex align-items-center gap-2">
+				<span class="avatar" style="--avatar-hue: {{ me.hue }}" aria-hidden="true">{{ me.initials }}</span>
+
 				<button class="btn btn-sm btn-outline-secondary dropdown-toggle d-flex align-items-center gap-2{{ here ? ' active' : '' }}"
 				        type="button" data-bs-toggle="dropdown" aria-expanded="false">
-					{#
-						The avatar. Initials in a circle, coloured from the email —
-						generated in {@see App\Twig\Avatar} and never fetched, so no
-						request leaves the browser for it and no third party is told
-						who is signed in. Where an uploaded picture would go later is
-						written down there, on the class that would grow the field.
-
-						Decorative, hence aria-hidden: it is the name beside it drawn
-						a second way, and a screen reader announcing "N B, Nina
-						Baumgartner" is reading the same thing twice.
-					#}
-					<span class="avatar" style="--avatar-hue: {{ me.hue }}" aria-hidden="true">{{ me.initials }}</span>
 					<span class="topbar-name text-truncate">{{ app.user.name }}</span>
 					{% if here %}
 						{#
