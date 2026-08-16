@@ -192,12 +192,77 @@ final class LoginTest extends WebTestCase
      * The first question about any bug report, and one nobody can answer from
      * memory — so it is on the page somebody is looking at when they hit the bug,
      * including the one they never get past.
+     *
+     * Two assertions rather than one because the version is now in two different
+     * places (XIV-79): the page frame's footer once you are inside, and the
+     * sign-in card itself on the page that has no frame. This test is about the
+     * fact being present, which has not changed; where to look for it has.
      */
     public function testEveryPageSaysWhichVersionThisIs(): void
     {
         $crawler = $this->client->request('GET', 'https://login-alpha.localhost/login');
+        self::assertStringContainsString('Xivi ' . Version::CURRENT, $crawler->filter('.card-body')->text());
+
+        $this->signIn('login-alpha.localhost', self::ALPHA_PASSWORD);
+        $crawler = $this->client->request('GET', 'https://login-alpha.localhost/');
 
         self::assertStringContainsString('Xivi ' . Version::CURRENT, $crawler->filter('footer')->text());
+    }
+
+    /**
+     * The login page does not wear the application's footer (XIV-79).
+     *
+     * It is one centred card on an empty page, and the bar every signed-in page
+     * carries at its foot sat in the bottom-left corner of that emptiness saying
+     * nothing the card could not say for itself. The version it held is still
+     * here — the assertion above finds it inside the card — but the frame around
+     * it belonged to an application this visitor has not been admitted to.
+     */
+    public function testTheLoginPageHasNoApplicationFooter(): void
+    {
+        $this->client->request('GET', 'https://login-alpha.localhost/login');
+
+        self::assertSelectorNotExists('footer');
+    }
+
+    /**
+     * Exactly one `<h1>`, and it is the hostname.
+     *
+     * The heading used to say *Sign in*, above a card with an email field, a
+     * password field and a button already saying Sign in. What replaces it is the
+     * one line on this page that a reader cannot deduce from looking: **which
+     * installation this is**. Every tenant's login is otherwise identical, so a
+     * bookmark that has gone stale or a second tab open on another customer is
+     * only distinguishable here.
+     *
+     * The count is asserted as well as the content: deleting a heading is an easy
+     * way to leave a document with no title at all in a screen reader's heading
+     * list, and adding a second one is an easy way to leave it with two.
+     */
+    public function testTheLoginPageIsHeadedByTheHostnameAndNothingElse(): void
+    {
+        $crawler = $this->client->request('GET', 'https://login-alpha.localhost/login');
+
+        $headings = $crawler->filter('h1');
+        self::assertCount(1, $headings);
+        self::assertSame('login-alpha.localhost', trim($headings->text()));
+        self::assertStringNotContainsString('Sign in', trim($headings->text()));
+    }
+
+    /**
+     * A refused password still says so, in Symfony's words.
+     *
+     * The framework's own `security` domain supplies the sentence (XIV-8), and
+     * the page has to keep rendering it: an alert that is emptied along with the
+     * furniture around it is a form that silently forgets what you typed.
+     */
+    public function testAFailedSignInSaysWhatWentWrong(): void
+    {
+        $this->signIn('login-alpha.localhost', self::BETA_PASSWORD);
+        $crawler = $this->client->followRedirect();
+
+        self::assertSelectorExists('.alert-danger');
+        self::assertStringContainsString('Invalid credentials', $crawler->filter('.alert-danger')->text());
     }
 
     private function signIn(string $host, string $password): void

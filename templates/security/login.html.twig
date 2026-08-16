@@ -2,6 +2,21 @@
 
 {% block title %}{{ 'login.title'|trans }}{% endblock %}
 
+{#
+	No application footer here (XIV-79).
+
+	This page is one centred card and nothing else, and the bar the base template
+	puts at the foot of every page landed in the bottom-left corner of all that
+	emptiness — chrome from the signed-in application, on the one page whose reader
+	is not in the application yet. The version it carried is wanted; the furniture
+	around it was not, so the block is emptied and the version moves into the card
+	below.
+
+	`login.title` stays in the title block above: the browser tab is a list of
+	pages and does have to say which one this is.
+#}
+{% block footer %}{% endblock %}
+
 {% block body %}
 	<main class="signin-shell">
 		<div class="card shadow-sm" style="width: 22rem;">
@@ -9,8 +24,29 @@
 				{% if chrome.logo %}
 					<img src="{{ asset(chrome.logo) }}" alt="" height="112" class="mb-3">
 				{% endif %}
-				<h1 class="h4 mb-1">{{ 'login.title'|trans }}</h1>
-				<p class="text-body-secondary small mb-4">{{ app.request.host }}</p>
+				{#
+					The hostname is the heading (XIV-79).
+
+					There used to be an `<h1>` above this saying *Sign in*, over a card
+					holding an email field, a password field and a button labelled Sign
+					in. It named the page for somebody who could already see what the
+					page was, which is a caption rather than a heading.
+
+					The hostname is the line that earns it. This is multi-tenant and
+					every installation's login is otherwise identical, so *which one am
+					I signing into* is the only question the top of this card can
+					answer — and somebody with two tabs open, or a bookmark that has
+					gone stale, is asking it. Promoted rather than deleted along with
+					the heading it sat under: a page with no `<h1>` is a document with
+					no title as far as a screen reader's heading list is concerned, and
+					this page would then have nothing to put in it.
+
+					Drawn quietly on purpose. It is the heading structurally; visually
+					it is a subtitle under the mark, and a hostname set in display type
+					would shout the least interesting fact on the page at somebody who
+					just wants to type their password.
+				#}
+				<h1 class="h6 fw-normal text-body-secondary mb-4">{{ app.request.host }}</h1>
 
 				{% if error %}
 					{# The security domain is Symfony's own, so "Invalid credentials."
@@ -48,6 +84,21 @@
 
 					<button type="submit" class="btn btn-primary w-100">{{ 'login.submit'|trans }}</button>
 				</form>
+
+				{#
+					Which version you are looking at (XIV-79).
+
+					**The reason the base template gave for this is unchanged and was
+					right:** it is the first question about any bug report and the one
+					nobody can answer from memory, so it belongs on the page somebody is
+					standing on when they hit the bug — including this one, which is
+					exactly where "I cannot sign in" is written from, and the one page a
+					reporter may never get past. Only the placement was wrong. In a
+					footer it belonged to a page frame this page does not have; here it
+					sits under the card it describes, which is the whole of what is on
+					screen.
+				#}
+				<p class="text-body-secondary small mb-0 mt-4">Xivi {{ app_version }}</p>
 			</div>
 		</div>
 	</main>

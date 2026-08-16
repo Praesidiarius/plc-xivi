@@ -30,12 +30,32 @@
 		{% block body %}{% endblock %}
 
 		{#
-			Which version you are looking at, on every page including the login.
-			The first question about any bug report, and the one nobody can answer
-			from memory.
+			Which version you are looking at. The first question about any bug
+			report, and the one nobody can answer from memory.
+
+			**A block rather than a fixed footer**, because the login page wants the
+			version and not the furniture around it (XIV-79). It is a single centred
+			card on an otherwise empty page, and a bar pinned to the bottom-left
+			corner of it read as a piece of the application that had wandered in from
+			somewhere the visitor is not yet allowed to go. It overrides this with
+			nothing and prints the version inside the card instead.
+
+			The alternative was a second base template for signed-out pages, which is
+			what was asked for. It was not taken: this file is almost entirely
+			`<head>` — the favicon rule (XIV-48), the pre-paint theme script, the
+			importmap — and a copy of it is a copy of all three. The theme script in
+			particular must not drift between two files, because the failure mode is a
+			page that flashes white and nobody notices which of the two copies stopped
+			matching. One block buys the same thing and duplicates nothing.
+
+			When a genuinely separate signed-out layout is wanted — a marketing page,
+			a landing page (XIV-65) — that is the moment to split, and the split should
+			put the `<head>` in a shared parent rather than copying it here.
 		#}
-		<footer class="container page-shell mt-auto py-3">
-			<p class="text-body-secondary small mb-0">Xivi {{ app_version }}</p>
-		</footer>
+		{% block footer %}
+			<footer class="container page-shell mt-auto py-3">
+				<p class="text-body-secondary small mb-0">Xivi {{ app_version }}</p>
+			</footer>
+		{% endblock %}
 	</body>
 </html>

@@ -29,8 +29,9 @@ and moves nothing; cutting a release is the deliberate act of renaming that
 heading and dating it. Nothing else can advance the number, which is what stops
 it creeping while the project is moving quickly.
 
-The number lives in [`src/Version.php`](src/Version.php), is shown in the footer
-of every page, and is not yet tied to git tags.
+The number lives in [`src/Version.php`](src/Version.php), is shown at the foot of
+every page — inside the card on the sign-in page, which has no footer (XIV-79) —
+and is not yet tied to git tags.
 
 ### Writing an entry
 
@@ -66,6 +67,18 @@ first**. An entry is not the place a design decision lives.
 lands in `Unreleased` here.
 
 ## [Unreleased]
+
+### Changed
+
+- **The sign-in page stopped wearing the application's furniture** ([XIV-79]). It
+  no longer inherits the footer every signed-in page carries — a bar in the
+  bottom-left corner of a page that is otherwise a single centred card — and the
+  *Login* heading over an email field, a password field and a Sign in button is
+  gone. The version it used to show is still there and now sits inside the card,
+  under the button, because "which version is this" is the first question about
+  any bug report and this is the page somebody reporting "I cannot sign in" is
+  looking at. The hostname is now the page's heading, which is the one line on it
+  that says **which installation you are signing into**.
 
 ### Fixed
 
@@ -113,6 +126,7 @@ lands in `Unreleased` here.
   — but a test database you were keeping to look at needs reading, or dumping,
   before the next run rather than after.
 
+[XIV-79]: https://xivi.youtrack.cloud/issue/XIV-79
 [XIV-78]: https://xivi.youtrack.cloud/issue/XIV-78
 [XIV-56]: https://xivi.youtrack.cloud/issue/XIV-56
 
