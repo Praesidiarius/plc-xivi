@@ -17,6 +17,7 @@ use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantContext;
 use App\Tenant\Security\PermissionArea;
 use App\Tenant\Security\PermissionResolver;
+use App\Tenant\Security\StoreAction;
 use App\Tenant\Settings\InstanceName;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -101,6 +102,19 @@ final class AppChrome
     public function getProfileArea(): string
     {
         return PermissionArea::Profile->value;
+    }
+
+    /**
+     * The store's permission key, so a template can ask `can('browse', ...)`
+     * about it (XIV-6).
+     *
+     * The same trick as the profile's above, and it has to be a second one: the
+     * store is the second permission axis (§8.4.3), so its subject is not an area
+     * and its verbs are not ModuleAction's.
+     */
+    public function getStore(): string
+    {
+        return StoreAction::SUBJECT;
     }
 
     /**

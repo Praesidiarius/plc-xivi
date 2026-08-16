@@ -42,6 +42,7 @@ nav:
     overview: Overview
     users: Users
     profile: Company
+    store: Store
     sign_out: Sign out
 
 login:
@@ -52,6 +53,8 @@ login:
 dashboard:
     no_access: You do not have access to any modules yet. An administrator can grant it.
     none_installed: 'No modules installed yet. Install one with'
+    none_installed_store: No modules installed yet.
+    from_store: Add one from the store.
 
 account:
     region: Region
@@ -246,6 +249,10 @@ group:
     new: New group
     members: Members
     permissions: Permissions
+    store: The store
+    store_help: >-
+        Adding modules to this installation, which is not a permission about any one module —
+        browsing is about none of them, and installing is about one you have not got yet.
     intro: >-
         A group is a set of permissions given to a job rather than to a person, so it
         survives somebody leaving it. Everything is additive: a user has whatever all their
@@ -406,6 +413,40 @@ permission:
     no: 'No'
     area:
         profile: Company profile
+    store:
+        browse: Browse the store
+        browse_help: See which modules this installation could have.
+        install: Install modules
+        install_help: Add a module to this installation. It cannot be removed again, and the set of fields chosen cannot be changed later.
+
+store:
+    title: Store
+    intro: Modules this installation can have. Installing one adds it to your own database; nothing here affects anybody else.
+    empty: There is nothing on offer in this build yet.
+    details: Details
+    installed: Installed
+    not_installed: Not installed
+    already_yours: You already have this module. Installing it again would change nothing — the fields chosen at the time are yours to edit now.
+    needs_first: 'Needs %missing% first.'
+    requirements: What it needs
+    requirements_help: This module cannot work without these. Install them first — each one has its own choices to make, so they are not installed for you.
+    presets: How it can be installed
+    presets_help: A named set of fields to start from. You can add more fields afterwards in the module's own settings.
+    preset_default: Suggested
+    collections_always: 'Whichever you choose, this also creates: %collections%. Those are lists of rows belonging to a record, and they always come with the module.'
+    install: Install
+    install_title: 'Install %module%'
+    choose_preset: Choose what to start with
+    preset_permanent: This choice cannot be changed later.
+    preset_permanent_help: >-
+        Installing writes these fields into your database, and nothing rewrites them afterwards — that is
+        what lets you rename and rearrange them freely. You can always add more fields yourself, but the
+        other set is not something you can switch to.
+    confirm_install: Install this module
+    refusal:
+        already_installed: 'You already have %module%. Nothing was changed.'
+        requirements_missing: '%module% needs %missing%. Install those first.'
+        no_such_preset: 'That is not one of the ways %module% can be installed.'
 
 refusal:
     last_admin: This is the only active administrator. Make somebody else an administrator first.
@@ -487,6 +528,7 @@ flash:
     field_added: 'Added "%field%".'
     field_saved: 'Saved "%field%".'
     field_removed: 'Removed "%field%". Its values are still stored.'
+    module_installed: 'Installed "%module%". Nobody can see it until somebody is granted permission on it.'
     group_created: 'Created "%group%". Now say what it may do.'
     group_saved: 'Saved "%group%".'
     group_deleted: 'Deleted "%group%". Nobody was removed, only what the group gave them.'

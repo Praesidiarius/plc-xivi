@@ -33,6 +33,7 @@ nav:
     overview: Übersicht
     users: Benutzer
     profile: Firma
+    store: Store
     sign_out: Abmelden
 
 login:
@@ -43,6 +44,8 @@ login:
 dashboard:
     no_access: Du hast noch auf kein Modul Zugriff. Eine Administratorin oder ein Administrator kann ihn dir geben.
     none_installed: 'Noch keine Module installiert. Installiere eines mit'
+    none_installed_store: Noch keine Module installiert.
+    from_store: Hole dir eines aus dem Store.
 
 account:
     region: Region
@@ -240,6 +243,10 @@ group:
     new: Neue Gruppe
     members: Mitglieder
     permissions: Berechtigungen
+    store: Der Store
+    store_help: >-
+        Module zu dieser Installation hinzufügen. Das ist keine Berechtigung auf ein einzelnes Modul —
+        Ansehen betrifft gar keines, und Installieren betrifft eines, das du noch nicht hast.
     intro: >-
         Eine Gruppe ist ein Satz Berechtigungen für eine Aufgabe statt für eine Person und
         überdauert deshalb, wenn jemand sie verlässt. Alles ist additiv: eine Person hat,
@@ -400,6 +407,40 @@ permission:
     no: 'Nein'
     area:
         profile: Firmenprofil
+    store:
+        browse: Store ansehen
+        browse_help: Sehen, welche Module diese Installation haben könnte.
+        install: Module installieren
+        install_help: Ein Modul zu dieser Installation hinzufügen. Es lässt sich nicht wieder entfernen, und der gewählte Feldsatz lässt sich später nicht ändern.
+
+store:
+    title: Store
+    intro: Module, die diese Installation haben kann. Ein installiertes Modul landet in deiner eigenen Datenbank; niemand sonst ist davon betroffen.
+    empty: In diesem Build wird noch nichts angeboten.
+    details: Details
+    installed: Installiert
+    not_installed: Nicht installiert
+    already_yours: Dieses Modul hast du bereits. Es erneut zu installieren würde nichts ändern — die damals gewählten Felder gehören jetzt dir und du kannst sie bearbeiten.
+    needs_first: 'Braucht zuerst %missing%.'
+    requirements: Was es braucht
+    requirements_help: Ohne diese Module funktioniert es nicht. Installiere sie zuerst — jedes hat eigene Entscheidungen, deshalb werden sie nicht für dich mitinstalliert.
+    presets: Wie es installiert werden kann
+    presets_help: Ein benannter Satz Felder als Ausgangspunkt. Weitere Felder kannst du danach in den Einstellungen des Moduls hinzufügen.
+    preset_default: Vorschlag
+    install: Installieren
+    install_title: '%module% installieren'
+    choose_preset: Wähle, womit du anfängst
+    preset_permanent: Diese Wahl lässt sich später nicht ändern.
+    preset_permanent_help: >-
+        Beim Installieren werden diese Felder in deine Datenbank geschrieben, und danach überschreibt sie
+        nichts mehr — genau das erlaubt dir, sie frei umzubenennen und umzusortieren. Weitere Felder kannst
+        du jederzeit selbst anlegen, aber zum anderen Satz wechseln kannst du nicht.
+    confirm_install: Dieses Modul installieren
+    collections_always: 'Was du auch wählst, es entsteht außerdem: %collections%. Das sind Listen von Zeilen, die zu einem Datensatz gehören, und sie kommen immer mit.'
+    refusal:
+        already_installed: '%module% hast du bereits. Es wurde nichts geändert.'
+        requirements_missing: '%module% braucht %missing%. Installiere die zuerst.'
+        no_such_preset: 'So lässt sich %module% nicht installieren.'
 
 refusal:
     last_admin: Das ist die einzige aktive Administration. Mache zuerst jemand anderen zur Administration.
@@ -481,6 +522,7 @@ flash:
     field_added: '„%field%“ hinzugefügt.'
     field_saved: '„%field%“ gespeichert.'
     field_removed: '„%field%“ entfernt. Die Werte bleiben gespeichert.'
+    module_installed: '„%module%“ installiert. Niemand sieht es, bis jemand eine Berechtigung darauf bekommt.'
     group_created: '„%group%“ erstellt. Sage jetzt, was sie darf.'
     group_saved: '„%group%“ gespeichert.'
     group_deleted: '„%group%“ gelöscht. Es wurde niemand entfernt, nur was die Gruppe gegeben hat.'

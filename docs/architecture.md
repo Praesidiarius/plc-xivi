@@ -1658,6 +1658,53 @@ case the state exists to describe, so `tenant:module:install` names the state an
 proceeds. Nor does taking a module out of the store uninstall it anywhere — a
 state says what may be installed from here, never what is removed.
 
+### 6.3 The store, and installing without a shell (XIV-6)
+
+A customer who signs up lands in an empty installation. Until the store, the only
+way to put anything in it was `tenant:module:install` — the operator's shell, not
+theirs — which made self-service onboarding (XIV-64) half a feature.
+
+**Browsing reads the control plane; installing writes only the tenant's
+database.** That split is the load-bearing one and it is not new: what may be
+offered is `ModuleCatalog::offeredInStore()`, published *and* present in this
+build (§6.2), while "does this customer have module X" is answered from their own
+metadata and nowhere else. `Tenant::$enabledModules` is not involved and must not
+become involved — a control-plane write on a tenant-facing install path is exactly
+what [XIV-60] is separating out.
+
+**One installer, two front doors.** The store calls the same
+`ModuleInstaller::install($blueprint, $preset, $locale)` the command does. A
+headless deployment keeps its path, and a module installed from a screen is the
+same module — which is a property worth having a test compare rather than a claim
+worth repeating.
+
+**The preset is permanent and the wizard says so.** §6.1 does not retro-fit, and
+the additive upgrade that would make the choice reversible is [XIV-70], which is
+deliberately *not* a prerequisite: there is nothing installed today that needs
+upgrading, and building the store first is what tells anybody whether the smaller
+preset is ever chosen. So for this iteration the screen is simply honest — every
+preset's fields listed in full, radios rather than a select so both futures are on
+the screen at once, and the sentence *this choice cannot be changed later* above
+the choice rather than under it. A friendly dropdown is the worst possible
+presentation of an irreversible decision.
+
+**Requirements are refused with guidance, never chained.** Invoice needs Contact
+and Order; the installer already refuses and names what is missing (XIV-23). The
+store checks first so the install is not *offered*, because finding out on submit
+— after choosing a preset nothing can change — is a worse way to learn it. It
+does not chain-install, and the reason is the paragraph above: each chained module
+carries its own permanent preset choice, so a chain makes two irreversible
+decisions on somebody's behalf while they think they are making one.
+
+**Nothing about a module is written here.** Presets, requirements, collections and
+labels all come off the blueprint, so a module added to a future build appears in
+the store complete. Whether it appears at all is its state (§6.2), which is a row
+somebody can change without a deploy.
+
+Not in it, on purpose: payment, since every module is free in this iteration and
+the state enum already anticipates more states; and uninstalling, which means
+deciding what happens to the records and is a larger question than installing one.
+
 ---
 
 ## 7. Open design questions
@@ -2077,6 +2124,77 @@ itself without either of them.
 **A missing translation fails the build.** It is the quietest bug available here:
 the fallback keeps the page working and merely serves one paragraph of it in the
 wrong language, on somebody else's screen, in a country nobody is looking at.
+
+### 8.4.3 A second permission axis, for the store (XIV-6)
+
+§8.4 predicted this one by name: *"when something wants a verb this enum has not
+got — the store's browse and install (XIV-6) — that is the moment to add a second
+axis, with a real second case to design it against rather than a guess."* The
+store is that case, and the guess would have been wrong, so it is worth writing
+down why there are now two axes rather than one.
+
+**Every ModuleAction is something done to a module's records**, and a grant on
+one names the module whose records they are. That sentence is the whole model,
+and it is what makes the catalogue free — the enum crossed with the customer's
+installed modules, worked out at runtime. Neither of the store's verbs fits it:
+
+- **Browse** is about no module whatsoever. It is about the shop window.
+- **Install** is about a module the customer specifically does **not** have,
+  which is the sharp end: a per-module grant has nothing to attach to. "May
+  install invoice" would be grantable only by somebody who could already see that
+  invoice exists on a tenant where it does not, and would need granting again for
+  every module ever shipped. The authority is not a list about modules; it is one
+  sentence about the business — *may decide what this installation consists of*.
+
+Adding them as ModuleAction cases would also have made §8.4's areas incoherent.
+The areas' premise (XIV-12) is that the *verbs* stay ModuleAction's and only the
+**subject** changes — a profile is viewed and edited like anything else. Here the
+subject is fixed and the **verbs** are what changed, which is the other axis of
+the same table.
+
+**What is actually second is the vocabulary, not the machinery.** `StoreAction`
+is a second enum of verbs; `PermissionVerb` is what it and `ModuleAction` have in
+common, and it is deliberately tiny — a stored value, whether the verb can be
+scoped, and how to label it. Everything else stays exactly as it was: one grant
+table, one resolver, one resolved `PermissionSet`, additive grants, a maximum
+rather than a precedence table.
+
+**And it costs no migration**, which is the same argument §8.4 made about the
+catalogue, one level up. `permission_grant` was already "a subject, a verb, a
+scope" and had opinions about none of them: `module_key` was never a join, so it
+already held `@profile`, and now holds `@store` on the same rule that `@` cannot
+collide with a module key. The `action` column is 16 characters of string, and
+`browse` and `install` fit in it.
+
+The one thing that did change is the column's *mapping*: `enumType:` names exactly
+one enum class, so a column holding a verb from either vocabulary cannot use it.
+The typing moved one layer out — the column is a string and `PermissionGrant`
+hands back a `PermissionVerb`. That works only while the two vocabularies share no
+word, so `PermissionCoverageTest` fails the build if they ever collide; a
+collision would not throw, it would silently resolve to whichever enum was tried
+first, for grants somebody had already been given.
+
+**Two voters, one per axis.** `ModulePermissionVoter`'s whole subject is a
+module's records; teaching it a second vocabulary would have made it the class
+that knows about both axes, which is a job `PermissionVerbs` already does in one
+place. `StorePermissionVoter` is the same shape one axis over, because the model
+underneath genuinely is the same.
+
+**A verb from the wrong axis is not stored.** The permission screens generate
+their cells from what the customer has, so nothing legitimate posts
+`('contact', 'install')` — but a hand-edited request can, and the row would sit in
+the table reading as an authority and conferring nothing. `PermissionVerbs`
+answers which verbs a subject accepts, derived from the subject rather than
+listed, and the manager drops the rest. Same policy as an unknown module key:
+ignored rather than explained.
+
+**Nobody has these grants on upgrade, and that is deliberate.**
+`tenant:permissions:grant-all` does not hand them out. Its contract is every
+action on every *installed module*, and the store's install verb decides what the
+installation consists of — permanently, since there is no uninstall — which a
+command whose job is undoing a lock-out has no business granting in passing.
+Administrators reach the store through the `ROLE_ADMIN` bypass; everybody else is
+given it on the permission screens, by somebody who meant to.
 
 ### 8.5 The first user comes from provisioning
 

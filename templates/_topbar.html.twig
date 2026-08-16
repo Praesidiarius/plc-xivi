@@ -41,6 +41,7 @@
 			{% set route = app.request.attributes.get('_route')|default('') %}
 			{% set on_users = route starts with 'user_' or route starts with 'group_' %}
 			{% set on_profile = route starts with 'tenant_profile' %}
+			{% set on_store = route starts with 'store_' %}
 
 			<div class="d-flex align-items-center gap-2 ms-auto">
 				{#
@@ -54,6 +55,21 @@
 					   href="{{ path('tenant_profile') }}" {{ on_profile ? 'aria-current="page"' : '' }}>
 						<i class="bi bi-building-gear" aria-hidden="true"></i>
 						<span class="d-none d-sm-inline">{{ 'nav.profile'|trans }}</span>
+					</a>
+				{% endif %}
+
+				{#
+					The store (XIV-6), granted on its own axis rather than on any
+					module's: browsing is about no module and installing is about one
+					this customer has not got, so there is nothing for a module grant to
+					attach to (§8.4.3). Hidden when they may not browse, which is a
+					courtesy — the route refuses on its own account.
+				#}
+				{% if can('browse', chrome.store) %}
+					<a class="btn btn-sm btn-outline-secondary{{ on_store ? ' active' : '' }}"
+					   href="{{ path('store_index') }}" {{ on_store ? 'aria-current="page"' : '' }}>
+						<i class="bi bi-shop" aria-hidden="true"></i>
+						<span class="d-none d-sm-inline">{{ 'nav.store'|trans }}</span>
 					</a>
 				{% endif %}
 

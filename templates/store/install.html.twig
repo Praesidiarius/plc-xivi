@@ -1,0 +1,89 @@
+{#
+	The wizard: choose a preset, see exactly what it creates, confirm (XIV-6).
+
+	**The permanence is stated, not implied.** §6.1: installing does not
+	retro-fit, and XIV-70 — the explicit, additive upgrade that would make this
+	reversible — is deliberately not a prerequisite. So the one thing this screen
+	must not be is a friendly dropdown over an irreversible decision. It says so
+	in a warning, above the choice rather than under it, and it shows every field
+	each preset contains so the choice is informed rather than guessed.
+
+	Radios rather than a select, and that is the same argument: a select shows one
+	option and hides the rest behind a click, which is precisely the wrong shape
+	for a decision nothing can undo. Radios put both futures on the screen at once.
+#}
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'store.install_title'|trans({'%module%': offer.label}) }}{% endblock %}
+
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<div class="d-flex align-items-center justify-content-between mb-3">
+			<h1 class="h3 mb-0">{{ 'store.install_title'|trans({'%module%': offer.label}) }}</h1>
+			<a class="btn btn-link" href="{{ path('store_module', {module: offer.key}) }}">{{ 'common.cancel'|trans }}</a>
+		</div>
+
+		<form method="post">
+			<input type="hidden" name="_token" value="{{ csrf_token('install-module') }}">
+
+			{% if offer.presets is not empty %}
+				<div class="alert alert-warning">
+					<strong>{{ 'store.preset_permanent'|trans }}</strong>
+					{{ 'store.preset_permanent_help'|trans }}
+				</div>
+
+				<h2 class="h5 mb-2">{{ 'store.choose_preset'|trans }}</h2>
+
+				<div class="card mb-4">
+					<ul class="list-group list-group-flush">
+						{% for preset in offer.presets %}
+							<li class="list-group-item">
+								<div class="form-check">
+									<input class="form-check-input" type="radio" name="preset"
+									       id="preset-{{ preset.key }}" value="{{ preset.key }}"
+									       {{ chosen == preset.key ? 'checked' : '' }}>
+									<label class="form-check-label w-100" for="preset-{{ preset.key }}">
+										<span class="fw-semibold">{{ preset.label }}</span>
+										{% if preset.isDefault %}
+											<span class="badge text-bg-secondary">{{ 'store.preset_default'|trans }}</span>
+										{% endif %}
+										<span class="d-block text-body-secondary small">{{ preset.description }}</span>
+										{# What will be created, in words, before anything is. #}
+										<span class="d-block small mt-1">
+											{{ 'store.will_create'|trans({'%count%': preset.fieldCount}) }}
+											<span class="text-body-secondary">{{ preset.fields|join(', ') }}</span>
+										</span>
+									</label>
+								</div>
+							</li>
+						{% endfor %}
+					</ul>
+				</div>
+			{% else %}
+				{#
+					Nothing to choose: a module with no presets installs every field it
+					has. Still shown in full, because "what will be created" is the
+					question this screen answers whether or not there is a choice on it.
+				#}
+				<div class="alert alert-secondary">
+					{{ 'store.no_presets'|trans({'%count%': offer.blueprint.fields|length}) }}
+				</div>
+			{% endif %}
+
+			{% if offer.collections is not empty %}
+				<div class="alert alert-secondary">
+					{{ 'store.collections_always'|trans({'%collections%': offer.collections|join(', ')}) }}
+				</div>
+			{% endif %}
+
+			<div class="d-flex gap-2">
+				<button type="submit" class="btn btn-primary">{{ 'store.confirm_install'|trans }}</button>
+				<a class="btn btn-link" href="{{ path('store_module', {module: offer.key}) }}">{{ 'common.cancel'|trans }}</a>
+			</div>
+		</form>
+	</main>
+{% endblock %}

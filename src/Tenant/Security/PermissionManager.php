@@ -20,8 +20,8 @@ use App\Tenant\Repository\PermissionGroupRepository;
 use App\Tenant\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Xivi\Core\Permission\ModuleAction;
 use Xivi\Core\Permission\PermissionScope;
+use Xivi\Core\Permission\PermissionVerb;
 
 /**
  * The write side of the permission model (§7.5): groups, what they hold, who is
@@ -93,18 +93,22 @@ final readonly class PermissionManager
      * set back to "none" is somebody removing a permission, and merging would
      * make that the one edit the screen could not perform.
      *
-     * Unknown module keys and unknown actions are ignored rather than refused.
-     * The form is generated from the customer's own installed modules, so
-     * anything else came from a hand-edited request, and the honest response to
-     * that is to grant nothing rather than to explain.
+     * Unknown actions, and actions that mean nothing about the subject they were
+     * posted against, are ignored rather than refused. The form is generated from
+     * the customer's own installed modules, so anything else came from a
+     * hand-edited request, and the honest response to that is to grant nothing
+     * rather than to explain.
      *
-     * @param array<string, array<string, string>> $matrix module key => action => scope, or '' for none
+     * @param array<string, array<string, string>> $matrix subject => verb => scope, or '' for none
      */
     public function applyGrants(PermissionGroup $group, array $matrix): void
     {
         $existing = [];
         foreach ($group->getGrants() as $grant) {
-            $existing[$grant->getModuleKey()][$grant->getAction()->value] = $grant;
+            // Cast because a verb's backing value is `string|int` on \BackedEnum
+            // and this application's are all strings — see PermissionVerb, which
+            // says why the interface cannot narrow it.
+            $existing[$grant->getModuleKey()][(string) $grant->getAction()->value] = $grant;
         }
 
         // Not granted removes the row rather than storing a third state, which
@@ -112,7 +116,7 @@ final readonly class PermissionManager
         $this->applyMatrix(
             $matrix,
             $existing,
-            static fn (string $moduleKey, ModuleAction $action, PermissionScope $scope): PermissionGrant => PermissionGrant::forGroup($group, $moduleKey, $action, $scope),
+            static fn (string $moduleKey, PermissionVerb $action, PermissionScope $scope): PermissionGrant => PermissionGrant::forGroup($group, $moduleKey, $action, $scope),
             static function (PermissionGrant $grant) use ($group): void { $group->removeGrant($grant); },
         );
     }
@@ -163,7 +167,7 @@ final readonly class PermissionManager
     {
         $existing = [];
         foreach ($user->getPermissionGrants() as $grant) {
-            $existing[$grant->getModuleKey()][$grant->getAction()->value] = $grant;
+            $existing[$grant->getModuleKey()][(string) $grant->getAction()->value] = $grant;
         }
 
         // The form asks what this person may do, not what to store: a cell
@@ -176,7 +180,7 @@ final readonly class PermissionManager
         $this->applyMatrix(
             $matrix,
             $existing,
-            fn (string $moduleKey, ModuleAction $action, PermissionScope $scope): PermissionGrant => PermissionGrant::forUser($user, $moduleKey, $action, $scope),
+            fn (string $moduleKey, PermissionVerb $action, PermissionScope $scope): PermissionGrant => PermissionGrant::forUser($user, $moduleKey, $action, $scope),
             static function (PermissionGrant $grant) use ($user): void { $user->removePermissionGrant($grant); },
         );
     }
@@ -239,7 +243,7 @@ final readonly class PermissionManager
         foreach ($user->getPermissionGroups() as $group) {
             foreach ($group->getGrants() as $grant) {
                 $module = $grant->getModuleKey();
-                $action = $grant->getAction()->value;
+                $action = (string) $grant->getAction()->value;
                 $scope = $grant->getScope();
 
                 $existing = isset($matrix[$module][$action])
@@ -297,7 +301,7 @@ final readonly class PermissionManager
         $matrix = [];
 
         foreach ($grants as $grant) {
-            $matrix[$grant->getModuleKey()][$grant->getAction()->value] = $grant->getScope()->value;
+            $matrix[$grant->getModuleKey()][(string) $grant->getAction()->value] = $grant->getScope()->value;
         }
 
         return $matrix;
@@ -306,18 +310,22 @@ final readonly class PermissionManager
     /**
      * The shared half of applying a matrix, whoever holds the grants.
      *
-     * @param array<string, array<string, string>>                             $matrix
-     * @param array<string, array<string, PermissionGrant>>                    $existing
-     * @param \Closure(string, ModuleAction, PermissionScope): PermissionGrant $make
-     * @param \Closure(PermissionGrant): void                                  $detach
+     * @param array<string, array<string, string>>                               $matrix
+     * @param array<string, array<string, PermissionGrant>>                      $existing
+     * @param \Closure(string, PermissionVerb, PermissionScope): PermissionGrant $make
+     * @param \Closure(PermissionGrant): void                                    $detach
      */
     private function applyMatrix(array $matrix, array $existing, \Closure $make, \Closure $detach): void
     {
         foreach ($matrix as $moduleKey => $actions) {
             foreach ($actions as $actionKey => $scopeKey) {
-                $action = ModuleAction::tryFrom($actionKey);
+                $action = PermissionVerbs::tryFrom($actionKey);
 
-                if ($action === null) {
+                // Unknown, or from the wrong axis: `('contact', 'install')` is
+                // not a permission anybody could hold, and storing it would put
+                // a row in the table that reads as an authority and grants
+                // nothing (§8.4.3). A generated form never posts one.
+                if ($action === null || !PermissionVerbs::accepts($moduleKey, $action)) {
                     continue;
                 }
 

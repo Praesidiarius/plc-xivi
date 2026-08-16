@@ -22,9 +22,20 @@
 					{{ 'dashboard.no_access'|trans }}
 				</div>
 			{% else %}
+				{#
+					The store answers this now (XIV-6), for whoever may install out of
+					it. The command stays for everybody else, because a headless
+					deployment keeps its path and somebody without the grant still needs
+					to be told what would fix this.
+				#}
 				<div class="alert alert-secondary">
-					{{ 'dashboard.none_installed'|trans }}
-					<code>bin/console tenant:module:install {{ tenant.slug }} contact</code>
+					{% if can('install', chrome.store) %}
+						{{ 'dashboard.none_installed_store'|trans }}
+						<a class="alert-link" href="{{ path('store_index') }}">{{ 'dashboard.from_store'|trans }}</a>
+					{% else %}
+						{{ 'dashboard.none_installed'|trans }}
+						<code>bin/console tenant:module:install {{ tenant.slug }} contact</code>
+					{% endif %}
 				</div>
 			{% endif %}
 		{% else %}

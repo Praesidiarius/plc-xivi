@@ -9,6 +9,11 @@ dashboard:
 account:
     password_minimum: '{count, plural, one {Mindestens # Zeichen.} other {Mindestens # Zeichen.}}'
 
+store:
+    preset_count: '{count, plural, =0 {Nichts zu entscheiden} one {# Art, es zu installieren} other {# Arten, es zu installieren}}'
+    no_presets: '{count, plural, one {Bei diesem Modul gibt es nichts zu entscheiden: es installiert sein eines Feld.} other {Bei diesem Modul gibt es nichts zu entscheiden: es installiert alle # Felder.}}'
+    will_create: '{count, plural, one {Legt # Feld an:} other {Legt # Felder an:}}'
+
 module:
     history_all: '{count, plural, one {Ein Eintrag} other {Alle # Einträge}}'
     history_changes: '{count, plural, one {# Änderung} other {# Änderungen}}'

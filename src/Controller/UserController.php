@@ -18,6 +18,7 @@ use App\Tenant\Mail\MailSendFailed;
 use App\Tenant\Repository\UserRepository;
 use App\Tenant\Security\PermissionArea;
 use App\Tenant\Security\PermissionManager;
+use App\Tenant\Security\StoreAction;
 use App\Tenant\Security\UserChangeRefused;
 use App\Tenant\Security\UserInvitations;
 use App\Tenant\Security\UserManager;
@@ -160,6 +161,10 @@ final class UserController extends AbstractController
             'modules' => $this->metadata->all(),
             // Grantable, and no module's — see PermissionArea (XIV-12).
             'areas' => PermissionArea::all(),
+            // The second permission axis, whose verbs are its own and not
+            // ModuleAction's — see StoreAction (§8.4.3, XIV-6).
+            'store' => StoreAction::SUBJECT,
+            'storeActions' => StoreAction::cases(),
             'actions' => ModuleAction::cases(),
             'scopes' => PermissionScope::cases(),
             'groups' => $this->permissions->all(),

@@ -229,6 +229,38 @@
 							</tbody>
 						</table>
 					</div>
+					{#
+						The store, the second permission axis (§8.4.3, XIV-6). Same floor
+						rule as everything above: a group's grant cannot be taken away here,
+						only added to.
+					#}
+					<h3 class="h6 mt-4">{{ 'group.store'|trans }}</h3>
+
+					<ul class="list-group list-group-flush">
+						{% for action in storeActions %}
+							{% set from_group = inherited[store][action.value]|default('') %}
+							{% set effective = from_group or matrix[store][action.value]|default('') %}
+							<li class="list-group-item d-flex align-items-center justify-content-between gap-3 px-0">
+								<label class="form-label mb-0" for="store-{{ action.value }}">
+									<i class="bi bi-{{ action.icon }} text-body-secondary" aria-hidden="true"></i>
+									{{ action.labelKey|trans }}
+									{% if from_group %}
+										<span class="d-block form-text mb-0">
+											{{ 'user.from_groups'|trans({'%scope%': 'permission.scope.all'|trans({}, 'xivi')}) }}
+										</span>
+									{% endif %}
+								</label>
+								<select class="form-select form-select-sm w-auto"
+								        id="store-{{ action.value }}"
+								        name="grants[{{ store }}][{{ action.value }}]"
+								        aria-label="{{ action.labelKey|trans }}">
+									<option value="" {{ effective ? '' : 'selected' }}
+									        {{ from_group ? 'disabled' : '' }}>{{ 'permission.no'|trans }}</option>
+									<option value="all" {{ effective ? 'selected' : '' }}>{{ 'permission.yes'|trans }}</option>
+								</select>
+							</li>
+						{% endfor %}
+					</ul>
 				</div>
 
 				<div class="card-body border-top">

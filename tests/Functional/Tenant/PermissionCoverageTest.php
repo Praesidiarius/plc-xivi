@@ -14,10 +14,13 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Tenant;
 
 use App\Tenant\Security\NoModulePermission;
+use App\Tenant\Security\PermissionVerbs;
+use App\Tenant\Security\StoreAction;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Routing\RouterInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Xivi\Core\Permission\ModuleAction;
+use Xivi\Core\Permission\PermissionVerb;
 
 /**
  * The build failing when a new action ships without a permission (§7.5).
@@ -33,6 +36,13 @@ use Xivi\Core\Permission\ModuleAction;
  * path contains `{module}` is a module route, whichever controller grows it,
  * which means a new controller under `/m/{module}` is covered the day it is
  * written. A maintained list of controllers would be the thing that drifts.
+ *
+ * **Two axes since XIV-6, and the surface still one thing.** The store's routes
+ * carry `{module}` too — a *catalogue* key rather than an installed module — and
+ * are granted on StoreAction rather than on ModuleAction (§8.4.3). Widening this
+ * to "names a permission from either vocabulary" was the honest change: narrowing
+ * the surface to exclude `/store` would have made a whole controller invisible to
+ * the check that exists because unprotected routes are invisible.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
@@ -53,8 +63,8 @@ final class PermissionCoverageTest extends KernelTestCase
 
             $granted = $this->attributes($method, IsGranted::class);
             $actions = array_filter(array_map(
-                static fn (IsGranted $g): ?ModuleAction => \is_string($g->attribute)
-                    ? ModuleAction::tryFrom($g->attribute)
+                static fn (IsGranted $g): ?PermissionVerb => \is_string($g->attribute)
+                    ? PermissionVerbs::tryFrom($g->attribute)
                     : null,
                 $granted,
             ));
@@ -66,8 +76,9 @@ final class PermissionCoverageTest extends KernelTestCase
 
         self::assertSame([], $undeclared, sprintf(
             "These routes are under /m/{module} and name no permission:\n  %s\n\n"
-            ."Add #[IsGranted(ModuleAction::Something->value, subject: 'module')], or "
-            .'#[NoModulePermission("why")] if it genuinely is not one of a module\'s actions.',
+            ."Add #[IsGranted(ModuleAction::Something->value, subject: 'module')] — or "
+            ."#[IsGranted(StoreAction::Something->value, subject: 'store')] on the store's own "
+            .'routes — or #[NoModulePermission("why")] if it genuinely is neither.',
             implode("\n  ", $undeclared),
         ));
     }
@@ -88,11 +99,11 @@ final class PermissionCoverageTest extends KernelTestCase
                     continue;
                 }
 
-                self::assertNotNull(ModuleAction::tryFrom($granted->attribute), sprintf(
-                    'Route "%s" is granted on "%s", which is not a ModuleAction. Known: %s.',
+                self::assertNotNull(PermissionVerbs::tryFrom($granted->attribute), sprintf(
+                    'Route "%s" is granted on "%s", which is in neither permission vocabulary. Known: %s.',
                     $name,
                     $granted->attribute,
-                    implode(', ', ModuleAction::values()),
+                    implode(', ', [...ModuleAction::values(), ...StoreAction::values()]),
                 ));
             }
         }
@@ -122,9 +133,50 @@ final class PermissionCoverageTest extends KernelTestCase
     }
 
     /**
+     * The same, for the second axis (§8.4.3, XIV-6).
+     *
+     * A store verb voted on against a module key is denied for everybody
+     * including administrators, because StorePermissionVoter refuses to support
+     * it and an abstention is a denial. Same failure as above, one axis over.
+     */
+    public function testEveryStorePermissionNamesTheStoreAsItsSubject(): void
+    {
+        foreach ($this->moduleRoutes() as $name => $method) {
+            foreach ($this->attributes($method, IsGranted::class) as $granted) {
+                if (!\is_string($granted->attribute) || StoreAction::tryFrom($granted->attribute) === null) {
+                    continue;
+                }
+
+                self::assertSame('store', $granted->subject, sprintf(
+                    'Route "%s" is granted on a store action but does not name the store as its subject.',
+                    $name,
+                ));
+            }
+        }
+    }
+
+    /**
+     * The two vocabularies do not overlap.
+     *
+     * The load-bearing assumption of the whole arrangement: `permission_grant`
+     * stores a verb as a bare string, and one column can be read back
+     * unambiguously only while no two vocabularies use the same word. A collision
+     * would not throw — it would resolve to whichever enum PermissionVerbs tries
+     * first, silently, for grants somebody had already been given.
+     */
+    public function testTheTwoVocabulariesShareNoWord(): void
+    {
+        self::assertSame(
+            [],
+            array_values(array_intersect(ModuleAction::values(), StoreAction::values())),
+            'A word in both vocabularies makes a stored grant ambiguous — rename one of them.',
+        );
+    }
+
+    /**
      * No action exists that nothing can do.
      *
-     * A case added to the enum and never wired up would appear in the admin
+     * A case added to either enum and never wired up would appear in the admin
      * screen as something to grant, and granting it would do nothing — a control
      * that lies, which is worse than a red build.
      */
@@ -134,13 +186,16 @@ final class PermissionCoverageTest extends KernelTestCase
 
         foreach ($this->moduleRoutes() as $method) {
             foreach ($this->attributes($method, IsGranted::class) as $granted) {
-                if (\is_string($granted->attribute) && ($action = ModuleAction::tryFrom($granted->attribute)) !== null) {
-                    $used[$action->value] = true;
+                if (\is_string($granted->attribute) && ($action = PermissionVerbs::tryFrom($granted->attribute)) !== null) {
+                    $used[(string) $action->value] = true;
                 }
             }
         }
 
-        $unreachable = array_values(array_diff(ModuleAction::values(), array_keys($used)));
+        $unreachable = array_values(array_diff(
+            [...ModuleAction::values(), ...StoreAction::values()],
+            array_keys($used),
+        ));
 
         self::assertSame([], $unreachable, sprintf(
             'These actions can be granted but nothing uses them: %s.',

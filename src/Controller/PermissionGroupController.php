@@ -17,6 +17,7 @@ use App\Tenant\Entity\PermissionGroup;
 use App\Tenant\Security\GroupChangeRefused;
 use App\Tenant\Security\PermissionArea;
 use App\Tenant\Security\PermissionManager;
+use App\Tenant\Security\StoreAction;
 use App\Tenant\Security\UserManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -126,6 +127,10 @@ final class PermissionGroupController extends AbstractController
             // is still worked out at runtime — now from the enum crossed with
             // modules *and* these.
             'areas' => PermissionArea::all(),
+            // The second permission axis, whose verbs are its own and not
+            // ModuleAction's — see StoreAction (§8.4.3, XIV-6).
+            'store' => StoreAction::SUBJECT,
+            'storeActions' => StoreAction::cases(),
             'actions' => ModuleAction::cases(),
             'scopes' => PermissionScope::cases(),
             'matrix' => PermissionManager::matrixOf($group),

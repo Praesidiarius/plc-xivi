@@ -13,6 +13,13 @@ dashboard:
 account:
     password_minimum: '{count, plural, one {At least # character.} other {At least # characters.}}'
 
+store:
+    # "no choices to make" is a real state — a module that ships no presets —
+    # and reads better than "0 presets", which sounds like something is missing.
+    preset_count: '{count, plural, =0 {No choices to make} one {# way to install it} other {# ways to install it}}'
+    no_presets: '{count, plural, one {This module has no choices to make: it installs its one field.} other {This module has no choices to make: it installs all # of its fields.}}'
+    will_create: '{count, plural, one {Creates # field:} other {Creates # fields:}}'
+
 module:
     history_all: '{count, plural, one {One entry} other {All # entries}}'
     history_changes: '{count, plural, one {# change} other {# changes}}'

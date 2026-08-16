@@ -14,18 +14,19 @@ declare(strict_types=1);
 namespace App\Tenant\Entity;
 
 use App\Tenant\Repository\PermissionGrantRepository;
+use App\Tenant\Security\PermissionVerbs;
 use Doctrine\ORM\Mapping as ORM;
-use Xivi\Core\Permission\ModuleAction;
 use Xivi\Core\Permission\PermissionScope;
+use Xivi\Core\Permission\PermissionVerb;
 
 /**
- * One statement of the form "this holder may do this to that module's records,
- * this far" (§7.5).
+ * One statement of the form "this holder may do this to that, this far" (§7.5).
  *
  * The only thing the permission system stores. The *catalogue* of what could be
- * granted is ModuleAction crossed with the customer's installed modules, worked
- * out at runtime, so there is nothing to seed on install and nothing to migrate
- * when a new action ships.
+ * granted is worked out at runtime — the verbs crossed with the customer's
+ * installed modules, plus the areas and the store — so there is nothing to seed
+ * on install and nothing to migrate when a new action, a new area or a whole new
+ * axis ships.
  *
  * **One table for both group grants and user grants**, not two. Resolving a
  * person's permissions is a union of the two, and two tables would mean writing
@@ -36,6 +37,20 @@ use Xivi\Core\Permission\PermissionScope;
  * for a module the customer later uninstalls goes inert rather than cascading
  * away, and reinstalling brings it back — the same reasoning as history's
  * denormalised user label (§5.2). A grant is a statement of intent, not a join.
+ *
+ * It also holds subjects the definitions were never going to have: `@profile` for
+ * the instance's own settings (XIV-12) and `@store` for the store (XIV-6). The
+ * name has stayed `moduleKey` rather than churning through every caller for a
+ * rename that would improve nothing a docblock cannot.
+ *
+ * **`action` is stored as a plain string rather than with `enumType`**, and that
+ * is the one departure this class makes from its neighbours. Since XIV-6 the
+ * column holds a verb from either of two disjoint vocabularies — ModuleAction for
+ * a module's records, StoreAction for the store — and `enumType:` names exactly
+ * one class, so Doctrine would refuse to hydrate half the rows it wrote. The
+ * typing has moved one layer out instead: the column is a string and
+ * {@see getAction()} hands back a {@see PermissionVerb}, resolved through
+ * {@see PermissionVerbs}, which is the only thing that knows there are two.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
@@ -67,8 +82,9 @@ class PermissionGrant
     private function __construct(
         #[ORM\Column(name: 'module_key', length: 63)]
         private string $moduleKey,
-        #[ORM\Column(length: 16, enumType: ModuleAction::class)]
-        private ModuleAction $action,
+        /** The verb's stored value; read it back through {@see getAction()}. */
+        #[ORM\Column(name: 'action', length: 16)]
+        private string $actionValue,
         #[ORM\Column(length: 8, enumType: PermissionScope::class)]
         private PermissionScope $scope,
     ) {
@@ -80,15 +96,19 @@ class PermissionGrant
      * asked for, because "add, but only the ones you own" describes nothing.
      * Correcting it rather than refusing keeps a UI bug from becoming a 500.
      */
-    private static function create(string $moduleKey, ModuleAction $action, PermissionScope $scope): self
+    private static function create(string $moduleKey, PermissionVerb $action, PermissionScope $scope): self
     {
-        return new self($moduleKey, $action, $action->isScopable() ? $scope : PermissionScope::All);
+        return new self(
+            $moduleKey,
+            (string) $action->value,
+            $action->isScopable() ? $scope : PermissionScope::All,
+        );
     }
 
     public static function forGroup(
         PermissionGroup $group,
         string $moduleKey,
-        ModuleAction $action,
+        PermissionVerb $action,
         PermissionScope $scope = PermissionScope::All,
     ): self {
         $grant = self::create($moduleKey, $action, $scope);
@@ -101,7 +121,7 @@ class PermissionGrant
     public static function forUser(
         User $user,
         string $moduleKey,
-        ModuleAction $action,
+        PermissionVerb $action,
         PermissionScope $scope = PermissionScope::All,
     ): self {
         $grant = self::create($moduleKey, $action, $scope);
@@ -131,9 +151,21 @@ class PermissionGrant
         return $this->moduleKey;
     }
 
-    public function getAction(): ModuleAction
+    /**
+     * The verb, in whichever vocabulary it belongs to (§8.4.3).
+     *
+     * Throws on a value no vocabulary knows, which can only be a row this
+     * application did not write. Failing loudly is right: the alternative is a
+     * null that every caller has to think about, to describe a grant that cannot
+     * exist.
+     */
+    public function getAction(): PermissionVerb
     {
-        return $this->action;
+        return PermissionVerbs::tryFrom($this->actionValue) ?? throw new \LogicException(sprintf(
+            'Permission grant %s names action "%s", which is in no known vocabulary.',
+            (string) $this->id,
+            $this->actionValue,
+        ));
     }
 
     public function getScope(): PermissionScope
@@ -143,6 +175,6 @@ class PermissionGrant
 
     public function setScope(PermissionScope $scope): void
     {
-        $this->scope = $this->action->isScopable() ? $scope : PermissionScope::All;
+        $this->scope = $this->getAction()->isScopable() ? $scope : PermissionScope::All;
     }
 }
