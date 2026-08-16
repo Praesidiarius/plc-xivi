@@ -67,6 +67,25 @@ in the brief first.
 - **Licence-check every new dependency** and record the result. Permissive only —
   LGPL has been rejected here before.
 
+## Tools, if you want them
+
+This project ships its own MCP tools — tenants, the module catalogue, a tenant's
+*real* field definitions, and tenant lifecycle. Once per checkout:
+
+```bash
+bin/compose exec php vendor/bin/mate init
+bin/compose exec php vendor/bin/mate discover
+```
+
+`discover` is what registers this project's own `xivi/mate` extension; nothing
+runs it for you, because Mate's Composer plugin is deliberately outside
+`allow-plugins`.
+
+**None of it is required.** `bin/console tenant:inspect` answers the same
+questions from the command line, and `--json` prints exactly what the tools
+return. Nothing here is tool-only, and a server that is not running is not a
+reason to be stuck.
+
 ## Tenants
 
 The application is multi-tenant with a database per customer, so most things need
