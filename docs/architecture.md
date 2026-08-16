@@ -2410,6 +2410,47 @@ wrapper can intercept — so what it does instead is name the stack it is acting
 whenever that is not the main checkout. Prevention was not available; visibility
 was.
 
+**A warm stack believes things about a tree it has not read** (XIV-63). `docker
+compose up -d --wait` on a stack that is already running is a no-op, so `bin/ci`
+inherited whatever the last install and the last kernel boot left behind:
+vendor/ from before a merge changed `composer.lock`, and a compiled dev container
+from before a merge changed `security.yaml`. Nothing compared either to the tree.
+`composer validate` reads composer.json against composer.lock and never looks at
+disk; PHPStan reads the container's XML dump directly and boots nothing.
+
+Both instances turned up in one afternoon, both on merge and never on the branch,
+and both arrived disguised as static analysis about code — eight `class.notFound`
+for packages that were in the lock and not on disk, and a `serviceNotFound` for
+an authenticator that was in the configuration and not in the container. A
+worktree's stack is cold on its first run (XIV-51), so the branch really was
+green and the integration step looked broken, which is backwards from where
+anybody looks first.
+
+`bin/ci` now reconciles its inputs instead of assuming them, in `bin/reconcile`,
+after the stack starts and before the first check that consumes them. Fixing
+rather than refusing is the part worth recording: a check names the command it
+could have run, and everybody aliases past it — and the objection that a CI run
+should not write to the working tree was already lost to an entrypoint that
+installs and a suite that writes databases. The same script runs from the
+container entrypoint, replacing a test for `vendor/` being *empty* that could
+only ever be right once.
+
+Three things came out of building it that the ticket had not asked about. The
+quiet direction is **removal**: a package dropped from the lock and left in
+vendor/ keeps resolving, so the branch is green everywhere except a clean build,
+and `composer install` is the answer precisely because it removes. The compiled
+container needs **no clearing, only a boot** — debug mode records every file that
+went into it and rebuilds when one is newer, which is the four-second
+`cache:clear` in a fifth of the time, with the one edge that its freshness test
+has one-second granularity and calls "same second" fresh. And **PHPStan's result
+cache is a fourth artifact**: it tracks the container XML, measured, but not the
+packages installed, so a package it has just called unknown stays unknown after
+being installed. It gets told, from a hash of the installed set written next to
+the run that changed it.
+
+A warm, already-correct run costs about a second, which `bin/ci` prints every
+time so the claim the design rests on stays checkable.
+
 **A mail catcher is visibility, and only that** (XIV-41). Development sends to
 Mailpit, a container that accepts everything and delivers nothing, because the
 mail this application is about to grow — Markdown rendered to HTML, wrapped in a

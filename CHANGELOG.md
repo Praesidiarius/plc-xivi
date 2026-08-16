@@ -194,9 +194,18 @@ lands in `Unreleased` here.
   permissions the records are read with, and a card that cannot show everything
   says "Showing 10 of 207" and links to the module's list filtered to that record.
   A card now shows ten rather than twenty-five, since the rest are one click away.
+- **`bin/ci` reconciles the stack it runs on instead of trusting it** ([XIV-63]).
+  vendor/ against `composer.lock`, and the compiled service container against the
+  configuration that produced it, before anything is checked. A merge that added
+  or dropped a dependency, or changed a service, used to arrive as PHPStan errors
+  about code. About a second on a warm run, and the number is printed.
+- **Rebuild the dev image once** — `bin/compose up -d --build` — to get the other
+  half: the container entrypoint reconciles on start now, rather than installing
+  only when `vendor/` is empty.
 
 [XIV-52]: https://xivi.youtrack.cloud/issue/XIV-52
 [XIV-69]: https://xivi.youtrack.cloud/issue/XIV-69
+[XIV-63]: https://xivi.youtrack.cloud/issue/XIV-63
 
 ## Releases
 

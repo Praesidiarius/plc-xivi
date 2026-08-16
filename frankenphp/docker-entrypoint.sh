@@ -3,9 +3,17 @@ set -e
 
 if [ "$1" = 'frankenphp' ] || [ "$1" = 'php' ] || [ "$1" = 'bin/console' ]; then
 
-	if [ -z "$(ls -A 'vendor/' 2>/dev/null)" ]; then
-		composer install --prefer-dist --no-progress --no-interaction
-	fi
+	# Make what is on disk match the tree this container is about to serve
+	# (XIV-63). This used to be `composer install` when vendor/ was empty, which
+	# is right exactly once — on the first start of a fresh checkout. After that
+	# the test never fires again, so restarting the container after a merge that
+	# changed composer.lock installs nothing, which is both the obvious first
+	# guess and the wrong one; only deleting vendor/ worked.
+	#
+	# The script is the same one `bin/ci` runs, so a stack started by hand is in
+	# the state the suite would have put it in, and it is a no-op in a production
+	# image — read it for what it does and does not touch.
+	bin/reconcile
 
 	# Display information about the current project
 	# Or about an error in project initialization

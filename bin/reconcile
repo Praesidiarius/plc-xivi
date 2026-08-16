@@ -1,0 +1,163 @@
+#!/bin/sh
+#
+# Make this container's cached artifacts match the tree it is serving (XIV-63).
+#
+#   bin/compose exec php bin/reconcile
+#
+# **Run this inside the php container**, not on the host — there is no PHP or
+# Composer out there. `bin/ci` runs it after starting the stack, and the
+# entrypoint runs it when a container starts, so on the ordinary path nobody has
+# to type it at all.
+#
+# **What it is for.** A container that has been running since this morning holds
+# artifacts built from the tree as it was this morning: vendor/ from a lock file
+# that has since been merged over, a compiled service container from a
+# configuration that has since gained a service. Nothing notices. `docker compose
+# up -d --wait` on a running stack is a no-op, the entrypoint used to install
+# only when vendor/ was *empty*, and `composer validate` compares composer.json
+# to composer.lock without ever looking at what is on disk.
+#
+# So the suite ran against yesterday's dependencies and yesterday's container,
+# and said so in the only vocabulary it has: PHPStan errors about code. Twice in
+# one afternoon — eight `class.notFound` for packages a merge had added, and a
+# `serviceNotFound` for a security authenticator a merge had configured. Both
+# were green on a cold worktree stack, from the identical tree. That is the
+# failure this exists to make impossible, and it is worth noticing that it
+# arrives disguised: the first ten minutes go into the code.
+#
+# **It fixes rather than checks.** A check would name the command it could have
+# run, and everybody would alias past it. The objection that a CI run should not
+# mutate the working tree is real and was already lost: the entrypoint installs,
+# and the suite writes caches and databases.
+#
+# **Every step below is the framework's or the tool's own idempotence.** Nothing
+# here keeps a record of what it believes is installed and skips the work when
+# the record looks right — that belief is the bug in this ticket one level
+# further up. Each step simply runs: together they cost about a second on a
+# stack that is already correct (measured, and `bin/ci` prints the number on
+# every run), which is not worth a mechanism to avoid. The one conditional part
+# is the result-cache block, which costs four seconds and says why.
+#
+# What is deliberately *not* here:
+#
+#   * **`cache:clear`.** It is what fixed the second incident by hand, and it is
+#     four seconds of deleting a cache that is usually correct. Booting the
+#     kernel in debug mode does the same job precisely — see the last step.
+#   * **Composer's scripts** (`--no-scripts`). Two of the three `auto-scripts`
+#     are run below by name; the third is `cache:clear`. Skipping them also keeps
+#     Flex from applying recipes, which would have this script *writing config
+#     files* into a tree that is about to be checked. A branch's recipe output is
+#     the branch author's to commit.
+#   * **Anything about the test environment.** PHPUnit boots the test kernel in
+#     debug, so that container invalidates itself on the way in. It is the dev
+#     one that nothing ever boots, because PHPStan reads its XML dump directly.
+
+set -e
+
+cd "$(dirname "$0")/.."
+
+# **PHPStan's result cache is a fourth artifact, and the one that nearly made
+# this whole script pointless.**
+#
+# Two things were measured here rather than assumed, and they disagree:
+#
+#   * The container XML it is pointed at, it *does* notice. Add a service to
+#     config, recompile the container, analyse again without clearing anything,
+#     and the error about that service appears or disappears correctly.
+#   * The installed packages it does not. It keys on composer.lock, which is the
+#     tree's statement of intent rather than what is on disk — so vendor/
+#     changing while the lock stays put is invisible. Reinstalling a package
+#     PHPStan had just called unknown produced the same eleven errors again,
+#     from cache, on a tree that was by then correct.
+#
+# That second case is not exotic: it is the state of every stack that has
+# already run the suite against a stale vendor/, which is to say every stack
+# that met this bug. Reconciling without saying anything would fix the tree and
+# leave the report unchanged.
+#
+# So the installed set gets hashed, and the hash is kept. Not as a record of
+# what is installed — believing such a record is the bug this ticket is about —
+# but of what the result cache was last computed against, and it fails in the
+# safe direction by construction: a stamp that is wrong, missing, or from
+# another container costs a full analysis, never a stale one. Comparing against
+# a stamp rather than against the state at the top of this script also answers
+# for the times something *else* did the installing.
+readonly ANALYSED_PACKAGES='var/.xivi-analysed-packages'
+
+installed_packages() {
+	sha256sum vendor/composer/installed.php 2>/dev/null | cut -d' ' -f1 || true
+}
+
+# **A built image has nothing to reconcile, and no way to.** The production stage
+# copies the PHP binary and the sources, not the tool that made vendor/ — so the
+# absence of Composer is the structural marker for "this is an image, not a
+# working tree". Everything below was done there once at build time, from one
+# tree, and a container booting in production is not the place to start writing
+# into the application directory. The entrypoint calls this before it knows which
+# kind of container it is in, so the answer belongs here.
+if ! command -v composer >/dev/null 2>&1; then
+	exit 0
+fi
+
+# **vendor/ against composer.lock.**
+#
+# `composer install` is the whole answer here, in both directions, which is the
+# half that is easy to get wrong: a branch that *removes* a package is the quiet
+# failure. Left in vendor/, the removed package keeps resolving — code that still
+# references it passes locally, passes review, and fails in the first clean
+# build. `install` removes it, because the lock file is the statement of what
+# should exist rather than a list of things to add.
+#
+# It also notices a package directory that has been deleted by hand, which no
+# comparison of composer.lock against a hash could: measured, not assumed.
+composer install --prefer-dist --no-progress --no-interaction --no-scripts
+
+# And if that moved the packages out from under PHPStan's result cache, say so,
+# because it will not look. Immediately here rather than at the end of the
+# script, and that placement is load-bearing: the install is the only thing that
+# can move them, so recording it here means a step below failing can never leave
+# the stamp claiming a correspondence that does not hold. Found by doing exactly
+# that — a removal that broke the container build left the note describing a
+# vendor/ two states ago, and the next run believed it.
+#
+# The clear costs the difference between a cached analysis and a full one — one
+# second against five here — so it happens only on the runs that changed
+# something, which are the runs where a full analysis was wanted anyway.
+packages=$(installed_packages)
+
+if [ -x vendor/bin/phpstan ] && [ "$packages" != "$(cat "$ANALYSED_PACKAGES" 2>/dev/null || true)" ]; then
+	vendor/bin/phpstan clear-result-cache
+	printf '%s\n' "$packages" > "$ANALYSED_PACKAGES"
+fi
+
+# **public/bundles/ against the bundles that are now installed**, and
+# **assets/vendor/ against importmap.php.** Both directories are gitignored, so
+# they exist only because a command once wrote them; a merge that adds a bundle
+# with public assets, or a JavaScript package to the importmap, changes what
+# should be in them and nothing puts it there. These are two of the three
+# `auto-scripts` in composer.json, run by name because `composer install` above
+# is not allowed to run them.
+php bin/console assets:install public
+php bin/console importmap:install
+
+# **The compiled service container against the configuration that produced it.**
+#
+# This is the artifact nobody thinks of as an artifact. `phpstan.dist.neon`
+# points `containerXmlPath` at var/cache/dev/App_KernelDevDebugContainer.xml so
+# the Symfony extension can reason about real services — and PHPStan reads that
+# file directly, booting nothing. A dump from before a security.yaml change is
+# read with a straight face, and a service the tree defines is reported missing
+# on the line that uses it.
+#
+# Booting the kernel is the fix, and warming the cache is the least surprising
+# way to ask for a boot. Debug mode records every file that went into the
+# container and rebuilds when one of them is newer, so this is a no-op on a
+# correct stack and a recompile — XML dump included, the compiler pass writes
+# both together — on a stale one. Precisely the cache:clear that fixed the
+# incident by hand, minus the deleting.
+#
+# One sharp edge, met while testing this: that check has one-second granularity
+# and treats "same second" as fresh, so a config file written in the very second
+# the container was compiled is missed. No merge is that fast; a script is, and
+# a script is what will be confused by it.
+php bin/console cache:warmup
