@@ -20,6 +20,12 @@ store:
     no_presets: '{count, plural, one {This module has no choices to make: it installs its one field.} other {This module has no choices to make: it installs all # of its fields.}}'
     will_create: '{count, plural, one {Creates # field:} other {Creates # fields:}}'
 
+follow_up:
+    # What the dashboard widget cut off (XIV-81). The cap is the widget's, and
+    # saying how much was left out is what stops it from being a summary somebody
+    # trusts to be complete.
+    more_due: '{count, plural, one {And # more.} other {And # more.}}'
+
 module:
     history_all: '{count, plural, one {One entry} other {All # entries}}'
     history_changes: '{count, plural, one {# change} other {# changes}}'

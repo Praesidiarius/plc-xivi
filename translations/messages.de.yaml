@@ -43,6 +43,7 @@ login:
     invitation_failed: Bitte die Administration um eine neue Einladung — jeder Link gilt einmal und 24 Stunden lang.
 
 dashboard:
+    follow_ups: Deine Wiedervorlagen
     no_access: Du hast noch auf kein Modul Zugriff. Eine Administratorin oder ein Administrator kann ihn dir geben.
     none_installed: 'Noch keine Module installiert. Installiere eines mit'
     none_installed_store: Noch keine Module installiert.
@@ -488,6 +489,19 @@ follow_up:
         info: Zur Information
         warning: Braucht Aufmerksamkeit
         important: Wichtig
+    # Die drei Blickweiten des Dashboard-Widgets (XIV-81). Es sind Obergrenzen und
+    # sie schachteln sich, also sagen die Wörter, wie weit nach vorne geschaut
+    # wird — «fällig heute» und nicht «heute», denn alles Überfällige steht
+    # ebenfalls darin.
+    lens:
+        today: Heute fällig
+        week: Diese Woche fällig
+        all: Alle
+    lens_group: Wie weit nach vorne
+    lens_empty:
+        today: Heute ist nichts fällig.
+        week: Diese Woche ist nichts fällig.
+        all: Auf deiner Liste steht nichts.
 
 # Die Einladungs-E-Mail selbst (XIV-1). Hier statt in einer E-Mail-Vorlage aus
 # XIV-38: die sind pro Modul, an Kundschaft gerichtet und vom Mandanten

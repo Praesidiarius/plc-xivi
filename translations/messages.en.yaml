@@ -54,6 +54,10 @@ login:
     invitation_failed: Ask an administrator to send you a new invitation — each link works once and for 24 hours.
 
 dashboard:
+    # A widget's heading (XIV-81). The module tiles have none — a grid of labelled
+    # cards under the company name describes itself — so this is the only one so
+    # far.
+    follow_ups: Your follow-ups
     no_access: You do not have access to any modules yet. An administrator can grant it.
     none_installed: 'No modules installed yet. Install one with'
     none_installed_store: No modules installed yet.
@@ -495,6 +499,22 @@ follow_up:
         info: For information
         warning: Needs attention
         important: Important
+    # The dashboard widget's three lenses (XIV-81). They are upper bounds and
+    # nest, so the words are about how far ahead somebody is looking rather than
+    # about a bucket — "due today" and not "today", because everything overdue is
+    # in there too.
+    lens:
+        today: Due today
+        week: Due this week
+        all: All
+    lens_group: How far ahead to look
+    # One sentence per lens, because "nothing at all" and "nothing this week" are
+    # different things to be told, and an empty widget that says which is a
+    # widget doing its job.
+    lens_empty:
+        today: Nothing due today.
+        week: Nothing due this week.
+        all: Nothing on your list.
 
 # The invitation email itself (XIV-1). Here rather than in an XIV-38 email
 # template, because those are per-module, customer-facing and tenant-editable and

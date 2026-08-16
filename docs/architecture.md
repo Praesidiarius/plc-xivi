@@ -1977,6 +1977,73 @@ nobody asked.
 half of what made the old history table hurt, and this is the table people write
 by hand.
 
+#### Reading them back: three ceilings and no floor (XIV-81)
+
+The dashboard asks one question — what is on my list — through three lenses that
+are **upper bounds and nest**: due today, due this week, all. Narrowing only ever
+removes rows from the far end, which is what makes three links read as one
+control with a range rather than as three different questions.
+
+**Today means up to the end of today, which is deliberately the inverse of
+§5.16.** An invoice is overdue *strictly before* today, because telling a
+customer they are late on the morning their bill falls due is how a dunning list
+loses its credibility. A follow-up is the other kind of deadline entirely: it is a
+note somebody wrote to themselves, and what is due at 16:30 is exactly what they
+want on their dashboard at 09:00. The two predicates disagree on purpose, and the
+one in `FollowUpRepository::openFor()` says so at the line, because the
+inconsistency is the sort a later reader tidies away.
+
+**And there is no lower bound at all.** `AND due_at >= …` would look like the
+missing half of a range and would mean a follow-up somebody *missed* dropping off
+the widget at the moment it started to matter. A missed follow-up quietly
+disappearing is the worst behaviour available here, so overdue work stays in every
+lens including *today*, sorted to the top, and the only way off the list is
+marking it done.
+
+**Which day the week starts on is a locale question, not a constant.** ICU
+answers it — Sunday for an American reader, Monday for a Swiss one — through
+`IntlCalendar`, asked with the locale `FormattingLocale` composes, since it is the
+*region* half that decides. symfony/intl is this codebase's usual door onto CLDR
+and has no opinion here: `Countries`, `Currencies` and `Timezones` are lists of
+things, and the first day of the week is a rule rather than a list. So ICU is
+asked which day it is and the remaining arithmetic — how many days back that is —
+stays one subtraction modulo seven. Boundaries are then drawn on
+`DateTimeImmutable` in the zone `DisplayTimezone` resolved (§8.4.4), never in UTC
+and never in seconds: a week measured in 604800 seconds ends an hour early across
+a spring clock change.
+
+**Resolving a follow-up back to its record is the expensive half, and it is
+batched per module.** Finding the follow-ups is one indexed read; naming them is
+not, because `record_id` means a different table per `module` value and none of
+those is a mapped entity. So the work is grouped by module and read in batches —
+`RecordRepository::findAny()`, the sibling of `findChildrenOfAny()` — and the cost
+is the number of modules somebody has work in rather than the number of
+follow-ups they are carrying. §5.16 names that N+1 as the one a dashboard cannot
+afford on the first page after signing in. It is **asserted rather than believed**:
+a test grows the list tenfold and requires the query count not to move, because
+the way this regresses is somebody writing a perfectly readable loop.
+
+**A follow-up whose record the reader may no longer view is shown without its
+record.** Its own text, due moment and priority appear; the title is not rendered
+and there is no link. That is the residue of revocation not being retroactive, and
+it is the same split XIV-42 made between a reference's *name* and a *link* to it,
+arrived at from the other direction: there the name is shown to everybody because
+whoever sees the referring record can already see what it refers to, and here
+nothing about the record has been disclosed yet, so the name goes with the link.
+A grant scoped to *own records* over somebody else's record gives the same answer
+for the same reason. **A follow-up on a soft-deleted record is excluded entirely**
+rather than anonymised — there is nothing to open, and "shown without a link" and
+"not shown" are answers to different questions.
+
+**A module whose follow-ups have been switched off drops out too**, which is what
+"existing follow-ups stop being offered" above means when something goes looking
+for them. Nothing is deleted and turning the switch back brings them back.
+
+**Not built: a lens for unassigned follow-ups.** The widget is *mine*. A view of
+work nobody has taken is a different screen with a different question behind it,
+closer to a queue than to a dashboard, and it should be built when somebody asks
+for the queue.
+
 ---
 
 ## 6. Extensibility
@@ -2421,6 +2488,52 @@ like everything else here, and mounts on a module key and an id rather than on
 anything a particular module knows. One component that renders any record form is
 fine; a `OrderForm` beside it would quietly become the module-specific code §1
 exists to avoid — a finding about the engine rather than a shortcut worth taking.
+
+### 8.3.1 The dashboard is its widgets (XIV-81)
+
+The landing page shipped as a placeholder — a tile per module, two empty states,
+and a docblock promising it would be replaced "once there are modules to show".
+The first real thing to show up was a list of due follow-ups, and the cheap way
+to add it was an `{% if %}` in the dashboard template with a variable the
+controller passed down. That is the shape which makes the *second* widget a
+rewrite rather than a file, so the seam was cut while there was one implementation
+to cut it around.
+
+**A widget is a service that decides whether it has anything to say, and if so
+names a template and hands it data.** Nothing more: no registry to configure, no
+per-user arrangement, no layout engine, nothing persisted. Discovery and ordering
+are Symfony's tagged iterator — `#[AutoconfigureTag]` on the interface,
+`#[AsTaggedItem(priority:)]` on the implementation — which is the reach-for-the-
+component rule applied to a problem that would otherwise have grown a
+`dashboard.yaml`. Nothing keeps a list of widgets, so nothing can disagree with the
+classes that exist.
+
+**A template name and an array, never a rendered string.** A widget that returned
+HTML would need the translator, the router and the escaper injected to build it —
+the reasons Twig exists, rebuilt once per widget. Headings are translation *keys*
+for the same reason a permission action hands out a label key rather than a label.
+
+**The module tiles were converted rather than left in place**, and that is most of
+what makes this real. One interface with one implementation and a template that
+still knew the answer would have been a special case wearing an abstraction. It is
+also the widget that answers "what does a customer with no modules see": it never
+returns null, because the two empty states — nothing installed, which an
+administrator can act on, and nothing yours, which they cannot — are exactly what
+a dashboard with no modules has to say.
+
+**Returning null is "this does not apply to you", not "I am empty".** The
+follow-up widget draws itself with a sentence when the lens has nothing in it, and
+stays off the page only when no module in the installation takes follow-ups at
+all. The condition is deliberately *not* "any module this reader may view": a
+reader can hold follow-ups on a module they can no longer open, and hiding the
+widget would take that work off the screen entirely — the one outcome the feature
+is built to prevent. The price is that somebody with no grants sees an empty box,
+and "nothing on your list" is a true sentence.
+
+**A widget that throws takes the page down, and is allowed to.** The tempting
+try/catch per panel is refused: a dashboard that silently omits one is a dashboard
+nobody can trust to be complete, and the follow-up widget in particular is a list
+of work somebody was given.
 
 ### 8.4 Authorization: grants, resolved per person
 

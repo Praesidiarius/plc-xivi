@@ -70,6 +70,19 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **Your due follow-ups, on the dashboard** ([XIV-81]). A widget listing what is
+  assigned to you and not yet done, soonest first, narrowable to *due today*,
+  *due this week* or *all*. The lenses are ceilings with no floor, so something
+  you missed stays in every one of them — including *today* — rather than
+  disappearing the moment its time passes. Each entry links to the record it is
+  about; one whose record you may no longer view keeps its text and loses the
+  title and the link, and one whose record was deleted is gone. Days and weeks are
+  worked out on your own clock, and the week starts on the day your region starts
+  it on rather than always Monday (§5.18).
+- **The dashboard is made of widgets now** ([XIV-81]). The module tiles are one
+  and the follow-ups are another, rather than follow-ups being wired into the
+  page. Nothing to act on today; §8.3.1 is where the next thing to go on that
+  page should look first.
 - **A timezone, on your account and on the company profile** ([XIV-83]). Times on
   screen are shown on the clock you are looking at rather than on UTC. Most
   installations need do nothing: where the region already chosen has exactly one

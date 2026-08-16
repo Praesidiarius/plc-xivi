@@ -14,6 +14,9 @@ store:
     no_presets: '{count, plural, one {Bei diesem Modul gibt es nichts zu entscheiden: es installiert sein eines Feld.} other {Bei diesem Modul gibt es nichts zu entscheiden: es installiert alle # Felder.}}'
     will_create: '{count, plural, one {Legt # Feld an:} other {Legt # Felder an:}}'
 
+follow_up:
+    more_due: '{count, plural, one {Und # weitere.} other {Und # weitere.}}'
+
 module:
     history_all: '{count, plural, one {Ein Eintrag} other {Alle # Einträge}}'
     history_changes: '{count, plural, one {# Änderung} other {# Änderungen}}'
