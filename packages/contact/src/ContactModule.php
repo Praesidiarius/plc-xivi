@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Xivi\Contact;
 
+use Xivi\Core\Mail\MailRecipient;
 use Xivi\Core\Module\CollectionBlueprint;
 use Xivi\Core\Module\FieldBlueprint;
 use Xivi\Core\Module\ModuleBlueprint;
@@ -219,6 +220,11 @@ final class ContactModule implements ModuleProvider
             // Which field decides a record's variant. The variants themselves are
             // that field's options, so there is one place they are written down.
             variantField: 'kind',
+            // Where a mail to one of these goes (XIV-39). The simple half of the
+            // declaration: a contact carries their own address, so there is no
+            // hop — which is precisely why the invoice needs one, since it has
+            // no address of its own and points here for it.
+            mailRecipient: new MailRecipient('email'),
         );
     }
 }

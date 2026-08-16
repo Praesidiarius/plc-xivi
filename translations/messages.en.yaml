@@ -116,6 +116,8 @@ module:
         updated: Updated
         deleted: Deleted
         document_generated: Document generated
+        email_sent: Email sent
+        email_failed: Email not sent
         transitioned: Status changed
     row_action:
         added: added
@@ -390,9 +392,30 @@ refusal:
     mail_server_without_address: 'An SMTP server needs a sender address: it is what your mail would claim to be from.'
     mail_not_an_address: '"%address%" is not an email address.'
 
+# Sending one of those templates from a record (XIV-39). "Recipient" rather than
+# "To", because the field is the one thing on this screen somebody is being asked
+# to check rather than to fill in.
 mail:
     send_failed: The message could not be sent. Nothing went out — try again, or check the outgoing mail settings.
     no_sender: This installation has no address to send from yet. Set a sender address in the company profile.
+    send_email: Send email
+    send: Send
+    preview: Preview
+    preview_and_send: Preview and send
+    template: Template
+    subject: Subject
+    subject_placeholder: Leave empty for the template's own subject
+    subject_help: Only for this one message. Empty uses the subject the template was written with, and either way it takes the same placeholders.
+    recipient: Recipient
+    recipient_help: Change it and only this message goes elsewhere — the record is not altered.
+    recipient_from_field: 'Taken from %field%.'
+    recipient_from_link: 'Taken from the %field% of the %via% this record names.'
+    from: From
+    reply_to: Reply to
+    none_for_record: No email template applies to this record yet.
+    not_sendable: Nothing can be sent from this record.
+    no_template_chosen: Pick one of the templates. Nothing was sent.
+    recipient_invalid: '"%address%" is not an email address. Nothing was sent.'
 
 flash:
     saved: Saved.
@@ -401,6 +424,7 @@ flash:
     template_deleted: 'Removed "%template%". Documents already downloaded are unaffected.'
     email_template_saved: Saved. It is offered on every record it applies to.
     email_template_deleted: 'Removed "%template%". Emails already sent are unaffected.'
+    email_sent: 'Sent to %recipient%. It is on this record''s timeline.'
     profile_saved: Saved. This is how the instance describes itself from now on.
     shape_renamed: 'Renamed to "%shape%".'
     deleted: Deleted.

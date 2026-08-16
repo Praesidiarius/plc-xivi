@@ -36,6 +36,10 @@ use Xivi\Core\History\HistoryRepository;
 use Xivi\Core\History\HistorySection;
 use Xivi\Core\Lifecycle\Lifecycles;
 use Xivi\Core\Lifecycle\TransitionRefused;
+use Xivi\Core\Mail\EmailTemplateRepository;
+use Xivi\Core\Mail\Recipient;
+use Xivi\Core\Mail\RecipientProblem;
+use Xivi\Core\Mail\RecipientResolver;
 use Xivi\Core\Metadata\AvailableVariants;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Metadata\ModuleNotInstalled;
@@ -70,6 +74,9 @@ final class ModuleController extends AbstractController
 
     private const int HISTORY_PER_PAGE = 25;
 
+    /** What the send modal starts with when there is no send to offer (XIV-39). */
+    private const array NO_EMAIL_DRAFT = ['template' => 0, 'subject' => '', 'recipient' => ''];
+
     /**
      * How many linked records one card shows (XIV-52).
      *
@@ -97,6 +104,12 @@ final class ModuleController extends AbstractController
         private readonly PermissionResolver $permissions,
         private readonly TranslatorInterface $translator,
         private readonly DocumentTemplateRepository $templates,
+        // What this record could send and where it would go (XIV-39). Two
+        // collaborators rather than one because they answer two questions that
+        // do not imply each other: which templates apply to this kind of record,
+        // and whether there is anybody to send them to.
+        private readonly EmailTemplateRepository $emailTemplates,
+        private readonly RecipientResolver $recipients,
         private readonly Lifecycles $lifecycles,
         private readonly InheritedValues $inherited,
         private readonly AvailableVariants $variants,
@@ -297,6 +310,11 @@ final class ModuleController extends AbstractController
                 ? $this->templates->forRecord($definition->getKey(), $definition->variantOf($record->data))
                 : [],
             'formats' => DocumentFormat::cases(),
+            // What could be sent from this record, and where it would go
+            // (XIV-39). One value rather than three, because the page's three
+            // states — no button, a reason instead of one, the button — are one
+            // decision made from all of it.
+            'emails' => $this->emailsOn($definition, $record),
             // Null for a module that simply is (XIV-14); the page then draws no
             // status at all rather than an empty one.
             'lifecycle' => $lifecycle,
@@ -347,6 +365,37 @@ final class ModuleController extends AbstractController
             'page' => $page,
             'pages' => $pages,
         ]);
+    }
+
+    /**
+     * What this record can send, and to whom (XIV-39).
+     *
+     * Nothing is asked for at all without the grant, so neither the templates
+     * nor the linked contact are read to fill a control nobody is shown — the
+     * same care the documents line above takes.
+     *
+     * The recipient is resolved here rather than inside the modal because it
+     * decides whether there *is* a modal: a record whose address cannot be
+     * worked out offers no send and says why instead, which is a decision the
+     * page has to have made before it draws the button.
+     *
+     * @return array{templates: list<\Xivi\Core\Entity\EmailTemplate>, recipient: Recipient, draft: array{template: int, subject: string, recipient: string}}
+     */
+    private function emailsOn(ModuleDefinition $definition, Record $record): array
+    {
+        if (!$this->isGranted(ModuleAction::SendEmail->value, $definition->getKey())) {
+            return ['templates' => [], 'recipient' => Recipient::missing(RecipientProblem::NotDeclared), 'draft' => self::NO_EMAIL_DRAFT];
+        }
+
+        $recipient = $this->recipients->for($definition, $record);
+
+        return [
+            'templates' => $recipient->isOffered()
+                ? $this->emailTemplates->forRecord($definition->getKey(), $definition->variantOf($record->data))
+                : [],
+            'recipient' => $recipient,
+            'draft' => ['template' => 0, 'subject' => '', 'recipient' => $recipient->address ?? ''],
+        ];
     }
 
     /**

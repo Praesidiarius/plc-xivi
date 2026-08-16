@@ -23,6 +23,18 @@ document:
         could_not_fill: 'Die Vorlage „%template%“ konnte nicht befüllt werden. Möglicherweise ist sie in einem Format gespeichert, das Word selbst reparieren würde.'
         no_converter: Der PDF-Dienst war nicht erreichbar, deshalb gibt es gerade nur die .docx-Datei.
 
+# Wohin eine E-Mail zu einem Datensatz geht — und warum manchmal nirgendwohin
+# (XIV-39). Die Sätze nennen die Feldbezeichnungen des Kunden, denn „kein
+# Empfänger“ schickt jemanden zum falschen Datensatz, „Diese Rechnung nennt
+# keinen Kontakt“ nicht.
+mail:
+    recipient:
+        no_link: 'Dieser Datensatz nennt keinen %via%, deshalb gibt es keine Adresse zum Senden.'
+        link_gone: 'Der %via%, den dieser Datensatz nennt, existiert nicht mehr, deshalb gibt es keine Adresse zum Senden.'
+        no_address_here: 'Dieser Datensatz hat kein Feld %field%, deshalb gibt es nichts zu senden.'
+        no_address_there: 'Der %via%, den dieser Datensatz nennt, hat kein Feld %field%, deshalb gibt es nichts zu senden.'
+        not_an_address: '„%value%“ ist keine E-Mail-Adresse, deshalb kann nichts dorthin gesendet werden.'
+
 lifecycle:
     refused: 'Das ist aus „%state%“ nicht möglich. Von hier aus: %possible%.'
     refused_final: 'Dieser Datensatz steht auf „%state%“ und geht von dort nicht weiter.'
@@ -48,6 +60,7 @@ permission:
         templates: Vorlagen
         document: Dokumente
         email_templates: E-Mail-Vorlagen
+        send_email: E-Mail senden
         transition: Status ändern
     scope:
         own: Eigene Datensätze

@@ -1,0 +1,77 @@
+{#
+	Pick a template, check the subject, check the address, and send it (XIV-39).
+
+	One form, rendered twice: inside the modal on the record page, and on its own
+	page for whoever follows the link rather than opening the modal. Deliberately
+	the arrangement the document chooser uses — the modal and the page are one
+	description of what a send asks for, rather than two that agree today.
+
+	A select rather than a row of buttons, for the reason the document chooser
+	gives: fifty templates on a contact would be fifty buttons.
+
+	**Two submit buttons, and no JavaScript between them.** The form posts to the
+	send; "Preview and send" is the same form with a `formaction`, which is plain
+	HTML and needs nothing. Sending straight out is what somebody wants on the
+	tenth invoice of the morning, and what makes that safe is not a confirmation
+	step but the two fields below it: the address and the subject are on the
+	screen before the button is pressed.
+#}
+{% set prefix = id|default('email') %}
+
+<form method="post" action="{{ path('module_email_send', {module: module.key, id: record.id}) }}">
+	<input type="hidden" name="_token" value="{{ csrf_token('send-record-email') }}">
+
+	<div class="mb-3">
+		<label class="form-label" for="{{ prefix }}-template">{{ 'mail.template'|trans }}</label>
+		<select class="form-select" id="{{ prefix }}-template" name="template" required>
+			{% for template in templates %}
+				<option value="{{ template.id }}" {{ draft.template == template.id ? 'selected' : '' }}>{{ template.name }}</option>
+			{% endfor %}
+		</select>
+	</div>
+
+	<div class="mb-3">
+		<label class="form-label" for="{{ prefix }}-subject">{{ 'mail.subject'|trans }}</label>
+		{#
+			Left empty on purpose, and the help text says what that means. Nothing
+			can fill this box when the select above changes without scripting, and
+			a box pre-filled from whichever template happened to be first would be
+			a subject silently attached to a different email. Blank and honest
+			beats filled and wrong — and it still takes placeholders, so a subject
+			typed here is not one that stopped understanding [record_id].
+		#}
+		<input class="form-control" type="text" id="{{ prefix }}-subject" name="subject"
+		       value="{{ draft.subject }}" placeholder="{{ 'mail.subject_placeholder'|trans }}">
+		<div class="form-text">{{ 'mail.subject_help'|trans }}</div>
+	</div>
+
+	<div class="mb-3">
+		<label class="form-label" for="{{ prefix }}-recipient">{{ 'mail.recipient'|trans }}</label>
+		{#
+			Editable, because a wrong address is not recoverable and whoever presses
+			the button is the last check there is. Editing it changes nothing on the
+			record: sending one mail somewhere is not a correction to the contact,
+			and the help text says so rather than leaving it to be discovered.
+		#}
+		<input class="form-control" type="email" id="{{ prefix }}-recipient" name="recipient" required
+		       value="{{ draft.recipient }}">
+		<div class="form-text">
+			{{ 'mail.recipient_help'|trans }}
+			{% if recipient.viaLabel %}
+				{{ 'mail.recipient_from_link'|trans({'%via%': recipient.viaLabel, '%field%': recipient.fieldLabel}) }}
+			{% elseif recipient.fieldLabel %}
+				{{ 'mail.recipient_from_field'|trans({'%field%': recipient.fieldLabel}) }}
+			{% endif %}
+		</div>
+	</div>
+
+	<div class="d-flex flex-wrap gap-2">
+		<button class="btn btn-primary" type="submit">
+			<i class="bi bi-send" aria-hidden="true"></i> {{ 'mail.send'|trans }}
+		</button>
+		<button class="btn btn-outline-secondary" type="submit"
+		        formaction="{{ path('module_email_preview', {module: module.key, id: record.id}) }}">
+			<i class="bi bi-eye" aria-hidden="true"></i> {{ 'mail.preview_and_send'|trans }}
+		</button>
+	</div>
+</form>

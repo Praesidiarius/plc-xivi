@@ -128,3 +128,16 @@
 	display: block;
 	clear: both;
 }
+
+/*
+ * The email preview (XIV-39).
+ *
+ * A frame with a fixed height rather than one that grows to its content: an
+ * iframe cannot be measured from outside without scripting, and the message is
+ * meant to be scrolled the way it would be in a mail client anyway. Tall enough
+ * that an ordinary confirmation is read without touching the scrollbar.
+ */
+.mail-preview {
+	height: 32rem;
+	background: #fff;
+}

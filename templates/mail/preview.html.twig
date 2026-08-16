@@ -1,0 +1,106 @@
+{% extends 'base.html.twig' %}
+
+{% set title = record_title(module, record.data, record.id) %}
+
+{% block title %}{{ 'mail.preview'|trans }} — {{ title }}{% endblock %}
+
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<div class="d-flex align-items-start justify-content-between gap-3 mb-3">
+			<div>
+				<h1 class="h3 mb-1">{{ 'mail.preview'|trans }}</h1>
+				<p class="text-body-secondary mb-0">
+					{{ template.name }} —
+					<a href="{{ path('module_show', {module: module.key, id: record.id}) }}">{{ title }}</a>
+				</p>
+			</div>
+			<a class="btn btn-link" href="{{ path('module_email_choose', {module: module.key, id: record.id}) }}">
+				{{ 'common.back'|trans }}
+			</a>
+		</div>
+
+		<div class="card mb-3">
+			<div class="card-body">
+				{#
+					The envelope, and the sender is not decoration on it. A preview
+					that shows the words and not who they will appear to be from is
+					not a preview of the message being sent (§8.7) — and the answer
+					differs per customer: their own address once they have named an
+					SMTP server, this instance's with their name on it until then.
+				#}
+				<dl class="row small mb-0">
+					<dt class="col-sm-3 col-lg-2 fw-normal text-body-secondary">{{ 'mail.from'|trans }}</dt>
+					<dd class="col-sm-9 col-lg-10">{{ sender.from.name }} &lt;{{ sender.from.address }}&gt;</dd>
+
+					{% if sender.replyTo %}
+						{#
+							Only when it is somewhere else, which is exactly when it is
+							worth reading: this instance may not claim the customer's
+							address, so their address answers the mail instead of sending
+							it (§8.7).
+						#}
+						<dt class="col-sm-3 col-lg-2 fw-normal text-body-secondary">{{ 'mail.reply_to'|trans }}</dt>
+						<dd class="col-sm-9 col-lg-10">{{ sender.replyTo.address }}</dd>
+					{% endif %}
+
+					<dt class="col-sm-3 col-lg-2 fw-normal text-body-secondary">{{ 'mail.recipient'|trans }}</dt>
+					<dd class="col-sm-9 col-lg-10">{{ draft.recipient }}</dd>
+
+					<dt class="col-sm-3 col-lg-2 fw-normal text-body-secondary">{{ 'mail.subject'|trans }}</dt>
+					<dd class="col-sm-9 col-lg-10 mb-0">{{ rendered.subject }}</dd>
+				</dl>
+			</div>
+		</div>
+
+		<div class="card mb-3">
+			<div class="card-body">
+				{#
+					The message itself, in a sandboxed frame rather than inlined into
+					this page. Two reasons and both are real: the email carries its own
+					base template with its own styles, and dropping that into an admin
+					page would show it under Bootstrap's rules rather than a mail
+					client's — a preview that lies about the thing it previews. And a
+					sandbox with no permissions is what keeps a customer's own content
+					out of the page around it, which matters even after the sanitizer
+					has been through it (§5.13): defence in depth is the whole reason
+					that pipeline has two layers rather than one.
+
+					`srcdoc` rather than a route serving the HTML, so nothing renders a
+					customer's email at a URL of its own.
+				#}
+				<iframe class="mail-preview w-100 border-0" sandbox
+				        title="{{ 'mail.preview'|trans }}"
+				        srcdoc="{{ rendered.html }}"></iframe>
+			</div>
+		</div>
+
+		<div class="card">
+			<div class="card-body">
+				{#
+					The same three values, carried through as hidden inputs and posted
+					to the same route the modal posts to. What was previewed is what is
+					sent — the message is rendered again from the template and the
+					record rather than from this page, so nothing here can be edited
+					into the mail that goes out.
+				#}
+				<form method="post" action="{{ path('module_email_send', {module: module.key, id: record.id}) }}">
+					<input type="hidden" name="_token" value="{{ csrf_token('send-record-email') }}">
+					<input type="hidden" name="template" value="{{ draft.template }}">
+					<input type="hidden" name="subject" value="{{ draft.subject }}">
+					<input type="hidden" name="recipient" value="{{ draft.recipient }}">
+
+					<button class="btn btn-primary" type="submit">
+						<i class="bi bi-send" aria-hidden="true"></i> {{ 'mail.send'|trans }}
+					</button>
+					<a class="btn btn-link" href="{{ path('module_email_choose', {module: module.key, id: record.id}) }}">
+						{{ 'common.cancel'|trans }}
+					</a>
+				</form>
+			</div>
+		</div>
+	</main>
+{% endblock %}

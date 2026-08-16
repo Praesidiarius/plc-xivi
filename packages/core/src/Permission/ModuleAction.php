@@ -75,6 +75,23 @@ enum ModuleAction: string
     case EmailTemplates = 'email_templates';
 
     /**
+     * Sending one of those emails, about one record, to somebody outside
+     * (XIV-39).
+     *
+     * The third of the three and the sharpest. Templates is a design job,
+     * EmailTemplates is a wording job, and this one leaves the building: a
+     * document that should not have been generated stays on somebody's laptop,
+     * and a mail that should not have been sent is in a customer's inbox and
+     * cannot be recalled. Whoever may read an invoice is emphatically not
+     * whoever may send it to the person it is addressed to.
+     *
+     * The value is ten characters because `permission_grant.action` is
+     * `varchar(16)`; the catalogue needs no migration (§8.4), but the column
+     * still has to hold the string.
+     */
+    case SendEmail = 'send_email';
+
+    /**
      * Moving a record through its lifecycle: confirming an order, sending an
      * invoice (XIV-14).
      *
@@ -99,7 +116,10 @@ enum ModuleAction: string
     public function isScopable(): bool
     {
         return match ($this) {
-            self::View, self::List, self::Edit, self::Delete, self::Export, self::Document, self::Transition => true,
+            self::View, self::List, self::Edit, self::Delete, self::Export, self::Document, self::Transition,
+            // Sending names one record and one address that comes off it, so
+            // "only my own customers" is a question with an answer here.
+            self::SendEmail => true,
             // Templates and EmailTemplates name no record: they are the
             // module's stationery and its wording, not anybody's row.
             self::Add, self::Import, self::Templates, self::EmailTemplates => false,
@@ -116,7 +136,13 @@ enum ModuleAction: string
     public function isMutating(): bool
     {
         return match ($this) {
-            self::Add, self::Edit, self::Delete, self::Import, self::Templates, self::EmailTemplates, self::Transition => true,
+            self::Add, self::Edit, self::Delete, self::Import, self::Templates, self::EmailTemplates, self::Transition,
+            // Nothing in the database changes, and it is still not a read:
+            // generating a document brings something back, and sending a mail
+            // puts something out that cannot be recalled. Grouping it with view
+            // and export would present the sharpest grant on the screen as one
+            // of the harmless ones, which is what this method is for.
+            self::SendEmail => true,
             // Generating a document changes nothing about the record; it is a
             // read that happens to come back as a file, like the export.
             self::View, self::List, self::Export, self::Document => false,

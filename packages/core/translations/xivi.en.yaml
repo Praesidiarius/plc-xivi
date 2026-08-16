@@ -30,6 +30,18 @@ document:
         could_not_fill: 'Template "%template%" could not be filled in. It may have been saved in a format Word itself would repair.'
         no_converter: The PDF converter could not be reached, so only the .docx is available right now.
 
+# Where a mail about a record goes, and why sometimes nowhere (XIV-39). The
+# sentences name the customer's own field labels, because "no recipient" sends
+# somebody looking at the wrong record and "This invoice names no Contact" does
+# not.
+mail:
+    recipient:
+        no_link: 'This record names no %via%, so there is no address to send to.'
+        link_gone: 'The %via% this record names is no longer there, so there is no address to send to.'
+        no_address_here: 'This record has no %field%, so there is nothing to send to.'
+        no_address_there: 'The %via% this record names has no %field%, so there is nothing to send to.'
+        not_an_address: '"%value%" is not an email address, so nothing can be sent to it.'
+
 lifecycle:
     refused: 'That is not possible from "%state%". From here: %possible%.'
     refused_final: 'This record is at "%state%" and does not move on from there.'
@@ -55,6 +67,7 @@ permission:
         templates: Templates
         document: Documents
         email_templates: Email templates
+        send_email: Send email
         transition: Change status
     scope:
         own: Own records

@@ -252,20 +252,8 @@ when@test:
         Xivi\Core\Validation\RecordValidator:
             public: true
 
-        # Same reason, one ticket along (XIV-38): writing email templates and
-        # sending from them were deliberately split, and the sending half is
-        # XIV-39 — so the thing that turns a template into a message has no
-        # caller in the application yet. What it produces is still this ticket's
-        # to prove, and a test that could not reach it would be a test of the
-        # form and nothing else.
-        Xivi\Core\Mail\EmailRenderer:
-            arguments:
-                $sanitizer: '@html_sanitizer.sanitizer.email'
-            public: true
-
-        # The same case, and for one more ticket: XIV-37 built the way a tenant
-        # sends mail and XIV-39 is what will press the button. Reachable here so
-        # that "dev and test cannot send real mail" is proved now rather than
-        # whenever the first caller happens to arrive.
-        App\Tenant\Mail\TenantMailer:
-            public: true
+        # XIV-37 and XIV-38 each had to be reachable from a test before anything
+        # in the application called them. XIV-39 is that caller — the send screen
+        # renders through EmailRenderer and sends through TenantMailer — so both
+        # are ordinary private services again and the tests reach them through
+        # the controller, which is the thing worth proving anyway.

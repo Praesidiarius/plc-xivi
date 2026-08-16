@@ -47,6 +47,20 @@ final readonly class RecordChanges
          * @var array{template: string, format: string}|array{}
          */
         public array $document = [],
+        /**
+         * What was sent, for an entry that put something outside the building
+         * (XIV-39): which template it was written from, where it went and what
+         * it said in the subject line.
+         *
+         * Whether it *arrived* is not in here — that is the entry's verb, which
+         * is what a timeline is scanned by. The recipient is stored rather than
+         * resolved again on the way out, for the same reason field labels are
+         * (§5.2): editing the contact afterwards must not rewrite who a mail was
+         * sent to a year ago.
+         *
+         * @var array{template: string, recipient: string, subject: string}|array{}
+         */
+        public array $email = [],
     ) {
     }
 
@@ -56,9 +70,22 @@ final readonly class RecordChanges
         return new self(document: ['template' => $template, 'format' => $format]);
     }
 
+    /**
+     * An email sent from a template, which alters no value either (XIV-39).
+     *
+     * The one place the shape of that entry is decided, which is where XIV-40's
+     * attachment joins it: an attached document is part of *this* act rather
+     * than a second one, so it becomes another key here rather than a second
+     * event with its own verb beside this one.
+     */
+    public static function forEmail(string $template, string $recipient, string $subject): self
+    {
+        return new self(email: ['template' => $template, 'recipient' => $recipient, 'subject' => $subject]);
+    }
+
     public function isEmpty(): bool
     {
-        return $this->fields === [] && $this->collections === [] && $this->document === [];
+        return $this->fields === [] && $this->collections === [] && $this->document === [] && $this->email === [];
     }
 
     /**
@@ -82,6 +109,10 @@ final readonly class RecordChanges
 
         if ($this->document !== []) {
             $out['document'] = $this->document;
+        }
+
+        if ($this->email !== []) {
+            $out['email'] = $this->email;
         }
 
         return $out;

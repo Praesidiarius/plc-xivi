@@ -16,6 +16,7 @@ namespace Xivi\Invoice;
 use Xivi\Core\Field\Type\ReferenceFieldType;
 use Xivi\Core\Lifecycle\Lifecycle;
 use Xivi\Core\Lifecycle\LifecycleTransition;
+use Xivi\Core\Mail\MailRecipient;
 use Xivi\Core\Module\CollectionBlueprint;
 use Xivi\Core\Module\FieldBlueprint;
 use Xivi\Core\Module\ModuleBlueprint;
@@ -378,6 +379,14 @@ final class InvoiceModule implements ModuleProvider
                     outstanding: self::QUANTITY,
                 ),
             ),
+            // The half of XIV-39 this module exists to prove: an invoice has no
+            // email address and never will, because the address belongs to the
+            // customer being invoiced. So the declaration takes one hop through
+            // the contact this invoice already names — the same reference the
+            // seed copies down from the order, which is what keeps the hop to
+            // one. Reading `order.contact.email` instead would be two, and a
+            // path nobody can reason about while looking at a bill.
+            mailRecipient: new MailRecipient(field: 'email', through: self::CONTACT),
         );
     }
 }

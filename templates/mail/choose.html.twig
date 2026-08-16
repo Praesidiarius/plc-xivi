@@ -1,0 +1,45 @@
+{% extends 'base.html.twig' %}
+
+{% set title = record_title(module, record.data, record.id) %}
+
+{% block title %}{{ 'mail.send_email'|trans }} — {{ title }}{% endblock %}
+
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<div class="d-flex align-items-start justify-content-between gap-3 mb-3">
+			<div>
+				<h1 class="h3 mb-1">{{ 'mail.send_email'|trans }}</h1>
+				<p class="text-body-secondary mb-0">
+					<a href="{{ path('module_show', {module: module.key, id: record.id}) }}">{{ title }}</a>
+				</p>
+			</div>
+			<a class="btn btn-link" href="{{ path('module_show', {module: module.key, id: record.id}) }}">
+				{{ 'common.back'|trans }}
+			</a>
+		</div>
+
+		<div class="card">
+			<div class="card-body">
+				{#
+					Three reasons there is no form, said rather than left as an empty
+					box. The record page draws no button in any of them, so arriving
+					here means somebody followed a link or typed the URL — and the
+					honest answer to that is which of the three it is.
+				#}
+				{% if not recipient.offered %}
+					<p class="text-body-secondary mb-0">{{ 'mail.not_sendable'|trans }}</p>
+				{% elseif not recipient.resolved %}
+					<p class="text-body-secondary mb-0">{{ recipient.reason|trans }}</p>
+				{% elseif templates is empty %}
+					<p class="text-body-secondary mb-0">{{ 'mail.none_for_record'|trans }}</p>
+				{% else %}
+					{{ include('mail/_choose.html.twig', {id: 'page'}) }}
+				{% endif %}
+			</div>
+		</div>
+	</main>
+{% endblock %}

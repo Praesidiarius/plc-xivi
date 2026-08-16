@@ -76,6 +76,13 @@ lands in `Unreleased` here.
   and edited in place, with the same placeholders documents already offer. The
   frame around the message ships with Xivi so nobody can break it, and writing
   templates is its own permission, separate from keeping the .docx ones. See §5.13.
+- **An email can be sent from a record** ([XIV-39]). A **Send email** button
+  beside Documents opens a chooser: pick a template, check the subject, check the
+  recipient, then send or preview first. The address comes from a module's own
+  declaration — a contact's own, or the contact an order names — and it is
+  editable for that one message without altering the record. Every send is on the
+  record's timeline, successes and failures alike, and sending is a permission of
+  its own. See §5.14.
 - **Totals update while you type** ([XIV-32], [XIV-44]). A line's total and the
   order's net, VAT and gross follow the quantity and the price as they are
   entered, before anything is saved, and read in the reader's own number format.
@@ -190,3 +197,4 @@ lands in `Unreleased` here.
 [XIV-44]: https://xivi.youtrack.cloud/issue/XIV-44
 [XIV-37]: https://xivi.youtrack.cloud/issue/XIV-37
 [XIV-38]: https://xivi.youtrack.cloud/issue/XIV-38
+[XIV-39]: https://xivi.youtrack.cloud/issue/XIV-39

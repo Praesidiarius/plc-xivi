@@ -1222,6 +1222,123 @@ subject, an HTML document and a text alternative, not a `Symfony\…\Mime\Email`
 building the message would mean core deciding who it is from and who it goes to,
 and it knows neither. Those are the application's facts and XIV-37's subject.
 
+### 5.14 Sending one from a record (XIV-39)
+
+The ticket where §5.13's contents and §8.7's transport meet, and the shape is
+§5.7's on purpose: **one button on the record and a chooser behind it**, never a
+button per template. A contact with fifty templates would otherwise carry a
+column of fifty buttons, which is the layout the document chooser already
+replaced once. The modal and the page are one form, for the same reason they are
+there — one description of what a send asks for rather than two that agree today.
+
+**Two ways out of the chooser, and the fast one is the one that needed care.**
+"Send" without a preview is what somebody wants on the tenth invoice of the
+morning, and it is right to offer it. It is also irreversible with no undo, so
+what makes it safe is not a confirmation dialog nobody reads: it is that the
+**resolved recipient and the subject are on the screen before the button is
+pressed**. "Preview and send" is the same form posting somewhere else, and what
+it renders is the base template with this record's markers filled in — the only
+honest way to find out that `[contacŧ]` was typed with the wrong letter before a
+customer reads it. The preview shows who the message will appear to be from as
+well as what it says, because a customer with their own SMTP server and one
+without get different answers (§8.7) and a preview that omits it is a preview of
+something else.
+
+#### Where the recipient comes from, which is the weight of this
+
+The engine does not know which field holds an email address and cannot: a module
+is a declaration, and "the customer's address" is a fact about *that* module's
+shape. So a module **declares** it, the way `Seed` declares where a record is
+made from and `LineTotals` declares which fields are money. Guessing instead —
+the first field of type `email`, or one literally called `email` — is a rule that
+works on the contact module and silently picks the wrong address for the first
+customer who adds an `invoice_email` beside the one they use.
+
+Two cases, because both are ordinary:
+
+    new MailRecipient('email')                      // a contact's own address
+    new MailRecipient('email', through: 'contact')  // an invoice has none; its contact does
+
+**One hop through a `reference` (§7.6), and a second is deliberately
+impossible.** It is the same rule the query layer already holds for filtering
+through a link, arrived at from another direction: `invoice.order.contact.email`
+is two joins whose cost cannot be estimated from the declaration, and it makes
+"where did this address come from" a three-part answer on a screen where somebody
+is about to send a customer a bill. The case that would have wanted two hops does
+not arise, because an invoice already *copies* its contact from the order it was
+seeded from (§5.12) — the same copying that keeps an invoice correct after the
+order is edited is what keeps this to one hop.
+
+**The hop is read unscoped, and that is XIV-42's split arriving again.** There,
+the *name* of a linked record is read unscoped because an order whose customer
+reads `#14` is an order nobody can use, while the *link* is offered only where
+the reader could open the target. An address is the first half: whoever may send
+an invoice may reach the address that invoice is for, or "may send invoices"
+would quietly be two grants with the second one unnameable. What protects the
+address is that the send grant is on the module holding the link.
+
+**The declaration is read from the blueprint; whether it still applies is read
+from the customer's definitions.** A tenant who deleted their email field has a
+shape that does not send mail, and that is answered once for the module rather
+than as a problem repeated on every one of its records.
+
+#### The address is shown, editable, and never written back
+
+A wrong address is not recoverable and the person pressing the button is the last
+check there is, so it is a field rather than a label. Editing it is emphatically
+not an edit of the record: **sending a mail somewhere once is not a correction to
+the contact**, and a screen whose "send" quietly rewrote a customer's email
+address would be the worst kind of surprise.
+
+It is a *correction* rather than a *substitute*, which is why **a record whose
+address cannot be resolved offers no send** — and is refused if the send is
+posted by hand anyway. Allowing a free-typed address on a record that names
+nobody would make the declaration optional and turn the send screen into a way to
+mail anybody at all from inside somebody else's ERP.
+
+**And it says why, in the customer's own words.** "No recipient" sends somebody
+looking at the wrong record; "The Customer this record names has no Email" says
+which record is missing what, and both nouns are the tenant's own field labels
+(§6.1) rather than anything the engine could have written down. Five cases — no
+link, a stale link, an empty field, a value that is not an address, and a module
+that never declared one — and the last of those draws **nothing at all**: an
+articles list has nobody to write to, and a page apologising for the absence of a
+feature it does not have is noise on every record of it.
+
+#### The timeline, and why a failure is a verb rather than a flag
+
+§5.2 admitted one entry that changes nothing — a document generated — and warned
+that the next candidate should have to argue the same three properties. A send
+argues them harder: it is rare, deliberate and attributable, and unlike a
+document it **left the building and cannot be recalled**. Recorded: who, when,
+which template, to what address, and what the subject said, with the recipient
+stored rather than resolved again later, so editing the contact next year does
+not rewrite who a mail was sent to.
+
+**A failure is `email_failed`, a verb of its own, not an `email_sent` row with a
+flag inside it.** A timeline is read by scanning its left-hand column, so a
+failure that only announced itself in the detail is a failure somebody reads
+past — and "nothing in the timeline" and "it went out" would still look the same,
+which is exactly what §8.7 said must not happen. It is written by the object that
+performs the send rather than by the controller, because that is the only place
+that cannot forget one of the two outcomes: put the history write in the caller
+and the happy path gets an entry while the `catch` block gets a flash message.
+The person who pressed the button is told either way — that is what `MailSendFailed`
+being thrown rather than swallowed is for.
+
+**Sending is its own permission**, `send_email`, beside `templates`, `document`
+and `email_templates`. The third of that row and the sharpest: a document that
+should not have been generated stays on somebody's laptop, and a mail that should
+not have been sent is in a customer's inbox. It is also the one of the four that
+names a record, so it can be scoped to "only my own" where the template
+permissions cannot.
+
+*Attaching the document to the send is XIV-40 and deliberately not this. The seam
+is the single place a `Mime\Email` is built and the single named constructor for
+the timeline entry, so that ticket's "one act, not two" becomes another key on the
+same entry rather than a second event beside it. Nothing is stubbed for it here:
+an unused parameter is a design guess.*
+
 ---
 
 ## 6. Extensibility
@@ -1957,7 +2074,8 @@ and is XIV-37's. Reading this service as a safety net is the mistake it invites.
 `symfony/mailer` became a runtime dependency here rather than in the ticket that
 first sends something, and not by choice: `framework.mailer` is refused outright
 when the component is absent, so there is no way to name a transport with
-configuration alone. Nothing sends mail yet.
+configuration alone. The ticket that first sends something is XIV-39 (§5.14),
+which arrived two tickets later.
 
 The test suite deliberately does not read from the catcher, and the reason is the
 one this section keeps arriving at: eight paratest workers against one inbox is
