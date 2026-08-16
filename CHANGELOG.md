@@ -181,6 +181,14 @@ lands in `Unreleased` here.
   also be published by hand for a tag that predates the changelog file, which is
   how 17.0.0 and 17.0.1 got theirs.
 
+- **A field can say what its demo data should look like** ([XIV-24]). Generated
+  records used to be valid and implausible — an article priced at 63.90% VAT,
+  titled "Kuhn GmbH" — because the generator knows a field's bounds and not what
+  it means. A field now declares a `samples` list it is filled from; an article's
+  tax rate draws real rates, some with no VAT at all, and its title is something
+  somebody would sell. A field that declares nothing generates exactly as before,
+  and the seed still decides which record gets what. See §5.17.
+
 ### Fixed
 
 - **The pager no longer draws every page** ([XIV-69]). A list of a thousand
@@ -233,3 +241,4 @@ lands in `Unreleased` here.
 [XIV-40]: https://xivi.youtrack.cloud/issue/XIV-40
 [XIV-1]: https://xivi.youtrack.cloud/issue/XIV-1
 [XIV-67]: https://xivi.youtrack.cloud/issue/XIV-67
+[XIV-24]: https://xivi.youtrack.cloud/issue/XIV-24

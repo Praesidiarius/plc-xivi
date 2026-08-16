@@ -104,6 +104,13 @@ interface FieldType
      * makes generated data look like real data rather than a filled-in grid. A
      * required field should not do it.
      *
+     * A type is asked only where the field itself has no opinion: one that
+     * declares `samples` is drawn from that list instead, which is how a field
+     * whose range says nothing about its distribution — a tax rate allowing
+     * anything from 0 to 100 — gets values somebody would recognise (XIV-24, and
+     * Xivi\Core\Demo\FieldSampler for why that is a declaration and not a rule in
+     * the generator). Nothing a type does here has to account for it.
+     *
      * @param int $sequence which record is being generated, counting from one.
      *                      A type whose field is unique has to use it: fifty
      *                      thousand records drawn from a list of thirty names
