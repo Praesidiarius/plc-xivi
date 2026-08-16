@@ -24,6 +24,18 @@
 	padding: 1.5rem;
 }
 
+/*
+ * The sign-in card centres everything — except what somebody types into.
+ *
+ * Centred text in an input moves as it is typed: the caret sits in the middle
+ * and both ends drift outwards with every character, which is a small
+ * unpleasantness on the one field on this page anybody has to be careful with.
+ * Its label is centred; its contents are not.
+ */
+.signin-shell .form-control {
+	text-align: start;
+}
+
 /* Dashboard module tiles. */
 .module-tile {
 	text-decoration: none;
