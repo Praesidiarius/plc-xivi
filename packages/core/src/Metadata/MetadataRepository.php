@@ -20,10 +20,11 @@ use Xivi\Core\Entity\ModuleDefinition;
  * Reads the module and field definitions installed for whichever database the
  * entity manager points at.
  *
- * Deliberately uncached. A per-tenant metadata cache is the obvious next
- * optimisation and also the obvious next way to serve one customer's field
- * definitions to another (§7.4), so it wants a tenant-scoped pool and a test,
- * not a quiet array on this class.
+ * Cached for as long as the tenant does not move ({@see MetadataCache}, XIV-53).
+ * That was the obvious next optimisation and also the obvious next way to serve
+ * one customer's field definitions to another (§7.4), so the cache is a thing of
+ * its own with a stated lifetime and a test that switches tenants — not a quiet
+ * array on this class.
  *
  * Fields are fetch-joined rather than left lazy, and that is a correctness
  * decision, not a performance one. A definition read inside one tenant's context
@@ -45,11 +46,18 @@ use Xivi\Core\Entity\ModuleDefinition;
  */
 final readonly class MetadataRepository
 {
-    public function __construct(private EntityManagerInterface $entityManager)
-    {
+    public function __construct(
+        private EntityManagerInterface $entityManager,
+        private MetadataCache $cache,
+    ) {
     }
 
     public function find(string $moduleKey): ?ModuleDefinition
+    {
+        return $this->cache->definition($moduleKey, fn (): ?ModuleDefinition => $this->read($moduleKey));
+    }
+
+    private function read(string $moduleKey): ?ModuleDefinition
     {
         return $this->entityManager
             ->createQuery(sprintf(
@@ -78,6 +86,12 @@ final readonly class MetadataRepository
 
     /** @return list<ModuleDefinition> */
     public function all(): array
+    {
+        return $this->cache->everything($this->readAll(...));
+    }
+
+    /** @return list<ModuleDefinition> */
+    private function readAll(): array
     {
         return $this->entityManager
             ->createQuery(sprintf(

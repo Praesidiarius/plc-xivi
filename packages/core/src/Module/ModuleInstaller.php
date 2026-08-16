@@ -23,6 +23,7 @@ use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Metadata\MetadataCache;
 use Xivi\Core\Metadata\MetadataRepository;
 
 /**
@@ -46,6 +47,7 @@ final readonly class ModuleInstaller
         private MetadataRepository $metadata,
         private FieldTypeRegistry $fieldTypes,
         private TranslatorInterface $translator,
+        private MetadataCache $cache,
     ) {
     }
 
@@ -105,6 +107,9 @@ final readonly class ModuleInstaller
 
         $this->entityManager->persist($module);
         $this->entityManager->flush();
+        // A module's definitions are new or gone (XIV-53); anything holding the
+        // previous answer is now wrong.
+        $this->cache->clear();
 
         return $module;
     }
