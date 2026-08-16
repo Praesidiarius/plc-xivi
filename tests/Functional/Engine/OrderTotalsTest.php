@@ -19,6 +19,8 @@ use App\Tenant\Entity\User;
 use App\Tenant\Repository\UserRepository;
 use App\Tenant\Security\UserCreator;
 use App\Tenant\Security\UserManager;
+use App\Tenant\Settings\FormattingLocale;
+use App\Tenant\Settings\TenantProfileManager;
 use App\Tests\Support\SavesRecords;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -693,6 +695,53 @@ final class OrderTotalsTest extends WebTestCase
             $html,
             'the quantity somebody typed is still an ordinary number',
         );
+    }
+
+    /**
+     * One language, two countries, two ways of writing the same figure (XIV-50).
+     *
+     * This is the whole ticket in one assertion. Both readers use the German
+     * catalogue; they disagree about the decimal separator as well as the
+     * grouping one, and until a region existed there was no way to say so.
+     */
+    public function testTheSameLanguageWritesDifferentlyInDifferentCountries(): void
+    {
+        $swiss = self::liveService(FormattingLocale::class);
+
+        self::assertSame('de_CH', $swiss->of('de', $this->userWithRegion('CH')));
+        self::assertSame('de_DE', $swiss->of('de', $this->userWithRegion('DE')));
+
+        $figures = [];
+
+        foreach (['de_CH' => 'CH', 'de_DE' => 'DE'] as $locale => $region) {
+            $formatter = new \NumberFormatter($locale, \NumberFormatter::DECIMAL);
+            $formatter->setAttribute(\NumberFormatter::FRACTION_DIGITS, 2);
+            $figures[$region] = $formatter->format(1234500);
+        }
+
+        self::assertSame('1’234’500.00', $figures['CH'], 'Swiss German: apostrophes, and a decimal point');
+        self::assertSame('1.234.500,00', $figures['DE'], 'German German: dots, and a decimal comma');
+    }
+
+    /** A person with no region follows the installation, which is the common case. */
+    public function testAPersonWithNoRegionFollowsTheInstallation(): void
+    {
+        $written = self::liveService(TenantSwitcher::class)->runFor($this->tenant, function (): string {
+            $profile = self::service(TenantProfileManager::class);
+            $profile->apply('Totals AG', '', 'CH');
+
+            return self::liveService(FormattingLocale::class)->of('de', $this->userWithRegion(null));
+        });
+
+        self::assertSame('de_CH', $written, 'the company answers for somebody who has not');
+    }
+
+    private function userWithRegion(?string $region): User
+    {
+        $user = new User('someone@example.test', 'Someone');
+        $user->setRegion($region);
+
+        return $user;
     }
 
     /**

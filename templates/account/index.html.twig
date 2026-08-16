@@ -114,6 +114,23 @@
 						<div class="form-text">{{ 'account.language_help'|trans }}</div>
 					</div>
 
+					{# The other half of the same question (XIV-50): the language
+					   decides the words, this decides how a number and a date are
+					   written. Swiss German and German German are one catalogue
+					   and two ways of writing a figure. #}
+					<div class="mb-3">
+						<label class="form-label" for="region">{{ 'account.region'|trans }}</label>
+						<select class="form-select" id="region" name="region">
+							<option value="">{{ 'account.region_default'|trans }}</option>
+							{% for code, name in regions %}
+								<option value="{{ code }}" {{ account.region|default('') == code ? 'selected' : '' }}>
+									{{ name }}
+								</option>
+							{% endfor %}
+						</select>
+						<div class="form-text">{{ 'account.region_help'|trans }}</div>
+					</div>
+
 					<button class="btn btn-primary" type="submit">{{ 'account.save_language'|trans }}</button>
 				</form>
 			</div>
