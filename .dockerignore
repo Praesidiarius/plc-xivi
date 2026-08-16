@@ -28,7 +28,25 @@ tests/
 var/
 vendor/
 .editorconfig
-.env.*.local
-.env.local
-.env.local.php
-.env.test
+
+# **Every env file except `.env` itself** (XIV-56).
+#
+# A list was what went wrong here. `.env.test` was on it, `.env.dev` was not, so
+# `.env.dev` shipped inside the production image — carrying
+# `MAILER_DSN=smtp://mailpit:1025`, naming a service that does not exist there,
+# and `APP_SECRET=dev-only-not-a-real-secret` beside it. Inert, because `.env.dev`
+# is only read at `APP_ENV=dev` and production does not run that way, but it is
+# the sort of thing somebody reads out of an image and believes. The list needed
+# a line added every time a file was, and one day it did not get one.
+#
+# A pattern needs nothing remembered. `.env` stays because Symfony reads it for
+# defaults and `composer dump-env prod` compiles from it; everything else is
+# either a developer's machine or another environment, and neither is this
+# image's business.
+#
+# `.env.local.php` is excluded here and *present in the image anyway*, which is
+# correct and worth saying so nobody removes this line to "fix" it: the build
+# generates its own with `composer dump-env prod` (see the Dockerfile). Excluding
+# it from the context is what stops a stale one from somebody's laptop being
+# copied over the top of the real one.
+.env.*
