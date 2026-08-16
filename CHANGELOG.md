@@ -68,7 +68,55 @@ lands in `Unreleased` here.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **Follow-ups: the storage, the permissions and the per-module switch**
+  ([XIV-80]). A record can carry something somebody decided to do about it — a
+  priority, a due date, an optional assignee and a thread of notes — with done as
+  a stamp that can be taken off again. This is the engine half only: there is **no
+  user interface yet**, and the record page ([XIV-82]) and the dashboard widget
+  ([XIV-81]) are separate. One shared pair of tables for every module rather than
+  one per module as history has, argued in §5.18 of the brief.
+- **Two new permissions per module, `follow_up_create` and
+  `follow_up_complete`** ([XIV-80]). They appear on the group and user permission
+  screens for every installed module, and — like every permission here —
+  **nobody holds them until somebody grants them**. Creating covers writing notes;
+  completing covers reopening, because those are one edit pointing two ways.
+  Reading follow-ups follows the module's existing *view*.
+- **A note can only be edited or deleted by whoever wrote it**, and there is no
+  administrator override ([XIV-80]). The only place in Xivi where `ROLE_ADMIN` is
+  not a bypass, on purpose: editing somebody's note under their name is putting
+  words in their mouth.
+- **A follow-up can only be assigned to somebody who may view its record**
+  ([XIV-80]). Refused on the write path, not only in a form, so it holds for
+  imports and console commands too. Taking that grant away afterwards leaves
+  existing assignments standing — deliberately, so that editing permissions never
+  silently unassigns somebody's outstanding work.
+- **Follow-ups are per module, on by default, and can be switched off**
+  ([XIV-80]). The store's install wizard has a checkbox for it and
+  `tenant:module:install` has `--no-follow-ups`. Unlike the preset, this one is
+  **not permanent**: it can be turned on or off at any time afterwards, and
+  switching it off deletes nothing.
+
+### Changed
+
+- **`permission_grant.action` is now 31 characters wide** ([XIV-80]) — the new
+  verbs are eighteen, and the column held sixteen. Nothing to act on: the tenant
+  migration widens it, and the permission catalogue itself still needs no
+  migration when a verb is added.
+
+### Upgrade notes
+
+- **Run `bin/console tenant:migrate` after merging** ([XIV-80]). It adds
+  `follow_up` and `follow_up_note`, widens the grant column, and turns follow-ups
+  on for every module every tenant already has.
+- **Nobody can create a follow-up until you grant one of the new permissions**
+  ([XIV-80]), administrators excepted. `tenant:permissions:grant-all` includes
+  them, as it does every verb.
+
+[XIV-80]: https://xivi.youtrack.cloud/issue/XIV-80
+[XIV-81]: https://xivi.youtrack.cloud/issue/XIV-81
+[XIV-82]: https://xivi.youtrack.cloud/issue/XIV-82
 
 ## Releases
 

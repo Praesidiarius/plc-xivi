@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace App\Store;
 
 use App\ControlPlane\Module\ModuleCatalog;
+use App\Tenant\FollowUp\ModuleFollowUps;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Metadata\MetadataRepository;
@@ -57,6 +58,7 @@ final readonly class ModuleStore
         private MetadataRepository $metadata,
         private ModuleInstaller $installer,
         private TranslatorInterface $translator,
+        private ModuleFollowUps $followUps,
     ) {
     }
 
@@ -99,12 +101,20 @@ final readonly class ModuleStore
      * key, and so that the refusal is the same object whether it came from the
      * page or from a retyped post.
      *
-     * @param string|null $preset null takes the blueprint's default, which is what
-     *                            `tenant:module:install` does with no `--preset`
+     * @param string|null $preset    null takes the blueprint's default, which is what
+     *                               `tenant:module:install` does with no `--preset`
+     * @param bool        $followUps whether this module's records take follow-ups
+     *                               (XIV-80). On by default, and — unlike the
+     *                               preset one line up — **not** a permanent
+     *                               choice: no table is created per module, so
+     *                               this is a boolean on the definition that can
+     *                               be turned round afterwards. The wizard asks
+     *                               here because it is the natural moment, not
+     *                               because it is the last one.
      *
      * @throws StoreInstallRefused
      */
-    public function install(StoreOffer $offer, ?string $preset, ?string $locale = null): ModuleDefinition
+    public function install(StoreOffer $offer, ?string $preset, ?string $locale = null, bool $followUps = true): ModuleDefinition
     {
         if ($offer->installed) {
             throw StoreInstallRefused::alreadyInstalled($offer->label);
@@ -127,7 +137,19 @@ final readonly class ModuleStore
         // is deliberately no second install path: a module installed from here
         // and a module installed by `tenant:module:install` are the same module,
         // and the only way to keep that true is for both to go through this.
-        return $this->installer->install($offer->blueprint, $preset, $locale);
+        $definition = $this->installer->install($offer->blueprint, $preset, $locale);
+
+        // Afterwards rather than as an argument to the installer, and that is the
+        // §3 boundary rather than an afterthought: core creates the tables and
+        // seeds the definitions, and what a follow-up *is* lives in the
+        // application, next to the users one names. Only the off case writes
+        // anything — the entity's own default is on, so the ordinary install
+        // touches nothing.
+        if (!$followUps) {
+            $this->followUps->set($definition, false);
+        }
+
+        return $definition;
     }
 
     private function offerFor(ModuleBlueprint $blueprint): StoreOffer

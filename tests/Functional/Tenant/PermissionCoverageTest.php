@@ -49,6 +49,27 @@ use Xivi\Core\Permission\PermissionVerb;
 final class PermissionCoverageTest extends KernelTestCase
 {
     /**
+     * Actions that are granted and enforced, but not by a route — with why.
+     *
+     * The escape hatch to {@see testEveryActionIsReachableFromSomeRoute()}, and
+     * the same shape as {@see NoModulePermission}: an excuse with a mandatory
+     * reason, written next to the check rather than argued in a commit message.
+     * It exists because §8.4's three seams are not the only ones. XIV-80 built a
+     * write path before the screens that will call it, and its rules hold for an
+     * import and a console command that never pass a route at all — so "no route
+     * names this verb" is a true statement about follow-ups and not a bug.
+     *
+     * **An entry here is temporary by intent.** Both of these get a route the day
+     * XIV-82 draws the record page, and taking them out of this list is part of
+     * that ticket. What stops the hatch rotting open is the test below, which
+     * insists an excused action is named somewhere in the application.
+     */
+    private const array ENFORCED_WITHOUT_A_ROUTE = [
+        'follow_up_create' => 'App\Tenant\FollowUp\FollowUpManager, until the record page (XIV-82) has routes.',
+        'follow_up_complete' => 'App\Tenant\FollowUp\FollowUpManager, until the record page (XIV-82) has routes.',
+    ];
+
+    /**
      * Every route on the module surface declares a permission, or says in as many
      * words why it does not.
      */
@@ -195,12 +216,47 @@ final class PermissionCoverageTest extends KernelTestCase
         $unreachable = array_values(array_diff(
             [...ModuleAction::values(), ...StoreAction::values()],
             array_keys($used),
+            array_keys(self::ENFORCED_WITHOUT_A_ROUTE),
         ));
 
         self::assertSame([], $unreachable, sprintf(
             'These actions can be granted but nothing uses them: %s.',
             implode(', ', $unreachable),
         ));
+    }
+
+    /**
+     * And an action excused from the check above is enforced by *something*.
+     *
+     * The excuse is the weak point of the previous test, so it is not a bare
+     * list: each entry has to be a case the application actually names somewhere
+     * outside the enum that declares it. That is what keeps "the UI is coming"
+     * from becoming a permanent hole — an action nobody enforces anywhere would
+     * still be a control that lies, whether or not it has a route.
+     */
+    public function testAnActionExcusedFromARouteIsEnforcedSomewhereElse(): void
+    {
+        $sources = $this->applicationSources();
+
+        foreach (self::ENFORCED_WITHOUT_A_ROUTE as $value => $expectation) {
+            $action = ModuleAction::from($value);
+            $needle = sprintf('ModuleAction::%s', $action->name);
+            $found = [];
+
+            foreach ($sources as $path => $code) {
+                if (str_contains($code, $needle)) {
+                    $found[] = $path;
+                }
+            }
+
+            self::assertNotSame([], $found, sprintf(
+                "Nothing in src/ or packages/*/src names %s, so \"%s\" is granted and enforced nowhere.\n"
+                . 'The excuse said: %s',
+                $needle,
+                $value,
+                $expectation,
+            ));
+        }
     }
 
     /** The check is only worth anything if it is looking at something. */
@@ -210,6 +266,36 @@ final class PermissionCoverageTest extends KernelTestCase
     }
 
     // -- helpers ------------------------------------------------------------
+
+    /**
+     * Every PHP file the application and the engine are made of.
+     *
+     * Read off disk rather than out of the container, because what is being
+     * looked for is a *mention* — a class that names an action but is not wired
+     * to anything yet is exactly the case this covers, and the container has
+     * already removed it.
+     *
+     * @return array<string, string> path => contents
+     */
+    private function applicationSources(): array
+    {
+        $root = \dirname(__DIR__, 3);
+        $sources = [];
+
+        foreach ([$root . '/src', ...(glob($root . '/packages/*/src') ?: [])] as $directory) {
+            $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($directory));
+
+            foreach ($files as $file) {
+                \assert($file instanceof \SplFileInfo);
+
+                if ($file->isFile() && $file->getExtension() === 'php') {
+                    $sources[$file->getPathname()] = (string) file_get_contents($file->getPathname());
+                }
+            }
+        }
+
+        return $sources;
+    }
 
     /**
      * Every route under `/m/{module}`, as the controller method serving it.

@@ -16,6 +16,7 @@ namespace App\ControlPlane\Command;
 use App\ControlPlane\Module\ModuleCatalog;
 use App\ControlPlane\Repository\TenantRepository;
 use App\Tenancy\TenantSwitcher;
+use App\Tenant\FollowUp\ModuleFollowUps;
 use Symfony\Component\Console\Attribute\Argument;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Attribute\Option;
@@ -49,6 +50,7 @@ final readonly class InstallModuleCommand
         private ModuleInstaller $installer,
         private MetadataRepository $metadata,
         private ModuleCatalog $catalog,
+        private ModuleFollowUps $followUps,
     ) {
     }
 
@@ -62,6 +64,18 @@ final readonly class InstallModuleCommand
         ?string $preset = null,
         #[Option(description: 'Language to seed the labels in, e.g. "de"; the application default otherwise')]
         ?string $locale = null,
+        /*
+         * Off by default, because follow-ups are on by default (XIV-80). Phrased
+         * as the negative for that reason and no other: `--follow-ups=false` on a
+         * flag that is already true is a sentence nobody types correctly, and the
+         * store's checkbox asks the same question the same way round.
+         *
+         * Unlike `--preset`, this decides nothing permanent. It is a boolean on
+         * the module definition and there is no schema behind it, so a tenant
+         * installed with it can be turned round later.
+         */
+        #[Option(description: 'Install without follow-ups on this module; they can be turned back on later')]
+        bool $noFollowUps = false,
     ): int {
         $found = $this->tenants->findOneBySlug($tenant);
 
@@ -94,14 +108,24 @@ final readonly class InstallModuleCommand
         }
 
         try {
-            [$definition, $wasInstalled] = $this->switcher->runFor($found, function () use ($blueprint, $preset, $locale): array {
+            [$definition, $wasInstalled] = $this->switcher->runFor($found, function () use ($blueprint, $preset, $locale, $noFollowUps): array {
                 // Asked before installing, because install() is idempotent and
                 // hands back what is already there. Without this the summary would
                 // report the preset it *would* have used on a run that did
                 // nothing, which is a confident lie.
                 $already = $this->metadata->find($blueprint->key) !== null;
+                $definition = $this->installer->install($blueprint, $preset, $locale);
 
-                return [$this->installer->install($blueprint, $preset, $locale), !$already];
+                // Only on a run that actually installed something. Re-running the
+                // command against a module the customer already has changes
+                // nothing else about it (§6.1), and quietly switching a feature
+                // off underneath them would be the one exception — from a command
+                // whose whole message in that case is "nothing changed".
+                if ($noFollowUps && !$already) {
+                    $this->followUps->set($definition, false);
+                }
+
+                return [$definition, !$already];
             });
         } catch (ModuleRequirementMissing $e) {
             // Its own catch, because this one is worth acting on rather than
@@ -144,6 +168,12 @@ final readonly class InstallModuleCommand
         if ($wasInstalled) {
             $rows[] = ['Preset' => $preset ?? $blueprint->defaultPreset ?? 'every field'];
         }
+
+        // Read off the definition rather than off the flag that was passed in, so
+        // that a re-run reports what the tenant *has* — which for a module
+        // installed yesterday with --no-follow-ups and turned back on since is
+        // not what either flag says (XIV-80).
+        $rows[] = ['Follow-ups' => $definition->hasFollowUps() ? 'on' : 'off'];
 
         $rows[] = ['Fields' => implode(', ', $definition->getFieldKeys())];
         $rows[] = ['Collections' => implode(', ', $definition->getCollectionKeys()) ?: 'none'];

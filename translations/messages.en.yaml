@@ -446,6 +446,11 @@ store:
         what lets you rename and rearrange them freely. You can always add more fields yourself, but the
         other set is not something you can switch to.
     confirm_install: Install this module
+    follow_ups: Follow-ups on this module's records
+    follow_ups_help: >-
+        A note with a date and somebody's name on it, kept on a record: call them back on Friday,
+        chase this invoice next week. Unlike the fields above, this one is not permanent — you can
+        turn it off or back on at any time.
     refusal:
         already_installed: 'You already have %module%. Nothing was changed.'
         requirements_missing: '%module% needs %missing%. Install those first.'
@@ -465,6 +470,20 @@ refusal:
     already_has_password: '%email% already has a password. Reset it instead of sending an invitation.'
     inactive_invitee: '%email% is deactivated, and an invitation link would not let them in. Reactivate them first.'
     password_already_set: This account already has a password, so changing it needs the current one.
+    follow_up_not_enabled: '%module% does not take follow-ups.'
+    follow_up_no_record: That record does not exist, or has been deleted.
+    follow_up_not_permitted: You are not allowed to do that here.
+    follow_up_assignee_blind: '%assignee% is not allowed to see this record, so it cannot be assigned to them.'
+    follow_up_not_your_note: 'A note can only be changed by whoever wrote it.'
+    follow_up_empty_note: 'A note needs something in it.'
+
+# Follow-ups (XIV-80). The words are the application's rather than a module's:
+# every module shares one pair of tables, so there is nobody else to own them.
+follow_up:
+    priority:
+        info: For information
+        warning: Needs attention
+        important: Important
 
 # The invitation email itself (XIV-1). Here rather than in an XIV-38 email
 # template, because those are per-module, customer-facing and tenant-editable and

@@ -69,6 +69,8 @@ permission:
         email_templates: Email templates
         send_email: Send email
         transition: Change status
+        follow_up_create: Add follow-ups
+        follow_up_complete: Complete follow-ups
     scope:
         own: Own records
         all: All records

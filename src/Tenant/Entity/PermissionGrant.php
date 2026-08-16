@@ -82,8 +82,18 @@ class PermissionGrant
     private function __construct(
         #[ORM\Column(name: 'module_key', length: 63)]
         private string $moduleKey,
-        /** The verb's stored value; read it back through {@see getAction()}. */
-        #[ORM\Column(name: 'action', length: 16)]
+        /**
+         * The verb's stored value; read it back through {@see getAction()}.
+         *
+         * Widened from 16 to 31 by XIV-80, whose `follow_up_complete` is eighteen
+         * characters. The catalogue itself needs no migration — it is the enums
+         * crossed with the customer's modules, worked out at runtime (§8.4) — but
+         * the string still has to fit, and `send_email` had already been kept
+         * short once to make it. 31 is the width `<module>_history.action` uses
+         * for the same kind of word, so the next verb is somebody's naming
+         * decision rather than a schema change.
+         */
+        #[ORM\Column(name: 'action', length: 31)]
         private string $actionValue,
         #[ORM\Column(length: 8, enumType: PermissionScope::class)]
         private PermissionScope $scope,

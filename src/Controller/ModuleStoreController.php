@@ -109,7 +109,12 @@ final class ModuleStoreController extends AbstractController
         // the refusal is a sentence somebody should read, not a silent redirect.
         if ($this->submitted($request)) {
             try {
-                $this->store->install($offer, $this->chosenPreset($request, $offer), $request->getLocale());
+                $this->store->install(
+                    $offer,
+                    $this->chosenPreset($request, $offer),
+                    $request->getLocale(),
+                    $this->wantsFollowUps($request),
+                );
 
                 $this->addFlash('success', $this->translator->trans('flash.module_installed', ['%module%' => $offer->label]));
             } catch (StoreInstallRefused $refused) {
@@ -156,6 +161,29 @@ final class ModuleStoreController extends AbstractController
         }
 
         return $offer->presets === [] ? null : $offer->blueprint->defaultPreset;
+    }
+
+    /**
+     * Whether the wizard is asking for follow-ups on this module (XIV-80).
+     *
+     * **An unticked checkbox and a form that never asked look identical on the
+     * wire** — both send nothing at all — and they have to mean opposite things
+     * here, because the default is on. So the wizard posts a hidden marker beside
+     * the box: with the marker, silence is an unticked box; without it, this is a
+     * request that predates the question and gets the default. Reading the
+     * checkbox alone would quietly install every module without the feature the
+     * first time somebody posted the form by hand.
+     *
+     * Unlike the preset, nothing here is permanent: this is a boolean on the
+     * customer's module definition and the toggle outlives the wizard.
+     */
+    private function wantsFollowUps(Request $request): bool
+    {
+        if (!$request->request->has('follow_ups_asked')) {
+            return true;
+        }
+
+        return $request->request->getBoolean('follow_ups');
     }
 
     private function offer(string $module): StoreOffer

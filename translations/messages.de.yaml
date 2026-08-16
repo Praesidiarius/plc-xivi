@@ -437,6 +437,11 @@ store:
         nichts mehr — genau das erlaubt dir, sie frei umzubenennen und umzusortieren. Weitere Felder kannst
         du jederzeit selbst anlegen, aber zum anderen Satz wechseln kannst du nicht.
     confirm_install: Dieses Modul installieren
+    follow_ups: Wiedervorlagen auf den Datensätzen dieses Moduls
+    follow_ups_help: >-
+        Eine Notiz mit Datum und Namen, die am Datensatz hängt: am Freitag zurückrufen, nächste
+        Woche der Rechnung nachgehen. Anders als bei den Feldern oben ist das nicht endgültig — du
+        kannst es jederzeit aus- und wieder einschalten.
     collections_always: 'Was du auch wählst, es entsteht außerdem: %collections%. Das sind Listen von Zeilen, die zu einem Datensatz gehören, und sie kommen immer mit.'
     refusal:
         already_installed: '%module% hast du bereits. Es wurde nichts geändert.'
@@ -457,6 +462,21 @@ refusal:
     already_has_password: '%email% hat bereits ein Passwort. Setze es zurück, statt eine Einladung zu senden.'
     inactive_invitee: '%email% ist deaktiviert, und ein Einladungslink würde die Person nicht hereinlassen. Reaktiviere sie zuerst.'
     password_already_set: Dieses Konto hat bereits ein Passwort; es zu ändern braucht daher das aktuelle.
+    follow_up_not_enabled: '%module% nimmt keine Wiedervorlagen.'
+    follow_up_no_record: Diesen Datensatz gibt es nicht, oder er wurde gelöscht.
+    follow_up_not_permitted: Das darfst du hier nicht.
+    follow_up_assignee_blind: '%assignee% darf diesen Datensatz nicht sehen, deshalb lässt sich die Wiedervorlage nicht zuweisen.'
+    follow_up_not_your_note: 'Eine Notiz kann nur ändern, wer sie geschrieben hat.'
+    follow_up_empty_note: 'Eine Notiz braucht einen Inhalt.'
+
+# Wiedervorlagen (XIV-80). Die Wörter gehören der Anwendung und keinem Modul:
+# alle Module teilen sich ein Tabellenpaar, es gibt also niemanden sonst, dem sie
+# gehören könnten.
+follow_up:
+    priority:
+        info: Zur Information
+        warning: Braucht Aufmerksamkeit
+        important: Wichtig
 
 # Die Einladungs-E-Mail selbst (XIV-1). Hier statt in einer E-Mail-Vorlage aus
 # XIV-38: die sind pro Modul, an Kundschaft gerichtet und vom Mandanten

@@ -290,6 +290,54 @@ final class ModuleStoreTest extends WebTestCase
         self::assertNull($this->definitionOf('invoice'), 'and nothing was written');
     }
 
+    /**
+     * The wizard asks whether the module takes follow-ups, and the answer lands
+     * on the definition (XIV-80).
+     *
+     * On by default, and — unlike the preset this screen warns about — reversible
+     * afterwards, because no table is created per module for it. Both halves are
+     * asserted, since the default being right is the half nobody would notice
+     * breaking.
+     */
+    public function testTheWizardOffersFollowUpsAndInstallsWithThem(): void
+    {
+        $this->signIn(self::ADMIN);
+
+        $wizard = $this->client->request('GET', $this->url('/store/contact/install'));
+
+        self::assertCount(1, $wizard->filter('input[name="follow_ups"][checked]'), 'ticked to begin with');
+
+        $this->installThroughTheStore('contact', 'basic');
+
+        self::assertTrue($this->definitionOf('contact')?->hasFollowUps());
+    }
+
+    /**
+     * And unticking it installs the module without them.
+     *
+     * Posted by hand rather than through the crawler's form, and that is about
+     * the crawler rather than about the feature: two fields of the same name are
+     * collapsed to one in its registry, so unticking the box there would drop the
+     * marker beside it and send exactly what a form that never asked sends. A
+     * browser posts both. See ModuleStoreController::wantsFollowUps().
+     */
+    public function testTheWizardCanInstallAModuleWithoutFollowUps(): void
+    {
+        $this->signIn(self::ADMIN);
+
+        $this->client->request('POST', $this->url('/store/contact/install'), [
+            '_token' => $this->tokenFrom('contact'),
+            'preset' => 'basic',
+            'follow_ups_asked' => '1',
+        ]);
+        $this->client->followRedirect();
+
+        $definition = $this->definitionOf('contact');
+
+        self::assertNotNull($definition, 'it still installed');
+        self::assertFalse($definition->hasFollowUps());
+    }
+
     // -- already installed ---------------------------------------------------
 
     /** A module the tenant has cannot be installed twice, and is told so. */
