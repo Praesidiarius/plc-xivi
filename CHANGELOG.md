@@ -65,6 +65,25 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **An agent can ask this installation what it actually is** ([XIV-76]). A
+  committed MCP extension, `packages/xivi-mate`, exposes five tools through AI
+  Mate: which tenants exist and whether each one's schema is current, what one
+  tenant's installed modules *really* look like — every field with its type,
+  options, variants and its derived/system flags — the module catalogue and each
+  module's state, and the two destructive commands `tenant:reset` and
+  `tenant:deprovision`. The destructive ones call the commands, so their
+  guardrails apply unchanged, and both name what they destroyed in the result.
+  See §6.4 for why this is not answerable from the repository at all.
+- **`tenant:inspect` answers the same three questions from the console**
+  ([XIV-76]). Nothing the tools expose is tool-only — Mate's server is a process
+  that can drop, and a shell has to stay sufficient. `--json` prints exactly what
+  the tools return. Development and test only, beside the demo commands.
+- **Act on upgrade: a fresh checkout needs one extra step to get the tools**
+  ([XIV-76]). After `composer install`, run `vendor/bin/mate init` and then
+  `vendor/bin/mate discover` — the latter is what writes `xivi/mate` into the
+  gitignored `mate/extensions.php`, and Mate's Composer plugin is deliberately
+  outside `allow-plugins` so nothing of Mate's runs during `bin/ci`. Without
+  `discover` the tool list silently stays at ten. See the README.
 - **A tenant can install a module themselves, from a store** ([XIV-6]). Three
   screens — what this build offers, what each module is, and a wizard that
   chooses a preset and says plainly that the choice cannot be changed later
@@ -278,6 +297,7 @@ lands in `Unreleased` here.
   the directory and the derivation with it, so read the name off `bin/compose`
   *before* removing the worktree and `docker image rm` it.
 
+[XIV-76]: https://xivi.youtrack.cloud/issue/XIV-76
 [XIV-52]: https://xivi.youtrack.cloud/issue/XIV-52
 [XIV-69]: https://xivi.youtrack.cloud/issue/XIV-69
 [XIV-63]: https://xivi.youtrack.cloud/issue/XIV-63

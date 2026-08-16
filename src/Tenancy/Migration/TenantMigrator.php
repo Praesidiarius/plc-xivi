@@ -99,6 +99,65 @@ final readonly class TenantMigrator
         return (string) $this->createDependencyFactory()->getVersionAliasResolver()->resolveVersionAlias('latest');
     }
 
+    /**
+     * Where the current tenant's schema stands, without moving it.
+     *
+     * The question `tenant:migrate` answers by *doing the thing* — "already up to
+     * date" is what it says after deciding there was nothing to apply. That is
+     * fine for a deploy and useless for anybody who wants to know whether a
+     * deploy happened, because asking costs a migration run. This is the same
+     * calculation with the run left off.
+     *
+     * **Read-only, on purpose, and that constrains how it is written.**
+     * `migrateToLatest()` starts with `ensureInitialized()`, which *creates* the
+     * migrations table where there is none — correct there and unacceptable here,
+     * since a status call must not be the thing that writes to a customer's
+     * database. Doctrine's metadata storage answers an uninitialised database
+     * with an empty executed list rather than throwing, so leaving the call out
+     * reports a never-migrated database as exactly that: no current version, and
+     * every version pending.
+     *
+     * @return array{current: string|null, latest: string, pending: list<string>}
+     */
+    public function status(): array
+    {
+        // Same first line as migrateToLatest(), same reason: outside a tenant
+        // context this must be an error rather than a confident report about
+        // whichever database happens to be open.
+        $this->context->getTenant();
+
+        $factory = $this->createDependencyFactory();
+        $latest = $factory->getVersionAliasResolver()->resolveVersionAlias('latest');
+
+        $current = null;
+        foreach ($factory->getMetadataStorage()->getExecutedMigrations()->getItems() as $executed) {
+            $version = (string) $executed->getVersion();
+
+            // Highest rather than last-inserted. Versions are timestamps and are
+            // applied in order, so the two agree on every ordinary history — but
+            // a migration written on one branch and merged after a later one has
+            // already run is not an ordinary history, and it is the case where
+            // "the last row" would name a version that is not the furthest along.
+            if ($current === null || $version > $current) {
+                $current = $version;
+            }
+        }
+
+        // Exactly what `migrateToLatest()` would apply, worked out by the same
+        // calculator and then thrown away rather than run. "How far behind" is a
+        // more useful answer than a yes or a no, and it costs nothing extra here.
+        $pending = [];
+        foreach ($factory->getMigrationPlanCalculator()->getPlanUntilVersion($latest)->getItems() as $item) {
+            $pending[] = (string) $item->getVersion();
+        }
+
+        return [
+            'current' => $current,
+            'latest' => (string) $latest,
+            'pending' => $pending,
+        ];
+    }
+
     private function createDependencyFactory(): DependencyFactory
     {
         // The same file the console reads when generating a tenant migration, so

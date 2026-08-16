@@ -138,7 +138,8 @@
         "symfony/maker-bundle": "^1.67",
         "symfony/panther": "^2.4",
         "symfony/stopwatch": "8.1.*",
-        "symfony/web-profiler-bundle": "8.1.*"
+        "symfony/web-profiler-bundle": "8.1.*",
+        "xivi/mate": "^1.0"
     },
     "repositories": [
         {

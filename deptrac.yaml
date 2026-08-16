@@ -45,6 +45,23 @@ deptrac:
         - type: directory
           value: ^src/.*
 
+    # Development tooling, sitting *above* the application rather than beside the
+    # modules (XIV-76). It is in packages/ because it is a composer package —
+    # that is how Mate discovers an extension — and not because it is a module;
+    # nothing here ships, since it is a dev dependency and `composer install
+    # --no-dev` leaves it out entirely.
+    #
+    # A fourth layer rather than an exception to the three, and the direction is
+    # the interesting part: this may depend on the application, and the ruleset
+    # below never lets the application depend on it. That is the rule worth
+    # enforcing — a tool reaching into the app is fine, the app reaching into a
+    # dev tool would mean the production build referencing something that is not
+    # installed there.
+    - name: MateTools
+      collectors:
+        - type: directory
+          value: ^packages/xivi-mate/src/.*
+
   ruleset:
     # Core stands alone: it is handed an entity manager and a connection, and
     # never asks who the tenant is or which module it is serving.
@@ -74,3 +91,10 @@ deptrac:
       - ModuleArticle
       - ModuleOrder
       - ModuleInvoice
+
+    # It boots the kernel and asks the application's own services, which is the
+    # point: a tool that reimplemented the queries would be a second API to the
+    # engine to keep in step with the engine.
+    MateTools:
+      - App
+      - Core

@@ -329,7 +329,7 @@ from outside the container at all.
 
 Nothing it generates is committed (see `.gitignore`), because the command depends
 on how you run PHP and the agent files depend on which agent you use. Set it up
-yourself:
+yourself, **both commands, every fresh checkout**:
 
 ```bash
 bin/compose exec php vendor/bin/mate init
@@ -344,12 +344,35 @@ Two things to know, both of which cost an afternoon once:
   it an absolute path if that is not this checkout, or it will attach to another one.
 - `mate discover` is a **manual step**. Its Composer plugin is deliberately left out
   of `allow-plugins` so that nothing of Mate's runs during `bin/ci`; the price is
-  that without `discover`, the extensions stay unregistered and the tool list
-  silently stays at one.
+  that without `discover`, the extensions stay unregistered — including this
+  project's own — and the tool list silently stays short.
 
 `mate init` also writes an `AGENTS.md` telling agents to prefer its tools over the
 CLI. Take that as a suggestion — for most of what this project needs, a shell in
 the container is the better instrument.
+
+### This project's own tools (XIV-76)
+
+`packages/xivi-mate` is a committed Mate extension, wired in as a path
+repository like the modules and required as a **dev** dependency, so it is absent
+from a production build entirely. `mate discover` enables it; check with:
+
+```bash
+bin/compose exec php vendor/bin/mate mcp:tools:list
+```
+
+| Tool | What it answers |
+| --- | --- |
+| `xivi-tenants` | Which tenants exist, their status and hostnames, whether each schema is current, what each has installed |
+| `xivi-tenant-shapes` | What one tenant's modules **actually** look like: every field, type, options, variants, collections. Not the blueprint — see §6.1 |
+| `xivi-modules` | The module catalogue and each module's state, which is what decides whether the store offers it |
+| `xivi-tenant-reset` | **Destructive.** Rebuilds a dev tenant end to end; the result names what was destroyed |
+| `xivi-tenant-deprovision` | **Destructive and irreversible.** Needs `force=true`; the command refuses an unattended run without it |
+
+Every one of them has a console twin, so a dropped MCP server costs convenience
+and nothing else: `bin/console tenant:inspect [slug] [module] [--modules] [--json]`,
+`module:list`, `tenant:reset`, `tenant:deprovision`. Nothing here is tool-only,
+and §6.4 of the brief argues why that is a rule rather than a nicety.
 
 ## Commands
 
@@ -361,6 +384,7 @@ the container is the better instrument.
 | `tenant:user:create <slug> <email>` | Adds a user to one tenant; `--admin` grants ROLE_ADMIN |
 | `tenant:module:install <slug> <module>` | Installs a module for one tenant: its table and field definitions; `--preset` picks which fields, `--locale` which language its labels are seeded in |
 | `tenant:list` | Shows the registry |
+| `tenant:inspect [slug] [module]` | **Dev only.** Tenants with their schema state and installed modules; with a slug, that tenant's real field definitions. `--modules` for the catalogue, `--json` for what the MCP tools return |
 | `tenant:migrate [--slug=]` | Applies tenant migrations to every tenant; run it on every deploy |
 | `tenant:permissions:grant-all <slug>` | Grants every action on every installed module to one tenant's non-admin users; the upgrade path for an installation that predates permissions, and the way back into a locked-out one |
 | `tenant:rotate-secrets` | Re-encrypts stored passwords with the active key |

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b25e27d1ed5a1a1be0e668d7fdac202d",
+    "content-hash": "39b8400a8ff6835c64a8772b61cf0f26",
     "packages": [
         {
             "name": "anourvalar/office",
@@ -14010,6 +14010,45 @@
                 "source": "https://github.com/webmozarts/assert/tree/2.4.1"
             },
             "time": "2026-06-15T15:31:57+00:00"
+        },
+        {
+            "name": "xivi/mate",
+            "version": "1.0.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/xivi-mate",
+                "reference": "1253b069b831c00cac4b250f8a38abfda1811671"
+            },
+            "require": {
+                "php": ">=8.4",
+                "symfony/ai-mate": "^0.12",
+                "symfony/console": "8.1.*",
+                "symfony/http-kernel": "8.1.*"
+            },
+            "type": "symfony-ai-mate",
+            "extra": {
+                "ai-mate": {
+                    "scan-dirs": [
+                        "src/Capability"
+                    ],
+                    "includes": [
+                        "config/config.php"
+                    ],
+                    "instructions": "INSTRUCTIONS.md"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Xivi\\Mate\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Xivi's own MCP tools for AI Mate: tenants, module catalogue, real field definitions, and tenant lifecycle",
+            "transport-options": {
+                "relative": true
+            }
         }
     ],
     "aliases": [],

@@ -46,6 +46,13 @@ Development tooling adds BSD-3-Clause (PHPUnit and the `sebastian/*` packages,
 permissive and compatible with MIT. They are not installed in production builds
 (`composer install --no-dev`).
 
+`xivi/mate` (XIV-76) is this repository's own package — `packages/xivi-mate`, MIT
+under this project's `LICENSE` like the modules beside it — and brings no new
+third party with it. Its requirements (`symfony/ai-mate`, `symfony/console`,
+`symfony/http-kernel`) were already installed and are already covered above; it is
+listed here only because it is the one path package that is a *dev* dependency,
+which is what keeps it out of the production image.
+
 ## Front-end assets
 
 **Bootstrap** — MIT, Copyright (c) 2011-2025 The Bootstrap Authors.

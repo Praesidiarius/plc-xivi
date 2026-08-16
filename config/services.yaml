@@ -52,6 +52,15 @@ services:
             # and ships, because removing a customer is a real operation. This
             # one is simply meaningless where the records are real.
             - '../src/Command/ResetTenantCommand.php'
+            # Reading a customer's whole shape out loud (XIV-76). Excluded for a
+            # third reason again: not dangerous and not meaningless, but it hands
+            # out every field definition and every hostname an installation has in
+            # one call, and it exists to serve development tooling — the MCP
+            # extension in packages/xivi-mate, which is itself a dev dependency
+            # and absent from a production build. A capability whose only callers
+            # cannot exist in production has no reason to be compiled into it.
+            - '../src/ControlPlane/Introspection/'
+            - '../src/ControlPlane/Command/InspectTenantCommand.php'
             # Faker is a dev dependency; this class would not even load in a
             # production build.
             - '../src/Demo/FakerSampleValues.php'
@@ -213,6 +222,18 @@ when@dev:
         App\Command\ClearDemoDataCommand: ~
         App\Command\ResetTenantCommand: ~
 
+        # **Public, and that is the load-bearing word** (XIV-76). Mate's MCP
+        # server is its own process with its own container; a tool reaches this
+        # application by booting the kernel and asking its container for this
+        # service by name, which a private service refuses. Public here rather
+        # than everywhere for the usual reason — a public service is one the
+        # container can never inline or remove — and the blast radius is exactly
+        # the environments where the MCP extension can be installed at all.
+        App\ControlPlane\Introspection\TenantInspector:
+            public: true
+
+        App\ControlPlane\Command\InspectTenantCommand: ~
+
         App\Demo\FakerSampleValues: ~
         Xivi\Core\Demo\SampleValues: '@App\Demo\FakerSampleValues'
 
@@ -242,6 +263,14 @@ when@test:
         App\Command\GenerateDemoDataCommand: ~
         App\Command\ClearDemoDataCommand: ~
         App\Command\ResetTenantCommand: ~
+
+        # Registered here too so the suite can cover it. Public is redundant in
+        # this environment — `test.service_container` reaches private services
+        # anyway — and is kept identical to dev so the two cannot drift.
+        App\ControlPlane\Introspection\TenantInspector:
+            public: true
+
+        App\ControlPlane\Command\InspectTenantCommand: ~
 
         App\Demo\FakerSampleValues: ~
         Xivi\Core\Demo\SampleValues: '@App\Demo\FakerSampleValues'
