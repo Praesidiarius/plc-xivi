@@ -836,6 +836,10 @@ trace.
 contact's addresses or an invoice's lines, and a table row carrying a collection
 marker is what grows.*
 
+*Emails are §5.13, and are deliberately not this. They are written in the
+application rather than uploaded, and the reason is worth reading next to the
+paragraphs above rather than assumed from them.*
+
 ### 5.8 Lifecycles (XIV-14)
 
 A module may declare the states its records move through and the moves allowed
@@ -1125,6 +1129,98 @@ order module's totals into core behind a `LineTotals` declaration — two module
 needing identical sums is the engine's problem rather than theirs, and the
 alternative was the same hundred lines twice, drifting apart the first time
 somebody fixed a rounding bug in one of them.
+
+---
+
+### 5.13 Email templates, written here rather than uploaded (XIV-38)
+
+The counterpart to §5.7, and the ticket that says why the two are not the same
+shape. A document template is a .docx because a letter's layout is somebody's
+design work and Word is where that work happens. An email has no layout worth
+designing — it is text — so asking somebody to edit it in Word, upload it, and
+upload it again to fix a typo would be ceremony bought with nothing. An email
+template is therefore **a form in this application**: a name, a subject and a
+body in **Markdown**, kept as text in the customer's own database rather than as
+the blob a .docx needs.
+
+**The base template ships in code and a tenant cannot edit it.** A customer
+writes the content part; the wrapper — the HTML skeleton, the footer, the sender
+block — is ours. That is §6.1's existing rule rather than a new one: presets live
+in code, templates live in data. Somebody who could edit the wrapper could break
+every email they send, and the wrapper is not the thing they wanted to change.
+
+**There is one of it, not a named set**, and this was decided rather than
+assumed. A second base template only earns its place when two emails need
+different frames, and nothing needs that yet: what varies between a reminder and
+an order confirmation is the words, which is exactly the part a tenant already
+writes. A set would also have to be chosen from — a column on `email_template`
+whose only value would be "the default", plus a picker beside the fields somebody
+actually came to fill in. When a real second frame turns up it brings its own
+requirements with it, and adding a column then is a smaller thing than guessing
+at one now.
+
+**The markers are `DocumentMarkers`, not a second implementation.** The same
+class, the same keys, the same values rendered through the same field types
+(§5.7), including the general ones the application answers through
+`DocumentContext`. So a field added this morning is a marker in an email this
+afternoon, and there is no second vocabulary to keep in step with the first. That
+reuse is most of why this feature is small.
+
+**Repeating blocks are deliberately out of scope.** `RepeatingBlocks` (§5.11)
+scans `<w:tr>` elements out of Word's XML: the table row is the unit because it
+is the unit Word gives a person. Markdown has no equivalent, and choosing one —
+a list item? a table row? a fenced block? — is a design question rather than a
+port. A collection marker written into an email comes out blank, which is the
+same "blank beats brackets" call any unfilled marker gets, and the page does not
+offer the tokens. An email that lists an invoice's lines is a real want and gets
+its own ticket once somebody has decided what a repeating block *is* here.
+
+**Markdown, and the two things that follow it.** `league/commonmark`
+(BSD-3-Clause) turns the body into HTML — permissive, which is the bar §5.7 set
+when PHPWord was rejected on LGPL. It brings `league/config` (BSD-3-Clause) and
+through it `nette/schema` and `nette/utils`, which are offered under
+BSD-3-Clause *or* GPL-2.0 *or* GPL-3.0: a disjunction the licensee chooses from,
+so the BSD terms are the ones taken. Worth writing down because a grep for "GPL"
+in the lock file finds them and says nothing about which licence is in force.
+
+**Raw HTML is disabled *and* the output is sanitized**, which is one more than
+the ticket asked for, and the two defend against different things.
+
+- **Disabled** (`html_input: escape`) is the primary decision, and it is not
+  really about the template author — they are a signed-in colleague. It is about
+  the *values*: markers are substituted into the Markdown source **before** it is
+  parsed, so a contact whose company name contains a script tag would otherwise
+  be a route from one customer's record into the markup of an email. Escaping at
+  parse time closes it at the point where "text somebody typed" and "markup" are
+  still distinguishable. Substituting after parsing was the alternative and is
+  the unsafe one — it would mean hand-escaping each value at the moment the code
+  has stopped thinking about escaping. The price is that a value containing `*`
+  or `_` can read as Markdown, which is a formatting oddity in one email against
+  a script tag in every one.
+- **Sanitized** (`symfony/html-sanitizer`, MIT) is the second layer and is not
+  ceremony. CommonMark emits markup of its own from ordinary Markdown, and
+  `[click](javascript:…)` is a link somebody can type with no raw HTML involved
+  at all. The sanitizer is what makes the allowed elements, attributes and URL
+  schemes a *policy* — Symfony's component and Symfony's configuration rather
+  than an allow-list written here — and what keeps the pipeline honest if raw
+  HTML is ever turned back on for a reason nobody has thought of yet.
+
+**The Markdown source is the plain-text part.** A well-formed email carries both,
+and here the thing somebody typed *is* the text alternative, markers filled in.
+Nothing generates it by stripping tags out of the HTML, which is the step that
+quietly produces a text part nobody wants to read — and that is the quiet
+argument for Markdown over a rich-text editor, which would have left us doing
+exactly that. A textarea is the whole editor; the preview belongs to XIV-39.
+
+**Writing templates is its own permission**, `email_templates`, beside
+`templates` and `document` rather than folded into either. Whoever words the
+dunning letter is not whoever designs the stationery, and neither is whoever
+presses send — which is XIV-39's third permission, and the sharpest of the three.
+
+**Core answers with the contents and stops.** `EmailRenderer` hands back a
+subject, an HTML document and a text alternative, not a `Symfony\…\Mime\Email`:
+building the message would mean core deciding who it is from and who it goes to,
+and it knows neither. Those are the application's facts and XIV-37's subject.
 
 ---
 

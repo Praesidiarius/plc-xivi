@@ -1,0 +1,37 @@
+# What an email's HTML is allowed to contain (XIV-38).
+#
+# The second half of the answer to "sanitize or disable raw HTML" — the first is
+# in EmailRenderer, which parses the Markdown with raw HTML escaped. This is the
+# policy that decides what survives of the markup CommonMark itself produces from
+# perfectly ordinary Markdown, which is where the interesting case lives:
+# `[click](javascript:…)` is a link somebody can type without any raw HTML being
+# involved at all.
+#
+# It is Symfony's component and Symfony's configuration rather than an allow-list
+# written by hand, for the reason the workflow component was chosen over a state
+# machine of our own (§5.8): the framework has this, and a second one would be a
+# second one to keep correct.
+#
+# `allow_safe_elements` is the W3C-derived list the component ships — headings,
+# paragraphs, emphasis, lists, tables, code, links — which is a superset of what
+# CommonMark can emit, so nothing a template author writes is silently dropped.
+framework:
+    html_sanitizer:
+        sanitizers:
+            email:
+                allow_safe_elements: true
+
+                # Three schemes for links and two for images, and no others.
+                # `data:` is missing on purpose: a data URI is how an image is
+                # smuggled past a mail client's remote-content warning, and
+                # nothing here needs one — an inline image belongs in the message
+                # as an attachment, whenever somebody asks for one, rather than
+                # in the markup.
+                allowed_link_schemes: ['http', 'https', 'mailto']
+                allowed_media_schemes: ['http', 'https']
+
+                # An email has no base URL. A relative link in one resolves
+                # against whatever the mail client guesses, which is nothing
+                # useful, so it is dropped rather than sent somewhere arbitrary.
+                allow_relative_links: false
+                allow_relative_medias: false

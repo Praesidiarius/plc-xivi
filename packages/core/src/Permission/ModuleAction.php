@@ -60,6 +60,21 @@ enum ModuleAction: string
     case Document = 'document';
 
     /**
+     * Writing the module's email templates: the name, the subject and the
+     * Markdown body a mail of that kind is made of (XIV-38).
+     *
+     * Its own case rather than a reuse of Templates, and the split is the same
+     * one Templates and Document already make one level up: whoever words the
+     * dunning letter is not whoever sends one. Reusing Templates would have said
+     * that keeping the stationery and writing what an email says are one
+     * authority, which they are not — the .docx is a design job and this is a
+     * wording job, and a customer with a designer and a lawyer has two people.
+     *
+     * Sending, which is XIV-39's, is a third and sharper thing again.
+     */
+    case EmailTemplates = 'email_templates';
+
+    /**
      * Moving a record through its lifecycle: confirming an order, sending an
      * invoice (XIV-14).
      *
@@ -85,9 +100,9 @@ enum ModuleAction: string
     {
         return match ($this) {
             self::View, self::List, self::Edit, self::Delete, self::Export, self::Document, self::Transition => true,
-            // Templates names no record: it is the module's stationery, not
-            // anybody's row.
-            self::Add, self::Import, self::Templates => false,
+            // Templates and EmailTemplates name no record: they are the
+            // module's stationery and its wording, not anybody's row.
+            self::Add, self::Import, self::Templates, self::EmailTemplates => false,
         };
     }
 
@@ -101,7 +116,7 @@ enum ModuleAction: string
     public function isMutating(): bool
     {
         return match ($this) {
-            self::Add, self::Edit, self::Delete, self::Import, self::Templates, self::Transition => true,
+            self::Add, self::Edit, self::Delete, self::Import, self::Templates, self::EmailTemplates, self::Transition => true,
             // Generating a document changes nothing about the record; it is a
             // read that happens to come back as a file, like the export.
             self::View, self::List, self::Export, self::Document => false,

@@ -22,10 +22,21 @@ its recipes.
 
 ## Runtime dependencies
 
-Installed by Composer, not vendored here. As of this writing every runtime
-dependency is MIT licensed. Regenerate the list with:
+Installed by Composer, not vendored here. Almost all of them are MIT. Regenerate
+the list with:
 
     composer licenses --no-dev
+
+The exceptions, all permissive and all compatible with MIT:
+
+- **BSD-3-Clause** — `twig/twig`, and `league/commonmark` with the `league/config`
+  it brings (the Markdown an email template is written in, XIV-38).
+- **`nette/schema` and `nette/utils`**, which arrive under `league/config`, are
+  offered under **BSD-3-Clause *or* GPL-2.0-only *or* GPL-3.0-only**. That is a
+  disjunction the licensee chooses from, and the choice here is the BSD terms.
+  Worth stating rather than leaving to be rediscovered: `composer licenses` prints
+  all three, so a search for "GPL" finds these two and says nothing about which
+  licence is actually in force.
 
 ## Development dependencies
 

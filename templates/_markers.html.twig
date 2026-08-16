@@ -1,0 +1,23 @@
+{#
+	The placeholder reference, as markup, in one place (XIV-4, XIV-38).
+
+	Two pages draw this list — the document templates page and the email templates
+	one — and they draw it from the same `DocumentMarkers`, so drawing it from two
+	copies of the same eight lines of Twig would have been the second thing to keep
+	in step after the marker set itself.
+
+	Only the *list* is shared. The prose around it is not, and deliberately so: one
+	page is telling somebody what to type into Word and the other what to type into
+	a textarea, and a sentence that covered both would be a sentence that helped
+	neither.
+#}
+{% macro list(markers) %}
+	<dl class="row small mb-0">
+		{% for marker in markers %}
+			<dt class="col-6 fw-normal">
+				<code>{{ marker.token }}</code>
+			</dt>
+			<dd class="col-6 text-body-secondary">{{ marker.label }}</dd>
+		{% endfor %}
+	</dl>
+{% endmacro %}

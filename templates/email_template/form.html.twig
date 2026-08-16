@@ -1,0 +1,137 @@
+{% extends 'base.html.twig' %}
+
+{# The very same list the document templates page draws, from the very same
+   markers — there is one marker set, not one per kind of template (XIV-38). #}
+{% import '_markers.html.twig' as reference %}
+
+{% block title %}{{ 'email_template.templates'|trans }} — {{ module.label }}{% endblock %}
+
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<div class="d-flex align-items-start justify-content-between gap-3 mb-3">
+			<div>
+				<h1 class="h3 mb-1">
+					{{ template ? template.name : ('email_template.write'|trans) }}
+				</h1>
+				<p class="text-body-secondary mb-0">{{ 'email_template.form_intro'|trans }}</p>
+			</div>
+			<a class="btn btn-link" href="{{ path('email_template_index', {module: module.key}) }}">{{ 'common.back'|trans }}</a>
+		</div>
+
+		<div class="row g-4">
+			<div class="col-lg-7">
+				<div class="card">
+					<div class="card-body">
+						{#
+							One form for writing a new template and for changing an old
+							one; only where it posts to differs. Nothing here is a file
+							input, which is the whole point of the ticket — an email has
+							no layout worth designing in Word, so it is written where it
+							is read.
+						#}
+						<form method="post" action="{{ template
+							? path('email_template_update', {module: module.key, template: template.id})
+							: path('email_template_create', {module: module.key}) }}">
+							<input type="hidden" name="_token" value="{{ csrf_token('module-email-templates') }}">
+
+							<div class="mb-3">
+								<label class="form-label" for="name">{{ 'common.name'|trans }}</label>
+								<input class="form-control" type="text" id="name" name="name" required
+								       maxlength="{{ maxLine }}" value="{{ draft.name }}"
+								       placeholder="{{ 'email_template.name_placeholder'|trans }}">
+								<div class="form-text">{{ 'email_template.name_help'|trans }}</div>
+							</div>
+
+							{% if variants is not empty %}
+								<div class="mb-3">
+									<label class="form-label" for="variant">{{ 'document.applies_to'|trans }}</label>
+									<select class="form-select" id="variant" name="variant">
+										<option value="">{{ 'document.every_record'|trans }}</option>
+										{% for key, label in variants %}
+											<option value="{{ key }}" {{ draft.variant == key ? 'selected' : '' }}>{{ label }}</option>
+										{% endfor %}
+									</select>
+									<div class="form-text">{{ 'document.applies_to_help'|trans }}</div>
+								</div>
+							{% endif %}
+
+							<div class="mb-3">
+								<label class="form-label" for="subject">{{ 'email_template.subject'|trans }}</label>
+								<input class="form-control" type="text" id="subject" name="subject" required
+								       maxlength="{{ maxLine }}" value="{{ draft.subject }}"
+								       placeholder="{{ 'email_template.subject_placeholder'|trans }}">
+								<div class="form-text">{{ 'email_template.subject_help'|trans }}</div>
+							</div>
+
+							<div class="mb-3">
+								<label class="form-label" for="body">{{ 'email_template.body'|trans }}</label>
+								{#
+									A textarea, not an editor with buttons. Markdown is what
+									gets stored, because it is also what the plain-text half
+									of the message is — a rich-text editor would have left
+									us generating that half from HTML.
+								#}
+								<textarea class="form-control font-monospace" id="body" name="body" rows="16" required
+								          placeholder="{{ 'email_template.body_placeholder'|trans }}">{{ draft.body }}</textarea>
+								<div class="form-text">{{ 'email_template.body_help'|trans }}</div>
+							</div>
+
+							<button class="btn btn-primary" type="submit">{{ 'common.save'|trans }}</button>
+						</form>
+					</div>
+				</div>
+			</div>
+
+			<div class="col-lg-5">
+				{#
+					The reference list, which is half the reason this page exists:
+					somebody writing an email has to know what they may type, and the
+					answer comes from this customer's own definitions rather than from
+					documentation that would go stale the first time they add a field.
+
+					No collections section, unlike the document page. Repeating blocks
+					are Word's table row (XIV-17), and what one would be in Markdown is
+					an unanswered design question rather than a port — so those tokens
+					are not offered here, because here they come out blank.
+				#}
+				<div class="card">
+					<div class="card-body">
+						<h2 class="h6 text-uppercase text-body-secondary mb-2">{{ 'document.placeholders'|trans }}</h2>
+						<p class="text-body-secondary small">{{ 'email_template.placeholders_help'|trans }}</p>
+
+						{% for variant, markerList in markers %}
+							{% if variant %}
+								<h3 class="h6 mt-3">{{ 'document.for_variant'|trans({'%variant%': variants[variant]|default(variant)}) }}</h3>
+							{% endif %}
+
+							{{ reference.list(markerList) }}
+						{% endfor %}
+
+						<section id="general-markers">
+							<h3 class="h6 mt-4">{{ 'document.general'|trans }}</h3>
+							<p class="text-body-secondary small mb-2">{{ 'document.general_help'|trans }}</p>
+
+							{{ reference.list(general) }}
+						</section>
+					</div>
+				</div>
+
+				<div class="card mt-4">
+					<div class="card-body">
+						<h2 class="h6 text-uppercase text-body-secondary mb-2">{{ 'email_template.wrapper'|trans }}</h2>
+						{#
+							Said out loud rather than left to be discovered: what is
+							written here is the content part, and the skeleton around it
+							ships with the application (§5.13, §6.1).
+						#}
+						<p class="text-body-secondary small mb-0">{{ 'email_template.wrapper_help'|trans }}</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</main>
+{% endblock %}

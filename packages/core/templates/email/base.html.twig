@@ -1,0 +1,68 @@
+{#
+	The wrapper every email this application sends is drawn in (XIV-38, §5.13).
+
+	**It ships in code and a tenant cannot edit it**, which is §6.1's existing rule
+	rather than a new one: presets live in code, templates live in data. A customer
+	writes the content part — the words, in Markdown — and this is the skeleton
+	around it. Somebody who could edit this could break every email they send, and
+	the skeleton is not the thing they wanted to change anyway.
+
+	**There is one of it**, not a named set, and the argument is in §5.13: nothing
+	yet needs two, and a second would have to be chosen from — a column on
+	email_template whose only value would be "the default", plus a picker beside a
+	field somebody actually cares about.
+
+	**Written the way email is written, not the way a page is.** Inline styles,
+	because Gmail and Outlook both drop a <style> block often enough that relying on
+	one is relying on luck; a table for the frame, because Outlook lays out with
+	Word's engine and a centred div is not something it agrees to. This is not the
+	house Bootstrap style and it is not meant to be — the audience is a mail client
+	from 2009 as much as a modern one.
+
+	`content` arrives as HTML that has already been through CommonMark and the
+	sanitizer (see EmailRenderer), which is why it is the one thing here printed
+	raw. Everything else on this page is escaped by Twig as usual.
+#}
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>{{ subject }}</title>
+	</head>
+	<body style="margin: 0; padding: 0; background-color: #f4f5f7; color: #212529; font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.6;">
+		<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f4f5f7;">
+			<tr>
+				<td align="center" style="padding: 24px 12px;">
+					<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 600px; background-color: #ffffff; border-radius: 8px;">
+						<tr>
+							<td style="padding: 32px 32px 8px 32px;">
+								{#
+									The content part, and the only part a customer wrote.
+									Raw because it is already sanitized HTML rather than
+									text — escaping it here would print the tags.
+								#}
+								{{ content|raw }}
+							</td>
+						</tr>
+						<tr>
+							<td style="padding: 8px 32px 32px 32px;">
+								<hr style="border: 0; border-top: 1px solid #dee2e6; margin: 16px 0 12px 0;">
+								{#
+									Who this came from, which the engine cannot know: it
+									arrives as a general marker through DocumentContext,
+									the same seam a document's [tenant.name] comes
+									through (§5.7). Who the message is *from* in the
+									headers is a different question and XIV-37's.
+								#}
+								<p style="margin: 0; color: #6c757d; font-size: 13px; line-height: 1.5;">
+									{{ general['tenant.name']|default('') }}
+								</p>
+							</td>
+						</tr>
+					</table>
+				</td>
+			</tr>
+		</table>
+	</body>
+</html>

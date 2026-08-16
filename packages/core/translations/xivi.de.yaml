@@ -47,6 +47,7 @@ permission:
         import: Importieren
         templates: Vorlagen
         document: Dokumente
+        email_templates: E-Mail-Vorlagen
         transition: Status ändern
     scope:
         own: Eigene Datensätze

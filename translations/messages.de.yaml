@@ -312,6 +312,42 @@ document:
         braucht. Lässt du die Art weg — schreibst also [%example%] —, wird die Zeile für jede
         gezeichnet.
 
+# Hier geschrieben statt hochgeladen (XIV-38).
+email_template:
+    templates: E-Mail-Vorlagen
+    templates_intro: >-
+        Was die E-Mails für %module% sagen. Hier geschrieben statt hochgeladen: eine E-Mail
+        ist Text, es gibt also nichts in Word zu gestalten und nichts nochmals hochzuladen,
+        nur weil ein Tippfehler drin war.
+    none_yet: Noch keine E-Mail-Vorlagen. Ohne eine lässt sich nichts verschicken.
+    write: Vorlage schreiben
+    form_intro: Ein Name, ein Betreff und die Nachricht selbst. Betreff und Text nehmen beide Platzhalter.
+    subject: Betreff
+    subject_placeholder: 'Rechnung [record_id] von [tenant.name]'
+    subject_help: Der Standardbetreff. Er nimmt Platzhalter wie die Nachricht und lässt sich für einen einzelnen Versand ändern.
+    body: Nachricht
+    body_placeholder: |-
+        Guten Tag [first_name]
+
+        vielen Dank für Ihre Bestellung.
+    body_help: >-
+        Markdown. Leerzeile zwischen Absätzen, *Betonung* zwischen Sternen, - für einen
+        Aufzählungspunkt. Was nach HTML aussieht, wird als die Zeichen verschickt, die du
+        getippt hast.
+    name_placeholder: Auftragsbestätigung, Mahnung, Danke…
+    name_help: Wie sie in der Liste und im Versandfenster heisst. Nach aussen sieht das niemand.
+    written_when: Geschrieben
+    placeholders_help: >-
+        Schreibe diese samt Klammern in den Betreff oder die Nachricht. Beim Verschicken werden
+        sie durch die Werte dieses Datensatzes ersetzt. Was du weglässt, bleibt weg.
+    wrapper: Rund um deine Nachricht
+    wrapper_help: >-
+        Was du hier schreibst, ist die Nachricht. Der Rahmen darum — das Layout und die
+        Fusszeile mit deinem Firmennamen — gehört zu Xivi und ist für jede E-Mail gleich,
+        damit ihn niemand über eine einzelne Vorlage kaputt machen kann.
+    incomplete: Eine Vorlage braucht einen Namen, einen Betreff und eine Nachricht. Es wurde nichts gespeichert.
+    too_long: 'Name und Betreff dürfen höchstens %max% Zeichen lang sein. Es wurde nichts gespeichert.'
+
 permission:
     yes: 'Ja'
     no: 'Nein'
@@ -333,6 +369,8 @@ flash:
     transitioned: 'Jetzt %state%.'
     template_uploaded: Vorlage hochgeladen. Sie wird an jedem passenden Datensatz angeboten.
     template_deleted: '„%template%“ entfernt. Bereits heruntergeladene Dokumente bleiben davon unberührt.'
+    email_template_saved: Gespeichert. Sie wird an jedem passenden Datensatz angeboten.
+    email_template_deleted: '„%template%“ entfernt. Bereits verschickte E-Mails bleiben davon unberührt.'
     profile_saved: Gespeichert. So beschreibt sich die Instanz von jetzt an.
     shape_renamed: 'Umbenannt in „%shape%“.'
     deleted: Gelöscht.

@@ -54,6 +54,7 @@ permission:
         import: Import
         templates: Templates
         document: Documents
+        email_templates: Email templates
         transition: Change status
     scope:
         own: Own records

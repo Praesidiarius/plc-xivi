@@ -318,6 +318,43 @@ document:
         one table row per kind and give each the columns it needs. Drop the kind — write
         [%example%] — and the row is drawn for every one of them.
 
+# Written here rather than uploaded (XIV-38). The counterpart to the document
+# vocabulary above, and it borrows what the two genuinely share — "Applies to",
+# "Every record", the placeholder headings — rather than saying them twice.
+email_template:
+    templates: Email templates
+    templates_intro: >-
+        What the emails for %module% say. Written here rather than uploaded: an email is
+        text, so there is nothing to design in Word and nothing to upload again to fix a
+        typo.
+    none_yet: No email templates yet. Nothing can be sent until there is one.
+    write: Write a template
+    form_intro: A name, a subject and the message itself. Both the subject and the body take placeholders.
+    subject: Subject
+    subject_placeholder: 'Invoice [record_id] from [tenant.name]'
+    subject_help: The default subject. It takes placeholders like the message does, and can be changed for a single send.
+    body: Message
+    body_placeholder: |-
+        Dear [first_name],
+
+        thank you for your order.
+    body_help: >-
+        Markdown. Blank line between paragraphs, *emphasis* between stars, - for a bullet.
+        Anything that looks like HTML is sent as the characters you typed.
+    name_placeholder: Order confirmation, Reminder, Thank you…
+    name_help: What it is called in the list and in the send window. Nobody outside sees it.
+    written_when: Written
+    placeholders_help: >-
+        Type these into the subject or the message, brackets included. They are replaced with
+        this record's values when the email is sent. Anything you leave out stays out.
+    wrapper: Around your message
+    wrapper_help: >-
+        What you write here is the message. The frame around it — the layout and the footer
+        with your company name — is part of Xivi and is the same for every email, so nobody
+        can break it by editing one template.
+    incomplete: A template needs a name, a subject and a message. Nothing was saved.
+    too_long: 'The name and the subject can be at most %max% characters. Nothing was saved.'
+
 permission:
     yes: 'Yes'
     no: 'No'
@@ -339,6 +376,8 @@ flash:
     transitioned: 'Now %state%.'
     template_uploaded: Template uploaded. It is offered on every record it applies to.
     template_deleted: 'Removed "%template%". Documents already downloaded are unaffected.'
+    email_template_saved: Saved. It is offered on every record it applies to.
+    email_template_deleted: 'Removed "%template%". Emails already sent are unaffected.'
     profile_saved: Saved. This is how the instance describes itself from now on.
     shape_renamed: 'Renamed to "%shape%".'
     deleted: Deleted.
