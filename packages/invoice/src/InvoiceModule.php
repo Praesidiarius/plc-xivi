@@ -23,6 +23,7 @@ use Xivi\Core\Module\ModuleBlueprint;
 use Xivi\Core\Module\ModuleProvider;
 use Xivi\Core\Money\LineTotals;
 use Xivi\Core\Numbering\NumberFormat;
+use Xivi\Core\Payment\PaymentTerms;
 use Xivi\Core\Seed\Seed;
 use Xivi\Core\Seed\SeedRows;
 
@@ -51,6 +52,7 @@ final class InvoiceModule implements ModuleProvider
     public const string ORDER = 'order';
     public const string CONTACT = 'contact';
     public const string ISSUED_ON = 'issued_on';
+    public const string DUE_DATE = 'due_date';
     public const string STATUS = 'status';
     public const string NET_TOTAL = 'net_total';
     public const string TAX_TOTAL = 'tax_total';
@@ -136,6 +138,20 @@ final class InvoiceModule implements ModuleProvider
                     required: true,
                     filterable: true,
                     position: 30,
+                ),
+                // When it has to be paid, written down as it goes out (XIV-67).
+                // Derived, because nobody types it: what a customer agreed to is
+                // worked out from the terms in force at that moment and then kept,
+                // for the same reason §5.9 keeps the totals rather than recomputing
+                // them off today's price list. Filterable, because "which of these
+                // is late" is the question the field exists to answer.
+                new FieldBlueprint(
+                    key: self::DUE_DATE,
+                    label: 'field.due_date',
+                    type: 'date',
+                    filterable: true,
+                    position: 35,
+                    derived: true,
                 ),
                 new FieldBlueprint(
                     key: self::STATUS,
@@ -387,6 +403,27 @@ final class InvoiceModule implements ModuleProvider
             // one. Reading `order.contact.email` instead would be two, and a
             // path nobody can reason about while looking at a bill.
             mailRecipient: new MailRecipient(field: 'email', through: self::CONTACT),
+            // When this falls due, and where the days come from (XIV-67).
+            //
+            // The same hop the mail recipient takes, through the same reference
+            // and for the same reason: an invoice has no payment terms of its own
+            // and never will, because a term is a property of the *relationship*
+            // rather than of a document. `payment_terms` is a field key on
+            // whatever module that reference names, which keeps this a metadata
+            // requirement (XIV-23) rather than the code dependency §3 forbids —
+            // this package still imports nothing from the contact package.
+            //
+            // The date is materialised on the way into `sent` and never touched
+            // again. That state is not chosen for tidiness: it is where the
+            // lifecycle already locks, because the customer has the document now,
+            // and it is the first moment a deadline means anything to anybody.
+            paymentTerms: new PaymentTerms(
+                dueDate: self::DUE_DATE,
+                from: self::ISSUED_ON,
+                outstanding: self::SENT,
+                terms: 'payment_terms',
+                through: self::CONTACT,
+            ),
         );
     }
 }

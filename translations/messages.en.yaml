@@ -83,6 +83,8 @@ account:
 
 module:
     view_record: View record
+    overdue: Overdue
+    overdue_title: Sent, and past its due date.
     edit_record: Edit record
     delete_record: Delete record
     new_title: New %module%
@@ -286,6 +288,11 @@ profile:
     region: Region
     region_none: Application default
     region_help: Which country's conventions this installation writes in. Somebody elsewhere can choose their own on their account.
+    payment_terms: Payment terms (days)
+    payment_terms_help: >-
+        How long a customer has to pay, counted from the invoice date. A contact can be given
+        different terms of their own. Leave it empty and invoices carry no due date, so nothing
+        is ever overdue.
     title: Company profile
     intro: >-
         What this installation is called, and the currency it works in. It applies to

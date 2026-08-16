@@ -81,7 +81,7 @@ final class ContactRecordTest extends KernelTestCase
         self::assertSame('contact', $module->getKey());
         self::assertSame('contact', $module->getTableName());
         self::assertSame(
-            ['kind', 'company_name', 'first_name', 'last_name', 'email', 'phone', 'birthday', 'company'],
+            ['kind', 'company_name', 'first_name', 'last_name', 'email', 'phone', 'birthday', 'company', 'payment_terms'],
             $module->getFieldKeys(),
         );
 

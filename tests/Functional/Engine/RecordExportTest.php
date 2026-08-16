@@ -71,7 +71,10 @@ final class RecordExportTest extends KernelTestCase
         $sheets = $this->export(new RecordQuery());
 
         self::assertSame(
-            ['id', 'kind', 'company_name', 'first_name', 'last_name', 'email', 'phone', 'birthday', 'company'],
+            [
+                'id', 'kind', 'company_name', 'first_name', 'last_name', 'email', 'phone', 'birthday', 'company',
+                'payment_terms',
+            ],
             $sheets['contact'][0],
         );
     }

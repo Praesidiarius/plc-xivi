@@ -84,8 +84,12 @@ final readonly class TenantProfileManager
      * nothing — the same call PermissionManager makes about an unknown module key.
      * An empty code is different and does mean something: nobody has chosen.
      */
-    public function apply(string $companyName, string $currency, ?string $region = null): TenantProfile
-    {
+    public function apply(
+        string $companyName,
+        string $currency,
+        ?string $region = null,
+        ?int $paymentTermsDays = null,
+    ): TenantProfile {
         $profile = $this->profiles->current();
         $profile->setCompanyName($companyName);
 
@@ -104,6 +108,12 @@ final readonly class TenantProfileManager
         } elseif (Countries::exists(strtoupper($region))) {
             $profile->setRegion(strtoupper($region));
         }
+
+        // How long a customer gets to pay, when nobody has said otherwise on the
+        // contact itself (XIV-67). Null clears it, which is not the same as zero:
+        // zero is "on receipt" and null is "this installation does not put due
+        // dates on anything", and both are answers somebody may mean.
+        $profile->setPaymentTermsDays($paymentTermsDays);
 
         // Persisted every time rather than only when new: the entity is already
         // managed on the normal path, and persist() on a managed entity is a

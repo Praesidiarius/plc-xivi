@@ -211,6 +211,9 @@ final class TenantProfileTest extends WebTestCase
 
         self::assertSame('', $profile->getCompanyName());
         self::assertNull($profile->getCurrency());
+        // And no payment terms either, which is why nothing an untouched
+        // installation sends is ever overdue (XIV-67).
+        self::assertNull($profile->getPaymentTermsDays());
     }
 
     /**
@@ -300,6 +303,45 @@ final class TenantProfileTest extends WebTestCase
 
         // And the verbs the area does not answer are not drawn at all.
         self::assertCount(0, $crawler->filter('select[name="grants[@profile][delete]"]'));
+    }
+
+    /**
+     * How long customers get to pay is set here too (XIV-67), because it is the
+     * same kind of fact as the currency: something the installation says about
+     * itself, which a contact may then override and an invoice materialises once.
+     * What it *means* is InvoiceDueDateTest's; this is the page carrying it.
+     */
+    public function testTheDefaultPaymentTermsAreSetOnThisPage(): void
+    {
+        $this->signIn(self::ADMIN);
+        $this->client->request('GET', $this->url(self::PATH));
+
+        $this->client->submitForm('Save', [
+            'company_name' => 'Acme AG',
+            'currency' => 'CHF',
+            'payment_terms_days' => '30',
+        ]);
+
+        self::assertSame(30, $this->profile()->getPaymentTermsDays());
+    }
+
+    /**
+     * Blank and zero are different answers and both are real: blank is "this
+     * installation puts no due date on anything", zero is "payable on receipt".
+     * A cast that read the empty box as 0 would give every customer the second
+     * one without anybody choosing it.
+     */
+    public function testNoPaymentTermsIsNotTheSameAsZero(): void
+    {
+        $this->signIn(self::ADMIN);
+        $this->client->request('GET', $this->url(self::PATH));
+
+        $this->client->submitForm('Save', ['company_name' => 'Acme AG', 'payment_terms_days' => '0']);
+        self::assertSame(0, $this->profile()->getPaymentTermsDays());
+
+        $this->client->request('GET', $this->url(self::PATH));
+        $this->client->submitForm('Save', ['company_name' => 'Acme AG', 'payment_terms_days' => '']);
+        self::assertNull($this->profile()->getPaymentTermsDays());
     }
 
     // -- helpers ------------------------------------------------------------

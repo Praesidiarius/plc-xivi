@@ -16,6 +16,7 @@ field:
     phone: Telefon
     birthday: Geburtstag
     company: Firma
+    payment_terms: Zahlungsfrist (Tage)
     address_label: Bezeichnung
     street: Strasse
     postal_code: PLZ

@@ -961,6 +961,10 @@ unit price, which is a fact about the line rather than a branch about its kind �
 so a fifth kind of line needs no arithmetic written for it. A subtotal is the one
 thing asked about by kind, because a subtotal is defined by being one.
 
+**The first decision above is not only about money.** §5.16 applies the same
+argument to a date: an invoice's due date is derived and then stored, because
+payment terms that change must not restate a deadline somebody was already given.
+
 ---
 
 ### 5.10 Document numbers (XIV-15)
@@ -1440,6 +1444,132 @@ preview-then-send path, and it is worth it: the preview exists so that what
 arrives holds no surprises, and "the converter is down" and "this is too big to
 send" are precisely the two surprises that would otherwise wait until the
 irreversible button. The file name and the size on that screen are the real ones.
+
+---
+
+### 5.16 When an invoice falls due, and what makes it late (XIV-67)
+
+An invoice had `issued_on` and a status and **no due date**, so "is this late" had
+no answer — no widget, no list, and no dunning letter, which is the obvious thing
+an ERP is expected to do with mail it can now send (§5.15). Two decisions make it
+answerable, and both are the general shape rather than an invoice-specific one.
+
+#### The date is stored, and this is §5.9's argument applied to a date
+
+The tempting version computes it on read: `issued_on` plus the customer's terms,
+worked out whenever somebody asks. It is wrong, and quietly. **Terms change.** The
+day somebody edits a customer from thirty days to fourteen, every invoice ever
+sent to them silently becomes due earlier — some retroactively overdue, for a
+deadline that was never agreed. The other direction is worse: tightening terms
+would make an invoice that was paid on time look late in its own history.
+
+**What was agreed is a fact about that document.** §5.9 already argues this about
+money: totals are derived and then *stored*, because a price list that changes
+must not restate an invoice somebody has already been sent. A due date is the same
+argument about a different kind of value, so it is the same mechanism — a
+`ValueDeriver`, writing into an ordinary derived field, inside the save's
+transaction and visible in the history entry that save produces.
+
+**Materialised at the transition to `sent`**, which is not a tidy choice. That is
+where the lifecycle already locks (§5.8) — the module's own words are "sent is the
+end of editing… the customer has the document now" — and it is the first moment a
+deadline means anything to anybody. A draft has no due date and does not need one:
+nobody owes anything for a document that has not left the building.
+
+**Written only into an empty field**, which is what "agreed once and never
+restated" reduces to — the same rule §5.10 follows for a document number. So an
+invoice cannot acquire a later deadline by being sent twice, and marking one paid
+or cancelling it leaves the state and touches nothing. That last part is what keeps
+an invoice predating this feature from quietly acquiring a due date, out of today's
+terms, on the day somebody settles it.
+
+**Existing invoices are not backfilled.** The column is nullable and a missing due
+date means **not overdue**, never overdue. Backfilling would mean guessing which
+terms were in force months ago, and guessing wrong in the direction that tells
+somebody a paid invoice was late is worse than an empty column.
+
+#### Overdue is a read, not a fifth state
+
+The other tempting version is a state beside draft, sent, paid and cancelled. It
+should not be one, for a reason that is structural rather than aesthetic: **every
+existing transition is something a person performs** — send, pay, cancel. Nothing
+performs *overdue*; the calendar does.
+
+A state would need something to move invoices into it on a schedule, which is a job
+mutating a customer's documents with no human act behind it — and there is no
+worker process here, a constraint §8.7 and XIV-59 both settled around. It would
+also be a state that can be *wrong*: a record is overdue the instant midnight
+passes, and one whose lateness is a stored flag is late only once the job has run.
+
+So overdue is `status = sent AND due_date < today`, evaluated when read. Cheap,
+always correct, needs no job, and cannot drift out of step with the calendar.
+Nothing is stored, so refining the definition later migrates nothing. It is
+expressed twice from one declaration — as a question about a record in hand, which
+is what a page drawing one wants, and as query conditions, which is what a *list*
+of them wants, because counting overdue invoices by loading every invoice and
+asking each one is the N+1 that a dashboard cannot afford on the first page after
+signing in.
+
+Strictly before today, not on or before: an invoice due today is due today, and
+telling somebody their customer is late on the morning the bill falls due is how a
+dunning list loses its credibility.
+
+#### Three layers, and a payment term is a number of days
+
+A term is a property of the *relationship* rather than of a document, so it lives
+where the relationship does and defaults downward — the shape §8.4.2's language
+and region settings already use, arrived at a third time:
+
+- **the tenant's**, on the profile beside currency and region (§8.6);
+- **the contact's**, which overrides it;
+- **the invoice's own date**, materialised from whichever applied at the time.
+
+The layer above always *overrides* rather than combines, so reading the effective
+value is a `??` chain and never an arithmetic nobody can reproduce from the screens
+it was typed on. The invoice stores the resulting **date** and not a copy of the
+number of days: the date is what was agreed, and the days are the rule it came from
+rather than a second fact about the document.
+
+**Null at the top, rather than thirty.** A term nobody chose is not a term, and a
+default here would put a deadline on the next invoice every existing tenant sends
+— for a date nobody in that company agreed to give. It is the same call §8.6 makes
+about the currency, and it lands in the safe direction: no term means no due date,
+and no due date means not overdue.
+
+**Days, and what that rejects.** "2/10 net 30" — a discount for paying early — is
+two deadlines with two different amounts behind them, which the money model has no
+room for while `status` is binary; a document settleable for less than its gross
+total is a change to §5.9 rather than a change to a date. "Net 30, end of month" is
+real and common and is a *rounding rule applied to the answer this already
+produces*, so it can arrive later as an option on the same field without restating
+anybody's terms. A free-text term — "on receipt", "before delivery" — is
+unfilterable and uncomparable, which defeats the whole point, since the question
+being answered is which of these is late and text cannot be compared to a calendar.
+Zero is a real term and not an absence: payable on receipt.
+
+#### Reading the customer's terms crosses no boundary
+
+`invoice` declares `requires: [order, contact]`, which is a **metadata**
+requirement (XIV-23) and not a code dependency — deptrac forbids one module package
+importing another. So the declaration takes **one hop through a `reference`**
+(§7.6) and names the field by key, exactly as §5.15's mail recipient does and for
+the same reason: an invoice has no payment terms of its own and never will, because
+they belong to the customer being invoiced. One hop, and a second is deliberately
+impossible; the invoice already copies its contact down from the order it was
+seeded from (§5.12), which is what keeps one hop enough.
+
+Following it is an unscoped read of the other module, the same split XIV-42 made:
+whoever may send an invoice may know when it falls due, or "may send invoices"
+would quietly be two permissions with the second one unnameable. Nothing leaks in
+the other direction either — the term is read once, at the moment the document is
+sent, and what is kept afterwards is a date on the invoice rather than a restatement
+of that customer's terms on every document ever addressed to them.
+
+**What this deliberately does not do.** Partial payments (`status` is binary and
+changing that is a much larger change to the money model), credit notes (§5.9's
+module already says correcting a sent invoice is a second document), and dunning
+letters — that is §5.14 plus a template. This only makes it possible to know who to
+write to.
 
 ---
 

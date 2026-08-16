@@ -80,6 +80,26 @@ class TenantProfile
     private ?string $region = null;
 
     /**
+     * How long this installation gives a customer to pay, in whole days
+     * (XIV-67).
+     *
+     * The bottom of three layers: a contact may override it, and an invoice
+     * materialises the resulting date once, as it is sent. What is stored here is
+     * a *term* and never a date — the date is a fact about one document and lives
+     * on that document, which is the whole argument of the ticket.
+     *
+     * **Null rather than thirty**, for exactly the reason the currency above is
+     * null rather than francs: a term guessed for a customer is wrong quietly, and
+     * it would surface as a deadline printed on a bill that nobody here ever
+     * agreed to give. An installation that has never answered this question puts
+     * no due date on anything, and a document with no due date is not overdue —
+     * which is the safe direction to be wrong in. Zero is a different answer and a
+     * real one: payable on receipt.
+     */
+    #[ORM\Column(name: 'payment_terms_days', nullable: true)]
+    private ?int $paymentTermsDays = null;
+
+    /**
      * The address this customer's mail claims to come from (XIV-37).
      *
      * Empty until somebody fills it in, like the company name above and for the
@@ -179,6 +199,26 @@ class TenantProfile
     public function setCurrency(?string $currency): void
     {
         $this->currency = $currency;
+    }
+
+    public function getPaymentTermsDays(): ?int
+    {
+        return $this->paymentTermsDays;
+    }
+
+    /**
+     * @param int|null $days whole days from the issue date, or null for "nobody
+     *                       has said" — see the property
+     */
+    public function setPaymentTermsDays(?int $days): void
+    {
+        // A negative term is a document due before it was issued, which is a
+        // typo rather than an agreement. Null is the honest answer to nonsense
+        // here, because null already means "nobody has said" and the layers
+        // below it read that correctly. The upper bound is generous on purpose:
+        // a year is longer than any term anybody negotiates and short enough
+        // that a stray keypress does not become a deadline in 2098.
+        $this->paymentTermsDays = $days !== null && $days >= 0 && $days <= 365 ? $days : null;
     }
 
     public function getMailSenderAddress(): string

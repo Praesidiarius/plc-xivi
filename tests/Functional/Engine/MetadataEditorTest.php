@@ -106,7 +106,7 @@ final class MetadataEditorTest extends KernelTestCase
 
         // The default preset is "extended", which is every field.
         self::assertSame(
-            ['kind', 'company_name', 'first_name', 'last_name', 'email', 'phone', 'birthday', 'company'],
+            ['kind', 'company_name', 'first_name', 'last_name', 'email', 'phone', 'birthday', 'company', 'payment_terms'],
             $module->getFieldKeys(),
         );
     }
