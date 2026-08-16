@@ -1,4 +1,5 @@
 {% import '_record_link.html.twig' as link %}
+{% import '_pager.html.twig' as pager %}
 {% extends 'base.html.twig' %}
 
 {% block title %}{{ module.label }}{% endblock %}
@@ -242,18 +243,17 @@
 					{{ (query.isFiltered ? 'module.record_count_matching' : 'module.record_count')|trans({'%count%': total}) }}
 				</p>
 
-				{% if pages > 1 %}
-					<nav aria-label="{{ 'module.pages'|trans }}">
-						<ul class="pagination pagination-sm mb-0">
-							{% for page in 1..pages %}
-								<li class="page-item {{ page == query.page ? 'active' : '' }}">
-									<a class="page-link"
-									   href="{{ path('module_index', app.request.query.all|merge({module: module.key, page: page})) }}">{{ page }}</a>
-								</li>
-							{% endfor %}
-						</ul>
-					</nav>
-				{% endif %}
+				{#
+					The query string goes in with the parameters, which is what keeps
+					a filter and a sort alive across a page change (XIV-69).
+				#}
+				{{ pager.pager(
+					'module_index',
+					app.request.query.all|merge({module: module.key}),
+					query.page,
+					pages,
+					'module.pages'|trans
+				) }}
 			</div>
 		{% endif %}
 	</main>
