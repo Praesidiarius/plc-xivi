@@ -131,6 +131,30 @@
 			</div>
 		</div>
 
+		{#
+			What is outstanding on this record, above the record itself (XIV-82).
+
+			**Above the fields and nowhere else.** A follow-up is a claim on
+			somebody's attention, and a claim below the fold is one that has been
+			missed — so it sits between the record's name and the record's contents,
+			at full width rather than in the right-hand column, which is where things
+			you may want to read live rather than things you have to.
+
+			It is emphatically **not on the list**: a page of twenty-five records
+			asking each one what is outstanding on it is the N+1 §5.16 warned about,
+			and a list is for scanning records rather than for reading the work
+			outstanding on them.
+
+			Asked here before it is mounted, so a module whose follow-ups are
+			switched off constructs nothing at all — the component makes the same
+			check for the page that was open across the moment somebody switched it,
+			but the ordinary case should not build a component to have it draw
+			nothing (§5.18).
+		#}
+		{% if module.hasFollowUps %}
+			<twig:FollowUps module="{{ module.key }}" :recordId="record.id" />
+		{% endif %}
+
 		{# Two columns: the record on the left, context about it on the right.
 		   Three equal cards stacked said everything mattered the same amount. #}
 		<div class="row g-3">

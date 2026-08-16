@@ -88,6 +88,13 @@ lands in `Unreleased` here.
   installations need do nothing: where the region already chosen has exactly one
   timezone — Switzerland, Austria, France, the UK — it is derived from that, and
   §8.4.4 argues why an ambiguous country is asked rather than guessed at.
+- **Follow-ups on a record's page** ([XIV-82]). What is outstanding on a contact,
+  an order or an invoice now sits at the top of its page: priority as a coloured
+  left border, the due moment on your own clock, who it is for, and the notes
+  written on it as a thread. You can open one, write on it, mark it done and
+  reopen it from there — and the ones already done are behind a counter rather
+  than down the page. Nothing appears for a module whose follow-ups are switched
+  off, and nothing appears on record *lists*; §5.18 of the brief argues both.
 - **Follow-ups: the storage, the permissions and the per-module switch**
   ([XIV-80]). A record can carry something somebody decided to do about it — a
   priority, a due date, an optional assignee and a thread of notes — with done as
@@ -121,6 +128,16 @@ lands in `Unreleased` here.
 - **Record timelines group by your own days** ([XIV-83]). "Today", "this week" and
   "this month" were worked out on UTC midnights, so an entry made just after
   midnight could sit under yesterday on a page you had just made (§5.2).
+- **A follow-up's priority is drawn the same colour everywhere** ([XIV-82]). The
+  dashboard widget ([XIV-81]) landed first with its own copy of the colour table,
+  which drew *for information* grey where the record page draws it blue. Both
+  screens go through one mapping now, and the dashboard is the one that moved
+  (§5.18).
+- **The two follow-up permissions now do something** ([XIV-82]). They shipped in
+  [XIV-80] with nothing on any screen calling them, so granting one changed
+  nothing anybody could see; the record page is what they are for. Nobody holds
+  them until somebody grants them, so **check who should have them** — a colleague
+  with only the module's *view* reads follow-ups and can change none of them.
 - **`permission_grant.action` is now 31 characters wide** ([XIV-80]) — the new
   verbs are eighteen, and the column held sixteen. Nothing to act on: the tenant
   migration widens it, and the permission catalogue itself still needs no

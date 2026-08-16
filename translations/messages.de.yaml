@@ -502,6 +502,32 @@ follow_up:
         today: Heute ist nichts fällig.
         week: Diese Woche ist nichts fällig.
         all: Auf deiner Liste steht nichts.
+    # Die Anzeige am Datensatz (XIV-82). „Fällig“ und „Erledigt“ statt nackter
+    # Zeitangaben: eine Zeitangabe allein sagt in einer Liste davon nicht mehr,
+    # welcher der beiden Momente sie ist.
+    due: 'Fällig %when%'
+    assigned_to: 'für %who%'
+    opened_by: 'Eröffnet von %who%, %when%'
+    done_at: 'Erledigt %when%'
+    mark_done: Erledigt
+    reopen: Wieder öffnen
+    add: Wiedervorlage anlegen
+    # Steht nur da, wo jemand auch eine anlegen kann — also als Einladung und
+    # nicht als Bericht über eine leere Tabelle.
+    none: Auf diesem Datensatz steht nichts offen.
+    open_it: Anlegen
+    due_label: Wann
+    priority_label: Wie laut
+    assignee_label: Für wen
+    # Nicht „nicht zugewiesen“, das klingt nach etwas Unfertigem. Eine
+    # Wiedervorlage ohne Namen ist eine Notiz des Büros, und das ist eine
+    # vollwertige Antwort.
+    nobody: Niemanden im Besonderen
+    what_label: Was zu tun ist
+    what_placeholder: 'Zurückrufen — es ging um die zweite Rechnung'
+    note_placeholder: Notiz hinzufügen
+    add_note: Hinzufügen
+    edited: (bearbeitet)
 
 # Die Einladungs-E-Mail selbst (XIV-1). Hier statt in einer E-Mail-Vorlage aus
 # XIV-38: die sind pro Modul, an Kundschaft gerichtet und vom Mandanten
@@ -555,6 +581,13 @@ mail:
 flash:
     saved: Gespeichert.
     transitioned: 'Jetzt %state%.'
+    # Wiedervorlagen (XIV-82). Die Erfolgsmeldung sagt, wohin es gegangen ist —
+    # es steht nicht in der Mitte der Seite, und wer nicht hochschaut, hält es
+    # sonst für nicht passiert.
+    follow_up_opened: Angelegt. Sie steht oben am Datensatz, bis jemand sie erledigt.
+    # Hierher kommt nur eine selbstgebaute Anfrage: das Feld ist ein Pflicht-
+    # datetime-local, der Browser weist es also ab, bevor der Server muss.
+    follow_up_no_date: Eine Wiedervorlage braucht ein Datum, auf das sie sich bezieht. Es wurde nichts angelegt.
     template_uploaded: Vorlage hochgeladen. Sie wird an jedem passenden Datensatz angeboten.
     template_deleted: '„%template%“ entfernt. Bereits heruntergeladene Dokumente bleiben davon unberührt.'
     email_template_saved: Gespeichert. Sie wird an jedem passenden Datensatz angeboten.
