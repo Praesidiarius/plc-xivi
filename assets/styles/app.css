@@ -65,6 +65,46 @@
 }
 
 /*
+ * The signed-in person's avatar (XIV-77): initials in a circle, on a colour
+ * derived from their email in App\Twig\Avatar and handed over as a hue.
+ *
+ * **The hue is the only thing that varies.** Saturation and lightness are fixed
+ * here so the white initials keep their contrast whatever colour somebody's
+ * email happens to hash to — 32% lightness is chosen against the worst case,
+ * which is yellow at hue 60 and clears 4.5:1 with a little to spare. A colour
+ * chosen freely per person would eventually choose a pale one and put white text
+ * on it.
+ *
+ * One treatment in both themes rather than two: a filled dark circle reads
+ * against the light page and against the dark one, and a second palette would be
+ * a second thing to keep legible for no gain.
+ */
+.avatar {
+	inline-size: 1.5rem;
+	block-size: 1.5rem;
+	flex: 0 0 auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 50%;
+	background: hsl(var(--avatar-hue, 0) 45% 32%);
+	color: #fff;
+	font-size: .65rem;
+	font-weight: 600;
+	line-height: 1;
+}
+
+/*
+ * A name has no length limit and the bar has a width, so somebody called
+ * "Alexander von Habsburg-Lothringen" truncates rather than pushing the module
+ * tabs onto another row. The circle beside it never shrinks — it is two
+ * characters and the one part of this that stays readable at any width.
+ */
+.topbar-name {
+	max-width: 14rem;
+}
+
+/*
  * The record timeline (XIV-3).
  *
  * One line per entry, with the changes behind a native <details> — no

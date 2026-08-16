@@ -43,6 +43,9 @@ nav:
     users: Users
     profile: Company
     store: Store
+    # Short on purpose: it labels one item in the menu under your own name, and
+    # the page it opens says "Your account" in its own heading (XIV-77).
+    account: Account
     sign_out: Sign out
 
 login:

@@ -227,6 +227,22 @@ lands in `Unreleased` here.
   fields belong to the engine. AI Mate rewrites only its own marked block, so
   `mate discover` leaves it alone.
 
+### Changed
+
+- **The top bar's right-hand side is one menu under your own name** ([XIV-77]).
+  The five buttons that had accumulated there — company profile, store, users,
+  account, sign out — are now a small avatar, your name, and a dropdown holding
+  all five. Each item is still behind exactly the permission it was behind
+  before, and the page you are on is still named: while the menu is shut, that
+  item's icon and label sit on the button beside your name. Sign out moved inside
+  and is still a POST form, not a link.
+- **The avatar is drawn, not downloaded** ([XIV-77]). Initials in a circle,
+  coloured from your email address, generated on the server — no Gravatar and no
+  request of any kind leaves the browser for it, which is the promise the README
+  makes about CDNs applied to pictures of people. Uploading your own picture is
+  deliberately not part of this: it is the file-storage question §9 records as
+  half answered.
+
 ### Fixed
 
 - **Demo data no longer invents what the engine works out** ([XIV-73]). Generated
@@ -291,6 +307,7 @@ lands in `Unreleased` here.
 [XIV-73]: https://xivi.youtrack.cloud/issue/XIV-73
 [XIV-71]: https://xivi.youtrack.cloud/issue/XIV-71
 [XIV-75]: https://xivi.youtrack.cloud/issue/XIV-75
+[XIV-77]: https://xivi.youtrack.cloud/issue/XIV-77
 
 ## Releases
 
