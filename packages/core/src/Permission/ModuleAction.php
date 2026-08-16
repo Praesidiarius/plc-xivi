@@ -113,6 +113,52 @@ enum ModuleAction: string implements PermissionVerb
     case Transition = 'transition';
 
     /**
+     * Setting a follow-up on a record, and writing a note on one (XIV-80).
+     *
+     * One verb for both halves, and that is the same decision Transition made one
+     * case up: a note is what a follow-up is *for*, and somebody who may create
+     * the task but not say anything about it has been given a feature with its
+     * mouth taped shut. "May comment but not open" is a real requirement the day
+     * somebody has it, and that day is the ticket for splitting this.
+     *
+     * Editing and deleting a note are deliberately **not** here. They are always
+     * allowed, to their own author, and to nobody else — not even an
+     * administrator (see App\Tenant\FollowUp\FollowUpManager). A grant would be
+     * saying that somebody else's sentence is somebody's to rewrite, which is a
+     * different claim from anything else in this enum, and one this project is
+     * not making.
+     *
+     * Reading follow-ups is not here either: it follows the module's own View,
+     * because a follow-up says nothing that the record it sits on does not
+     * already say to whoever may open it.
+     *
+     * The value is eighteen characters, and `permission_grant.action` was
+     * `varchar(16)` until this arrived. The catalogue needs no migration (§8.4) —
+     * it is this enum crossed with the customer's modules, worked out at runtime
+     * — but the column still has to hold the string, so XIV-80 widened it to 31.
+     * That is the second time a case has been written to fit a column (see
+     * SendEmail); the column is now as wide as the history table's `action`, so
+     * the third one will not have to think about it.
+     */
+    case FollowUpCreate = 'follow_up_create';
+
+    /**
+     * Marking a follow-up done, and reopening one that was (XIV-80).
+     *
+     * **One permission for both directions**, which is the whole of what the
+     * separation from FollowUpCreate is about. Done is a nullable timestamp
+     * rather than a state, so closing and reopening are the same edit of the same
+     * column pointing two ways, and there is no reading of "may close but may not
+     * undo it" that is not just a slower way of losing work.
+     *
+     * Separate from FollowUpCreate because clearing somebody else's outstanding
+     * task is a louder act than adding one. A follow-up nobody asked for is
+     * noise; a follow-up marked done by somebody who was not going to do it is
+     * work that silently stopped existing.
+     */
+    case FollowUpComplete = 'follow_up_complete';
+
+    /**
      * Whether "only the records I own" is a question this action can answer.
      *
      * Adding a record and importing a file name nothing that already exists, so
@@ -126,7 +172,13 @@ enum ModuleAction: string implements PermissionVerb
             self::View, self::List, self::Edit, self::Delete, self::Export, self::Document, self::Transition,
             // Sending names one record and one address that comes off it, so
             // "only my own customers" is a question with an answer here.
-            self::SendEmail => true,
+            self::SendEmail,
+            // A follow-up is always about one record that already exists, so
+            // both of these inherit that record's owner and "only on my own
+            // customers" is a sentence with a meaning (XIV-80). Note that this
+            // is about the *record*, never about the follow-up: whose task it is
+            // is the assignee, which is data on the row rather than a scope.
+            self::FollowUpCreate, self::FollowUpComplete => true,
             // Templates and EmailTemplates name no record: they are the
             // module's stationery and its wording, not anybody's row.
             self::Add, self::Import, self::Templates, self::EmailTemplates => false,
@@ -144,6 +196,10 @@ enum ModuleAction: string implements PermissionVerb
     {
         return match ($this) {
             self::Add, self::Edit, self::Delete, self::Import, self::Templates, self::EmailTemplates, self::Transition,
+            // Both write rows, and neither is a read wearing a hat: opening a
+            // follow-up puts work on somebody's list and completing one takes it
+            // off again (XIV-80).
+            self::FollowUpCreate, self::FollowUpComplete,
             // Nothing in the database changes, and it is still not a read:
             // generating a document brings something back, and sending a mail
             // puts something out that cannot be recalled. Grouping it with view

@@ -62,6 +62,8 @@ permission:
         email_templates: E-Mail-Vorlagen
         send_email: E-Mail senden
         transition: Status ändern
+        follow_up_create: Wiedervorlagen anlegen
+        follow_up_complete: Wiedervorlagen erledigen
     scope:
         own: Eigene Datensätze
         all: Alle Datensätze

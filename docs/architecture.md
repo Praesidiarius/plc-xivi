@@ -1857,6 +1857,126 @@ the status field, weighted by repetition like all the others. The generator pick
 a destination and walks to it, and knows neither what a draft is nor how many
 there should be.
 
+### 5.18 Follow-ups, and where §5.2's argument stops (XIV-80)
+
+A follow-up is something somebody decided to do about one record, by one date:
+call them back on Friday, chase this invoice next week. A priority, a due date,
+an optional assignee, a thread of notes, and a done stamp that can be taken off
+again.
+
+**One shared pair of tables, which is the opposite of what history does.** §5.2
+splits history per module for two reasons, and only one of them survives the move
+here. The integrity reason is real and is given up deliberately (below); the
+*size* reason is not: history is written automatically, on every save, by
+everybody, and grows without bound, whereas a follow-up is typed by a person who
+decided to type it, and a customer producing a thousand a year is a busy
+customer. Paying for per-module tables — an installer that creates them, the
+63-character identifier guard in `ModuleInstaller::assertTableNameFits()` to
+widen, every already-installed module to retro-fit — buys nothing in return. So
+`follow_up` and `follow_up_note` are ordinary Doctrine entities in the tenant
+database, created by a `migrations/tenant` migration beside `User` and
+`PermissionGroup`.
+
+**`record_id` therefore carries no foreign key, and cannot**, because the table it
+points into depends on what `module` says. That is precisely the property §5.2
+refused to give up, given up here with the reason written down: this table is
+small, hand-written, and always read with a module definition already in hand, so
+nothing ever has to work out which table a row means from the row alone. Two
+consequences belong to code rather than to the database, and both are stated in
+the migration and at the entity:
+
+- **Every read joins through to the record and honours `deleted_at IS NULL`.**
+  Records are soft-deleted (§5), so a cascade would have nothing to fire on even
+  if there were one, and a follow-up on a deleted record would otherwise surface
+  on a widget about a customer somebody removed last month. The check is a second
+  query rather than a join, and that is forced: the module's table is named at
+  runtime and is not a mapped entity, so DQL cannot reach it.
+- **A hard purge, when one is ever built, has to sweep `follow_up` itself.**
+  Nothing in Postgres will remind whoever writes it.
+
+**The note's foreign key is real and cascades**, which is the same rule producing
+the opposite answer one level down: `follow_up_note.follow_up_id` means one table
+forever.
+
+**Users are denormalised, and here they did not have to be.** Core stores an owner
+id without a constraint because it genuinely does not know what a user is; these
+entities live next to `User` in the same database and *could* have joined. The
+answer is still no, for two reasons pointing the same way: a task should outlive
+the person it was assigned to, and a label captured at write time keeps saying who
+they were after a rename — §5.2's argument for `user_label`, reused. Deleting a
+user clears the *assignment* and keeps the name, through a listener rather than
+`ON DELETE SET NULL`, since there is no constraint to hang that on. Who *made* a
+follow-up is not touched: that is a fact about something that happened, like a
+history row's `user_id`, while the assignee is a live claim on somebody's
+attention and a person who is gone has none.
+
+**Two new verbs, granted per module like everything else** (§8.4).
+`follow_up_create` covers opening one and writing a note on it — a note is what a
+follow-up is *for*, and somebody who may create the task but not say anything
+about it has been given a feature with its mouth taped shut. `follow_up_complete`
+covers marking done **and** reopening, because done is a nullable timestamp rather
+than a state and the two directions are one edit pointing two ways; anybody who
+can close a follow-up they should not have can undo it, which is what makes
+closing safe. Reading follows the module's own `view`: a follow-up says nothing
+the record does not already say to whoever may open it. Adding these cost one
+schema change nobody predicted — `permission_grant.action` was `varchar(16)` and
+`follow_up_complete` is eighteen characters, so it is 31 now, as wide as a history
+row's `action`.
+
+**A note is editable and deletable by its author and by nobody else, including an
+administrator.** The one place this feature departs from §8.4, and the only place
+in the application where `ROLE_ADMIN` is not a bypass. A note is a sentence
+somebody said; editing it under their name is putting words in their mouth, and
+there is no configuration of a permission system that should make that possible.
+It follows that a deleted user's notes become nobody's to edit — the correct end
+state, and the reason the rule is expressed against the stored author id rather
+than against a relation.
+
+**A follow-up may only be assigned to somebody who may view its record.**
+Otherwise a task lands on a list whose owner cannot open what it is about, and a
+dashboard is left choosing between leaking the record's title and silently hiding
+work somebody was given. Checked at assignment, through the same
+`PermissionResolver` every other check uses — which is why the write path takes
+its actor as a parameter rather than reading the token: resolving somebody *other*
+than the current user was already the shape of the code. **Revoking the grant
+afterwards is deliberately not retroactive.** There is no cascade and no listener
+on grant changes: a screen about people must not silently unassign somebody's
+outstanding work with no record of having done it. The residue is handled where it
+shows, by listing such a follow-up without a link to its record.
+
+**The rules live in a service, underneath §8.4's three seams.** A route carries
+`#[IsGranted]`, a voter decides a record, a WHERE clause decides a list — and all
+three are things a form post goes through. An import, a console command and a
+future API are not, and this is exactly the kind of feature that grows one of
+them, so `FollowUpManager` is the fourth seam and the one that cannot be walked
+around. Grants scoped to "own records" are honoured there through the same
+`RecordAccess` the list compiles from, so a record kept out of somebody's list
+cannot have a follow-up put on it by typing its id.
+
+**Per module, opt-in, on by default, and reversible** — which is the one thing
+that makes it unlike a preset (§6.1). Because no table is created per module,
+the switch is a boolean on the customer's `ModuleDefinition` rather than DDL, so
+it can be turned round for as long as the installation lives; the store asks at
+install time as a courtesy, not because it is the last chance. It lives there
+rather than in a table of its own because "what this customer has, and how it is
+set up" is already one row with one answer, and a second table keyed by module key
+would be a second place to say a module exists. Switching it off deletes nothing:
+existing follow-ups stop being offered and come back if it is switched on again, a
+toggle that threw rows away being one nobody would dare use.
+
+**`due_at` and `done_at` are `timestamptz`**, like `<module>_history.occurred_at`.
+A deadline is an instant two people in two countries have to agree about. The
+row's own `created_at`/`updated_at` are zoneless like every neighbouring table's,
+and `updated_at` means *last activity on the thread* rather than the last edit of
+the follow-up's own fields — writing or editing a note bumps it, since a
+timestamp standing still while three people argue underneath it answers a question
+nobody asked.
+
+**Two indexes and no more**: `(module, record_id)` for the record page and
+`(assignee_id, done_at, due_at)` for the dashboard. Over-indexing is the other
+half of what made the old history table hurt, and this is the table people write
+by hand.
+
 ---
 
 ## 6. Extensibility

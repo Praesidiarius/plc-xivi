@@ -302,6 +302,14 @@ when@test:
         Xivi\Core\Validation\RecordValidator:
             public: true
 
+        # The same situation one ticket later (XIV-80): the follow-up write path
+        # is the engine half, and its callers are the record page (XIV-82) and the
+        # dashboard widget (XIV-81), neither of which exists yet. The rules it
+        # enforces are exactly the ones worth having under test *before* a screen
+        # relies on them, so it stays reachable until something calls it.
+        App\Tenant\FollowUp\FollowUpManager:
+            public: true
+
         # XIV-37 and XIV-38 each had to be reachable from a test before anything
         # in the application called them. XIV-39 is that caller — the send screen
         # renders through EmailRenderer and sends through TenantMailer — so both

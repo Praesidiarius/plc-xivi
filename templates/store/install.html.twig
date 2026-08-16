@@ -74,6 +74,34 @@
 				</div>
 			{% endif %}
 
+			{#
+				Follow-ups, which is the one question on this page that is *not*
+				permanent (XIV-80). No table is created per module for them — one
+				shared pair lives in the tenant database — so this is a boolean on
+				the module definition that can be turned round at any time, and the
+				help text says so rather than letting the warning above speak for
+				it too.
+
+				The hidden marker beside the box is what makes unticking it mean
+				anything: an unchecked checkbox sends nothing at all, and so does a
+				request that never carried this question — which has to keep
+				meaning "on". The marker tells the two apart. See
+				ModuleStoreController::wantsFollowUps().
+			#}
+			<div class="card mb-4">
+				<div class="card-body">
+					<input type="hidden" name="follow_ups_asked" value="1">
+					<div class="form-check">
+						<input class="form-check-input" type="checkbox" name="follow_ups"
+						       id="follow-ups" value="1" checked>
+						<label class="form-check-label" for="follow-ups">
+							<span class="fw-semibold">{{ 'store.follow_ups'|trans }}</span>
+							<span class="d-block text-body-secondary small">{{ 'store.follow_ups_help'|trans }}</span>
+						</label>
+					</div>
+				</div>
+			</div>
+
 			{% if offer.collections is not empty %}
 				<div class="alert alert-secondary">
 					{{ 'store.collections_always'|trans({'%collections%': offer.collections|join(', ')}) }}
