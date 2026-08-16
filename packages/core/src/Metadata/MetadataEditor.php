@@ -42,6 +42,7 @@ final readonly class MetadataEditor
         private EntityManagerInterface $entityManager,
         private FieldTypeRegistry $fieldTypes,
         private RecordRepository $records,
+        private MetadataCache $cache,
     ) {
     }
 
@@ -103,6 +104,9 @@ final readonly class MetadataEditor
 
         $this->entityManager->persist($field);
         $this->entityManager->flush();
+        // What these queries would return has just changed (XIV-53). A page
+        // still showing the old shape would look like the edit had failed.
+        $this->cache->clear();
 
         return $field;
     }
@@ -153,6 +157,7 @@ final readonly class MetadataEditor
         $field->setOptions(self::withOptions($field->getOptions(), $options));
 
         $this->entityManager->flush();
+        $this->cache->clear();
     }
 
     /**
@@ -220,6 +225,7 @@ final readonly class MetadataEditor
 
         $shape->setLabel($label);
         $this->entityManager->flush();
+        $this->cache->clear();
     }
 
     public function removeField(FieldDefinition $field): void
@@ -232,6 +238,7 @@ final readonly class MetadataEditor
 
         $this->entityManager->remove($field);
         $this->entityManager->flush();
+        $this->cache->clear();
     }
 
     /** How many records still hold a value for this field. */

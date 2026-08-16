@@ -83,6 +83,10 @@ lands in `Unreleased` here.
   file in `APP_LOGO` and put it in `assets/brand/`, which is gitignored. It is the
   favicon too. Unset — the default, and what a fresh clone has — falls back to
   the name in text and the mark drawn as `17`.
+- **Pages read a module's definitions once instead of once per question**
+  ([XIV-53]). A record list naming twenty-five different contacts went from 83
+  queries to 33. Nothing is cached beyond the tenant it belongs to: the cache is
+  emptied whenever the tenant context moves, and whenever a definition changes.
 - **Two checkouts can run the suite at the same time** ([XIV-51]). A git worktree
   gets its own compose project, ports and tenant databases, all derived from the
   directory name; the main checkout keeps the names and ports it had. Two runs in
@@ -140,4 +144,5 @@ lands in `Unreleased` here.
 [XIV-48]: https://xivi.youtrack.cloud/issue/XIV-48
 [XIV-50]: https://xivi.youtrack.cloud/issue/XIV-50
 [XIV-51]: https://xivi.youtrack.cloud/issue/XIV-51
+[XIV-53]: https://xivi.youtrack.cloud/issue/XIV-53
 [XIV-44]: https://xivi.youtrack.cloud/issue/XIV-44
