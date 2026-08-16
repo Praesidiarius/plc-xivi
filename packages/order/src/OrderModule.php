@@ -215,6 +215,7 @@ final class OrderModule implements ModuleProvider
                         // that sells one.
                         new FieldBlueprint(
                             key: 'article',
+                            width: 2,
                             label: 'field.article',
                             type: 'reference',
                             required: true,
@@ -229,6 +230,7 @@ final class OrderModule implements ModuleProvider
                         // only field is the one every line has.
                         new FieldBlueprint(
                             key: 'description',
+                            width: 4,
                             label: 'field.description',
                             type: 'text',
                             required: true,
@@ -247,6 +249,7 @@ final class OrderModule implements ModuleProvider
                         // decorates the number is worse than none.
                         new FieldBlueprint(
                             key: self::QUANTITY,
+                            width: 1,
                             label: 'field.quantity',
                             type: 'decimal',
                             required: true,
@@ -265,6 +268,7 @@ final class OrderModule implements ModuleProvider
                         // than nothing is a typo.
                         new FieldBlueprint(
                             key: self::UNIT_PRICE,
+                            width: 2,
                             label: 'field.unit_price',
                             type: 'currency',
                             required: true,
@@ -277,6 +281,7 @@ final class OrderModule implements ModuleProvider
                         // is the rate that applied on the day (XIV-16).
                         new FieldBlueprint(
                             key: self::TAX_RATE,
+                            width: 1,
                             label: 'field.tax_rate',
                             type: 'decimal',
                             variants: [self::ARTICLE_LINE, self::CUSTOM_LINE],
@@ -295,6 +300,7 @@ final class OrderModule implements ModuleProvider
                         // one.
                         new FieldBlueprint(
                             key: self::LINE_TOTAL,
+                            width: 2,
                             label: 'field.line_total',
                             type: 'currency',
                             variants: [self::ARTICLE_LINE, self::CUSTOM_LINE, self::SUBTOTAL_LINE],
@@ -370,14 +376,6 @@ final class OrderModule implements ModuleProvider
                 locked: [self::DELIVERED, self::CANCELLED],
             ),
             // Every order names a customer, so this one is not optional (XIV-23).
-            requires: ['contact'],
-            // And an order that sells only custom lines is an ordinary order, so
-            // this one is: without it, the article line kind is simply not
-            // offered.
-            uses: [self::ARTICLE_MODULE],
-            // Where the money is (XIV-16, declared rather than coded since
-            // XIV-19). The arithmetic belongs to the engine; what this module
-            // knows is which of its own fields mean what.
             lineTotals: new LineTotals(
                 collection: self::LINES,
                 quantity: self::QUANTITY,
@@ -393,6 +391,14 @@ final class OrderModule implements ModuleProvider
                 taxAmount: self::TAX_AMOUNT,
                 subtotalKind: self::SUBTOTAL_LINE,
             ),
+            // And an order that sells only custom lines is an ordinary order, so
+            // this one is: without it, the article line kind is simply not
+            // offered.
+            requires: ['contact'],
+            // Where the money is (XIV-16, declared rather than coded since
+            // XIV-19). The arithmetic belongs to the engine; what this module
+            // knows is which of its own fields mean what.
+            uses: [self::ARTICLE_MODULE],
         );
     }
 }

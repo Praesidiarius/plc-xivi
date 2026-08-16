@@ -75,7 +75,8 @@ lands in `Unreleased` here.
   The default comes from the *field type* — a text is half a row, a textarea the
   whole one, a count three twelfths — and a tenant can override it per field in
   the metadata editor. Collection rows lay out the same way, since a row's fields
-  are the same thing one level down. Existing forms change appearance on upgrade, which is the
+  are the same thing one level down — and an order or invoice line now declares
+  its own widths, so a whole line sits on one row instead of six. Existing forms change appearance on upgrade, which is the
   point; nothing is migrated and no value is written. See §5.
 - **Releases are published on GitHub**, from the changelog file the release
   procedure already writes. Pushing a `v*` tag posts
