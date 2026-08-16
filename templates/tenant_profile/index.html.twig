@@ -44,6 +44,22 @@
 					<div class="form-text">{{ 'profile.currency_help'|trans }}</div>
 				</div>
 
+				{# Which country this installation writes numbers and dates like
+				   (XIV-50). Its people are mostly in one place; whoever is not
+				   says so on their own account. #}
+				<div class="mb-3">
+					<label class="form-label" for="region">{{ 'profile.region'|trans }}</label>
+					<select class="form-select" id="region" name="region" {{ editable ? '' : 'disabled' }}>
+						<option value="">{{ 'profile.region_none'|trans }}</option>
+						{% for code, name in regions %}
+							<option value="{{ code }}" {{ profile.region == code ? 'selected' : '' }}>
+								{{ name }}
+							</option>
+						{% endfor %}
+					</select>
+					<div class="form-text">{{ 'profile.region_help'|trans }}</div>
+				</div>
+
 				{% if editable %}
 					<button class="btn btn-primary" type="submit">{{ 'common.save'|trans }}</button>
 				{% else %}

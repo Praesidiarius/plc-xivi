@@ -16,6 +16,7 @@ namespace Xivi\Core\Money;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Module\ModuleRegistry;
 use Xivi\Core\Record\Derivation;
+use Xivi\Core\Record\SafeToPreview;
 use Xivi\Core\Record\ValueDeriver;
 
 /**
@@ -44,7 +45,7 @@ use Xivi\Core\Record\ValueDeriver;
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
-final readonly class DerivesTotals implements ValueDeriver
+final readonly class DerivesTotals implements ValueDeriver, SafeToPreview
 {
     public function __construct(private ModuleRegistry $modules)
     {
@@ -80,6 +81,12 @@ final readonly class DerivesTotals implements ValueDeriver
         // will say.
         $block = Amount::zero();
 
+        // `['data' => …] + $line` below rather than a fresh pair, so whatever
+        // else the caller put on a row survives being derived. The live form
+        // (XIV-32) needs that: it hands rows in carrying the form index they
+        // came from, and matching the figures back by *position* instead would
+        // be an assumption that this loop emits one row per row forever —
+        // silent when it broke, and wrong on a page showing somebody money.
         foreach ($derivation->rowsOf($totals->collection) as $line) {
             $data = $line['data'];
             $amount = self::amountOf($data, $totals);
@@ -98,13 +105,13 @@ final readonly class DerivesTotals implements ValueDeriver
                     $block = Amount::zero();
                 }
 
-                $lines[] = ['id' => $line['id'], 'data' => $data];
+                $lines[] = ['data' => $data] + $line;
 
                 continue;
             }
 
             $data[$totals->lineTotal] = (string) $amount;
-            $lines[] = ['id' => $line['id'], 'data' => $data];
+            $lines[] = ['data' => $data] + $line;
 
             $net = $net->plus($amount);
             $block = $block->plus($amount);

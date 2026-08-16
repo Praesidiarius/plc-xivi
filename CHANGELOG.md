@@ -65,6 +65,68 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **Totals update while you type** ([XIV-32], [XIV-44]). A line's total and the
+  order's net, VAT and gross follow the quantity and the price as they are
+  entered, before anything is saved, and read in the reader's own number format.
+  The arithmetic is the server's — the same derivers the save runs, so there is
+  no second copy of the rounding rule to disagree with the first. See §5.9.
+- **Fields have a width, and forms stop being one column** ([XIV-43]). A field is
+  drawn in twelfths of a row, so a first name and a last name sit side by side.
+  The default comes from the *field type* — a text is half a row, a textarea the
+  whole one, a count three twelfths — and a tenant can override it per field in
+  the metadata editor. Collection rows lay out the same way, since a row's fields
+  are the same thing one level down — and an order or invoice line now declares
+  its own widths, so a whole line sits on one row instead of six. Existing forms change appearance on upgrade, which is the
+  point; nothing is migrated and no value is written. See §5.
+- **The installation can show a logo** ([XIV-48]), in the top bar and on the
+  login page. It is supplied by the deployment rather than committed: name a
+  file in `APP_LOGO` and put it in `assets/brand/`, which is gitignored. It is the
+  favicon too. Unset — the default, and what a fresh clone has — falls back to
+  the name in text and the mark drawn as `17`.
+- **A reference picker says when it is showing only the first few** ([XIV-35]).
+  It has always stopped at 200 and never mentioned it, so a company that could
+  not be linked to looked exactly like one that did not exist. The total is
+  counted under the reader's own permissions, so it says nothing about records
+  they may not see.
+- **Pages read a module's definitions once instead of once per question**
+  ([XIV-53]). A record list naming twenty-five different contacts went from 83
+  queries to 33. Nothing is cached beyond the tenant it belongs to: the cache is
+  emptied whenever the tenant context moves, and whenever a definition changes.
+- **Two checkouts can run the suite at the same time** ([XIV-51]). A git worktree
+  gets its own compose project, ports and tenant databases, all derived from the
+  directory name; the main checkout keeps the names and ports it had. Two runs in
+  one checkout are refused with a message rather than left to interleave.
+- **Language and region are separate settings** ([XIV-50]). Choosing German used
+  to mean German-from-Germany, so a Swiss reader saw `1.234.500,00` where their
+  country writes `1’234’500.00`. Pick a country on your account, or set one for
+  the whole installation on its profile; a region needs no new translation.
+- **Dates are written the way the reader's country writes them**, rather than as
+  ISO for everybody. What is *stored* is still ISO, which is what makes a date
+  sort and filter.
+- **Totals on a form group their thousands** ([XIV-47]), in the reader's own
+  locale — so a gross total reads `1.234.500,00` in German rather than running
+  together. Only the figures nobody types into: what you edit is untouched, and
+  `integer` is left alone because the engine cannot tell a count from a year.
+- **Money is formatted even before a currency is chosen** ([XIV-47]). An
+  installation that has not filled in its profile — which every installation is
+  on its first day — was showing amounts through `number_format` with a dot and
+  no separators, in nobody's language. It is now grouped and localized, with the
+  currency still the only thing missing.
+- **The sign-in card is centred**, with a larger logo. What somebody types into
+  is not: text that moves as it is typed is worse on the one field on that page
+  anybody has to be careful with.
+- **The record page is two columns again.** Each card used to be its own grid
+  column, so once a record had more than one thing pointing at it the sidebar
+  settled beside the last of them with a gap above it.
+- **What points at a record is folded away until asked for.** A contact's orders
+  and invoices show their heading and how many there are; the list opens on a
+  click. Native `<details>`, so it works without JavaScript and with the
+  keyboard — the same choice the timeline made.
+- **A reference is a link to the record it names** ([XIV-42]), on the record
+  page, in a list column and in a collection row. The name is shown to anybody
+  who can see the record holding it; the *link* is offered only where the reader
+  may actually open the target, and a stale reference stays plain `#id` text.
+  See §7.6.
 - **Releases are published on GitHub**, from the changelog file the release
   procedure already writes. Pushing a `v*` tag posts
   `docs/changelog/<version>.md` as the release notes — and refuses if that file
@@ -90,3 +152,14 @@ lands in `Unreleased` here.
 | [17.0.2](docs/changelog/17.0.2.md) | 2026-08-16 | Four modules, the money and documents they needed, and a front end that changed twice |
 | [17.0.1](docs/changelog/17.0.1.md) | 2026-08-15 | Permissions, localization, and the test suite from 165s to 10s |
 | [17.0.0](docs/changelog/17.0.0.md) | 2026-08-14 | The first numbered version: the engine, tenancy, and everything built before versioning began |
+
+[XIV-32]: https://xivi.youtrack.cloud/issue/XIV-32
+[XIV-42]: https://xivi.youtrack.cloud/issue/XIV-42
+[XIV-35]: https://xivi.youtrack.cloud/issue/XIV-35
+[XIV-43]: https://xivi.youtrack.cloud/issue/XIV-43
+[XIV-47]: https://xivi.youtrack.cloud/issue/XIV-47
+[XIV-48]: https://xivi.youtrack.cloud/issue/XIV-48
+[XIV-50]: https://xivi.youtrack.cloud/issue/XIV-50
+[XIV-51]: https://xivi.youtrack.cloud/issue/XIV-51
+[XIV-53]: https://xivi.youtrack.cloud/issue/XIV-53
+[XIV-44]: https://xivi.youtrack.cloud/issue/XIV-44

@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace App\Tenant\EventListener;
 
 use App\Tenant\Entity\User;
+use App\Tenant\Settings\FormattingLocale;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
@@ -56,6 +57,7 @@ final readonly class UserLocaleListener
     /** @param list<string> $enabledLocales */
     public function __construct(
         private Security $security,
+        private FormattingLocale $formatting,
         #[Autowire(service: 'translator')]
         private LocaleAwareInterface $translator,
         #[Autowire('%kernel.enabled_locales%')]
@@ -83,7 +85,20 @@ final readonly class UserLocaleListener
             ? $chosen
             : ($request->getPreferredLanguage($this->enabledLocales) ?? $this->defaultLocale);
 
-        $request->setLocale($locale);
-        $this->translator->setLocale($locale);
+        // The language decides the words; the region decides how a number is
+        // written (XIV-50). They are joined here and nowhere else, so everything
+        // downstream still asks one question.
+        //
+        // `Request::setLocale()` also sets PHP's own default, which is what the
+        // field types read when they format — so a Swiss reader gets Swiss
+        // figures without a single formatter learning about regions.
+        $written = $this->formatting->of($locale, $user instanceof User ? $user : null);
+
+        $request->setLocale($written);
+
+        // The translator is given the same thing: Symfony falls a locale back to
+        // its language, so `de_CH` finds the `de` catalogue and a region costs no
+        // translation work at all.
+        $this->translator->setLocale($written);
     }
 }

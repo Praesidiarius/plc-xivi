@@ -15,7 +15,6 @@ namespace Xivi\Core\Record;
 
 use Doctrine\DBAL\Connection;
 use Psr\EventDispatcher\EventDispatcherInterface;
-use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Xivi\Core\Entity\CollectionDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
@@ -46,13 +45,11 @@ final readonly class RecordWriter
     /** The gap left between rows, so one can be moved between two (XIV-21). */
     private const int POSITION_STEP = 10;
 
-    /** @param iterable<ValueDeriver> $derivers */
     public function __construct(
         private Connection $connection,
         private RecordRepository $records,
         private EventDispatcherInterface $events,
-        #[AutowireIterator(ValueDeriver::TAG)]
-        private iterable $derivers = [],
+        private DerivedValues $derived,
     ) {
     }
 
@@ -172,17 +169,9 @@ final readonly class RecordWriter
      */
     private function derive(ModuleDefinition $module, Record $record, array $children): array
     {
-        $derivation = new Derivation($record->data, $children);
-        $derived = false;
+        $derivation = $this->derived->of($module, $record->data, $children);
 
-        foreach ($this->derivers as $deriver) {
-            if ($deriver->supports($module)) {
-                $deriver->derive($module, $derivation);
-                $derived = true;
-            }
-        }
-
-        if (!$derived) {
+        if ($derivation === null) {
             return $children;
         }
 

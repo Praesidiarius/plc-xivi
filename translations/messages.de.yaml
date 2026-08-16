@@ -44,6 +44,9 @@ dashboard:
     none_installed: 'Noch keine Module installiert. Installiere eines mit'
 
 account:
+    region: Region
+    region_default: Der Firma folgen
+    region_help: Wie Zahlen und Daten geschrieben werden. Schweizerdeutsch und Deutschländisches Deutsch sind dieselbe Sprache und andere Zahlen.
     title: Dein Konto
     details: Angaben
     name_help: Wird auf Datensätzen angezeigt, die dir gehören, und in deren Verlauf.
@@ -112,6 +115,7 @@ module:
         removed: entfernt
 
 field:
+    picker_truncated: 'Es werden die ersten %shown% von %total% angezeigt. Grenze die Liste ein oder suche im anderen Modul.'
     label: Bezeichnung
     label_placeholder: Umsatzsteuer-ID
     shape_name: Name dieser Form
@@ -119,6 +123,8 @@ field:
     type: Typ
     rules: Regeln
     order: Reihenfolge
+    width: Breite
+    width_default: Feldtyp-Standard
     back_to: Zurück zu %module%
     rule_required: Pflichtfeld
     rule_unique: eindeutig
@@ -248,6 +254,9 @@ group:
     delete_aria: '%group% löschen'
 
 profile:
+    region: Region
+    region_none: Standard der Anwendung
+    region_help: Nach welchem Land diese Installation schreibt. Wer woanders ist, wählt es auf seinem Konto selbst.
     title: Firmenprofil
     intro: >-
         Wie diese Installation heißt und in welcher Währung sie rechnet. Das gilt für

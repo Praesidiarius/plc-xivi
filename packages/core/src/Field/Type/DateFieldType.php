@@ -103,9 +103,38 @@ final class DateFieldType implements FieldType
         return ['widget' => 'single_text', 'input' => 'datetime_immutable', 'html5' => true];
     }
 
+    /**
+     * The date, written the way this reader's country writes one (XIV-50).
+     *
+     * **`self::FORMAT` is deliberately not used here, and that is the whole
+     * point.** It is the *storage* format: dates are kept as ISO strings because
+     * they then sort and compare as text, which is what makes a plain string
+     * usable in JSONB without a cast (§5). Localizing by reaching for that
+     * constant would localize what goes in the database and quietly break every
+     * sort and filter — the mistake `CurrencyFieldType` made when one method
+     * both formatted and normalized (XIV-47).
+     *
+     * So: stored the same for everybody, shown the way each person reads. The
+     * locale's *short* pattern, because a list column is not a sentence — but
+     * with the year widened, since CLDR's short forms mostly write it as two
+     * digits and a record that says `15.08.26` is a record somebody has to think
+     * about. The order of the fields stays whatever the country uses.
+     */
     public function display(mixed $value, FieldDefinition $field): string
     {
-        return $value instanceof \DateTimeInterface ? $value->format(self::FORMAT) : '';
+        if (!$value instanceof \DateTimeInterface) {
+            return '';
+        }
+
+        $formatter = new \IntlDateFormatter(
+            \Locale::getDefault(),
+            \IntlDateFormatter::SHORT,
+            \IntlDateFormatter::NONE,
+        );
+
+        $formatter->setPattern(preg_replace('/y+/', 'yyyy', (string) $formatter->getPattern()) ?? '');
+
+        return $formatter->format($value) ?: $value->format(self::FORMAT);
     }
 
     public function operators(): array
@@ -130,5 +159,14 @@ final class DateFieldType implements FieldType
     public function comparableSql(string $accessor): string
     {
         return $accessor;
+    }
+
+    /**
+     * A date is a known width in every locale that writes one, and the picker
+     * beside it is a fixed size.
+     */
+    public function defaultWidth(): int
+    {
+        return 4;
     }
 }

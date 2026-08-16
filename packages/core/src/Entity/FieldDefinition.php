@@ -113,6 +113,18 @@ class FieldDefinition
          */
         #[ORM\Column(name: 'is_derived')]
         private bool $derived = false,
+        /**
+         * How wide to draw it, in twelfths of a row (XIV-43).
+         *
+         * **Null is not the same as the type's number.** Null means "whatever
+         * this kind of field wants", and keeps following it — so improving what
+         * a `text` field defaults to reaches every field nobody has an opinion
+         * about. A stored value means somebody chose, and is left alone.
+         *
+         * The same promise `User::locale` makes with null, for the same reason.
+         */
+        #[ORM\Column(type: 'smallint', nullable: true)]
+        private ?int $width = null,
     ) {
         $shape->addField($this);
     }
@@ -242,6 +254,24 @@ class FieldDefinition
     public function setPosition(int $position): void
     {
         $this->position = $position;
+    }
+
+    /**
+     * The width somebody chose, or null to follow the field type's.
+     *
+     * Deliberately not resolved here: doing that would mean this entity holding
+     * the type registry, and a definition row is data rather than something that
+     * looks things up. Whoever draws the form asks the type (§5).
+     */
+    public function getWidth(): ?int
+    {
+        return $this->width;
+    }
+
+    /** @param int|null $width 1-12, or null to follow the field type's default */
+    public function setWidth(?int $width): void
+    {
+        $this->width = $width === null ? null : max(1, min(12, $width));
     }
 
     public function isSystem(): bool

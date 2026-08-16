@@ -20,6 +20,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Intl\Countries;
 use Symfony\Component\Intl\Locales;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -111,6 +112,9 @@ final class AccountController extends AbstractController
             // Named from the enabled set rather than from a list kept here, so
             // adding a language to the build adds it to this picker (XIV-8).
             'locales' => $this->localeChoices($request->getLocale()),
+            // Named in the reader's own language, from symfony/intl rather than
+            // a list kept here (XIV-50).
+            'regions' => Countries::getNames($request->getLocale()),
         ]);
     }
 
@@ -126,6 +130,11 @@ final class AccountController extends AbstractController
                     $user,
                     \in_array($chosen, $this->enabledLocales, true) ? $chosen : null,
                 );
+
+                // The country's conventions, which is the other half of the
+                // same question and stored apart from it (XIV-50).
+                $region = strtoupper(trim((string) $request->request->get('region')));
+                $this->users->setRegion($user, Countries::exists($region) ? $region : null);
 
                 $this->addFlash('success', $this->translator->trans('account.language_saved'));
 

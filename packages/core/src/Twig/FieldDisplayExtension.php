@@ -18,6 +18,8 @@ use Twig\TwigFunction;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Field\LinksToRecord;
+use Xivi\Core\Field\RecordLink;
 
 /**
  * `display(field, value)` in a template.
@@ -39,6 +41,7 @@ final class FieldDisplayExtension extends AbstractExtension
     {
         return [
             new TwigFunction('display', $this->display(...)),
+            new TwigFunction('record_link', $this->recordLink(...)),
             new TwigFunction('display_stored', $this->displayStored(...)),
             new TwigFunction('in_field_order', $this->inFieldOrder(...)),
             new TwigFunction('record_title', $this->recordTitle(...)),
@@ -109,6 +112,23 @@ final class FieldDisplayExtension extends AbstractExtension
     public function display(FieldDefinition $field, mixed $value): string
     {
         return $this->fieldTypes->get($field->getType())->display($value, $field);
+    }
+
+    /**
+     * The record a value points at, when there is one the reader may open
+     * (XIV-42).
+     *
+     * The template asks *the field* whether it links, rather than asking whether
+     * it is a reference — which is the same rule this whole extension exists
+     * for: a template that switches on field type is a template that has to be
+     * changed every time a type is added. A type with nothing to link to does
+     * not implement the interface and the answer is null.
+     */
+    public function recordLink(FieldDefinition $field, mixed $value): ?RecordLink
+    {
+        $type = $this->fieldTypes->get($field->getType());
+
+        return $type instanceof LinksToRecord ? $type->linkOf($value, $field) : null;
     }
 
     /**

@@ -81,8 +81,32 @@ final class RecordType extends AbstractType
                 // a disabled field, so a hand-edited request cannot type over a
                 // total any more than the form can.
                 'disabled' => $field->isDerived(),
+                // How wide, as a class on the field's own wrapper (XIV-43), so
+                // the template still renders the whole set in one call and never
+                // asks what kind of field it is holding.
+                'row_attr' => ['class' => self::columns($field->getWidth() ?? $type->defaultWidth())],
             ]);
         }
+    }
+
+    /**
+     * Twelfths, as the grid spells them.
+     *
+     * **Full width below `md`, the chosen width above it.** A column of
+     * half-width fields on a phone is unusable, and somebody setting 6 is saying
+     * "half a row on a screen with room for two" rather than "half a phone".
+     *
+     * The class name is built here and never stored (§8.3): what the grid is
+     * called is this layer's business, and a proportion outlives it.
+     */
+    private static function columns(int $width): string
+    {
+        $width = max(1, min(12, $width));
+
+        // `mb-3` because setting `row_attr` *replaces* what the Bootstrap theme
+        // would have put there rather than adding to it — without this the
+        // widths work and every field loses its vertical spacing.
+        return $width === 12 ? 'col-12 mb-3' : sprintf('col-12 col-md-%d mb-3', $width);
     }
 
     public function configureOptions(OptionsResolver $resolver): void
@@ -99,6 +123,17 @@ final class RecordType extends AbstractType
                 'data_class' => null,
                 // The form does not validate; see the class docblock.
                 'validation_groups' => false,
+                // **The grid goes on this form's own container** (XIV-43), which
+                // is the element the fields are actually children of. Wrapping
+                // the `form_widget()` call in a template instead puts a row
+                // around the container rather than around the columns, and a
+                // column whose parent is not a row is just a div: the widths are
+                // all correct and everything still stacks.
+                //
+                // Here rather than in one template, so it holds everywhere this
+                // type is rendered — a record's own fields *and* each collection
+                // row's, which are the same form type one level down.
+                'attr' => ['class' => 'row'],
             ]);
     }
 }

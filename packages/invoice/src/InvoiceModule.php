@@ -212,12 +212,14 @@ final class InvoiceModule implements ModuleProvider
                             key: self::ORDER_LINE,
                             label: 'field.order_line',
                             type: 'integer',
+                            width: 1,
                             listed: false,
                             position: 8,
                             derived: true,
                         ),
                         new FieldBlueprint(
                             key: self::ARTICLE,
+                            width: 2,
                             label: 'field.article',
                             type: 'reference',
                             required: true,
@@ -227,6 +229,7 @@ final class InvoiceModule implements ModuleProvider
                         ),
                         new FieldBlueprint(
                             key: self::DESCRIPTION,
+                            width: 3,
                             label: 'field.description',
                             type: 'text',
                             required: true,
@@ -235,6 +238,7 @@ final class InvoiceModule implements ModuleProvider
                         ),
                         new FieldBlueprint(
                             key: self::QUANTITY,
+                            width: 1,
                             label: 'field.quantity',
                             type: 'decimal',
                             required: true,
@@ -246,6 +250,7 @@ final class InvoiceModule implements ModuleProvider
                         // discount is a line with a negative price (§5.9).
                         new FieldBlueprint(
                             key: self::UNIT_PRICE,
+                            width: 2,
                             label: 'field.unit_price',
                             type: 'currency',
                             required: true,
@@ -254,6 +259,7 @@ final class InvoiceModule implements ModuleProvider
                         ),
                         new FieldBlueprint(
                             key: self::TAX_RATE,
+                            width: 1,
                             label: 'field.tax_rate',
                             type: 'decimal',
                             variants: [self::ARTICLE_LINE, self::CUSTOM_LINE],
@@ -262,6 +268,7 @@ final class InvoiceModule implements ModuleProvider
                         ),
                         new FieldBlueprint(
                             key: self::LINE_TOTAL,
+                            width: 2,
                             label: 'field.line_total',
                             type: 'currency',
                             variants: [self::ARTICLE_LINE, self::CUSTOM_LINE, self::SUBTOTAL_LINE],

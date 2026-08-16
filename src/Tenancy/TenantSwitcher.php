@@ -17,6 +17,7 @@ use App\ControlPlane\Entity\Tenant;
 use Doctrine\DBAL\Connection;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Xivi\Core\Metadata\MetadataCache;
 
 /**
  * The only supported way to enter (or leave) a tenant.
@@ -41,6 +42,7 @@ final readonly class TenantSwitcher
         private ManagerRegistry $registry,
         #[Autowire(service: 'doctrine.dbal.tenant_connection')]
         private Connection $tenantConnection,
+        private MetadataCache $metadata,
     ) {
     }
 
@@ -84,6 +86,14 @@ final readonly class TenantSwitcher
 
     private function releaseTenantResources(): void
     {
+        // Definitions belong to whichever tenant was current, and the objects are
+        // bound to the connection about to be closed (XIV-53). Emptying the cache
+        // here rather than keying it by tenant is the point: a console command
+        // walking every customer is the one place a stale shape would be handed
+        // to the next one, and that failure would look like the wrong labels
+        // rather than like an error (§7.4).
+        $this->metadata->clear();
+
         // Drops the identity map, and replaces the manager if it was closed by a
         // previous failure. Cheap while the manager is still an uninitialised proxy.
         $this->registry->resetManager(self::ENTITY_MANAGER);

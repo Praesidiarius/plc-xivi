@@ -64,6 +64,21 @@ class TenantProfile
     #[ORM\Column(length: 3, nullable: true)]
     private ?string $currency = null;
 
+    /**
+     * Which country's conventions this installation writes in (XIV-50).
+     *
+     * An ISO 3166-1 alpha-2 code, and **not the same question as the language**.
+     * Swiss German and German German are one catalogue and two ways of writing a
+     * number: `1’234’500.00` against `1.234.500,00`, differing in the decimal
+     * separator as well as the grouping one.
+     *
+     * Null means the application's own default. A company's people are mostly in
+     * one country, so this is the sensible place for the answer, and a person who
+     * is somewhere else says so on their account.
+     */
+    #[ORM\Column(length: 2, nullable: true)]
+    private ?string $region = null;
+
     #[ORM\Column(name: 'updated_at')]
     private \DateTimeImmutable $updatedAt;
 
@@ -91,6 +106,19 @@ class TenantProfile
     public function getCurrency(): ?string
     {
         return $this->currency;
+    }
+
+    public function getRegion(): ?string
+    {
+        return $this->region;
+    }
+
+    /** @param string|null $region an ISO 3166-1 alpha-2 code, or null to follow the default */
+    public function setRegion(?string $region): void
+    {
+        $region = strtoupper(trim((string) $region));
+
+        $this->region = $region === '' ? null : $region;
     }
 
     /** @param string|null $currency an ISO 4217 code; the caller checks it is one */

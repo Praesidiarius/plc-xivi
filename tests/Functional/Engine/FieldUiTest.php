@@ -20,6 +20,7 @@ use App\Tests\Support\SavesRecords;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Response;
 use Xivi\Contact\ContactModule;
 use Xivi\Core\Module\ModuleInstaller;
@@ -128,6 +129,94 @@ final class FieldUiTest extends WebTestCase
         self::assertStringContainsString('VAT number', $crawler->filter('form[method="get"]')->text());
     }
 
+    /**
+     * A field is as wide as its kind of field usually is (XIV-43).
+     *
+     * Nobody said anything about this field, so the answer comes from the type —
+     * which is the case that decides how the application looks out of the box.
+     */
+    public function testAFieldIsDrawnAtItsTypesWidth(): void
+    {
+        $this->signIn(self::ADMIN);
+        $this->addField(['key' => 'vat_number', 'label' => 'VAT number', 'type' => 'text']);
+
+        $crawler = $this->client->request('GET', $this->url('/m/contact/new?variant=person'));
+
+        // **A direct child of the row**, which is the whole assertion. A column
+        // whose parent is not a row is an ordinary div: every width is correct
+        // and every field still stacks. Asserting the classes exist, or that
+        // there is a `.row` somewhere above, passes against exactly that bug —
+        // which is how it shipped.
+        self::assertSelectorExists(
+            '.row > .col-md-6 [name="module_record[fields][vat_number]"]',
+            'a text field is half a row, in a row',
+        );
+    }
+
+    /** A textarea gets the whole row, because that is what it is for. */
+    public function testATextareaTakesTheWholeRow(): void
+    {
+        $this->signIn(self::ADMIN);
+        $this->addField(['key' => 'remarks', 'label' => 'Remarks', 'type' => 'textarea']);
+
+        $crawler = $this->client->request('GET', $this->url('/m/contact/new?variant=person'));
+
+        $wrapper = $crawler->filter('[name="module_record[fields][remarks]"]')->closest('[class*="col-"]');
+
+        self::assertNotNull($wrapper, 'it is still in the grid');
+        self::assertStringNotContainsString('col-md-', (string) $wrapper->attr('class'), 'and nothing narrows it');
+        self::assertSelectorExists('.row > .col-12 [name="module_record[fields][remarks]"]', 'still a direct child of the row');
+    }
+
+    /** And somebody can disagree with the type, per field. */
+    public function testAWidthCanBeSetOnOneField(): void
+    {
+        $this->signIn(self::ADMIN);
+        $this->addField(['key' => 'vat_number', 'label' => 'VAT number', 'type' => 'text']);
+
+        $this->setWidth('vat_number', '3');
+
+        $crawler = $this->client->request('GET', $this->url('/m/contact/new?variant=person'));
+
+        self::assertSelectorExists(
+            '.row > .col-md-3 [name="module_record[fields][vat_number]"]',
+            'the field carries what was chosen, not what the type wanted',
+        );
+    }
+
+    /**
+     * And setting one does not discard everything else about the field.
+     *
+     * XIV-26's lesson: the editor saves the whole field, so a control it has just
+     * grown is one more thing that can wipe what it does not know about.
+     */
+    public function testSettingAWidthKeepsTheRestOfTheField(): void
+    {
+        $this->signIn(self::ADMIN);
+        $this->addField([
+            'key' => 'vat_number',
+            'label' => 'VAT number',
+            'type' => 'text',
+            'filterable' => '1',
+            'listed' => '1',
+        ]);
+
+        $this->setWidth('vat_number', '4');
+
+        $crawler = $this->client->request('GET', $this->url('/m/contact/fields'));
+        $row = $crawler->filter('tbody tr')->reduce(
+            static fn (Crawler $tr): bool => str_contains($tr->text(), 'vat_number'),
+        )->first();
+
+        self::assertSame('VAT number', $row->filter('[name="label"]')->attr('value'), 'the label is still there');
+        self::assertCount(2, $row->filter('input[type="checkbox"][checked]'), 'and both rules it was given');
+        self::assertSame('4', self::selected($row->filter('select[name="width"]')->getNode(0)), 'and the width stuck');
+
+        // And filterable still means filterable, one layer out.
+        $filters = $this->client->request('GET', $this->url('/m/contact'))->filter('form[method="get"]')->text();
+        self::assertStringContainsString('VAT number', $filters);
+    }
+
     /** The crowding fix: a new field does not widen the list uninvited (§5.4). */
     public function testANewFieldIsNotAListColumnUnlessAsked(): void
     {
@@ -206,6 +295,75 @@ final class FieldUiTest extends WebTestCase
             ['kind' => 'person', 'first_name' => $first, 'last_name' => $last],
             variant: 'person',
         );
+    }
+
+    /**
+     * Set one field's width through the editor, sending what the browser sends.
+     *
+     * The editor's controls sit in table cells and belong to their row's form
+     * through the HTML5 `form` attribute — which a browser honours and
+     * DomCrawler does not associate. So the association is done here: every
+     * control pointing at this row's form, with its current value, plus the new
+     * width. Sending only the width would look like somebody unticking every box
+     * on the row, and the test would pass or fail for the wrong reason.
+     */
+    private function setWidth(string $key, string $width): void
+    {
+        $crawler = $this->client->request('GET', $this->url('/m/contact/fields'));
+
+        $row = $crawler->filter('tbody tr')->reduce(
+            static fn (Crawler $tr): bool => str_contains($tr->text(), $key),
+        )->first();
+
+        $form = $row->filter('form')->first();
+        $id = (string) $form->attr('id');
+
+        $values = ['_token' => (string) $form->filter('[name="_token"]')->attr('value')];
+
+        foreach ($crawler->filter(sprintf('[form="%s"]', $id)) as $node) {
+            \assert($node instanceof \DOMElement);
+
+            $name = $node->getAttribute('name');
+
+            if ($name === '' || $name === 'width') {
+                continue;
+            }
+
+            // A checkbox sends its value only when it is ticked, which is the
+            // whole difference between "on list" staying on and being turned off.
+            if ($node->getAttribute('type') === 'checkbox') {
+                if ($node->hasAttribute('checked')) {
+                    $values[$name] = $node->getAttribute('value');
+                }
+
+                continue;
+            }
+
+            $values[$name] = $node->nodeName === 'select'
+                ? self::selected($node)
+                : $node->getAttribute('value');
+        }
+
+        $values['width'] = $width;
+
+        $this->client->request('POST', $this->url((string) $form->attr('action')), $values);
+        $this->client->followRedirect();
+    }
+
+    /** Whichever option a select is showing. */
+    private static function selected(?\DOMNode $select): string
+    {
+        if (!$select instanceof \DOMElement) {
+            return '';
+        }
+
+        foreach ($select->getElementsByTagName('option') as $option) {
+            if ($option->hasAttribute('selected')) {
+                return $option->getAttribute('value');
+            }
+        }
+
+        return '';
     }
 
     /** @param array<string, string> $values */

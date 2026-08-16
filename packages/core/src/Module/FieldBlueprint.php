@@ -45,6 +45,13 @@ final readonly class FieldBlueprint
          */
         public bool $derived = false,
         public array $options = [],
+        /**
+         * How wide to draw it, in twelfths (XIV-43). Null — the default — lets
+         * the field type decide, which is right for almost every field: a module
+         * says this only where its own field is an exception to what that kind
+         * of field usually wants.
+         */
+        public ?int $width = null,
     ) {
     }
 }

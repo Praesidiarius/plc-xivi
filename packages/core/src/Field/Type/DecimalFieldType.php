@@ -119,7 +119,9 @@ final class DecimalFieldType implements FieldType
             // Not an html5 number input: it insists on a dot, and somebody
             // entering two and a half hours in German types a comma.
             'html5' => false,
-            'grouping' => false,
+            // Grouped only where nothing is typed back (XIV-47): a derived
+            // figure is `disabled` and read, an editable quantity is not.
+            'grouping' => $field->isDerived(),
         ];
 
         $attr = [];
@@ -182,5 +184,13 @@ final class DecimalFieldType implements FieldType
         // and one with twenty is asking for a precision the storage does not
         // promise.
         return \is_int($scale) ? max(0, min(6, $scale)) : self::DEFAULT_SCALE;
+    }
+
+    /**
+     * A measured quantity, the same shape as a count with a fraction on the end.
+     */
+    public function defaultWidth(): int
+    {
+        return 3;
     }
 }

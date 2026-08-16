@@ -28,6 +28,15 @@
 ###> symfony/asset-mapper ###
 /public/assets/
 /assets/vendor/
+
+###> xivi/brand ###
+# A logo is supplied by the deployment, never committed (XIV-48). See
+# assets/brand/README.md — the .gitkeep is here so the directory exists for the
+# dev bind mount to land on.
+/assets/brand/*
+!/assets/brand/.gitkeep
+!/assets/brand/README.md
+###< xivi/brand ###
 ###< symfony/asset-mapper ###
 
 ###> friendsofphp/php-cs-fixer ###

@@ -313,10 +313,47 @@ forty places means "lots" instead of an error about a number nobody was going to
 type. A *unit* is deliberately absent: it belongs to the article rather than to
 the line, and one that only decorates the number is worse than none.
 
+**Thousands are grouped where nothing is typed back** (XIV-47). `display()` has
+always grouped, so a record's page and a printed document read `1.234.500,00` to
+a German reader. A *form* did not, and the totals on an order are read there now
+that they follow the typing (XIV-32) — so a **derived** money or decimal field is
+grouped there too. It is `disabled`, so nothing parses the grouped string back;
+the same change on a field somebody edits would put separators into the value
+being typed, which is the round trip XIV-44 was a bug in.
+
+`integer` is deliberately **not** grouped, and that is not an oversight. The type
+covers things that are counted and things that are merely written as digits, and
+the engine cannot tell them apart: grouping turns the year 2026 into `2.026` and
+the postcode 8001 into `8.001`. Being right about a quantity is not worth being
+wrong about a year, and the only integer this codebase ships is a row reference.
+
 **A field can be derived rather than typed** — a line's total, a subtotal's
 figure. It is shown and never offered for editing, enforced with `disabled` so a
 hand-edited request cannot type over it either. A derived value somebody can type
 over is a default with extra steps.
+
+**How wide a field is drawn is the field type's answer, until somebody disagrees**
+(XIV-43). A type already owns storage, validation, the form control and the
+display; how much room it needs is the same kind of knowledge. So `text` asks for
+half a row, `textarea` for all of it, a count for a quarter — and a form of twelve
+short fields stops being twelve rows without any module declaring anything.
+
+One blanket number would not have been a neutral default but a wrong one, correct
+for `textarea` and wrong for everything else, leaving every module to fix it by
+hand.
+
+The stored width is **nullable, and null is not the same as storing the type's
+number**: null means "whatever this kind of field wants" and keeps following it,
+so improving a type's default reaches every field nobody has an opinion about. A
+number means somebody chose. The same promise `User::locale` makes with null
+(§8.4.2), for the same reason.
+
+It is a **proportion, in twelfths, never a class name** — what the grid is called
+belongs to §8.3 and outlives whichever framework renders it — and it is always a
+full row below `md`, because a column of half-width fields on a phone is
+unusable. Ordering (XIV-21) plus width *is* the layout: the grid wraps a line once
+its columns pass twelve, which is why this needed no layout editor, no rows as an
+entity, and no drag surface in the metadata editor.
 
 **A collection is deliberately not a link between modules.** Contact → Company is
 a different thing: both sides exist independently, either can be browsed, and the
@@ -484,6 +521,26 @@ sort key in every URL. LIMIT/OFFSET is correct, and slower the deeper it goes.
 ---
 
 ### 5.4 The metadata editor
+
+**Definitions are read once per tenant** (XIV-53). Every field type asks for its
+own shape, every reference for its target's, every reverse-link group again — so
+metadata was the largest single source of queries on every page measured
+(XIV-46). A record list naming twenty-five different contacts made 83 queries and
+now makes 33.
+
+The lifetime is the whole design, because a cache of one customer's definitions
+handed to another is §7.4's hazard and would look like wrong labels rather than
+like an error. It is **emptied whenever the tenant context moves**, in the same
+breath as dropping the identity map and closing the connection, because they are
+one fact about one boundary — a web request is a process and cannot outlive
+itself, but a console command walking every tenant can. Writers empty it too: a
+page still showing the shape somebody has just edited would look like the edit
+had failed.
+
+There is deliberately no tenant *key*. Keying it would make it look safe to keep
+entries across a switch, and a definition kept across that boundary would load
+its fields on whatever connection is current — the hazard, not the fix.
+
 
 A customer changing the shape of their own module, without SQL and without a
 deploy. A field added here appears in the form, the list, the validation and the
@@ -881,6 +938,19 @@ make the same ones.
   which rate that was — a header field would be guessing on any document with two
   rates.
 
+**The same arithmetic runs twice, and only once exists** (XIV-32). The form shows
+these figures while somebody is typing, before anything is saved, and it gets
+them by running the *same derivers* over values that are not going to be stored —
+`DerivedValues` is that call, extracted from the writer when the second caller
+appeared. The alternative was recomputing in the browser, which would be a second
+implementation of the rounding rule above; the two would agree until they did
+not, and the place they disagreed would be a rappen on an invoice, shown to the
+person deciding whether to send it. What differs between the callers is what they
+do afterwards, which is what should differ.
+
+Nothing about that preview is validated. Somebody who has typed `2.` is
+mid-number, not wrong, and the shape validation belongs to the save.
+
 **A line contributes if it has a price, not if it is the right kind.** Comment
 lines and subtotal lines fall out of the summing for having no quantity and no
 unit price, which is a fact about the line rather than a branch about its kind —
@@ -1223,6 +1293,20 @@ Not yet decided. Decide deliberately rather than by accident.
      soft-deleted, so nothing is destroyed; the link says `#id` rather than pretending,
      which is the same honesty the display already had.
 
+   - **A reference is a way to get to what it names, and the name is shown either way**
+     (XIV-42). Two questions, answered separately and on purpose. *The name* is read
+     unscoped: whoever may see the record holding the link can read what it points at, and
+     an order whose customer said `#14` would be an order nobody can use. *The link* is
+     offered only where the reader may actually open the target, because a record somebody
+     may not view answers **404** rather than 403 (§8.4) — so an anchor there would send
+     them to a page saying the thing does not exist, which is worse than not offering one.
+     A stale reference and one into an uninstalled module are the same: text, never an
+     anchor.
+
+     The link is a **second seam** rather than something `display()` returns, because that
+     method's output goes into .docx templates, spreadsheet cells and the record titles
+     the picker shows — an `<a>` in there is markup printed on a letter.
+
    Still open: nothing enforces that the id points at something, which is the price of the
    above and is deliberate rather than forgotten.
 
@@ -1281,6 +1365,12 @@ given up.
 **It was htmx first, and the swap is worth recording rather than quietly
 rewriting** (XIV-28, then XIV-33). htmx did the job for one button and did it
 well. Three things decided against it for the next one:
+
+The morphing argument below was a prediction when it was written. **XIV-32 built
+the feature it was predicting and it held**: typing a price updates the line
+total and the document's totals around a caret that does not move, with a browser
+test on the caret specifically, because the caret is the whole claim and nothing
+server-side can see it. The decision is no longer on probation.
 
 - **Morphing.** A form that redraws while somebody is typing in it has to update
   the changed nodes, not replace the region — swap the block a quantity field
@@ -1482,6 +1572,39 @@ database.
 
 ### 8.4.2 Language
 
+**Language and region are two settings** (XIV-50). Which words somebody reads and
+which country's conventions they write by are independent questions, and one
+picker was answering both: choosing "Deutsch" got German-from-Germany, so a Swiss
+reader was shown `1.234.500,00` where their country writes `1’234’500.00` — a
+different decimal separator, not only a different grouping one. An
+English-speaking colleague at a Swiss company is an ordinary hire, and wants
+English words with Swiss figures.
+
+So the language is chosen from the catalogues that exist and the region from the
+countries there are, and `FormattingLocale` puts them back together — `de` and
+`CH` make `de_CH`. Nothing downstream learns a new concept: `Request::setLocale()`
+also sets PHP's own default, which is what every formatter already reads.
+
+**A region costs no translation work.** Symfony falls a locale back to its
+language, so `de_CH` finds the `de` catalogue. That is most of why the two are
+stored apart and joined at the point of use rather than offered as one long list
+of every combination.
+
+The chain is the familiar one, and each step is a different promise: the person,
+then the installation (§8.6, whose people are mostly in one country), then
+nothing — where nothing leaves the bare language, which is what every
+installation had before this existed.
+
+**Dates are shown locally and stored as ISO**, and those are two formats with two
+names. A date is kept as an ISO string because it then sorts and compares as text
+without a cast (§5); the reader's form is computed from the locale's short
+pattern with the year widened, since CLDR mostly writes it as two digits and a
+record saying `15.08.26` is one somebody has to think about. Reaching for the
+storage constant to localize a display is precisely the mistake `CurrencyFieldType`
+made in XIV-47, where one method both formatted and normalized and localizing it
+made every save refuse its own totals.
+
+
 Each person picks the language they read the application in, stored on their own
 row rather than the tenant's: one office is not one language, and a Swiss company
 has German and French speakers in it. Resolved per request from the user and
@@ -1592,6 +1715,28 @@ What stays here is the part a changelog cannot carry: *why* each of those
 decisions was taken, in the sections above, and what is still open, below.
 
 ### 9.2 Decided since this brief was written
+
+**A checkout is the unit of isolation for the test stack** (XIV-51). Everything
+here assumed one working copy: one compose project, one set of ports, and tenant
+databases namespaced per parallel worker (XIV-9). That last one is the sharp
+part — the worker token is paratest's, numbered from one, so two *runs* are
+handed the same eight numbers and fight over one set of databases, which is
+XIV-9's original failure arriving a layer up and looking like nothing in
+particular.
+
+So the compose project, the published ports, the bind mount and the tenant prefix
+are all derived from the directory. A git worktree is then a first-class
+checkout: its own stack, its own databases, no files copied anywhere. The main
+checkout keeps every name and port it had, so a single-checkout run is unchanged.
+
+What actually keeps two checkouts apart today is that each has its own stack,
+including its own database server — so the tenant names never meet in the first
+place. The prefix carries the checkout regardless, which is belt and braces now
+and the only thing that would work if anyone later pointed both at one server to
+save the tmpfs. It also has to be handed to the container explicitly: `docker
+compose exec` carries none of the host's environment, so a variable exported in
+`bin/ci` alone is a mechanism that looks switched on and is not.
+
 
 - **The runtime is classic PHP, not a worker.** One long-lived kernel serving every
   tenant is the §7.4 hazard in its most dangerous form: state that survives a

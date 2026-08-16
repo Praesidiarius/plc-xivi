@@ -18,11 +18,13 @@ use App\Tenancy\TenantSwitcher;
 use App\Tenant\Security\UserCreator;
 use App\Tests\Support\SavesRecords;
 use App\Tests\Support\SharesATenant;
+use Doctrine\DBAL\Connection;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Response;
 use Xivi\Contact\ContactModule;
+use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
 
@@ -132,7 +134,55 @@ final class ModuleUiTest extends WebTestCase
         // Named by the fields the module says it cannot exist without.
         self::assertSelectorTextContains('h1', 'Ada Lovelace');
         // Rendered by the date type, not by the template guessing.
-        self::assertSelectorTextContains('dl', '1815-12-10');
+        // The reader's own way of writing a date (XIV-50); the stored value is
+        // still ISO, which is what makes it sort.
+        self::assertSelectorTextContains('dl', '12/10/1815');
+    }
+
+    /**
+     * A date is *shown* in the reader's way and *stored* in one way (XIV-50).
+     *
+     * The trap this guards is specific and has been sprung before: `FORMAT` is
+     * both the storage format and, until now, the display one. Localizing by
+     * reaching for that constant would put `12/10/1815` in the database, where
+     * ISO is what makes a plain string sort and compare as text (§5) — so every
+     * date sort and every date filter would go wrong, quietly and everywhere.
+     *
+     * `CurrencyFieldType` made exactly this mistake with one method doing two
+     * jobs (XIV-47). This asserts the two are still two.
+     */
+    public function testADateIsShownLocallyAndStoredAsIso(): void
+    {
+        $this->submitContact(['first_name' => 'Ada', 'last_name' => 'Lovelace', 'birthday' => '1815-12-10']);
+
+        $this->client->request('GET', $this->url('/m/contact'));
+        self::assertSelectorTextContains('table', '12/10/1815', 'shown the reader way');
+
+        // Read out of the column rather than off a hydrated record: the field
+        // type turns a stored date back into an object on the way out, so asking
+        // the record would only prove that round trip works, not what the
+        // database holds.
+        $stored = self::service(TenantSwitcher::class)->runFor(
+            $this->tenant,
+            function (): string {
+                // The table is the shape's own, which the module decides — asking
+                // the definition rather than guessing a name.
+                $table = self::service(MetadataRepository::class)->get(ContactModule::KEY)->getTableName();
+
+                // The *tenant's* connection, not the control plane's: `Connection`
+                // autowires to the default one, which holds the registry rather
+                // than any customer's records (§4).
+                $connection = self::getContainer()->get('doctrine.dbal.tenant_connection');
+                \assert($connection instanceof Connection);
+
+                return (string) $connection->fetchOne(sprintf(
+                    "SELECT data->>'birthday' FROM %s WHERE deleted_at IS NULL LIMIT 1",
+                    $table,
+                ));
+            },
+        );
+
+        self::assertSame('1815-12-10', $stored, 'and stored the one way that sorts');
     }
 
     public function testANewRecordAppearsInTheList(): void
@@ -142,7 +192,10 @@ final class ModuleUiTest extends WebTestCase
         $this->client->request('GET', $this->url('/m/contact'));
 
         self::assertSelectorTextContains('table', 'Lovelace');
-        self::assertSelectorTextContains('table', '1815-12-10');
+        // Written the way the reader's country writes a date (XIV-50) — the
+        // suite runs in English, so month first. What is *stored* is still ISO,
+        // which is what the sorting and filtering tests assert.
+        self::assertSelectorTextContains('table', '12/10/1815');
     }
 
     /**

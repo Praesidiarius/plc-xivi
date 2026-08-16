@@ -15,7 +15,12 @@ namespace App\Tests\Functional\Engine;
 
 use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
+use App\Tenant\Entity\User;
+use App\Tenant\Repository\UserRepository;
 use App\Tenant\Security\UserCreator;
+use App\Tenant\Security\UserManager;
+use App\Tenant\Settings\FormattingLocale;
+use App\Tenant\Settings\TenantProfileManager;
 use App\Tests\Support\SavesRecords;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -23,9 +28,12 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Xivi\Article\ArticleModule;
 use Xivi\Contact\ContactModule;
+use Xivi\Core\Field\FieldTypeRegistry;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
+use Xivi\Core\Permission\RecordAccess;
+use Xivi\Core\Query\RecordQuery;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordRepository;
 use Xivi\Order\OrderModule;
@@ -51,6 +59,7 @@ final class OrderTotalsTest extends WebTestCase
     private const string SLUG = 'test_totals';
     private const string HOST = 'totals.localhost';
     private const string EMAIL = 'totals@example.test';
+    private const string GERMAN_EMAIL = 'zahlen@example.test';
     private const string PASSWORD = 'totals-password';
 
     private KernelBrowser $client;
@@ -73,6 +82,17 @@ final class OrderTotalsTest extends WebTestCase
         });
 
         self::service(UserCreator::class)->create($this->tenant, self::EMAIL, 'Totals', self::PASSWORD, ['ROLE_ADMIN']);
+
+        // Somebody who reads numbers in German, on the same installation — the
+        // language is per person (XIV-8), so this is an ordinary colleague and
+        // not a second configuration.
+        self::service(UserCreator::class)->create($this->tenant, self::GERMAN_EMAIL, 'Zahlen', self::PASSWORD, ['ROLE_ADMIN']);
+
+        self::service(TenantSwitcher::class)->runFor($this->tenant, function (): void {
+            $german = self::service(UserRepository::class)->findOneByEmail(self::GERMAN_EMAIL);
+            self::assertInstanceOf(User::class, $german);
+            self::service(UserManager::class)->setLocale($german, 'de');
+        });
 
         $this->signIn();
     }
@@ -457,6 +477,358 @@ final class OrderTotalsTest extends WebTestCase
             self::assertInstanceOf(Record::class, $record);
 
             return $record;
+        });
+    }
+
+    /**
+     * The figures follow the typing, before anything is saved (XIV-32).
+     *
+     * Not a second implementation of the arithmetic being checked — the same
+     * derivers the writer uses, run over values that are not going to be stored.
+     * Which is exactly why this is worth a test: the way to get it wrong is to
+     * compute it somewhere else and have the two agree until they do not.
+     */
+    public function testTotalsFollowTheTypingWithoutSaving(): void
+    {
+        $html = self::liveService(TenantSwitcher::class)->runFor($this->tenant, fn (): string => $this
+            ->recordForm(OrderModule::KEY)
+            ->call('addRow', ['collection' => OrderModule::LINES, 'kind' => OrderModule::CUSTOM_LINE])
+            ->set('module_record', [
+                'fields' => [],
+                'collections' => [OrderModule::LINES => [self::row([
+                    OrderModule::KIND => OrderModule::CUSTOM_LINE,
+                    'description' => 'Consulting',
+                    OrderModule::QUANTITY => '3',
+                    OrderModule::UNIT_PRICE => '19.90',
+                ])]],
+            ])
+            ->render()
+            ->toString());
+
+        self::assertStringContainsString('59.70', $html, 'the line total is 3 × 19.90');
+        self::assertStringContainsString(
+            '59.70',
+            $html,
+            "and the order's net total says so too, from the same derivation",
+        );
+
+        // Nothing was written: a form somebody is still typing into is not a
+        // record, and a preview that saved would be a document nobody checked.
+        self::assertSame([], self::liveService(TenantSwitcher::class)->runFor(
+            $this->tenant,
+            fn (): array => self::service(RecordRepository::class)->findBy(
+                self::service(MetadataRepository::class)->get(OrderModule::KEY),
+                new RecordQuery([], [], 1, 10),
+                RecordAccess::unrestricted(),
+            ),
+        ), 'and no order was created by looking at one');
+    }
+
+    /**
+     * The figures survive being read in German (XIV-32).
+     *
+     * The live preview used to derive from the form's *view* values, which are
+     * written in the reader's language. `Amount::of('19,90')` is null, so every
+     * total blanked the moment a re-render fed a formatted number back in — and
+     * it never recovered, because each render re-read the formatting it had just
+     * produced. English hid it completely: there, the displayed number and the
+     * stored one are the same string.
+     */
+    public function testTheFiguresSurviveBeingReadInGerman(): void
+    {
+        $html = self::liveService(TenantSwitcher::class)->runFor($this->tenant, function (): string {
+            $component = $this->recordForm(OrderModule::KEY, [], self::GERMAN_EMAIL)
+                ->call('addRow', ['collection' => OrderModule::LINES, 'kind' => OrderModule::CUSTOM_LINE])
+                ->set('module_record', [
+                    'fields' => [],
+                    'collections' => [OrderModule::LINES => [self::row([
+                        OrderModule::KIND => OrderModule::CUSTOM_LINE,
+                        'description' => 'Beratung',
+                        OrderModule::QUANTITY => '3',
+                        OrderModule::UNIT_PRICE => '19,90',
+                    ])]],
+                ]);
+
+            // The second render is the one that used to break: by then the form
+            // is handing back what it drew, in German.
+            $component->render();
+
+            return $component
+                ->call('addRow', ['collection' => OrderModule::LINES, 'kind' => OrderModule::COMMENT_LINE])
+                ->render()
+                ->toString();
+        });
+
+        self::assertStringContainsString('59,70', $html, 'the total is there, and written in German');
+    }
+
+    /**
+     * An order line fits on one row (XIV-43).
+     *
+     * The widths are declared on the blueprint and have to add up: an article
+     * line is the busiest kind and comes to exactly twelve. Asserted as
+     * arithmetic rather than as a screenshot, because what breaks this is
+     * somebody adding a seventh field and not noticing the row now wraps.
+     *
+     * **Only the busy kinds can be exact.** A width belongs to a field, and a
+     * field is shared by every kind that has it — a comment line holds nothing
+     * but a description, so making *that* come to twelve would force the
+     * description to be the whole row and leave a subtotal's figure no room at
+     * all. So the crowded kinds are made to fit and the sparse ones are left
+     * short, which is the direction that reads well.
+     */
+    public function testAnArticleLineFitsOnOneRow(): void
+    {
+        $widths = self::liveService(TenantSwitcher::class)->runFor($this->tenant, function (): array {
+            $lines = self::service(MetadataRepository::class)
+                ->get(OrderModule::KEY)
+                ->getCollection(OrderModule::LINES);
+
+            self::assertNotNull($lines);
+
+            $widths = [];
+
+            foreach ($lines->getFieldsFor(OrderModule::ARTICLE_LINE) as $field) {
+                // The kind travels hidden in a row (XIV-20), so it takes no room.
+                if ($field->getKey() === $lines->getVariantField()) {
+                    continue;
+                }
+
+                $widths[$field->getKey()] = $field->getWidth();
+            }
+
+            return $widths;
+        });
+
+        self::assertNotContains(null, $widths, 'every field on the busiest line says how wide it is');
+        self::assertSame(12, array_sum($widths), sprintf(
+            'an article line is exactly one row: %s',
+            json_encode($widths, \JSON_THROW_ON_ERROR),
+        ));
+
+        // An article line is the widest thing the collection draws, so every
+        // other kind fits by construction.
+        foreach ([OrderModule::CUSTOM_LINE, OrderModule::SUBTOTAL_LINE, OrderModule::COMMENT_LINE] as $kind) {
+            self::assertLessThanOrEqual(12, $this->lineWidth($kind), sprintf('a %s line fits too', $kind));
+        }
+    }
+
+    /**
+     * A total big enough to be hard to read is grouped (XIV-47).
+     *
+     * In German, and deliberately. There the thousands separator is a **dot** and
+     * the decimal separator a comma — so `1.234.500,00` and English's
+     * `1,234,500.00` are not the same string in any position, and an assertion
+     * written in English could pass against a figure that had never been
+     * formatted at all ([XIV-45]).
+     *
+     * The grouping is on the *derived* fields only. Those are `disabled`, so
+     * nothing parses them back out of the view — which is what makes this safe
+     * where the same change on an editable quantity would not be.
+     */
+    public function testALargeTotalIsGroupedForTheReader(): void
+    {
+        $html = self::liveService(TenantSwitcher::class)->runFor($this->tenant, fn (): string => $this
+            ->recordForm(OrderModule::KEY, [], self::GERMAN_EMAIL)
+            ->call('addRow', ['collection' => OrderModule::LINES, 'kind' => OrderModule::CUSTOM_LINE])
+            ->set('module_record', [
+                'fields' => [],
+                'collections' => [OrderModule::LINES => [self::row([
+                    OrderModule::KIND => OrderModule::CUSTOM_LINE,
+                    'description' => 'Grossauftrag',
+                    OrderModule::QUANTITY => '1000',
+                    OrderModule::UNIT_PRICE => '1234.50',
+                ])]],
+            ])
+            ->render()
+            ->toString());
+
+        // 1000 × 1234.50 = 1.234.500,00 for a German reader.
+        self::assertStringContainsString('1.234.500,00', $html, 'the line total is grouped');
+        self::assertStringNotContainsString('1234500,00', $html, 'and the ungrouped figure is gone');
+    }
+
+    /**
+     * An installation with no currency chosen still reads its money properly.
+     *
+     * This is not an exotic case: a tenant has no currency until somebody fills
+     * in the profile (§8.6), so it is what *every* installation looks like on
+     * its first day — and what this one still looked like. The figure used to
+     * come back from `number_format` with a dot and no separators, in nobody's
+     * language.
+     */
+    public function testMoneyIsFormattedEvenWithNoCurrencyChosen(): void
+    {
+        $shown = self::liveService(TenantSwitcher::class)->runFor($this->tenant, function (): string {
+            $orders = self::service(MetadataRepository::class)->get(OrderModule::KEY);
+            $field = $orders->getField(OrderModule::GROSS_TOTAL);
+            self::assertNotNull($field);
+
+            return self::service(FieldTypeRegistry::class)
+                ->get($field->getType())
+                ->display('296627.85', $field);
+        });
+
+        self::assertStringContainsString('296,627.85', $shown, 'grouped, in the reader own way');
+    }
+
+    /** What somebody types into is left alone, because typing into it has to keep working. */
+    public function testAnEditableNumberIsNotGrouped(): void
+    {
+        $html = self::liveService(TenantSwitcher::class)->runFor($this->tenant, fn (): string => $this
+            ->recordForm(OrderModule::KEY, [], self::GERMAN_EMAIL)
+            ->call('addRow', ['collection' => OrderModule::LINES, 'kind' => OrderModule::CUSTOM_LINE])
+            ->set('module_record', [
+                'fields' => [],
+                'collections' => [OrderModule::LINES => [self::row([
+                    OrderModule::KIND => OrderModule::CUSTOM_LINE,
+                    'description' => 'Grossauftrag',
+                    OrderModule::QUANTITY => '1000',
+                    OrderModule::UNIT_PRICE => '1234.50',
+                ])]],
+            ])
+            ->render()
+            ->toString());
+
+        self::assertMatchesRegularExpression(
+            '#name="[^"]*\[quantity\]"[^>]*value="1000,00"#',
+            $html,
+            'the quantity somebody typed is still an ordinary number',
+        );
+    }
+
+    /**
+     * One language, two countries, two ways of writing the same figure (XIV-50).
+     *
+     * This is the whole ticket in one assertion. Both readers use the German
+     * catalogue; they disagree about the decimal separator as well as the
+     * grouping one, and until a region existed there was no way to say so.
+     */
+    public function testTheSameLanguageWritesDifferentlyInDifferentCountries(): void
+    {
+        $swiss = self::liveService(FormattingLocale::class);
+
+        self::assertSame('de_CH', $swiss->of('de', $this->userWithRegion('CH')));
+        self::assertSame('de_DE', $swiss->of('de', $this->userWithRegion('DE')));
+
+        $figures = [];
+
+        foreach (['de_CH' => 'CH', 'de_DE' => 'DE'] as $locale => $region) {
+            $formatter = new \NumberFormatter($locale, \NumberFormatter::DECIMAL);
+            $formatter->setAttribute(\NumberFormatter::FRACTION_DIGITS, 2);
+            $figures[$region] = $formatter->format(1234500);
+        }
+
+        self::assertSame('1’234’500.00', $figures['CH'], 'Swiss German: apostrophes, and a decimal point');
+        self::assertSame('1.234.500,00', $figures['DE'], 'German German: dots, and a decimal comma');
+    }
+
+    /** A person with no region follows the installation, which is the common case. */
+    public function testAPersonWithNoRegionFollowsTheInstallation(): void
+    {
+        $written = self::liveService(TenantSwitcher::class)->runFor($this->tenant, function (): string {
+            $profile = self::service(TenantProfileManager::class);
+            $profile->apply('Totals AG', '', 'CH');
+
+            return self::liveService(FormattingLocale::class)->of('de', $this->userWithRegion(null));
+        });
+
+        self::assertSame('de_CH', $written, 'the company answers for somebody who has not');
+    }
+
+    private function userWithRegion(?string $region): User
+    {
+        $user = new User('someone@example.test', 'Someone');
+        $user->setRegion($region);
+
+        return $user;
+    }
+
+    /**
+     * Looking at a form does not take a document number (XIV-32).
+     *
+     * `AssignsNumbers` is a deriver too, and the live preview runs derivers — so
+     * the first version of this feature allocated a number on every keystroke.
+     * A sequence does not give one back, so an order somebody typed slowly came
+     * out numbered in the hundreds. The preview runs only the derivers that said
+     * they cost nothing; this is the test that says so.
+     */
+    public function testPreviewingDoesNotConsumeADocumentNumber(): void
+    {
+        self::liveService(TenantSwitcher::class)->runFor($this->tenant, function (): void {
+            $this->recordForm(OrderModule::KEY)
+                ->call('addRow', ['collection' => OrderModule::LINES, 'kind' => OrderModule::CUSTOM_LINE])
+                ->set('module_record', [
+                    'fields' => [],
+                    'collections' => [OrderModule::LINES => [self::row([
+                        OrderModule::KIND => OrderModule::CUSTOM_LINE,
+                        'description' => 'Consulting',
+                        OrderModule::QUANTITY => '3',
+                        OrderModule::UNIT_PRICE => '19.90',
+                    ])]],
+                ])
+                ->render();
+        });
+
+        // The next order saved is still the first one, which it would not be if
+        // looking at the form had taken a number.
+        $id = $this->anOrder([[OrderModule::CUSTOM_LINE, ['description' => 'Real', OrderModule::QUANTITY => '1', OrderModule::UNIT_PRICE => '10.00']]]);
+
+        $number = self::liveService(TenantSwitcher::class)->runFor($this->tenant, fn (): string => (string) self::service(RecordRepository::class)
+            ->find(self::service(MetadataRepository::class)->get(OrderModule::KEY), $id)
+            ?->get(OrderModule::NUMBER));
+
+        self::assertStringEndsWith('0001', (string) $number, 'the first order saved is still the first number');
+    }
+
+    /**
+     * A half-typed number is not a mistake.
+     *
+     * The live re-render must not run the shape validation: somebody who has got
+     * as far as `2.` is mid-number, and a form that shouts at them is worse than
+     * one that waits.
+     */
+    public function testAHalfTypedNumberIsNotAnError(): void
+    {
+        $html = self::liveService(TenantSwitcher::class)->runFor($this->tenant, fn (): string => $this
+            ->recordForm(OrderModule::KEY)
+            ->call('addRow', ['collection' => OrderModule::LINES, 'kind' => OrderModule::CUSTOM_LINE])
+            ->set('module_record', [
+                'fields' => [],
+                'collections' => [OrderModule::LINES => [self::row([
+                    OrderModule::KIND => OrderModule::CUSTOM_LINE,
+                    'description' => '',
+                    OrderModule::QUANTITY => '2.',
+                    OrderModule::UNIT_PRICE => '',
+                ])]],
+            ])
+            ->render()
+            ->toString());
+
+        self::assertStringNotContainsString('invalid-feedback', $html, 'nothing is complained about yet');
+    }
+
+    /** What one kind of line comes to, in twelfths. */
+    private function lineWidth(string $kind): int
+    {
+        return self::liveService(TenantSwitcher::class)->runFor($this->tenant, function () use ($kind): int {
+            $lines = self::service(MetadataRepository::class)
+                ->get(OrderModule::KEY)
+                ->getCollection(OrderModule::LINES);
+
+            self::assertNotNull($lines);
+
+            $total = 0;
+
+            foreach ($lines->getFieldsFor($kind) as $field) {
+                if ($field->getKey() === $lines->getVariantField()) {
+                    continue;
+                }
+
+                $total += $field->getWidth() ?? 0;
+            }
+
+            return $total;
         });
     }
 

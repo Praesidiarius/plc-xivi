@@ -7,6 +7,13 @@
 
 	The `<form>` element is still a form, but nothing ever posts it: `live#action`
 	on submit intercepts, and `:prevent` stops the browser doing it as well.
+
+	There is no `data-model` here and there should not be: the component puts it
+	on the form itself, which is what makes the totals follow the typing
+	(XIV-32) — see `RecordForm::getDataModelValue()`. The component morphs the
+	changed nodes rather than replacing the region, so the field somebody is
+	typing in keeps its caret; replacing it would take the caret with it,
+	mid-number, which is the thing this mechanism was chosen for.
 #}
 <div{{ attributes }}>
 	{{ form_start(form, {attr: {
@@ -18,7 +25,12 @@
 	<div class="card">
 		<div class="card-body">
 			{# Every field here came from a definition row — including any the
-			   customer added themselves, which is the point. #}
+			   customer added themselves, which is the point.
+
+			   Each field carries its own `col-*` (XIV-43) and the container this
+			   renders *is* the grid row — see RecordType, which puts the class
+			   there rather than here, so it holds for a collection row's fields
+			   too. Nothing here knows what a field is. #}
 			{{ form_widget(form.fields) }}
 		</div>
 	</div>

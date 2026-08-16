@@ -19,6 +19,7 @@ use App\Tenant\Security\PermissionArea;
 use App\Tenant\Security\PermissionResolver;
 use App\Tenant\Settings\InstanceName;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Permission\ModuleAction;
@@ -41,6 +42,10 @@ final class AppChrome
         private readonly PermissionResolver $permissions,
         private readonly Security $security,
         private readonly InstanceName $instance,
+        #[Autowire('%kernel.project_dir%')]
+        private readonly string $projectDir,
+        #[Autowire('%env(default::APP_LOGO)%')]
+        private readonly ?string $logo = null,
     ) {
     }
 
@@ -60,6 +65,33 @@ final class AppChrome
     public function getName(): string
     {
         return $this->instance->current();
+    }
+
+    /**
+     * The mark this installation shows, or null when it has none (XIV-48).
+     *
+     * A logo is supplied by the deployment rather than committed — see
+     * `assets/brand/README.md` — so *having* one is not the normal case. A clean
+     * checkout has none, and so do CI and the production image build.
+     *
+     * **The file is checked for before a path is offered**, which is the whole
+     * reason this is a method rather than a parameter read in a template.
+     * AssetMapper throws on an asset that is not there, so a template calling
+     * `asset()` on a missing logo would take the page down instead of falling
+     * back to the name in text.
+     */
+    public function getLogo(): ?string
+    {
+        $name = trim((string) $this->logo);
+
+        if ($name === '' || str_contains($name, '/') || str_contains($name, '\\')) {
+            // A path rather than a name would reach outside the directory the
+            // deployment was asked to fill, so it is refused rather than
+            // resolved.
+            return null;
+        }
+
+        return is_file($this->projectDir . '/assets/brand/' . $name) ? 'brand/' . $name : null;
     }
 
     /**

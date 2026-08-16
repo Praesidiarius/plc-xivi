@@ -1,3 +1,4 @@
+{% import '_record_link.html.twig' as link %}
 {% extends 'base.html.twig' %}
 
 {# The timeline is described once and read in two places — see the partial. #}
@@ -111,7 +112,11 @@
 									{% set shown = display(field, record.get(field.key)) %}
 									{# Empty reads quieter than filled, or a half-filled record
 									   looks busier than a full one. #}
-									{{ shown is empty ? '<span class="text-body-secondary">—</span>'|raw : shown }}
+									{% if shown is empty %}
+										<span class="text-body-secondary">—</span>
+									{% else %}
+										{{ link.linked(field, record.get(field.key), shown) }}
+									{% endif %}
 								</dd>
 							{% endfor %}
 						</dl>
@@ -151,7 +156,11 @@
 													{% for field in collection.fields %}
 														{% set shown = display(field, row.get(field.key)) %}
 														<td>
-															{{ shown is empty ? '<span class="text-body-secondary">—</span>'|raw : shown }}
+															{% if shown is empty %}
+																<span class="text-body-secondary">—</span>
+															{% else %}
+																{{ link.linked(field, row.get(field.key), shown) }}
+															{% endif %}
 															{% if field.label in apart %}
 																<i class="bi bi-pencil-square text-body-secondary small"
 																   title="{{ 'module.drifted'|trans({'%field%': field.label}) }}"
@@ -174,59 +183,75 @@
 						{% endfor %}
 					</div>
 				</div>
-			</div>
 
-			{#
-				Records pointing at this one (§7.6) — a company's people. Read from
-				the reference on their side rather than stored here, so the two can
-				never disagree about who works where.
-			#}
-			{% for group in linked %}
-				{# The heading names the field as well only when one module points
-				   here twice — "Orders" beats "Orders: Contact" and says the same. #}
-				{% set twice = linked|filter(g => g.module.key == group.module.key)|length > 1 %}
+				{#
+					Records pointing at this one (§7.6) — a company's people. Read from
+					the reference on their side rather than stored here, so the two can
+					never disagree about who works where.
 
-				<div class="col-lg-8">
-					<div class="card">
+					**Inside the main column, not beside it.** These used to be cards of
+					their own in the row, and the grid lays a row out in order: the
+					sidebar came after them, so it settled next to the *last* of these
+					with a hole above it wherever there was more than one.
+				#}
+				{% for group in linked %}
+					{# The heading names the field as well only when one module points
+					   here twice — "Orders" beats "Orders: Contact" and says the same. #}
+					{% set twice = linked|filter(g => g.module.key == group.module.key)|length > 1 %}
+
+					<div class="card mt-3">
 						<div class="card-body">
-							<h2 class="h6 text-uppercase text-body-secondary mb-3">
-								{{ group.heading(twice) }}
-								{# How many there are, not how many fit: the card is capped, and
-								   the length of the list below it is a fact about the cap
-								   (XIV-52). #}
-								<span class="badge text-bg-light fw-normal">{{ group.total }}</span>
-							</h2>
-							<ul class="list-unstyled mb-0">
-								{% for linkedRecord in group.records %}
-									<li class="{{ loop.first ? '' : 'border-top pt-2 mt-2' }}">
-										{# The other module's own page, and its own way of naming a
-										   record — this one may be a different module entirely. #}
-										<a href="{{ path('module_show', {module: group.module.key, id: linkedRecord.id}) }}">
-											{{ record_title(group.module, linkedRecord.data, linkedRecord.id) }}
-										</a>
-									</li>
-								{% endfor %}
-							</ul>
+							{# Closed by default: a contact with forty invoices is a page you
+							   scroll past to reach anything else, and the heading and the
+							   count are the part somebody came to read. Native <details>
+							   rather than a Bootstrap collapse, the same choice the timeline
+							   made (XIV-3) — no JavaScript, and it opens with the keyboard.
 
-							{# Said only when something is missing — "showing 3 of 3" is noise,
-							   and a card that shows everything should read like a list of
-							   everything. The way to the rest is the other module's own list,
-							   filtered to this record (XIV-13), and it is offered only to
-							   somebody allowed to open it: a link to a 403 is worse than no
-							   link. The sentence stands either way, because how many are
-							   missing is worth knowing even when you cannot go and read them. #}
-							{% if group.isTruncated %}
-								<p class="small text-body-secondary mb-0 mt-3">
-									{{ 'module.linked_shown'|trans({'%shown%': group.shown, '%total%': group.total}) }}
-									{% if can('list', group.module) %}
-										<a href="{{ path('module_index', group.listing) }}">{{ 'module.linked_all'|trans }}</a>
-									{% endif %}
-								</p>
-							{% endif %}
+							   The heading stays an <h2> inside the summary, which is the one
+							   thing summary's content model allows besides phrasing content,
+							   so this is still a document with headings in it. #}
+							<details class="linked-group">
+								<summary>
+									<h2 class="h6 text-uppercase text-body-secondary d-inline mb-0">
+										{{ group.heading(twice) }}
+										{# How many there are, not how many fit: the card is capped,
+										   and the length of the list below it is a fact about the
+										   cap rather than about the customer (XIV-52). #}
+										<span class="badge text-bg-light fw-normal">{{ group.total }}</span>
+									</h2>
+								</summary>
+								<ul class="list-unstyled mb-0 mt-3">
+									{% for linkedRecord in group.records %}
+										<li class="{{ loop.first ? '' : 'border-top pt-2 mt-2' }}">
+											{# The other module's own page, and its own way of naming a
+											   record — this one may be a different module entirely. #}
+											<a href="{{ path('module_show', {module: group.module.key, id: linkedRecord.id}) }}">
+												{{ record_title(group.module, linkedRecord.data, linkedRecord.id) }}
+											</a>
+										</li>
+									{% endfor %}
+								</ul>
+
+								{# Said only when something is missing — "showing 3 of 3" is noise.
+								   The way to the rest is the other module's own list, filtered to
+								   this record (XIV-13), offered only to somebody allowed to open
+								   it: a link to a 403 is worse than no link. The sentence stands
+								   either way, because how many are missing is worth knowing even
+								   when you cannot go and read them. #}
+								{% if group.isTruncated %}
+									<p class="small text-body-secondary mb-0 mt-3">
+										{{ 'module.linked_shown'|trans({'%shown%': group.shown, '%total%': group.total}) }}
+										{% if can('list', group.module) %}
+											<a href="{{ path('module_index', group.listing) }}">{{ 'module.linked_all'|trans }}</a>
+										{% endif %}
+									</p>
+								{% endif %}
+							</details>
 						</div>
 					</div>
-				</div>
-			{% endfor %}
+				{% endfor %}
+
+			</div>
 
 			<div class="col-lg-4">
 				<div class="card mb-3">
