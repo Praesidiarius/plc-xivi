@@ -15,7 +15,8 @@
 # own compose project, its own ports and its own tenant databases, all derived
 # from the directory name, so two checkouts run the suite at the same time
 # without meeting (XIV-51). Two runs in the *same* checkout are refused rather
-# than allowed to interleave.
+# than allowed to interleave. Reach that stack by hand with `bin/compose`, never
+# a bare `docker compose` — the latter finds the main checkout's (XIV-55).
 #
 # Coverage is opt-in rather than always on, but not because it is slow: this
 # suite spends its time provisioning databases, so Xdebug costs it about seven
@@ -29,51 +30,13 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-# The dev container bind-mounts this working tree and writes into it — vendor/,
-# caches, generated config — so it has to run as whoever owns these files.
-# Exported here because compose.override.yaml cannot work it out for itself:
-# $UID is a shell variable that is never exported, so Compose only ever saw the
-# fallback. On a machine where that fallback is wrong, the first thing to fail is
-# "/app/vendor does not exist and could not be created", and the container is
-# reported unhealthy rather than as a permissions problem.
-export APP_UID="${APP_UID:-$(id -u)}"
-export APP_GID="${APP_GID:-$(id -g)}"
-
-# The checkout whose stack keeps the ordinary names and the ordinary ports. Any
-# other one gets its own, so the two never meet.
-readonly MAIN_CHECKOUT='plc-xivi'
-
-# **Which checkout this is** (XIV-51).
-#
-# Everything below assumed one working copy and one stack, which is true until
-# somebody wants two branches at once — a second clone, a git worktree, an agent.
-# Three things then collide, and all three are named after this:
-#
-#   * the compose project, or the second `up` adopts the first's containers
-#     rather than making its own
-#   * the published ports, since two web servers cannot have port 443
-#   * the tenant databases, which are namespaced per paratest worker and would
-#     otherwise be namespaced per worker *only* — the same eight numbers in both
-#     runs, fighting over one set of databases (XIV-9's failure, one layer up)
-#
-# Derived from the directory rather than configured, so it is right without
-# anybody setting anything, and stable so a second run in the same checkout finds
-# what the first left behind.
-checkout="$(basename "$(pwd)")"
-
-# **Two sanitisings, because the two names allow different characters.** Compose
-# takes a hyphen and Postgres does not, and collapsing them to one rule renames
-# the main checkout's project — which then starts a *second* set of containers
-# beside the running ones and fails on the first published port. Found exactly
-# that way.
-project="$(printf '%s' "$checkout" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9_-' '-')"
-
-export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-$project}"
-
-# What the php container serves. Compose resolves a relative volume path against
-# the compose file's directory, which is the *main* checkout even when this
-# script is a worktree's — so a worktree has to say where it is, absolutely.
-export APP_ROOT="${APP_ROOT:-$(pwd)}"
+# **Which stack this run acts on** (XIV-51), which is not this script's to define
+# any more (XIV-55): the compose project, the ports, the bind mount and the test
+# tenant prefix all come from here, so that `bin/compose` and anything else can
+# reach the same stack without replicating the derivation. Read it for the why —
+# every line of it used to be in this one.
+# shellcheck source=lib/stack-env.sh
+. bin/lib/stack-env.sh
 
 # **One run per checkout, and it says so.**
 #
@@ -85,7 +48,7 @@ export APP_ROOT="${APP_ROOT:-$(pwd)}"
 #
 # `flock` rather than a pid file: the kernel releases it however the run ends,
 # including a kill, so a crash never leaves a lock nobody can explain.
-readonly LOCK="${TMPDIR:-/tmp}/xivi-ci-${checkout}.lock"
+readonly LOCK="${TMPDIR:-/tmp}/xivi-ci-${XIVI_CHECKOUT}.lock"
 exec 9>"$LOCK"
 
 if ! flock --nonblock 9; then
@@ -93,29 +56,6 @@ if ! flock --nonblock 9; then
 	printf 'Wait for it, or work in a git worktree — a different directory gets\n' >&2
 	printf 'its own stack, its own ports and its own tenant databases (XIV-51).\n' >&2
 	exit 1
-fi
-
-# Empty for the main checkout, so its databases, containers and ports keep the
-# names they have always had and nothing about a single-checkout run changes.
-if [ "$checkout" = "$MAIN_CHECKOUT" ]; then
-	export TEST_RUN=""
-else
-	# A database identifier: letters, digits and underscores only.
-	export TEST_RUN="_$(printf '%s' "$checkout" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '_')"
-
-	# A second stack cannot publish the first's ports. Offsets rather than
-	# random numbers, so the address of a given checkout is predictable and can
-	# be bookmarked.
-	offset=$((10#$(printf '%s' "$project" | cksum | cut -d' ' -f1) % 100 + 1))
-	export HTTP_PORT="${HTTP_PORT:-$((8000 + offset))}"
-	export HTTPS_PORT="${HTTPS_PORT:-$((8400 + offset))}"
-	export HTTP3_PORT="${HTTP3_PORT:-$((8400 + offset))}"
-	export DATABASE_PORT="${DATABASE_PORT:-$((5500 + offset))}"
-	export ADMINER_PORT="${ADMINER_PORT:-$((8100 + offset))}"
-	# The mail catcher's web UI (XIV-41). Its own band, 8201–8300, so it cannot
-	# land on Adminer's — each of these owns a hundred, which is what the offset
-	# can be.
-	export MAILPIT_PORT="${MAILPIT_PORT:-$((8200 + offset))}"
 fi
 
 build_prod_image=true
@@ -181,6 +121,9 @@ if [ "$check_changelog" = true ]; then
 fi
 
 step 'Starting the stack'
+# `docker compose` rather than `bin/compose` from here down, and only because the
+# fragment is already sourced into this process: the variables are exported, so
+# both reach the same stack. The wrapper is for a shell that has not sourced it.
 docker compose up -d --wait
 
 step 'composer.json is valid and composer.lock matches it'

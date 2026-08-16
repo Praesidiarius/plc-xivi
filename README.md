@@ -153,19 +153,35 @@ customer's browser. The forms work without JavaScript.
 
 Docker and Docker Compose. Nothing else — there is no host PHP or Composer step.
 
-The dev container runs as you, not as root, so that files it creates — migrations,
-recipe config, vendored assets — belong to you. `bin/ci` works this out for
-itself. If you start the stack with `docker compose` directly and your uid is not
-1000, set `APP_UID` and `APP_GID` in `.env.local`:
+**Use `bin/compose`, not `docker compose`.** It is a thin wrapper that forwards
+every argument through — `bin/compose up -d --wait`, `bin/compose logs -f php`,
+`bin/compose down` — after pointing Compose at *this* checkout's stack.
+
+That matters because a checkout is the unit of isolation here: the compose
+project, the published ports, the bind mount and the test tenant prefix are all
+derived from the directory, so a git worktree is a first-class second stack
+(XIV-51). A bare `docker compose` knows none of it, and in a worktree it collides
+on port 443 and — the quiet one — runs the suite against the main checkout's
+tenant databases. The wrapper also runs the container as you rather than as root,
+so files it creates belong to you; there is nothing to put in `.env.local`.
+
+`bin/compose` with no arguments answers "which stack is this, and where":
 
 ```bash
-printf 'APP_UID=%s\nAPP_GID=%s\n' "$(id -u)" "$(id -g)" >> .env.local
+bin/compose
+# checkout   plc-xivi (the main one)
+# project    plc-xivi
+# app        https://localhost:443
+# ...
 ```
+
+The derivation lives in `bin/lib/stack-env.sh` and `bin/ci` reads the same file,
+so the suite and your shell cannot end up on different stacks (XIV-55).
 
 ## Quickstart
 
 ```bash
-docker compose up -d --wait
+bin/compose up -d --wait
 ```
 
 That builds the image, starts PostgreSQL, installs dependencies and applies the
@@ -175,7 +191,7 @@ certificate, so expect a browser warning (or use `curl -k`).
 Provision a tenant with an admin user, then sign in at `https://acme.localhost`:
 
 ```bash
-docker compose exec php bin/console tenant:provision acme acme.localhost \
+bin/compose exec php bin/console tenant:provision acme acme.localhost \
     --name='Acme AG' --admin-email=you@example.com
 # ... Password: <generated, shown once>
 ```
@@ -198,7 +214,7 @@ debug is on.
 ## Looking at a tenant's database
 
 ```bash
-docker compose --profile tools up -d adminer   # http://127.0.0.1:8080
+bin/compose --profile tools up -d adminer   # http://127.0.0.1:8080
 ```
 
 Sign in with server `database`, user `app`, password `!ChangeMe!` (or whatever
@@ -263,14 +279,16 @@ on how you run PHP and the agent files depend on which agent you use. Set it up
 yourself:
 
 ```bash
-docker compose exec php vendor/bin/mate init
-docker compose exec php vendor/bin/mate discover
+bin/compose exec php vendor/bin/mate init
+bin/compose exec php vendor/bin/mate discover
 ```
 
 Two things to know, both of which cost an afternoon once:
 
 - `mate init` writes `"command": "php"` into `mcp.json`. There is no host PHP here,
-  so change it to `docker compose exec -T php vendor/bin/mate serve --force-keep-alive`.
+  so change it to `bin/compose exec -T php vendor/bin/mate serve --force-keep-alive`.
+  Your MCP client runs that from whatever it considers the working directory — give
+  it an absolute path if that is not this checkout, or it will attach to another one.
 - `mate discover` is a **manual step**. Its Composer plugin is deliberately left out
   of `allow-plugins` so that nothing of Mate's runs during `bin/ci`; the price is
   that without `discover`, the extensions stay unregistered and the tool list
@@ -297,14 +315,14 @@ Any console command can be pointed at one tenant's database with the `TENANT`
 environment variable — a command has no Host header to resolve one from:
 
 ```bash
-TENANT=acme docker compose exec php bin/console doctrine:schema:validate --em=tenant
+TENANT=acme bin/compose exec php bin/console doctrine:schema:validate --em=tenant
 ```
 
 That is also how a tenant migration is generated, since the diff needs a database
 to compare against:
 
 ```bash
-docker compose exec -e TENANT=acme php bin/console doctrine:migrations:diff \
+bin/compose exec -e TENANT=acme php bin/console doctrine:migrations:diff \
     --em=tenant --configuration=config/migrations/tenant.php
 ```
 
@@ -359,6 +377,12 @@ GitHub Actions runs that same script rather than its own copy of the checks, so
 there is nothing that can drift between local and CI, and a green run locally means
 a green run there.
 
+**Two branches at once:** `git worktree add ../xivi-XIV-99 -b XIV-99/thing`, then
+run `bin/ci` there. That directory gets its own compose project, ports and tenant
+databases, so both suites run at the same time without meeting (XIV-51); `bin/ci`
+refuses a second run in the *same* checkout rather than letting the two interleave.
+Reach that worktree's stack by hand with its own `bin/compose`.
+
 It covers: `composer validate --strict`, a dependency vulnerability audit, coding
 standards (`php-cs-fixer`, Symfony's ruleset plus the licence header), deptrac
 module boundaries, PHPStan level 8, PHPUnit, and a build of the **production**
@@ -392,8 +416,8 @@ separate repositories (§3).
 Individual pieces, if you want them on their own:
 
 ```bash
-docker compose exec php composer test      # PHPUnit
-docker compose exec php composer phpstan   # level 8
+bin/compose exec php composer test      # PHPUnit
+bin/compose exec php composer phpstan   # level 8
 ```
 
 The functional tests provision real tenants — real databases and real PostgreSQL
