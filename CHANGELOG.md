@@ -83,6 +83,11 @@ lands in `Unreleased` here.
   file in `APP_LOGO` and put it in `assets/brand/`, which is gitignored. It is the
   favicon too. Unset — the default, and what a fresh clone has — falls back to
   the name in text and the mark drawn as `17`.
+- **Mail sent in development can be read** ([XIV-41]). A Mailpit catcher starts
+  with the dev stack and the dev `MAILER_DSN` points at it, so messages are
+  rendered and readable at <http://127.0.0.1:8025> instead of leaving the
+  machine. It is visibility, not a guarantee: a DSN naming a real server still
+  reaches it.
 - **Two checkouts can run the suite at the same time** ([XIV-51]). A git worktree
   gets its own compose project, ports and tenant databases, all derived from the
   directory name; the main checkout keeps the names and ports it had. Two runs in
@@ -134,6 +139,7 @@ lands in `Unreleased` here.
 | [17.0.0](docs/changelog/17.0.0.md) | 2026-08-14 | The first numbered version: the engine, tenancy, and everything built before versioning began |
 
 [XIV-32]: https://xivi.youtrack.cloud/issue/XIV-32
+[XIV-41]: https://xivi.youtrack.cloud/issue/XIV-41
 [XIV-42]: https://xivi.youtrack.cloud/issue/XIV-42
 [XIV-43]: https://xivi.youtrack.cloud/issue/XIV-43
 [XIV-47]: https://xivi.youtrack.cloud/issue/XIV-47

@@ -112,6 +112,10 @@ else
 	export HTTP3_PORT="${HTTP3_PORT:-$((8400 + offset))}"
 	export DATABASE_PORT="${DATABASE_PORT:-$((5500 + offset))}"
 	export ADMINER_PORT="${ADMINER_PORT:-$((8100 + offset))}"
+	# The mail catcher's web UI (XIV-41). Its own band, 8201–8300, so it cannot
+	# land on Adminer's — each of these owns a hundred, which is what the offset
+	# can be.
+	export MAILPIT_PORT="${MAILPIT_PORT:-$((8200 + offset))}"
 fi
 
 build_prod_image=true
