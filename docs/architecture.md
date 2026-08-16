@@ -1737,6 +1737,32 @@ save the tmpfs. It also has to be handed to the container explicitly: `docker
 compose exec` carries none of the host's environment, so a variable exported in
 `bin/ci` alone is a mechanism that looks switched on and is not.
 
+**A mail catcher is visibility, and only that** (XIV-41). Development sends to
+Mailpit, a container that accepts everything and delivers nothing, because the
+mail this application is about to grow — Markdown rendered to HTML, wrapped in a
+base template — cannot be reviewed from a log line. Its web UI is published on
+the loopback and its port is derived per checkout like every other, so a second
+worktree does not collide; SMTP is not published at all, since only the php
+container speaks it.
+
+The distinction to hold on to is that this is **not** a guarantee that nothing
+escapes. A catcher sees what is pointed at it; a DSN naming a real server is
+believed, and the catcher never learns of it. Making it structurally impossible
+for a non-production environment to reach a real address is a transport question
+and is XIV-37's. Reading this service as a safety net is the mistake it invites.
+
+`symfony/mailer` became a runtime dependency here rather than in the ticket that
+first sends something, and not by choice: `framework.mailer` is refused outright
+when the component is absent, so there is no way to name a transport with
+configuration alone. Nothing sends mail yet.
+
+The test suite deliberately does not read from the catcher, and the reason is the
+one this section keeps arriving at: eight paratest workers against one inbox is
+one mutable shared thing again, so a worker would find or delete another's mail.
+Tests assert through Symfony's message logger, which collects in the sending
+process before the transport, with the DSN set to `null://null` — per process,
+isolated by construction, and it works *because* nothing is delivered.
+
 
 - **The runtime is classic PHP, not a worker.** One long-lived kernel serving every
   tenant is the §7.4 hazard in its most dangerous form: state that survives a

@@ -221,6 +221,67 @@ services:
       # door to a database server for anyone who can reach this machine.
       - "127.0.0.1:${ADMINER_PORT:-8080}:8080"
 
+  # Where mail sent in development goes, instead of anywhere (XIV-41).
+  #
+  # **This is visibility, not a guarantee.** It catches what is pointed at it and
+  # nothing else: a DSN naming a real server still reaches that server, and this
+  # container never learns of it. What makes it impossible to send to a real
+  # address is the transport configuration, which is XIV-37 and a different
+  # thing. Do not read this service as a safety net.
+  #
+  # It earns its place because the next tickets render Markdown to HTML and wrap
+  # it in a base template, and neither is reviewable from a log line — Mailpit
+  # shows the rendered mail and its source side by side, which is the whole
+  # reason to run one at all.
+  #
+  # Mailpit rather than MailHog, which has had no release in two years, or
+  # MailCatcher, which would put a Ruby runtime in this stack for the same job.
+  #
+  # **The test suite does not use it, and must not start to.** Tests assert on
+  # mail through Symfony's in-memory collection — see MAILER_DSN in .env.test —
+  # because the suite runs eight workers at once and this is a single mutable
+  # inbox: a worker reading the API would see the other seven's mail and race
+  # them for it. That is XIV-9's lesson in another shape, and no assertion is
+  # worth reintroducing it for.
+  #
+  # No profile, unlike adminer: the dev MAILER_DSN points here, so a stack
+  # without it is a stack where sending mail fails rather than one missing an
+  # optional console.
+  mailpit:
+    image: axllent/mailpit:v1.28
+    restart: unless-stopped
+    environment:
+      # A cap, not a retention policy — MP_DATABASE is unset, so the inbox is in
+      # memory already and a restart empties it, which is what makes it obvious
+      # that what is on screen belongs to this session. The cap is only so a
+      # forgotten loop cannot grow it without bound.
+      MP_MAX_MESSAGES: "500"
+      # Accept whatever credentials arrive, over a plaintext connection. Both are
+      # off by default and both are right here: this listens only on the compose
+      # network, and the alternative is a DSN that grows a username and a
+      # password which authenticate nothing against a server that delivers
+      # nothing. It also means a DSN copied from a real deployment still lands
+      # here rather than failing to connect.
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+    ports:
+      # The web UI, on the loopback only — the same reasoning as adminer's, and
+      # it applies unchanged: published on every interface this is an
+      # unauthenticated reader of every mail this machine has sent.
+      #
+      # Overridable, and `bin/ci` derives it per checkout, so a second worktree
+      # does not collide with this one (XIV-51).
+      - "127.0.0.1:${MAILPIT_PORT:-8025}:8025"
+      # SMTP is deliberately *not* published. Only the php container speaks to
+      # it, over the compose network, exactly as with gotenberg — a second
+      # published port is a second thing two checkouts can collide on, bought
+      # for a convenience nobody has asked for.
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 ###> doctrine/doctrine-bundle ###
   database:
     ports:
@@ -233,3 +294,14 @@ services:
       # nothing anybody has already bookmarked moves.
       - "${DATABASE_PORT:-5432}:5432"
 ###< doctrine/doctrine-bundle ###
+
+###> symfony/mailer ###
+  mailer:
+    image: axllent/mailpit
+    ports:
+      - "1025"
+      - "8025"
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+###< symfony/mailer ###

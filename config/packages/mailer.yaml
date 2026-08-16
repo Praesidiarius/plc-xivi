@@ -1,0 +1,19 @@
+# Where mail goes, which is one variable and deliberately nothing else.
+#
+# The component is installed for a reason narrower than it looks: `framework.mailer`
+# is refused outright when symfony/mailer is absent — "Mailer support cannot be
+# enabled as the component is not installed" — so a mail catcher cannot be pointed
+# at with configuration alone. Nothing in the application sends mail yet (XIV-41);
+# this is the socket the tickets that do will plug into.
+#
+# The DSN is per environment and lives in the .env files beside the database ones:
+# `null://null` by default and in the test suite, the catcher in dev. Each is
+# commented where it is set, which is where somebody changing it will be looking.
+#
+# What is *not* here is any restriction on where mail may be addressed. Reading
+# this file as "development cannot send to a real person" would be wrong — a DSN
+# is believed, whatever it names. That guarantee is XIV-37's, and it will be a
+# transport decision rather than a default.
+framework:
+    mailer:
+        dsn: '%env(MAILER_DSN)%'

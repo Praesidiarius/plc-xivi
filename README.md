@@ -214,6 +214,34 @@ to check that isolation — only to look at data.
 Behind a profile, so it is opt-in and never starts as part of the stack or of CI.
 Bound to the loopback, because it is an unauthenticated door to a database server.
 
+## Looking at mail that was sent
+
+Mail sent in development goes to [Mailpit](https://mailpit.axllent.org/), which
+starts with the stack. Open it at <http://127.0.0.1:8025> — it shows the rendered
+HTML, the plain-text alternative and the raw source of every message, which a log
+line cannot.
+
+The dev `MAILER_DSN` names it (`smtp://mailpit:1025`, in `.env.dev`), so nothing
+you send by accident leaves this machine. Its inbox is kept in memory only, so a
+restart empties it.
+
+**It is visibility, not a guarantee.** A catcher sees what is pointed at it and
+nothing else: change that DSN to a real server and the mail reaches real people,
+with this container none the wiser. What makes that impossible is a transport
+decision, not this one.
+
+If two checkouts are running, the second's UI is not on 8025 — `bin/ci` derives
+the port from the directory the same way it derives the compose project and the
+database port, so the stacks do not collide. Set `MAILPIT_PORT` to pin it.
+
+Only the web UI is published, on the loopback, for adminer's reason: it is an
+unauthenticated reader of every message this machine has sent. SMTP is reachable
+on the compose network alone.
+
+The test suite does not use it and should not be made to — see the note beside
+`MAILER_DSN` in `.env.test` for why eight parallel workers and one shared inbox
+is a race rather than an assertion.
+
 ## Symfony AI Mate
 
 > **Development only.** Mate is a local MCP server that hands a coding agent this
