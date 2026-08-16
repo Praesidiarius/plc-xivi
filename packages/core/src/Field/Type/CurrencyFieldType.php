@@ -131,6 +131,11 @@ final class CurrencyFieldType implements FieldType
             // nothing on this path is ever a float.
             'input' => 'string',
             'divisor' => 1,
+            // Thousands separated on the figures nobody types (XIV-47). A
+            // derived field is `disabled`, so its value is never parsed back
+            // out of the view — which is what makes grouping free here and a
+            // risk on a field somebody edits.
+            'grouping' => $field->isDerived(),
         ];
 
         $attr = [];

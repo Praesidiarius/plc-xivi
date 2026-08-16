@@ -119,7 +119,9 @@ final class DecimalFieldType implements FieldType
             // Not an html5 number input: it insists on a dot, and somebody
             // entering two and a half hours in German types a comma.
             'html5' => false,
-            'grouping' => false,
+            // Grouped only where nothing is typed back (XIV-47): a derived
+            // figure is `disabled` and read, an editable quantity is not.
+            'grouping' => $field->isDerived(),
         ];
 
         $attr = [];
