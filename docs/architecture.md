@@ -2753,6 +2753,58 @@ wrapper can intercept — so what it does instead is name the stack it is acting
 whenever that is not the main checkout. Prevention was not available; visibility
 was.
 
+**The image was the name that isolation forgot** (XIV-71). XIV-51 made the
+project, the ports, the bind mount and the tenant prefix per-checkout and stopped
+one line short of the artifact all of them run: `compose.override.yaml` named the
+dev image `${IMAGES_PREFIX:-}xivi-php-dev`, one fixed name for every checkout on
+the machine. So a branch that touched the `Dockerfile`, or anything it copies in,
+rebuilt the image every *other* checkout was already running — and the entrypoint
+is copied in. XIV-63 changed it to call `bin/reconcile` and rebuilt; the worktree
+next door, on a branch predating that script, was handed an entrypoint calling a
+file its tree did not contain and crash-looped under `set -e`.
+
+**The crash was the lucky outcome**, and that is the whole reason this is worth a
+paragraph rather than a line. A loud failure gets worked around in ten minutes.
+The same mechanism can hand a worktree an image that differs *quietly* — an
+extension one branch added, a changed `php.ini`, a different base tag — and
+everything comes up healthy while `bin/ci` is green or red for reasons that have
+nothing to do with the branch. That is XIV-63's complaint one layer down: an
+artifact that does not match the tree being checked. It also breaks the property
+that made parallel checkouts worth having, since the two are meant to be unable
+to disturb each other and neither could tell that one had.
+
+The hook already existed — `IMAGES_PREFIX`, in the compose file, defaulting to
+empty — so the fix is `bin/lib/stack-env.sh` deriving it like everything else,
+empty for the main checkout so `xivi-php-dev` keeps its name. It needs a *third*
+sanitising, for the same reason there are already two: a Docker reference is
+neither a compose project name nor a database identifier, and forbids the mixed
+separators (`foo-_bar`) that a project name allows.
+
+**The disk cost is the objection, and it is 29 kB.** One image per worktree
+sounds expensive and is not, because a worktree that changes nothing about the
+build produces the same layers: measured on a second checkout, all 27 layers
+shared, 28.66 kB unique against a 2 GB image, and the total across all images
+unmoved. A worktree pays for what it actually changed and only from the changed
+layer down. The image *ID* does differ even when the layers do not — buildx
+exports a fresh manifest with a provenance attestation each time — so identical
+content is not identical identity, which matters only if you go looking for it.
+
+Two smaller decisions came with it. `xivi-prod-check`, which `bin/ci` builds at
+the end of every run under a fixed name, **got the same treatment** on a much
+weaker argument: that tag is written and never read, so two concurrent runs
+racing on it only meant the loser's tag pointed at the winner's build. It is one
+expansion, and a name that is merely *nearly* meaningless is a poor thing to
+leave for whoever first runs something out of it.
+
+And cleanup is **deliberately not automated**. The trigger is `git worktree
+remove`, which nothing here wraps; `bin/compose down` is not that trigger and
+teaching it to drop the image would cost everybody who uses `down` to free a port
+a full rebuild on the next `up`. Worse, the name is derived from the directory,
+so once the worktree is gone nothing can work out what to delete. So the image
+name is printed by `bin/compose` with no arguments — read it before you remove
+the directory — and the README says to `docker image rm` it. An accepted cost
+that is written down beats an automatic one that surprises people.
+
 **A warm stack believes things about a tree it has not read** (XIV-63). `docker
 compose up -d --wait` on a stack that is already running is a no-op, so `bin/ci`
 inherited whatever the last install and the last kernel boot left behind:

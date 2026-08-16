@@ -10,10 +10,10 @@
 #
 # **Use this rather than `docker compose` directly** (XIV-55). A checkout is the
 # unit of isolation for the stack — the compose project, the ports, the bind
-# mount and the test tenant prefix are all derived from the directory (XIV-51) —
-# and a bare `docker compose` knows none of that. In the main checkout it happens
-# to be right. In a worktree it is wrong in two ways, neither of which announces
-# itself:
+# mount, the test tenant prefix and the dev image are all derived from the
+# directory (XIV-51, XIV-71) — and a bare `docker compose` knows none of that. In
+# the main checkout it happens to be right. In a worktree it is wrong in three
+# ways, none of which announces itself:
 #
 #   * **The ports.** Nothing derives them, so the worktree tries to publish 443
 #     and 5432 like everybody else. This one at least fails loudly — "port is
@@ -22,6 +22,12 @@
 #     keeps two checkouts' apart and land on the main checkout's. That one does
 #     not fail at all; two runs quietly drop each other's tenants (XIV-9's
 #     failure a layer up, which is the whole reason XIV-51 exists).
+#   * **The dev image.** `IMAGES_PREFIX` is empty, so a `build` or an `up`
+#     rebuilds `xivi-php-dev` — the name every *other* checkout is running — out
+#     of this branch's Dockerfile and entrypoint. That is XIV-71, and it is the
+#     worst of the three: the neighbour it breaks is not the one that typed the
+#     command, and the neighbour that gets a subtly wrong runtime rather than a
+#     crash-looping one never finds out at all.
 #
 # The project name is the interesting case, because Compose *does* default it
 # from the directory and mostly agrees with us. Mostly: it deletes characters

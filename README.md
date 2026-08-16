@@ -158,12 +158,13 @@ every argument through — `bin/compose up -d --wait`, `bin/compose logs -f php`
 `bin/compose down` — after pointing Compose at *this* checkout's stack.
 
 That matters because a checkout is the unit of isolation here: the compose
-project, the published ports, the bind mount and the test tenant prefix are all
-derived from the directory, so a git worktree is a first-class second stack
-(XIV-51). A bare `docker compose` knows none of it, and in a worktree it collides
-on port 443 and — the quiet one — runs the suite against the main checkout's
-tenant databases. The wrapper also runs the container as you rather than as root,
-so files it creates belong to you; there is nothing to put in `.env.local`.
+project, the published ports, the bind mount, the test tenant prefix and the dev
+image are all derived from the directory, so a git worktree is a first-class
+second stack (XIV-51, XIV-71). A bare `docker compose` knows none of it, and in a
+worktree it collides on port 443, runs the suite against the main checkout's
+tenant databases, and rebuilds the dev image every *other* checkout is running —
+the last two quietly. The wrapper also runs the container as you rather than as
+root, so files it creates belong to you; there is nothing to put in `.env.local`.
 
 `bin/compose` with no arguments answers "which stack is this, and where":
 
@@ -171,6 +172,7 @@ so files it creates belong to you; there is nothing to put in `.env.local`.
 bin/compose
 # checkout   plc-xivi (the main one)
 # project    plc-xivi
+# image      xivi-php-dev
 # app        https://localhost:443
 # ...
 ```
@@ -431,10 +433,30 @@ there is nothing that can drift between local and CI, and a green run locally me
 a green run there.
 
 **Two branches at once:** `git worktree add ../xivi-XIV-99 -b XIV-99/thing`, then
-run `bin/ci` there. That directory gets its own compose project, ports and tenant
-databases, so both suites run at the same time without meeting (XIV-51); `bin/ci`
-refuses a second run in the *same* checkout rather than letting the two interleave.
-Reach that worktree's stack by hand with its own `bin/compose`.
+run `bin/ci` there. That directory gets its own compose project, ports, tenant
+databases and dev image, so both suites run at the same time without meeting
+(XIV-51, XIV-71); `bin/ci` refuses a second run in the *same* checkout rather than
+letting the two interleave. Reach that worktree's stack by hand with its own
+`bin/compose`.
+
+The dev image is `<checkout>-xivi-php-dev` — `xivi-xiv-99-xivi-php-dev` for the
+worktree above — so a branch that changes the `Dockerfile` or the entrypoint
+cannot alter what another checkout is running. It costs almost nothing: every
+layer your build has in common with the main checkout's is shared, so a worktree
+that changed nothing about the build is about 29 kB.
+
+**When you remove a worktree, remove its image.** Nothing does it for you: the
+name is derived from the directory, so once the directory is gone there is
+nothing left to work it out from. Read it off the summary first.
+
+```bash
+bin/compose down                     # in the worktree
+docker image rm xivi-xiv-99-xivi-php-dev xivi-xiv-99-xivi-prod-check
+git worktree remove ../xivi-XIV-99
+```
+
+`docker image ls 'xivi-*'` finds any you have already lost track of; they share
+their layers with the main checkout's image, so the disk they return is small.
 
 It covers: `composer validate --strict`, a dependency vulnerability audit, coding
 standards (`php-cs-fixer`, Symfony's ruleset plus the licence header), deptrac
