@@ -78,6 +78,9 @@ lands in `Unreleased` here.
   are the same thing one level down — and an order or invoice line now declares
   its own widths, so a whole line sits on one row instead of six. Existing forms change appearance on upgrade, which is the
   point; nothing is migrated and no value is written. See §5.
+- **The record page is two columns again.** Each card used to be its own grid
+  column, so once a record had more than one thing pointing at it the sidebar
+  settled beside the last of them with a gap above it.
 - **What points at a record is folded away until asked for.** A contact's orders
   and invoices show their heading and how many there are; the list opens on a
   click. Native `<details>`, so it works without JavaScript and with the
