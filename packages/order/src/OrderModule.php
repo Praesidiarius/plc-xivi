@@ -142,12 +142,28 @@ final class OrderModule implements ModuleProvider
                     filterable: true,
                     listed: true,
                     position: 30,
-                    options: ['choices' => [
-                        self::DRAFT => 'status.draft',
-                        self::CONFIRMED => 'status.confirmed',
-                        self::DELIVERED => 'status.delivered',
-                        self::CANCELLED => 'status.cancelled',
-                    ]],
+                    options: [
+                        'choices' => [
+                            self::DRAFT => 'status.draft',
+                            self::CONFIRMED => 'status.confirmed',
+                            self::DELIVERED => 'status.delivered',
+                            self::CANCELLED => 'status.cancelled',
+                        ],
+                        // What a book of orders looks like, for demo data
+                        // (§5.17). The generator reads this as where each record
+                        // is *going* and walks it there through the lifecycle
+                        // below (XIV-73), so a repetition here is a weight and
+                        // not a state anybody wrote down: most orders ship, a
+                        // few are still being typed, and one in eight falls
+                        // through. Drawn uniformly from an even list would make
+                        // a quarter of every demo tenant cancelled, which is not
+                        // a business anybody runs.
+                        'samples' => [
+                            self::DRAFT, self::CONFIRMED, self::CONFIRMED,
+                            self::DELIVERED, self::DELIVERED, self::DELIVERED,
+                            self::CANCELLED,
+                        ],
+                    ],
                 ),
                 new FieldBlueprint(
                     key: 'note',
@@ -291,6 +307,16 @@ final class OrderModule implements ModuleProvider
                                 'min' => 0,
                                 'max' => 100,
                                 'scale' => 2,
+                                // The rates this country has, for demo data
+                                // (§5.17). The article module has said this
+                                // about its own field since XIV-24; a line
+                                // *copies* the rate from the article when
+                                // somebody picks one, but a generated line picks
+                                // nothing, so without this the uniform draw over
+                                // 0 to 100 was putting 63.9% VAT on demo orders
+                                // — arithmetically perfect totals that nobody
+                                // can sanity-check by looking (XIV-73).
+                                'samples' => [8.1, 8.1, 8.1, 2.6, 3.8, null],
                                 ...InheritedValue::from('article', 'tax_rate'),
                             ],
                         ),
