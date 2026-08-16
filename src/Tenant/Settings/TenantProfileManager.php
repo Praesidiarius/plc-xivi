@@ -17,6 +17,7 @@ use App\Tenant\Entity\TenantProfile;
 use App\Tenant\Repository\TenantProfileRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\Intl\Countries;
 use Symfony\Component\Intl\Currencies;
 
 /**
@@ -56,6 +57,20 @@ final readonly class TenantProfileManager
     }
 
     /**
+     * The countries, named in the reader's own language.
+     *
+     * From symfony/intl rather than a list kept here, for the same reason the
+     * currencies are: a list of countries maintained by hand is a list that is
+     * wrong.
+     *
+     * @return array<string, string> code => what to call it
+     */
+    public function regionChoices(string $locale): array
+    {
+        return Countries::getNames($locale);
+    }
+
+    /**
      * Applies what the form said.
      *
      * An unknown currency code leaves the stored one alone rather than throwing.
@@ -64,7 +79,7 @@ final readonly class TenantProfileManager
      * nothing — the same call PermissionManager makes about an unknown module key.
      * An empty code is different and does mean something: nobody has chosen.
      */
-    public function apply(string $companyName, string $currency): TenantProfile
+    public function apply(string $companyName, string $currency, ?string $region = null): TenantProfile
     {
         $profile = $this->profiles->current();
         $profile->setCompanyName($companyName);
@@ -73,6 +88,16 @@ final readonly class TenantProfileManager
             $profile->setCurrency(null);
         } elseif (Currencies::exists($currency)) {
             $profile->setCurrency($currency);
+        }
+
+        // Which country's conventions this installation writes in (XIV-50).
+        // Empty means "follow the application's", which is a real answer and not
+        // a missing one; an unknown code came from a hand-edited request and
+        // changes nothing, the same call the currency above makes.
+        if ($region === '' || $region === null) {
+            $profile->setRegion(null);
+        } elseif (Countries::exists(strtoupper($region))) {
+            $profile->setRegion(strtoupper($region));
         }
 
         // Persisted every time rather than only when new: the entity is already

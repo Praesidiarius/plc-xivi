@@ -1552,6 +1552,39 @@ database.
 
 ### 8.4.2 Language
 
+**Language and region are two settings** (XIV-50). Which words somebody reads and
+which country's conventions they write by are independent questions, and one
+picker was answering both: choosing "Deutsch" got German-from-Germany, so a Swiss
+reader was shown `1.234.500,00` where their country writes `1’234’500.00` — a
+different decimal separator, not only a different grouping one. An
+English-speaking colleague at a Swiss company is an ordinary hire, and wants
+English words with Swiss figures.
+
+So the language is chosen from the catalogues that exist and the region from the
+countries there are, and `FormattingLocale` puts them back together — `de` and
+`CH` make `de_CH`. Nothing downstream learns a new concept: `Request::setLocale()`
+also sets PHP's own default, which is what every formatter already reads.
+
+**A region costs no translation work.** Symfony falls a locale back to its
+language, so `de_CH` finds the `de` catalogue. That is most of why the two are
+stored apart and joined at the point of use rather than offered as one long list
+of every combination.
+
+The chain is the familiar one, and each step is a different promise: the person,
+then the installation (§8.6, whose people are mostly in one country), then
+nothing — where nothing leaves the bare language, which is what every
+installation had before this existed.
+
+**Dates are shown locally and stored as ISO**, and those are two formats with two
+names. A date is kept as an ISO string because it then sorts and compares as text
+without a cast (§5); the reader's form is computed from the locale's short
+pattern with the year widened, since CLDR mostly writes it as two digits and a
+record saying `15.08.26` is one somebody has to think about. Reaching for the
+storage constant to localize a display is precisely the mistake `CurrencyFieldType`
+made in XIV-47, where one method both formatted and normalized and localizing it
+made every save refuse its own totals.
+
+
 Each person picks the language they read the application in, stored on their own
 row rather than the tenant's: one office is not one language, and a Swiss company
 has German and French speakers in it. Resolved per request from the user and

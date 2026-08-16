@@ -236,7 +236,12 @@ final class DocumentTemplateTest extends WebTestCase
 
         $this->client->request('GET', $this->url(sprintf('/m/contact/%d/document/download?template=%d&format=docx', $id, $template)));
 
-        self::assertStringContainsString('Born on 1815-12-10', $this->textOf((string) $this->client->getResponse()->getContent()));
+        // A document is written the way the person generating it reads (§5.7,
+        // XIV-50) — the same rule as every other value, now that a date has a
+        // reader's form at all. Whether a document should instead follow its
+        // *recipient* is a real question and a different one; nothing about it is
+        // answered here.
+        self::assertStringContainsString('Born on 12/10/1815', $this->textOf((string) $this->client->getResponse()->getContent()));
     }
 
     /**

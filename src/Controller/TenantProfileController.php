@@ -69,6 +69,7 @@ final class TenantProfileController extends AbstractController
         $this->profile->apply(
             (string) $request->request->get('company_name'),
             (string) $request->request->get('currency'),
+            (string) $request->request->get('region'),
         );
 
         $this->addFlash('success', $this->translator->trans('flash.profile_saved'));
@@ -85,6 +86,7 @@ final class TenantProfileController extends AbstractController
             // Named in the language being read, so somebody looks for "Swiss
             // franc" rather than for CHF.
             'currencies' => $this->profile->currencyChoices($request->getLocale()),
+            'regions' => $this->profile->regionChoices($request->getLocale()),
             'area' => PermissionArea::Profile->value,
         ]);
     }

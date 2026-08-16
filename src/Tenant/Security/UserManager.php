@@ -106,6 +106,13 @@ final readonly class UserManager
         $this->entityManager->flush();
     }
 
+    /** Which country's conventions this person reads in (XIV-50); null follows the installation's. */
+    public function setRegion(User $user, ?string $region): void
+    {
+        $user->setRegion($region);
+        $this->entityManager->flush();
+    }
+
     /**
      * @param list<string> $roles
      *

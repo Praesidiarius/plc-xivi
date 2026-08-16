@@ -83,6 +83,13 @@ lands in `Unreleased` here.
   file in `APP_LOGO` and put it in `assets/brand/`, which is gitignored. It is the
   favicon too. Unset — the default, and what a fresh clone has — falls back to
   the name in text and the mark drawn as `17`.
+- **Language and region are separate settings** ([XIV-50]). Choosing German used
+  to mean German-from-Germany, so a Swiss reader saw `1.234.500,00` where their
+  country writes `1’234’500.00`. Pick a country on your account, or set one for
+  the whole installation on its profile; a region needs no new translation.
+- **Dates are written the way the reader's country writes them**, rather than as
+  ISO for everybody. What is *stored* is still ISO, which is what makes a date
+  sort and filter.
 - **Totals on a form group their thousands** ([XIV-47]), in the reader's own
   locale — so a gross total reads `1.234.500,00` in German rather than running
   together. Only the figures nobody types into: what you edit is untouched, and
@@ -127,4 +134,5 @@ lands in `Unreleased` here.
 [XIV-43]: https://xivi.youtrack.cloud/issue/XIV-43
 [XIV-47]: https://xivi.youtrack.cloud/issue/XIV-47
 [XIV-48]: https://xivi.youtrack.cloud/issue/XIV-48
+[XIV-50]: https://xivi.youtrack.cloud/issue/XIV-50
 [XIV-44]: https://xivi.youtrack.cloud/issue/XIV-44

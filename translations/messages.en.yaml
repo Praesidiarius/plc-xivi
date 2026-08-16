@@ -53,6 +53,9 @@ dashboard:
     none_installed: 'No modules installed yet. Install one with'
 
 account:
+    region: Region
+    region_default: Follow the company's
+    region_help: How numbers and dates are written. Swiss German and German German are the same language and different figures.
     title: Your account
     details: Details
     name_help: What shows up on records you own and in their history.
@@ -256,6 +259,9 @@ group:
     delete_aria: 'Delete %group%'
 
 profile:
+    region: Region
+    region_none: Application default
+    region_help: Which country's conventions this installation writes in. Somebody elsewhere can choose their own on their account.
     title: Company profile
     intro: >-
         What this installation is called, and the currency it works in. It applies to

@@ -131,6 +131,20 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 5, nullable: true)]
     private ?string $locale = null;
 
+    /**
+     * Which country's conventions this person reads in (XIV-50), as an ISO
+     * 3166-1 alpha-2 code.
+     *
+     * Separate from the language, because they are separate questions: an
+     * English-speaking colleague at a Swiss company wants English words and
+     * Swiss figures, which is an ordinary hire rather than an exotic case.
+     *
+     * Null follows the installation's own (§8.6) — a different promise from
+     * naming that same country, which stops following it if the company moves.
+     */
+    #[ORM\Column(length: 2, nullable: true)]
+    private ?string $region = null;
+
     public function __construct(
         /** The login, and therefore also the security identifier. */
         #[ORM\Column(length: 180)]
@@ -283,6 +297,19 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->locale = $locale === null || trim($locale) === '' ? null : $locale;
     }
 
+    public function getRegion(): ?string
+    {
+        return $this->region;
+    }
+
+    /** @param string|null $region an ISO 3166-1 alpha-2 code, or null to follow the installation's */
+    public function setRegion(?string $region): void
+    {
+        $region = strtoupper(trim((string) $region));
+
+        $this->region = $region === '' ? null : $region;
+    }
+
     public function getLastLoginAt(): ?\DateTimeImmutable
     {
         return $this->lastLoginAt;
@@ -345,6 +372,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             'updatedAt' => $this->updatedAt,
             'lastLoginAt' => $this->lastLoginAt,
             'locale' => $this->locale,
+            'region' => $this->region,
         ];
     }
 
@@ -371,6 +399,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->updatedAt = $data['updatedAt'];
         $this->lastLoginAt = $data['lastLoginAt'];
         $this->locale = $data['locale'] === null ? null : (string) $data['locale'];
+        // Absent rather than null for a token minted before this column existed:
+        // somebody signed in across the deploy keeps their session instead of
+        // being logged out by a formatting preference.
+        $this->region = ($data['region'] ?? null) === null ? null : (string) $data['region'];
 
         // Empty rather than absent: a typed property left uninitialised throws on
         // read, and this object is live until the provider replaces it.
