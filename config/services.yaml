@@ -154,10 +154,21 @@ when@dev:
 
 when@test:
     parameters:
-        # One namespace per parallel worker. TEST_TOKEN is paratest's own
-        # variable and is empty on a serial run, which leaves the name exactly as
-        # it was — so `composer test` still finds the databases it left behind.
-        app.tenant_object_prefix: 'tenant%env(default::TEST_TOKEN)%_'
+        # One namespace per parallel worker, and one per *checkout* above it
+        # (XIV-9, then XIV-51).
+        #
+        # TEST_TOKEN is paratest's own variable, numbered from one and empty on a
+        # serial run — which leaves the name exactly as it was, so `composer test`
+        # still finds the databases it left behind.
+        #
+        # **The token alone is not enough once two checkouts run at the same
+        # time**, because both are handed the same eight numbers: worker 3 here
+        # and worker 3 over there would claim one `tenant3_test_locale` between
+        # them, and the second would connect with a password only the first's
+        # registry knows. That is XIV-9's original failure — 245 of them —
+        # arriving one layer up. TEST_RUN names the checkout and is empty for
+        # anybody who never runs two.
+        app.tenant_object_prefix: 'tenant%env(default::TEST_RUN)%%env(default::TEST_TOKEN)%_'
 
     services:
         _defaults:
