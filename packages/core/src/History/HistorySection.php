@@ -43,13 +43,26 @@ final readonly class HistorySection
      * Entries are expected in the order the repository returns them — newest
      * first — so the sections come out in order without sorting anything again.
      *
+     * **The zone is what "today" means** (XIV-83). Entries are absolute instants
+     * and the bands are calendar boundaries, so something has to say whose
+     * calendar — and until this took a zone the answer was UTC, which is nobody's
+     * for most of the customers this serves. It is applied once, here, by moving
+     * `$now` into the reader's zone; `HistoryPeriod` then draws midnight where
+     * `$now` is and the entries need no conversion, because comparing two moments
+     * compares instants. Null is UTC, which is the behaviour every caller had
+     * before this existed and is what a console command correctly gets.
+     *
+     * Core takes a `\DateTimeZone` rather than asking the application who is
+     * reading: the engine does not know what a user is (§5.2), and resolving the
+     * chain is the application's job.
+     *
      * @param list<HistoryEntry> $entries
      *
      * @return list<self>
      */
-    public static function of(array $entries, ?\DateTimeImmutable $now = null): array
+    public static function of(array $entries, ?\DateTimeZone $zone = null, ?\DateTimeImmutable $now = null): array
     {
-        $now ??= new \DateTimeImmutable();
+        $now = ($now ?? new \DateTimeImmutable())->setTimezone($zone ?? new \DateTimeZone('UTC'));
 
         /** @var array<string, list<HistoryEntry>> $grouped */
         $grouped = [];

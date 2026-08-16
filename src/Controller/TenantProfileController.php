@@ -15,6 +15,7 @@ namespace App\Controller;
 
 use App\Tenant\Mail\MailSettingsRefused;
 use App\Tenant\Security\PermissionArea;
+use App\Tenant\Settings\DisplayTimezone;
 use App\Tenant\Settings\TenantProfileManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -49,6 +50,9 @@ final class TenantProfileController extends AbstractController
     public function __construct(
         private readonly TenantProfileManager $profile,
         private readonly TranslatorInterface $translator,
+        // The zone list, and what the chosen region would derive on its own
+        // (XIV-83).
+        private readonly DisplayTimezone $timezones,
     ) {
     }
 
@@ -96,6 +100,7 @@ final class TenantProfileController extends AbstractController
             (string) $request->request->get('currency'),
             (string) $request->request->get('region'),
             $this->paymentTermsDays($request),
+            (string) $request->request->get('timezone'),
         );
 
         $this->addFlash('success', $this->translator->trans('flash.profile_saved'));
@@ -136,12 +141,25 @@ final class TenantProfileController extends AbstractController
 
     private function page(Request $request): Response
     {
+        $profile = $this->profile->current();
+
+        // What the region alone would derive, if this were left empty (XIV-83).
+        // Null for a country with several zones — Spain, the United States — and
+        // for a customer who has not chosen a country either, in which case the
+        // honest label is that everything falls to UTC. Naming it is the point:
+        // the whole reason this setting exists is that a zone nobody chose is a
+        // zone nobody can see, so the empty option says which clock it means.
+        $derived = $this->timezones->derivedFromRegion($profile->getRegion())
+            ?? new \DateTimeZone('UTC');
+
         return $this->render('tenant_profile/index.html.twig', [
-            'profile' => $this->profile->current(),
+            'profile' => $profile,
             // Named in the language being read, so somebody looks for "Swiss
             // franc" rather than for CHF.
             'currencies' => $this->profile->currencyChoices($request->getLocale()),
             'regions' => $this->profile->regionChoices($request->getLocale()),
+            'timezones' => $this->timezones->choices($request->getLocale()),
+            'timezoneDerived' => $this->timezones->name($derived, $request->getLocale()),
             'area' => PermissionArea::Profile->value,
         ]);
     }

@@ -2573,6 +2573,90 @@ command whose job is undoing a lock-out has no business granting in passing.
 Administrators reach the store through the `ROLE_ADMIN` bypass; everybody else is
 given it on the permission screens, by somebody who meant to.
 
+### 8.4.4 A timezone to read moments in (XIV-83)
+
+**Storage needed no change at all, and that is the finding worth keeping.**
+Postgres `timestamptz` normalises to UTC on write and holds no per-row zone, the
+engine has always written moments through `Types::DATETIMETZ_IMMUTABLE` —
+`<module>_history.occurred_at` is the oldest example — and the process runs with
+`date.timezone = UTC`. So "store UTC, display local" was never a migration
+waiting to happen; the storage half has been right since the first table and the
+*display* half simply did not exist. Nothing converted anywhere. The one rule
+that keeps it cheap is the one to hold going forward: **no new column is a
+zoneless `timestamp`.**
+
+That gap was invisible for as long as the only moments on screen were history
+timestamps, because an hour's error in a label is cosmetic. It stops being
+invisible the moment anything groups by day: the same hour crossing a calendar
+boundary **moves** an entry rather than mislabelling it, and §5.2's timeline was
+drawing "today, this week, this month" on UTC midnights. Somebody in Zurich
+saving a record at 00:30 found it filed under yesterday on a page they had made
+half an hour ago. The fault was already shipped and simply had nobody looking at
+it.
+
+**Timezone is the third setting of the shape §8.4.2 established**, and the region
+is emphatically not it: `CH` is a country, `Europe/Zurich` is a zone, and a
+country code says nothing about clocks on its own. `DisplayTimezone` walks the
+familiar chain with one extra link, each a different promise — the person, then
+the installation (§8.6), then **whatever the effective region implies**, then UTC.
+
+**The third link is what makes this free for most customers.** They have already
+chosen a country, and for most of the countries this serves that answer is
+unambiguous: Switzerland is `Europe/Zurich` and there is nothing left to ask. A
+Swiss company will never open this setting, which is the whole reason it derives
+rather than demanding an answer on day one.
+
+**Derive only where the country has exactly one zone, and never take the first of
+several.** The head-of-list rule is the trap here, and it is a quiet one:
+CLDR orders by identifier, so Spain's list opens `Africa/Ceuta` and America's
+opens `America/Adak` — a Madrid office silently filed in North Africa and a New
+York one in the Aleutians. Where the country is ambiguous nothing is derived and
+the setting becomes one somebody answers, because **a wrong zone is worse than an
+unanswered question**: nothing on screen reveals it, since a timestamp in the
+wrong zone still looks exactly like a timestamp. Which is also why both pickers
+name the zone that is currently in force beside their empty option — the
+cheapest available way to make an unnoticed default noticeable.
+
+Germany's two zones are the same offset — Büsingen is a German exclave inside
+Switzerland keeping Swiss time — and it is still asked. Collapsing zones that
+*happen* to agree today would mean keeping a list of "close enough" pairs that is
+true only until one of them changes its rules, which is a maintenance liability
+bought with one saved click. The rule stays arithmetic.
+
+**One departure, and it is a different question wearing the same clothes.** India
+lists `Asia/Calcutta` beside `Asia/Kolkata`: two names for one zone, because the
+tz database keeps the old name as a link after a city is renamed. Counting
+identifiers would have made India ambiguous and offered an Indian customer a
+choice between Calcutta and Kolkata, which is not a choice. Recognising a link is
+not the judgement rejected above — Berlin and Büsingen are two zones that agree,
+Calcutta and Kolkata were never two zones — but telling them apart needs the tz
+database rather than CLDR, so symfony/intl still says which zones a country has
+and PHP's own `DateTimeZone::listIdentifiers()` is asked the narrow question of
+which identifiers are canonical.
+
+**Rendering is one setting on Twig rather than a filter on every template.**
+Twig's `date` filter already converts into a configured zone before formatting —
+that is what `twig.date.timezone` sets — so a request-scoped listener turning the
+same knob per reader covers every moment on every page with no new Twig
+extension and no `|date(…, timezone)` threaded through a dozen templates.
+`date_default_timezone_set()` was the alternative and is rejected: it would also
+change what gets *written*, and since those are absolute instants that would still
+store correctly, the damage would be quiet rather than loud. The application runs
+in UTC and keeps running in UTC.
+
+The grouping is the one thing the Twig setting cannot reach, because it happens in
+PHP before anything renders. `HistorySection::of()` takes a `\DateTimeZone` and
+applies it to `now`; `HistoryPeriod` then draws midnight where `now` is, and the
+entries themselves need no conversion at all, since comparing two moments compares
+instants rather than wall clocks. Core takes a zone rather than asking who is
+reading — the engine still does not know what a user is (§5.2).
+
+**A console command has no user and may have no tenant, and neither is an
+error.** `TenantContext::tryGetTenant()` returning null is the ordinary condition
+in `bin/console` and on the login page, so the chain simply runs out of things to
+ask and lands on UTC — the handling `FormattingLocale::instanceRegion()` already
+demonstrated.
+
 ### 8.5 The first user comes from provisioning
 
 `tenant:provision --admin-email=…` creates an admin and prints a generated password

@@ -52,6 +52,11 @@ account:
     region: Region
     region_default: Der Firma folgen
     region_help: Wie Zahlen und Daten geschrieben werden. Schweizerdeutsch und Deutschländisches Deutsch sind dieselbe Sprache und andere Zahlen.
+    timezone: Zeitzone
+    timezone_default: 'Der Firma folgen (%zone%)'
+    timezone_help: >-
+        Auf welcher Uhr Zeiten angezeigt werden. Lass es stehen, außer du sitzt woanders als die
+        Firma — gespeichert wird so oder so dasselbe.
     title: Dein Konto
     details: Angaben
     name_help: Wird auf Datensätzen angezeigt, die dir gehören, und in deren Verlauf.
@@ -290,6 +295,12 @@ profile:
     region: Region
     region_none: Standard der Anwendung
     region_help: Nach welchem Land diese Installation schreibt. Wer woanders ist, wählt es auf seinem Konto selbst.
+    timezone: Zeitzone
+    timezone_none: 'Aus der Region (%zone%)'
+    timezone_help: >-
+        Auf welcher Uhr Zeiten hier angezeigt werden. Die Region beantwortet das von selbst, wenn
+        ein Land nur eine Zone hat; hat es mehrere, wähl sie aus — dass die Zeiten falsch sind,
+        sieht man dem Bildschirm nicht an. Gespeichert wird immer gleich.
     payment_terms: Zahlungsfrist (Tage)
     payment_terms_help: >-
         Wie lange eine Kundin Zeit zum Zahlen hat, ab Rechnungsdatum. Einem Kontakt kannst du

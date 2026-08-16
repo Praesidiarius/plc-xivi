@@ -63,6 +63,11 @@ account:
     region: Region
     region_default: Follow the company's
     region_help: How numbers and dates are written. Swiss German and German German are the same language and different figures.
+    timezone: Time zone
+    timezone_default: 'Follow the company''s (%zone%)'
+    timezone_help: >-
+        Which clock times are shown on. Leave it alone unless you are somewhere other than the
+        company is — everything is stored the same either way.
     title: Your account
     details: Details
     name_help: What shows up on records you own and in their history.
@@ -298,6 +303,12 @@ profile:
     region: Region
     region_none: Application default
     region_help: Which country's conventions this installation writes in. Somebody elsewhere can choose their own on their account.
+    timezone: Time zone
+    timezone_none: 'From the region (%zone%)'
+    timezone_help: >-
+        Which clock times are shown on here. The region answers it by itself where a country has
+        only one zone; where it has several, choose, because nothing on screen tells you the times
+        are wrong. Moments are always stored the same way.
     payment_terms: Payment terms (days)
     payment_terms_help: >-
         How long a customer has to pay, counted from the invoice date. A contact can be given

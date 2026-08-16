@@ -17,6 +17,7 @@ use App\Tenant\Entity\User;
 use App\Tenant\Repository\UserRepository;
 use App\Tenant\Security\ModuleRecord;
 use App\Tenant\Security\PermissionResolver;
+use App\Tenant\Settings\DisplayTimezone;
 use App\View\LinkedRecords;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -120,6 +121,11 @@ final class ModuleController extends AbstractController
         private readonly Lifecycles $lifecycles,
         private readonly InheritedValues $inherited,
         private readonly AvailableVariants $variants,
+        // Which zone the timeline's day boundaries are drawn in (XIV-83). The
+        // rendered timestamps get it from Twig, which the listener has already
+        // set; the *grouping* happens here in PHP, so this is where it has to be
+        // asked for a second time.
+        private readonly DisplayTimezone $timezones,
     ) {
     }
 
@@ -370,7 +376,11 @@ final class ModuleController extends AbstractController
         return $this->render('module/history.html.twig', [
             'module' => $definition,
             'record' => $record,
-            'sections' => HistorySection::of($entries),
+            // Grouped by the reader's own days, not by UTC's (XIV-83). An entry
+            // made at half past midnight in Zurich is under "today" for the
+            // person who made it, which is the only reading of "today" anybody
+            // has.
+            'sections' => HistorySection::of($entries, $this->displayTimezone()),
             'total' => $total,
             'page' => $page,
             'pages' => $pages,
@@ -785,6 +795,21 @@ final class ModuleController extends AbstractController
             $action,
             $this->currentUserId(),
         );
+    }
+
+    /**
+     * The zone whoever is reading this page reads moments in (XIV-83).
+     *
+     * Resolved rather than read back off Twig, even though the listener has just
+     * put the same answer there: asking the resolver is one call and reading it
+     * out of a template engine's extension is a trick that would tie a grouping
+     * decision to the fact that this page happens to be rendered by Twig.
+     */
+    private function displayTimezone(): \DateTimeZone
+    {
+        $user = $this->getUser();
+
+        return $this->timezones->of($user instanceof User ? $user : null);
     }
 
     private function definition(string $module): ModuleDefinition

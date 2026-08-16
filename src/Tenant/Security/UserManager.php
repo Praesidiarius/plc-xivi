@@ -144,6 +144,19 @@ final readonly class UserManager
     }
 
     /**
+     * Which zone this person reads a moment in (XIV-83).
+     *
+     * Null follows the installation's, and from there whatever the region
+     * implies — the extra step this chain has and the other two do not, which is
+     * why leaving it empty is the answer nearly everybody keeps.
+     */
+    public function setTimezone(User $user, ?string $timezone): void
+    {
+        $user->setTimezone($timezone);
+        $this->entityManager->flush();
+    }
+
+    /**
      * @param list<string> $roles
      *
      * @throws UserChangeRefused
