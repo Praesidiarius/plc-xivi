@@ -1,0 +1,30 @@
+{
+    "name": "xivi/mate",
+    "description": "Xivi's own MCP tools for AI Mate: tenants, module catalogue, real field definitions, and tenant lifecycle",
+    "type": "symfony-ai-mate",
+    "version": "1.0.0",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.4",
+        "symfony/ai-mate": "^0.12",
+        "symfony/console": "8.1.*",
+        "symfony/http-kernel": "8.1.*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Xivi\\Mate\\": "src/"
+        }
+    },
+    "minimum-stability": "stable",
+    "extra": {
+        "ai-mate": {
+            "scan-dirs": [
+                "src/Capability"
+            ],
+            "includes": [
+                "config/config.php"
+            ],
+            "instructions": "INSTRUCTIONS.md"
+        }
+    }
+}

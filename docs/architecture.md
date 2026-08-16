@@ -1930,6 +1930,97 @@ Not in it, on purpose: payment, since every module is free in this iteration and
 the state enum already anticipates more states; and uninstalling, which means
 deciding what happens to the records and is a larger question than installing one.
 
+### 6.4 Asking an installation what it is (XIV-76)
+
+§6.1 has a consequence that only shows up when somebody new arrives: **the
+repository cannot describe a tenant.** A module's blueprint is the shape a
+customer was installed with, their own definitions are the truth from that moment
+on, and nothing retro-fits a blueprint change into them. So reading
+`ContactModule.php` and assuming it describes a contact is reading the *starting*
+shape — and being wrong about it silently, in exactly the way [XIV-70] is about.
+
+That makes "what fields does this customer's `contact` have, of which types, with
+which options, which variants, which collections, which of them are derived" a
+question with **no answer in the repository and, until this, no command behind it
+either**. It is per tenant, it is structured, and a table in a terminal is a poor
+shape for it.
+
+#### The introspector, and the two front doors on it
+
+One service, `App\ControlPlane\Introspection\TenantInspector`, answers three
+questions as plain arrays: which tenants exist and whether each one's schema is
+current; what one tenant's installed modules actually look like; and what the
+module catalogue holds. It reads through the application's own services —
+`TenantRepository`, `ModuleCatalog`, `MetadataRepository` behind `TenantSwitcher`
+— and writes no SQL of its own, because a second way of asking the engine what it
+holds is a second thing to keep in step with the engine.
+
+Two callers: `bin/console tenant:inspect`, and a committed MCP extension. **The
+command is not an afterthought.** Nothing an agent can ask may be tool-only —
+Mate's server is a process that can drop mid-session, and an agent told to prefer
+tools it can no longer see is worse off than one that never had them. `--json`
+prints the structure the tools return, byte for byte, so a wrong tool result can
+be told apart from wrong data.
+
+#### Where a project's own MCP tools live, and why it is a package
+
+Mate discovers extensions from `vendor/composer/installed.json`, by
+`extra.ai-mate` in a package's own `composer.json`. It also always loads the
+*root* project as a pseudo-extension, whose scan directory defaults to
+`mate/src` — and `mate/` is gitignored, which is the whole reason the setup here
+delivered nothing to a second developer.
+
+So the extension is an ordinary composer package, `packages/xivi-mate`, reached
+through the path repository the modules already use. It is committed, it reaches
+a fresh clone, and it earns three things a directory could not: it appears in
+`mate debug:extensions` and can be switched off in `mate/extensions.php`, its
+`INSTRUCTIONS.md` is aggregated into the server's MCP handshake, and — the
+decisive one — **it is a `require-dev` package, so `composer install --no-dev`
+leaves it out of the production image entirely.** That is a stronger dev-only
+guarantee than the `exclude:` list in `config/services.yaml`, which the
+introspector and `tenant:inspect` get as well.
+
+It is a fourth deptrac layer sitting *above* the application rather than beside
+the modules, and the direction is the point: the tools may depend on the app, and
+nothing in the app may depend on the tools.
+
+**The bridge boots a fresh kernel per call and shuts it down.** Mate's server is
+its own process with its own container, so a tool reaches this application by
+constructing `App\Kernel` — the project's autoloader is already in scope. Caching
+that kernel is the obvious optimisation and is wrong three times over: a held
+tenant connection and metadata cache is §7.4's cross-tenant leak in a process that
+lives for an afternoon; a held connection **blocks `DROP DATABASE`**, which is
+what the lifecycle tools do; and a container compiled before an edit answers
+questions about the code after it, which is [XIV-63]'s stale-artifact failure
+disguised as a broken tool.
+
+#### Destructive tools are exposed, and the argument for withholding them fails
+
+The instinct is to expose reads only. It does not survive contact:
+
+- **An agent with a shell can already run every one of these commands.**
+  Withholding them changes ergonomics, not authority.
+- **It pushes agents toward improvising.** Before [XIV-72], rebuilding a test
+  tenant here meant hand-written `DELETE`, `DROP DATABASE` and `DROP ROLE`, which
+  is strictly more dangerous than a tool that names the database, the role and the
+  record count before it acts.
+- **The commands already ship their guardrails**, and a tool that *calls the
+  command* reuses them rather than reimplementing them: the confirmation defaults
+  to no, an unattended run is refused outright without `--force`, and
+  `tenant:reset` refuses an unsatisfiable module set before touching anything.
+
+What a terminal did for free was somebody *reading the warning*. Nobody reads it
+here, so both lifecycle tools take a census before acting — database, role,
+hostnames, installed modules — and return it in the result under `destroyed`, or
+under `would_have_destroyed` when the command refused. An agent that has removed
+the wrong tenant can say which one, out of the same message that told it the call
+worked.
+
+Provisioning, installing a module, migrating and creating users are deliberately
+**not** tools. `bin/console list tenant` already prints them with their
+descriptions, and wrapping a command that describes itself buys ergonomics while
+doubling the surface to keep in step.
+
 ---
 
 ## 7. Open design questions
