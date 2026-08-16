@@ -198,21 +198,34 @@
 				<div class="col-lg-8">
 					<div class="card">
 						<div class="card-body">
-							<h2 class="h6 text-uppercase text-body-secondary mb-3">
-								{{ group.heading(twice) }}
-								<span class="badge text-bg-light fw-normal">{{ group.records|length }}</span>
-							</h2>
-							<ul class="list-unstyled mb-0">
-								{% for linkedRecord in group.records %}
-									<li class="{{ loop.first ? '' : 'border-top pt-2 mt-2' }}">
-										{# The other module's own page, and its own way of naming a
-										   record — this one may be a different module entirely. #}
-										<a href="{{ path('module_show', {module: group.module.key, id: linkedRecord.id}) }}">
-											{{ record_title(group.module, linkedRecord.data, linkedRecord.id) }}
-										</a>
-									</li>
-								{% endfor %}
-							</ul>
+							{# Closed by default: a contact with forty invoices is a page you
+							   scroll past to reach anything else, and the heading and the
+							   count are the part somebody came to read. Native <details>
+							   rather than a Bootstrap collapse, the same choice the timeline
+							   made (XIV-3) — no JavaScript, and it opens with the keyboard.
+
+							   The heading stays an <h2> inside the summary, which is the one
+							   thing summary's content model allows besides phrasing content,
+							   so this is still a document with headings in it. #}
+							<details class="linked-group">
+								<summary>
+									<h2 class="h6 text-uppercase text-body-secondary d-inline mb-0">
+										{{ group.heading(twice) }}
+										<span class="badge text-bg-light fw-normal">{{ group.records|length }}</span>
+									</h2>
+								</summary>
+								<ul class="list-unstyled mb-0 mt-3">
+									{% for linkedRecord in group.records %}
+										<li class="{{ loop.first ? '' : 'border-top pt-2 mt-2' }}">
+											{# The other module's own page, and its own way of naming a
+											   record — this one may be a different module entirely. #}
+											<a href="{{ path('module_show', {module: group.module.key, id: linkedRecord.id}) }}">
+												{{ record_title(group.module, linkedRecord.data, linkedRecord.id) }}
+											</a>
+										</li>
+									{% endfor %}
+								</ul>
+							</details>
 						</div>
 					</div>
 				</div>

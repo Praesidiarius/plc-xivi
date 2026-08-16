@@ -134,6 +134,32 @@ final class CrossModuleLinkTest extends WebTestCase
     }
 
     /**
+     * The list of what points here is folded away until asked for.
+     *
+     * A contact with forty invoices is otherwise a page you scroll past to reach
+     * anything else. The heading and the count stay visible, which is the part
+     * somebody came to read.
+     *
+     * Asserted on the `open` attribute rather than on the text, because a closed
+     * `<details>` still has all of its content in the document — which is what
+     * makes it work without JavaScript and also what makes every other test here
+     * unable to tell the difference.
+     */
+    public function testWhatPointsHereIsCollapsedUntilOpened(): void
+    {
+        $company = $this->aCompany('Acme AG');
+        $this->anArticle('Desk lamp', $company);
+
+        $group = $this->client->request('GET', $this->url('/m/contact/' . $company))
+            ->filter('main details.linked-group');
+
+        self::assertCount(1, $group, 'the group is a details element');
+        self::assertNull($group->attr('open'), 'and it starts closed');
+        self::assertStringContainsString('1', $group->filter('summary .badge')->text(), 'the count is on the summary');
+        self::assertStringContainsString('Desk lamp', $group->text(), 'and what is inside is still in the page');
+    }
+
+    /**
      * A link is drawn, never *stored* in the value (XIV-42).
      *
      * The mistake this feature invites is returning an `<a>` from `display()`,
