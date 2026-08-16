@@ -177,6 +177,11 @@ lands in `Unreleased` here.
 
 ### Fixed
 
+- **The pager no longer draws every page** ([XIV-69]). A list of a thousand
+  records offered forty numbered links, ten thousand offered four hundred, and
+  the page you were on was lost somewhere among them. It is now First, Previous,
+  five pages around where you are, Next and Last — the same control on the record
+  list and on a record's history, which were two copies of it before.
 - **A record's "linked records" card counted what fitted on it, not what exists**
   ([XIV-52]). A contact with 207 orders had a card headed "Orders 25" and no sign
   the other 182 were there. The badge is now the real count, taken under the same
@@ -185,6 +190,7 @@ lands in `Unreleased` here.
   A card now shows ten rather than twenty-five, since the rest are one click away.
 
 [XIV-52]: https://xivi.youtrack.cloud/issue/XIV-52
+[XIV-69]: https://xivi.youtrack.cloud/issue/XIV-69
 
 ## Releases
 

@@ -27,6 +27,9 @@ use Xivi\Contact\ContactModule;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
+use Xivi\Core\Query\RecordQuery;
+use Xivi\Core\Record\Record;
+use Xivi\Core\Record\RecordWriter;
 
 /**
  * The module UI, driven through the browser.
@@ -723,6 +726,78 @@ final class ModuleUiTest extends WebTestCase
     private function url(string $path): string
     {
         return sprintf('https://%s%s', self::HOST, $path);
+    }
+
+    /**
+     * **The pager shows a window, not the whole range** (XIV-69).
+     *
+     * Both pagers used to draw `1..pages`, which is one link per 25 records —
+     * forty at a thousand, four hundred at ten thousand. The number that matters
+     * here is not how many links there are but that it *does not depend on how
+     * many pages exist*, so this asserts the count exactly rather than asserting
+     * it is below some ceiling: a window that grew to six would pass a ceiling
+     * and still be the bug.
+     */
+    public function testThePagerShowsAFixedWindowRatherThanEveryPage(): void
+    {
+        $pages = 12;
+        $this->givenContacts($pages * RecordQuery::DEFAULT_PER_PAGE);
+
+        $crawler = $this->client->request('GET', $this->url('/m/contact'));
+
+        self::assertCount(5, self::numberedPages($crawler), 'a window of five, whatever the total');
+        self::assertSame(['1', '2', '3', '4', '5'], self::numberedPages($crawler)->each(
+            static fn (Crawler $link): string => trim($link->text()),
+        ), 'and it starts at the beginning when that is where the reader is');
+
+        // The ends are present and switched off rather than missing, so the
+        // control does not change width and shift the record count beside it.
+        self::assertCount(2, $crawler->filter('.pagination .page-item.disabled span[aria-disabled]'), 'First and Previous are disabled, not absent');
+        self::assertStringContainsString('page=12', (string) $crawler->filter('.pagination a[aria-label]')->last()->attr('href'), 'Last goes to the last page');
+    }
+
+    /** The far end, which is where a window that is clamped wrongly shows itself. */
+    public function testThePagerWindowStaysFiveWideAtTheEnd(): void
+    {
+        $pages = 12;
+        $this->givenContacts($pages * RecordQuery::DEFAULT_PER_PAGE);
+
+        $crawler = $this->client->request('GET', $this->url('/m/contact?page=12'));
+
+        self::assertSame(['8', '9', '10', '11', '12'], self::numberedPages($crawler)->each(
+            static fn (Crawler $link): string => trim($link->text()),
+        ), 'still five, slid to the end rather than shrunk against it');
+
+        self::assertCount(2, $crawler->filter('.pagination .page-item.disabled span[aria-disabled]'), 'Next and Last are the disabled ones now');
+        self::assertSame('12', trim($crawler->filter('.pagination [aria-current="page"]')->text()), 'and the reader is told where they are');
+    }
+
+    /** The numbered links only — the four step buttons carry an icon, not a number. */
+    private static function numberedPages(Crawler $crawler): Crawler
+    {
+        return $crawler->filter('.pagination a.page-link')->reduce(
+            static fn (Crawler $link): bool => ctype_digit(trim($link->text())),
+        );
+    }
+
+    /**
+     * Written straight through the writer rather than through the form: this is
+     * about how many pages there are, and three hundred round trips through the
+     * live-component endpoint would be a test of that endpoint.
+     */
+    private function givenContacts(int $count): void
+    {
+        self::service(TenantSwitcher::class)->runFor($this->tenant, function () use ($count): void {
+            $contacts = self::service(MetadataRepository::class)->get(ContactModule::KEY);
+            $writer = self::service(RecordWriter::class);
+
+            foreach (range(1, $count) as $n) {
+                $writer->save($contacts, new Record(data: [
+                    'kind' => ContactModule::COMPANY,
+                    'company_name' => sprintf('Company %04d', $n),
+                ]));
+            }
+        });
     }
 
     /**

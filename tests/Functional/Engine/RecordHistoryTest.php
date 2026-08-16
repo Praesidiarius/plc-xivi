@@ -142,8 +142,14 @@ final class RecordHistoryTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(self::PER_PAGE, $first->filter('.history-entry'));
-        // 60 entries at 25 a page.
-        self::assertCount(3, $first->filter('.pagination .page-item'));
+
+        // 60 entries at 25 a page. Counted as *numbered* links rather than as
+        // `.page-item`, because the pager also carries First, Previous, Next and
+        // Last now (XIV-69) — three pages is still the fact being asserted, and
+        // three is under the window size, so all of them are shown.
+        self::assertSame(['1', '2', '3'], $first->filter('.pagination a.page-link')->reduce(
+            static fn (Crawler $link): bool => ctype_digit(trim($link->text())),
+        )->each(static fn (Crawler $link): string => trim($link->text())));
 
         $second = $this->client->request('GET', $this->url('/m/contact/' . $id . '/history?page=2'));
 

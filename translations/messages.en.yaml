@@ -105,6 +105,10 @@ module:
     changed: Changed
     created_at: 'Created %when%'
     pages: Pages
+    page_first: First page
+    page_previous: Previous page
+    page_next: Next page
+    page_last: Last page
     history: History
     status: Status
     drifted: '%field% differs from what it was copied from.'
