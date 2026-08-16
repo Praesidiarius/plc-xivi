@@ -83,6 +83,10 @@ lands in `Unreleased` here.
   file in `APP_LOGO` and put it in `assets/brand/`, which is gitignored. It is the
   favicon too. Unset — the default, and what a fresh clone has — falls back to
   the name in text and the mark drawn as `17`.
+- **Totals on a form group their thousands** ([XIV-47]), in the reader's own
+  locale — so a gross total reads `1.234.500,00` in German rather than running
+  together. Only the figures nobody types into: what you edit is untouched, and
+  `integer` is left alone because the engine cannot tell a count from a year.
 - **The sign-in card is centred**, with a larger logo. What somebody types into
   is not: text that moves as it is typed is worse on the one field on that page
   anybody has to be careful with.
@@ -116,5 +120,6 @@ lands in `Unreleased` here.
 [XIV-32]: https://xivi.youtrack.cloud/issue/XIV-32
 [XIV-42]: https://xivi.youtrack.cloud/issue/XIV-42
 [XIV-43]: https://xivi.youtrack.cloud/issue/XIV-43
+[XIV-47]: https://xivi.youtrack.cloud/issue/XIV-47
 [XIV-48]: https://xivi.youtrack.cloud/issue/XIV-48
 [XIV-44]: https://xivi.youtrack.cloud/issue/XIV-44

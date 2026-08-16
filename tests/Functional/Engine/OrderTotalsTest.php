@@ -611,6 +611,66 @@ final class OrderTotalsTest extends WebTestCase
     }
 
     /**
+     * A total big enough to be hard to read is grouped (XIV-47).
+     *
+     * In German, and deliberately. There the thousands separator is a **dot** and
+     * the decimal separator a comma — so `1.234.500,00` and English's
+     * `1,234,500.00` are not the same string in any position, and an assertion
+     * written in English could pass against a figure that had never been
+     * formatted at all ([XIV-45]).
+     *
+     * The grouping is on the *derived* fields only. Those are `disabled`, so
+     * nothing parses them back out of the view — which is what makes this safe
+     * where the same change on an editable quantity would not be.
+     */
+    public function testALargeTotalIsGroupedForTheReader(): void
+    {
+        $html = self::liveService(TenantSwitcher::class)->runFor($this->tenant, fn (): string => $this
+            ->recordForm(OrderModule::KEY, [], self::GERMAN_EMAIL)
+            ->call('addRow', ['collection' => OrderModule::LINES, 'kind' => OrderModule::CUSTOM_LINE])
+            ->set('module_record', [
+                'fields' => [],
+                'collections' => [OrderModule::LINES => [self::row([
+                    OrderModule::KIND => OrderModule::CUSTOM_LINE,
+                    'description' => 'Grossauftrag',
+                    OrderModule::QUANTITY => '1000',
+                    OrderModule::UNIT_PRICE => '1234.50',
+                ])]],
+            ])
+            ->render()
+            ->toString());
+
+        // 1000 × 1234.50 = 1.234.500,00 for a German reader.
+        self::assertStringContainsString('1.234.500,00', $html, 'the line total is grouped');
+        self::assertStringNotContainsString('1234500,00', $html, 'and the ungrouped figure is gone');
+    }
+
+    /** What somebody types into is left alone, because typing into it has to keep working. */
+    public function testAnEditableNumberIsNotGrouped(): void
+    {
+        $html = self::liveService(TenantSwitcher::class)->runFor($this->tenant, fn (): string => $this
+            ->recordForm(OrderModule::KEY, [], self::GERMAN_EMAIL)
+            ->call('addRow', ['collection' => OrderModule::LINES, 'kind' => OrderModule::CUSTOM_LINE])
+            ->set('module_record', [
+                'fields' => [],
+                'collections' => [OrderModule::LINES => [self::row([
+                    OrderModule::KIND => OrderModule::CUSTOM_LINE,
+                    'description' => 'Grossauftrag',
+                    OrderModule::QUANTITY => '1000',
+                    OrderModule::UNIT_PRICE => '1234.50',
+                ])]],
+            ])
+            ->render()
+            ->toString());
+
+        self::assertMatchesRegularExpression(
+            '#name="[^"]*\[quantity\]"[^>]*value="1000,00"#',
+            $html,
+            'the quantity somebody typed is still an ordinary number',
+        );
+    }
+
+    /**
      * Looking at a form does not take a document number (XIV-32).
      *
      * `AssignsNumbers` is a deriver too, and the live preview runs derivers — so

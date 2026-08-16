@@ -313,6 +313,20 @@ forty places means "lots" instead of an error about a number nobody was going to
 type. A *unit* is deliberately absent: it belongs to the article rather than to
 the line, and one that only decorates the number is worse than none.
 
+**Thousands are grouped where nothing is typed back** (XIV-47). `display()` has
+always grouped, so a record's page and a printed document read `1.234.500,00` to
+a German reader. A *form* did not, and the totals on an order are read there now
+that they follow the typing (XIV-32) — so a **derived** money or decimal field is
+grouped there too. It is `disabled`, so nothing parses the grouped string back;
+the same change on a field somebody edits would put separators into the value
+being typed, which is the round trip XIV-44 was a bug in.
+
+`integer` is deliberately **not** grouped, and that is not an oversight. The type
+covers things that are counted and things that are merely written as digits, and
+the engine cannot tell them apart: grouping turns the year 2026 into `2.026` and
+the postcode 8001 into `8.001`. Being right about a quantity is not worth being
+wrong about a year, and the only integer this codebase ships is a row reference.
+
 **A field can be derived rather than typed** — a line's total, a subtotal's
 figure. It is shown and never offered for editing, enforced with `disabled` so a
 hand-edited request cannot type over it either. A derived value somebody can type
