@@ -18,6 +18,9 @@ module:
     history_changes: '{count, plural, one {# change} other {# changes}}'
     record_count: '{count, plural, one {# record.} other {# records.}}'
     record_count_matching: '{count, plural, one {# record matching.} other {# records matching.}}'
+    # No plural: neither number decides the grammar, and both are formatted
+    # because a customer with 1,207 orders should read like one.
+    linked_shown: 'Showing {shown, number} of {total, number}.'
 
 field:
     remove_holding: '{count, plural, one {<strong>#</strong> record currently holds a value for it.} other {<strong>#</strong> records currently hold a value for it.}}'

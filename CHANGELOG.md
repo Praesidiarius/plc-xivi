@@ -134,6 +134,17 @@ lands in `Unreleased` here.
   also be published by hand for a tag that predates the changelog file, which is
   how 17.0.0 and 17.0.1 got theirs.
 
+### Fixed
+
+- **A record's "linked records" card counted what fitted on it, not what exists**
+  ([XIV-52]). A contact with 207 orders had a card headed "Orders 25" and no sign
+  the other 182 were there. The badge is now the real count, taken under the same
+  permissions the records are read with, and a card that cannot show everything
+  says "Showing 10 of 207" and links to the module's list filtered to that record.
+  A card now shows ten rather than twenty-five, since the rest are one click away.
+
+[XIV-52]: https://xivi.youtrack.cloud/issue/XIV-52
+
 ## Releases
 
 | Version | Date | What it was |
