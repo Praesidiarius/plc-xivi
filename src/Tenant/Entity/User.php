@@ -172,6 +172,35 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 2, nullable: true)]
     private ?string $region = null;
 
+    /**
+     * Which zone this person reads a moment in (XIV-83), as an IANA identifier —
+     * `Europe/Zurich`, never an offset and never an abbreviation.
+     *
+     * **The third setting of the shape the two above have**, and the one with a
+     * step they do not: null falls through to the installation's, and from there
+     * to whatever the effective *region* implies where that country has exactly
+     * one zone. Which is why most people and most customers will never touch
+     * this — a Swiss company has already said Switzerland, and Switzerland is
+     * `Europe/Zurich` with nothing left to ask.
+     *
+     * Null is therefore the ordinary state rather than a gap, and it is a
+     * different fact from naming the same zone the company named: somebody who
+     * left this empty follows the company if it moves, and somebody who typed
+     * `Europe/Zurich` keeps Zurich. The same two-facts-two-values argument the
+     * language above is stored under.
+     *
+     * An identifier and never an offset, because an offset is a fact about one
+     * moment rather than about a place: `+01:00` is Zurich in January and wrong
+     * in July, and a stored offset would be a clock that is right twice a year.
+     * The zone database knows when the transitions are; a column cannot.
+     *
+     * Storage is unaffected by any of this — moments are absolute UTC in
+     * `timestamptz` columns and stay that way (§8.4.4). This is a reading
+     * preference, and nothing but the display layer ever asks for it.
+     */
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $timezone = null;
+
     public function __construct(
         /** The login, and therefore also the security identifier. */
         #[ORM\Column(length: 180)]
@@ -373,6 +402,28 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->region = $region === '' ? null : $region;
     }
 
+    public function getTimezone(): ?string
+    {
+        return $this->timezone;
+    }
+
+    /**
+     * @param string|null $timezone an IANA identifier, or null to follow the
+     *                              installation's — see the property. Case is
+     *                              preserved rather than folded: `Europe/Zurich`
+     *                              is the identifier and `europe/zurich` is not
+     *                              one, unlike a country code where upper case is
+     *                              the only spelling there is. Whether it names a
+     *                              real zone is the caller's question, the same
+     *                              call `setRegion()` above makes about countries.
+     */
+    public function setTimezone(?string $timezone): void
+    {
+        $timezone = trim((string) $timezone);
+
+        $this->timezone = $timezone === '' ? null : $timezone;
+    }
+
     public function getLastLoginAt(): ?\DateTimeImmutable
     {
         return $this->lastLoginAt;
@@ -437,6 +488,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             'lastLoginAt' => $this->lastLoginAt,
             'locale' => $this->locale,
             'region' => $this->region,
+            'timezone' => $this->timezone,
         ];
     }
 
@@ -470,6 +522,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         // somebody signed in across the deploy keeps their session instead of
         // being logged out by a formatting preference.
         $this->region = ($data['region'] ?? null) === null ? null : (string) $data['region'];
+        // Absent rather than null for the same reason, one deploy later
+        // (XIV-83): being signed out is a strange price for a column about
+        // reading clocks.
+        $this->timezone = ($data['timezone'] ?? null) === null ? null : (string) $data['timezone'];
 
         // Empty rather than absent: a typed property left uninitialised throws on
         // read, and this object is live until the provider replaces it.

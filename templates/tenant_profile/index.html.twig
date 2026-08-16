@@ -60,6 +60,26 @@
 					<div class="form-text">{{ 'profile.region_help'|trans }}</div>
 				</div>
 
+				{# Which clock this installation reads a moment on (XIV-83).
+				   Directly under the region because the region usually answers
+				   it: where a country has exactly one zone nothing is asked, and
+				   the empty option names what that derived to — including the
+				   case where it derived to nothing and everything is being shown
+				   in UTC, which is the one a Spanish or American customer needs
+				   to see. #}
+				<div class="mb-3">
+					<label class="form-label" for="timezone">{{ 'profile.timezone'|trans }}</label>
+					<select class="form-select" id="timezone" name="timezone" {{ editable ? '' : 'disabled' }}>
+						<option value="">{{ 'profile.timezone_none'|trans({'%zone%': timezoneDerived}) }}</option>
+						{% for identifier, name in timezones %}
+							<option value="{{ identifier }}" {{ profile.timezone == identifier ? 'selected' : '' }}>
+								{{ name }}
+							</option>
+						{% endfor %}
+					</select>
+					<div class="form-text">{{ 'profile.timezone_help'|trans }}</div>
+				</div>
+
 				{# How long a customer gets to pay, when nothing on the customer
 				   says otherwise (XIV-67). Empty is a real answer and the one
 				   every installation starts on: no term means no due date, and a

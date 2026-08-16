@@ -21,6 +21,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Intl\Countries;
 use Symfony\Component\Intl\Currencies;
+use Symfony\Component\Intl\Timezones;
 use Symfony\Component\Mime\Address;
 
 /**
@@ -89,6 +90,7 @@ final readonly class TenantProfileManager
         string $currency,
         ?string $region = null,
         ?int $paymentTermsDays = null,
+        ?string $timezone = null,
     ): TenantProfile {
         $profile = $this->profiles->current();
         $profile->setCompanyName($companyName);
@@ -107,6 +109,19 @@ final readonly class TenantProfileManager
             $profile->setRegion(null);
         } elseif (Countries::exists(strtoupper($region))) {
             $profile->setRegion(strtoupper($region));
+        }
+
+        // Which zone this installation reads moments in (XIV-83). Empty is the
+        // ordinary answer rather than a missing one: it means "let the region
+        // say", and for a country with exactly one zone the region says it
+        // perfectly well — a Swiss customer never has to touch this. Anything
+        // symfony/intl does not know as a zone came from a hand-edited request
+        // and changes nothing, the same call the currency and the region above
+        // both make.
+        if ($timezone === '' || $timezone === null) {
+            $profile->setTimezone(null);
+        } elseif (Timezones::exists($timezone)) {
+            $profile->setTimezone($timezone);
         }
 
         // How long a customer gets to pay, when nobody has said otherwise on the

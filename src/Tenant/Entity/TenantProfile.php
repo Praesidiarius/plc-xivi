@@ -80,6 +80,33 @@ class TenantProfile
     private ?string $region = null;
 
     /**
+     * Which zone this installation reads moments in (XIV-83), as an IANA
+     * identifier.
+     *
+     * **Null is the answer most customers will keep**, and the reason is the
+     * region above: where a country has exactly one zone the answer is already
+     * on file, and asking for it a second time would be asking somebody to
+     * repeat themselves. Switzerland is `Europe/Zurich`; there is nothing to
+     * choose. This column exists for the countries where that is not true —
+     * Spain, the United States, anywhere with an archipelago — and for the
+     * company whose people sit somewhere other than where it is registered.
+     *
+     * Derivation is deliberately *not* "the first zone the country lists".
+     * Spain's list begins `Africa/Ceuta` and America's begins `America/Adak`, so
+     * taking the head would quietly file a Madrid office in North Africa and a
+     * New York one in the Aleutians — wrong in a way nothing on screen reveals,
+     * because a timestamp in the wrong zone still looks like a timestamp. Where
+     * the country is ambiguous this stays null and the fallback is UTC, which is
+     * at least visibly not local. See `DisplayTimezone`, which is where the rule
+     * lives.
+     *
+     * A person may still override it on their own account — the same
+     * relationship the region and the language above have with `User`.
+     */
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $timezone = null;
+
+    /**
      * How long this installation gives a customer to pay, in whole days
      * (XIV-67).
      *
@@ -193,6 +220,26 @@ class TenantProfile
         $region = strtoupper(trim((string) $region));
 
         $this->region = $region === '' ? null : $region;
+    }
+
+    public function getTimezone(): ?string
+    {
+        return $this->timezone;
+    }
+
+    /**
+     * @param string|null $timezone an IANA identifier, or null to let the region
+     *                              decide — see the property. Not upper-cased on
+     *                              the way in, unlike the country code above:
+     *                              `Europe/Zurich` is the identifier and its case
+     *                              is part of it. The caller checks it names a
+     *                              zone that exists.
+     */
+    public function setTimezone(?string $timezone): void
+    {
+        $timezone = trim((string) $timezone);
+
+        $this->timezone = $timezone === '' ? null : $timezone;
     }
 
     /** @param string|null $currency an ISO 4217 code; the caller checks it is one */

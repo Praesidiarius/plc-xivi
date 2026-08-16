@@ -68,7 +68,28 @@ lands in `Unreleased` here.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **A timezone, on your account and on the company profile** ([XIV-83]). Times on
+  screen are shown on the clock you are looking at rather than on UTC. Most
+  installations need do nothing: where the region already chosen has exactly one
+  timezone — Switzerland, Austria, France, the UK — it is derived from that, and
+  §8.4.4 argues why an ambiguous country is asked rather than guessed at.
+
+### Changed
+
+- **Record timelines group by your own days** ([XIV-83]). "Today", "this week" and
+  "this month" were worked out on UTC midnights, so an entry made just after
+  midnight could sit under yesterday on a page you had just made (§5.2).
+- **Act on upgrade: run `tenant:migrate`.** [XIV-83] adds a column to `app_user`
+  and one to `tenant_profile`. Nothing is backfilled and no stored moment moves —
+  everything was already absolute UTC and this is a display setting.
+- **Act on upgrade: a country with more than one timezone shows UTC until
+  somebody chooses** — Germany, Spain, China, the United States, Canada,
+  Australia, Brazil and Russia among them. The company profile names which zone
+  is in force beside the empty option, so the page says what it is doing.
+
+[XIV-83]: https://xivi.youtrack.cloud/issue/XIV-83
 
 ## Releases
 

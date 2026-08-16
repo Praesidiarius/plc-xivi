@@ -16,6 +16,7 @@ namespace App\Controller;
 use App\Tenant\Entity\User;
 use App\Tenant\Security\UserChangeRefused;
 use App\Tenant\Security\UserManager;
+use App\Tenant\Settings\DisplayTimezone;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Request;
@@ -49,6 +50,9 @@ final class AccountController extends AbstractController
     public function __construct(
         private readonly UserManager $users,
         private readonly TranslatorInterface $translator,
+        // Which zone this person reads moments in, and what they would inherit
+        // if they left it alone (XIV-83).
+        private readonly DisplayTimezone $timezones,
         #[Autowire('%kernel.enabled_locales%')]
         private readonly array $enabledLocales,
         #[Autowire('%kernel.default_locale%')]
@@ -115,6 +119,18 @@ final class AccountController extends AbstractController
             // Named in the reader's own language, from symfony/intl rather than
             // a list kept here (XIV-50).
             'regions' => Countries::getNames($request->getLocale()),
+            // The same idea one setting further along (XIV-83): every zone
+            // there is, named the way CLDR names them — "Central European Time
+            // (Zurich)" rather than `Europe/Zurich`.
+            'timezones' => $this->timezones->choices($request->getLocale()),
+            // What this person gets by leaving it empty, spelled out beside the
+            // empty option. "Follow the company's" is true and useless on its
+            // own; the reason this setting exists is that a wrong zone is
+            // invisible, so the inherited one is worth naming out loud.
+            'timezoneFallback' => $this->timezones->name(
+                $this->timezones->fallbackFor($user),
+                $request->getLocale(),
+            ),
         ]);
     }
 
@@ -135,6 +151,16 @@ final class AccountController extends AbstractController
                 // same question and stored apart from it (XIV-50).
                 $region = strtoupper(trim((string) $request->request->get('region')));
                 $this->users->setRegion($user, Countries::exists($region) ? $region : null);
+
+                // And the zone the same person reads a moment in (XIV-83).
+                // Empty means "follow the company's, and the region's after
+                // that", which is a real answer and the one nearly everybody
+                // keeps; anything the picker could not have offered came from a
+                // hand-edited request and clears the setting rather than being
+                // stored and quietly ignored later, the same call the region
+                // above makes.
+                $timezone = trim((string) $request->request->get('timezone'));
+                $this->users->setTimezone($user, $this->timezones->exists($timezone) ? $timezone : null);
 
                 $this->addFlash('success', $this->translator->trans('account.language_saved'));
 

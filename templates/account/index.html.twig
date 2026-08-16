@@ -150,6 +150,27 @@
 						<div class="form-text">{{ 'account.region_help'|trans }}</div>
 					</div>
 
+					{# The third setting of the same shape (XIV-83): the language
+					   decides the words, the region decides how a figure is
+					   written, and this decides which clock a moment is read on.
+					   Empty is the answer nearly everybody keeps — the company's
+					   own, and the country's after that — so the option says
+					   which zone that currently is rather than leaving somebody
+					   to guess, which is the failure mode this whole setting is
+					   about. #}
+					<div class="mb-3">
+						<label class="form-label" for="timezone">{{ 'account.timezone'|trans }}</label>
+						<select class="form-select" id="timezone" name="timezone">
+							<option value="">{{ 'account.timezone_default'|trans({'%zone%': timezoneFallback}) }}</option>
+							{% for identifier, name in timezones %}
+								<option value="{{ identifier }}" {{ account.timezone|default('') == identifier ? 'selected' : '' }}>
+									{{ name }}
+								</option>
+							{% endfor %}
+						</select>
+						<div class="form-text">{{ 'account.timezone_help'|trans }}</div>
+					</div>
+
 					<button class="btn btn-primary" type="submit">{{ 'account.save_language'|trans }}</button>
 				</form>
 			</div>
