@@ -74,6 +74,26 @@ lands in `Unreleased` here.
   workflow verified `src/Version.php` and the changelog file and stopped there.
   It now refuses a tag whose version the README disagrees with, and the
   procedure names the step.
+- **The test database volume no longer fills** ([XIV-78]). `bin/ci` drops the
+  test databases earlier runs left before it starts, so the steady state is one
+  run's worth — 48 databases, 440 MB — rather than growing towards classes ×
+  workers, which is what had the tmpfs enlarged three times. It stays at 3g,
+  now about seven times what a run needs. See §9.2.
+- **A connection nobody closed can no longer fail a run** ([XIV-78]). A Panther
+  web server left behind by an earlier browser suite held a tenant database
+  open, and every class that reclaimed that tenant failed with `database … is
+  being accessed by other users`. The reclaim terminates those sessions first.
+- **A full test volume says so** ([XIV-78]), in one line, instead of arriving as
+  a hundred tests reporting "no connection to the server" — which is what a
+  Postgres that has aborted its checkpointer and restarted looks like.
+- **Act on upgrade: `bin/ci` deletes leftover test databases.** Its first step
+  drops every database and role on `database-test` whose name carries this
+  checkout's test prefix. Dev tenants are on the other server and are untouched,
+  and the step refuses if the server it is pointed at is not the disposable one
+  — but a test database you were keeping to look at needs reading, or dumping,
+  before the next run rather than after.
+
+[XIV-78]: https://xivi.youtrack.cloud/issue/XIV-78
 
 ## Releases
 

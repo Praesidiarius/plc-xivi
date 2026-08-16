@@ -127,6 +127,168 @@ step 'Starting the stack'
 # both reach the same stack. The wrapper is for a shell that has not sourced it.
 docker compose up -d --wait
 
+# **The test databases earlier runs left, and the volume they were filling**
+# (XIV-78).
+#
+# This is here, third, rather than next to the suite it prepares, for two
+# reasons. It needs nothing but the database container, which `up --wait` has
+# just made healthy; and if the volume really is full, a run should say so in its
+# first ten seconds rather than after two minutes of static analysis.
+#
+# ---
+#
+# **Why anything is left to reclaim at all.** A test class's tenant database is
+# not dropped when the class finishes: DAMA holds the transaction — and therefore
+# a connection — until the process ends, and Postgres will not drop a database
+# somebody is connected to (see tests/Support/SharesATenant.php). So every run
+# ends with its databases still there, and the next run reclaimed the ones it
+# happened to ask for again by slug.
+#
+# That reclaim is per *worker*, and there is the leak. A database is named
+# `tenant<TEST_RUN><TEST_TOKEN>_<slug>`, the token being paratest's worker
+# number, and a class does not land on the same worker twice — so a class that
+# ran on worker 3 yesterday and worker 5 today leaves two databases, and over
+# enough runs each class spreads across all eight. The set saturates at roughly
+# classes × workers, which is eight times the size of one run and grows eight
+# times faster than the suite does:
+#
+#     48 classes × 8 workers × ~9 MB   ≈ 3.6 GB     the ceiling
+#     48 classes ×             ~9 MB   =  440 MB    one run, 17% of the tmpfs
+#
+# The tmpfs had been enlarged three times chasing that, which is the wrong number
+# to move: 3g is already seven times what a run needs, and no size is above a
+# ceiling that multiplies by the worker count. Measured on this branch, four
+# consecutive runs from empty went 48 → 92 → 134 → 170 databases, 17% → 29% →
+# 43% → 54% of the volume. It fills on the seventh.
+#
+# **So: reclaim at the start, not at the end.** Same steady state — one run's
+# worth — and it survives the case where leftovers are worst, which is a run that
+# crashed or was killed before any teardown of its own could run. It is also
+# free: `SharesATenant` *deprovisions and re-provisions* whatever it finds under
+# its slug, so nothing was ever being reused and there is no warm-start to give
+# up. Measured, because that is the one thing here worth being wrong about — a
+# run straight after a full reclaim took 23.9s against 23.6s and 24.5s for runs
+# that found their databases waiting.
+#
+# **Terminating first is not a refinement.** The same subsystem breaks a run the
+# other way: a Panther web server left behind by an earlier browser suite holds a
+# connection to a tenant database it knows nothing about, and everything that
+# touches that tenant then fails with "database … is being accessed by other
+# users". A reclaim that issued a plain DROP and hoped would trade one confusing
+# failure for another, so sessions go first and the DROP is FORCE'd besides —
+# belt for the connection that is already there, braces for the client that
+# reconnects in between.
+#
+# The roles go with the databases because they are cluster objects too, and a
+# role left behind without its database is the shape of failure this is meant to
+# remove: `CREATE ROLE` does not have an IF NOT EXISTS.
+#
+# By hand, `bin/compose restart database-test` still empties the volume
+# completely and instantly — it is a tmpfs — and remains the thing to reach for
+# in the middle of a session.
+step 'Test databases from earlier runs'
+
+# The disposable server, named once. Everything below acts on this service and
+# nothing else, which is what keeps it away from `database` — where the dev
+# tenants live, on disk, and where nothing here has any business.
+readonly TEST_DB_SERVICE='database-test'
+
+# What this checkout's suite creates on it, as a regular expression rather than
+# a LIKE pattern, because `_` is a LIKE wildcard and these names are made of
+# them. TEST_RUN is the checkout (XIV-51) and is empty in the main one; the
+# digits are the worker, absent on a serial `composer test`.
+readonly TEST_DB_PATTERN="^tenant${TEST_RUN}[0-9]*_"
+
+# Above this, refuse rather than run. A clean run needs 18% and the reclaim has
+# just happened, so 80% is not "nearly full" — it is "something here is not the
+# test suite", and continuing produces the failure described below.
+readonly TEST_VOLUME_FULL_PERCENT=80
+
+# psql from inside the database container, with the credentials that container
+# was configured with. Not `${POSTGRES_USER:-app}` from out here: Compose reads
+# .env and the process environment when it interpolates, and this shell reads
+# only the latter, so the two can disagree about who the superuser is. Asking
+# the container cannot.
+test_psql() {
+	docker compose exec -T "$TEST_DB_SERVICE" \
+		sh -c 'exec psql -qXtA -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 "$@"' -- "$@"
+}
+
+# **Assert that this is the throwaway server before dropping anything on it.**
+# `fsync=off` is set in compose.override.yaml precisely because this data is
+# disposable, so it is the closest thing to a machine-readable statement of that
+# — and a far better gate than trusting a service name to still mean what it
+# means today. If somebody ever points DATABASE_URL at a server that keeps its
+# promises, this stops instead of emptying it.
+if [ "$(test_psql -c 'SHOW fsync')" != 'off' ]; then
+	printf 'Refusing to reclaim test databases: %s is not the throwaway server.\n\n' "$TEST_DB_SERVICE" >&2
+	printf 'It reports fsync=on, which compose.override.yaml turns off for the test\n' >&2
+	printf 'database precisely because everything on it is disposable. A server that\n' >&2
+	printf 'keeps its promises is one whose databases somebody wants.\n' >&2
+	exit 66
+fi
+
+reclaim_started=$(date +%s%N)
+reclaimed=$(test_psql -c "
+	SELECT count(*) || ' databases, ' || pg_size_pretty(coalesce(sum(pg_database_size(datname)), 0))
+	FROM pg_database WHERE datname ~ '${TEST_DB_PATTERN}'
+")
+
+# Output to /dev/null rather than -q: the two SELECTs below are not reports, they
+# are \gexec's input — psql runs each row of the result as a statement, which is
+# how you write a loop in a client that has none. Errors still reach stderr, and
+# ON_ERROR_STOP still fails the script.
+docker compose exec -T "$TEST_DB_SERVICE" \
+	sh -c 'exec psql -qX -o /dev/null -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1' <<-SQL
+	SELECT pg_terminate_backend(pid)
+	  FROM pg_stat_activity
+	 WHERE datname ~ '${TEST_DB_PATTERN}' AND pid <> pg_backend_pid();
+
+	SELECT format('DROP DATABASE IF EXISTS %I WITH (FORCE)', datname)
+	  FROM pg_database WHERE datname ~ '${TEST_DB_PATTERN}';
+	\gexec
+
+	SELECT format('DROP ROLE IF EXISTS %I', rolname)
+	  FROM pg_roles WHERE rolname ~ '${TEST_DB_PATTERN}';
+	\gexec
+SQL
+
+reclaim_ms=$((($(date +%s%N) - reclaim_started) / 1000000))
+
+case "$reclaimed" in
+	'0 databases'*) printf '    nothing to reclaim (%sms)\n' "$reclaim_ms" ;;
+	*)              printf '    reclaimed %s in %sms\n' "$reclaimed" "$reclaim_ms" ;;
+esac
+
+# And what that leaves, every run, whether or not it is a problem — the number
+# this whole arrangement is justified by should be visible while it is still
+# boring. One `df`, in the container, on the mount compose.override.yaml declares.
+volume=$(docker compose exec -T "$TEST_DB_SERVICE" df -h /var/lib/postgresql/data | tail -n 1)
+volume_used=$(printf '%s' "$volume" | awk '{ print $3 }')
+volume_size=$(printf '%s' "$volume" | awk '{ print $2 }')
+volume_percent=$(printf '%s' "$volume" | awk '{ print $5 }' | tr -d '%')
+
+printf '    volume %s of %s used (%s%%)\n' "$volume_used" "$volume_size" "$volume_percent"
+
+# **The one line that replaces twenty minutes.** A full test volume does not
+# report itself as a full test volume: Postgres aborts its checkpointer, the
+# server restarts, and a hundred tests fail with "no connection to the server",
+# which reads like anything except a disk. compose.override.yaml has predicted
+# that presentation for three enlargements running; this acts on it.
+if [ "$volume_percent" -ge "$TEST_VOLUME_FULL_PERCENT" ]; then
+	printf '\nThe test database volume is %s%% full, and the reclaim above has already run.\n\n' "$volume_percent" >&2
+	printf '    %s\n\n' "$volume" >&2
+	printf 'Stopping here on purpose. A full volume does not fail as a full volume:\n' >&2
+	printf 'Postgres aborts its checkpointer, restarts, and a hundred tests report\n' >&2
+	printf '"no connection to the server" or "could not extend file", which reads\n' >&2
+	printf 'like anything except a disk (XIV-78).\n\n' >&2
+	printf 'Everything matching this checkout has just been dropped, so what is\n' >&2
+	printf 'still on there belongs to something else. `bin/compose restart %s`\n' "$TEST_DB_SERVICE" >&2
+	printf 'empties it completely — it is a tmpfs — and if that does not help,\n' >&2
+	printf 'something other than this suite is writing to it.\n' >&2
+	exit 66
+fi
+
 step 'composer.json is valid and composer.lock matches it'
 docker compose exec -T php composer validate --strict
 
