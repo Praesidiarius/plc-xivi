@@ -100,6 +100,7 @@ module:
     history_empty: >-
         Nichts aufgezeichnet. Datensätze, die es schon vor dem Verlauf gab, haben
         keinen, bis sie das nächste Mal geändert werden.
+    linked_all: Alle anzeigen
     action_by: 'von %who%'
     action_by_system: System
     action:
@@ -114,6 +115,7 @@ module:
         removed: entfernt
 
 field:
+    picker_truncated: 'Es werden die ersten %shown% von %total% angezeigt. Grenze die Liste ein oder suche im anderen Modul.'
     label: Bezeichnung
     label_placeholder: Umsatzsteuer-ID
     shape_name: Name dieser Form

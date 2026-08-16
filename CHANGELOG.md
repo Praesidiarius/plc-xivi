@@ -83,6 +83,15 @@ lands in `Unreleased` here.
   file in `APP_LOGO` and put it in `assets/brand/`, which is gitignored. It is the
   favicon too. Unset — the default, and what a fresh clone has — falls back to
   the name in text and the mark drawn as `17`.
+- **A reference picker says when it is showing only the first few** ([XIV-35]).
+  It has always stopped at 200 and never mentioned it, so a company that could
+  not be linked to looked exactly like one that did not exist. The total is
+  counted under the reader's own permissions, so it says nothing about records
+  they may not see.
+- **Pages read a module's definitions once instead of once per question**
+  ([XIV-53]). A record list naming twenty-five different contacts went from 83
+  queries to 33. Nothing is cached beyond the tenant it belongs to: the cache is
+  emptied whenever the tenant context moves, and whenever a definition changes.
 - **Mail sent in development can be read** ([XIV-41]). A Mailpit catcher starts
   with the dev stack and the dev `MAILER_DSN` points at it, so messages are
   rendered and readable at <http://127.0.0.1:8025> instead of leaving the
@@ -130,6 +139,17 @@ lands in `Unreleased` here.
   also be published by hand for a tag that predates the changelog file, which is
   how 17.0.0 and 17.0.1 got theirs.
 
+### Fixed
+
+- **A record's "linked records" card counted what fitted on it, not what exists**
+  ([XIV-52]). A contact with 207 orders had a card headed "Orders 25" and no sign
+  the other 182 were there. The badge is now the real count, taken under the same
+  permissions the records are read with, and a card that cannot show everything
+  says "Showing 10 of 207" and links to the module's list filtered to that record.
+  A card now shows ten rather than twenty-five, since the rest are one click away.
+
+[XIV-52]: https://xivi.youtrack.cloud/issue/XIV-52
+
 ## Releases
 
 | Version | Date | What it was |
@@ -141,9 +161,11 @@ lands in `Unreleased` here.
 [XIV-32]: https://xivi.youtrack.cloud/issue/XIV-32
 [XIV-41]: https://xivi.youtrack.cloud/issue/XIV-41
 [XIV-42]: https://xivi.youtrack.cloud/issue/XIV-42
+[XIV-35]: https://xivi.youtrack.cloud/issue/XIV-35
 [XIV-43]: https://xivi.youtrack.cloud/issue/XIV-43
 [XIV-47]: https://xivi.youtrack.cloud/issue/XIV-47
 [XIV-48]: https://xivi.youtrack.cloud/issue/XIV-48
 [XIV-50]: https://xivi.youtrack.cloud/issue/XIV-50
 [XIV-51]: https://xivi.youtrack.cloud/issue/XIV-51
+[XIV-53]: https://xivi.youtrack.cloud/issue/XIV-53
 [XIV-44]: https://xivi.youtrack.cloud/issue/XIV-44

@@ -14,6 +14,7 @@ module:
     history_changes: '{count, plural, one {# Änderung} other {# Änderungen}}'
     record_count: '{count, plural, one {# Datensatz.} other {# Datensätze.}}'
     record_count_matching: '{count, plural, one {# passender Datensatz.} other {# passende Datensätze.}}'
+    linked_shown: '{shown, number} von {total, number} werden angezeigt.'
 
 field:
     remove_holding: '{count, plural, one {<strong>#</strong> Datensatz hat zurzeit einen Wert dafür.} other {<strong>#</strong> Datensätze haben zurzeit einen Wert dafür.}}'

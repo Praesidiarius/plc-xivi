@@ -522,6 +522,26 @@ sort key in every URL. LIMIT/OFFSET is correct, and slower the deeper it goes.
 
 ### 5.4 The metadata editor
 
+**Definitions are read once per tenant** (XIV-53). Every field type asks for its
+own shape, every reference for its target's, every reverse-link group again — so
+metadata was the largest single source of queries on every page measured
+(XIV-46). A record list naming twenty-five different contacts made 83 queries and
+now makes 33.
+
+The lifetime is the whole design, because a cache of one customer's definitions
+handed to another is §7.4's hazard and would look like wrong labels rather than
+like an error. It is **emptied whenever the tenant context moves**, in the same
+breath as dropping the identity map and closing the connection, because they are
+one fact about one boundary — a web request is a process and cannot outlive
+itself, but a console command walking every tenant can. Writers empty it too: a
+page still showing the shape somebody has just edited would look like the edit
+had failed.
+
+There is deliberately no tenant *key*. Keying it would make it look safe to keep
+entries across a switch, and a definition kept across that boundary would load
+its fields on whatever connection is current — the hazard, not the fix.
+
+
 A customer changing the shape of their own module, without SQL and without a
 deploy. A field added here appears in the form, the list, the validation and the
 filter bar at once, because all four read the same rows — which is §5's claim

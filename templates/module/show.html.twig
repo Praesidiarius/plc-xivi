@@ -214,7 +214,10 @@
 								<summary>
 									<h2 class="h6 text-uppercase text-body-secondary d-inline mb-0">
 										{{ group.heading(twice) }}
-										<span class="badge text-bg-light fw-normal">{{ group.records|length }}</span>
+										{# How many there are, not how many fit: the card is capped,
+										   and the length of the list below it is a fact about the
+										   cap rather than about the customer (XIV-52). #}
+										<span class="badge text-bg-light fw-normal">{{ group.total }}</span>
 									</h2>
 								</summary>
 								<ul class="list-unstyled mb-0 mt-3">
@@ -228,6 +231,21 @@
 										</li>
 									{% endfor %}
 								</ul>
+
+								{# Said only when something is missing — "showing 3 of 3" is noise.
+								   The way to the rest is the other module's own list, filtered to
+								   this record (XIV-13), offered only to somebody allowed to open
+								   it: a link to a 403 is worse than no link. The sentence stands
+								   either way, because how many are missing is worth knowing even
+								   when you cannot go and read them. #}
+								{% if group.isTruncated %}
+									<p class="small text-body-secondary mb-0 mt-3">
+										{{ 'module.linked_shown'|trans({'%shown%': group.shown, '%total%': group.total}) }}
+										{% if can('list', group.module) %}
+											<a href="{{ path('module_index', group.listing) }}">{{ 'module.linked_all'|trans }}</a>
+										{% endif %}
+									</p>
+								{% endif %}
 							</details>
 						</div>
 					</div>

@@ -15,6 +15,7 @@ namespace App\Tests\Unit\Query;
 
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
+use Xivi\Core\Metadata\MetadataCache;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Query\Direction;
 use Xivi\Core\Query\Operator;
@@ -42,7 +43,7 @@ final class RecordQueryFactoryTest extends TestCase
         // A stub rather than a mock: nothing here expects a call on it, and
         // PHPUnit is right to say so.
         $this->factory = new RecordQueryFactory(
-            new MetadataRepository(self::createStub(EntityManagerInterface::class)),
+            new MetadataRepository(self::createStub(EntityManagerInterface::class), new MetadataCache()),
         );
     }
 

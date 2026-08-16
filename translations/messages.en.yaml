@@ -108,6 +108,7 @@ module:
     history_empty: >-
         Nothing recorded. Records that existed before history did have none until
         the next time they change.
+    linked_all: See them all
     action_by: 'by %who%'
     action_by_system: System
     action:
@@ -122,6 +123,7 @@ module:
         removed: removed
 
 field:
+    picker_truncated: 'Showing the first %shown% of %total%. Narrow the list or search in the other module.'
     label: Label
     label_placeholder: VAT number
     shape_name: Name of this shape

@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Engine;
 
+use App\Controller\ModuleController;
 use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Entity\PermissionGrant;
@@ -27,12 +28,14 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Xivi\Article\ArticleModule;
 use Xivi\Contact\ContactModule;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Form\RecordReferenceType;
 use Xivi\Core\Metadata\MetadataEditor;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
 use Xivi\Core\Permission\ModuleAction;
 use Xivi\Core\Permission\PermissionScope;
+use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordRepository;
 use Xivi\Core\Record\RecordWriter;
 
@@ -220,6 +223,39 @@ final class CrossModuleLinkTest extends WebTestCase
         self::assertSame('Acme AG', $shown, 'the name, and nothing wrapped around it');
     }
 
+    /**
+     * A picker at its ceiling says so (XIV-35).
+     *
+     * The cap has always been there and always been silent, so a company that
+     * could not be linked to looked exactly like a company that did not exist.
+     * The count comes from the same access predicate as the options, because a
+     * total that included records the reader may not see would say how many
+     * exist one integer at a time — which is the leak scoping the picker closed.
+     */
+    public function testAPickerSaysWhenItIsShowingOnlyTheFirstFew(): void
+    {
+        $wanted = RecordReferenceType::MAX_CHOICES + 5;
+
+        self::service(TenantSwitcher::class)->runFor($this->tenant, function () use ($wanted): void {
+            $contacts = self::service(MetadataRepository::class)->get(ContactModule::KEY);
+            $writer = self::service(RecordWriter::class);
+
+            foreach (range(1, $wanted) as $n) {
+                $writer->save($contacts, new Record(data: [
+                    'kind' => ContactModule::COMPANY,
+                    'company_name' => sprintf('Company %03d', $n),
+                ]));
+            }
+        });
+
+        $help = $this->client->request('GET', $this->url('/m/article/new'))
+            ->filter(sprintf('#%s_help', str_replace(['[', ']'], ['_', ''], self::field(self::SUPPLIER))));
+
+        self::assertCount(1, $help, 'the picker explains itself');
+        self::assertStringContainsString((string) RecordReferenceType::MAX_CHOICES, $help->text());
+        self::assertStringContainsString((string) $wanted, $help->text(), 'and says how many there really are');
+    }
+
     /** And the name is a way to get there (XIV-42). */
     public function testALinkedRecordIsAWayToOpenIt(): void
     {
@@ -320,6 +356,65 @@ final class CrossModuleLinkTest extends WebTestCase
         self::assertStringContainsString('Articles', $page, 'grouped by the module that points here');
         self::assertStringNotContainsString('Contacts 1', $page, 'and not filed under this record\'s own module');
         self::assertStringContainsString('Desk lamp', $page);
+    }
+
+    /**
+     * More linked records than the card shows (XIV-52).
+     *
+     * The case that used to be silent: the card read the first few and counted
+     * the array it had just capped, so a contact with 207 orders was reported as
+     * having as many as happened to fit. The badge is the count now, and the card
+     * says what it is holding back and where the rest are.
+     */
+    public function testACardSaysHowManyItIsNotShowing(): void
+    {
+        $company = $this->aCompany('Acme AG');
+        $total = ModuleController::LINKED_ON_RECORD + 2;
+
+        for ($i = 1; $i <= $total; ++$i) {
+            $this->anArticle(sprintf('Lamp %02d', $i), $company);
+        }
+
+        $page = $this->client->request('GET', $this->url('/m/contact/' . $company))->filter('main');
+        $text = $page->text();
+
+        self::assertStringContainsString(
+            sprintf('Articles %d', $total),
+            $text,
+            'the badge counts what points here, not what fitted on the card',
+        );
+        self::assertStringContainsString(
+            sprintf('Showing %d of %d.', ModuleController::LINKED_ON_RECORD, $total),
+            $text,
+            'and the card admits it is holding some back',
+        );
+        // Newest first, so the two oldest are the ones off the end of the card.
+        self::assertStringNotContainsString('Lamp 01', $text, 'which it is: this one is not on the page');
+
+        // The way to the rest: the article list, filtered to this contact — the
+        // same URL the filter bar would produce (XIV-13).
+        $link = $page->filter(sprintf(
+            'a[href*="filter%%5B0%%5D%%5Bpath%%5D=supplier"][href*="filter%%5B0%%5D%%5Bvalue%%5D=%d"]',
+            $company,
+        ));
+
+        self::assertCount(1, $link, 'a link to the whole list, filtered to this record');
+
+        $listed = $this->client->request('GET', (string) $link->attr('href'))->filter('table')->text();
+        self::assertStringContainsString('Lamp 01', $listed, 'and it really does reach the ones the card left out');
+    }
+
+    /** A card showing everything says nothing extra — "showing 2 of 2" is noise. */
+    public function testACardShowingEverythingSaysNothingExtra(): void
+    {
+        $company = $this->aCompany('Beta GmbH');
+        $this->anArticle('Desk lamp', $company);
+        $this->anArticle('Cable', $company);
+
+        $page = $this->client->request('GET', $this->url('/m/contact/' . $company))->filter('main')->text();
+
+        self::assertStringContainsString('Articles 2', $page);
+        self::assertStringNotContainsString('Showing', $page);
     }
 
     /** Filtering through the link: "articles whose supplier is in Zürich". */
