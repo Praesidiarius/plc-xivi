@@ -560,6 +560,57 @@ final class OrderTotalsTest extends WebTestCase
     }
 
     /**
+     * An order line fits on one row (XIV-43).
+     *
+     * The widths are declared on the blueprint and have to add up: an article
+     * line is the busiest kind and comes to exactly twelve. Asserted as
+     * arithmetic rather than as a screenshot, because what breaks this is
+     * somebody adding a seventh field and not noticing the row now wraps.
+     *
+     * **Only the busy kinds can be exact.** A width belongs to a field, and a
+     * field is shared by every kind that has it — a comment line holds nothing
+     * but a description, so making *that* come to twelve would force the
+     * description to be the whole row and leave a subtotal's figure no room at
+     * all. So the crowded kinds are made to fit and the sparse ones are left
+     * short, which is the direction that reads well.
+     */
+    public function testAnArticleLineFitsOnOneRow(): void
+    {
+        $widths = self::liveService(TenantSwitcher::class)->runFor($this->tenant, function (): array {
+            $lines = self::service(MetadataRepository::class)
+                ->get(OrderModule::KEY)
+                ->getCollection(OrderModule::LINES);
+
+            self::assertNotNull($lines);
+
+            $widths = [];
+
+            foreach ($lines->getFieldsFor(OrderModule::ARTICLE_LINE) as $field) {
+                // The kind travels hidden in a row (XIV-20), so it takes no room.
+                if ($field->getKey() === $lines->getVariantField()) {
+                    continue;
+                }
+
+                $widths[$field->getKey()] = $field->getWidth();
+            }
+
+            return $widths;
+        });
+
+        self::assertNotContains(null, $widths, 'every field on the busiest line says how wide it is');
+        self::assertSame(12, array_sum($widths), sprintf(
+            'an article line is exactly one row: %s',
+            json_encode($widths, \JSON_THROW_ON_ERROR),
+        ));
+
+        // An article line is the widest thing the collection draws, so every
+        // other kind fits by construction.
+        foreach ([OrderModule::CUSTOM_LINE, OrderModule::SUBTOTAL_LINE, OrderModule::COMMENT_LINE] as $kind) {
+            self::assertLessThanOrEqual(12, $this->lineWidth($kind), sprintf('a %s line fits too', $kind));
+        }
+    }
+
+    /**
      * Looking at a form does not take a document number (XIV-32).
      *
      * `AssignsNumbers` is a deriver too, and the live preview runs derivers — so
@@ -621,6 +672,30 @@ final class OrderTotalsTest extends WebTestCase
             ->toString());
 
         self::assertStringNotContainsString('invalid-feedback', $html, 'nothing is complained about yet');
+    }
+
+    /** What one kind of line comes to, in twelfths. */
+    private function lineWidth(string $kind): int
+    {
+        return self::liveService(TenantSwitcher::class)->runFor($this->tenant, function () use ($kind): int {
+            $lines = self::service(MetadataRepository::class)
+                ->get(OrderModule::KEY)
+                ->getCollection(OrderModule::LINES);
+
+            self::assertNotNull($lines);
+
+            $total = 0;
+
+            foreach ($lines->getFieldsFor($kind) as $field) {
+                if ($field->getKey() === $lines->getVariantField()) {
+                    continue;
+                }
+
+                $total += $field->getWidth() ?? 0;
+            }
+
+            return $total;
+        });
     }
 
     private function signIn(): void
