@@ -88,7 +88,13 @@ final readonly class HistoryEntry
      * what says which it was, so that a timeline answers "did that invoice go
      * out" by being read rather than by being opened.
      *
-     * @return array{template: string, recipient: string, subject: string}|null
+     * **`attachment` is absent unless one went with it** (XIV-40), rather than
+     * present and empty, so that the key's existence is the answer to "did the
+     * invoice itself go with that mail" — and on a failed send its presence says
+     * that the document was made and the *transport* is what refused, which is
+     * the distinction §5.15 exists to keep readable.
+     *
+     * @return array{template: string, recipient: string, subject: string, attachment?: array{template: string, format: string}}|null
      */
     public function email(): ?array
     {
@@ -98,11 +104,22 @@ final readonly class HistoryEntry
             return null;
         }
 
-        return [
+        $sent = [
             'template' => (string) $email['template'],
             'recipient' => (string) $email['recipient'],
             'subject' => (string) $email['subject'],
         ];
+
+        $attachment = $email['attachment'] ?? null;
+
+        if (!\is_array($attachment) || !isset($attachment['template'], $attachment['format'])) {
+            return $sent;
+        }
+
+        return [...$sent, 'attachment' => [
+            'template' => (string) $attachment['template'],
+            'format' => (string) $attachment['format'],
+        ]];
     }
 
     /**

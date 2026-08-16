@@ -83,6 +83,13 @@ lands in `Unreleased` here.
   editable for that one message without altering the record. Every send is on the
   record's timeline, successes and failures alike, and sending is a permission of
   its own. See §5.14.
+- **A document can go out with the email** ([XIV-40]). The send chooser can
+  attach one of the module's documents, in PDF or Word, generated from the record
+  as it is sent — so "send the invoice" is one button. Attaching needs the
+  document permission as well as the send one, the timeline records the send and
+  its attachment as one entry, a document that cannot be made sends nothing at
+  all, and anything over 7 MB (`XIVI_MAX_ATTACHMENT_BYTES`) is refused on the
+  screen rather than bounced later. See §5.15.
 - **Totals update while you type** ([XIV-32], [XIV-44]). A line's total and the
   order's net, VAT and gross follow the quantity and the price as they are
   entered, before anything is saved, and read in the reader's own number format.
@@ -198,3 +205,4 @@ lands in `Unreleased` here.
 [XIV-37]: https://xivi.youtrack.cloud/issue/XIV-37
 [XIV-38]: https://xivi.youtrack.cloud/issue/XIV-38
 [XIV-39]: https://xivi.youtrack.cloud/issue/XIV-39
+[XIV-40]: https://xivi.youtrack.cloud/issue/XIV-40

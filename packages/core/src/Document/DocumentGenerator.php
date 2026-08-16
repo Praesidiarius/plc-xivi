@@ -55,7 +55,7 @@ final readonly class DocumentGenerator
      */
     public function docx(DocumentTemplate $template, ModuleDefinition $module, Record $record): string
     {
-        $document = $this->fill($template, $module, $record);
+        $document = $this->contents($template, $module, $record, DocumentFormat::Docx);
         $this->announce($template, $module, $record, DocumentFormat::Docx);
 
         return $document;
@@ -64,18 +64,11 @@ final readonly class DocumentGenerator
     /**
      * The same document as a PDF.
      *
-     * Filled first and converted afterwards, rather than converted and then
-     * filled: the markers live in a Word document and stop being addressable the
-     * moment it becomes a PDF.
-     *
      * @throws DocumentFailed
      */
     public function pdf(DocumentTemplate $template, ModuleDefinition $module, Record $record): string
     {
-        $pdf = $this->converter->toPdf(
-            $this->fill($template, $module, $record),
-            self::filename($template, $record, DocumentFormat::Docx),
-        );
+        $pdf = $this->contents($template, $module, $record, DocumentFormat::Pdf);
 
         // After the conversion, so a converter that is down leaves no entry
         // saying a document was made. And once, not twice: the PDF starts life
@@ -83,6 +76,40 @@ final readonly class DocumentGenerator
         $this->announce($template, $module, $record, DocumentFormat::Pdf);
 
         return $pdf;
+    }
+
+    /**
+     * The same bytes, and **not a word about it on the timeline** (XIV-40).
+     *
+     * The two methods above are "somebody took a document away", which is the
+     * fact §5.2 lets onto a record's history despite changing nothing. This one
+     * is the document alone, for a caller that is doing something else with it
+     * and will record *that* instead: attaching it to a mail, where the send is
+     * the act and the attachment is a property of it rather than a second event
+     * standing beside it. An audit trail reading "generated a document, sent an
+     * email" for one button press describes one act twice.
+     *
+     * It is also what lets the send screen's preview build the very document it
+     * is previewing without a preview showing up in the record's history —
+     * which the announcing methods could not have done at all.
+     *
+     * Filled first and converted afterwards, rather than converted and then
+     * filled: the markers live in a Word document and stop being addressable the
+     * moment it becomes a PDF.
+     *
+     * @throws DocumentFailed when the template cannot be read, filled or converted
+     */
+    public function contents(
+        DocumentTemplate $template,
+        ModuleDefinition $module,
+        Record $record,
+        DocumentFormat $format,
+    ): string {
+        $document = $this->fill($template, $module, $record);
+
+        return $format === DocumentFormat::Pdf
+            ? $this->converter->toPdf($document, self::filename($template, $record, DocumentFormat::Docx))
+            : $document;
     }
 
     /**

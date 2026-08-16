@@ -16,6 +16,10 @@ module:
     record_count_matching: '{count, plural, one {# passender Datensatz.} other {# passende Datensätze.}}'
     linked_shown: '{shown, number} von {total, number} werden angezeigt.'
 
+mail:
+    attachment_size: '({size, number, ::.0} MB)'
+    attachment_too_large: '„{file}“ ist {size, number, ::.0} MB groß, und diese Installation sendet höchstens {limit, number, ::.0} MB.'
+
 field:
     remove_holding: '{count, plural, one {<strong>#</strong> Datensatz hat zurzeit einen Wert dafür.} other {<strong>#</strong> Datensätze haben zurzeit einen Wert dafür.}}'
 

@@ -75,7 +75,14 @@ final class ModuleController extends AbstractController
     private const int HISTORY_PER_PAGE = 25;
 
     /** What the send modal starts with when there is no send to offer (XIV-39). */
-    private const array NO_EMAIL_DRAFT = ['template' => 0, 'subject' => '', 'recipient' => ''];
+    private const array NO_EMAIL_DRAFT = [
+        'template' => 0,
+        'subject' => '',
+        'recipient' => '',
+        // Nothing attached, which is the ordinary send (XIV-40).
+        'document' => 0,
+        'format' => 'pdf',
+    ];
 
     /**
      * How many linked records one card shows (XIV-52).
@@ -281,6 +288,14 @@ final class ModuleController extends AbstractController
 
         $lifecycle = $this->lifecycles->for($definition->getKey());
 
+        // The templates this record could be written onto (XIV-4). Asked for only
+        // when they may generate one, so the query is not run to fill a card
+        // nobody is shown — and read once rather than twice, because the send
+        // screen offers the same list again as attachments (XIV-40).
+        $documents = $this->isGranted(ModuleAction::Document->value, $module)
+            ? $this->templates->forRecord($definition->getKey(), $definition->variantOf($record->data))
+            : [];
+
         return $this->render('module/show.html.twig', [
             'module' => $definition,
             'record' => $record,
@@ -303,18 +318,13 @@ final class ModuleController extends AbstractController
             'history' => $this->history->findFor($definition, $id, self::HISTORY_ON_RECORD),
             'historyTotal' => $this->history->countFor($definition, $id),
             'historyShown' => self::HISTORY_ON_RECORD,
-            // The templates this record could be written onto (XIV-4). Asked for
-            // only when they may generate one, so the query is not run to fill a
-            // card nobody is shown.
-            'documents' => $this->isGranted(ModuleAction::Document->value, $module)
-                ? $this->templates->forRecord($definition->getKey(), $definition->variantOf($record->data))
-                : [],
+            'documents' => $documents,
             'formats' => DocumentFormat::cases(),
             // What could be sent from this record, and where it would go
             // (XIV-39). One value rather than three, because the page's three
             // states — no button, a reason instead of one, the button — are one
             // decision made from all of it.
-            'emails' => $this->emailsOn($definition, $record),
+            'emails' => $this->emailsOn($definition, $record, $documents),
             // Null for a module that simply is (XIV-14); the page then draws no
             // status at all rather than an empty one.
             'lifecycle' => $lifecycle,
@@ -379,22 +389,43 @@ final class ModuleController extends AbstractController
      * worked out offers no send and says why instead, which is a decision the
      * page has to have made before it draws the button.
      *
-     * @return array{templates: list<\Xivi\Core\Entity\EmailTemplate>, recipient: Recipient, draft: array{template: int, subject: string, recipient: string}}
+     * The documents it could carry are the caller's list again under a *second*
+     * grant (XIV-40): attaching means generating, so the picker is drawn only
+     * for somebody who holds `document` on this record as well as `send_email`.
+     * Record-scoped rather than module-scoped, because `document` is scopable
+     * and "only my own customers" is a grant somebody can hold — the send
+     * screen refuses on the same terms, so what is offered here and what is
+     * accepted there cannot disagree. The module-level check the caller already
+     * made is the weaker of the two, so its list is a superset and nothing has
+     * to be read a second time.
+     *
+     * @param list<\Xivi\Core\Entity\DocumentTemplate> $documents
+     *
+     * @return array{templates: list<\Xivi\Core\Entity\EmailTemplate>, recipient: Recipient, draft: array{template: int, subject: string, recipient: string, document: int, format: string}, attachments: list<\Xivi\Core\Entity\DocumentTemplate>}
      */
-    private function emailsOn(ModuleDefinition $definition, Record $record): array
+    private function emailsOn(ModuleDefinition $definition, Record $record, array $documents): array
     {
         if (!$this->isGranted(ModuleAction::SendEmail->value, $definition->getKey())) {
-            return ['templates' => [], 'recipient' => Recipient::missing(RecipientProblem::NotDeclared), 'draft' => self::NO_EMAIL_DRAFT];
+            return [
+                'templates' => [],
+                'recipient' => Recipient::missing(RecipientProblem::NotDeclared),
+                'draft' => self::NO_EMAIL_DRAFT,
+                'attachments' => [],
+            ];
         }
 
         $recipient = $this->recipients->for($definition, $record);
+        $offered = $recipient->isOffered();
 
         return [
-            'templates' => $recipient->isOffered()
+            'templates' => $offered
                 ? $this->emailTemplates->forRecord($definition->getKey(), $definition->variantOf($record->data))
                 : [],
             'recipient' => $recipient,
-            'draft' => ['template' => 0, 'subject' => '', 'recipient' => $recipient->address ?? ''],
+            'draft' => [...self::NO_EMAIL_DRAFT, 'recipient' => $recipient->address ?? ''],
+            'attachments' => $offered && $this->isGranted(ModuleAction::Document->value, new ModuleRecord($definition, $record))
+                ? $documents
+                : [],
         ];
     }
 

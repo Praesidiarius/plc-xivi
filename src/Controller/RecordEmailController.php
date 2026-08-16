@@ -13,6 +13,9 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Tenant\Mail\AttachmentRefused;
+use App\Tenant\Mail\DocumentAttachments;
+use App\Tenant\Mail\MailAttachment;
 use App\Tenant\Mail\MailSendFailed;
 use App\Tenant\Mail\RecordMailer;
 use App\Tenant\Security\ModuleRecord;
@@ -23,6 +26,9 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use Xivi\Core\Document\DocumentFormat;
+use Xivi\Core\Document\DocumentTemplateRepository;
+use Xivi\Core\Entity\DocumentTemplate;
 use Xivi\Core\Entity\EmailTemplate;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Mail\EmailRenderer;
@@ -72,6 +78,34 @@ use Xivi\Core\Record\RecordRepository;
  * the declaration optional and turn the send screen into a way to mail anybody
  * at all from inside somebody else's ERP.
  *
+ * ### Attaching the document, and the two grants that have to hold (XIV-40)
+ *
+ * "Send the invoice" is what anybody actually wants an ERP to do with an email,
+ * and mechanically it is small: the chooser gains a document template and a
+ * format, and {@see DocumentAttachments} makes the file. Two things about it are
+ * not small and both live in this class.
+ *
+ * **Attaching means generating, so it needs the generate grant as well as the
+ * send grant.** The class-level `send_email` is not enough: somebody who may
+ * write to a customer but may not produce that customer's invoice must not be
+ * able to obtain one out of the back of a send, and "the picker was not on their
+ * screen" is not a check — the form is a POST anybody can retype. So the second
+ * grant is asked for on the record, at the moment an attachment is actually
+ * requested, and refused with a 403 rather than a message: a hand-built request
+ * for something never offered is not a mistake to explain kindly.
+ *
+ * It is asked for on the *record* rather than on the module, because `document`
+ * is scopable (§8.4) — "may generate for their own customers" is a real grant,
+ * and a check against the module alone would quietly widen it to everybody's.
+ *
+ * **The preview generates the document too**, which costs a second conversion on
+ * the preview-then-send path and is worth it. The preview exists so that what
+ * arrives holds no surprises, and "the converter is down" and "this PDF is too
+ * big to send" are the two surprises that would otherwise wait until the
+ * irreversible button. It is also why the generator has a way to produce a
+ * document without writing history: a preview must not put anything on a
+ * record's timeline.
+ *
  * ### Hand-rolled POSTs rather than a FormType
  *
  * Like DocumentController, FieldController, UserController and the email
@@ -97,6 +131,8 @@ final class RecordEmailController extends AbstractController
         private readonly RecipientResolver $recipients,
         private readonly EmailRenderer $renderer,
         private readonly RecordMailer $mailer,
+        private readonly DocumentTemplateRepository $documents,
+        private readonly DocumentAttachments $attachments,
         private readonly TranslatorInterface $translator,
     ) {
     }
@@ -121,6 +157,8 @@ final class RecordEmailController extends AbstractController
             'templates' => $this->templatesFor($definition, $record),
             'recipient' => $recipient,
             'draft' => self::blank($recipient),
+            'attachments' => $this->attachableFor($definition, $record),
+            'formats' => DocumentFormat::cases(),
         ]);
     }
 
@@ -157,6 +195,12 @@ final class RecordEmailController extends AbstractController
             // that has no address to send as at all, and finding that out here
             // beats finding it out one button later.
             $sender = $this->mailer->sender();
+            // And the document itself, actually made rather than named (XIV-40).
+            // A preview whose attachment would have failed to generate, or would
+            // have been refused for its size, is a preview of a send that cannot
+            // happen — which is the same rule problemWith() applies to
+            // everything else on this screen.
+            $attachment = $this->attachmentFor($definition, $record, $draft);
         } catch (MailSendFailed $failed) {
             return $this->backToChooser(
                 $definition,
@@ -165,6 +209,8 @@ final class RecordEmailController extends AbstractController
                 $draft,
                 $failed->translatable()->trans($this->translator),
             );
+        } catch (AttachmentRefused $refused) {
+            return $this->backToChooser($definition, $record, $recipient, $draft, $this->refusalOf($refused));
         }
 
         return $this->render('mail/preview.html.twig', [
@@ -173,6 +219,7 @@ final class RecordEmailController extends AbstractController
             'template' => $template,
             'draft' => $draft,
             'sender' => $sender,
+            'attachment' => $attachment,
             'rendered' => $this->messageFor($template, $definition, $record, $draft['subject']),
         ]);
     }
@@ -206,12 +253,24 @@ final class RecordEmailController extends AbstractController
         $template = $this->template($definition, $record, $draft['template']);
 
         try {
+            // **Before anything is handed to a transport**, which is what makes
+            // "a failed generation sends nothing at all" true rather than
+            // careful (XIV-40). Nothing is recorded on the timeline either: no
+            // message was built, so there was no send to have failed, and an
+            // `email_failed` here would say one was attempted when none was.
+            $attachment = $this->attachmentFor($definition, $record, $draft);
+        } catch (AttachmentRefused $refused) {
+            return $this->backToChooser($definition, $record, $recipient, $draft, $this->refusalOf($refused));
+        }
+
+        try {
             $this->mailer->send(
                 $definition,
                 $record,
                 $template,
                 $draft['recipient'],
                 $this->messageFor($template, $definition, $record, $draft['subject']),
+                $attachment,
             );
         } catch (MailSendFailed $failed) {
             // The whole reason MailSendFailed is thrown rather than swallowed
@@ -236,7 +295,7 @@ final class RecordEmailController extends AbstractController
      * about what is sendable down to the last case — a preview of something that
      * would then be refused is a preview of nothing.
      *
-     * @param array{template: int, subject: string, recipient: string} $draft
+     * @param array{template: int, subject: string, recipient: string, document: int, format: string} $draft
      */
     private function problemWith(
         ModuleDefinition $definition,
@@ -276,7 +335,7 @@ final class RecordEmailController extends AbstractController
      * somebody worded carefully is not something to lose to a typo in the
      * address beside it.
      *
-     * @param array{template: int, subject: string, recipient: string} $draft
+     * @param array{template: int, subject: string, recipient: string, document: int, format: string} $draft
      */
     private function backToChooser(
         ModuleDefinition $definition,
@@ -293,6 +352,101 @@ final class RecordEmailController extends AbstractController
             'templates' => $this->templatesFor($definition, $record),
             'recipient' => $recipient,
             'draft' => $draft,
+            'attachments' => $this->attachableFor($definition, $record),
+            'formats' => DocumentFormat::cases(),
+        ]);
+    }
+
+    /**
+     * The document going with this send, or null for a send without one.
+     *
+     * **Where the two grants meet** (XIV-40). The class already holds `send_email`
+     * for every route; this is where `document` is asked for as well, and only
+     * when an attachment is actually wanted — a plain send by somebody who may
+     * not generate documents is an ordinary send and stays one.
+     *
+     * A 403 rather than a refusal on the page, because the picker is not drawn
+     * for anybody who lacks the grant: a request naming a document is either
+     * hand-built or a stale form, and neither wants a sentence explaining what
+     * they might have done instead. A 404 for a template that does not apply to
+     * this record, which is the call the document route already makes (§5.5).
+     *
+     * @param array{template: int, subject: string, recipient: string, document: int, format: string} $draft
+     *
+     * @throws AttachmentRefused when it cannot be made, or is too big to send
+     */
+    private function attachmentFor(
+        ModuleDefinition $definition,
+        Record $record,
+        array $draft,
+    ): ?MailAttachment {
+        if ($draft['document'] === 0) {
+            return null;
+        }
+
+        if (!$this->mayGenerate($definition, $record)) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $template = $this->documents->find($definition->getKey(), $draft['document']);
+
+        if ($template === null || !$template->appliesTo($definition->variantOf($record->data))) {
+            throw $this->createNotFoundException();
+        }
+
+        return $this->attachments->for(
+            $template,
+            $definition,
+            $record,
+            // Hand-editable, and an unknown format is the one everybody means —
+            // the same fallback the download route takes.
+            DocumentFormat::tryFrom($draft['format']) ?? DocumentFormat::Pdf,
+        );
+    }
+
+    /**
+     * The documents this person could attach here, which is often none.
+     *
+     * Both grants again, in the form the screen needs rather than the form the
+     * POST needs: without `document` the picker is not drawn at all, so nobody
+     * is offered a control that would answer 403. Asked for before the templates
+     * are read, so the query is not run to fill something nobody sees — the same
+     * care the record page takes over its own two lists.
+     *
+     * @return list<DocumentTemplate>
+     */
+    private function attachableFor(ModuleDefinition $definition, Record $record): array
+    {
+        return $this->mayGenerate($definition, $record)
+            ? $this->documents->forRecord($definition->getKey(), $definition->variantOf($record->data))
+            : [];
+    }
+
+    /**
+     * Whether this person may produce a document *from this record*.
+     *
+     * Record-scoped rather than module-scoped because `document` is scopable
+     * (§8.4): "only my own customers" is a grant somebody can hold, and asking
+     * the module would answer yes for records that grant does not cover.
+     */
+    private function mayGenerate(ModuleDefinition $definition, Record $record): bool
+    {
+        return $this->isGranted(ModuleAction::Document->value, new ModuleRecord($definition, $record));
+    }
+
+    /**
+     * What to tell somebody whose attachment did not happen.
+     *
+     * Two sentences from two places: the document layer's own reason, which is
+     * visibly about a document rather than about mail, wrapped in the half that
+     * is the same however it failed — that nothing was sent. Composed here
+     * rather than inside the exception because interpolating one translated
+     * sentence into another needs a translator, and this is where there is one.
+     */
+    private function refusalOf(AttachmentRefused $refused): string
+    {
+        return $this->translator->trans('mail.attachment_failed', [
+            '%reason%' => $refused->reason()->trans($this->translator),
         ]);
     }
 
@@ -339,20 +493,33 @@ final class RecordEmailController extends AbstractController
         return $this->templateOrNull($definition, $record, $id) ?? throw $this->createNotFoundException();
     }
 
-    /** @return array{template: int, subject: string, recipient: string} */
+    /** @return array{template: int, subject: string, recipient: string, document: int, format: string} */
     private static function draftOf(Request $request): array
     {
         return [
             'template' => $request->request->getInt('template'),
             'subject' => trim((string) $request->request->get('subject')),
             'recipient' => trim((string) $request->request->get('recipient')),
+            // Zero is "nothing attached", which is what the picker's first
+            // option holds and what a form that has no picker sends by omission
+            // (XIV-40). No attachment is the ordinary send and stays the
+            // default: a mail nobody asked to put a document on should not
+            // acquire one from whichever template happened to be listed first.
+            'document' => $request->request->getInt('document'),
+            'format' => (string) $request->request->get('format', DocumentFormat::Pdf->value),
         ];
     }
 
-    /** @return array{template: int, subject: string, recipient: string} */
+    /** @return array{template: int, subject: string, recipient: string, document: int, format: string} */
     private static function blank(Recipient $recipient): array
     {
-        return ['template' => 0, 'subject' => '', 'recipient' => $recipient->address ?? ''];
+        return [
+            'template' => 0,
+            'subject' => '',
+            'recipient' => $recipient->address ?? '',
+            'document' => 0,
+            'format' => DocumentFormat::Pdf->value,
+        ];
     }
 
     /**

@@ -114,6 +114,21 @@
 			<span class="badge text-bg-light fw-normal ms-1">
 				{{- entry.email.template }} · {{ entry.email.recipient -}}
 			</span>
+			{#
+				What went with it, where something did (XIV-40). One entry, not two:
+				the document was made in order to be attached, so it is a property of
+				this act rather than an act of its own — and on a `email_failed` row
+				its presence is the sentence "the invoice was made and the mail
+				server refused it", which is a different problem from a document that
+				could not be produced at all.
+			#}
+			{% set attached = entry.email.attachment|default(null) %}
+			{% if attached %}
+				<span class="badge text-bg-light fw-normal ms-1">
+					<i class="bi bi-paperclip" aria-hidden="true"></i>
+					{{ attached.template }} · {{ attached.format|upper }}
+				</span>
+			{% endif %}
 			<span class="text-body-secondary">{{ entry.email.subject }}</span>
 		{% endif %}
 	{% endset %}

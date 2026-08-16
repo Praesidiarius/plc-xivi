@@ -416,6 +416,10 @@ mail:
     not_sendable: Nothing can be sent from this record.
     no_template_chosen: Pick one of the templates. Nothing was sent.
     recipient_invalid: '"%address%" is not an email address. Nothing was sent.'
+    attachment: Attachment
+    no_attachment: Nothing attached
+    attachment_help: The document is generated from this record when the message is sent, and goes out with it.
+    attachment_failed: 'Nothing was sent, because the document could not be attached. %reason%'
 
 flash:
     saved: Saved.

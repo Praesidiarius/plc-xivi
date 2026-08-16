@@ -49,14 +49,21 @@ use Xivi\Core\Record\RecordChanges;
  * entry: a timeline is read by scanning its verbs, so the difference has to be
  * in the verb.
  *
- * ### What is deliberately not here
+ * ### The attachment came in through the seam that was left for it
  *
- * **Attachments.** XIV-40 attaches a generated document to the send, and the
- * seam it needs is {@see self::messageFor()} — the single place a `Mime\Email` is
- * built — together with {@see RecordChanges::forEmail()}, where that ticket's
- * "one act, not two" decision becomes another key on the same entry rather than
- * a second event. Nothing is stubbed for it here: an unused parameter is a
- * design guess, and the shape above is the actual commitment.
+ * XIV-40 needed two things and both were where XIV-39 said they would be:
+ * {@see self::messageFor()}, the single place a `Mime\Email` is built, and
+ * {@see RecordChanges::forEmail()}, the single named constructor for the entry.
+ * So attaching a document is one more argument here and one more key there,
+ * rather than a second path through this class or a second event beside the one
+ * it writes — which is the whole of §5.15's "one act, not two".
+ *
+ * What is emphatically *not* here is generating the thing. The document is made
+ * and measured by {@see DocumentAttachments} before this method is called, so a
+ * generation that fails cannot reach the point where a message exists — and this
+ * class keeps having exactly two outcomes to record.
+ *
+ * ### What is deliberately not here
  *
  * **Retrying.** A send that failed is a failure somebody reads and acts on. §8.7
  * chose synchronous sending because this runtime has nothing running between
@@ -89,11 +96,16 @@ final readonly class RecordMailer
     /**
      * Sends it, and puts it on the record's timeline either way.
      *
-     * @param string $recipient where it goes — the resolved address, or whatever
-     *                          the person pressing the button corrected it to for
-     *                          this one send. It is never written back to the
-     *                          record: sending a mail somewhere once is not a
-     *                          correction to the contact.
+     * @param string              $recipient  where it goes — the resolved address, or whatever
+     *                                        the person pressing the button corrected it to for
+     *                                        this one send. It is never written back to the
+     *                                        record: sending a mail somewhere once is not a
+     *                                        correction to the contact.
+     * @param MailAttachment|null $attachment the document going with it (XIV-40), already
+     *                                        generated and already inside the size this
+     *                                        installation will send. Null is the ordinary
+     *                                        case and stays the default, so XIV-39's
+     *                                        callers read exactly as they did.
      *
      * @throws MailSendFailed
      */
@@ -103,11 +115,24 @@ final readonly class RecordMailer
         EmailTemplate $template,
         string $recipient,
         RenderedEmail $rendered,
+        ?MailAttachment $attachment = null,
     ): void {
-        $changes = RecordChanges::forEmail($template->getName(), $recipient, $rendered->subject);
+        $changes = RecordChanges::forEmail(
+            $template->getName(),
+            $recipient,
+            $rendered->subject,
+            // Named before the send rather than after it, so the entry says the
+            // same thing whichever of the two outcomes it ends up describing: an
+            // `email_failed` that names its attachment is a document that was
+            // made and a transport that refused, which is a different afternoon
+            // from a document that could not be made at all.
+            $attachment === null
+                ? null
+                : ['template' => $attachment->template, 'format' => $attachment->format->value],
+        );
 
         try {
-            $this->mailer->send(self::messageFor($recipient, $rendered));
+            $this->mailer->send(self::messageFor($recipient, $rendered, $attachment));
         } catch (MailSendFailed $failed) {
             $this->record($module, $record, RecordAction::EmailFailed, $changes);
 
@@ -138,14 +163,26 @@ final readonly class RecordMailer
      * Both bodies, always. The Markdown source *is* the text alternative
      * (§5.13), so there is one here without anything having stripped tags out of
      * the HTML to invent it.
+     *
+     * And the document, where there is one (XIV-40) — the seam this method was
+     * named as. `attach()` rather than `embed()`: an invoice is a file somebody
+     * saves, not an image the message is laid out around, and inline parts are
+     * what a mail client shows in the body.
      */
-    private static function messageFor(string $recipient, RenderedEmail $rendered): Email
-    {
-        return new Email()
+    private static function messageFor(
+        string $recipient,
+        RenderedEmail $rendered,
+        ?MailAttachment $attachment,
+    ): Email {
+        $email = new Email()
             ->to(new Address($recipient))
             ->subject($rendered->subject)
             ->text($rendered->text)
             ->html($rendered->html);
+
+        return $attachment === null
+            ? $email
+            : $email->attach($attachment->contents, $attachment->filename, $attachment->contentType);
     }
 
     /**

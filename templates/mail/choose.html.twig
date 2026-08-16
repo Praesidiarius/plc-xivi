@@ -37,6 +37,8 @@
 				{% elseif templates is empty %}
 					<p class="text-body-secondary mb-0">{{ 'mail.none_for_record'|trans }}</p>
 				{% else %}
+					{# attachments and formats are in scope from the controller; the
+					   modal on the record page passes its own (XIV-40). #}
 					{{ include('mail/_choose.html.twig', {id: 'page'}) }}
 				{% endif %}
 			</div>

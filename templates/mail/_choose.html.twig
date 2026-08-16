@@ -45,6 +45,50 @@
 		<div class="form-text">{{ 'mail.subject_help'|trans }}</div>
 	</div>
 
+	{#
+		What goes with it (XIV-40) — the two features meeting, which is "send the
+		invoice" and the thing anybody actually wants an ERP to do with an email.
+
+		**Only drawn for somebody who may generate documents as well as send
+		mail**, which is why the list arrives empty rather than being filtered
+		here: attaching means generating, and a picker offered to whoever lacks
+		that grant would be a control that answers 403. The send screen asks the
+		same question again when the form comes back, because a form is a POST
+		anybody can retype.
+
+		**"Nothing" is the first option and the selected one.** A send with no
+		document is the ordinary send, and a box defaulting to whichever template
+		happened to be listed first would put a customer's invoice on a mail
+		nobody asked to attach one to — the same argument the subject box makes
+		one field up, in the direction that matters more.
+	#}
+	{% if attachments is not empty %}
+		<div class="mb-3">
+			<label class="form-label" for="{{ prefix }}-document">{{ 'mail.attachment'|trans }}</label>
+			<div class="row g-2">
+				<div class="col-sm-8">
+					<select class="form-select" id="{{ prefix }}-document" name="document">
+						<option value="0" {{ draft.document ? '' : 'selected' }}>{{ 'mail.no_attachment'|trans }}</option>
+						{% for template in attachments %}
+							<option value="{{ template.id }}" {{ draft.document == template.id ? 'selected' : '' }}>{{ template.name }}</option>
+						{% endfor %}
+					</select>
+				</div>
+				<div class="col-sm-4">
+					<label class="visually-hidden" for="{{ prefix }}-format">{{ 'document.format'|trans }}</label>
+					<select class="form-select" id="{{ prefix }}-format" name="format">
+						{% for format in formats %}
+							<option value="{{ format.value }}" {{ draft.format == format.value ? 'selected' : '' }}>
+								{{- ('document.format_' ~ format.value)|trans -}}
+							</option>
+						{% endfor %}
+					</select>
+				</div>
+			</div>
+			<div class="form-text">{{ 'mail.attachment_help'|trans }}</div>
+		</div>
+	{% endif %}
+
 	<div class="mb-3">
 		<label class="form-label" for="{{ prefix }}-recipient">{{ 'mail.recipient'|trans }}</label>
 		{#
