@@ -127,10 +127,41 @@ that rename every page load. Which means labels are one language per *tenant*,
 while everything else follows each reader. A key with no German translation fails
 the build rather than falling back quietly.
 
-**Permissions, per module and per action** (§8.4). What can be done is a closed
-list — view, list, add, edit, delete, export, import — so the set of permissions
-is that list crossed with the modules a customer has installed, with nothing to
-seed and nothing to keep in step. Grants are given to a group and inherited by
+**Money that adds up** (§5.9). Lines carry a quantity and a price; the order's
+net, VAT and gross are derived from them on save and *stored*, because a price
+list that changes must not restate an invoice already sent. The arithmetic is the
+server's, and the same derivers run behind the figures that update while you
+type.
+
+**Documents from a Word template** (§5.7). A tenant uploads a .docx with
+placeholders, and a record fills it in — as Word or as a PDF. A row of a table
+containing a collection's marker repeats once per line, so an invoice's lines
+come out as an invoice's lines.
+
+**Numbers, lifecycles and links** (§5.10, §5.8). Documents are numbered from
+the customer's own counters; a record moves through declared states rather than
+having one written into it; and a reference is a link to the record it names,
+offered only where the reader may open it.
+
+**Mail, as the customer** (§8.7, §5.13–§5.15). Email templates are written in the
+application in Markdown, sent from a record with the recipient taken from the
+module's own declaration, and a generated document can go out attached. Outside
+production nothing can reach a real mail server at all.
+
+**A store, so a tenant installs modules themselves** (§6.3). What this build
+offers, what each module is, and a wizard that picks a preset — with no shell and
+no operator in the loop.
+
+**Colleagues are invited, not handed a password** (§8.8). Adding a user sends a
+link that works once and for twenty-four hours; no password is generated at all.
+
+**Permissions, on two axes** (§8.4, §8.4.3). What can be done *to a module* is a
+closed list — view, list, add, edit, delete, export, import, templates, document,
+email templates, send email, transition — so that half of the set is the list
+crossed with the modules a customer has installed, with nothing to seed and
+nothing to keep in step. The store is the second axis and deliberately not part of
+that crossing: browsing is about no module, and installing is about one you have
+not got. Grants are given to a group and inherited by
 its members, or to one person on top of that; they only ever add, so resolving
 somebody is a maximum rather than a precedence table nobody can hold in their
 head. Mutating and reading alike can be narrowed to **only the records that
