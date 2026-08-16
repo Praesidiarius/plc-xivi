@@ -78,6 +78,10 @@ lands in `Unreleased` here.
   are the same thing one level down — and an order or invoice line now declares
   its own widths, so a whole line sits on one row instead of six. Existing forms change appearance on upgrade, which is the
   point; nothing is migrated and no value is written. See §5.
+- **What points at a record is folded away until asked for.** A contact's orders
+  and invoices show their heading and how many there are; the list opens on a
+  click. Native `<details>`, so it works without JavaScript and with the
+  keyboard — the same choice the timeline made.
 - **A reference is a link to the record it names** ([XIV-42]), on the record
   page, in a list column and in a collection row. The name is shown to anybody
   who can see the record holding it; the *link* is offered only where the reader

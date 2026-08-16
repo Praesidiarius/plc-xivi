@@ -84,6 +84,22 @@
 }
 
 /*
+ * What points at this record (§7.6), closed until asked for.
+ *
+ * The same treatment the timeline gets above and for the same reason: the
+ * marker sits on its own line unless the summary is made to lay out inline, and
+ * Safari needs the vendor pseudo-element before it will accept one at all.
+ */
+.linked-group > summary {
+	cursor: pointer;
+	list-style-position: inside;
+}
+
+.linked-group > summary::-webkit-details-marker {
+	display: none;
+}
+
+/*
  * Collection rows carry a position (XIV-21).
  *
  * Narrow, and out of the way: it is a number about the list rather than a value
