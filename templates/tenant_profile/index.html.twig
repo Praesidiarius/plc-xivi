@@ -60,6 +60,60 @@
 					<div class="form-text">{{ 'profile.region_help'|trans }}</div>
 				</div>
 
+				{#
+					Who this installation's mail comes from, and which server it
+					leaves through (XIV-37). The two are one decision — see
+					docs/architecture.md §8.7 — so they sit under one heading and
+					the help text says which of the two you are choosing.
+				#}
+				<hr class="my-4">
+
+				<h2 class="h5">{{ 'profile.mail'|trans }}</h2>
+				<p class="text-body-secondary">{{ 'profile.mail_intro'|trans }}</p>
+
+				<div class="mb-3">
+					<label class="form-label" for="mail_sender_address">{{ 'profile.mail_sender_address'|trans }}</label>
+					<input class="form-control" type="email" id="mail_sender_address" name="mail_sender_address"
+					       maxlength="255" value="{{ profile.mailSenderAddress }}" {{ editable ? '' : 'disabled' }}>
+					<div class="form-text">{{ 'profile.mail_sender_address_help'|trans }}</div>
+				</div>
+
+				<div class="row">
+					<div class="col-md-8 mb-3">
+						<label class="form-label" for="mail_smtp_host">{{ 'profile.mail_smtp_host'|trans }}</label>
+						<input class="form-control" type="text" id="mail_smtp_host" name="mail_smtp_host"
+						       maxlength="255" value="{{ profile.mailSmtpHost }}" {{ editable ? '' : 'disabled' }}>
+						<div class="form-text">{{ 'profile.mail_smtp_host_help'|trans }}</div>
+					</div>
+
+					<div class="col-md-4 mb-3">
+						<label class="form-label" for="mail_smtp_port">{{ 'profile.mail_smtp_port'|trans }}</label>
+						<input class="form-control" type="number" id="mail_smtp_port" name="mail_smtp_port"
+						       min="1" max="65535" value="{{ profile.mailSmtpPort }}" {{ editable ? '' : 'disabled' }}>
+						<div class="form-text">{{ 'profile.mail_smtp_port_help'|trans }}</div>
+					</div>
+				</div>
+
+				<div class="row">
+					<div class="col-md-6 mb-3">
+						<label class="form-label" for="mail_smtp_user">{{ 'profile.mail_smtp_user'|trans }}</label>
+						<input class="form-control" type="text" id="mail_smtp_user" name="mail_smtp_user"
+						       maxlength="255" value="{{ profile.mailSmtpUser }}" autocomplete="off"
+						       {{ editable ? '' : 'disabled' }}>
+					</div>
+
+					{# Rendered empty every time: a stored secret is not sent back to a
+					   browser, so blank means "unchanged" rather than "no password". #}
+					<div class="col-md-6 mb-3">
+						<label class="form-label" for="mail_smtp_password">{{ 'profile.mail_smtp_password'|trans }}</label>
+						<input class="form-control" type="password" id="mail_smtp_password" name="mail_smtp_password"
+						       value="" autocomplete="new-password" {{ editable ? '' : 'disabled' }}>
+						<div class="form-text">
+							{{ (profile.encryptedMailSmtpPassword ? 'profile.mail_smtp_password_set' : 'profile.mail_smtp_password_help')|trans }}
+						</div>
+					</div>
+				</div>
+
 				{% if editable %}
 					<button class="btn btn-primary" type="submit">{{ 'common.save'|trans }}</button>
 				{% else %}

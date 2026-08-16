@@ -10,10 +10,17 @@
 # `null://null` by default and in the test suite, the catcher in dev. Each is
 # commented where it is set, which is where somebody changing it will be looking.
 #
-# What is *not* here is any restriction on where mail may be addressed. Reading
-# this file as "development cannot send to a real person" would be wrong — a DSN
-# is believed, whatever it names. That guarantee is XIV-37's, and it will be a
-# transport decision rather than a default.
+# What is *not* here is any restriction on where mail may be addressed — a DSN
+# is believed, whatever it names, and this file has no opinion about that.
+#
+# **The restriction exists, and it is not configuration** (XIV-37).
+# `App\Mail\NonProductionMailGuard` is registered ahead of every transport
+# factory symfony/mailer ships, so outside production nothing that could deliver
+# is ever *built* — not from this DSN and not from the per-tenant SMTP
+# credentials `App\Tenant\Mail\TenantMailer` turns into one at request time. Its
+# one concession is `app.mail.catcher_hosts`, which is the compose catcher in dev
+# and empty everywhere else. Both are in config/services.yaml, next to the tag
+# that does the work.
 framework:
     mailer:
         dsn: '%env(MAILER_DSN)%'

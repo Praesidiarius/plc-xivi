@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Tenant\Mail\MailSettingsRefused;
 use App\Tenant\Security\PermissionArea;
 use App\Tenant\Settings\TenantProfileManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -66,6 +67,30 @@ final class TenantProfileController extends AbstractController
             return $this->page($request);
         }
 
+        try {
+            // Mail first, because it is the half that can refuse (XIV-37). Doing
+            // it after the name and the currency would leave those saved and the
+            // page reporting a failure, which reads as "nothing was saved" and
+            // is not.
+            $this->profile->applyMail(
+                (string) $request->request->get('mail_sender_address'),
+                (string) $request->request->get('mail_smtp_host'),
+                $this->port($request),
+                (string) $request->request->get('mail_smtp_user'),
+                // Empty means "unchanged" here rather than "clear it": the field
+                // is rendered blank on every load, because a stored password is
+                // never sent back to a browser. Clearing the server clears it.
+                $this->submittedPassword($request),
+            );
+        } catch (MailSettingsRefused $refused) {
+            $this->addFlash('error', $this->translator->trans(
+                $refused->translatable()->getMessage(),
+                $refused->translatable()->getParameters(),
+            ));
+
+            return $this->page($request);
+        }
+
         $this->profile->apply(
             (string) $request->request->get('company_name'),
             (string) $request->request->get('currency'),
@@ -77,6 +102,22 @@ final class TenantProfileController extends AbstractController
         // Redirect rather than render, so a reload does not repost the form —
         // and so the topbar picks the new company name up on a fresh request.
         return $this->redirectToRoute('tenant_profile');
+    }
+
+    /** Blank means "the scheme's default", which is a real answer and not a missing one. */
+    private function port(Request $request): ?int
+    {
+        $port = trim((string) $request->request->get('mail_smtp_port'));
+
+        return $port === '' ? null : (int) $port;
+    }
+
+    /** Blank means "leave the stored one alone"; see TenantProfileManager::applyMail(). */
+    private function submittedPassword(Request $request): ?string
+    {
+        $password = (string) $request->request->get('mail_smtp_password');
+
+        return $password === '' ? null : $password;
     }
 
     private function page(Request $request): Response

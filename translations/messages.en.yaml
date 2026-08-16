@@ -274,6 +274,23 @@ profile:
     currency_help: What prices are in. Nothing forces one, and modules that need it will ask for this.
     currency_none: Not chosen yet
     read_only: You may see this but not change it.
+    mail: Outgoing mail
+    mail_intro: >-
+        Where the mail this installation sends comes from. Leave the server blank and it
+        goes out through us, with your address to reply to. Fill it in and it goes out
+        through your own provider, genuinely from you.
+    mail_sender_address: Sender address
+    mail_sender_address_help: >-
+        The address your customers see, and where their replies go. Needed before a server
+        can be used.
+    mail_smtp_host: Your SMTP server
+    mail_smtp_host_help: Leave this empty to send through this installation instead.
+    mail_smtp_port: Port
+    mail_smtp_port_help: Blank for the default. 465 for TLS.
+    mail_smtp_user: SMTP user
+    mail_smtp_password: SMTP password
+    mail_smtp_password_help: Stored encrypted, and never shown again.
+    mail_smtp_password_set: A password is stored. Leave this empty to keep it.
 
 document:
     documents: Documents
@@ -370,6 +387,12 @@ refusal:
     wrong_password: That is not your current password.
     group_no_name: 'A group needs a name: it is what people pick it by.'
     group_name_taken: 'There is already a group called "%label%".'
+    mail_server_without_address: 'An SMTP server needs a sender address: it is what your mail would claim to be from.'
+    mail_not_an_address: '"%address%" is not an email address.'
+
+mail:
+    send_failed: The message could not be sent. Nothing went out — try again, or check the outgoing mail settings.
+    no_sender: This installation has no address to send from yet. Set a sender address in the company profile.
 
 flash:
     saved: Saved.

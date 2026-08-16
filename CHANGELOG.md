@@ -65,6 +65,12 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **An installation can send mail, as itself** ([XIV-37]). The company profile
+  now holds a sender address and, optionally, your own SMTP server: with one,
+  mail is genuinely from you; without one it goes out through this installation
+  with your name on it and your address to reply to. The SMTP password is stored
+  encrypted and moves with `tenant:rotate-secrets`, and outside production
+  nothing can reach a real mail server at all. See §8.7.
 - **Emails are written in Xivi, not uploaded** ([XIV-38]). A module can now have
   email templates — a name, a subject and a message in Markdown, typed into a form
   and edited in place, with the same placeholders documents already offer. The
@@ -182,4 +188,5 @@ lands in `Unreleased` here.
 [XIV-53]: https://xivi.youtrack.cloud/issue/XIV-53
 [XIV-55]: https://xivi.youtrack.cloud/issue/XIV-55
 [XIV-44]: https://xivi.youtrack.cloud/issue/XIV-44
+[XIV-37]: https://xivi.youtrack.cloud/issue/XIV-37
 [XIV-38]: https://xivi.youtrack.cloud/issue/XIV-38
