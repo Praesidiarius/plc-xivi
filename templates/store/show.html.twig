@@ -1,0 +1,135 @@
+{#
+	One module's page: what it is, what it can be installed as, and what it needs
+	(XIV-6).
+
+	Everything on it is read off the blueprint, so a module added to a future
+	build gets this page with nothing written here about it.
+
+	The presets are laid out in full rather than summarised, and that is the point
+	of the page rather than a nicety: §6.1 does not retro-fit, and XIV-70 does not
+	exist yet, so the field list somebody reads here is the field list they live
+	with. The wizard says it again where the choice is actually made.
+#}
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ offer.label }}{% endblock %}
+
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<div class="d-flex align-items-center justify-content-between mb-3">
+			<h1 class="h3 mb-0 d-flex align-items-center gap-2">
+				{% if offer.blueprint.icon %}
+					<i class="bi bi-{{ offer.blueprint.icon }} text-body-secondary" aria-hidden="true"></i>
+				{% endif %}
+				{{ offer.label }}
+			</h1>
+			<a class="btn btn-link" href="{{ path('store_index') }}">{{ 'common.back'|trans }}</a>
+		</div>
+
+		{% if offer.installed %}
+			<div class="alert alert-success">
+				{{ 'store.already_yours'|trans }}
+			</div>
+		{% endif %}
+
+		{#
+			What is missing, named, with a link to it — never chain-installed
+			(XIV-23). Each of those modules carries its own permanent preset
+			choice, so installing them on somebody's behalf would make a decision
+			nothing can undo while they thought they were making one.
+		#}
+		{% if offer.requirements is not empty %}
+			<h2 class="h5 mb-2">{{ 'store.requirements'|trans }}</h2>
+			<p class="text-body-secondary">{{ 'store.requirements_help'|trans }}</p>
+
+			<div class="card mb-4">
+				<ul class="list-group list-group-flush">
+					{% for requirement in offer.requirements %}
+						<li class="list-group-item d-flex align-items-center justify-content-between">
+							<span>
+								{% if requirement.offered %}
+									<a href="{{ path('store_module', {module: requirement.key}) }}">{{ requirement.label }}</a>
+								{% else %}
+									{{ requirement.label }}
+								{% endif %}
+							</span>
+							{% if requirement.installed %}
+								<span class="badge text-bg-success">{{ 'store.installed'|trans }}</span>
+							{% else %}
+								<span class="badge text-bg-warning">{{ 'store.not_installed'|trans }}</span>
+							{% endif %}
+						</li>
+					{% endfor %}
+				</ul>
+			</div>
+		{% endif %}
+
+		<h2 class="h5 mb-2">{{ 'store.presets'|trans }}</h2>
+		<p class="text-body-secondary">{{ 'store.presets_help'|trans }}</p>
+
+		{% if offer.presets is empty %}
+			<div class="alert alert-secondary">
+				{{ 'store.no_presets'|trans({'%count%': offer.blueprint.fields|length}) }}
+			</div>
+		{% else %}
+			<div class="row g-3 mb-4">
+				{% for preset in offer.presets %}
+					<div class="col-md-6">
+						<div class="card h-100">
+							<div class="card-body">
+								<h3 class="h6 card-title mb-1">
+									{{ preset.label }}
+									{% if preset.isDefault %}
+										<span class="badge text-bg-secondary">{{ 'store.preset_default'|trans }}</span>
+									{% endif %}
+								</h3>
+								<p class="card-text text-body-secondary small">{{ preset.description }}</p>
+								{# The fields themselves, not a count. A count is a number
+								   somebody has to trust; the list is the decision. #}
+								<ul class="small mb-0">
+									{% for field in preset.fields %}
+										<li>{{ field }}</li>
+									{% endfor %}
+								</ul>
+							</div>
+						</div>
+					</div>
+				{% endfor %}
+			</div>
+		{% endif %}
+
+		{#
+			Collections come whatever the preset says, because a preset names fields
+			and never collections: a field left out can be added back in the metadata
+			editor, and a collection needs a table only the installer creates (§6.1).
+			Said here so the shape somebody is choosing is the whole shape.
+		#}
+		{% if offer.collections is not empty %}
+			<div class="alert alert-secondary">
+				{{ 'store.collections_always'|trans({'%collections%': offer.collections|join(', ')}) }}
+			</div>
+		{% endif %}
+
+		<div class="d-flex gap-2">
+			{% if offer.isInstallable and can('install', chrome.store) %}
+				<a class="btn btn-primary" href="{{ path('store_install', {module: offer.key}) }}">
+					<i class="bi bi-download" aria-hidden="true"></i>
+					{{ 'store.install'|trans }}
+				</a>
+			{% elseif not offer.installed and offer.missingRequirements is not empty %}
+				{#
+					No button at all rather than a disabled one. A control that cannot
+					be used is a question with no answer on it; the sentence beside it
+					is the answer, and the links above are the way to fix it.
+				#}
+				<span class="text-body-secondary">
+					{{ 'store.needs_first'|trans({'%missing%': offer.missingRequirements|map(r => r.label)|join(', ')}) }}
+				</span>
+			{% endif %}
+		</div>
+	</main>
+{% endblock %}

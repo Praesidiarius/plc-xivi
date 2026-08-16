@@ -35,8 +35,17 @@ use Symfony\Component\HttpKernel\KernelInterface;
  */
 final class ModuleStateTest extends KernelTestCase
 {
-    /** In the build, so the catalogue will accept decisions about it. */
-    private const string MODULE = 'contact';
+    /**
+     * In the build, so the catalogue will accept decisions about it.
+     *
+     * Article rather than contact, and deliberately: module state lives in the
+     * *control plane*, which DAMA does not roll back and which every paratest
+     * worker shares. Two classes publishing the same module at once is a race
+     * whose failure lands in whichever of them lost, so the classes that write
+     * state keep to different keys — {@see \App\Tests\Functional\Tenant\ModuleStoreTest}
+     * has contact, order and invoice, and leaves this one alone.
+     */
+    private const string MODULE = 'article';
 
     /** Deliberately not in any build: a decision that outlived its code. */
     private const string GHOST = 'test_ghost_module';

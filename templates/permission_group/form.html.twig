@@ -130,6 +130,43 @@
 				</div>
 			</div>
 
+			{#
+				The store, which is the second permission axis rather than a third
+				table of the same kind (§8.4.3, XIV-6). Its own section because its
+				*verbs* are its own: browse and install are not things done to a
+				module's records, so they share no column with the matrix above and
+				drawing them into it would have meant a grid mostly full of cells that
+				mean nothing.
+
+				Yes or no, with no scope: a module this customer has not installed has
+				no records for "only my own" to be about.
+			#}
+			<h2 class="h5 mb-2">{{ 'group.store'|trans }}</h2>
+			<p class="text-body-secondary">{{ 'group.store_help'|trans }}</p>
+
+			<div class="card mb-4">
+				<ul class="list-group list-group-flush">
+					{% for action in storeActions %}
+						<li class="list-group-item d-flex align-items-center justify-content-between gap-3">
+							<label class="form-label mb-0" for="store-{{ action.value }}">
+								<i class="bi bi-{{ action.icon }} text-body-secondary" aria-hidden="true"></i>
+								{{ action.labelKey|trans }}
+								<span class="d-block text-body-secondary small">{{ ('permission.store.' ~ action.value ~ '_help')|trans }}</span>
+							</label>
+							<select class="form-select form-select-sm w-auto"
+							        id="store-{{ action.value }}"
+							        name="grants[{{ store }}][{{ action.value }}]"
+							        aria-label="{{ action.labelKey|trans }}">
+								<option value="">{{ 'permission.no'|trans }}</option>
+								<option value="all" {{ matrix[store][action.value]|default('') ? 'selected' : '' }}>
+									{{ 'permission.yes'|trans }}
+								</option>
+							</select>
+						</li>
+					{% endfor %}
+				</ul>
+			</div>
+
 			<h2 class="h5 mb-2">{{ 'group.who_is_in_it'|trans }}</h2>
 			<p class="text-body-secondary">
 				{{ 'group.members_help'|trans }}

@@ -1,0 +1,71 @@
+{#
+	The shop window: everything this build offers, and where this customer stands
+	on each (XIV-6).
+
+	A module already installed is shown rather than hidden, and says so. Hiding it
+	would leave somebody hunting for a module they already have — and "you have
+	this" is the answer to their question, where an empty grid is not.
+#}
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'store.title'|trans }}{% endblock %}
+
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<h1 class="h3 mb-1">{{ 'store.title'|trans }}</h1>
+		<p class="text-body-secondary">{{ 'store.intro'|trans }}</p>
+
+		{% if offers is empty %}
+			<div class="alert alert-secondary">
+				{{ 'store.empty'|trans }}
+			</div>
+		{% else %}
+			<div class="row g-3">
+				{% for offer in offers %}
+					<div class="col-sm-6 col-lg-4">
+						<div class="card h-100">
+							<div class="card-body d-flex flex-column">
+								<h2 class="h6 card-title d-flex align-items-center gap-2 mb-2">
+									{% if offer.blueprint.icon %}
+										<i class="bi bi-{{ offer.blueprint.icon }} text-body-secondary" aria-hidden="true"></i>
+									{% endif %}
+									{{ offer.label }}
+								</h2>
+
+								{#
+									Three states, and they are genuinely different answers rather
+									than one answer with a flag. "You have it" needs no button;
+									"it needs Contact first" needs the names of what is missing,
+									because a disabled button with no reason is a dead end.
+								#}
+								{% if offer.installed %}
+									<p class="card-text mb-3">
+										<span class="badge text-bg-success">{{ 'store.installed'|trans }}</span>
+									</p>
+								{% elseif offer.missingRequirements is not empty %}
+									<p class="card-text text-body-secondary small mb-3">
+										{{ 'store.needs_first'|trans({'%missing%': offer.missingRequirements|map(r => r.label)|join(', ')}) }}
+									</p>
+								{% else %}
+									<p class="card-text text-body-secondary small mb-3">
+										{{ 'store.preset_count'|trans({'%count%': offer.presets|length}) }}
+									</p>
+								{% endif %}
+
+								<div class="mt-auto">
+									<a class="btn btn-sm btn-outline-secondary" href="{{ path('store_module', {module: offer.key}) }}">
+										{{ 'store.details'|trans }}
+									</a>
+								</div>
+							</div>
+						</div>
+					</div>
+				{% endfor %}
+			</div>
+		{% endif %}
+	</main>
+{% endblock %}

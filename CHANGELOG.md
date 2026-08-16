@@ -65,6 +65,21 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **A tenant can install a module themselves, from a store** ([XIV-6]). Three
+  screens — what this build offers, what each module is, and a wizard that
+  chooses a preset and says plainly that the choice cannot be changed later
+  (§6.1; making it changeable is [XIV-70]). A module whose requirements are
+  missing names them with a link instead of failing on submit, and nothing is
+  chain-installed. Installing writes only your own database, and
+  `tenant:module:install` is unchanged. See §8.4.3 and §6.3.
+- **Act on upgrade: browsing and installing are a new permission axis**
+  ([XIV-6]). They are not `ModuleAction` cases — browsing is about no module and
+  installing is about one you have not got — so **no existing tenant has them**,
+  including the groups `tenant:permissions:grant-all` created. Administrators
+  still reach the store through the `ROLE_ADMIN` bypass; anybody else needs the
+  two new grants, on the new **The store** section of the group and user screens.
+  Nothing was migrated and nothing needs to be: the grant table already held a
+  subject, a verb and a scope. See §8.4.3.
 - **An invoice knows when it falls due, and says when it is late** ([XIV-67]).
   The company profile sets how long customers get to pay and a contact may be
   given its own terms; the date is written onto the invoice as it is sent and
@@ -242,3 +257,5 @@ lands in `Unreleased` here.
 [XIV-1]: https://xivi.youtrack.cloud/issue/XIV-1
 [XIV-67]: https://xivi.youtrack.cloud/issue/XIV-67
 [XIV-24]: https://xivi.youtrack.cloud/issue/XIV-24
+[XIV-6]: https://xivi.youtrack.cloud/issue/XIV-6
+[XIV-70]: https://xivi.youtrack.cloud/issue/XIV-70

@@ -26,6 +26,13 @@ namespace Xivi\Core\Permission;
  *
  * What *is* stored is grants, and only grants.
  *
+ * **One of two vocabularies now, rather than the only one** (§8.4, XIV-6). This
+ * one is about a module's records and says so in every case; the store's browse
+ * and install are about the store and about a module the customer has *not* got,
+ * so they are the application's `StoreAction` instead — named in prose rather
+ * than linked, because core does not know the application exists (§3). What the
+ * two share is {@see PermissionVerb}, which is the whole of what a grant needs.
+ *
  * These values are the attribute strings the security layer votes on. They are
  * deliberately not passed to `isGranted()` as enum cases: `Voter::supports()` is
  * typed `string`, and `Voter::vote()` swallows the resulting TypeError and
@@ -35,7 +42,7 @@ namespace Xivi\Core\Permission;
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
-enum ModuleAction: string
+enum ModuleAction: string implements PermissionVerb
 {
     case View = 'view';
     case List = 'list';

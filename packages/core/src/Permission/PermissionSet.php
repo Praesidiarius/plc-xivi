@@ -27,12 +27,18 @@ namespace Xivi\Core\Permission;
  * what keeps "why can this person still see that" from becoming a question with a
  * complicated answer.
  *
+ * **A subject is not always a module** (XIV-12, XIV-6). It is whatever the grant
+ * was about: a module key, an area key such as `@profile`, or the store's own
+ * `@store`. This class does not care which — it holds strings and folds scopes —
+ * and that indifference is what let a second permission axis arrive without a
+ * migration or a change here beyond the type of the verb.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class PermissionSet
 {
     /**
-     * @param array<string, array<string, PermissionScope>> $scopes module key => action value => scope
+     * @param array<string, array<string, PermissionScope>> $scopes subject => verb value => scope
      */
     private function __construct(
         private array $scopes,
@@ -66,17 +72,18 @@ final readonly class PermissionSet
      * A grant naming an action that cannot be scoped is stored at All whatever it
      * says, because "add, but only the ones you own" describes nothing.
      */
-    public function with(string $moduleKey, ModuleAction $action, PermissionScope $scope): self
+    public function with(string $subject, PermissionVerb $action, PermissionScope $scope): self
     {
         if ($this->unrestricted) {
             return $this;
         }
 
+        $verb = (string) $action->value;
         $effective = $action->isScopable() ? $scope : PermissionScope::All;
-        $existing = $this->scopes[$moduleKey][$action->value] ?? null;
+        $existing = $this->scopes[$subject][$verb] ?? null;
 
         $scopes = $this->scopes;
-        $scopes[$moduleKey][$action->value] = $existing?->widest($effective) ?? $effective;
+        $scopes[$subject][$verb] = $existing?->widest($effective) ?? $effective;
 
         return new self($scopes, false);
     }
@@ -89,27 +96,27 @@ final readonly class PermissionSet
      * means the list is not theirs to see at all, Own means it is theirs to see
      * one row of.
      */
-    public function scopeFor(string $moduleKey, ModuleAction $action): ?PermissionScope
+    public function scopeFor(string $subject, PermissionVerb $action): ?PermissionScope
     {
         if ($this->unrestricted) {
             return PermissionScope::All;
         }
 
-        return $this->scopes[$moduleKey][$action->value] ?? null;
+        return $this->scopes[$subject][(string) $action->value] ?? null;
     }
 
-    public function allows(string $moduleKey, ModuleAction $action): bool
+    public function allows(string $subject, PermissionVerb $action): bool
     {
-        return $this->scopeFor($moduleKey, $action) !== null;
+        return $this->scopeFor($subject, $action) !== null;
     }
 
     /**
      * Whether this action is theirs only for records they own — the question the
      * query layer asks before deciding whether to add its predicate.
      */
-    public function isLimitedToOwn(string $moduleKey, ModuleAction $action): bool
+    public function isLimitedToOwn(string $subject, PermissionVerb $action): bool
     {
-        return $this->scopeFor($moduleKey, $action) === PermissionScope::Own;
+        return $this->scopeFor($subject, $action) === PermissionScope::Own;
     }
 
     public function isUnrestricted(): bool
@@ -118,7 +125,8 @@ final readonly class PermissionSet
     }
 
     /**
-     * The modules this person may do anything at all in.
+     * The subjects this person may do anything at all with — module keys, and
+     * the areas and the store beside them.
      *
      * Empty for an administrator, whose answer is "all of them" and who therefore
      * cannot be described by a list — callers wanting navigation have to check

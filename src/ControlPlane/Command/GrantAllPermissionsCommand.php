@@ -53,6 +53,15 @@ use Xivi\Core\Permission\PermissionScope;
  * Administrators are skipped. ROLE_ADMIN is a bypass rather than a group
  * (§8.4.1), so putting them in one would suggest it could be taken away.
  *
+ * **"Every action on every installed module" is meant literally**, which is why
+ * this grants neither the areas (XIV-12) nor the store's own axis (XIV-6). Both
+ * are deliberate rather than an omission waiting to be fixed: the store's install
+ * verb decides what the installation *consists of*, permanently and with no
+ * uninstall, and a command whose job is to undo a lock-out has no business
+ * handing that to everybody who works there on the way past. An administrator
+ * always has it, through the bypass; anybody else is given it on the permission
+ * screens, deliberately, by somebody who meant to.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[AsCommand(
@@ -175,7 +184,7 @@ final readonly class GrantAllPermissionsCommand
     {
         $existing = [];
         foreach ($group->getGrants() as $grant) {
-            $existing[$grant->getModuleKey()][$grant->getAction()->value] = $grant;
+            $existing[$grant->getModuleKey()][(string) $grant->getAction()->value] = $grant;
         }
 
         $changed = 0;
