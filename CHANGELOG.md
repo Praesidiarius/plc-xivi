@@ -101,6 +101,13 @@ lands in `Unreleased` here.
   gets its own compose project, ports and tenant databases, all derived from the
   directory name; the main checkout keeps the names and ports it had. Two runs in
   one checkout are refused with a message rather than left to interleave.
+- **`bin/compose` reaches the stack your checkout owns** ([XIV-55]). **Use it
+  instead of `docker compose`** — it forwards every argument through after
+  deriving the project, ports and bind mount that [XIV-51] made per-checkout, and
+  with no arguments it prints which stack this is and where it answers. A bare
+  `docker compose` in a worktree collides on port 443 and, less visibly, runs the
+  suite against the main checkout's tenant databases. The derivation now lives in
+  `bin/lib/stack-env.sh`, which `bin/ci` reads too, so the two cannot drift.
 - **Language and region are separate settings** ([XIV-50]). Choosing German used
   to mean German-from-Germany, so a Swiss reader saw `1.234.500,00` where their
   country writes `1’234’500.00`. Pick a country on your account, or set one for
@@ -168,4 +175,5 @@ lands in `Unreleased` here.
 [XIV-50]: https://xivi.youtrack.cloud/issue/XIV-50
 [XIV-51]: https://xivi.youtrack.cloud/issue/XIV-51
 [XIV-53]: https://xivi.youtrack.cloud/issue/XIV-53
+[XIV-55]: https://xivi.youtrack.cloud/issue/XIV-55
 [XIV-44]: https://xivi.youtrack.cloud/issue/XIV-44

@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+#
+# `docker compose`, pointed at this checkout's stack.
+#
+#   bin/compose up -d --wait
+#   bin/compose exec php bin/console tenant:provision …
+#   bin/compose logs -f php
+#   bin/compose down
+#   bin/compose                        what this checkout's stack is and where
+#
+# **Use this rather than `docker compose` directly** (XIV-55). A checkout is the
+# unit of isolation for the stack — the compose project, the ports, the bind
+# mount and the test tenant prefix are all derived from the directory (XIV-51) —
+# and a bare `docker compose` knows none of that. In the main checkout it happens
+# to be right. In a worktree it is wrong in two ways, neither of which announces
+# itself:
+#
+#   * **The ports.** Nothing derives them, so the worktree tries to publish 443
+#     and 5432 like everybody else. This one at least fails loudly — "port is
+#     already allocated" — once you have worked out that it is about ports.
+#   * **`TEST_RUN`.** Empty, so the suite's tenant databases lose the prefix that
+#     keeps two checkouts' apart and land on the main checkout's. That one does
+#     not fail at all; two runs quietly drop each other's tenants (XIV-9's
+#     failure a layer up, which is the whole reason XIV-51 exists).
+#
+# The project name is the interesting case, because Compose *does* default it
+# from the directory and mostly agrees with us. Mostly: it deletes characters
+# outside `[a-z0-9_-]` where we replace them, so a worktree at `xiv-37.transport`
+# is `xiv-37-transport` to this script and `xiv-37transport` to a bare `docker
+# compose` — a third project belonging to nobody, next to the two that exist.
+# Measured, not assumed. A name with only letters, digits and hyphens agrees, so
+# this is the failure that waits until somebody names a directory after a branch.
+#
+# The derivation itself lives in bin/lib/stack-env.sh, which `bin/ci` reads too,
+# so the two cannot drift apart.
+#
+# **It cannot refuse what it cannot see.** The ticket asked whether this should
+# refuse in a worktree when the variables are unset. It should not, and cannot
+# usefully: sourcing the fragment always sets them, so by the time this script
+# runs there is nothing left to guess. The guessing only ever happens in a
+# `docker compose` typed by hand, which no wrapper can intercept. What is done
+# instead is to say which stack is being acted on when it is not the main one —
+# the fact whose absence cost the run in XIV-55 the time it did.
+#
+# **Relative paths are resolved from the repository root**, because that is where
+# this cds to so Compose finds the same compose.yaml and compose.override.yaml
+# every time. `bin/compose cp ./local-file php:/app` from a subdirectory will not
+# find your file; give it an absolute path.
+
+set -euo pipefail
+
+# shellcheck source=lib/stack-env.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/stack-env.sh"
+
+cd "$XIVI_ROOT"
+
+# No arguments is a question rather than a command: which stack is this? `docker
+# compose` would print its own help here, which `bin/compose --help` still gets.
+if [ "$#" -eq 0 ]; then
+	xivi_stack_summary
+	exit 0
+fi
+
+# Named on a terminal only, and on stderr, so it never lands in the output of
+# something being piped or captured. The main checkout stays silent: it is the
+# ordinary case and a banner on every command would train people to stop reading
+# it, which is the one thing this line cannot afford.
+if [ "$XIVI_CHECKOUT" != "$XIVI_MAIN_CHECKOUT" ] && [ -t 2 ]; then
+	printf '\033[2m→ %s (checkout %s)\033[0m\n' "$COMPOSE_PROJECT_NAME" "$XIVI_CHECKOUT" >&2
+fi
+
+exec docker compose "$@"

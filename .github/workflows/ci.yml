@@ -46,4 +46,8 @@ jobs:
 
       - name: Container logs
         if: failure()
-        run: docker compose logs --no-color --tail 200
+        # bin/compose rather than a bare `docker compose`: it derives the same
+        # project bin/ci just used, so this cannot fetch another stack's logs
+        # (XIV-55). The runner's checkout is the main one and the two agree
+        # today — the point is that they still agree if that ever changes.
+        run: bin/compose logs --no-color --tail 200

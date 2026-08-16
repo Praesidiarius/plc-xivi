@@ -1737,6 +1737,30 @@ save the tmpfs. It also has to be handed to the container explicitly: `docker
 compose exec` carries none of the host's environment, so a variable exported in
 `bin/ci` alone is a mechanism that looks switched on and is not.
 
+**And a derivation only one script knows is only true where that script runs**
+(XIV-55). The block above lived in `bin/ci`, which made the suite correct and
+everything else silently not: a worktree's `docker compose exec php …` got the
+main checkout's ports and an empty tenant prefix, and said nothing about it. The
+derivation moved to `bin/lib/stack-env.sh`, sourced by `bin/ci` and by a
+`bin/compose` wrapper that forwards to `docker compose`, so the two readers
+cannot disagree.
+
+Two things are worth keeping from working out what actually broke. The first is
+that Compose *does* default its project name from the directory, so the failure
+is not the one it looks like — the ports collide loudly and `TEST_RUN` goes empty
+quietly, which is the dangerous half. The second is that Compose's sanitising and
+ours are not the same rule: it deletes characters outside `[a-z0-9_-]` where we
+replace them, so a worktree named `xiv-37.transport` is `xiv-37-transport` to the
+wrapper and `xiv-37transport` to a bare `docker compose` — a third project
+belonging to nobody. Directories named after branches are exactly where that bites.
+
+The wrapper does not *refuse* when it cannot tell which stack is meant, which the
+ticket asked about, because there is no such case: sourcing the fragment always
+decides. The guessing only happens in a `docker compose` typed by hand, which no
+wrapper can intercept — so what it does instead is name the stack it is acting on
+whenever that is not the main checkout. Prevention was not available; visibility
+was.
+
 **A mail catcher is visibility, and only that** (XIV-41). Development sends to
 Mailpit, a container that accepts everything and delivers nothing, because the
 mail this application is about to grow — Markdown rendered to HTML, wrapped in a
