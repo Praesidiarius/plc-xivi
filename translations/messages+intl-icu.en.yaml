@@ -22,6 +22,14 @@ module:
     # because a customer with 1,207 orders should read like one.
     linked_shown: 'Showing {shown, number} of {total, number}.'
 
+mail:
+    # Sizes rather than counts, and here for the same reason the totals are
+    # (XIV-47): a refusal quoting "9.6 MB" at a reader whose country writes
+    # "9,6 MB" is the small wrongness that ticket was about. No plural — a
+    # megabyte does not decide the grammar.
+    attachment_size: '({size, number, ::.0} MB)'
+    attachment_too_large: '"{file}" is {size, number, ::.0} MB, and this installation sends at most {limit, number, ::.0} MB.'
+
 field:
     remove_holding: '{count, plural, one {<strong>#</strong> record currently holds a value for it.} other {<strong>#</strong> records currently hold a value for it.}}'
 

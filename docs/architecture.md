@@ -1333,11 +1333,113 @@ not have been sent is in a customer's inbox. It is also the one of the four that
 names a record, so it can be scoped to "only my own" where the template
 permissions cannot.
 
-*Attaching the document to the send is XIV-40 and deliberately not this. The seam
-is the single place a `Mime\Email` is built and the single named constructor for
-the timeline entry, so that ticket's "one act, not two" becomes another key on the
-same entry rather than a second event beside it. Nothing is stubbed for it here:
-an unused parameter is a design guess.*
+*Attaching the document to the send is §5.15, and the seam described above is
+where it arrived: one more argument on the method that builds the `Mime\Email`,
+one more key on the named constructor for the timeline entry.*
+
+### 5.15 The invoice goes with the mail (XIV-40)
+
+The two features meeting, and the thing anybody actually wants an ERP to do with
+an email. §5.7 already turns a template, a record and a format into a document
+and §5.14 already sends one of §5.13's messages from a record, so the picker
+gains a document and a format and the file goes out attached. That part is small
+and is not what this section is about.
+
+**Attaching means generating, so it takes both grants.** `send_email` is on the
+route already; `document` is asked for again at the moment an attachment is
+actually requested, and refused with a 403. The reason is the one §5.7 gave for
+splitting `templates` from `document` in the first place, arriving one step
+further along: somebody may be trusted to write to a customer and not to produce
+that customer's invoice, and a send that quietly generated one would make the
+second grant unenforceable through the first. "The picker was not on their
+screen" is not a check — the form is a POST anybody can retype.
+
+The second grant is asked on the **record**, not the module, because `document`
+is scopable (§8.4). A check against the module alone would answer yes for
+somebody scoped to their own customers and hand them everybody's.
+
+#### One entry, and the attachment is a key on it
+
+A document generated in order to be attached is **not a second event**. The
+timeline records the send, and the send names what went with it:
+
+    {"email": {"template": "Order confirmation", "recipient": "…", "subject": "…",
+               "attachment": {"template": "Invoice", "format": "pdf"}}}
+
+`attachment` holds exactly the pair a `document_generated` entry would have held,
+which is the decision stated in the data rather than argued in prose.
+
+Both entries was the alternative and it is worse in both directions. Reading
+forwards, one button press would produce two lines — "document generated",
+"email sent" — describing a single act, and §5.2 admitted the document entry on
+the argument that it is *rare, deliberate and attributable*, which a side effect
+of pressing Send is not on its own. Reading backwards, the pair would be
+**indistinguishable from two acts that really happened**: somebody downloading a
+PDF and then, for their own reasons, writing to the customer. Those are different
+facts and a timeline that renders them identically has lost the one it was kept
+for. Naming the attachment inside the send keeps "was the invoice actually on
+that mail" answerable, which two adjacent rows never could.
+
+What makes it mechanical rather than a rule to remember is that the generator has
+two ways out: `pdf()`/`docx()`, which announce, and `contents()`, which does not.
+The attachment path takes the second. That is also what lets the preview build
+the very document it is previewing without a preview appearing in somebody's
+history, which the announcing methods could not have done at all.
+
+#### Failure is two-sided, and the two sides look different
+
+- **The document could not be made** — a template that will not fill, a converter
+  that is down. Nothing is sent, and **nothing is written to the timeline.** No
+  message was ever built, so there was no send to have failed, and an
+  `email_failed` row would assert an attempt that did not happen — §5.14 spent
+  its argument on the verb being true, and this is the same argument used to
+  refuse an entry rather than to add one. It joins the refusals §5.14 already
+  makes silently: an unresolved recipient, an address that is not one, no
+  template chosen. The person is told on the screen, in the document layer's own
+  words, so the sentence is visibly about a document rather than about mail.
+- **The send failed after the document was made.** That is `email_failed` exactly
+  as §5.14 wrote it — and the entry **names the attachment**, which is what tells
+  the two apart a year later: an `email_failed` carrying a document is a document
+  that was made and a mail server that refused it, a different afternoon
+  entirely from one that could not be produced.
+
+Neither half half-succeeds, and the ordering is what guarantees it rather than
+care: the document is generated and measured *before* a `Mime\Email` exists, so
+"a failed generation sends nothing at all" is true by construction.
+
+#### A ceiling, because a bounce is the worst outcome
+
+Seven mebibytes of document, configurable as `XIVI_MAX_ATTACHMENT_BYTES`.
+
+The number is chosen against what **receiving** servers accept, not against what
+this one can produce, because that is where the failure being prevented happens.
+Attachments travel base64-encoded — four bytes on the wire for every three — so
+seven MiB of PDF arrives as a message of roughly nine and a half, inside the
+10 MB that is both the most common conservative limit and Postfix's own default.
+Gmail and Exchange Online take twenty-five; choosing against *their* number would
+mean a document this installation is happy with and a quarter of the internet
+bounces.
+
+A bounce is what the ceiling buys off, and it is expensive: it arrives hours
+later, at an address that is frequently nobody's inbox, about a message the
+sender has stopped thinking about. The invoice simply does not arrive and nobody
+finds out. A refusal on the screen naming the size and the ceiling is a worse
+minute and a far better afternoon.
+
+**Configurable because the honest answer is that we cannot know.** The authority
+is the relay a deployment actually sends through, and an operator who runs their
+own knows a number this project does not. The default is for the deployment that
+has not thought about it, which is most of them. The check is on the document
+rather than the assembled message: it is the part that varies by three orders of
+magnitude — an email's words are kilobytes, the same shape every time — and a
+limit somebody can compare against a file size they can see is one they can act
+on.
+
+**The preview generates too.** It costs a second conversion on the
+preview-then-send path, and it is worth it: the preview exists so that what
+arrives holds no surprises, and "the converter is down" and "this is too big to
+send" are precisely the two surprises that would otherwise wait until the
+irreversible button. The file name and the size on that screen are the real ones.
 
 ---
 

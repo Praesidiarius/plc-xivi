@@ -58,7 +58,12 @@ final readonly class RecordChanges
          * (§5.2): editing the contact afterwards must not rewrite who a mail was
          * sent to a year ago.
          *
-         * @var array{template: string, recipient: string, subject: string}|array{}
+         * **`attachment` holds exactly what a `document` entry would have held**
+         * (XIV-40), and that is the whole statement of the decision: a document
+         * generated in order to be attached is not a second thing that happened,
+         * so the same pair of keys sits inside this one rather than beside it.
+         *
+         * @var array{template: string, recipient: string, subject: string, attachment?: array{template: string, format: string}}|array{}
          */
         public array $email = [],
     ) {
@@ -73,14 +78,28 @@ final readonly class RecordChanges
     /**
      * An email sent from a template, which alters no value either (XIV-39).
      *
-     * The one place the shape of that entry is decided, which is where XIV-40's
-     * attachment joins it: an attached document is part of *this* act rather
-     * than a second one, so it becomes another key here rather than a second
-     * event with its own verb beside this one.
+     * The one place the shape of that entry is decided, and XIV-40 joined it
+     * here rather than beside it: an attached document is part of *this* act,
+     * so it is another key on this entry rather than a second event with a verb
+     * of its own. The argument is §5.15 and the short form is that one button
+     * press is one fact — a timeline reading "generated a document, sent an
+     * email" describes a single act twice, and leaves whoever reads it later
+     * unable to tell that pair from somebody downloading a PDF and then, for
+     * their own reasons, writing to the customer.
+     *
+     * @param array{template: string, format: string}|null $attachment what went
+     *                                                                 with it, named exactly as a document entry
+     *                                                                 would have named itself
      */
-    public static function forEmail(string $template, string $recipient, string $subject): self
-    {
-        return new self(email: ['template' => $template, 'recipient' => $recipient, 'subject' => $subject]);
+    public static function forEmail(
+        string $template,
+        string $recipient,
+        string $subject,
+        ?array $attachment = null,
+    ): self {
+        $email = ['template' => $template, 'recipient' => $recipient, 'subject' => $subject];
+
+        return new self(email: $attachment === null ? $email : [...$email, 'attachment' => $attachment]);
     }
 
     public function isEmpty(): bool

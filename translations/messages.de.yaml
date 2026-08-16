@@ -409,6 +409,10 @@ mail:
     not_sendable: Aus diesem Datensatz kann nichts gesendet werden.
     no_template_chosen: Wähl eine der Vorlagen. Es wurde nichts gesendet.
     recipient_invalid: '„%address%“ ist keine E-Mail-Adresse. Es wurde nichts gesendet.'
+    attachment: Anhang
+    no_attachment: Kein Anhang
+    attachment_help: Das Dokument wird beim Senden aus diesem Datensatz erzeugt und geht mit hinaus.
+    attachment_failed: 'Es wurde nichts gesendet, weil das Dokument nicht angehängt werden konnte. %reason%'
 
 flash:
     saved: Gespeichert.
