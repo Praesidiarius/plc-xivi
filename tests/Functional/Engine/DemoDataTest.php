@@ -649,7 +649,16 @@ final class DemoDataTest extends KernelTestCase
     {
         $this->installDocuments();
         $this->generate(10);
-        $this->generate(40, module: OrderModule::KEY);
+
+        // **Seeded, because the two assertions at the bottom are about the
+        // distribution and an unseeded draw eventually does not produce one.**
+        // `draft` is one of the seven samples the module declares, so forty
+        // unseeded orders leave none in the initial state about once in every
+        // 476 runs — which is rare enough to look like a real failure and
+        // common enough to happen. It did, on the first CI run after this test
+        // landed. The seed is not here to make the numbers pretty; it is what
+        // turns "usually covers both paths" into "covers both paths".
+        $this->generate(40, seed: 24, module: OrderModule::KEY);
 
         $states = [];
 
