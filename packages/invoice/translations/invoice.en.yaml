@@ -15,6 +15,7 @@ field:
     order: Order
     contact: Customer
     issued_on: Issued on
+    due_date: Due
     status: Status
     note: Note
     net_total: Net total

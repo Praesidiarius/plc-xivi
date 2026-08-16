@@ -126,6 +126,11 @@ services:
     # the application says which database, here it says whose settings (XIV-11).
     Xivi\Core\Money\InstanceCurrency: '@App\Tenant\Settings\ProfileCurrency'
 
+    # And how long a customer gets to pay, when nothing on the customer says
+    # otherwise (XIV-67). The same seam one line up, for the same reason: the
+    # deriver that writes a due date has no business knowing what a tenant is.
+    Xivi\Core\Payment\DefaultPaymentTerms: '@App\Tenant\Settings\ProfilePaymentTerms'
+
     # Documents (XIV-4). Core fills a .docx template and asks for a PDF through
     # Xivi\Core\Document\PdfConverter; the application answers with Gotenberg,
     # a service on the compose network. Same seam as the currency above.

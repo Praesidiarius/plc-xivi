@@ -60,6 +60,18 @@
 					<div class="form-text">{{ 'profile.region_help'|trans }}</div>
 				</div>
 
+				{# How long a customer gets to pay, when nothing on the customer
+				   says otherwise (XIV-67). Empty is a real answer and the one
+				   every installation starts on: no term means no due date, and a
+				   document with no due date is never overdue. #}
+				<div class="mb-3">
+					<label class="form-label" for="payment_terms_days">{{ 'profile.payment_terms'|trans }}</label>
+					<input class="form-control" type="number" inputmode="numeric" min="0" max="365"
+					       id="payment_terms_days" name="payment_terms_days"
+					       value="{{ profile.paymentTermsDays }}" {{ editable ? '' : 'disabled' }}>
+					<div class="form-text">{{ 'profile.payment_terms_help'|trans }}</div>
+				</div>
+
 				{#
 					Who this installation's mail comes from, and which server it
 					leaves through (XIV-37). The two are one decision — see

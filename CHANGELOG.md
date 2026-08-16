@@ -65,6 +65,12 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **An invoice knows when it falls due, and says when it is late** ([XIV-67]).
+  The company profile sets how long customers get to pay and a contact may be
+  given its own terms; the date is written onto the invoice as it is sent and
+  never restated afterwards, so changing a customer's terms leaves invoices
+  they already have alone. Overdue is worked out on read — sent and past the
+  date — rather than being a state anything has to move records into. See §5.16.
 - **A new colleague can be invited by email instead of handed a password**
   ([XIV-1]). Adding a user now asks how they get in the first time; the invitation
   is the default and **creates no password at all**, sending a link that works once
@@ -211,3 +217,4 @@ lands in `Unreleased` here.
 [XIV-39]: https://xivi.youtrack.cloud/issue/XIV-39
 [XIV-40]: https://xivi.youtrack.cloud/issue/XIV-40
 [XIV-1]: https://xivi.youtrack.cloud/issue/XIV-1
+[XIV-67]: https://xivi.youtrack.cloud/issue/XIV-67

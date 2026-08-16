@@ -95,6 +95,7 @@ final class TenantProfileController extends AbstractController
             (string) $request->request->get('company_name'),
             (string) $request->request->get('currency'),
             (string) $request->request->get('region'),
+            $this->paymentTermsDays($request),
         );
 
         $this->addFlash('success', $this->translator->trans('flash.profile_saved'));
@@ -110,6 +111,19 @@ final class TenantProfileController extends AbstractController
         $port = trim((string) $request->request->get('mail_smtp_port'));
 
         return $port === '' ? null : (int) $port;
+    }
+
+    /**
+     * Blank means "this installation does not put due dates on anything", which
+     * is a real answer and the one every existing tenant is already giving
+     * (XIV-67). Zero is a different one — payable on receipt — so the emptiness
+     * is checked before the cast rather than after it, where both would be 0.
+     */
+    private function paymentTermsDays(Request $request): ?int
+    {
+        $days = trim((string) $request->request->get('payment_terms_days'));
+
+        return $days === '' ? null : (int) $days;
     }
 
     /** Blank means "leave the stored one alone"; see TenantProfileManager::applyMail(). */

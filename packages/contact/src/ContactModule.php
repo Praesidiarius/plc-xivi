@@ -137,6 +137,35 @@ final class ContactModule implements ModuleProvider
                     position: 60,
                     options: ['module' => self::KEY, 'variant' => self::COMPANY],
                 ),
+                // How long this customer gets to pay, when it is not what the
+                // installation gives everybody else (XIV-67).
+                //
+                // **On the contact rather than on the document**, because payment
+                // terms are a property of the relationship: this customer pays in
+                // fourteen days and that one in sixty, and both keep doing so
+                // across every invoice they are ever sent. The invoice takes a
+                // copy of what this said on the day it went out and then stops
+                // reading it, which is what keeps editing this from restating a
+                // deadline somebody already agreed to.
+                //
+                // Whole days, and empty is not zero: empty means "whatever the
+                // installation gives everybody", zero means "on receipt". Both are
+                // real answers and a customer who has been given neither is the
+                // ordinary case, which is why this is not required.
+                //
+                // On every variant, since a person can be invoiced as readily as a
+                // company. Off the list because a contacts list is about who
+                // somebody is, and filterable because "who is on sixty days" is a
+                // question worth asking of a book of customers.
+                new FieldBlueprint(
+                    key: 'payment_terms',
+                    label: 'field.payment_terms',
+                    type: 'integer',
+                    filterable: true,
+                    listed: false,
+                    position: 70,
+                    options: ['min' => 0, 'max' => 365],
+                ),
             ],
             collections: [
                 // A contact has as many addresses as they have, which is the
@@ -209,7 +238,10 @@ final class ContactModule implements ModuleProvider
                     key: 'extended',
                     label: 'Extended',
                     description: 'Everything the module knows about a contact, companies included.',
-                    fields: ['kind', 'company_name', 'first_name', 'last_name', 'email', 'phone', 'birthday', 'company'],
+                    fields: [
+                        'kind', 'company_name', 'first_name', 'last_name', 'email', 'phone', 'birthday', 'company',
+                        'payment_terms',
+                    ],
                 ),
             ],
             // Installing "the contact module" gives you the contact module.

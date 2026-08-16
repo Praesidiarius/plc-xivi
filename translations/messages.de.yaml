@@ -76,6 +76,8 @@ account:
 
 module:
     view_record: Datensatz ansehen
+    overdue: Überfällig
+    overdue_title: Verschickt und über dem Fälligkeitsdatum.
     edit_record: Datensatz bearbeiten
     delete_record: Datensatz löschen
     new_title: Neue %module%
@@ -276,6 +278,11 @@ profile:
     region: Region
     region_none: Standard der Anwendung
     region_help: Nach welchem Land diese Installation schreibt. Wer woanders ist, wählt es auf seinem Konto selbst.
+    payment_terms: Zahlungsfrist (Tage)
+    payment_terms_help: >-
+        Wie lange eine Kundin Zeit zum Zahlen hat, ab Rechnungsdatum. Einem Kontakt kannst du
+        eine eigene Frist geben. Lässt du es leer, tragen Rechnungen kein Fälligkeitsdatum und
+        nichts wird je überfällig.
     title: Firmenprofil
     intro: >-
         Wie diese Installation heißt und in welcher Währung sie rechnet. Das gilt für

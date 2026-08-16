@@ -29,6 +29,16 @@
 								{{- display(module.getField(lifecycle.lifecycle.field), record.get(lifecycle.lifecycle.field)) -}}
 							</span>
 						{% endif %}
+						{# Late is not one of those states and deliberately never will
+						   be (XIV-67): nobody *performs* overdue, the calendar does.
+						   So it is worked out here, on every read, and sits beside
+						   the state rather than replacing it — a record is still
+						   sent, and additionally late. #}
+						{% if is_overdue(module, record) %}
+							<span class="badge text-bg-danger ms-1" title="{{ 'module.overdue_title'|trans }}">
+								{{- 'module.overdue'|trans -}}
+							</span>
+						{% endif %}
 					</p>
 				</div>
 			</div>

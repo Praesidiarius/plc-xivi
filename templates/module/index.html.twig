@@ -187,6 +187,14 @@
 										<a class="text-reset" href="{{ path('module_show', {module: module.key, id: record.id}) }}">
 											{{ record_title(module, record.data, record.id) }}
 										</a>
+										{# Two field reads and no query (XIV-67), so a page of
+										   twenty-five costs nothing extra — which is what lets
+										   the answer be today's rather than a stored flag. #}
+										{% if is_overdue(module, record) %}
+											<span class="badge text-bg-danger ms-1" title="{{ 'module.overdue_title'|trans }}">
+												{{- 'module.overdue'|trans -}}
+											</span>
+										{% endif %}
 									</td>
 									{% for field in columns %}
 										<td>{{ link.linked(field, record.get(field.key), display(field, record.get(field.key))) }}</td>

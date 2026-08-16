@@ -26,6 +26,7 @@ return static function (ContainerConfigurator $container): void {
                 // (XIV-39).
                 __DIR__ . '/../src/Mail/{MailRecipient,Recipient}.php',
                 __DIR__ . '/../src/Money/Amount.php',
+                __DIR__ . '/../src/Payment/PaymentTerms.php',
                 __DIR__ . '/../src/Numbering/NumberFormat.php',
                 __DIR__ . '/../src/Record/{Record,Derivation}.php',
                 __DIR__ . '/../src/Validation/UniqueFieldValue.php',

@@ -16,6 +16,7 @@ namespace Xivi\Core\Module;
 use Xivi\Core\Lifecycle\Lifecycle;
 use Xivi\Core\Mail\MailRecipient;
 use Xivi\Core\Money\LineTotals;
+use Xivi\Core\Payment\PaymentTerms;
 use Xivi\Core\Seed\Seed;
 
 /**
@@ -86,6 +87,16 @@ final readonly class ModuleBlueprint
          * `$lineTotals` are, so it is declared here beside them.
          */
         public ?MailRecipient $mailRecipient = null,
+        /**
+         * When one of these records falls due, and where the number of days
+         * comes from (XIV-67). Null for a module nobody is billed by, which is
+         * every one of them but the invoice.
+         *
+         * Declared here beside `$lineTotals` on purpose: a due date is a derived
+         * value stored on the document, for the reason §5.9 gives about totals,
+         * so it is described the same way and materialised by the same seam.
+         */
+        public ?PaymentTerms $paymentTerms = null,
         /**
          * Modules this one cannot work without (XIV-23).
          *
