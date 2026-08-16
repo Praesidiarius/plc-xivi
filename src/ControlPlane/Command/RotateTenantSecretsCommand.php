@@ -23,11 +23,16 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * TENANT_SECRET_KEY_ID at it, run this, then drop the old key once it reports
  * everything on the active key.
  *
+ * It reaches every tenant's own database as well as the registry, because a
+ * customer's outgoing-mail password is stored there (XIV-37) — so this takes as
+ * long as there are customers, and the report is what says it is safe to drop
+ * the previous key rather than the exit status alone.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[AsCommand(
     name: 'tenant:rotate-secrets',
-    description: 'Re-encrypt tenant database passwords with the active secret key',
+    description: 'Re-encrypt tenant database and outgoing-mail passwords with the active secret key',
 )]
 final readonly class RotateTenantSecretsCommand
 {
@@ -48,6 +53,18 @@ final readonly class RotateTenantSecretsCommand
 
         if ($report->rotated !== []) {
             $io->listing($report->rotated);
+        }
+
+        // Named separately because it is the half an operator does not know
+        // exists (XIV-37): a customer's outgoing-mail password lives in their own
+        // database, and a rotation that had not said so would look complete
+        // while leaving it behind.
+        if ($report->mailRotated !== []) {
+            $io->writeln(sprintf(
+                '%d outgoing-mail password(s) moved with them:',
+                \count($report->mailRotated),
+            ));
+            $io->listing($report->mailRotated);
         }
 
         if (!$report->isComplete()) {

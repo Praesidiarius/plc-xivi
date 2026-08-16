@@ -21,6 +21,14 @@ parameters:
         - '[::1]'
         - 'php'
 
+    # Hosts a non-production environment may still build an SMTP transport to,
+    # because they accept mail and deliver none (XIV-37, and see
+    # config/packages/mailer.yaml). Empty here and empty in test: the default is
+    # that nothing outside production reaches a mail server at all, and dev opts
+    # its catcher back in below. Production never reads this — the guard stands
+    # down there entirely.
+    app.mail.catcher_hosts: []
+
 services:
     # default configuration for services in *this* file
     _defaults:
@@ -131,6 +139,23 @@ services:
         arguments:
             $entityManager: '@doctrine.orm.tenant_entity_manager'
 
+    # **Dev and test cannot put mail on the wire** (XIV-37). Registered ahead of
+    # every factory symfony/mailer ships — priority, on the tag they all share —
+    # so it is the first thing asked about any DSN the application turns into a
+    # transport, whether that is MAILER_DSN or a tenant's own SMTP credentials.
+    # Read the class for why the guarantee belongs at construction rather than in
+    # a configured DSN: §9.2 already recorded that a DSN is simply believed.
+    #
+    # Defined here rather than in config/packages/mailer.yaml because this file
+    # is loaded last and its `App\` resource would otherwise overwrite the
+    # definition with an untagged one.
+    App\Mail\NonProductionMailGuard:
+        arguments:
+            $environment: '%kernel.environment%'
+            $catcherHosts: '%app.mail.catcher_hosts%'
+        tags:
+            - { name: 'mailer.transport_factory', priority: 255 }
+
     # The words demo data is made of. Core's own lists by default, so generation
     # works with no dependency; dev and test replace this with Faker below,
     # which has hundreds of names where these have thirty.
@@ -141,6 +166,18 @@ services:
 
 # The demo commands, excluded from the production build above.
 when@dev:
+    parameters:
+        # The catcher, and the loopback for anybody running one on the host
+        # (XIV-41, XIV-37). `mailpit` is a compose service on a private network
+        # that accepts everything and delivers nothing, which is the only reason
+        # development is allowed to open a socket to it at all.
+        #
+        # The test environment is deliberately absent from this list: §9.2 refuses
+        # to read from the catcher there — eight paratest workers against one
+        # inbox is a shared mutable thing — so a transport reaching it would be a
+        # transport nothing is allowed to assert on.
+        app.mail.catcher_hosts: ['mailpit', 'localhost', '127.0.0.1', '::1']
+
     services:
         _defaults:
             autowire: true
@@ -198,4 +235,11 @@ when@test:
         # UI is the next thing to be built. Keeping it reachable so the engine can
         # be tested before something happens to use it.
         Xivi\Core\Validation\RecordValidator:
+            public: true
+
+        # The same case, and for one more ticket: XIV-37 built the way a tenant
+        # sends mail and XIV-39 is what will press the button. Reachable here so
+        # that "dev and test cannot send real mail" is proved now rather than
+        # whenever the first caller happens to arrive.
+        App\Tenant\Mail\TenantMailer:
             public: true

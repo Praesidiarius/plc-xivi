@@ -21,12 +21,20 @@ namespace App\Tenancy\Security;
 final readonly class RotationReport
 {
     /**
-     * @param list<string>          $rotated tenants moved onto the active key
-     * @param list<string>          $skipped tenants already on the active key
-     * @param array<string, string> $failed  slug => why it could not be rotated
+     * Counted separately from $rotated rather than merged into it, because they
+     * are answers to different questions an operator asks in the same minute:
+     * "can I drop the old key?" is about every secret there is, and "what did
+     * this actually touch?" is about the customers whose mail would have broken
+     * if it had not (XIV-37).
+     *
+     * @param list<string>          $rotated     tenants whose database password moved onto the active key
+     * @param list<string>          $mailRotated tenants whose outgoing-mail password moved with it
+     * @param list<string>          $skipped     tenants already on the active key
+     * @param array<string, string> $failed      slug => why it could not be rotated
      */
     public function __construct(
         public array $rotated,
+        public array $mailRotated,
         public array $skipped,
         public array $failed,
         public string $activeKeyId,

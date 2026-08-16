@@ -1696,6 +1696,89 @@ thing they ever printed.
 the instance prices in without being the person who decides it, so the page shows
 its fields disabled rather than refusing them outright.
 
+### 8.7 Who a tenant's mail comes from (XIV-37)
+
+An email is sent *by a customer*, to their customer, and it has to look like it.
+That is one question with three possible answers, and the difference between them
+is entirely about **who owns deliverability** — who publishes the SPF record, who
+holds the DKIM key, and whose reputation is spent when a recipient marks a message
+as spam.
+
+- **From this instance's domain, with the customer's name on it.** Works on day
+  one and needs nothing from them. It is also honest in a way the third option is
+  not: the mail really did come from us, and says so.
+- **Through the customer's own SMTP server.** Genuinely from them, because their
+  provider is the one entitled to claim their address. SPF, DKIM and reputation
+  are theirs, which is the correct place for all three.
+- **As the customer's domain, from our infrastructure.** Needs DNS records they
+  have to add, and is the option that fails *silently into spam folders* when they
+  do not. Rejected: the failure mode is invisible to everybody who could fix it.
+
+**The second, with the first as the fallback.** A customer who has named an SMTP
+server sends through it, under their own address. A customer who has not sends
+through this instance's transport — and then their address is the **`Reply-To`,
+never the `From`**, because our domain is not entitled to claim it and SPF exists
+precisely to say so. Their *name* is still on the message, so a recipient sees who
+it is from; a reply still reaches them. The feature works before a customer has
+configured anything and becomes correct once they have, and the upgrade is one
+form field rather than a migration.
+
+**The name on the mail is the name in the bar.** There is no separate "sender
+name" setting: it is `InstanceName` (§8.6) — the company name where they have set
+one, the registry's label until then. A company with two names for itself is a
+problem nobody has, and a second field would only be a way for the two to disagree.
+
+**The instance's own address** is `MAILER_SENDER`, and it may be left empty. The
+fallback is then `no-reply@` at the tenant's own primary domain, which is not a
+guess: that hostname *is* this installation as far as that customer is concerned
+(§4), so it is the literal truth of "sent from our infrastructure".
+
+**The SMTP credential is stored the way tenant database passwords are stored** —
+encrypted with `TenantSecretCipher`, the stored value naming the key it was
+written with, so several keys are valid at once and rotation is a resumable job
+(§9.2). Reused rather than reinvented: a second encryption mechanism is a second
+thing to rotate and a second thing to forget to rotate. Which is exactly what
+happened here in miniature, and is worth recording: this secret lives in the
+**customer's own database** rather than the control plane, because it is their
+setting edited on their settings page (§8.6) — so `tenant:rotate-secrets` now walks
+every tenant database as well as the registry. A rotation that had not would have
+reported "everything is on the active key", the operator would have dropped the old
+one on the strength of it, and every customer's mail password would have become
+unreadable — quietly, until the next invoice somebody tried to send. **The tenant's
+database is rotated first**, because the control-plane row is the key to it: moving
+that first and dying leaves the door on a key the next attempt may no longer hold.
+
+**Sending is synchronous, and this is a decision rather than a stage.** Messenger
+with an async transport wants a consumer process, and this runtime is FrankenPHP in
+classic mode with no worker on purpose (§9.2), so nothing runs between requests. A
+queue with nothing draining it is worse than a slow request: the mail simply never
+goes. So a slow SMTP server is a slow request, accepted, and this is revisited when
+there is a reason to run a process — one that is about more than mail. Nobody
+should have to re-derive that from the runtime again.
+
+**A failed send is never swallowed.** A document that fails to generate wastes
+somebody's minute; an email is outbound and irreversible, and a send that failed
+silently is a customer sitting there believing their invoice went out. Every
+failure inside `TenantMailer` becomes `MailSendFailed` and is thrown on, so the
+person who pressed the button is told and XIV-39 can write the attempt to the
+timeline as a failure — "nothing happened" and "it went out" must not look the same.
+
+**Dev and test cannot send real mail, and that is a transport decision rather than
+a configured DSN.** §9.2 already recorded why the catcher is not a guarantee: it
+sees what is pointed at it, and a DSN naming a real server is believed. With
+per-tenant credentials that gap stopped being theoretical — the suite provisions
+real tenants, so one fixture storing a real SMTP password would have been one send
+from mailing an actual person. So `App\Mail\NonProductionMailGuard` is registered
+ahead of every transport factory symfony/mailer ships, and outside production
+nothing that could deliver is ever **built**: not from `MAILER_DSN`, and not from a
+tenant's credentials, because those go through the same factory rather than
+constructing a transport by hand. Its only concession is a short list of hosts that
+accept mail and deliver none — the compose catcher in dev, and *nothing at all* in
+test, where §9.2 had already refused to read from the catcher because eight
+paratest workers against one inbox is a shared mutable thing. `sendmail` and
+`native` are refused with everything else: neither names a host, so no allowlist
+could have saved them, and both hand the message to whatever MTA the machine has.
+
 ---
 
 ## 9. Status

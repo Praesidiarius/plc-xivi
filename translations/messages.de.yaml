@@ -267,6 +267,23 @@ profile:
     currency_help: Worin Preise angegeben werden. Nichts erzwingt eine, und Module, die sie brauchen, greifen darauf zurück.
     currency_none: Noch nicht gewählt
     read_only: Du darfst das sehen, aber nicht ändern.
+    mail: Ausgehende E-Mails
+    mail_intro: >-
+        Von wem die E-Mails dieser Installation kommen. Bleibt der Server leer, gehen sie
+        über uns hinaus, mit eurer Adresse zum Antworten. Ist er ausgefüllt, gehen sie über
+        euren eigenen Anbieter — dann sind sie wirklich von euch.
+    mail_sender_address: Absenderadresse
+    mail_sender_address_help: >-
+        Die Adresse, die eure Kundschaft sieht und an die Antworten gehen. Ohne sie lässt
+        sich kein Server verwenden.
+    mail_smtp_host: Euer SMTP-Server
+    mail_smtp_host_help: Leer lassen, um über diese Installation zu senden.
+    mail_smtp_port: Port
+    mail_smtp_port_help: Leer für den Standard. 465 für TLS.
+    mail_smtp_user: SMTP-Benutzer
+    mail_smtp_password: SMTP-Passwort
+    mail_smtp_password_help: Wird verschlüsselt gespeichert und nie wieder angezeigt.
+    mail_smtp_password_set: Ein Passwort ist gespeichert. Leer lassen, um es zu behalten.
 
 document:
     documents: Dokumente
@@ -327,6 +344,12 @@ refusal:
     wrong_password: Das ist nicht dein aktuelles Passwort.
     group_no_name: 'Eine Gruppe braucht einen Namen: daran wird sie ausgewählt.'
     group_name_taken: 'Es gibt bereits eine Gruppe namens „%label%“.'
+    mail_server_without_address: 'Ein SMTP-Server braucht eine Absenderadresse: Sie ist es, von der eure Mail zu kommen behauptet.'
+    mail_not_an_address: '„%address%“ ist keine E-Mail-Adresse.'
+
+mail:
+    send_failed: Die Nachricht konnte nicht gesendet werden. Es ist nichts hinausgegangen — versuch es erneut oder prüfe die Einstellungen für ausgehende E-Mails.
+    no_sender: Diese Installation hat noch keine Absenderadresse. Trag im Firmenprofil eine ein.
 
 flash:
     saved: Gespeichert.

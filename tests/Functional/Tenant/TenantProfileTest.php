@@ -213,6 +213,73 @@ final class TenantProfileTest extends WebTestCase
         self::assertNull($profile->getCurrency());
     }
 
+    /**
+     * Outgoing mail is configured here too (XIV-37), because it is the same kind
+     * of fact as the company name: something the installation says about itself,
+     * granted rather than personal. What it *means* is OutgoingMailTest's; this
+     * is the page actually carrying it there and back.
+     */
+    public function testOutgoingMailIsConfiguredOnThisPage(): void
+    {
+        $this->signIn(self::ADMIN);
+        $this->client->request('GET', $this->url(self::PATH));
+
+        $this->client->submitForm('Save', [
+            'company_name' => 'Acme AG',
+            'currency' => 'CHF',
+            'mail_sender_address' => 'billing@acme.test',
+            'mail_smtp_host' => 'smtp.acme.test',
+            'mail_smtp_port' => '587',
+            'mail_smtp_user' => 'acme',
+            'mail_smtp_password' => 'hunter2',
+        ]);
+
+        self::assertResponseRedirects($this->url(self::PATH));
+
+        $profile = $this->profile();
+
+        self::assertSame('billing@acme.test', $profile->getMailSenderAddress());
+        self::assertSame('smtp.acme.test', $profile->getMailSmtpHost());
+        self::assertSame(587, $profile->getMailSmtpPort());
+        self::assertSame('acme', $profile->getMailSmtpUser());
+
+        // Encrypted on the way in, and never rendered back out: the field is
+        // blank on the next load whatever is stored.
+        $stored = $profile->getEncryptedMailSmtpPassword();
+        self::assertIsString($stored);
+        self::assertStringNotContainsString('hunter2', $stored);
+
+        $crawler = $this->client->request('GET', $this->url(self::PATH));
+        self::assertSame('', $crawler->filter('#mail_smtp_password')->attr('value'));
+    }
+
+    /**
+     * A server with no address to send as is refused rather than stored: our
+     * domain may not claim theirs, so the address is what makes their server
+     * usable at all (§8.7).
+     */
+    public function testAServerWithoutASenderAddressIsRefusedAndNothingIsSaved(): void
+    {
+        $this->signIn(self::ADMIN);
+        $this->client->request('GET', $this->url(self::PATH));
+
+        $this->client->submitForm('Save', [
+            'company_name' => 'Acme AG',
+            'mail_sender_address' => '',
+            'mail_smtp_host' => 'smtp.acme.test',
+        ]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('.alert-danger');
+
+        // Including the half of the form that would have been fine on its own:
+        // the refusal happens before anything is written, so the page is telling
+        // the truth when it implies nothing was saved.
+        $profile = $this->profile();
+        self::assertSame('', $profile->getMailSmtpHost());
+        self::assertSame('', $profile->getCompanyName());
+    }
+
     /** The area is offered on the group screen beside the modules. */
     public function testThePermissionScreenOffersTheAreaBesideTheModules(): void
     {

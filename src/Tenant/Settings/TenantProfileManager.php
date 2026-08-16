@@ -13,12 +13,15 @@ declare(strict_types=1);
 
 namespace App\Tenant\Settings;
 
+use App\Tenancy\Security\TenantSecretCipher;
 use App\Tenant\Entity\TenantProfile;
+use App\Tenant\Mail\MailSettingsRefused;
 use App\Tenant\Repository\TenantProfileRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Intl\Countries;
 use Symfony\Component\Intl\Currencies;
+use Symfony\Component\Mime\Address;
 
 /**
  * The write side of the tenant profile (XIV-12).
@@ -34,6 +37,8 @@ final readonly class TenantProfileManager
         private TenantProfileRepository $profiles,
         #[Autowire(service: 'doctrine.orm.tenant_entity_manager')]
         private EntityManagerInterface $entityManager,
+        /** Encrypts the SMTP password on its way in; see applyMail(). */
+        private TenantSecretCipher $cipher,
     ) {
     }
 
@@ -108,5 +113,88 @@ final readonly class TenantProfileManager
         $this->entityManager->flush();
 
         return $profile;
+    }
+
+    /**
+     * Who this customer's mail comes from, and which server it leaves through
+     * (XIV-37, §8.7).
+     *
+     * **A method of its own rather than four more arguments on apply().** The two
+     * halves of this page answer to different rules: what the company is called
+     * is a preference where nonsense is worth ignoring, and mail settings are a
+     * credential where nonsense is worth refusing — an address that is not one,
+     * or a server with no address to send as, would both be discovered later as
+     * a bounced invoice.
+     *
+     * **The password is write-only from here.** Null means "leave what is
+     * stored", which is what an unchanged password field submits: rendering a
+     * stored secret back into a form so the browser can send it again is a
+     * decision this project does not make anywhere else either. Clearing the
+     * server clears it, which is the one way to get rid of it.
+     *
+     * @param string|null $smtpPassword null to keep the stored one, '' to clear it
+     *
+     * @throws MailSettingsRefused
+     */
+    public function applyMail(
+        string $senderAddress,
+        string $smtpHost,
+        ?int $smtpPort,
+        string $smtpUser,
+        #[\SensitiveParameter] ?string $smtpPassword,
+    ): TenantProfile {
+        $senderAddress = trim($senderAddress);
+        $smtpHost = trim($smtpHost);
+
+        if ($senderAddress !== '' && !$this->isAnAddress($senderAddress)) {
+            throw MailSettingsRefused::notAnAddress($senderAddress);
+        }
+
+        if ($smtpHost !== '' && $senderAddress === '') {
+            throw MailSettingsRefused::serverWithoutAnAddress();
+        }
+
+        $profile = $this->profiles->current();
+        $profile->setMailSenderAddress($senderAddress);
+        $profile->setMailSmtpHost($smtpHost);
+
+        if ($smtpHost === '') {
+            // No server means no credential to keep. Leaving one behind would be
+            // a secret nobody can see, nothing can use, and rotation still has
+            // to carry — so removing the server removes it.
+            $profile->setMailSmtpPort(null);
+            $profile->setMailSmtpUser('');
+            $profile->setEncryptedMailSmtpPassword(null);
+        } else {
+            $profile->setMailSmtpPort($smtpPort);
+            $profile->setMailSmtpUser($smtpUser);
+
+            if ($smtpPassword !== null) {
+                $profile->setEncryptedMailSmtpPassword(
+                    $smtpPassword === '' ? null : $this->cipher->encrypt($smtpPassword),
+                );
+            }
+        }
+
+        $this->entityManager->persist($profile);
+        $this->entityManager->flush();
+
+        return $profile;
+    }
+
+    /**
+     * symfony/mime's own rules rather than a regular expression of ours: it is
+     * the component that will have to build the header out of this, so it is the
+     * component whose opinion decides whether it can.
+     */
+    private function isAnAddress(string $address): bool
+    {
+        try {
+            new Address($address);
+        } catch (\InvalidArgumentException) {
+            return false;
+        }
+
+        return true;
     }
 }

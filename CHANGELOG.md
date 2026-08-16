@@ -65,6 +65,12 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **An installation can send mail, as itself** ([XIV-37]). The company profile
+  now holds a sender address and, optionally, your own SMTP server: with one,
+  mail is genuinely from you; without one it goes out through this installation
+  with your name on it and your address to reply to. The SMTP password is stored
+  encrypted and moves with `tenant:rotate-secrets`, and outside production
+  nothing can reach a real mail server at all. See §8.7.
 - **Totals update while you type** ([XIV-32], [XIV-44]). A line's total and the
   order's net, VAT and gross follow the quantity and the price as they are
   entered, before anything is saved, and read in the reader's own number format.
@@ -177,3 +183,4 @@ lands in `Unreleased` here.
 [XIV-53]: https://xivi.youtrack.cloud/issue/XIV-53
 [XIV-55]: https://xivi.youtrack.cloud/issue/XIV-55
 [XIV-44]: https://xivi.youtrack.cloud/issue/XIV-44
+[XIV-37]: https://xivi.youtrack.cloud/issue/XIV-37

@@ -241,10 +241,21 @@ The dev `MAILER_DSN` names it (`smtp://mailpit:1025`, in `.env.dev`), so nothing
 you send by accident leaves this machine. Its inbox is kept in memory only, so a
 restart empties it.
 
-**It is visibility, not a guarantee.** A catcher sees what is pointed at it and
-nothing else: change that DSN to a real server and the mail reaches real people,
-with this container none the wiser. What makes that impossible is a transport
-decision, not this one.
+**It is visibility, not a guarantee** — but the guarantee now exists beside it
+(XIV-37). A catcher sees only what is pointed at it, so pointing a DSN at a real
+server would once have reached real people with this container none the wiser.
+`App\Mail\NonProductionMailGuard` is registered ahead of every transport factory
+symfony/mailer ships and refuses, outside production, to *build* anything that
+could deliver — this catcher and the loopback excepted in dev, and nothing at all
+excepted in test. That covers a tenant's own SMTP credentials too, since those
+become a DSN through the same factory. See brief §8.7.
+
+Where a customer's mail comes from is their own setting, on the company profile:
+a sender address, and optionally their SMTP server, in which case the mail is
+genuinely from them. Without a server it goes out through this installation, with
+their name on it and their address to reply to. `MAILER_SENDER` is the address
+this installation sends as; leaving it empty uses `no-reply@` at the hostname
+that customer reaches you on.
 
 If two checkouts are running, the second's UI is not on 8025 — `bin/ci` derives
 the port from the directory the same way it derives the compose project and the
