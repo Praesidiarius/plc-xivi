@@ -262,11 +262,27 @@ lands in `Unreleased` here.
 - **Rebuild the dev image once** — `bin/compose up -d --build` — to get the other
   half: the container entrypoint reconciles on start now, rather than installing
   only when `vendor/` is empty.
+- **A worktree builds its own dev image instead of everybody's** ([XIV-71]). The
+  image name was the one per-checkout name XIV-51 missed, so a branch that
+  touched the `Dockerfile` or the entrypoint rebuilt the image every other
+  checkout was running — once as a crash-looping container, and silently the rest
+  of the time. `bin/lib/stack-env.sh` now derives `IMAGES_PREFIX` too, and
+  `bin/compose` prints the image name. The main checkout's image is still
+  `xivi-php-dev`; a worktree that changes nothing about the build shares every
+  layer and costs 29 kB. See §9.2.
+- **Act on upgrade: an existing worktree builds its image on the next `up`, and a
+  removed one leaves its image behind** ([XIV-71]). The first `bin/compose up` in
+  a worktree after this lands builds `<checkout>-xivi-php-dev`; it is cached
+  against the main checkout's layers, so it takes seconds unless your branch
+  changed the build. Nothing removes it afterwards — `git worktree remove` takes
+  the directory and the derivation with it, so read the name off `bin/compose`
+  *before* removing the worktree and `docker image rm` it.
 
 [XIV-52]: https://xivi.youtrack.cloud/issue/XIV-52
 [XIV-69]: https://xivi.youtrack.cloud/issue/XIV-69
 [XIV-63]: https://xivi.youtrack.cloud/issue/XIV-63
 [XIV-73]: https://xivi.youtrack.cloud/issue/XIV-73
+[XIV-71]: https://xivi.youtrack.cloud/issue/XIV-71
 
 ## Releases
 

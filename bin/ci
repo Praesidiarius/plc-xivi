@@ -12,11 +12,12 @@
 #   bin/ci --no-changelog  allow a branch that adds no changelog entry
 #
 # **Two branches at once:** make a git worktree. A different directory gets its
-# own compose project, its own ports and its own tenant databases, all derived
-# from the directory name, so two checkouts run the suite at the same time
-# without meeting (XIV-51). Two runs in the *same* checkout are refused rather
-# than allowed to interleave. Reach that stack by hand with `bin/compose`, never
-# a bare `docker compose` — the latter finds the main checkout's (XIV-55).
+# own compose project, its own ports, its own tenant databases and its own dev
+# image, all derived from the directory name, so two checkouts run the suite at
+# the same time without meeting (XIV-51, XIV-71). Two runs in the *same* checkout
+# are refused rather than allowed to interleave. Reach that stack by hand with
+# `bin/compose`, never a bare `docker compose` — the latter finds the main
+# checkout's (XIV-55).
 #
 # Coverage is opt-in rather than always on, but not because it is slow: this
 # suite spends its time provisioning databases, so Xdebug costs it about seven
@@ -221,8 +222,16 @@ if [ "$build_prod_image" = true ]; then
 	# The dev image says nothing about whether the production one builds: it
 	# installs dev dependencies, so a bundle registered for "all" while its
 	# package sits in require-dev only fails here. That has happened once.
+	#
+	# Per-checkout like the dev image (XIV-71), and for a weaker reason: this tag
+	# is written and never read, so two concurrent runs racing on one fixed name
+	# only ever meant the loser's tag pointed at the winner's build. Nothing is
+	# decided from it — the check is "did the build succeed", which is this
+	# command's exit status. But it is the same defect for one expansion, and a
+	# name that is only *nearly* meaningless is a poor thing to leave lying about
+	# for the first person who decides to run something out of that image.
 	step 'Production image builds'
-	docker build --target frankenphp_prod -t xivi-prod-check .
+	docker build --target frankenphp_prod -t "${IMAGES_PREFIX}xivi-prod-check" .
 fi
 
 pass 'All checks passed.'

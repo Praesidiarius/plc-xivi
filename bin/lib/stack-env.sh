@@ -11,6 +11,7 @@
 #   APP_ROOT               what the php container bind-mounts
 #   APP_UID / APP_GID      who it runs as
 #   TEST_RUN               the tenant-database prefix
+#   IMAGES_PREFIX          what this checkout's own images are called
 #   *_PORT                 the published ports, for any checkout but the main one
 #
 # **Why this is a file of its own.** XIV-51 put this block in `bin/ci`, so only
@@ -78,13 +79,55 @@ export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-$XIVI_PROJECT}"
 # is a worktree's — so a worktree has to say where it is, absolutely.
 export APP_ROOT="${APP_ROOT:-$XIVI_ROOT}"
 
-# Empty for the main checkout, so its databases, containers and ports keep the
-# names they have always had and nothing about a single-checkout run changes.
+# **And the image it runs** (XIV-71).
+#
+# XIV-51 made the project, the ports, the bind mount and the tenant prefix
+# per-checkout, and stopped one line short: `compose.override.yaml` names the dev
+# image `${IMAGES_PREFIX:-}xivi-php-dev`, which was one fixed name for every
+# checkout on the machine. A branch that touches the `Dockerfile` — or anything it
+# copies in, and `frankenphp/docker-entrypoint.sh` is copied in — therefore
+# rebuilt the image every *other* checkout was already running.
+#
+# That is not a hypothetical. XIV-63 changed the entrypoint to call
+# `bin/reconcile` and rebuilt; the worktree next door, on a branch predating that
+# script, was handed an entrypoint calling a file its tree did not contain and its
+# php container crash-looped under `set -e`. It worked around it with a temporary
+# shim, which is the right instinct and should not have been necessary.
+#
+# **The crash was the lucky outcome.** The same mechanism can hand a worktree an
+# image that differs *quietly* — an extension one branch added, a changed
+# `php.ini`, a different base tag — and everything comes up healthy while `bin/ci`
+# is green or red for reasons that have nothing to do with the branch. An artifact
+# that does not match the tree being checked is XIV-63's complaint one layer down,
+# and it also breaks the property that made parallel checkouts worth having: two
+# of them are supposed to be unable to disturb each other, and neither could tell.
+#
+# The marginal disk cost is what makes this affordable, and it was measured rather
+# than assumed: a worktree whose build inputs match the main checkout's produces
+# byte-for-byte the same layers, so Docker resolves it to the *same image ID* with
+# a second tag on it — 0 B. A worktree pays only for what it actually changed, and
+# only from the changed layer down.
+#
+# Empty for the main checkout, so its databases, containers, ports and images keep
+# the names they have always had and nothing about a single-checkout run changes.
 if [ "$XIVI_CHECKOUT" = "$XIVI_MAIN_CHECKOUT" ]; then
 	export TEST_RUN=""
+	export IMAGES_PREFIX=""
 else
 	# A database identifier: letters, digits and underscores only.
 	export TEST_RUN="_$(printf '%s' "$XIVI_CHECKOUT" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '_')"
+
+	# **A third sanitising**, for the reason there are already two: a Docker
+	# reference is neither a compose project name nor a database identifier. It
+	# forbids a leading or trailing separator, and forbids mixing them — `foo-_bar`
+	# is a legal project name and an illegal image name — so this reduces to the
+	# part that is legal everywhere, letters, digits and single hyphens, and then
+	# puts one hyphen back on the end because this is a *prefix* that gets
+	# `xivi-php-dev` concatenated onto it.
+	XIVI_IMAGE_SLUG="$(printf '%s' "$XIVI_CHECKOUT" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-')"
+	XIVI_IMAGE_SLUG="${XIVI_IMAGE_SLUG#-}"
+	XIVI_IMAGE_SLUG="${XIVI_IMAGE_SLUG%-}"
+	export IMAGES_PREFIX="${IMAGES_PREFIX:-${XIVI_IMAGE_SLUG}-}"
 
 	# A second stack cannot publish the first's ports. Offsets rather than
 	# random numbers, so the address of a given checkout is predictable and can
@@ -104,7 +147,15 @@ fi
 # Where this checkout's stack answers, for anything that wants to tell somebody.
 # The unset ports are the main checkout's, where the compose files' own defaults
 # apply and nothing above has been exported — so the fallbacks here have to agree
-# with compose.yaml and compose.override.yaml.
+# with compose.yaml and compose.override.yaml. The same caveat covers the image:
+# the stem `xivi-php-dev` is written out in compose.override.yaml, and repeating
+# it here is the price of being able to print the whole name.
+#
+# The image is printed rather than left implicit because it is the one thing in
+# this list that outlives the checkout. `git worktree remove` takes the directory,
+# the stack goes with `bin/compose down`, and the image stays — so the name a
+# reader needs in order to `docker image rm` it has to be obtainable *before* the
+# directory that derives it is gone.
 xivi_stack_summary() {
 	if [ "$XIVI_CHECKOUT" = "$XIVI_MAIN_CHECKOUT" ]; then
 		printf 'checkout   %s (the main one)\n' "$XIVI_CHECKOUT"
@@ -113,6 +164,7 @@ xivi_stack_summary() {
 	fi
 	printf 'project    %s\n' "$COMPOSE_PROJECT_NAME"
 	printf 'root       %s\n' "$APP_ROOT"
+	printf 'image      %sxivi-php-dev\n' "$IMAGES_PREFIX"
 	printf 'app        https://localhost:%s\n' "${HTTPS_PORT:-443}"
 	printf 'database   127.0.0.1:%s\n' "${DATABASE_PORT:-5432}"
 	printf 'adminer    http://127.0.0.1:%s   (--profile tools)\n' "${ADMINER_PORT:-8080}"
