@@ -114,6 +114,7 @@ module:
         removed: entfernt
 
 field:
+    picker_truncated: 'Es werden die ersten %shown% von %total% angezeigt. Grenze die Liste ein oder suche im anderen Modul.'
     label: Bezeichnung
     label_placeholder: Umsatzsteuer-ID
     shape_name: Name dieser Form

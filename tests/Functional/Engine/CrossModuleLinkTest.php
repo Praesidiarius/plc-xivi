@@ -27,12 +27,14 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Xivi\Article\ArticleModule;
 use Xivi\Contact\ContactModule;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Form\RecordReferenceType;
 use Xivi\Core\Metadata\MetadataEditor;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
 use Xivi\Core\Permission\ModuleAction;
 use Xivi\Core\Permission\PermissionScope;
+use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordRepository;
 use Xivi\Core\Record\RecordWriter;
 
@@ -218,6 +220,39 @@ final class CrossModuleLinkTest extends WebTestCase
         });
 
         self::assertSame('Acme AG', $shown, 'the name, and nothing wrapped around it');
+    }
+
+    /**
+     * A picker at its ceiling says so (XIV-35).
+     *
+     * The cap has always been there and always been silent, so a company that
+     * could not be linked to looked exactly like a company that did not exist.
+     * The count comes from the same access predicate as the options, because a
+     * total that included records the reader may not see would say how many
+     * exist one integer at a time — which is the leak scoping the picker closed.
+     */
+    public function testAPickerSaysWhenItIsShowingOnlyTheFirstFew(): void
+    {
+        $wanted = RecordReferenceType::MAX_CHOICES + 5;
+
+        self::service(TenantSwitcher::class)->runFor($this->tenant, function () use ($wanted): void {
+            $contacts = self::service(MetadataRepository::class)->get(ContactModule::KEY);
+            $writer = self::service(RecordWriter::class);
+
+            foreach (range(1, $wanted) as $n) {
+                $writer->save($contacts, new Record(data: [
+                    'kind' => ContactModule::COMPANY,
+                    'company_name' => sprintf('Company %03d', $n),
+                ]));
+            }
+        });
+
+        $help = $this->client->request('GET', $this->url('/m/article/new'))
+            ->filter(sprintf('#%s_help', str_replace(['[', ']'], ['_', ''], self::field(self::SUPPLIER))));
+
+        self::assertCount(1, $help, 'the picker explains itself');
+        self::assertStringContainsString((string) RecordReferenceType::MAX_CHOICES, $help->text());
+        self::assertStringContainsString((string) $wanted, $help->text(), 'and says how many there really are');
     }
 
     /** And the name is a way to get there (XIV-42). */
