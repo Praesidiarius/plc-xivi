@@ -93,26 +93,74 @@ class FollowUpRepository extends ServiceEntityRepository
      *
      * Here rather than in the widget's own ticket because the index that serves
      * it — `(assignee_id, done_at, due_at)` — is being created by this migration,
-     * and an index nothing asks for is one nobody can tell is right.
+     * and an index nothing asks for is one nobody can tell is right. XIV-81 added
+     * the bound, which is the third column of that index finally being used for
+     * something.
      *
      * **No limit, deliberately.** Cutting the list off before the soft-delete
      * filter runs would hand back short pages — ask for ten, get seven, with the
      * three missing ones invisible — and cutting it off afterwards is a decision
      * about how a widget looks, which belongs to the widget.
      *
+     * @param \DateTimeImmutable|null $dueBefore the exclusive end of the window
+     *                                           the caller is asking about, or
+     *                                           null for everything still open.
+     *                                           {@see \App\Tenant\FollowUp\FollowUpLens}
+     *                                           is what draws it, in the reader's
+     *                                           own zone
+     *
      * @return list<FollowUp>
      */
-    public function openFor(int $assigneeId): array
+    public function openFor(int $assigneeId, ?\DateTimeImmutable $dueBefore = null): array
     {
-        /** @var list<FollowUp> $found */
-        $found = $this->createQueryBuilder('f')
+        $query = $this->createQueryBuilder('f')
+            // **The notes come along, and this join is not decoration.** The
+            // widget prints what a follow-up *says* — its opening note, since a
+            // priority and a date on their own describe nothing — and
+            // `FollowUp::$notes` is a lazy collection. Touching it per row would
+            // be a query per follow-up: the same N+1 this whole ticket is about,
+            // arriving through the object graph rather than through the module
+            // tables. One LEFT JOIN, and object hydration deduplicates the roots.
+            //
+            // The notes' own order has to be restated here because the
+            // association's `#[ORM\OrderBy]` only governs a lazy load; a
+            // fetch-join is ordered by the statement.
+            ->leftJoin('f.notes', 'n')
+            ->addSelect('n')
             ->andWhere('f.assigneeId = :assignee')
             ->andWhere('f.doneAt IS NULL')
             ->setParameter('assignee', $assigneeId)
             ->orderBy('f.dueAt', 'ASC')
             ->addOrderBy('f.id', 'ASC')
-            ->getQuery()
-            ->getResult();
+            ->addOrderBy('n.createdAt', 'ASC')
+            ->addOrderBy('n.id', 'ASC');
+
+        if ($dueBefore !== null) {
+            // **An upper bound and no lower one, which is not an oversight and is
+            // deliberately the opposite of §5.16.** An invoice is overdue
+            // *strictly before* today, because calling somebody late on the
+            // morning their bill falls due is how a dunning list loses its
+            // credibility. A follow-up is the other case: it is a note somebody
+            // wrote to themselves, and what is due at 16:30 is exactly what they
+            // want to see at 09:00 — so the window closes at the *end* of the
+            // period rather than at its start.
+            //
+            // And nothing closes it at the near end. Adding `AND f.dueAt >= …`
+            // would look like consistency and would mean a follow-up somebody
+            // missed disappearing from the widget at the moment it started to
+            // matter. If a future reader is here to "fix" the asymmetry between
+            // this and the invoice: the asymmetry is the feature, and the two
+            // predicates answer opposite questions about opposite kinds of
+            // deadline.
+            //
+            // Exclusive, because the caller hands in the start of the day after
+            // the last one included — comparing against the last representable
+            // microsecond of a day is an off-by-one nobody finds twice.
+            $query->andWhere('f.dueAt < :dueBefore')->setParameter('dueBefore', $dueBefore);
+        }
+
+        /** @var list<FollowUp> $found */
+        $found = $query->getQuery()->getResult();
 
         return $this->onLivingRecords($found);
     }

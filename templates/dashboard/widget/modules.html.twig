@@ -1,0 +1,56 @@
+{#
+	The modules this person may open, as a card each (XIV-81).
+
+	This is the landing page as it always was, moved out of `dashboard/index.html.twig`
+	and given a widget of its own — see `App\Dashboard\Widget\ModuleTilesWidget`
+	for why converting it was worth doing rather than leaving it in place with the
+	follow-ups bolted on beside it.
+
+	It carries no heading. A grid of labelled cards under the company's name is
+	already self-describing, and "Modules" above it would be a word explaining a
+	picture that does not need explaining.
+#}
+{% if modules is empty %}
+	{#
+		Two different empty states. "Nothing is installed" is something an
+		administrator can act on; "nothing is yours" is not, and telling
+		somebody with no permissions to run a console command against their
+		employer's database would be the wrong sentence in every respect.
+	#}
+	{% if anyInstalled %}
+		<div class="alert alert-secondary mb-0">
+			{{ 'dashboard.no_access'|trans }}
+		</div>
+	{% else %}
+		{#
+			The store answers this now (XIV-6), for whoever may install out of
+			it. The command stays for everybody else, because a headless
+			deployment keeps its path and somebody without the grant still needs
+			to be told what would fix this.
+		#}
+		<div class="alert alert-secondary mb-0">
+			{% if can('install', store) %}
+				{{ 'dashboard.none_installed_store'|trans }}
+				<a class="alert-link" href="{{ path('store_index') }}">{{ 'dashboard.from_store'|trans }}</a>
+			{% else %}
+				{{ 'dashboard.none_installed'|trans }}
+				<code>bin/console tenant:module:install {{ chrome.tenant.slug }} contact</code>
+			{% endif %}
+		</div>
+	{% endif %}
+{% else %}
+	<div class="row g-3">
+		{% for module in modules %}
+			<div class="col-sm-6 col-lg-4">
+				<a class="card h-100 module-tile" href="{{ path('module_index', {module: module.key}) }}">
+					<div class="card-body">
+						<h2 class="h6 card-title mb-1">{{ module.label }}</h2>
+						<p class="card-text text-body-secondary small mb-0">
+							{{ 'dashboard.field_count'|trans({'%count%': module.fields|length}) }}
+						</p>
+					</div>
+				</a>
+			</div>
+		{% endfor %}
+	</div>
+{% endif %}

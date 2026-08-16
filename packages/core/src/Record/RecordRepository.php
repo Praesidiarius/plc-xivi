@@ -138,6 +138,53 @@ final readonly class RecordRepository
     }
 
     /**
+     * Several records of one shape, by id, in one query (XIV-81).
+     *
+     * The sibling of {@see findChildrenOfAny()} one level up, and it exists for
+     * exactly the same reason: a caller holding a list of ids wants the rows, and
+     * a loop of `find()` is a query per row. The dashboard's follow-up widget is
+     * the caller that forced it — follow-ups live in one shared table and name a
+     * record each (§5.18), so resolving a page of them back to something worth
+     * reading is one lookup per *module*, not one per follow-up. §5.16 names that
+     * N+1 as the cost a dashboard cannot afford on the first page after signing
+     * in.
+     *
+     * **Not expressible through the query layer**, which is where this would
+     * otherwise belong. §5.3 compiles conditions against the customer's own field
+     * definitions, and `id` is not one of them — it is a column of the table
+     * rather than a field of the shape, and teaching `Filter` about it would mean
+     * a second kind of path with different resolution rules for the sake of one
+     * caller. So this is a plain read, beside the other plain reads, with the
+     * same soft-delete rule they all have.
+     *
+     * The ids are bound as an array parameter and never interpolated; the only
+     * text this builds a statement out of is the table name off the definition
+     * row, as everywhere else here.
+     *
+     * Order is not promised, and callers should not want one: the follow-ups
+     * already carry the order they are shown in, and this is a lookup table
+     * rather than a list.
+     *
+     * @param list<int> $ids
+     *
+     * @return list<Record>
+     */
+    public function findAny(ShapeDefinition $shape, array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        $rows = $this->connection->fetchAllAssociative(
+            sprintf('SELECT * FROM %s WHERE id IN (:ids) AND deleted_at IS NULL', $this->table($shape)),
+            ['ids' => array_values(array_unique($ids))],
+            ['ids' => ArrayParameterType::INTEGER],
+        );
+
+        return array_map(fn (array $row): Record => $this->hydrate($shape, $row), $rows);
+    }
+
+    /**
      * Deliberately minimal — ordering, filtering and pagination across JSONB and
      * real columns is §7.3, and guessing at it here would be the concatenated-SQL
      * mess that section exists to avoid.

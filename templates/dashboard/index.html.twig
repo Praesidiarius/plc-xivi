@@ -10,49 +10,31 @@
 
 		<h1 class="h3 mb-4">{{ tenant.name }}</h1>
 
-		{% if chrome.modules is empty %}
-			{#
-				Two different empty states. "Nothing is installed" is something an
-				administrator can act on; "nothing is yours" is not, and telling
-				somebody with no permissions to run a console command against their
-				employer's database would be the wrong sentence in every respect.
-			#}
-			{% if chrome.isAnyModuleInstalled %}
-				<div class="alert alert-secondary">
-					{{ 'dashboard.no_access'|trans }}
-				</div>
-			{% else %}
-				{#
-					The store answers this now (XIV-6), for whoever may install out of
-					it. The command stays for everybody else, because a headless
-					deployment keeps its path and somebody without the grant still needs
-					to be told what would fix this.
-				#}
-				<div class="alert alert-secondary">
-					{% if can('install', chrome.store) %}
-						{{ 'dashboard.none_installed_store'|trans }}
-						<a class="alert-link" href="{{ path('store_index') }}">{{ 'dashboard.from_store'|trans }}</a>
-					{% else %}
-						{{ 'dashboard.none_installed'|trans }}
-						<code>bin/console tenant:module:install {{ tenant.slug }} contact</code>
-					{% endif %}
-				</div>
-			{% endif %}
-		{% else %}
-			<div class="row g-3">
-				{% for module in chrome.modules %}
-					<div class="col-sm-6 col-lg-4">
-						<a class="card h-100 module-tile" href="{{ path('module_index', {module: module.key}) }}">
-							<div class="card-body">
-								<h2 class="h6 card-title mb-1">{{ module.label }}</h2>
-								<p class="card-text text-body-secondary small mb-0">
-									{{ 'dashboard.field_count'|trans({'%count%': module.fields|length}) }}
-								</p>
-							</div>
-						</a>
-					</div>
-				{% endfor %}
-			</div>
-		{% endif %}
+		{#
+			The page is its widgets and nothing else (XIV-81). What used to be here
+			— a tile grid and two empty states — is `dashboard/widget/modules.html.twig`
+			now, which is what makes follow-ups *a* widget rather than the one thing
+			that got special treatment. Anything the landing page grows next is a
+			class implementing DashboardWidget and a template of its own; this file
+			does not change again.
+
+			Ordering is the tag priority on each widget, already applied by the time
+			the panels arrive, so there is nothing to sort and nothing here that
+			knows which widget is which.
+
+			`only`, so a panel is rendered with exactly what its widget handed over
+			and cannot quietly start depending on a variable that happens to be in
+			scope on this page. The globals every template has — `chrome`, `app` —
+			are unaffected.
+		#}
+		{% for panel in panels %}
+			<section class="mb-4">
+				{% if panel.titleKey %}
+					<h2 class="h5 mb-3">{{ panel.titleKey|trans }}</h2>
+				{% endif %}
+
+				{{ include(panel.template, panel.data, with_context = false) }}
+			</section>
+		{% endfor %}
 	</main>
 {% endblock %}
