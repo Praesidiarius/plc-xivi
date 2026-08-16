@@ -16,7 +16,6 @@ namespace Xivi\Core\Demo;
 use Doctrine\DBAL\Connection;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
-use Xivi\Core\Field\FieldTypeRegistry;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordWriter;
 
@@ -28,10 +27,16 @@ use Xivi\Core\Record\RecordWriter;
  * existed the largest table anybody had seen held about five contacts.
  *
  * **Nothing here knows what a contact is.** It walks the module's own
- * definitions and asks each field's *type* for a value — the same move as the
- * form, the list, the export and the import. A field added in the editor this
- * morning is generated this afternoon, and a new field type gets demo data by
- * implementing one method rather than by editing a generator.
+ * definitions and asks each field for a value — the same move as the form, the
+ * list, the export and the import. A field added in the editor this morning is
+ * generated this afternoon, and a new field type gets demo data by implementing
+ * one method rather than by editing a generator.
+ *
+ * A field with an opinion about its own demo values says so on itself, in the
+ * `samples` option, and FieldSampler is the one place that reads it (XIV-24). It
+ * is still nothing this class knows: a tax rate is plausible here because the
+ * article module said what a tax rate looks like, not because a generator
+ * learned what an article is.
  *
  * That is the deliberate inversion of the obvious design. A generator that said
  * `first_name`, `company_name`, `email` would be a second place that knows what
@@ -60,7 +65,7 @@ final readonly class DemoDataGenerator
     public function __construct(
         private Connection $connection,
         private RecordWriter $writer,
-        private FieldTypeRegistry $fieldTypes,
+        private FieldSampler $sampler,
         private DemoLedger $ledger,
         int $batch = self::BATCH,
     ) {
@@ -149,11 +154,11 @@ final readonly class DemoDataGenerator
         $variantField = $shape->getVariantField();
 
         if ($variantField !== null && ($field = $shape->getField($variantField)) !== null) {
-            $values[$variantField] = $this->fieldTypes->get($field->getType())->sample($field, $sequence);
+            $values[$variantField] = $this->sampler->sample($field, $sequence);
         }
 
         foreach ($shape->getFieldsFor($shape->variantOf($values)) as $field) {
-            $values[$field->getKey()] ??= $this->fieldTypes->get($field->getType())->sample($field, $sequence);
+            $values[$field->getKey()] ??= $this->sampler->sample($field, $sequence);
         }
 
         return $values;

@@ -1443,6 +1443,102 @@ irreversible button. The file name and the size on that screen are the real ones
 
 ---
 
+### 5.16 Demo data a field can have an opinion about (XIV-24)
+
+The generator walks a module's definitions and asks each field's *type* for a
+value, which is the whole reason it is worth having: it fills a field somebody
+added in the editor this morning without having heard of that field (§5.4), and
+a new field type gets demo data by implementing one method rather than by
+editing a generator. Being dumb is the feature.
+
+It is also the complaint. **The generator knows a field's type and its bounds and
+nothing about what it means.** `tax_rate` allows anything from 0 to 100, so a
+uniform draw across that range produced 63.90, 40.55, 15.10 — every value valid,
+almost none a VAT rate, and a set of invoice totals that are arithmetically
+perfect and tell you nothing about whether the feature works, which is what the
+data was generated for. From the other direction, an article's `title` came out
+"Kuhn GmbH", because the vocabulary has names and nothing tells it that a name on
+an article is not a person's.
+
+**A range is not a distribution.** Real numeric fields cluster hard, and the
+uniform draw across everything allowed is the one shape real data never has.
+
+So the question was not "how does the generator guess better" — that road ends in
+a table of special cases keyed on field names, a second place that knows what an
+article is beside the article module, which is the tax §5 exists to remove. The
+question is **what is the smallest thing a field can say about itself so that the
+guess is good**, and the precedent was already there: inherited values, number
+formats and column widths are all declarations on the field.
+
+**Hence one option: `samples`, a list of values the field's demo data is drawn
+from.** Read in one place, `Xivi\Core\Demo\FieldSampler`, which sits between the
+generator and the type registry. No field type changed, and a field that declares
+nothing reaches its type by a path that — deliberately — draws no random number
+of its own, so it consumes the seeded sequence exactly as it did before. That is
+the criterion protecting every field nobody has said anything about, and it is
+asserted rather than assumed: the suite samples every field of a module that
+declares nothing, through the sampler and through the types directly, from the
+same seed, and compares value for value.
+
+**Which record gets which value stays the seed's business.** The draw uses the
+same `mt_rand` sequence as everything else, so `--seed` still makes a run
+repeatable with declarations in play.
+
+**A declared value is treated as though somebody had typed it.** Nothing converts
+it on the way in; the write goes through `RecordWriter` like every other write, so
+`8.1` on a decimal is stored `8.10` exactly as the form would store it. That also
+sets the standard of care: a declared value the field would refuse is a value the
+generator will write, in the same way a `min` above a `max` is.
+
+**Weighting is repetition, not a second concept.** "Some articles with no VAT at
+all" wants either weights beside the values or an empty value among them, and the
+second is smaller: the list stays a list, the draw stays uniform, and a value that
+should come up more often is written twice. `[8.1, 8.1, 8.1, 2.6, 3.8, null]` is
+half a catalogue at the standard rate and one article in six sold without VAT.
+`FakerSampleValues::country()` has drawn from `['CH', 'CH', 'CH', 'DE', …]` since
+it was written, so this is the project's own idiom rather than a new one.
+
+**Two declarations are dropped rather than trusted**, because both would break the
+promise the generator is actually measured on — that everything it makes passes
+the module's own validation. A `null` among a *required* field's samples: empty is
+a real value and belongs in a list, but a required field is the one place it
+cannot be, and the field already says so. And the whole list on a *unique* field:
+a fixed list is the one thing that cannot fill a unique column, since the second
+record drawn from it collides — the type's own sample knows to put the sequence
+number on the end, so the honest answer is to let it.
+
+**What a sample means, per type.** A literal value, everywhere, which is why the
+mechanism needed no type to cooperate: text and textarea take strings, decimal,
+currency and integer take numbers, date takes an ISO string, and a choice takes
+one of its own keys — a choice already has its options, but a list of them is how
+you say that four in five orders are `draft`. It is meaningless on a `reference`,
+whose values are record ids belonging to one tenant's database, and no module
+declares it there; a collection is not a field at all, and its rows' fields carry
+their own declarations one level down like any other field. Nothing is
+half-supported: the sampler does not switch on type, so the only question is
+whether a literal in code means the same thing in every tenant, and for a
+reference it does not.
+
+**Code-only, in the sense that no form draws it.** The option is stored like every
+other and the editor already leaves alone what it does not draw (§5.4), so a
+tenant that acquires one keeps it — but there is no control, and adding one is
+the deferred work §5.4 already names: a *type* saying which of its options are
+the customer's to set, and how they are typed in. Until then a "sample values"
+box would have to guess how to parse `8.1, 2.6` for a decimal, a date and a
+choice from one textarea. The customer who adds a field in the editor is not left
+out by this: they get exactly what they got before, which is a valid value for a
+field nobody has described. Plausibility requires somebody to say what the field
+means, and the person who knows is whoever declared it.
+
+**Existing installations keep their definitions**, as ever (§6.1): a blueprint is
+a seed, installing is idempotent, and nothing retro-fits a changed declaration
+onto a customer who already has the module. A tenant installed before this keeps
+the uniform tax rates it was given; a tenant installed after gets rates somebody
+can read an invoice off. Migrating them would be the engine overruling the rule
+that the customer's definitions are the truth, for demo data.
+
+---
+
 ## 6. Extensibility
 
 Three composable layers, all "one codebase, no forks":

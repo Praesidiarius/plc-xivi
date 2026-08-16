@@ -53,7 +53,34 @@ final class ArticleModule implements ModuleProvider
                     // page and the link in every list (§5.4).
                     title: true,
                     position: 10,
-                    options: ['max_length' => 180],
+                    options: [
+                        'max_length' => 180,
+                        // Things somebody sells, because nothing else could know
+                        // (XIV-24). The engine sees a required text field called
+                        // `title` and offers what it offers a name — so a
+                        // catalogue used to be full of "Kuhn GmbH", which is a
+                        // company and not a product. Goods and services both:
+                        // an hour of work is an article too, and a list where
+                        // every row is an object hides the case where one is not.
+                        'samples' => [
+                            'Bürostuhl Ergo',
+                            'Schreibtisch Eiche 160 cm',
+                            'Rollcontainer 3 Schubladen',
+                            'Aktenregal Basis',
+                            'LED-Deckenleuchte 40 W',
+                            'Kaffeemaschine Kompakt',
+                            'Wasserkocher 1.7 l',
+                            'Werkzeugkoffer 82-teilig',
+                            'Akkuschrauber 18 V',
+                            'Kabeltrommel 25 m',
+                            'Druckerpapier A4, 500 Blatt',
+                            'Toner schwarz',
+                            'Montage vor Ort, pro Stunde',
+                            'Beratung, pro Stunde',
+                            'Wartung Jahrespauschale',
+                            'Lieferung innerhalb der Region',
+                        ],
+                    ],
                 ),
                 new FieldBlueprint(
                     key: 'description',
@@ -90,7 +117,27 @@ final class ArticleModule implements ModuleProvider
                     type: 'decimal',
                     filterable: true,
                     position: 40,
-                    options: ['min' => 0, 'max' => 100, 'scale' => 2],
+                    options: [
+                        'min' => 0,
+                        'max' => 100,
+                        'scale' => 2,
+                        // What a rate *looks* like, which is a different question
+                        // from what the field accepts (XIV-24). It still accepts
+                        // anything from nothing to a hundred, for the reason
+                        // above; this list only says that demo data drawn
+                        // uniformly across that range — 63.90, 40.55 — is data
+                        // nobody can read an invoice total off. Swiss rates
+                        // because the demo vocabulary is Swiss too, and being
+                        // out of date here costs a silly-looking demo record and
+                        // nothing else.
+                        //
+                        // The standard rate three times over because half a
+                        // catalogue is not sold at the reduced one, and null
+                        // among them because an article with no VAT at all is a
+                        // real case and the one whose totals are easiest to get
+                        // wrong.
+                        'samples' => [8.1, 8.1, 8.1, 2.6, 3.8, null],
+                    ],
                 ),
             ],
             // No presets. Three fields is already the smallest honest version of

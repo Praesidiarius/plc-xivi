@@ -25,6 +25,12 @@ namespace Xivi\Core\Demo;
  * Being wrong costs a silly-looking demo record and nothing else. No module
  * declares anything for this, and nothing outside demo generation reads it.
  *
+ * Where being wrong is worth correcting, the field says so rather than this
+ * class growing a case for it: an article's `title` is a name and is not a
+ * company's, which the last arm below cannot tell and the article module can
+ * (XIV-24, FieldSampler). This heuristic is for everything nobody has said
+ * anything about, which is most fields and always will be.
+ *
  * The dispatch lives here rather than in the vocabulary because it is the same
  * question whichever words are behind it — a library that hands out names still
  * has to be *asked* for a name rather than a city, so swapping the words does

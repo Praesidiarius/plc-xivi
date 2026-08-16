@@ -17,10 +17,14 @@ use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tests\Support\SharesATenant;
 use Doctrine\DBAL\Connection;
+use PHPUnit\Framework\Attributes\TestWith;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Xivi\Article\ArticleModule;
 use Xivi\Contact\ContactModule;
 use Xivi\Core\Demo\DemoDataGenerator;
 use Xivi\Core\Demo\DemoLedger;
+use Xivi\Core\Demo\FieldSampler;
+use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
 use Xivi\Core\History\HistoryRepository;
@@ -59,9 +63,16 @@ final class DemoDataTest extends KernelTestCase
         $this->switcher = self::service(TenantSwitcher::class);
         $this->tenant = $this->sharedTenant(self::SLUG, ['demo.localhost']);
 
-        $this->switcher->runFor($this->tenant, fn () => self::service(ModuleInstaller::class)->install(
-            self::service(ModuleRegistry::class)->get(ContactModule::KEY),
-        ));
+        $this->switcher->runFor($this->tenant, function (): void {
+            $installer = self::service(ModuleInstaller::class);
+            $modules = self::service(ModuleRegistry::class);
+
+            $installer->install($modules->get(ContactModule::KEY));
+            // Contact declares no samples anywhere and article declares two, so
+            // one tenant carries both halves of XIV-24: the field nobody has said
+            // anything about, and the field that says something.
+            $installer->install($modules->get(ArticleModule::KEY));
+        });
     }
 
     public function testItGeneratesAsManyRecordsAsAsked(): void
@@ -74,14 +85,21 @@ final class DemoDataTest extends KernelTestCase
      * The claim the whole design rests on: nothing in the generator knows what a
      * contact is, and every record still passes the validation those same
      * definitions build.
+     *
+     * Run for the article module too, because a declared value is written
+     * without anything checking it (XIV-24) — a `samples` list is worth exactly
+     * as much care as a default, and this is where a declaration the field would
+     * refuse shows up.
      */
-    public function testEveryGeneratedRecordPassesTheModulesOwnValidation(): void
+    #[TestWith([ContactModule::KEY])]
+    #[TestWith([ArticleModule::KEY])]
+    public function testEveryGeneratedRecordPassesTheModulesOwnValidation(string $key): void
     {
-        $this->generate(40);
+        $this->generate(40, module: $key);
 
-        $this->switcher->runFor($this->tenant, function (): void {
+        $this->switcher->runFor($this->tenant, function () use ($key): void {
             $validator = self::service(RecordValidator::class);
-            $module = self::module();
+            $module = self::module($key);
 
             foreach (self::service(RecordRepository::class)->findBy($module, new RecordQuery(perPage: 100), RecordAccess::unrestricted()) as $record) {
                 $violations = $validator->validate($module, $record->data, $record->id);
@@ -194,6 +212,181 @@ final class DemoDataTest extends KernelTestCase
         self::assertNotSame($first, array_map(static fn (Record $r): mixed => $r->data['email'], $this->records()));
     }
 
+    /**
+     * The criterion that protects every field nobody has said anything about
+     * (XIV-24), asserted rather than assumed.
+     *
+     * Contact declares no `samples` on any of its fields, so for every one of
+     * them the sampler has to return what the field's own type returns *and*
+     * leave the seeded sequence in the same place — a single extra call to
+     * mt_rand anywhere on this path would shift every value after it, which is
+     * how "nothing changed" quietly becomes "everything changed by one".
+     *
+     * Compared value for value against the types themselves rather than against
+     * a recorded snapshot, because a snapshot would also be asserting which
+     * names this version of Faker happens to hold.
+     */
+    public function testAFieldThatDeclaresNothingIsSampledExactlyAsItWasBefore(): void
+    {
+        $this->switcher->runFor($this->tenant, function (): void {
+            $fields = self::everyFieldOf(self::module());
+            self::assertNotEmpty($fields);
+
+            $sampler = self::service(FieldSampler::class);
+            $types = self::service(FieldTypeRegistry::class);
+
+            mt_srand(4242);
+            $viaSampler = [];
+            foreach ($fields as $field) {
+                for ($sequence = 1; $sequence <= 5; ++$sequence) {
+                    $viaSampler[] = $sampler->sample($field, $sequence);
+                }
+            }
+
+            mt_srand(4242);
+            $viaType = [];
+            foreach ($fields as $field) {
+                for ($sequence = 1; $sequence <= 5; ++$sequence) {
+                    $viaType[] = $types->get($field->getType())->sample($field, $sequence);
+                }
+            }
+
+            self::assertSame($viaType, $viaSampler);
+        });
+    }
+
+    /** A declared list is where the values come from, and the only place. */
+    public function testADeclaredFieldIsFilledFromItsOwnList(): void
+    {
+        $this->generate(60, module: ArticleModule::KEY);
+
+        $titles = [];
+        foreach ($this->records(100, ArticleModule::KEY) as $record) {
+            $titles[(string) $record->data['title']] = true;
+            self::assertContains($record->data['tax_rate'], ['8.10', '2.60', '3.80', null], 'a tax rate nobody declared');
+        }
+
+        // What the ticket was opened about: a catalogue full of "Kuhn GmbH".
+        foreach (array_keys($titles) as $title) {
+            self::assertNotEmpty($title);
+            self::assertStringNotContainsString('GmbH', $title, 'an article is being sold as a company');
+        }
+
+        self::assertGreaterThan(1, \count($titles), 'every article got the same title');
+    }
+
+    /**
+     * "Including some with none at all" (XIV-24). An article sold without VAT is
+     * a real case and the one whose totals are easiest to get wrong, so it is in
+     * the declared list rather than in a weighting nobody can read.
+     */
+    public function testADeclaredEmptyValueIsGeneratedToo(): void
+    {
+        $this->generate(60, module: ArticleModule::KEY);
+
+        $rates = array_map(
+            static fn (Record $r): mixed => $r->data['tax_rate'],
+            $this->records(100, ArticleModule::KEY),
+        );
+
+        self::assertContains(null, $rates, 'no article was left without VAT');
+        self::assertGreaterThan(1, \count(array_unique(array_filter($rates), \SORT_REGULAR)), 'only one rate was ever drawn');
+    }
+
+    /** Declared or not, the seed is still what decides which record gets what. */
+    public function testTheSameSeedProducesTheSameRecordsWhenSamplesAreDeclared(): void
+    {
+        $of = fn (): array => array_map(
+            static fn (Record $r): array => [$r->data['title'], $r->data['tax_rate']],
+            $this->records(100, ArticleModule::KEY),
+        );
+
+        $this->generate(20, seed: 99, module: ArticleModule::KEY);
+        $first = $of();
+
+        $this->purge(ArticleModule::KEY);
+
+        $this->generate(20, seed: 99, module: ArticleModule::KEY);
+
+        self::assertSame($first, $of());
+        self::assertGreaterThan(1, \count(array_unique(array_column($first, 0))), 'the seed produced one value twenty times');
+    }
+
+    /**
+     * A required field cannot be empty, so a null among its samples is dropped
+     * rather than written — the generator's promise is that everything it makes
+     * passes the module's own validation, and a declaration is not allowed to
+     * break it.
+     */
+    public function testARequiredFieldIsNeverGivenADeclaredEmptyValue(): void
+    {
+        $field = self::declared(['Bürostuhl', null, ''], required: true);
+        $sampler = self::service(FieldSampler::class);
+
+        mt_srand(3);
+        for ($sequence = 1; $sequence <= 40; ++$sequence) {
+            self::assertSame('Bürostuhl', $sampler->sample($field, $sequence));
+        }
+    }
+
+    /**
+     * A unique field is the one a fixed list cannot fill: the second record drawn
+     * from it collides. The type's own sample puts the sequence number on the
+     * end, so the declaration is ignored rather than honoured into a duplicate.
+     */
+    public function testAUniqueFieldKeepsItsTypesSample(): void
+    {
+        $field = self::declared(['Bürostuhl'], required: true, unique: true);
+        $sampler = self::service(FieldSampler::class);
+
+        $values = [];
+        mt_srand(3);
+        for ($sequence = 1; $sequence <= 20; ++$sequence) {
+            $values[] = $sampler->sample($field, $sequence);
+        }
+
+        self::assertNotContains('Bürostuhl', $values);
+        self::assertSame($values, array_values(array_unique($values)));
+    }
+
+    /**
+     * A text field on a shape nothing has installed, so the sampler can be asked
+     * about a declaration without a module having to carry one for the test.
+     *
+     * @param list<mixed> $samples
+     */
+    private static function declared(array $samples, bool $required = false, bool $unique = false): FieldDefinition
+    {
+        $field = new FieldDefinition(
+            shape: new ModuleDefinition('demo_shape', 'Demo', 'demo_shape'),
+            key: 'title',
+            label: 'Title',
+            type: 'text',
+            required: $required,
+            unique: $unique,
+        );
+        $field->setOptions([FieldSampler::OPTION => $samples]);
+
+        return $field;
+    }
+
+    /**
+     * Every field of a module and of its collections, since a collection's field
+     * is sampled by exactly the same call.
+     *
+     * @return list<FieldDefinition>
+     */
+    private static function everyFieldOf(ModuleDefinition $module): array
+    {
+        $fields = array_values($module->getFields()->toArray());
+
+        foreach ($module->getCollections() as $collection) {
+            $fields = [...$fields, ...array_values($collection->getFields()->toArray())];
+        }
+
+        return $fields;
+    }
+
     /** Generated records are records, so they have a history like any other (§5.2). */
     public function testGeneratedRecordsHaveTheirHistory(): void
     {
@@ -242,37 +435,37 @@ final class DemoDataTest extends KernelTestCase
         });
     }
 
-    private function generate(int $amount, ?int $seed = null): int
+    private function generate(int $amount, ?int $seed = null, string $module = ContactModule::KEY): int
     {
         return $this->switcher->runFor($this->tenant, fn (): int => new DemoDataGenerator(
             self::tenantConnection(),
             self::service(RecordWriter::class),
-            self::service(FieldTypeRegistry::class),
+            self::service(FieldSampler::class),
             self::service(DemoLedger::class),
             // A small batch, so the paging is walked without writing hundreds of
             // records to prove it.
             batch: 7,
-        )->generate(self::module(), $amount, $seed));
+        )->generate(self::module($module), $amount, $seed));
     }
 
-    private function purge(): int
+    private function purge(string $module = ContactModule::KEY): int
     {
         return $this->switcher->runFor(
             $this->tenant,
-            fn (): int => self::service(DemoLedger::class)->purge(self::module()),
+            fn (): int => self::service(DemoLedger::class)->purge(self::module($module)),
         );
     }
 
     /** @return list<Record> */
-    private function records(int $perPage = 100): array
+    private function records(int $perPage = 100, string $module = ContactModule::KEY): array
     {
         return $this->switcher->runFor($this->tenant, fn (): array => self::service(RecordRepository::class)
-            ->findBy(self::module(), new RecordQuery(perPage: $perPage), RecordAccess::unrestricted()));
+            ->findBy(self::module($module), new RecordQuery(perPage: $perPage), RecordAccess::unrestricted()));
     }
 
-    private static function module(): ModuleDefinition
+    private static function module(string $key = ContactModule::KEY): ModuleDefinition
     {
-        return self::service(MetadataRepository::class)->get(ContactModule::KEY);
+        return self::service(MetadataRepository::class)->get($key);
     }
 
     /**
