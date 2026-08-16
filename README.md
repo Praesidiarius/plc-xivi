@@ -211,6 +211,46 @@ are one level deep — `acme.localhost`, not `www.acme.localhost`.
 PostgreSQL which database the connection actually reached. It is served only when
 debug is on.
 
+## Throwing a test tenant away, and getting a fresh one
+
+```bash
+bin/compose exec php bin/console tenant:reset bulk \
+    --modules=contact,article,order,invoice --records=300 --seed=24
+# ... Password: <generated, shown once>
+```
+
+One command for what used to be six: the existing tenant is deprovisioned, a new
+one is provisioned and migrated, the modules are installed, each is filled with
+demo records, and an admin user is created and their password printed — which is
+the whole point, since a fresh tenant nobody can sign in to is not much use.
+
+Worth knowing:
+
+- **Module order is worked out for you.** An invoice needs an order and an order
+  needs a contact; list them in any order you like. A module that is missing a
+  requirement, or that this build does not carry, is refused *before* the existing
+  tenant is destroyed.
+- `--modules` defaults to every module in the build, `--records` to 50, and it is
+  **one number applied to each module** — 300 contacts *and* 300 articles *and*
+  300 orders. Different sizes per module are what `tenant:demo:generate` is for.
+- `--seed` makes the records identical every run, which is what makes "it broke
+  on record 4,312" something somebody else can see too.
+- Hostnames default to `<slug>.localhost`; pass your own as extra arguments.
+- **Development only.** It is excluded from the production image in
+  `config/services.yaml`, beside the demo commands.
+
+To remove a tenant without building it again — including on a production
+installation, where `tenant:reset` does not exist:
+
+```bash
+bin/compose exec php bin/console tenant:deprovision bulk
+```
+
+It names the database, the role, the hostnames and how many records are in there,
+then asks; pressing return is *no*. An unattended run needs `--force` — `-n` on
+its own is refused rather than answered with a default. It drops the database and
+the role and deletes the row, and there is no undo: take the dump first.
+
 ## Looking at a tenant's database
 
 ```bash
@@ -314,6 +354,8 @@ the container is the better instrument.
 | Command | What it does |
 | --- | --- |
 | `tenant:provision <slug> <hostname...>` | Creates the row, the role, the database and its schema; `--admin-email` adds the first user |
+| `tenant:deprovision <slug>` | Removes the row, the database and the role. Asks first, defaults to *no*, and needs `--force` to run unattended |
+| `tenant:reset <slug>` | **Dev only.** Deprovision, provision, install `--modules`, generate `--records`, print the admin password |
 | `tenant:user:create <slug> <email>` | Adds a user to one tenant; `--admin` grants ROLE_ADMIN |
 | `tenant:module:install <slug> <module>` | Installs a module for one tenant: its table and field definitions; `--preset` picks which fields, `--locale` which language its labels are seeded in |
 | `tenant:list` | Shows the registry |
