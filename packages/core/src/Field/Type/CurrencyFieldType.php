@@ -91,7 +91,7 @@ final class CurrencyFieldType implements FieldType
         // In cents, so the generated value lands on one the field could hold —
         // and inside whatever range this definition allows, like every other
         // type's sample.
-        return $this->amount(mt_rand((int) round($min * 100), (int) round(max($min, $max) * 100)) / 100);
+        return $this->stored(mt_rand((int) round($min * 100), (int) round(max($min, $max) * 100)) / 100);
     }
 
     /**
@@ -106,7 +106,7 @@ final class CurrencyFieldType implements FieldType
 
         // Anything that is not a number is left as it came: refusing it is the
         // validator's job, and casting "12abc" would store a price nobody typed.
-        return is_numeric($value) ? $this->amount((float) $value) : $value;
+        return is_numeric($value) ? $this->stored((float) $value) : $value;
     }
 
     public function fromStorage(mixed $value, FieldDefinition $field): ?string
@@ -165,7 +165,7 @@ final class CurrencyFieldType implements FieldType
         $code = $this->currency->code();
 
         if ($code === null) {
-            return $this->amount((float) $value);
+            return $this->formatted((float) $value);
         }
 
         $formatter = new \NumberFormatter(\Locale::getDefault(), \NumberFormatter::CURRENCY);
@@ -173,7 +173,7 @@ final class CurrencyFieldType implements FieldType
         // False on a currency ICU does not recognise, which is possible: the
         // profile stores a code, and a build's ICU data is whatever it shipped.
         return $formatter->formatCurrency((float) $value, $code)
-            ?: sprintf('%s %s', $code, $this->amount((float) $value));
+            ?: sprintf('%s %s', $code, $this->formatted((float) $value));
     }
 
     public function operators(): array
@@ -200,9 +200,38 @@ final class CurrencyFieldType implements FieldType
         return sprintf('(%s)::numeric', $accessor);
     }
 
-    private function amount(float $value): string
+    /**
+     * The stored form: a plain decimal string, the same in every language.
+     *
+     * **Not for showing anybody.** This is what goes in the database and what
+     * the validator checks, so it has a dot and no separators wherever it is
+     * read — `is_numeric()` says no to `1,000.00`, and rightly.
+     *
+     * It was called `amount()` and did this job *and* the display one, which is
+     * how localizing "the formatting" quietly localized the storage and made
+     * every save refuse its own totals (XIV-47). The two have different jobs and
+     * now have different names.
+     */
+    private function stored(float $value): string
     {
         return number_format($value, self::SCALE, '.', '');
+    }
+
+    /**
+     * The reading form, when there is no currency to put beside it.
+     *
+     * Reached in two ordinary cases — an installation that has not chosen a
+     * currency (§8.6), and one whose code this build's ICU data does not know —
+     * so it is what every tenant sees until they fill in their profile. It is
+     * grouped and it uses the reader's separators, because a number without a
+     * symbol is still a number.
+     */
+    private function formatted(float $value): string
+    {
+        $formatter = new \NumberFormatter(\Locale::getDefault(), \NumberFormatter::DECIMAL);
+        $formatter->setAttribute(\NumberFormatter::FRACTION_DIGITS, self::SCALE);
+
+        return $formatter->format($value) ?: $this->stored($value);
     }
 
     /**

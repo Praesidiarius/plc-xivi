@@ -87,6 +87,11 @@ lands in `Unreleased` here.
   locale — so a gross total reads `1.234.500,00` in German rather than running
   together. Only the figures nobody types into: what you edit is untouched, and
   `integer` is left alone because the engine cannot tell a count from a year.
+- **Money is formatted even before a currency is chosen** ([XIV-47]). An
+  installation that has not filled in its profile — which every installation is
+  on its first day — was showing amounts through `number_format` with a dot and
+  no separators, in nobody's language. It is now grouped and localized, with the
+  currency still the only thing missing.
 - **The sign-in card is centred**, with a larger logo. What somebody types into
   is not: text that moves as it is typed is worse on the one field on that page
   anybody has to be careful with.
