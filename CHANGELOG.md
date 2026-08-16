@@ -54,16 +54,26 @@ first**. An entry is not the place a design decision lives.
    with it. Sections drop one level: `###` becomes `##`.
 2. Add a line to the [release index](#releases) below.
 3. Bump [`src/Version.php`](src/Version.php).
-4. Tag the merge commit `v<version>` and push the tag. That is what publishes:
+4. Update the version line near the top of [`README.md`](README.md) — the one
+   reading ``The version is `17.0.3` ``. It is the first thing anybody reads and
+   it drifts silently; 17.0.3 shipped saying 17.0.2.
+5. Tag the merge commit `v<version>` and push the tag. That is what publishes:
    `.github/workflows/release.yml` posts the file from step 1 as the GitHub
-   release, and fails if the file is missing or the tag disagrees with step 3.
+   release, and fails if the file is missing or the tag disagrees with steps 3
+   or 4.
 
 `bin/ci` gates on this file having changed, which keeps working: new work always
 lands in `Unreleased` here.
 
 ## [Unreleased]
 
-Nothing yet.
+### Fixed
+
+- **Cutting a release can no longer forget the README.** Its version line said
+  `17.0.2` for the whole of 17.0.3, because nothing checked it — the release
+  workflow verified `src/Version.php` and the changelog file and stopped there.
+  It now refuses a tag whose version the README disagrees with, and the
+  procedure names the step.
 
 ## Releases
 
