@@ -83,6 +83,11 @@ lands in `Unreleased` here.
   file in `APP_LOGO` and put it in `assets/brand/`, which is gitignored. It is the
   favicon too. Unset — the default, and what a fresh clone has — falls back to
   the name in text and the mark drawn as `17`.
+- **A reference picker says when it is showing only the first few** ([XIV-35]).
+  It has always stopped at 200 and never mentioned it, so a company that could
+  not be linked to looked exactly like one that did not exist. The total is
+  counted under the reader's own permissions, so it says nothing about records
+  they may not see.
 - **Pages read a module's definitions once instead of once per question**
   ([XIV-53]). A record list naming twenty-five different contacts went from 83
   queries to 33. Nothing is cached beyond the tenant it belongs to: the cache is
@@ -139,6 +144,7 @@ lands in `Unreleased` here.
 
 [XIV-32]: https://xivi.youtrack.cloud/issue/XIV-32
 [XIV-42]: https://xivi.youtrack.cloud/issue/XIV-42
+[XIV-35]: https://xivi.youtrack.cloud/issue/XIV-35
 [XIV-43]: https://xivi.youtrack.cloud/issue/XIV-43
 [XIV-47]: https://xivi.youtrack.cloud/issue/XIV-47
 [XIV-48]: https://xivi.youtrack.cloud/issue/XIV-48

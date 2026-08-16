@@ -122,6 +122,7 @@ module:
         removed: removed
 
 field:
+    picker_truncated: 'Showing the first %shown% of %total%. Narrow the list or search in the other module.'
     label: Label
     label_placeholder: VAT number
     shape_name: Name of this shape
