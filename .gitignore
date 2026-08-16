@@ -49,10 +49,17 @@
 # depends on how you run PHP, and the agent files depend on which agent you use.
 # Nothing here belongs to the project, so none of it is committed; only the
 # Composer requirement is, and that is dev-only.
+#
+# **AGENTS.md is the exception, and is committed** (XIV-75). It was ignored while
+# it held nothing but Mate's generated block, which was true and is no longer:
+# the project's own orientation lives there now, and a file that a fresh clone
+# does not get is a file that helps nobody but the person who wrote it. Mate
+# rewrites only what sits between its `AI_MATE_INSTRUCTIONS` markers — verified
+# in AgentInstructionsMaterializer::replaceManagedBlock() — so its block and ours
+# coexist, and `mate discover` leaves the rest alone.
 /mate/
 /mcp.json
 /.mcp.json
-/AGENTS.md
 /.agents/
 /bin/codex
 /bin/codex.bat

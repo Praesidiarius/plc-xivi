@@ -219,6 +219,13 @@ lands in `Unreleased` here.
   tax rate draws real rates, some with no VAT at all, and its title is something
   somebody would sell. A field that declares nothing generates exactly as before,
   and the seed still decides which record gets what. See §5.17.
+- **The repository now tells a coding agent how it is worked on** ([XIV-75]).
+  `AGENTS.md` is committed rather than gitignored, and carries the conventions
+  a fresh clone could not otherwise know: use `bin/compose`, there is no host
+  PHP, `bin/ci` is the gate, the brief is authoritative, and the two things that
+  reliably mislead — a module's blueprint is not what a tenant has, and derived
+  fields belong to the engine. AI Mate rewrites only its own marked block, so
+  `mate discover` leaves it alone.
 
 ### Fixed
 
@@ -283,6 +290,7 @@ lands in `Unreleased` here.
 [XIV-63]: https://xivi.youtrack.cloud/issue/XIV-63
 [XIV-73]: https://xivi.youtrack.cloud/issue/XIV-73
 [XIV-71]: https://xivi.youtrack.cloud/issue/XIV-71
+[XIV-75]: https://xivi.youtrack.cloud/issue/XIV-75
 
 ## Releases
 

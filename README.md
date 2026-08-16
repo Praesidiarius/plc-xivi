@@ -153,6 +153,11 @@ customer's browser. The forms work without JavaScript.
 
 Docker and Docker Compose. Nothing else — there is no host PHP or Composer step.
 
+**Working here with a coding agent?** [`AGENTS.md`](AGENTS.md) is the orientation
+it should read first — the conventions and the two or three things that mislead
+somebody who has only read the code. It is short, and it is worth a human's two
+minutes as well.
+
 **Use `bin/compose`, not `docker compose`.** It is a thin wrapper that forwards
 every argument through — `bin/compose up -d --wait`, `bin/compose logs -f php`,
 `bin/compose down` — after pointing Compose at *this* checkout's stack.
