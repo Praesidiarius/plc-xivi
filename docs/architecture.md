@@ -1992,6 +1992,127 @@ paratest workers against one inbox is a shared mutable thing. `sendmail` and
 `native` are refused with everything else: neither names a host, so no allowlist
 could have saved them, and both hand the message to whatever MTA the machine has.
 
+### 8.8 An invitation instead of a password read off a screen (XIV-1)
+
+§8.5 recorded the printed password as a placeholder and said what would replace
+it: *"That printed password is the one credential in the system a human has to
+read. It exists because there is no mailer yet; when there is one, this becomes
+an invite link."* XIV-37 built the mailer, so this is that sentence being kept.
+
+Adding a colleague now asks **how they get in the first time**, and the two
+answers are genuinely different rather than one with a flag on it. The invitation
+path **generates no password at all** — which is the ticket's own requirement and
+the load-bearing part of it. A generated password created for somebody who is
+about to choose their own is a credential sitting on the account that nobody will
+ever rotate, because nobody knows it is there. So the hash stays empty, which is a
+state nothing can authenticate against from either direction: Symfony refuses an
+empty presented password before the hasher is reached, and `password_verify()`
+against an empty hash is false whatever is presented.
+
+**The link is Symfony's, not ours, and that was the decision worth making
+slowly.** `security-http` ships exactly the object this ticket describes: a signed
+URL carrying a user identifier and an expiry, verified by HMAC over
+`kernel.secret` together with a chosen set of the user's own properties. Writing
+an `invitation` table with a hashed token, an expiry column and a controller
+comparing digests would have been re-implementing `SignatureHasher`, including the
+parts that are quiet to get wrong — comparing in constant time, checking the
+expiry before touching the database, and running the user checker on the way in.
+It is also strictly worse in one respect that matters here: **a token table stores
+something replayable and a signature stores nothing at all.** A dump of a tenant
+database carries no invitation anybody can use.
+
+What is left over after taking the framework's version is small, and it is the
+honest departure to declare:
+
+- **An invitee has no password, so a login link is not sufficient by itself.** It
+  gets them through the door; `must_change_password` and `MustChangePasswordListener`
+  then hold them at `/account` until they have chosen one. Both existed already,
+  for generated passwords, and neither needed changing — the feature composes out
+  of parts that were here, which is most of the argument for this shape. The one
+  thing that did need adding is that the account page cannot ask an invited person
+  for their *current* password, because there is none; what stands in for that
+  proof is the signed link they arrived on, and the manager refuses that path
+  outright for an account that already has a password.
+- **A stateless link cannot be revoked, and an invitation has to be revoked
+  twice** — when it is used, and when a second one supersedes it. That is what
+  `app_user.invitation_seed` is for. It is one of the signature properties, so
+  rewriting it invalidates every link already in a mailbox, and rewriting it is
+  one `UPDATE`. It is not the token: it is one input to an HMAC keyed with the
+  application secret, so what is written down is not a credential.
+
+**Symfony's own answer to single-use was considered and rejected.** `max_uses` is
+enforced with a *cache pool*, and a cache is evictable — an eviction would quietly
+restore a consumed invitation. A security property that un-enforces itself under
+memory pressure is not one. The seed does the same job in the tenant's own
+database, transactionally with the acceptance, where it cannot evaporate.
+
+**Inviting somebody twice retires the first link and restarts the 24 hours.**
+There is never more than one live invitation per person. The alternative — letting
+both run — would mean "I sent them a new one" was not a way to fix an invitation
+that leaked, which is the situation the feature most needs to have an answer for.
+Reissuing has to exist at all because 24 hours is short: somebody who reads their
+mail on Monday cannot be told to have read it on Sunday.
+
+**The seed is spent after the user checker, not before.** Acceptance rotates it
+from a listener on `LoginSuccessEvent`, by which point `ActiveUserChecker` has
+already had its say — so a deactivated person's click is refused *and does not
+consume their link*. Reactivating them inside the window makes the invitation they
+were already sent work, instead of having silently burnt it on a refusal they
+never saw. Deactivation is covered from both ends: the link is refused at the
+door, and an invitation is refused at the point of sending, because a link that
+would be turned away is a promise the sign-in page then breaks.
+
+**An invitation is not offered for an account that already has a password.** It
+signs its holder in without one, so offering it there would make "invite" a
+quieter version of "reset password" that the account owner never sees happen.
+Resetting is the tool for that and always was. The converse escape hatch is
+deliberately left open: an account awaiting an invitation can still be given a
+generated password, which is the way out of an installation whose mail is not
+working yet.
+
+**A refused link lands on the sign-in page and says so**, rather than answering a
+blank 403 to somebody who has no account here to sign in to. Symfony's own
+sentence names the cause and one line of ours says what to do about it. A
+deactivated account gets `ActiveUserChecker`'s message instead and deliberately
+*not* the offer of a fresh invitation — that would send them back to somebody who
+cannot help until the account is reactivated.
+
+**The mail goes out through `TenantMailer` with no exception carved for it**, so a
+customer with their own SMTP server sends it from their own address and a customer
+without one sends it through this instance (§8.7). The argument for the other
+answer is real and was weighed: an invitation is a message *about an account on
+this installation* rather than a customer's correspondence with their customer, so
+the instance identity is arguably the truthful one. It loses on three counts. The
+recipient is a colleague at the customer's own company, which makes it their
+internal mail and not ours; §8.7's whole point is that **one** place decides who a
+message is from, and a second rule is a second thing to disagree with the first;
+and the case that would have needed the exception is already covered without one —
+a freshly provisioned tenant has configured no SMTP, so the instance fallback
+applies of its own accord. Which is XIV-64's first user, where §8.7's "works on day
+one" and this feature meet.
+
+**The message is a system message and its content lives in code** — the ordinary
+translation catalogue, in the frame every other email from this application uses
+(§5.13). Not an XIV-38 email template, and each of that mechanism's three defining
+properties is a reason why: those are per-module and this belongs to none, they are
+customer-facing and this goes to a colleague, and they are tenant-editable — where
+a tenant who edited the link out of this one would lock somebody out of an account
+they have no other way to reach. It also has to work for a tenant that has
+installed nothing and written nothing, which is exactly XIV-64's first user again.
+It is sent in the language of whoever pressed the button: the invitee has no
+account they have ever opened, and so no language on file.
+
+**This is a dependency of XIV-64, not a nicety.** Self-service signup provisions a
+tenant with nobody watching a terminal, so there is no screen to print a first
+password to. One consequence is recorded here because it is not obvious from
+either ticket: the autowired `LoginLinkHandlerInterface` is *firewall-aware* and
+works the firewall out from the current request, so it throws outright when there
+is not one. The `main` firewall's handler is therefore injected by name, and an
+invitation can be sent from a console command. What still has to be answered when
+that ticket arrives is the router's request context — a URL generated off a cron
+has no hostname to be absolute against, and a tenant's hostname is the one thing
+that link cannot get wrong.
+
 ---
 
 ## 9. Status

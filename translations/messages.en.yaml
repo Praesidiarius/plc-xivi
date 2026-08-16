@@ -47,6 +47,7 @@ nav:
 login:
     title: Sign in
     submit: Sign in
+    invitation_failed: Ask an administrator to send you a new invitation — each link works once and for 24 hours.
 
 dashboard:
     no_access: You do not have access to any modules yet. An administrator can grant it.
@@ -64,6 +65,11 @@ account:
     hold_body: >-
         The one you signed in with was generated and passed on to you, so somebody
         else has seen it. Everything else waits until you have replaced it.
+    invited_title: Choose a password before you carry on.
+    invited_body: >-
+        You arrived on an invitation link, which worked once and has now been used
+        up. A password of your own is what gets you back in next time.
+    set_password: Set password
     current_password: Current password
     current_password_help: Asked for so that an unattended session is not enough to take your account over.
     new_password: New password
@@ -178,6 +184,7 @@ user:
     tooltip_reset: Reset password
     tooltip_deactivate: Deactivate user
     tooltip_reactivate: Reactivate user
+    tooltip_invite: Send the invitation again
     add: Add user
     edit_title: 'Edit %email%'
     role: Role
@@ -188,8 +195,16 @@ user:
     you: you
     deactivated: deactivated
     password_not_set: password not set yet
+    invitation_pending: invitation pending
     email_help: This is the login. It has to be unique here, not everywhere.
     name_help: Shown on records they own and in history. Defaults to the email.
+    first_sign_in: How they get in the first time
+    method_invite: Send them an invitation email
+    method_invite_help: >-
+        A link to this installation, good for 24 hours and for one use. No password is
+        created, so there is never one for somebody else to hold; they choose their own
+        when they arrive.
+    method_password: Generate a password I pass on myself
     administrator_help: >-
         Administrators may do everything, and manage users, groups and a module's fields.
         The permissions below have no effect on one.
@@ -213,6 +228,7 @@ user:
         their <a href="%link%">permission groups</a> give them, per module and per action.
     edit_aria: 'Edit %email%'
     reset_aria: 'Reset the password of %email%'
+    invite_aria: 'Send %email% a new invitation'
     deactivate_aria: 'Deactivate %email%'
     reactivate_aria: 'Reactivate %email%'
 
@@ -391,6 +407,29 @@ refusal:
     group_name_taken: 'There is already a group called "%label%".'
     mail_server_without_address: 'An SMTP server needs a sender address: it is what your mail would claim to be from.'
     mail_not_an_address: '"%address%" is not an email address.'
+    already_has_password: '%email% already has a password. Reset it instead of sending an invitation.'
+    inactive_invitee: '%email% is deactivated, and an invitation link would not let them in. Reactivate them first.'
+    password_already_set: This account already has a password, so changing it needs the current one.
+
+# The invitation email itself (XIV-1). Here rather than in an XIV-38 email
+# template, because those are per-module, customer-facing and tenant-editable and
+# this is none of the three: it belongs to no module, it goes to a colleague, and
+# a tenant who edited the link out of it would lock somebody out of an account
+# they have no other way to reach. It also has to work for a tenant that has
+# installed nothing at all, which is XIV-64's first user.
+#
+# Sent in the language of whoever pressed the button, not of the recipient: an
+# invitee has no account they have ever opened and so no language on file.
+invitation:
+    subject: 'You have been invited to %instance%'
+    greeting: 'Hello %name%,'
+    body: >-
+        Somebody at %instance% has set up an account for you. Follow the link below to
+        get in — you will be asked to choose a password once you are there.
+    button: Accept the invitation
+    expiry: 'The link stops working after %hours% hours.'
+    once: It also works only once, so it is worth choosing your password straight away.
+    unexpected: If you were not expecting this, nothing is required of you and you can ignore it.
 
 # Sending one of those templates from a record (XIV-39). "Recipient" rather than
 # "To", because the field is the one thing on this screen somebody is being asked
@@ -438,6 +477,11 @@ flash:
     group_deleted: 'Deleted "%group%". Nobody was removed, only what the group gave them.'
     user_saved: 'Saved %email%.'
     user_created: 'Created %email%. Their password is %password% — copy it now, it cannot be shown again.'
+    user_invited: 'Invited %email%. The link works once, for the next %hours% hours; any earlier one has stopped working.'
+    user_created_not_invited: >-
+        Created %email%, but the invitation could not be sent (%reason%). The account is
+        waiting for one — send it again from the list once mail is working.
+    invitation_failed: 'The invitation to %email% could not be sent (%reason%).'
     password_reset: 'New password for %email%: %password% — copy it now, it cannot be shown again.'
     user_reactivated: '%email% can now sign in.'
     user_deactivated: '%email% can no longer sign in.'

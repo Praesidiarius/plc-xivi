@@ -15,11 +15,18 @@
 			here from every link they click deserves to know why, and the reason is
 			a good one (§8.5).
 		#}
+		{#
+			Two reasons to be held and two different sentences (XIV-1). Somebody
+			who was invited never had a password read to them, so telling them
+			"the one you signed in with was generated" would describe something
+			that did not happen — and the thing they need to know is that the link
+			was one-time and this is where it ends.
+		#}
 		{% if held %}
 			<div class="alert alert-warning">
-				<h2 class="h6">{{ 'account.hold_title'|trans }}</h2>
+				<h2 class="h6">{{ (account.hasPassword ? 'account.hold_title' : 'account.invited_title')|trans }}</h2>
 				<p class="mb-0">
-					{{ 'account.hold_body'|trans }}
+					{{ (account.hasPassword ? 'account.hold_body' : 'account.invited_body')|trans }}
 				</p>
 			</div>
 		{% endif %}
@@ -61,14 +68,24 @@
 						<input type="hidden" name="_token" value="{{ csrf_token('account') }}">
 						<input type="hidden" name="action" value="password">
 
-						<div class="mb-3">
-							<label class="form-label" for="current_password">{{ 'account.current_password'|trans }}</label>
-							<input class="form-control" type="password" id="current_password"
-								   name="current_password" autocomplete="current-password" required>
-							<div class="form-text">
-								{{ 'account.current_password_help'|trans }}
+						{#
+							Not asked for when there is none to give (XIV-1). An
+							invited account has no password, so a required box
+							asking for the current one is a form nobody can
+							submit. The controller decides from the same fact —
+							the field being absent is not what makes the initial
+							path taken.
+						#}
+						{% if account.hasPassword %}
+							<div class="mb-3">
+								<label class="form-label" for="current_password">{{ 'account.current_password'|trans }}</label>
+								<input class="form-control" type="password" id="current_password"
+									   name="current_password" autocomplete="current-password" required>
+								<div class="form-text">
+									{{ 'account.current_password_help'|trans }}
+								</div>
 							</div>
-						</div>
+						{% endif %}
 
 						<div class="mb-3">
 							<label class="form-label" for="new_password">{{ 'account.new_password'|trans }}</label>
@@ -83,7 +100,9 @@
 								   autocomplete="new-password" minlength="{{ minimum }}" required>
 						</div>
 
-						<button class="btn btn-primary" type="submit">{{ 'account.change_password'|trans }}</button>
+						<button class="btn btn-primary" type="submit">
+							{{ (account.hasPassword ? 'account.change_password' : 'account.set_password')|trans }}
+						</button>
 					</div>
 				</form>
 			</div>

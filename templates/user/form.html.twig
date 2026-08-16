@@ -39,10 +39,33 @@
 
 				{% if not user %}
 					{#
-						No password box, on purpose: an administrator who picks a colleague's
-						password knows their password. One is generated and shown once (§8.5).
+						No password box either way, on purpose: an administrator who picks a
+						colleague's password knows their password (§8.5). What is being chosen
+						here is how the person gets in the first time (XIV-1) — an invitation
+						link sent to them, or a password generated and read off this screen.
+
+						Invitation is the default because it is the one where the credential is
+						never shared: nobody but its owner ever holds it. The other stays for a
+						colleague sitting in the same room, and for an installation whose mail
+						is not set up yet.
 					#}
-					<p class="text-body-secondary small mb-3">{{ 'user.generated_password_note'|trans }}</p>
+					<fieldset class="mb-3">
+						<legend class="form-label">{{ 'user.first_sign_in'|trans }}</legend>
+
+						<div class="form-check">
+							<input class="form-check-input" type="radio" id="method-invite" name="method" value="invite"
+								   {{ (submitted.method|default('invite')) == 'invite' ? 'checked' : '' }}>
+							<label class="form-check-label" for="method-invite">{{ 'user.method_invite'|trans }}</label>
+							<div class="form-text">{{ 'user.method_invite_help'|trans }}</div>
+						</div>
+
+						<div class="form-check mt-2">
+							<input class="form-check-input" type="radio" id="method-password" name="method" value="password"
+								   {{ (submitted.method|default('invite')) == 'password' ? 'checked' : '' }}>
+							<label class="form-check-label" for="method-password">{{ 'user.method_password'|trans }}</label>
+							<div class="form-text">{{ 'user.generated_password_note'|trans }}</div>
+						</div>
+					</fieldset>
 				{% endif %}
 
 				<div class="d-flex align-items-center gap-2">

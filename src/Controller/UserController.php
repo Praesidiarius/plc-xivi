@@ -14,10 +14,12 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Tenant\Entity\User;
+use App\Tenant\Mail\MailSendFailed;
 use App\Tenant\Repository\UserRepository;
 use App\Tenant\Security\PermissionArea;
 use App\Tenant\Security\PermissionManager;
 use App\Tenant\Security\UserChangeRefused;
+use App\Tenant\Security\UserInvitations;
 use App\Tenant\Security\UserManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -49,6 +51,7 @@ final class UserController extends AbstractController
 {
     public function __construct(
         private readonly UserManager $users,
+        private readonly UserInvitations $invitations,
         private readonly UserRepository $repository,
         private readonly PermissionManager $permissions,
         private readonly MetadataRepository $metadata,
@@ -64,20 +67,32 @@ final class UserController extends AbstractController
         ]);
     }
 
+    /**
+     * Two ways to add a colleague, and the administrator picks (XIV-1).
+     *
+     * They are genuinely two, not one with a switch on the end: the invitation
+     * path never generates a password at all, because a generated one that was
+     * never needed is a credential sitting on the account with nobody to rotate
+     * it. §8.8 for the rest.
+     */
     #[Route('/new', name: 'user_new', methods: ['GET', 'POST'])]
     public function new(Request $request): Response
     {
         if ($request->isMethod('POST') && $this->isCsrfTokenValid('manage-users', (string) $request->request->get('_token'))) {
-            try {
-                [$user, $password] = $this->users->create(
-                    email: (string) $request->request->get('email'),
-                    name: (string) $request->request->get('name'),
-                    roles: $request->request->getBoolean('admin') ? [UserManager::ROLE_ADMIN] : [],
-                );
+            $email = (string) $request->request->get('email');
+            $name = (string) $request->request->get('name');
+            $roles = $request->request->getBoolean('admin') ? [UserManager::ROLE_ADMIN] : [];
 
-                // The one moment this password exists in the clear. There is no
-                // mailer yet (§8.5), so it is read off the screen — and said
-                // plainly that it will not be shown again, because it will not.
+            try {
+                if ($request->request->get('method') === 'invite') {
+                    return $this->invited($email, $name, $roles);
+                }
+
+                [$user, $password] = $this->users->create(email: $email, name: $name, roles: $roles);
+
+                // The one moment this password exists in the clear. It is read
+                // off the screen and said plainly that it will not be shown
+                // again, because it will not (§8.5).
                 $this->addFlash('password', $this->translator->trans('flash.user_created', [
                     '%email%' => $user->getEmail(),
                     '%password%' => $password,
@@ -201,6 +216,82 @@ final class UserController extends AbstractController
         }
 
         return $this->redirectToRoute('user_index');
+    }
+
+    /**
+     * Another invitation, for the mail that never arrived or the day that passed.
+     *
+     * A 24-hour link with no way to issue a second one would be broken by design:
+     * somebody who reads their mail on Monday cannot be told to have read it on
+     * Sunday. Sending this one retires the previous one — see
+     * `UserInvitations::send()` for why there is never more than one live at a
+     * time — and the clock starts again.
+     *
+     * Offered only for an account that has no password, which is what keeps
+     * "invite" from becoming a way past a credential somebody chose; the refusal
+     * is the manager's rather than this screen's, so the console and XIV-64 get
+     * it too.
+     */
+    #[Route('/{id}/invite', name: 'user_invite', requirements: ['id' => Requirement::POSITIVE_INT], methods: ['POST'])]
+    public function invite(int $id, Request $request): Response
+    {
+        $user = $this->user($id);
+
+        if ($this->isCsrfTokenValid('manage-users', (string) $request->request->get('_token'))) {
+            try {
+                $this->announceInvitation($user, $this->invitations->send($user));
+            } catch (UserChangeRefused $e) {
+                $this->addFlash('warning', $e->translatable()->trans($this->translator));
+            } catch (MailSendFailed $e) {
+                $this->addFlash('warning', $this->translator->trans('flash.invitation_failed', [
+                    '%email%' => $user->getEmail(),
+                    '%reason%' => $e->getMessage(),
+                ]));
+            }
+        }
+
+        return $this->redirectToRoute('user_index');
+    }
+
+    /**
+     * Create, then send — and the account survives the send failing.
+     *
+     * Deliberately not one transaction. A tenant whose SMTP server is refusing
+     * connections would otherwise be a tenant who cannot add a colleague at all,
+     * and the half that worked is worth keeping: the account is there, it is
+     * shown as awaiting an invitation, and the button beside it sends another
+     * one. Rolling it back would turn a retryable problem into a form somebody
+     * has to fill in again.
+     *
+     * @param list<string> $roles
+     *
+     * @throws UserChangeRefused
+     */
+    private function invited(string $email, string $name, array $roles): Response
+    {
+        $user = $this->users->createWithoutPassword($email, $name, $roles);
+
+        try {
+            $this->announceInvitation($user, $this->invitations->send($user));
+        } catch (MailSendFailed $e) {
+            $this->addFlash('warning', $this->translator->trans('flash.user_created_not_invited', [
+                '%email%' => $user->getEmail(),
+                '%reason%' => $e->getMessage(),
+            ]));
+        }
+
+        return $this->redirectToRoute('user_index');
+    }
+
+    private function announceInvitation(User $user, \DateTimeImmutable $expires): void
+    {
+        $this->addFlash('success', $this->translator->trans('flash.user_invited', [
+            '%email%' => $user->getEmail(),
+            // The real remaining lifetime rather than a literal 24, computed the
+            // same way the mail computes it, so the sentence stays true if the
+            // configured one ever moves.
+            '%hours%' => UserInvitations::hoursUntil($expires),
+        ]));
     }
 
     private function user(int $id): User

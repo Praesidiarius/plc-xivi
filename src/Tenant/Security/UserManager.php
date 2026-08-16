@@ -36,6 +36,13 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  * from the one this is trying to be. Changing it afterwards is the account
  * owner's to do, and needs the current one.
  *
+ * **Or no password at all** (XIV-1). An invited colleague is created by
+ * `createWithoutPassword()` and given nothing to sign in with; the link in their
+ * mail is what gets them through the door, and `setInitialPassword()` is where
+ * they end up. That is a third way an account can begin and it deliberately does
+ * not generate one to throw away — a password nobody was ever told is still a
+ * password nobody ever rotates. §8.8 is the long version.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class UserManager
@@ -62,20 +69,43 @@ final readonly class UserManager
      */
     public function create(string $email, string $name, array $roles = [], #[\SensitiveParameter] ?string $password = null): array
     {
-        $email = self::normalise($email);
-
-        if ($this->users->emailIsTaken($email)) {
-            throw UserChangeRefused::emailTaken($email);
-        }
-
-        $user = new User($email, $name === '' ? $email : $name);
-        $user->setRoles($roles);
+        $user = $this->add($email, $name, $roles);
         $password = $this->assignPassword($user, $password);
 
-        $this->entityManager->persist($user);
         $this->entityManager->flush();
 
         return [$user, $password];
+    }
+
+    /**
+     * The other way a colleague arrives: invited, with no credential at all
+     * (XIV-1).
+     *
+     * **Nothing is generated here, and that is the whole point.** A password
+     * created for somebody who is about to choose their own is a credential
+     * nobody rotates: it sits in the row, valid, for as long as the account does,
+     * and it was never needed because the invitation link is what lets them in.
+     * So the hash stays empty — a state nothing can authenticate against from
+     * either direction (see `User::hasPassword()`) — and the hold is set for the
+     * same reason it is set for a generated one: whatever got them through the
+     * door is not yet a credential they own.
+     *
+     * The invitation itself is `UserInvitations`' to send. This only makes the
+     * account it will be sent to, because "create the user" and "put a link in
+     * the post" fail in different ways and the first must survive the second.
+     *
+     * @param list<string> $roles
+     *
+     * @throws UserChangeRefused
+     */
+    public function createWithoutPassword(string $email, string $name, array $roles = []): User
+    {
+        $user = $this->add($email, $name, $roles);
+        $user->setMustChangePassword(true);
+
+        $this->entityManager->flush();
+
+        return $user;
     }
 
     /** @throws UserChangeRefused */
@@ -168,6 +198,62 @@ final readonly class UserManager
     }
 
     /**
+     * The first password an invited account ever has, chosen by its owner
+     * (XIV-1).
+     *
+     * The sibling of `changeOwnPassword()`, and the difference is the one thing
+     * it cannot ask for: there is no current password, because per XIV-1 none was
+     * ever generated. What replaces that proof is how the person got here — they
+     * arrived on a signed link sent to the address the account is named after,
+     * and the firewall authenticated them on it before this screen was reachable
+     * at all.
+     *
+     * **It refuses an account that already has one**, which is what keeps it from
+     * being a way around `changeOwnPassword()`'s question. The controller decides
+     * which of the two to call from the same fact, so the two checks agree; this
+     * one is here because the fact is about the account rather than about the
+     * form, and the caller that eventually forgets is the one this exists for.
+     *
+     * The seed is rotated on the way out even though accepting the link already
+     * rotated it. Belt and braces on purpose: the moment an invitation has
+     * produced a password is the moment it is unambiguously spent, and it is the
+     * one place that is true no matter what path was taken to get here.
+     *
+     * @throws UserChangeRefused
+     */
+    public function setInitialPassword(User $user, #[\SensitiveParameter] string $new): void
+    {
+        if ($user->hasPassword()) {
+            throw UserChangeRefused::passwordAlreadySet();
+        }
+
+        $user->setPassword($this->passwordHasher->hashPassword($user, $new));
+        $user->setMustChangePassword(false);
+        $user->setInvitationSeed(PasswordGenerator::machine());
+
+        $this->entityManager->flush();
+    }
+
+    /**
+     * A new seed, and therefore no invitation link that still works (XIV-1).
+     *
+     * Called twice in an invitation's life, for the two revocations a stateless
+     * login link cannot do for itself: on the way out, so a second invitation
+     * supersedes the first rather than leaving two live links; and on the way in,
+     * so accepting one uses it up.
+     *
+     * `PasswordGenerator::machine()` because that is exactly what this is — 32
+     * bytes from the CSPRNG that no human ever reads or types. Reused rather than
+     * reinvented; a second random-value generator is a second one to get wrong.
+     */
+    public function rotateInvitationSeed(User $user): void
+    {
+        $user->setInvitationSeed(PasswordGenerator::machine());
+
+        $this->entityManager->flush();
+    }
+
+    /**
      * The account owner changing their own, which needs the current one.
      *
      * Requiring it is not about the password being secret from its owner — it is
@@ -222,6 +308,30 @@ final readonly class UserManager
         }
 
         throw UserChangeRefused::lastAdmin();
+    }
+
+    /**
+     * A persisted user with a name, an address nobody else here has, and no
+     * credential yet — the part both ways of adding somebody share.
+     *
+     * @param list<string> $roles
+     *
+     * @throws UserChangeRefused
+     */
+    private function add(string $email, string $name, array $roles): User
+    {
+        $email = self::normalise($email);
+
+        if ($this->users->emailIsTaken($email)) {
+            throw UserChangeRefused::emailTaken($email);
+        }
+
+        $user = new User($email, $name === '' ? $email : $name);
+        $user->setRoles($roles);
+
+        $this->entityManager->persist($user);
+
+        return $user;
     }
 
     /** @return string the plaintext, which exists only until this returns */

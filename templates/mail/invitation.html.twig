@@ -1,0 +1,35 @@
+{#
+	The content part of an invitation (XIV-1), drawn inside the same frame every
+	other email from this application uses — `@XiviCore/email/base.html.twig`,
+	which is what supplies the skeleton, the width and the footer naming the
+	company sending it (§5.13). This file is only what goes in the middle, and it
+	is rendered to a string and handed in as `content` by `UserInvitations`.
+
+	Inline styles for the same reason the frame uses them: Gmail and Outlook both
+	drop a <style> block often enough that relying on one is relying on luck. Not
+	the house Bootstrap style, and not meant to be.
+
+	**The URL appears twice on purpose** — once as the button and once as text
+	below it. A client that refuses to render the anchor, or a reader forwarding
+	this to the machine they actually work on, still has something to copy. It is
+	the one thing this message exists to deliver.
+#}
+<p style="margin: 0 0 16px 0;">{{ 'invitation.greeting'|trans({'%name%': name}) }}</p>
+
+<p style="margin: 0 0 24px 0;">{{ 'invitation.body'|trans({'%instance%': instance}) }}</p>
+
+<p style="margin: 0 0 24px 0;">
+	<a href="{{ url }}" style="display: inline-block; padding: 12px 24px; background-color: #0d6efd; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600;">
+		{{ 'invitation.button'|trans }}
+	</a>
+</p>
+
+<p style="margin: 0 0 24px 0; word-break: break-all; font-size: 13px; color: #6c757d;">
+	{{ url }}
+</p>
+
+<p style="margin: 0 0 8px 0;">{{ 'invitation.expiry'|trans({'%hours%': hours}) }}</p>
+
+<p style="margin: 0 0 16px 0;">{{ 'invitation.once'|trans }}</p>
+
+<p style="margin: 0; color: #6c757d; font-size: 13px;">{{ 'invitation.unexpected'|trans }}</p>

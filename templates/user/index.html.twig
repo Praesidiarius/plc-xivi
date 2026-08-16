@@ -55,10 +55,16 @@
 									<span class="badge text-bg-secondary">{{ 'user.deactivated'|trans }}</span>
 								{% endif %}
 								{#
-									Worth showing: it means the password you handed them is still
-									the one in use, so it is still a credential two people know.
+									Two different situations and two different badges (XIV-1).
+									"Password not set" means the one you handed them is still in
+									use, so it is still a credential two people know. "Invitation
+									pending" means there is no password at all — they were sent a
+									link and have not chosen one yet, and the link may well have
+									expired since.
 								#}
-								{% if user.mustChangePassword %}
+								{% if not user.hasPassword %}
+									<span class="badge text-bg-light">{{ 'user.invitation_pending'|trans }}</span>
+								{% elseif user.mustChangePassword %}
 									<span class="badge text-bg-light">{{ 'user.password_not_set'|trans }}</span>
 								{% endif %}
 							</td>
@@ -75,6 +81,35 @@
 										<span class="visually-hidden">{{ 'user.edit_aria'|trans({'%email%': user.email}) }}</span>
 									</a>
 
+									{#
+										Only where there is an invitation to send again (XIV-1). An
+										invitation link signs somebody in without their password, so
+										offering one for an account that has chosen a password would
+										be offering a way around it — and a deactivated person's link
+										would be refused at the door anyway, which is a promise not
+										worth making. Reset password is the tool for both of those.
+
+										The 24 hours are why this exists at all: a link that expired
+										overnight has to be reissuable without deleting the account.
+									#}
+									{% if not user.hasPassword and user.active %}
+										<form method="post" action="{{ path('user_invite', {id: user.id}) }}">
+											<input type="hidden" name="_token" value="{{ csrf_token('manage-users') }}">
+											<button class="btn btn-sm btn-outline-secondary" type="submit"
+											        data-bs-toggle="tooltip" title="{{ 'user.tooltip_invite'|trans }}">
+												<i class="bi bi-envelope" aria-hidden="true"></i>
+												<span class="visually-hidden">{{ 'user.invite_aria'|trans({'%email%': user.email}) }}</span>
+											</button>
+										</form>
+									{% endif %}
+
+									{#
+										Left available for somebody awaiting an invitation too, and
+										deliberately: it is the way out of an installation whose mail
+										is not working. It turns the account into an ordinary one
+										with a generated password, which is a change the list then
+										shows.
+									#}
 									<form method="post" action="{{ path('user_password', {id: user.id}) }}">
 										<input type="hidden" name="_token" value="{{ csrf_token('manage-users') }}">
 										<button class="btn btn-sm btn-outline-secondary" type="submit"

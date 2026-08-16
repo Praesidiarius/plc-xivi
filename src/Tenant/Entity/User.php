@@ -81,6 +81,33 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private bool $mustChangePassword = false;
 
     /**
+     * What makes an invitation link this person's, and makes it stop being one
+     * (XIV-1).
+     *
+     * **It is not the token.** The link an invited colleague receives is signed
+     * by `SignatureHasher` with `kernel.secret`, over this value together with
+     * their id, their password hash and the moment the link expires. So a copy of
+     * this database is not enough to mint a link, and this column is not a
+     * credential sitting in a row waiting to be read — which is the property §8.8
+     * needed and the reason there is no invitation table storing a hashed token
+     * beside it.
+     *
+     * **Rotating it is how a link dies.** Symfony's login links are stateless by
+     * design: nothing is written down, so nothing can be revoked, and the two
+     * things an invitation has to be able to do — stop working once it has been
+     * used, and be superseded when an administrator sends a second one — are both
+     * revocations. Putting one rotating value into the signature buys both, and
+     * costs a column instead of a table. Every write of this field invalidates
+     * every link already in somebody's mailbox.
+     *
+     * Null for everybody who has never been invited, which is most people: the
+     * signature hasher reads a null property as an empty string, so it needs no
+     * default and no backfill.
+     */
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $invitationSeed = null;
+
+    /**
      * The groups this person belongs to, and therefore everything those groups
      * are granted (§7.5).
      *
@@ -230,6 +257,25 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->password = $hashedPassword;
     }
 
+    /**
+     * Whether this account has a password at all.
+     *
+     * Empty is a real state rather than a broken row: somebody invited by email
+     * has never been given one, and per XIV-1 none was generated for them — an
+     * unused generated password is a credential nobody rotates. Nothing can
+     * authenticate against it, from either direction: `CheckCredentialsListener`
+     * refuses an empty presented password before the hasher is reached, and
+     * `password_verify()` against an empty hash is false whatever is presented.
+     *
+     * Which is also what makes this the honest name for "awaiting an invitation":
+     * the state is the absence of the credential, not a flag beside it that
+     * something could forget to clear.
+     */
+    public function hasPassword(): bool
+    {
+        return $this->password !== '';
+    }
+
     public function mustChangePassword(): bool
     {
         return $this->mustChangePassword;
@@ -238,6 +284,23 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setMustChangePassword(bool $must): void
     {
         $this->mustChangePassword = $must;
+    }
+
+    /** Read by `SignatureHasher` through the property accessor, which is why it is public. */
+    public function getInvitationSeed(): ?string
+    {
+        return $this->invitationSeed;
+    }
+
+    /**
+     * Every call to this kills every invitation link already sent to this person.
+     *
+     * Callers go through `UserManager::rotateInvitationSeed()` rather than here,
+     * so the flush that makes the revocation real cannot be forgotten.
+     */
+    public function setInvitationSeed(?string $seed): void
+    {
+        $this->invitationSeed = $seed;
     }
 
     public function isActive(): bool
@@ -368,6 +431,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             'roles' => $this->roles,
             'active' => $this->active,
             'mustChangePassword' => $this->mustChangePassword,
+            'invitationSeed' => $this->invitationSeed,
             'createdAt' => $this->createdAt,
             'updatedAt' => $this->updatedAt,
             'lastLoginAt' => $this->lastLoginAt,
@@ -390,6 +454,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->roles = $roles;
         $this->active = (bool) $data['active'];
         $this->mustChangePassword = (bool) $data['mustChangePassword'];
+        // Absent rather than null for a token minted before this column existed,
+        // for the same reason `region` below is written this way.
+        $this->invitationSeed = ($data['invitationSeed'] ?? null) === null ? null : (string) $data['invitationSeed'];
 
         \assert($data['createdAt'] instanceof \DateTimeImmutable);
         \assert($data['updatedAt'] instanceof \DateTimeImmutable);
