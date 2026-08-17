@@ -70,6 +70,19 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **A customer's own logo, on their pages and their sign-in page** ([XIV-49]).
+  Uploaded on the company profile beside the company name, kept in the tenant's
+  own database like a document template is, and drawn in the top bar and on the
+  login page of their own hostname — so an installation reads as theirs from the
+  first screen. PNG or JPEG up to 512 KB; **SVG is refused**, because sanitizing
+  it needs a GPL dependency this project will not take (§8.6). A system host still
+  shows Xivi's own mark.
+- **The logo is served without signing in**, and is the only piece of a tenant's
+  data that is ([XIV-49]). It has to be — it is on the sign-in page — so the route
+  is scoped by hostname and not by permission, and nothing else on the profile
+  comes out of it. Changing the logo needs the same *edit* grant as changing the
+  company name. See §8.6 for the argument and the cache design.
+
 - **Type to find a record instead of scrolling for one** ([XIV-36]). A reference
   picker with more than about twenty candidates becomes a search box that queries
   as you type and pages through everything you may see, instead of a dropdown
@@ -270,6 +283,14 @@ lands in `Unreleased` here.
   to `app_user` and one to `tenant_profile`. Nothing is backfilled and no stored
   moment moves — everything was already absolute UTC, and the timezone is a
   display setting.
+- **`bin/console tenant:migrate` also covers the tenant logo** ([XIV-49]), which
+  adds three nullable columns to `tenant_profile`. Nothing is backfilled: every
+  existing installation keeps showing whatever it showed before until somebody
+  uploads a mark.
+- **`[tenant.logo]` on a .docx is not in this** ([XIV-49]) — it is [XIV-89].
+  Every marker the engine has resolves to text, and one resolving to an image is a
+  change to the document pipeline rather than another key in the list; §5.7 says
+  what it would take.
 - **Nobody can create a follow-up until you grant one of the new permissions**
   ([XIV-80]), administrators excepted. `tenant:permissions:grant-all` includes
   them, as it does every verb.
@@ -280,6 +301,7 @@ lands in `Unreleased` here.
 
 [XIV-25]: https://xivi.youtrack.cloud/issue/XIV-25
 [XIV-36]: https://xivi.youtrack.cloud/issue/XIV-36
+[XIV-49]: https://xivi.youtrack.cloud/issue/XIV-49
 [XIV-54]: https://xivi.youtrack.cloud/issue/XIV-54
 [XIV-68]: https://xivi.youtrack.cloud/issue/XIV-68
 [XIV-80]: https://xivi.youtrack.cloud/issue/XIV-80
@@ -289,6 +311,7 @@ lands in `Unreleased` here.
 [XIV-84]: https://xivi.youtrack.cloud/issue/XIV-84
 [XIV-85]: https://xivi.youtrack.cloud/issue/XIV-85
 [XIV-87]: https://xivi.youtrack.cloud/issue/XIV-87
+[XIV-89]: https://xivi.youtrack.cloud/issue/XIV-89
 
 ## Releases
 

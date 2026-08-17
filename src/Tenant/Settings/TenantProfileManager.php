@@ -208,6 +208,66 @@ final readonly class TenantProfileManager
     }
 
     /**
+     * The customer's own mark, uploaded or taken away (XIV-49).
+     *
+     * **A method of its own rather than another argument on apply(), for the
+     * reason applyMail() is one**: this half of the page answers to a different
+     * rule. A company name nobody typed is an empty string and a currency nobody
+     * chose is null — absence is an answer there. Here absence is the *ordinary*
+     * submission: the file input is empty on every load, because a browser cannot
+     * be handed the stored file back, so "no file" means "leave it alone" on
+     * every save anybody makes for other reasons. Removing therefore has to be a
+     * separate act rather than a blank field, which is exactly the shape the SMTP
+     * password already has.
+     *
+     * **Refused rather than fixed up.** Nothing here re-encodes, downscales or
+     * strips metadata: a logo that comes back out of this application is byte for
+     * byte the one that went in. That is a deliberate choice against the obvious
+     * alternative of running everything through GD to normalise it — re-encoding
+     * a mark is how a crisp wordmark acquires JPEG ringing, and a customer whose
+     * logo came back looking worse has no way of knowing we did it. The cost is
+     * that the accepted list has to be genuinely safe to serve untouched, which
+     * is the argument LogoFormat makes.
+     *
+     * **Nothing is refused in here, and that is the point of the argument type.**
+     * A LogoUpload only exists because something already proved it was an
+     * acceptable image, and the controller constructs it before it calls anything
+     * that writes — which is what keeps the page's promise that a refused
+     * submission saved nothing, now that two halves of it can refuse. See
+     * LogoUpload for the whole of that reasoning.
+     *
+     * @param LogoUpload|null $logo   a proved upload, or null to leave the stored
+     *                                mark alone
+     * @param bool            $remove take the stored mark away
+     */
+    public function applyLogo(?LogoUpload $logo, bool $remove = false): TenantProfile
+    {
+        $profile = $this->profiles->current();
+
+        // Removal first, and it wins over an upload in the same request. The two
+        // cannot both be meant — the checkbox is beside the file input — and
+        // deciding for the destructive one means a mis-click on "remove" is
+        // undone by uploading again, where the other order would silently keep a
+        // file somebody had just asked to be rid of.
+        if ($remove) {
+            $profile->clearLogo();
+        } elseif ($logo !== null) {
+            $profile->setLogo($logo->bytes, $logo->format->value);
+        } else {
+            // Nothing to do, and deliberately no flush: the ordinary save touches
+            // this method on every submission and a write per page load would put
+            // an `updated_at` bump behind a form that changed nothing about the
+            // logo.
+            return $profile;
+        }
+
+        $this->entityManager->persist($profile);
+        $this->entityManager->flush();
+
+        return $profile;
+    }
+
+    /**
      * symfony/mime's own rules rather than a regular expression of ours: it is
      * the component that will have to build the header out of this, so it is the
      * component whose opinion decides whether it can.
