@@ -46,6 +46,10 @@ lifecycle:
     refused_final: 'Dieser Datensatz steht auf „%state%“ und geht von dort nicht weiter.'
     refused_unknown: Diesen Schritt gibt es für diesen Datensatz nicht.
 
+# Eine Regel über den Datensatz, nicht über einen einzelnen Wert darin (XIV-68).
+record:
+    collection_too_long: '%collection% fasst höchstens %limit% Zeilen und hat hier %count%, deshalb wurde nichts gespeichert. Verteile das auf mehrere Datensätze.'
+
 history:
     period:
         today: Heute

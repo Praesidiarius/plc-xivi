@@ -27,6 +27,7 @@ use Xivi\Contact\ContactModule;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
+use Xivi\Core\Record\CollectionLimit;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordWriter;
 use Xivi\Order\OrderModule;
@@ -36,18 +37,24 @@ use Xivi\Order\OrderModule;
  * (XIV-68).
  *
  * **This is a measuring instrument, not a test.** It asserts almost nothing and
- * proves nothing; it draws an order with ten lines and then with ten thousand,
- * asks the application for the two pages that draw them, and writes down what
- * that cost. XIV-68 names three possible fixes and says nobody should pick one
- * until somebody has a number, and this is where the number comes from. It lives
- * in `tests/Measurement` rather than `tests/Functional` for exactly that reason,
- * and is in no `<testsuite>` in phpunit.dist.xml — `bin/ci` must not spend four
- * minutes building ten thousand order lines on every commit.
+ * proves nothing; it draws an order of a given number of lines, asks the
+ * application for the two pages that draw them, and writes down what that cost.
+ * XIV-68 named three possible fixes and said nobody should pick one until
+ * somebody had a number, and this is where the number came from. It lives in
+ * `tests/Measurement` rather than `tests/Functional` for exactly that reason, and
+ * is in no `<testsuite>` in phpunit.dist.xml — `bin/ci` must not spend minutes
+ * building order lines on every commit.
+ *
+ * **Its job changed once the decision was taken.** A collection is capped at 400
+ * rows and a request is allowed 256M, and neither of those is a claim this file
+ * can check on its own — the tool's per-request memory column held against the
+ * ini file is what says whether the supported size still renders. So the sizes it
+ * runs by default now stop at the cap, and the row worth reading is the last one.
  *
  * ```
  * bin/compose exec -e APP_DEBUG=0 php vendor/bin/phpunit \
  *     tests/Measurement/CollectionCeilingTest.php
- * bin/compose exec -e APP_DEBUG=0 -e XIV68_ROWS=10,100,1000 -e XIV68_ARTICLES=25 php \
+ * bin/compose exec -e APP_DEBUG=0 -e XIV68_ROWS=100,400 -e XIV68_ARTICLES=250 php \
  *     vendor/bin/phpunit tests/Measurement/CollectionCeilingTest.php
  * ```
  *
@@ -71,8 +78,8 @@ use Xivi\Order\OrderModule;
  * *catalogue* rather than of the document. Running the same length against 25
  * articles and against 250 separates the two, and the answer turned out to be
  * that the picker is most of the bytes and a quarter of the memory. The default
- * is above the cap because a customer with fewer than two hundred articles is
- * the unusual one.
+ * is above `MAX_CHOICES` because a customer with fewer than two hundred articles
+ * is the unusual one.
  *
  * **Read straight off the kernel, not through the browser client.** A
  * `KernelBrowser::request()` parses the response into a `Crawler` before it
@@ -108,8 +115,25 @@ final class CollectionCeilingTest extends WebTestCase
     private const string EMAIL = 'measure@example.test';
     private const string PASSWORD = 'measure-password';
 
-    /** The document lengths measured when nothing says otherwise. */
-    private const string DEFAULT_ROWS = '10,100,500,1000,5000,10000';
+    /**
+     * The document lengths measured when nothing says otherwise.
+     *
+     * **They stop at the cap now, and they used to go to ten thousand.** XIV-68's
+     * second half capped a collection at {@see CollectionLimit::MAX_ROWS} rows, and
+     * this instrument builds its fixtures through {@see RecordWriter::save()} on
+     * purpose — so the derivers run and a long document carries the totals a real
+     * one carries — which is the same door the cap sits in. Asking for five
+     * thousand lines is now refused rather than measured.
+     *
+     * That is the right way round. The question the long tail answered has been
+     * answered: everything is linear, the constant is 0.34 MB a row, and the
+     * decision taken from it was 400. What this is for now is the other question,
+     * the one somebody will ask again every time the form grows a widget —
+     * *does the supported size still render?* — and 400 is where that is read.
+     * Measuring past the cap again means raising the constant for the run, which
+     * is a deliberate act and should be.
+     */
+    private const string DEFAULT_ROWS = '10,100,200,300,400';
 
     /**
      * How big the article catalogue is.
@@ -152,12 +176,13 @@ final class CollectionCeilingTest extends WebTestCase
         // watching the failure rather than reading about it: pinned at 512M the
         // edit form of a five-hundred-line order dies with "Allowed memory size
         // exhausted" inside Twig, which is the shape of the 500 a customer would
-        // get. It cannot be pinned at the 128M the product actually allows,
-        // because PHPUnit, the kernel and the fixtures together stand in more
-        // than that before a page is rendered at all — the product's ceiling is
-        // reached by holding the measured per-request figure against 128M, not by
-        // reproducing it here. The table is written to standard error a line at a
-        // time precisely so that the row before a fatal survives it.
+        // get. **It cannot be pinned at what the product actually allows** —
+        // 256M since XIV-68, and 128M before it — because PHPUnit, the kernel and
+        // the fixtures together stand in more than either before a page is
+        // rendered at all. The product's ceiling is reached by holding the
+        // measured per-request figure against `frankenphp/conf.d/10-app.ini`, not
+        // by reproducing it here. The table is written to standard error a line at
+        // a time precisely so that the row before a fatal survives it.
         ini_set('memory_limit', (string) ($_SERVER['XIV68_MEMORY_LIMIT'] ?? '-1'));
 
         $this->client = self::createClient();
@@ -181,9 +206,15 @@ final class CollectionCeilingTest extends WebTestCase
 
     public function testHowLongADocumentCanGet(): void
     {
+        // The cap is printed rather than assumed, because the whole point of
+        // re-running this is holding the *edit* row for that many lines against
+        // what `frankenphp/conf.d/10-app.ini` allows a request. Neither number
+        // can be checked from in here — see the note in setUp() — so the run
+        // prints the one it knows and leaves the arithmetic visible.
         $this->say(sprintf(
-            "\nXIV-68 — collection ceiling, measured on %s\n%s\n",
+            "\nXIV-68 — collection ceiling, measured on %s\ncap: %d rows per collection\n%s\n",
             date('Y-m-d H:i:s'),
+            CollectionLimit::MAX_ROWS,
             str_repeat('=', 96),
         ));
 
@@ -279,7 +310,9 @@ final class CollectionCeilingTest extends WebTestCase
         // would say a ten-row page costs seventy megabytes. Resetting the peak
         // to the current usage and subtracting that usage afterwards leaves what
         // *this* request needed on top of whatever was already standing, which
-        // is the figure to hold against the 128M the product runs with.
+        // is the figure to hold against the memory_limit the product runs with —
+        // 256M, in `frankenphp/conf.d/10-app.ini`, which XIV-68 chose from this
+        // very column.
         //
         // **Counted at the allocator, not at the chunks**, which is the `false`
         // and is not a detail. After a request that reached three gigabytes PHP

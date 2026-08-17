@@ -63,9 +63,14 @@ final readonly class RecordWriter
      *                                                                                       any other change and deserves a different verb over
      *                                                                                       it (XIV-14). Null lets the writer decide, which is
      *                                                                                       what every ordinary save wants
+     *
+     * @throws CollectionTooLong when a collection is handed more rows than
+     *                           {@see CollectionLimit::MAX_ROWS} (XIV-68)
      */
     public function save(ModuleDefinition $module, Record $record, array $children = [], ?RecordAction $as = null): Record
     {
+        $this->guardCollectionSizes($module, $children);
+
         return $this->connection->transactional(function () use ($module, $record, $children, $as): Record {
             $isNew = $record->isNew();
 
@@ -146,6 +151,41 @@ final readonly class RecordWriter
                 new \DateTimeImmutable(),
             ));
         });
+    }
+
+    /**
+     * Nothing writes a collection longer than the cap (XIV-68).
+     *
+     * **Here because everything that writes rows comes through here.** The record
+     * form, the importer and any caller holding this service reach the same
+     * method, so one check covers all three and there is no fourth path to
+     * remember when the next one is written. The form and the importer each ask
+     * {@see CollectionLimit} first as well, and that is not this check being
+     * repeated — it is each of them turning the same refusal into the thing their
+     * reader is looking at, a message on a form and a problem against a sheet.
+     * What arrives here is what did not ask.
+     *
+     * **Before the transaction rather than inside it**, so a refusal costs no
+     * BEGIN and no rollback: nothing about this is a fact the database discovers.
+     *
+     * **On what the caller asked to write, before the derivers run.** A derived
+     * collection is restated from the rows above it (§5.9) and is the engine's own
+     * arithmetic — a VAT table is five rows for an order of any length — so
+     * counting it here would put a number on something nobody typed, and the
+     * count the message names has to be the one somebody can act on.
+     *
+     * @param array<string, list<array{id: int|null, data: array<string, mixed>}>> $children
+     *
+     * @throws CollectionTooLong
+     */
+    private function guardCollectionSizes(ModuleDefinition $module, array $children): void
+    {
+        foreach ($children as $key => $rows) {
+            // The label rather than the key, because the sentence is read by
+            // whoever named it. An unknown key is left to the loop in save(),
+            // which has the better message for it.
+            CollectionLimit::guard($module->getCollection($key)?->getLabel() ?? $key, \count($rows));
+        }
     }
 
     /**

@@ -16,7 +16,9 @@ namespace App\Record;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Xivi\Core\Entity\ModuleDefinition;
+use Xivi\Core\Record\CollectionLimit;
 use Xivi\Core\Record\InheritedValues;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordFormData;
@@ -49,6 +51,10 @@ final readonly class RecordSubmission
         private InheritedValues $inherited,
         private RecordValidator $validator,
         private RecordWriter $writer,
+        // Only for the one message this class produces itself (XIV-68). Every
+        // other message on the form comes out of the validator, which already
+        // holds a translator of its own.
+        private TranslatorInterface $translator,
     ) {
     }
 
@@ -169,6 +175,14 @@ final readonly class RecordSubmission
      * module's, every row against the collection's. The validator is handed a
      * shape and never asks which kind it is.
      *
+     * **How long the list is comes first, and is not one of the row's own rules**
+     * (XIV-68). It is a fact about the collection rather than about any row in
+     * it, so it goes on the form itself, where `form_errors()` draws it, and it
+     * stops the rows below being checked one at a time — a person who has just
+     * been told the list is too long does not also want five hundred lines of
+     * "this value should not be blank", and the writer is going to refuse the
+     * save whatever they say.
+     *
      * @param FormInterface<array<string, mixed>>                                              $form
      * @param array<string, mixed>                                                             $fields
      * @param array<string, list<array{index: int, id: int|null, data: array<string, mixed>}>> $rows
@@ -182,6 +196,15 @@ final readonly class RecordSubmission
         foreach ($rows as $key => $entries) {
             $collection = $definition->getCollection($key);
             \assert($collection !== null);
+
+            if (!CollectionLimit::allows(\count($entries))) {
+                $valid = false;
+                $form->addError(new FormError(
+                    CollectionLimit::refusal($collection->getLabel(), \count($entries))->trans($this->translator),
+                ));
+
+                continue;
+            }
 
             foreach ($entries as $row) {
                 $rowViolations = $this->validator->validate($collection, $row['data'], $row['id']);
