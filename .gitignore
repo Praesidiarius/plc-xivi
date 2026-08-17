@@ -67,3 +67,8 @@
 # services whose class is a dev dependency, in a directory loaded in every
 # environment — nothing here uses PSR-17, so it stays out of the build.
 /config/packages/http_discovery.yaml
+
+# Composer credentials, if this checkout has any. Never committed: the build
+# reads them through a BuildKit secret mount (XIV-99), so a file here is a
+# convenience for the person running the build and nothing else.
+auth.json

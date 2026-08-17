@@ -393,7 +393,25 @@ if [ "$build_prod_image" = true ]; then
 	# name that is only *nearly* meaningless is a poor thing to leave lying about
 	# for the first person who decides to run something out of that image.
 	step 'Production image builds'
-	docker build --target frankenphp_prod -t "${IMAGES_PREFIX}xivi-prod-check" .
+
+	# Composer credentials, if this checkout has any (XIV-99). Passed as a
+	# BuildKit secret so the token is available while `composer install` runs and
+	# is in no layer and no image history afterwards; the Dockerfile declares the
+	# mount `required=false`, so a checkout without the file builds exactly as it
+	# did before and nobody has to know this exists.
+	#
+	# Worth knowing what it is and is not for: it raises the GitHub *API*
+	# allowance from 60 requests an hour to 5,000, which composer spends on
+	# metadata. It does **not** lift the limit on dist archive downloads — that
+	# one is per address, and was measured answering 429 to an authenticated
+	# request and an anonymous one alike. The thing that protects this build from
+	# GitHub is the cache mount beside it, not this.
+	build_secret=()
+	if [ -f auth.json ]; then
+		build_secret=(--secret id=composer_auth,src=auth.json)
+	fi
+
+	docker build --target frankenphp_prod -t "${IMAGES_PREFIX}xivi-prod-check" "${build_secret[@]}" .
 fi
 
 pass 'All checks passed.'
