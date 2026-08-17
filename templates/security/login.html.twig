@@ -21,9 +21,36 @@
 	<main class="signin-shell">
 		<div class="card shadow-sm" style="width: 22rem;">
 			<div class="card-body p-4 text-center">
-				{% if chrome.logo %}
-					<img src="{{ asset(chrome.logo) }}" alt="" height="112" class="mb-3">
-				{% endif %}
+				{#
+					The customer's own mark, where they have one (XIV-49).
+
+					**This is the page the white-label claim is either true on or
+					not.** The ticket originally kept the tenant's logo off here,
+					on the grounds that showing Acme's mark at `acme.xivi.app`
+					tells a stranger whose installation they have found. That
+					objection was overtaken by XIV-79: the `<h1>` immediately below
+					this *is* the hostname, so the page already says it in words,
+					and somebody standing here has learned nothing from the picture
+					that the heading did not just tell them.
+
+					It works because tenancy is resolved before authentication —
+					`TenantRequestListener` runs on the Host header at priority 100
+					— so a tenant is in scope on the sign-in page of their own
+					hostname, and the route serving the bytes needs no session.
+					That route is the one place a tenant's data is readable signed
+					out, deliberately and narrowly; the argument is in
+					TenantLogoController.
+
+					On a system host no tenant resolves and the fallback is Xivi's
+					own mark, which is right, because that page is Xivi's.
+
+					**Named rather than decorative here**, unlike in the top bar,
+					and _brand_mark.html.twig has the rule: there the company name
+					is printed beside the mark, so the mark repeats it; here
+					nothing on the page says what the company is called. The
+					hostname under it is an address, not a name.
+				#}
+				{{ include('_brand_mark.html.twig', {height: 112, alt: chrome.name, classes: 'mb-3 mx-auto'}) }}
 				{#
 					The hostname is the heading (XIV-79).
 

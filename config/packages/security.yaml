@@ -97,6 +97,15 @@ security:
         # request never becomes a session. Anything but a valid signature ends up
         # back on the sign-in page.
         - { path: ^/invitation$, roles: PUBLIC_ACCESS }
+        # The customer's own mark (XIV-49), and the one piece of a tenant's data
+        # readable without a session. It has to be: it is drawn on the sign-in
+        # page, where nobody has one yet, and an <img> that 302s to the login form
+        # is a broken image rather than a security control. Tenancy still applies
+        # — TenantRequestListener runs before this and resolves the host — so what
+        # is public is one image belonging to whoever owns the hostname it was
+        # asked on, and nothing else on that row. See TenantLogoController for the
+        # argument and TenantLogoTest for the proof.
+        - { path: '^/logo/', roles: PUBLIC_ACCESS }
         # Debug-only diagnostic; the controller itself 404s outside debug builds.
         - { path: ^/_tenancy/, roles: PUBLIC_ACCESS }
         - { path: ^/, roles: ROLE_USER }

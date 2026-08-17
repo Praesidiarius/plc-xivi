@@ -1,0 +1,58 @@
+{#
+	The mark at the top of a page, and which of the two it is (XIV-49).
+
+	There are two logos in this application and they are different things. [XIV-48]
+	shipped **Xivi's** own, supplied by the deployment as a file in `assets/brand`
+	and reached through `asset()`; this one is the **customer's**, uploaded by them
+	and served out of their own database by `tenant_logo`. Both end up in an
+	`<img>`, which is the entire reason they were easy to confuse and the reason
+	the choice between them is made in one file rather than at each call site.
+
+	**The customer's wins where there is one**, which is the whole ticket: an
+	installation should read as the customer's product rather than as ours with
+	their name in the corner. Ours is the fallback, and on a system host — the
+	control plane's own sign-in, which resolves no tenant at all — it is the only
+	one there is, which is correct, because that page really is Xivi's.
+
+	**`alt` is a parameter and not a constant, because the honest answer differs
+	between the two callers.** The rule is that a mark repeating adjacent text is
+	decorative and a mark that is the only statement of identity is not:
+
+	  - In the top bar the company name is printed immediately beside the mark, so
+	    the mark is that name drawn a second way. `alt=""`; a screen reader saying
+	    "Acme AG, Acme AG" is reading one thing twice.
+	  - On the sign-in page there is no company name anywhere — the heading under
+	    the card is the *hostname*, which is an address rather than a name, and
+	    "acme.xivi.app" is not what the company calls itself. So there the mark is
+	    the only thing naming what is being signed into, and it is named.
+
+	Ours stays `alt=""` in both places whatever the caller asks for, and that is
+	not an inconsistency: on a page carrying the customer's mark it would be a
+	vendor badge, and on a page carrying no customer's mark the word "Xivi" is
+	already in the version line below the card. It was already decorative in
+	XIV-48 and nothing here changes what it is.
+
+	**The size is constrained in two directions on purpose.** The deployment's own
+	logo is a file somebody chose to fit; the customer's is whatever they had, and
+	a banner three thousand pixels wide is a perfectly ordinary thing for a company
+	to hand over. `height` fixes the row it sits in, `max-width: 100%` stops it
+	pushing the bar or the card out of shape, and `object-fit: contain` is what
+	makes those two constraints letterbox the mark rather than squash it — without
+	it, a wide logo clamped by the width and pinned by the height comes out
+	visibly stretched, which is a worse way to display somebody's brand than not
+	displaying it.
+
+	Parameters:
+	  height  — in pixels, because both call sites are drawing into a fixed row
+	  alt     — what the *customer's* mark is called, '' for decorative
+	  classes — Bootstrap utilities for the surrounding layout, spacing mostly
+#}
+{% set mark_style = 'max-width: 100%; object-fit: contain;' %}
+
+{% if chrome.tenantLogo %}
+	<img src="{{ chrome.tenantLogo }}" alt="{{ alt|default('') }}" height="{{ height }}"
+	     class="d-block {{ classes|default('') }}" style="{{ mark_style }}">
+{% elseif chrome.logo %}
+	<img src="{{ asset(chrome.logo) }}" alt="" height="{{ height }}"
+	     class="d-block {{ classes|default('') }}" style="{{ mark_style }}">
+{% endif %}

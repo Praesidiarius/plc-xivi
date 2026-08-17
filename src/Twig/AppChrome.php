@@ -15,12 +15,14 @@ namespace App\Twig;
 
 use App\ControlPlane\Entity\Tenant;
 use App\Tenancy\TenantContext;
+use App\Tenant\Repository\TenantProfileRepository;
 use App\Tenant\Security\PermissionArea;
 use App\Tenant\Security\PermissionResolver;
 use App\Tenant\Security\StoreAction;
 use App\Tenant\Settings\InstanceName;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Permission\ModuleAction;
@@ -43,6 +45,9 @@ final class AppChrome
         private readonly PermissionResolver $permissions,
         private readonly Security $security,
         private readonly InstanceName $instance,
+        /** The customer's own mark lives on this row; see getTenantLogo(). */
+        private readonly TenantProfileRepository $profiles,
+        private readonly UrlGeneratorInterface $urls,
         #[Autowire('%kernel.project_dir%')]
         private readonly string $projectDir,
         #[Autowire('%env(default::APP_LOGO)%')]
@@ -93,6 +98,38 @@ final class AppChrome
         }
 
         return is_file($this->projectDir . '/assets/brand/' . $name) ? 'brand/' . $name : null;
+    }
+
+    /**
+     * The customer's own mark, as a URL, or null when they have not uploaded one
+     * (XIV-49).
+     *
+     * **A URL rather than an asset path, which is why it is not `getLogo()`
+     * above.** That one names a file the deployment dropped into `assets/brand`
+     * and has to go through `asset()`; this one names a route serving bytes out
+     * of the customer's database, and is already the address to put in a `src`.
+     * Two different things that happen to end up in the same `<img>`, and the
+     * templates choose between them — see `_brand_mark.html.twig`.
+     *
+     * **Lazy like everything else here.** No tenant means no query: the control
+     * plane's own hosts render this page too, and a profile lookup on a
+     * connection that is deliberately unusable would take them down.
+     *
+     * The fingerprint in the path is what lets the response be cached for a year
+     * (TenantLogoController). Reading it costs the profile row, which the bar
+     * above is already reading for the company name.
+     */
+    public function getTenantLogo(): ?string
+    {
+        if (!$this->context->hasTenant()) {
+            return null;
+        }
+
+        $fingerprint = $this->profiles->current()->getLogoFingerprint();
+
+        return $fingerprint === null
+            ? null
+            : $this->urls->generate('tenant_logo', ['fingerprint' => $fingerprint]);
     }
 
     /**

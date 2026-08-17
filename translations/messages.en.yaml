@@ -325,6 +325,11 @@ profile:
         everybody here, not just to you.
     company_name: Company name
     company_name_help: What you call yourselves. It replaces the name in the bar above once set.
+    logo: Logo
+    logo_help: >-
+        PNG or JPEG, up to %size% KB. It appears in the bar above and on the sign-in page of this
+        address, so anyone who can reach that page can see it — which is what a logo is for.
+    logo_remove: Remove the logo
     currency: Currency
     currency_help: What prices are in. Nothing forces one, and modules that need it will ask for this.
     currency_none: Not chosen yet
@@ -483,6 +488,8 @@ refusal:
     group_name_taken: 'There is already a group called "%label%".'
     mail_server_without_address: 'An SMTP server needs a sender address: it is what your mail would claim to be from.'
     mail_not_an_address: '"%address%" is not an email address.'
+    logo_too_large: 'That logo is larger than %size% KB. Export it smaller — a logo in a bar or on a letter needs very few pixels.'
+    logo_not_an_image: '"%filename%" is not a PNG or a JPEG. SVG files are not accepted; export one as a PNG instead.'
     already_has_password: '%email% already has a password. Reset it instead of sending an invitation.'
     inactive_invitee: '%email% is deactivated, and an invitation link would not let them in. Reactivate them first.'
     password_already_set: This account already has a password, so changing it needs the current one.

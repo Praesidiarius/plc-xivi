@@ -180,6 +180,65 @@ class TenantProfile
     #[ORM\Column(name: 'mail_smtp_password', type: 'text', nullable: true)]
     private ?string $encryptedMailSmtpPassword = null;
 
+    /**
+     * The customer's own mark, as bytes (XIV-49).
+     *
+     * **In this database, in a bytea column, exactly as a document template is**
+     * (§5.7). The argument transfers without a change: there is one of these, it
+     * is small, and it is unmistakably one customer's — so the isolation §4
+     * already provides is free here, where a shared volume would mean a path to
+     * get wrong and a backup story to invent. It is as deliberately *not* the
+     * general file-storage design as the templates were; attachments are many,
+     * large and long-lived, and will want a different answer.
+     *
+     * A resource on the way back out of Doctrine, which is why nothing but
+     * {@see self::getLogo()} touches this property — the same handling
+     * DocumentTemplate::getContent() does, and for the same reason.
+     *
+     * **This row is read on nearly every page** (InstanceName, and therefore the
+     * bar at the top of everything), so the bytes are read with it whether or not
+     * anybody is going to draw them. That is the one real cost of keeping them
+     * here rather than in a table of their own, and it is what the ceiling in
+     * {@see \App\Tenant\Settings\LogoFormat} is sized against: half a megabyte of
+     * extra row on a local connection is a millisecond, and the overwhelming
+     * majority of installations store null and pay nothing at all. If a second
+     * blob ever lands on this row, that arithmetic stops holding and the bytes
+     * should move to a table of their own — the fingerprint below is already the
+     * only thing the hot path actually wants.
+     */
+    #[ORM\Column(type: 'blob', nullable: true)]
+    private mixed $logo = null;
+
+    /**
+     * What the bytes above actually are, decided by decoding them rather than by
+     * believing the upload (XIV-49).
+     *
+     * Stored rather than sniffed on the way out: the serving route has to name a
+     * type in a header, and re-deciding it on every request would be asking the
+     * same question of the same bytes forever. `image/png` or `image/jpeg`, and
+     * nothing else is accepted — see LogoFormat for why SVG is not on that list.
+     */
+    #[ORM\Column(name: 'logo_content_type', length: 64, nullable: true)]
+    private ?string $logoContentType = null;
+
+    /**
+     * A hash of the bytes, and the whole of the cache story (XIV-49).
+     *
+     * The mark is on every page including the sign-in one, so it wants to be
+     * cached hard; a cache that outlives a replacement means a customer uploads a
+     * new logo, sees the old one, and reasonably concludes the upload failed.
+     * Both are had at once by putting this in the URL: a different logo is a
+     * different address, so the old address is never asked for again and the
+     * bytes behind it may be declared immutable.
+     *
+     * Stored rather than computed on read, for the reason the property above is
+     * stored: every page render needs this to build the URL, and hashing half a
+     * megabyte on each of them to arrive at a value that cannot have changed is
+     * work with no question behind it.
+     */
+    #[ORM\Column(name: 'logo_fingerprint', length: 64, nullable: true)]
+    private ?string $logoFingerprint = null;
+
     #[ORM\Column(name: 'updated_at')]
     private \DateTimeImmutable $updatedAt;
 
@@ -326,6 +385,84 @@ class TenantProfile
     public function hasOwnMailTransport(): bool
     {
         return $this->mailSmtpHost !== '';
+    }
+
+    /**
+     * Whether this installation has a mark of its own (XIV-49).
+     *
+     * Asked of the fingerprint rather than of the bytes, because that is the
+     * question every caller in the hot path is really asking — is there a URL to
+     * draw — and reading it costs nothing even where the bytes are a stream that
+     * would have to be consumed to answer.
+     */
+    public function hasLogo(): bool
+    {
+        return $this->logoFingerprint !== null;
+    }
+
+    /**
+     * The mark, as a string, or null when there is none.
+     *
+     * Doctrine's `blob` gives back a stream on a freshly loaded entity and the
+     * original string on one that has just been persisted, so both are handled
+     * here rather than at the call sites — the same two cases
+     * DocumentTemplate::getContent() has to reconcile.
+     */
+    public function getLogo(): ?string
+    {
+        if (\is_resource($this->logo)) {
+            rewind($this->logo);
+
+            return (string) stream_get_contents($this->logo);
+        }
+
+        return $this->logo === null ? null : (string) $this->logo;
+    }
+
+    public function getLogoContentType(): ?string
+    {
+        return $this->logoContentType;
+    }
+
+    public function getLogoFingerprint(): ?string
+    {
+        return $this->logoFingerprint;
+    }
+
+    /**
+     * Replaces the mark.
+     *
+     * **The fingerprint is derived here and never passed in**, so the address the
+     * bytes are served under cannot drift away from the bytes. A caller that
+     * could supply its own would eventually supply a stale one, and the failure
+     * would be a customer looking at their previous logo with no way to tell why.
+     *
+     * SHA-256 rather than something shorter: this is an identifier a browser is
+     * asked to treat as immutable, and a collision would mean one customer's
+     * cached mark standing in for the next one they upload.
+     *
+     * @param string $contentType a LogoFormat value; the caller decides it by
+     *                            decoding the bytes, never by reading the upload
+     */
+    public function setLogo(string $bytes, string $contentType): void
+    {
+        $this->logo = $bytes;
+        $this->logoContentType = $contentType;
+        $this->logoFingerprint = hash('sha256', $bytes);
+    }
+
+    /**
+     * Removes it, and removes all three facts about it together.
+     *
+     * Leaving the type or the fingerprint behind would be a row claiming to have
+     * a logo that no longer exists, which the serving route would answer with an
+     * empty image rather than with the honest 404.
+     */
+    public function clearLogo(): void
+    {
+        $this->logo = null;
+        $this->logoContentType = null;
+        $this->logoFingerprint = null;
     }
 
     public function getUpdatedAt(): \DateTimeImmutable

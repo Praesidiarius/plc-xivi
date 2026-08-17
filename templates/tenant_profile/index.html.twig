@@ -19,7 +19,10 @@
 		#}
 		{% set editable = can('edit', area) %}
 
-		<form method="post" action="{{ path('tenant_profile_save') }}" class="card">
+		{# multipart since XIV-49: the logo is a file, and a form that posts one
+		   without this sends the file's *name* and nothing else — which fails as
+		   a submission that appears to have worked. #}
+		<form method="post" action="{{ path('tenant_profile_save') }}" enctype="multipart/form-data" class="card">
 			<div class="card-body">
 				<input type="hidden" name="_token" value="{{ csrf_token('tenant-profile') }}">
 
@@ -28,6 +31,55 @@
 					<input class="form-control" type="text" id="company_name" name="company_name"
 					       maxlength="255" value="{{ profile.companyName }}" {{ editable ? '' : 'disabled' }}>
 					<div class="form-text">{{ 'profile.company_name_help'|trans }}</div>
+				</div>
+
+				{#
+					The customer's own mark (XIV-49).
+
+					Directly under the company name because it is the other half of
+					the same answer: what they are called, and what that looks like.
+					It goes in the bar above and on the sign-in page of this
+					hostname, which is the sentence the help text has to carry —
+					somebody uploading a logo here should not be surprised later by
+					where it turned up.
+
+					**What is on file is shown, and it is shown from the same URL
+					the rest of the application draws it from.** A preview built
+					some other way — a data URI, a second route — would be a second
+					thing that could be right while the real one was wrong. If the
+					mark on this page is stale, the mark in the bar is stale, and
+					that is a bug worth being able to see here.
+
+					Removing is a checkbox rather than a blank field, because the
+					file input is blank on every load: a browser cannot be handed
+					the stored file back, so an empty input already means "leave it
+					alone" and cannot also mean "get rid of it". Only offered when
+					there is something to remove, and only to somebody who may
+					change things.
+				#}
+				<div class="mb-3">
+					<label class="form-label" for="logo">{{ 'profile.logo'|trans }}</label>
+
+					{% if profile.hasLogo %}
+						<div class="mb-2 p-2 border rounded bg-body-tertiary d-inline-block">
+							{# Decorative: the field is labelled and the company name is
+							   in the box above it, so announcing the picture as well
+							   would be saying the same thing a third time. #}
+							{{ include('_brand_mark.html.twig', {height: 48, alt: ''}) }}
+						</div>
+					{% endif %}
+
+					<input class="form-control" type="file" id="logo" name="logo"
+					       accept="{{ logoAccepts }}" {{ editable ? '' : 'disabled' }}>
+					<div class="form-text">{{ 'profile.logo_help'|trans({'%size%': logoMaxKib}) }}</div>
+
+					{% if profile.hasLogo and editable %}
+						<div class="form-check mt-2">
+							<input class="form-check-input" type="checkbox" value="1"
+							       id="logo_remove" name="logo_remove">
+							<label class="form-check-label" for="logo_remove">{{ 'profile.logo_remove'|trans }}</label>
+						</div>
+					{% endif %}
 				</div>
 
 				<div class="mb-3">

@@ -1374,6 +1374,36 @@ reflex attached to the one that reports them.
 contact's addresses or an invoice's lines, and a table row carrying a collection
 marker is what grows.*
 
+**A marker that resolves to an image is a change to this pipeline, not a key in a
+list — so it is XIV-89 and not XIV-49.** The decision is written here because the
+reasoning belongs next to the pipeline it is about.
+
+Every marker above resolves to **text**. `DocumentMarkers::dataFor()` returns
+`array<string, string>` and `DocumentGenerator::fill()` hands that straight to
+`anourvalar/office`, whose `DocumentService` runs on a `ZipDriver`: it opens the
+.docx as a zip and replaces strings inside the XML parts. There is no image path
+in that library at all — it has a driver for the spreadsheet side and nothing
+equivalent for a Word drawing. So `[tenant.logo]` is not another entry in
+`InstanceContext::markers()`; it is DrawingML written by hand, which means a media
+part in the package, a relationship with an `rId` that cannot collide with the
+ones the customer's own template already uses, a `[Content_Types].xml` override, an
+extent in EMU and therefore a decision about how large a logo is on a page, and —
+the part that actually inverts the design — **replacing the marker's run with an
+element instead of substituting its text**, in a file where the marker may be split
+across several runs, which is the exact case this library was chosen to handle.
+`RepeatingBlocks` walks the same file first (XIV-17) and `TemplateReview` (XIV-25)
+would call the key unfillable until it learned about a marker that is not text.
+
+That is enough to be its own ticket, and the alternative was worse in a way this
+project has an opinion about: half of XIV-49 shipped properly and a second ticket
+somebody can read beats both halves rushed. What did ship is the logo itself — the
+upload, the storage, the bar and the sign-in page (§8.6).
+
+One constraint carries over and is easy to lose: **documents are generated without
+a browser.** Whatever draws the image reads the bytes out of `TenantProfile`
+directly, never over HTTP and never through the public route §8.6 added, which
+exists for a page and not for the engine.
+
 *Emails are §5.13, and are deliberately not this. They are written in the
 application rather than uploaded, and the reason is worth reading next to the
 paragraphs above rather than assumed from them.*
@@ -3540,6 +3570,117 @@ thing they ever printed.
 **Read and change are separate grants** (§8.4). Somebody may need to look up what
 the instance prices in without being the person who decides it, so the page shows
 its fields disabled rather than refusing them outright.
+
+#### The customer's own mark (XIV-49)
+
+What they are called was half the answer; what that looks like is the other half.
+Distinct from the *instance* logo (XIV-48), which is Xivi's own and is supplied by
+the deployment as a file: this one is the customer's, uploaded by them, and the
+two only resemble each other in ending up inside the same `<img>`.
+
+**In the tenant's database, in a `bytea` column, exactly as a document template
+is** (§5.7). Nothing new is decided here — templates already settled where a
+customer's small files live, and a logo is a smaller one of them. There is
+precisely one, it is unmistakably theirs, and the per-customer backup, restore and
+export-on-churn §4 hands us keep working with nothing added. The general
+file-storage design attachments will need is still not being started.
+
+**PNG and JPEG, and SVG is refused.** This is the decision worth the most words,
+because SVG is what everybody wants for a logo and is the one candidate that is
+not an image: it is an XML document, with a `<script>` element, event handlers on
+every node and external references. Served in an `<img>` a browser will not run
+it — but nothing keeps it in an `<img>`, and the route below is deliberately
+readable without signing in, from the customer's own origin, which is the origin
+their session cookie belongs to. Accepting it safely means sanitizing it, and
+**the sanitizer is what settles it**: the one credible SVG sanitizer in PHP is
+`enshrined/svg-sanitize`, GPL-2.0-or-later. This project is MIT and turned PHPWord
+down over LGPL-3.0; a copyleft dependency is not a thing to take on for a nicer
+logo. `symfony/html-sanitizer` is MIT and is not an answer — it parses HTML, and
+an SVG through it comes out as either nothing or something that no longer draws.
+Writing our own would be maintaining a security component over a format with
+namespaces, entities and `xlink:href`, which is the thing "reach for the
+framework's own first" exists to prevent. A customer with only an SVG exports a
+PNG, which is one step in their design tool and not a step anybody here has to be
+right about. WebP and AVIF are left out for a much smaller reason — they are safe,
+they are simply not what anybody hands over — and could be added any time.
+
+Half a mebibyte, and no larger than four thousand pixels in either direction. The
+size ceiling is not only about a logo being small: the bytes sit on
+`tenant_profile`, which is read on nearly every page, so it is also the extra row
+every request carries once a customer has uploaded one. The pixel ceiling is not
+about our own memory at all — nothing here decodes the image — but about not
+handing a decompression bomb to the browser drawing the sign-in page. Both are
+decided by reading the header, never by the file name or the `Content-Type` the
+upload claimed, which is the same call §5.7's `.docx` check makes.
+
+**Nothing is re-encoded.** What comes back out is byte for byte what went in,
+against the obvious alternative of normalising everything through GD: re-encoding
+is how a crisp wordmark acquires artefacts, and a customer whose logo came back
+looking worse has no way of knowing we did it. The price is that the accepted list
+has to be safe to serve untouched, which is what the paragraph above is about.
+
+**The sign-in page carries it, and that reverses what XIV-49 first said.** The
+original objection was disclosure — showing Acme's mark at `acme.xivi.app` tells a
+visitor whose installation they have found. That objection was overtaken by
+XIV-79, which made the login card's `<h1>` the hostname: the page says it in words
+already, above the picture. What is left is the thing that matters, which is that
+an installation should read as the customer's product from the first screen rather
+than as ours with their name in the corner. It works because tenancy is resolved
+before authentication — `TenantRequestListener` runs on the `Host` header at
+priority 100 — so a tenant is in scope with no session at all. A system host
+resolves no tenant and falls back to Xivi's own mark, which is right, because that
+page is Xivi's.
+
+**Serving it is the one narrowing of §8.4 in the application, and it is stated
+rather than incidental.** The route is tenancy-scoped and not permission-gated,
+because it cannot be both on a page where nobody has signed in; a logo is a public
+mark by definition, printed on the customer's letterhead and website, and treating
+it as a secret would be protecting something they publish. What is *not* given up
+is tenancy: the action can only ever reach the profile of the host it was asked on.
+And nothing else on that row comes out of the same door — the response is the image
+and its type, which matters because the SMTP host, user and encrypted password
+(§8.7) live on the very same row. There is a test that compares the body for
+equality with the bytes rather than merely searching it, because an image plus
+anything is not an image.
+
+**Changing it is the profile's `edit` grant and not one of its own.** It is the
+same act as changing the company name, on the same screen, in the same submission;
+a permission of its own would be a second thing to grant to everybody who already
+has the first, which is how a permission catalogue becomes the thing nobody
+maintains.
+
+**The cache is the fingerprint, and the fingerprint is in the URL.** The mark is on
+every page including the sign-in one, comes out of the database and changes almost
+never, so it wants a long lifetime — and a long lifetime that outlives a
+replacement means a customer uploads a new logo, is shown the old one, and
+reasonably concludes the upload failed. Putting a SHA-256 of the bytes in the path
+gets both: a different logo is a different address, so the old address is never
+asked for again and the bytes behind the new one may be declared `immutable` for a
+year. A path segment rather than a query string, because caches are entitled to
+ignore a query string when deciding what a URL means. The remaining case is a page
+that was itself cached before the change and still asks for the old address; that
+is answered with the current bytes and `no-store`, because caching them under an
+address that has already meant something else is exactly the promise `immutable`
+must not break. Symfony's session listener would otherwise stamp
+`private, must-revalidate` over all of this, correctly, so the opt-out is explicit
+on that one response.
+
+**`alt` differs between the two places it is drawn, and the rule is what generates
+the difference.** A mark that repeats adjacent text is decorative; a mark that is
+the only statement of identity is not. In the top bar the company name is printed
+beside it, so it is `alt=""` and a screen reader is not made to say "Acme AG, Acme
+AG". On the sign-in page nothing else names the company — the heading below the
+card is the *hostname*, which is an address rather than a name — so there it is
+named. Xivi's own mark stays decorative in both places, unchanged from XIV-48.
+
+**One upload, not two**, as XIV-49 asked. A wide wordmark suits a bar and a square
+one suits a letterhead, and the honest position is that this will be found out
+rather than predicted; when it is, that is a second field and not a redesign. The
+favicon was considered and left as Xivi's: a wordmark makes a poor sixteen-pixel
+square, and the tab is the one place the reader is choosing between applications
+rather than reading inside one.
+
+**The document half is XIV-89**, split out deliberately — see §5.7.
 
 ### 8.7 Who a tenant's mail comes from (XIV-37)
 
