@@ -1,0 +1,138 @@
+{#
+	What is on this person's list and wants doing (XIV-81), narrowed without
+	leaving the page (XIV-84).
+
+	Every moment here goes through `|date`, which converts into the reader's zone
+	before formatting because a request-scoped listener sets Twig's timezone
+	(§8.4.4). The *boundaries* that decided which follow-ups are on this list were
+	drawn in PHP, in the same zone, before this template ran — see FollowUpLens.
+
+	`datetime="…|date('c')"` on the <time> element carries the offset, so what the
+	page says and what a machine reads cannot disagree.
+#}
+{% set now = date() %}
+
+<div{{ attributes.defaults({class: 'card'}) }}>
+	<div class="card-header d-flex flex-wrap gap-2 justify-content-between align-items-center">
+		{#
+			Buttons rather than links, and that is the whole of XIV-84 on this
+			screen. These used to be three anchors carrying `?follow_ups=today`,
+			which meant a full page load and a history entry to answer a question
+			the page had already asked once — and a query parameter that had to
+			keep out of the way of whatever the next widget put on the URL.
+			Narrowing a summary is not navigation, so it does not go in the
+			address bar.
+
+			`type="button"` explicitly: these sit in no form, and a bare <button>
+			inside one would submit it.
+		#}
+		<div class="btn-group btn-group-sm" role="group" aria-label="{{ 'follow_up.lens_group'|trans }}">
+			{% for option in this.lenses %}
+				<button type="button"
+				        class="btn btn-outline-secondary{{ option == this.lens ? ' active' : '' }}"
+				        {% if option == this.lens %}aria-current="true"{% endif %}
+				        data-action="live#action|prevent"
+				        data-live-action-param="show"
+				        data-live-lens-param="{{ option.value }}">
+					{{ option.labelKey|trans }}
+				</button>
+			{% endfor %}
+		</div>
+	</div>
+
+	{% if this.entries is empty %}
+		{#
+			An empty lens is information rather than a reason to hide: "nothing due
+			this week" is the good news this widget exists to be able to deliver,
+			and the sentence is per lens because "nothing at all" and "nothing yet"
+			are different things to be told.
+		#}
+		<div class="card-body text-body-secondary mb-0">
+			{{ this.lens.emptyKey|trans }}
+		</div>
+	{% else %}
+		<ul class="list-group list-group-flush">
+			{% for entry in this.entries %}
+				{% set followUp = entry.followUp %}
+				{% set overdue = followUp.dueAt < now %}
+
+				{#
+					Priority as a bar down the leading edge, the same way the record
+					page draws it (XIV-84) — one visual vocabulary for one idea, so
+					that a follow-up looks like the same object on both screens.
+
+					The colour is a custom property rather than a `border-*` utility
+					because Bootstrap has no per-side colour class and the whole-border
+					version repaints the hairlines between these rows; see
+					`.follow-up-priority` in app.css. `follow_up_tone()` is the single
+					mapping, and the badge below reads the same one.
+				#}
+				<li class="list-group-item follow-up-priority d-flex flex-wrap gap-2 justify-content-between align-items-start"
+				    style="--follow-up-tone: var(--bs-{{ follow_up_tone(followUp.priority) }})">
+					<div class="me-auto">
+						{#
+							What the follow-up says. Its opening note is its text — a
+							priority and a date on their own describe nothing — and it
+							is the half that stays when the record does not.
+						#}
+						{% if entry.openingNote %}
+							<div>{{ entry.openingNote.body }}</div>
+						{% endif %}
+
+						<div class="small text-body-secondary">
+							{#
+								Named and linked where the reader may open it; silent
+								where they may not. That is the same split XIV-42 made
+								between a reference's name and a link to it, and the
+								record is *absent* rather than shown unlinked because
+								nothing about it has been disclosed yet: they keep the
+								work they were given and do not learn what it is
+								attached to (§5.18).
+
+								A follow-up on a deleted record is not this case and is
+								not here at all — the repository excluded it.
+							#}
+							{% if entry.namesItsRecord %}
+								<a href="{{ path('module_show', {module: entry.module.key, id: entry.record.id}) }}">
+									{{- record_title(entry.module, entry.record.data, entry.record.id) -}}
+								</a>
+								<span class="mx-1">·</span>
+							{% endif %}
+
+							{#
+								The one mapping of priority to Bootstrap context, shared with
+								the record page's panel (XIV-82) — see `follow_up_tone()` for
+								why it is a function rather than a table in each template that
+								draws one, and for why `important` is `danger`.
+							#}
+							<span class="badge text-bg-{{ follow_up_tone(followUp.priority) }}">
+								{{ followUp.priority.labelKey|trans }}
+							</span>
+						</div>
+					</div>
+
+					{#
+						Overdue is read rather than stored, exactly as an invoice's
+						lateness is (§5.16) — and unlike an invoice it is still on this
+						list, because the lenses bound only the far end. A follow-up
+						somebody missed stays where they will see it.
+					#}
+					<time class="text-nowrap small{{ overdue ? ' text-danger fw-semibold' : ' text-body-secondary' }}"
+					      datetime="{{ followUp.dueAt|date('c') }}">
+						{{- followUp.dueAt|date('Y-m-d H:i') -}}
+					</time>
+				</li>
+			{% endfor %}
+		</ul>
+
+		{% if this.more > 0 %}
+			{#
+				The cap is the widget's and is said out loud. A summary that quietly
+				stopped at ten would be a summary somebody trusted to be complete.
+			#}
+			<div class="card-footer text-body-secondary small">
+				{{ 'follow_up.more_due'|trans({'%count%': this.more}) }}
+			</div>
+		{% endif %}
+	{% endif %}
+</div>

@@ -205,3 +205,30 @@
 .follow-up-note {
 	white-space: pre-wrap;
 }
+
+/*
+ * A follow-up's priority, as a bar down its leading edge (XIV-84).
+ *
+ * Bootstrap gets *almost* all the way here on its own — `border-start border-4
+ * border-danger` — and the gap is the colour. `border-{color}` sets
+ * `border-color` on all four sides at once, because Bootstrap has no per-side
+ * colour utility. On a card, which already has an outline, that tints the whole
+ * outline rather than the one edge; on a flush list item it repaints the hairline
+ * separators between rows in the priority colour. Both were the wrong picture,
+ * and neither is reachable by adding more utilities.
+ *
+ * So the colour arrives as a custom property the template sets from
+ * `follow_up_tone()` — the same single mapping both screens already draw their
+ * badges from — and only the left edge reads it. Pointing at `--bs-info` and its
+ * siblings rather than at a hex is what keeps this right in the dark theme:
+ * Bootstrap 5.3 redefines those under `[data-bs-theme=dark]`, so the bar follows
+ * without this file knowing there are two themes.
+ *
+ * `!important` deliberately, and it is the same reason Bootstrap's own border
+ * utilities carry it. `.list-group-flush > .list-group-item` sets `border-width:
+ * 0 0 1px` at a specificity this cannot reach with one class, so without it the
+ * left edge is zero pixels wide and the rule silently does nothing.
+ */
+.follow-up-priority {
+	border-left: 4px solid var(--follow-up-tone, var(--bs-border-color)) !important;
+}

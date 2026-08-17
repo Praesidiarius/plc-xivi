@@ -17,12 +17,8 @@ use App\Dashboard\DashboardWidget;
 use App\Dashboard\WidgetPanel;
 use App\Tenancy\TenantContext;
 use App\Tenant\Entity\User;
-use App\Tenant\FollowUp\FollowUpLens;
-use App\Tenant\FollowUp\MyFollowUps;
-use App\Tenant\Settings\DisplayTimezone;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\AsTaggedItem;
-use Symfony\Component\HttpFoundation\RequestStack;
 use Xivi\Core\Metadata\MetadataRepository;
 
 /**
@@ -32,11 +28,19 @@ use Xivi\Core\Metadata\MetadataRepository;
  * always available and a deadline is not. `#[AsTaggedItem]` is where that is
  * said, and it is the only place — nothing keeps an ordered list of widgets.
  *
- * **The lens is a query parameter, and the widget names it.** `?follow_ups=today`
- * rather than `?lens=today`, because a second widget with a control on it would
- * otherwise be one URL away from moving this one. Three links and no JavaScript:
- * a GET that changes what a page shows is a GET, and the alternative here was a
- * Live Component (XIV-33) for something that is three links and a page load.
+ * **What this decides is whether the card is drawn at all**, and nothing else.
+ * The card itself, the lens and the reading are
+ * {@see \App\Twig\Components\DueFollowUps}'s since XIV-84. This used to hold all
+ * of it and to take the lens from a `?follow_ups=today` query parameter — three
+ * links and a page load, on the argument that a GET which changes what a page
+ * shows is a GET. That was true and it was still the wrong trade: narrowing a
+ * summary is not navigation, so it wants no history entry and no room on a URL
+ * shared with every other widget's state.
+ *
+ * The split left here is the one worth keeping: **whether this customer does
+ * follow-ups at all** is a question about the installation, which the dashboard
+ * can answer before rendering anything, while *what is on this reader's list* is
+ * a question that changes while they look at it.
  *
  * **The widget shows even when the lens is empty, and disappears only when no
  * module in the installation takes follow-ups at all.** Those are different
@@ -63,27 +67,9 @@ use Xivi\Core\Metadata\MetadataRepository;
 #[AsTaggedItem(priority: 10)]
 final readonly class FollowUpWidget implements DashboardWidget
 {
-    /** The query parameter this widget's lens travels in. */
-    public const string LENS = 'follow_ups';
-
-    /**
-     * How many lines fit before the card stops being a summary.
-     *
-     * XIV-80 left this here on purpose: its repository returns everything and
-     * says so, because cutting a list off before the soft-delete filter runs
-     * hands back short pages, and cutting it off after is a decision about how a
-     * widget looks. This is the widget, and ten is what looks like a glance
-     * rather than a backlog. What is cut off is counted and said out loud, which
-     * is the half that stops a cap from being a lie.
-     */
-    private const int MOST = 10;
-
     public function __construct(
         private Security $security,
         private TenantContext $context,
-        private RequestStack $requests,
-        private MyFollowUps $mine,
-        private DisplayTimezone $timezones,
         private MetadataRepository $metadata,
     ) {
     }
@@ -103,36 +89,13 @@ final readonly class FollowUpWidget implements DashboardWidget
             return null;
         }
 
-        $request = $this->requests->getCurrentRequest();
-        $lens = FollowUpLens::fromInput($request?->query->getString(self::LENS));
-
-        $entries = $this->mine->due(
-            $reader,
-            $lens,
-            // The zone the reader reads moments in (§8.4.4). Twig's own
-            // `|date` already converts with no help from here — a listener sets
-            // it per request — but the day and week boundaries are drawn in PHP
-            // before anything renders, so they need the zone explicitly. That is
-            // the same seam `HistorySection::of()` sits on.
-            $this->timezones->of($reader),
-            // Already composed: `UserLocaleListener` puts `FormattingLocale`'s
-            // answer on the request, so `de` and `CH` have been joined into
-            // `de_CH` by the time this reads it — and the region half is exactly
-            // what decides which day the week starts on. Asking
-            // `FormattingLocale` again here would compose the same string twice
-            // and give a second thing the chance to disagree.
-            $request?->getLocale() ?? \Locale::getDefault(),
-        );
-
+        // No data, because the component reads its own. What the panel carries is
+        // where to draw it and what to call it; everything a follow-up is stays
+        // on the other side of the component's endpoint, which is what makes the
+        // lens survivable without this widget being asked again.
         return new WidgetPanel(
             'dashboard/widget/follow_ups.html.twig',
-            [
-                'lens' => $lens,
-                'lenses' => FollowUpLens::cases(),
-                'parameter' => self::LENS,
-                'entries' => \array_slice($entries, 0, self::MOST),
-                'more' => max(0, \count($entries) - self::MOST),
-            ],
+            [],
             'dashboard.follow_ups',
         );
     }

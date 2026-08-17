@@ -30,6 +30,8 @@ use App\Tests\Support\SharesATenant;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\UX\LiveComponent\Test\InteractsWithLiveComponents;
+use Symfony\UX\LiveComponent\Test\TestLiveComponent;
 use Xivi\Article\ArticleModule;
 use Xivi\Contact\ContactModule;
 use Xivi\Core\Entity\ModuleDefinition;
@@ -62,6 +64,7 @@ use Xivi\Core\Record\RecordWriter;
  */
 final class FollowUpWidgetTest extends WebTestCase
 {
+    use InteractsWithLiveComponents;
     use SharesATenant;
 
     private const string SLUG = 'test_follow_up_widget';
@@ -164,6 +167,79 @@ final class FollowUpWidgetTest extends WebTestCase
 
         self::assertStringContainsString('Missed this one.', $everything);
         self::assertStringContainsString('The annual review.', $everything);
+    }
+
+    /**
+     * The lens moves on the component, and the URL is not part of it (XIV-84).
+     *
+     * The behaviour that replaced `?follow_ups=today`, and the assertion is
+     * deliberately about the round trip rather than about the markup: acting on
+     * the live component has to *change what it renders*, because a control that
+     * updates a prop and draws the same list is exactly what a page reload used
+     * to hide.
+     */
+    public function testTheLensNarrowsOnTheComponentWithoutTheUrl(): void
+    {
+        $this->open($this->contact, '+400 days', 'The annual review.');
+
+        $this->signIn(self::READER);
+
+        $widget = $this->widget();
+
+        self::assertStringNotContainsString(
+            'The annual review.',
+            $this->markup($widget),
+            'the default lens has a ceiling this is well past',
+        );
+
+        $widget->call('show', ['lens' => FollowUpLens::All->value]);
+
+        self::assertStringContainsString('The annual review.', $this->markup($widget));
+    }
+
+    /**
+     * A lens nobody recognises selects the default rather than being kept.
+     *
+     * Props are signed, so this is not about tampering — it is that
+     * {@see FollowUpLens::fromInput()} is already where "no answer" and "an
+     * answer nobody recognises" both become the default, and storing the argument
+     * raw would draw an empty list with no button highlighted.
+     */
+    public function testAnUnrecognisedLensFallsBackRatherThanSticking(): void
+    {
+        $this->open($this->contact, '+1 hour', 'Due very shortly.');
+
+        $this->signIn(self::READER);
+
+        $widget = $this->widget();
+        $widget->call('show', ['lens' => 'last-tuesday']);
+
+        self::assertStringContainsString('Due very shortly.', $this->markup($widget));
+    }
+
+    /**
+     * Priority reads as a bar down the leading edge, in the same colours the
+     * record page uses (XIV-84).
+     *
+     * The tone is asserted through the custom property rather than a class,
+     * because that is where the colour actually travels — Bootstrap has no
+     * per-side border colour utility, which is the whole reason
+     * `.follow-up-priority` exists.
+     */
+    public function testPriorityIsDrawnAsALeftBarInTheSharedTone(): void
+    {
+        $this->open($this->contact, '+1 hour', 'This one matters.', priority: FollowUpPriority::Important);
+
+        $this->signIn(self::READER);
+        $markup = $this->dashboard(FollowUpLens::Week);
+
+        self::assertStringContainsString('follow-up-priority', $markup);
+        self::assertStringContainsString('--follow-up-tone: var(--bs-danger)', $markup);
+        self::assertStringNotContainsString(
+            '--bs-important',
+            $markup,
+            'important is not a Bootstrap context and must go through follow_up_tone()',
+        );
     }
 
     /**
@@ -397,19 +473,56 @@ final class FollowUpWidgetTest extends WebTestCase
         return self::service(TenantSwitcher::class)->runFor($this->tenant, $work);
     }
 
-    /** The dashboard as this reader sees it through one lens. */
+    /**
+     * The widget as this reader sees it through one lens.
+     *
+     * Through the component rather than through a URL since XIV-84: the lens is
+     * component state now, so `?follow_ups=today` no longer exists and driving
+     * this from the address bar would be testing something the application does
+     * not do. The reader has to be signed in first for the same reason
+     * {@see signIn()} gives — the token has to be refreshed against a provider
+     * that reads the *tenant* database.
+     */
     private function dashboard(FollowUpLens $lens): string
     {
-        return $this->client
-            ->request('GET', $this->url('/?follow_ups=' . $lens->value))
-            ->filter('main')
-            ->html();
+        return $this->markup($this->widget($lens));
+    }
+
+    /**
+     * One rendering of the widget, as prose an assertion can be written against.
+     *
+     * Through the crawler rather than straight off `toString()`, and that is not
+     * incidental: Twig escapes an apostrophe to `&#039;`, while a parse and
+     * re-serialise turns it back into the character somebody typed. The old
+     * helper filtered a real page and therefore got the second, so going to the
+     * raw string here would have quietly rewritten every assertion in this class
+     * into entity soup — and only the ones about text containing a quote would
+     * have failed, which is the worst way to find out.
+     */
+    private function markup(TestLiveComponent $widget): string
+    {
+        return $widget->render()->crawler()->html();
+    }
+
+    /** The live component itself, so a test can act on it and not only read it. */
+    private function widget(?FollowUpLens $lens = null): TestLiveComponent
+    {
+        return $this->inTenant(fn (): TestLiveComponent => $this->createLiveComponent(
+            'DueFollowUps',
+            $lens === null ? [] : ['selected' => $lens->value],
+            $this->client,
+        ));
     }
 
     /** One follow-up on the reader's list. */
-    private function open(int $recordId, string $due, string $note, string $moduleKey = ContactModule::KEY): FollowUp
-    {
-        return $this->openFor(self::READER, $recordId, $due, $note, $moduleKey);
+    private function open(
+        int $recordId,
+        string $due,
+        string $note,
+        string $moduleKey = ContactModule::KEY,
+        FollowUpPriority $priority = FollowUpPriority::Warning,
+    ): FollowUp {
+        return $this->openFor(self::READER, $recordId, $due, $note, $moduleKey, $priority);
     }
 
     private function openFor(
@@ -418,12 +531,13 @@ final class FollowUpWidgetTest extends WebTestCase
         string $due,
         string $note,
         string $moduleKey = ContactModule::KEY,
+        FollowUpPriority $priority = FollowUpPriority::Warning,
     ): FollowUp {
         return $this->inTenant(fn (): FollowUp => self::service(FollowUpManager::class)->create(
             actor: $this->user(self::KEEPER),
             moduleKey: $moduleKey,
             recordId: $recordId,
-            priority: FollowUpPriority::Warning,
+            priority: $priority,
             dueAt: new \DateTimeImmutable($due),
             assignee: $this->user($assignee),
             note: $note,

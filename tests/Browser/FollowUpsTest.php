@@ -169,12 +169,26 @@ final class FollowUpsTest extends PantherTestCase
         // context Bootstrap has never had.
         $this->browser->waitForElementToContain('#follow-ups', 'Ring the workshop about the spare part');
 
-        self::assertNotNull(
-            $this->browser->executeScript(
-                'return document.querySelector("#follow-ups .border-danger");',
-            ),
-            'important is drawn as danger',
+        // Asserted on what the browser actually painted rather than on a class
+        // name, which is the one thing only a real browser can tell us (XIV-84).
+        // Since the colour travels in a custom property now, a markup assertion
+        // would pass while the bar was invisible — the declaration is `!important`
+        // precisely because a Bootstrap rule at higher specificity was zeroing the
+        // width, and nothing but a computed style can prove that fight was won.
+        //
+        // The wanted colour is read off a probe rather than hardcoded as a hex, so
+        // this stays true across a Bootstrap bump and in either theme.
+        $painted = $this->browser->executeScript(
+            'const bar = document.querySelector("#follow-ups .follow-up-priority");'
+            . 'const probe = document.createElement("span");'
+            . 'probe.style.color = "var(--bs-danger)";'
+            . 'document.body.appendChild(probe);'
+            . 'const want = getComputedStyle(probe).color;'
+            . 'const got = getComputedStyle(bar);'
+            . 'return got.borderLeftWidth + " " + (got.borderLeftColor === want);',
         );
+
+        self::assertSame('4px true', $painted, 'important is a 4px bar in Bootstrap danger');
     }
 
     // -- helpers ------------------------------------------------------------
