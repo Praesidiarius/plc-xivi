@@ -15,6 +15,7 @@ namespace App\ControlPlane\Controller;
 
 use App\ControlPlane\Entity\Tenant;
 use App\ControlPlane\Repository\TenantRepository;
+use App\ControlPlane\Repository\TenantUsageRepository;
 use App\ControlPlane\Security\ControlPlaneHost;
 use App\ControlPlane\View\TenantSummary;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -44,10 +45,12 @@ use Symfony\Component\Routing\Attribute\Route;
  * around rather than an incidental fact about the current columns.
  *
  * Every column drawn here — the name, the slug, the status, the plan, the
- * hostnames, the two dates, the enabled modules — is a field of the registry row.
- * The control-plane database answers all of it in one query, which is why
- * {@see TenantSummary} can be a pure mapping over a `Tenant` and why nothing on
- * the path from here to the template has a `TenantSwitcher` in it. A
+ * hostnames, the two dates, the enabled modules — is a field of the registry row,
+ * and the usage cell beside them is a row of `tenant_usage`, which is a
+ * control-plane table too (XIV-59). The control-plane database answers all of it
+ * in two queries, which is why {@see TenantSummary} can be a pure mapping over
+ * rows of that one database and why nothing on the path from here to the
+ * template has a `TenantSwitcher` in it. A
  * control-plane request resolves no tenant at all (§8.9), so the `tenant`
  * connection is deliberately left unusable: anything reaching for it does not
  * quietly get the previous customer's database, it throws
@@ -56,20 +59,21 @@ use Symfony\Component\Routing\Attribute\Route;
  * and that the connection really would have failed loudly if it had been touched,
  * so the first assertion is not vacuous.
  *
- * **This will be inconvenient exactly once, and the answer is still no.** The
- * first person to want "just the user count" on this page — or the last sign-in,
- * or how many invoices a customer has issued — will find that it is one join away
- * and that nothing in this file physically stops them adding it. Nothing in this
- * file *can*: what stops it is knowing that those figures do not live in the
- * control plane. They live in each customer's own database, one connection per
- * customer, and a page listing forty tenants would open forty connections to
- * produce a column nobody reads twice. That is [XIV-59], and it is a design
- * problem with real answers — a periodic roll-up written back to the registry,
- * an on-demand figure fetched for one tenant, a deliberate per-row lazy fetch —
- * none of which can be chosen sensibly while a `LEFT JOIN` looks available. It is
- * not available. The moment this page opens one tenant connection, the argument
- * for the shape of XIV-59 is already lost, because the expensive thing will have
- * become the easy thing.
+ * **The usage figures are the case this was written for, and they did not change
+ * it** (XIV-59). How many users a customer has, when anybody last signed in and
+ * how many records are in there are exactly the columns that would have been one
+ * join away if the join existed. They live in each customer's own database, one
+ * connection per customer, and a page listing forty tenants that fetched them
+ * inline would open forty connections to draw one cell — on a page whose entire
+ * purpose is to be opened by somebody who is already worried.
+ *
+ * So they are not fetched here at all. `tenant:usage:collect` walks the tenants
+ * **one at a time**, out of any request, and writes what it finds into
+ * `tenant_usage`; this page reads that table and says how old the figures are.
+ * The consequence for anybody editing this file is the same as it was before: the
+ * moment this page opens one tenant connection, that arrangement is pointless,
+ * because the expensive thing will have become the easy thing again. The next
+ * figure somebody wants here goes into the collector, not into this method.
  *
  * ## The status column is the reason the page is ordered the way it is
  *
@@ -127,19 +131,28 @@ use Symfony\Component\Routing\Attribute\Route;
  */
 final class TenantListController extends AbstractController
 {
-    public function __construct(private readonly TenantRepository $tenants)
-    {
+    public function __construct(
+        private readonly TenantRepository $tenants,
+        private readonly TenantUsageRepository $usages,
+    ) {
     }
 
     #[Route(ControlPlaneHost::PATH_PREFIX . '/', name: 'control_plane_home', methods: ['GET'])]
     public function __invoke(): Response
     {
-        // The one read this page makes, against the default entity manager, which
-        // is the control plane's (see config/packages/doctrine.yaml). Mapped
-        // straight into summaries so that no `Tenant` — and therefore no DSN and
-        // no encrypted password — is ever in the variables the template can see.
+        // Every collection there is, in one query, keyed by tenant — fetched
+        // before the loop rather than inside it, so that a page listing forty
+        // customers is two queries and not forty-one (XIV-59). Both of them go to
+        // the default entity manager, which is the control plane's (see
+        // config/packages/doctrine.yaml); neither goes anywhere near a customer's
+        // database, which is the whole arrangement.
+        $usages = $this->usages->bySlug();
+
+        // The reads this page makes, mapped straight into summaries so that no
+        // `Tenant` — and therefore no DSN and no encrypted password — is ever in
+        // the variables the template can see.
         $tenants = array_map(
-            static fn (Tenant $tenant): TenantSummary => TenantSummary::of($tenant),
+            fn (Tenant $tenant): TenantSummary => TenantSummary::of($tenant, $usages[$tenant->getSlug()] ?? null),
             $this->tenants->findAllWithDomains(),
         );
 

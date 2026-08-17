@@ -83,6 +83,7 @@
 							<th scope="col">{{ 'control_plane.created'|trans }}</th>
 							<th scope="col">{{ 'control_plane.provisioned'|trans }}</th>
 							<th scope="col">{{ 'control_plane.modules'|trans }}</th>
+							<th scope="col">{{ 'control_plane.usage'|trans }}</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -161,6 +162,63 @@
 									{% else %}
 										<span class="text-body-secondary">&mdash;</span>
 									{% endfor %}
+								</td>
+								<td>
+									{#
+										**What this customer is using, and how old that is** (XIV-59).
+
+										Three states, drawn as three different things on purpose, because
+										the failure mode this cell exists to avoid is somebody reading one
+										as another:
+
+										  * *no collection yet* — a customer provisioned an hour ago, or
+										    an installation where the cron entry has never run. Not zero:
+										    nobody has looked.
+										  * *the collection failed* — it was tried, at the time shown, and
+										    that customer's database did not answer. Not zero either, and
+										    the same distinction XIV-39 drew for a mail that was not sent.
+										  * *the figures*, with the moment they were taken underneath
+										    them. The timestamp is not decoration. These numbers are as
+										    old as the last run and a reader who does not know that will
+										    act on March's figures in August, which is worse than being
+										    shown nothing.
+
+										Counts and never contents. There is no drill-down from here and
+										there is not going to be one — §8.11 argues where that line is and
+										why an operator page that showed *what* a customer has would have
+										made the control plane a way to read somebody's data without their
+										knowledge.
+									#}
+									{% if tenant.usage is null %}
+										<span class="text-body-secondary">{{ 'control_plane.usage_never'|trans }}</span>
+									{% elseif tenant.usage.failed %}
+										<span class="badge text-bg-secondary">{{ 'control_plane.usage_failed'|trans }}</span>
+										<div class="small text-body-secondary">
+											{{- 'control_plane.usage_tried'|trans({'%time%': tenant.usage.collectedAt|date('Y-m-d H:i')}) -}}
+										</div>
+									{% else %}
+										{#
+											The breakdown by module goes in the title rather than the cell:
+											it is the answer to "of what", which is worth one hover and is
+											not worth a column per module on a table that already has
+											eight.
+										#}
+										<div{% if tenant.usage.recordsByModule is not empty %} title="{{ tenant.usage.recordBreakdown }}"{% endif %}>
+											{{ 'control_plane.usage_users'|trans({'%count%': tenant.usage.userCount}) }}
+											&middot;
+											{{ 'control_plane.usage_records'|trans({'%count%': tenant.usage.recordCount}) }}
+										</div>
+										<div class="small">
+											{% if tenant.usage.lastLoginAt %}
+												{{- 'control_plane.last_sign_in'|trans({'%time%': tenant.usage.lastLoginAt|date('Y-m-d H:i')}) -}}
+											{% else %}
+												{{- 'control_plane.never_signed_in'|trans -}}
+											{% endif %}
+										</div>
+										<div class="small text-body-secondary">
+											{{- 'control_plane.usage_collected'|trans({'%time%': tenant.usage.collectedAt|date('Y-m-d H:i')}) -}}
+										</div>
+									{% endif %}
 								</td>
 							</tr>
 						{% endfor %}

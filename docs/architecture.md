@@ -2983,6 +2983,15 @@ Not yet decided. Decide deliberately rather than by accident.
    this class of bug for web requests. It remains open for shared caches and for any
    process that serves several tenants in sequence: console commands, and message
    consumers when they arrive.*
+   *Exercised in earnest by §8.11 — XIV-59.* A command that walks every customer to
+   count what is in their database is precisely "a process that serves several tenants
+   in sequence", and it holds because `TenantSwitcher` drops the identity map, the
+   metadata cache and the connection on every switch. What that ticket adds to this
+   question is a second requirement nobody had written down: the switch must also
+   *close* the connection, or a fan-out over fifty customers ends up attached to all
+   fifty and blocks the `DROP DATABASE` an operator is running ([XIV-94]). Leaking
+   state across tenants and holding resources across tenants turn out to be the same
+   discipline.
 5. **Authorization model.** Roles, permissions, per-module access, and record-level
    rules. Entangled with §7.3: "only the records I own" is a WHERE clause, not a
    check performed after loading. See §8.4. Collections inherit the answer rather
@@ -4285,6 +4294,134 @@ have working commands, several of them with refusals and confirmations that a
 button would have to reproduce (§4.1 is an essay about one of them). A page that
 lists customers and a button that destroys one are different kinds of thing, and
 the second gets its own ticket when somebody wants it.
+
+### 8.11 What a tenant actually uses (XIV-59)
+
+Three figures per customer: how many users they have, when anybody last signed
+in, how many records are in there. Enough to tell somebody who is using this from
+somebody who provisioned in March and never came back — which the registry alone
+cannot say, because every column of it describes the *arrangement* with a
+customer rather than what they do with it.
+
+The data all exists. `User::$lastLoginAt` is written on every sign-in (§8.1), so
+"last login" is `MAX(last_login_at)`; records are one table per module shape with
+a soft delete, so a count is `COUNT(*) WHERE deleted_at IS NULL` per installed
+shape. **None of it is in the control plane, and that is the whole ticket.**
+
+#### The fan-out is the problem, and it is not mainly about speed
+
+§4 is a database per customer, so there is no query that answers this for all of
+them: fifty tenants with six modules each is fifty connections and three hundred
+counts. On a page whose entire purpose is to be opened when somebody is already
+worried, that is bad enough on its own.
+
+The larger objection is what it would make true. **It would be the first thing in
+the system that deliberately touches many tenants in one request.** §7.4's
+guarantee — one request resolves one tenant, and the runtime keeps no state
+between requests — is not a rule somebody follows; it is a *consequence* of how a
+request works here, which is why the tenant connection on a control-plane host is
+not merely unused but unusable (§8.9). A page that opened fifty tenant
+connections would turn that consequence into a case-by-case argument, and the
+second such page would not have to make the argument at all.
+
+#### Decided: collect periodically, and let the page read the control plane
+
+`tenant:usage:collect` walks the registry **one tenant at a time** through
+`TenantSwitcher::runFor()`, writes what it finds into the control plane, and the
+tenant list reads that table exactly as XIV-58 reads the registry. One request,
+one database, still literally true — and XIV-58's proof that the page opens no
+tenant connection passes unchanged, which is the test that would have gone red if
+this had been built the obvious way.
+
+**Periodically means a console command and the deployment's cron, not a queue.**
+There is no worker process here and no consumer to supervise — the same
+constraint that settled synchronous sending in [XIV-37]. A queue would add a
+runtime component to a system that has none, for a job that takes seconds and
+that nobody is waiting on.
+
+**A run that fails for one tenant records that it failed for that tenant and
+carries on.** One unreachable database must not cost the other forty-nine their
+figures — but the run still exits non-zero, because under cron the exit status is
+how anybody finds out at all.
+
+**Each tenant's connection is closed before the next is opened.** `runFor` does
+it unconditionally, including when the callback throws, and there is one tenant
+connection object in the process. This is not tidiness: a collection run that sat
+attached to every customer's database at once would be the reason an operator's
+`tenant:deprovision` fails, because Postgres will not drop a database somebody is
+connected to ([XIV-94]). The collector would have become the thing that blocks the
+operator, which is the opposite of a tool for operators.
+
+**The counting is shared with `tenant:deprovision`, not copied.** That command has
+asked the same question since XIV-72 — it prints how much is in there before it
+destroys it — so "switch to the tenant, read its own metadata, count each shape"
+is now `App\ControlPlane\Usage\RecordCounter` and both callers use it. Two copies
+would have drifted at the first change to any of the three steps.
+
+#### Where the figures live: their own table, not columns on `tenant`
+
+`tenant_usage`, one row per customer, and the argument is that **a row there is a
+collection rather than a customer**:
+
+- Every figure means nothing without the moment it was taken beside it, so
+  `collected_at` is not an extra column — it is the column the others are
+  relative to. It is a fact about the run.
+- So is the failure. A customer whose database did not answer has not changed;
+  the collection failed. `tenant.failure` would read as a broken customer.
+- **A customer nobody has collected yet has no row at all.** Five nullable
+  columns on `tenant` could not have said that without a sixth meaning "the nulls
+  above are real nulls". Absence says it exactly, and it is the state a customer
+  provisioned ten minutes ago is genuinely in.
+
+The association points one way only — `TenantUsage` knows its tenant and `Tenant`
+knows nothing — because Doctrine cannot lazily load the inverse side of a nullable
+one-to-one, so every `Tenant` hydrated anywhere would fetch a usage row nobody
+asked for. The page fetches all the collections in one query and matches them by
+slug: two queries against one database.
+
+#### A stale figure presented as current is worse than no figure
+
+The page shows the collection time beside the numbers, and it distinguishes three
+states rather than two: *not collected yet*, *could not be read, tried at …*, and
+the figures with their timestamp. **Zero and "we could not count" must not look
+alike** — the same rule [XIV-39] drew for a mail that was not sent, one screen
+along. A tenant whose collection failed shows as failed, with when it was tried,
+and shows no numbers at all.
+
+**A failed collection drops the previous figures rather than keeping them beside
+the failure.** Keeping them would be more information and the wrong kind: the
+numbers would then be as old as the last *success* while the timestamp beside them
+says the last *attempt*, and a reader who takes in one and not the other has been
+misled by the screen rather than by their own carelessness.
+
+**The stored failure is the exception's class, never the driver's message.** A
+connection error names the host, the port and the role — and §8.10's whole defence
+is that a `Tenant`, and therefore a DSN, cannot reach an HTML page. Storing the
+driver's words would smuggle those parts back in through a table whose rows are
+rendered, waiting for somebody to print them "just for debugging". The class name
+separates an unreachable database from a missing schema and names nothing; the
+full message goes to the terminal of whoever ran the collection, who already has
+the DSN.
+
+#### Counts, not contents — and why the line is exactly there
+
+An operator page exists to say **how much**, and the moment it says **what**, the
+control plane has become a way to read a customer's data without their knowledge.
+That is not a slippery-slope argument, it is a one-line argument: the code that
+opens a tenant connection to count rows is a `SELECT *` away from selecting them,
+and every seam here is shaped so that the tempting change is also an obvious one.
+`RecordCounter` can only return integers. `UserRepository::countAndLastSignIn()`
+is one aggregate row and loads no user — a `findAll()` and a `usort` would have
+produced the same two numbers while pulling every customer's names, emails and
+password hashes through the control plane's process to get them.
+
+The one value here that is not a count is `MAX(last_login_at)`, which the ticket
+asked for by name and which identifies nobody: it says somebody was here on
+Tuesday, not who. That is the boundary, and anything past it — a name, a record
+title, a "show me what they have" link — needs a different justification from
+this one and does not have it. A customer's data belongs to the customer; a
+platform that can read it whenever it likes has made *isolation* a claim about
+intent rather than about architecture, which is the thing §4 exists to avoid.
 
 ---
 
