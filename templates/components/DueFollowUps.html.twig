@@ -24,14 +24,22 @@
 			address bar.
 
 			`type="button"` explicitly: these sit in no form, and a bare <button>
-			inside one would submit it.
+			inside one would submit it. Which is also why the action carries no
+			`:prevent` — there is no default to stop. Stimulus reads `|` as the
+			separator between *several* actions rather than as a modifier, so
+			`live#action|prevent` asks for a second controller method called
+			`prevent` and throws at connect time. The modifier separator is `:`,
+			as `RecordForm` uses on its `<form>`.
 		#}
-		<div class="btn-group btn-group-sm" role="group" aria-label="{{ 'follow_up.lens_group'|trans }}">
+		{# `follow-up-lenses` is a hook for the browser test and nothing else — the
+		   dashboard has no id of its own to anchor on the way the record page's
+		   panel does. #}
+		<div class="btn-group btn-group-sm follow-up-lenses" role="group" aria-label="{{ 'follow_up.lens_group'|trans }}">
 			{% for option in this.lenses %}
 				<button type="button"
 				        class="btn btn-outline-secondary{{ option == this.lens ? ' active' : '' }}"
 				        {% if option == this.lens %}aria-current="true"{% endif %}
-				        data-action="live#action|prevent"
+				        data-action="live#action"
 				        data-live-action-param="show"
 				        data-live-lens-param="{{ option.value }}">
 					{{ option.labelKey|trans }}

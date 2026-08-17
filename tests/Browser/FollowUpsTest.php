@@ -75,6 +75,13 @@ final class FollowUpsTest extends PantherTestCase
     /** What the settled follow-up says, and must not say until it is asked for. */
     private const string ARCHIVED = 'Settled last week and filed away';
 
+    /**
+     * Assigned to the browser's own user and due far enough out to sit outside
+     * every lens but the widest — which is what makes it evidence that the lens
+     * actually moved rather than that the page merely redrew.
+     */
+    private const string FAR_OFF = 'The annual review, a long way off';
+
     private static bool $ready = false;
 
     /** The contact everything here hangs on, made once for the class. */
@@ -191,6 +198,59 @@ final class FollowUpsTest extends PantherTestCase
         self::assertSame('4px true', $painted, 'important is a 4px bar in Bootstrap danger');
     }
 
+    /**
+     * The dashboard's lens buttons are wired to the component (XIV-84).
+     *
+     * **This test exists because its absence shipped a bug.** XIV-84 moved the
+     * lens off the URL and onto a live action, and the server-side tests drove it
+     * by calling the action directly — which passes whatever the button says,
+     * because no button is involved. What actually went out was
+     * `data-action="live#action|prevent"`, and Stimulus reads `|` as the
+     * separator between *several* actions rather than as a modifier, so it looked
+     * for a controller method named `prevent`, found none, and threw at connect
+     * time. Every lens button on the page was dead and the suite was green.
+     *
+     * That is the exact failure this class's docblock already warned about, one
+     * screen over. So the assertion is deliberately not "the markup is right": it
+     * presses the button and requires the *list* to change, which is only true if
+     * the attribute parsed, the controller connected, the request went out and
+     * the response was patched in.
+     *
+     * The console is checked too, because a Stimulus wiring error is reported
+     * there and nowhere else — a page whose controls are inert still renders
+     * perfectly.
+     */
+    public function testTheDashboardLensButtonsReachTheComponent(): void
+    {
+        $this->browser->request('GET', '/');
+        $this->browser->waitForVisibility('.follow-up-lenses');
+
+        self::assertStringNotContainsString(
+            self::FAR_OFF,
+            (string) $this->browser->executeScript('return document.body.innerHTML;'),
+            'the default lens has a ceiling this one is well past',
+        );
+
+        $this->browser->executeScript(
+            'document.querySelector(\'.follow-up-lenses [data-live-lens-param="all"]\').click();',
+        );
+
+        // The widest lens has no ceiling, so the one a year out has to arrive.
+        // Waiting for it *is* the assertion: nothing about this can be true
+        // unless the button was wired to something.
+        $this->browser->waitForElementToContain('.follow-up-lenses', 'All');
+        $this->browser->waitForElementToContain('body', self::FAR_OFF);
+
+        self::assertSame(
+            [],
+            array_values(array_filter(
+                $this->browser->getWebDriver()->manage()->getLog('browser'),
+                static fn (array $entry): bool => ($entry['level'] ?? '') === 'SEVERE',
+            )),
+            'a Stimulus wiring error is reported in the console and nowhere else',
+        );
+    }
+
     // -- helpers ------------------------------------------------------------
 
     /** Press one of the panel's live buttons by the action it names. */
@@ -293,6 +353,19 @@ final class FollowUpsTest extends PantherTestCase
                     dueAt: new \DateTimeImmutable('-7 days'),
                     note: self::ARCHIVED,
                 ));
+
+                // And one for the dashboard: assigned, because that widget is
+                // "mine" rather than "this record's", and far enough out that
+                // only the widest lens reaches it.
+                $manager->create(
+                    actor: $user,
+                    moduleKey: ContactModule::KEY,
+                    recordId: self::$recordId,
+                    priority: FollowUpPriority::Info,
+                    dueAt: new \DateTimeImmutable('+400 days'),
+                    assignee: $user,
+                    note: self::FAR_OFF,
+                );
             });
         });
     }
