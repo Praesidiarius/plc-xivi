@@ -468,6 +468,9 @@ Symfony secrets vault in production.
 | `TENANT_SECRET_KEYS` | `{"id": "base64 32 bytes"}` — keys that encrypt tenant passwords |
 | `TENANT_SECRET_KEY_ID` | Which of those keys new values are written with |
 | `CONTROL_PLANE_HOST` | The hostname the control plane is served on — see below |
+| `SIGNUP_HOST` | The hostname the public signup endpoint is served on. **Empty means no signup route exists at all** — see below |
+| `XIVI_SIGNUP_SECRET` | The shared secret the calling site presents in `X-Xivi-Signup-Key` |
+| `XIVI_SIGNUP_PLANS` | Which plans self-service may ask for, comma separated, most ordinary first |
 
 ### The control plane needs a hostname of its own
 
@@ -500,6 +503,40 @@ bin/compose exec php bin/console control:operator:create you@example.com
 
 The reasoning, and why an operator is not a promoted user of some tenant, is in
 §8.9 of the brief.
+
+### Self-service signup is off unless you switch it on
+
+**Leaving `SIGNUP_HOST` empty means there is no signup endpoint** — not a route
+that refuses, but a routing table with nothing in it. That is the default, and it
+is the right one for an installation whose customers are provisioned by hand.
+
+To switch it on, two variables:
+
+```dotenv
+SIGNUP_HOST=signup.example.com
+XIVI_SIGNUP_SECRET=…   # php -r 'echo bin2hex(random_bytes(32)), PHP_EOL;'
+```
+
+- **It must not be `CONTROL_PLANE_HOST`.** That host answers to people who can see
+  every customer; this one is configured into your marketing site. The application
+  refuses to build a routing table when the two are equal.
+- **The secret is not optional.** An empty one refuses everybody, and the
+  application will not start with `SIGNUP_HOST` set and no secret.
+- **`MAILER_SENDER` is optional here as everywhere else.** An empty one sends the
+  confirmation from `no-reply@` at `SIGNUP_HOST`, which is §8.7's fallback with
+  the tenant's hostname replaced by this one — honest for the same reason, since
+  that is the name the visitor's site just posted to.
+
+What the endpoint does is deliberately small: it records a signup and mails the
+address a confirmation link. It creates **no tenant, no database and no role** —
+that is XIV-98, and it runs where an operator can see it. The reasoning, and why
+a public surface never provisions directly, is §8.12 of the brief; the request and
+response shapes are documented on `Xivi\ControlPlane\Controller\SignupApiController`.
+
+The landing page that posts to it is XIV-65 and is not in this repository. Prefer
+a server-side post from that site over a browser posting directly: the credential
+then lives on a server rather than in a page's source, and this endpoint stays off
+any public CORS origin list — there is deliberately no CORS configuration for it.
 
 ### Keeping the usage figures fresh
 

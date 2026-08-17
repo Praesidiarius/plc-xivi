@@ -1,0 +1,91 @@
+{% extends 'base.html.twig' %}
+
+{#
+	Where a confirmation link lands (XIV-64).
+
+	**Deliberately the plainest page in the repository**, and that is a decision
+	rather than an unfinished edge. [XIV-65] owns the landing page and the form;
+	this is the other end of a link in an email, which only this side can answer
+	because the token is a row in the control-plane database. Building anything
+	marketing-shaped here would be building something that ticket has to replace.
+
+	One centred card and no frame, the same shape the two sign-in pages use
+	(XIV-79) and for the same reason: the reader has not been admitted to an
+	application, so drawing one around them would be furniture. The version stays,
+	inside the card, because it is the first question about any bug report.
+
+	Five outcomes, one block each, and no `else`. A new case in
+	ConfirmationOutcome should show up as a page with no message rather than as
+	the wrong message — silence is a bug somebody reports, and a plausible
+	sentence about the wrong thing is not.
+#}
+{% block title %}{{ 'signup.confirmation.title'|trans }}{% endblock %}
+
+{% block footer %}{% endblock %}
+
+{% block body %}
+	<main class="signin-shell">
+		<div class="card shadow-sm" style="width: 26rem;">
+			<div class="card-body p-4 text-center">
+				<h1 class="h5 mb-3">{{ 'signup.confirmation.title'|trans }}</h1>
+
+				{% if outcome == 'Confirmed' %}
+					<div class="alert alert-success py-2 small" role="alert">
+						{{ 'signup.confirmation.confirmed'|trans({'%company%': signup.companyName}) }}
+					</div>
+					<p class="text-body-secondary small mb-0">
+						{{ 'signup.confirmation.next'|trans({'%slug%': signup.slug}) }}
+					</p>
+
+				{% elseif outcome == 'AlreadyConfirmed' %}
+					{#
+						Not an error and not drawn as one. A second click is the
+						ordinary case: people click twice, mail is forwarded, and a
+						corporate link scanner fetches every URL in a message before
+						its recipient has seen it.
+					#}
+					<div class="alert alert-info py-2 small" role="alert">
+						{{ 'signup.confirmation.already'|trans({'%company%': signup.companyName}) }}
+					</div>
+					<p class="text-body-secondary small mb-0">
+						{{ 'signup.confirmation.next'|trans({'%slug%': signup.slug}) }}
+					</p>
+
+				{% elseif outcome == 'Expired' %}
+					<div class="alert alert-warning py-2 small" role="alert">
+						{{ 'signup.confirmation.expired'|trans }}
+					</div>
+					<p class="text-body-secondary small mb-0">{{ 'signup.confirmation.sign_up_again'|trans }}</p>
+
+				{% elseif outcome == 'SlugTaken' %}
+					{#
+						The narrow race the anti-squatting rule cannot design away:
+						nothing is held until a confirmation, so somebody else can
+						confirm the same name first. Their address is not stuck —
+						signing up again replaces this row — so the instruction is
+						the same one as above.
+					#}
+					<div class="alert alert-warning py-2 small" role="alert">
+						{{ 'signup.confirmation.slug_taken'|trans({'%slug%': signup.slug}) }}
+					</div>
+					<p class="text-body-secondary small mb-0">{{ 'signup.confirmation.sign_up_again'|trans }}</p>
+
+				{% elseif outcome == 'Unknown' %}
+					{#
+						A token that never existed, one superseded by a second
+						submission, and a signup already turned into a customer are
+						one answer on purpose: distinguishing them would tell
+						whoever holds this URL something about a row they cannot
+						otherwise see.
+					#}
+					<div class="alert alert-secondary py-2 small" role="alert">
+						{{ 'signup.confirmation.unknown'|trans }}
+					</div>
+					<p class="text-body-secondary small mb-0">{{ 'signup.confirmation.sign_up_again'|trans }}</p>
+				{% endif %}
+
+				<p class="text-body-secondary small mb-0 mt-4">Xivi {{ app_version }}</p>
+			</div>
+		</div>
+	</main>
+{% endblock %}

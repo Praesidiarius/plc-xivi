@@ -1,6 +1,6 @@
 {
     "name": "xivi/control-plane",
-    "description": "The administration surface: operators, provisioning, the tenant list and usage",
+    "description": "The administration surface: operators, provisioning, the tenant list, usage and the signup intake",
     "type": "symfony-bundle",
     "version": "1.0.0",
     "license": "MIT",
@@ -10,7 +10,11 @@
         "doctrine/orm": "^3.6",
         "symfony/console": "8.1.*",
         "symfony/framework-bundle": "8.1.*",
+        "symfony/mailer": "8.1.*",
+        "symfony/rate-limiter": "8.1.*",
         "symfony/security-bundle": "8.1.*",
+        "symfony/translation": "8.1.*",
+        "symfony/validator": "8.1.*",
         "twig/twig": "^3.21",
         "xivi/core": "^1.0"
     },

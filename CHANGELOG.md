@@ -133,6 +133,42 @@ lands in `Unreleased` here.
   express, two column defaults and one nullable column — none of them new, all of
   them written down in §9.2, and each needing a decision rather than a
   conversion. That is a ticket of its own.
+- **A public signup endpoint, off by default** ([XIV-64]). A site of yours can post
+  a signup to this installation and it is recorded — company, name, plan, email —
+  and nothing else. It creates **no tenant, no database and no role**: turning a
+  confirmed signup into a customer is [XIV-98] and runs where an operator can see
+  it. The reasoning, and why a public surface never provisions directly, is §8.12.
+- **Switching it on is a deployment step, and leaving it off leaves no route**
+  ([XIV-64]). `SIGNUP_HOST` empty — the default — means the routing table has no
+  signup route in it at all, rather than a route that refuses. Set it to a hostname
+  of its own (**not** `CONTROL_PLANE_HOST`) and set `XIVI_SIGNUP_SECRET`; the
+  application refuses to start with a signup host and no secret. Nothing else:
+  `MAILER_SENDER` stays optional, and an empty one sends the confirmation from
+  `no-reply@` at the signup host, which is §8.7's existing fallback one noun
+  along. See *Configuration* in the README.
+- **Run the control-plane migration on deploy** ([XIV-64]) —
+  `doctrine:migrations:migrate --em=control` — which adds the `signup_request`
+  table. No tenant migration and no backfill.
+- **A signup is confirmed by email before it holds a name** ([XIV-64]). The
+  confirmation link carries a control-plane token with a 24-hour expiry; asking
+  again from the same address resends and kills the previous link; following one
+  twice changes nothing rather than failing. Until an address answers, the name it
+  asked for is still free to everybody — which is what makes squatting cost a
+  working mailbox per name. A confirmed address may hold one unprovisioned signup
+  at a time.
+- **Self-service names are hostname-safe, and that is a second rule rather than a
+  change to the first** ([XIV-64]). `TenantProvisioner::SLUG_PATTERN` is unchanged
+  and still permits underscores, because a provisioning slug is also a Postgres
+  identifier; a self-service slug becomes a subdomain, so it takes a stricter DNS
+  rule. §8.12 says why they differ, and a test fails if anybody unifies them.
+  Reserved names include every entry in `app.system_hosts` and the control-plane
+  host's own label.
+- **The endpoint is rate limited** ([XIV-64]), by email address and by the visitor's
+  address, using `symfony/rate-limiter` — MIT, first-party, and it brings nothing
+  new with it (`THIRD-PARTY-NOTICES.md`). The limits are in
+  `config/packages/rate_limiter.yaml`; **a deployment running more than one
+  instance needs a shared cache pool there**, or each instance enforces its own
+  copy of every limit.
 - **What each customer is using, on the tenant list** ([XIV-59]). Every row now
   shows how many users that customer has, when anybody last signed in and how
   many records are in there — enough to tell somebody who is using Xivi from
@@ -433,6 +469,7 @@ lands in `Unreleased` here.
   Brazil and Russia among them. The company profile names which zone is in force
   beside the empty option, so the page says what it is doing.
 
+
 [XIV-25]: https://xivi.youtrack.cloud/issue/XIV-25
 [XIV-27]: https://xivi.youtrack.cloud/issue/XIV-27
 [XIV-36]: https://xivi.youtrack.cloud/issue/XIV-36
@@ -442,6 +479,7 @@ lands in `Unreleased` here.
 [XIV-58]: https://xivi.youtrack.cloud/issue/XIV-58
 [XIV-59]: https://xivi.youtrack.cloud/issue/XIV-59
 [XIV-60]: https://xivi.youtrack.cloud/issue/XIV-60
+[XIV-64]: https://xivi.youtrack.cloud/issue/XIV-64
 [XIV-68]: https://xivi.youtrack.cloud/issue/XIV-68
 [XIV-80]: https://xivi.youtrack.cloud/issue/XIV-80
 [XIV-81]: https://xivi.youtrack.cloud/issue/XIV-81
@@ -449,11 +487,12 @@ lands in `Unreleased` here.
 [XIV-83]: https://xivi.youtrack.cloud/issue/XIV-83
 [XIV-84]: https://xivi.youtrack.cloud/issue/XIV-84
 [XIV-85]: https://xivi.youtrack.cloud/issue/XIV-85
-[XIV-99]: https://xivi.youtrack.cloud/issue/XIV-99
 [XIV-87]: https://xivi.youtrack.cloud/issue/XIV-87
 [XIV-89]: https://xivi.youtrack.cloud/issue/XIV-89
 [XIV-91]: https://xivi.youtrack.cloud/issue/XIV-91
 [XIV-97]: https://xivi.youtrack.cloud/issue/XIV-97
+[XIV-98]: https://xivi.youtrack.cloud/issue/XIV-98
+[XIV-99]: https://xivi.youtrack.cloud/issue/XIV-99
 
 ## Releases
 

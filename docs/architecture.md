@@ -4103,6 +4103,15 @@ that ticket arrives is the router's request context — a URL generated off a cr
 has no hostname to be absolute against, and a tenant's hostname is the one thing
 that link cannot get wrong.
 
+**That sentence needs one correction now XIV-64 has landed** (§8.12), because it
+predicted the wrong ticket. Signup does not provision, so nothing here is invoked
+by it: the first user is created when [XIV-98] turns a confirmed signup into a
+tenant, and that is where the request-context problem is still waiting. The
+signup's own confirmation mail is deliberately none of this mechanism — there is
+no tenant, therefore no user to sign a link for — and it builds its absolute URL
+from configuration rather than from a request for the same reason this paragraph
+warns about.
+
 ### 8.9 An operator is not a tenant user (XIV-57)
 
 Everything above this section is about people who belong to one customer. §8.1 puts
@@ -4516,6 +4525,330 @@ title, a "show me what they have" link — needs a different justification from
 this one and does not have it. A customer's data belongs to the customer; a
 platform that can read it whenever it likes has made *isolation* a claim about
 intent rather than about architecture, which is the thing §4 exists to avoid.
+
+### 8.12 A public surface that provisions nothing (XIV-64)
+
+Self-service signup is the first thing in this system reachable by somebody who is
+nobody: no tenant, no account, no session, no invitation. Everything above this
+section is about people who already belong somewhere — a customer's user (§8.1), an
+operator (§8.9) — and the machinery that identifies them assumes it. None of it
+transfers, and pretending it does is how this feature gets built wrong.
+
+#### The naive shape, and why it is not a matter of being careful
+
+A signup form calls something that creates a customer. The thing that creates a
+customer here is `TenantProvisioner::provision()`, and it connects with
+`TENANT_ADMIN_DSN` — the credential its own docblock describes as *"allowed to
+CREATE DATABASE and CREATE ROLE; provisioning only"*. Wiring a public form to it
+puts the most privileged operation in the system **one anonymous HTTP request away
+from the open internet**, where the only things between the two are the parsing,
+the authentication and the slug rules in front of it. Every one of those is code
+somebody will change.
+
+**So the endpoint records a signup and does nothing else.** One `INSERT` into one
+table, one email, and no elevated credential anywhere in its reach. Turning a
+confirmed row into a customer is [XIV-98], and it runs where an operator can see
+it. That separation is not sequencing — it is what the ticket is for.
+
+**And the claim is deliberately narrower than it sounds.** What is delivered here
+is a **code** boundary: a separate service, its own table, its own controllers,
+and no provisioner reachable from any of them. `SignupEndpointTest` walks the
+constructor graph behind both controllers and asserts that neither
+`TenantProvisioner` nor `TENANT_ADMIN_DSN` appears. It is **not** yet a privilege
+boundary. There is one instance and one set of environment variables, so the
+process that answers this request holds `TENANT_ADMIN_DSN` whether or not anything
+in it reads the variable. Making the public surface a process that does not have
+the credential at all is [XIV-96]. Saying "the endpoint cannot create a database"
+without that sentence attached would be claiming a guarantee that does not hold
+yet.
+
+#### Confirmation is a pre-tenant identity, and none of §8.8 transfers
+
+An address typed into a form proves nothing: anybody can type anybody's. So the
+signup is confirmed by email before it holds anything, and this is the gate rather
+than a nicety — without it the endpoint records names on behalf of people who never
+asked.
+
+[XIV-1]'s invitation is the nearest thing already built and it is unusable here,
+for a reason that is structural rather than inconvenient: a login link is an HMAC
+over a `UserInterface` **loaded from a provider**, and the provider for tenant
+users is bound to a *tenant's* database (§8.1). There is no tenant. There is no
+`app_user` row. Inventing one so the framework's helper could be used would mean
+creating an account for somebody who may never confirm — which is precisely the
+thing confirmation exists to avoid.
+
+So the token is the control plane's own, and it is a **stored digest**:
+
+- **32 bytes from `random_bytes`**, base64url in the URL. 256 bits of entropy, so
+  brute force is out of reach without help from the rate limiter — which matters,
+  because the rate limiter is about volume and a token that depended on it would
+  stop being safe the day somebody widened a limit.
+- **SHA-256 of it in the row, never the token.** §8.8's objection to a token table
+  was that *"a token table stores something replayable and a signature stores
+  nothing at all"*. That objection is answered by hashing rather than by not
+  storing: a dump of the control-plane database carries nothing anybody can
+  present. A plain digest rather than a password hasher, deliberately — the input
+  is full-entropy random, so there is no dictionary for a slow KDF to defend
+  against, and a slow hash would be paid on every click of every link.
+- **Twenty-four hours**, the same window an invitation gets, and for the mirror
+  image of §8.8's argument. There the window was short and the mitigation was that
+  an administrator could send another; here the person can reissue it themselves by
+  submitting the form again, so the same window costs less. What it buys is that an
+  unanswered signup stops occupying its address within a day.
+
+`UriSigner` was the third candidate and loses to the requirement below: a signature
+over an id and an expiry cannot be invalidated when a second submission supersedes
+the first.
+
+**A second submission from an unconfirmed address is a resend, not a conflict.**
+The row is rewritten in place — new company name, new slug, new plan, new token,
+new twenty-four hours — and the previous link stops working with the same write,
+because the digest it is checked against has been overwritten. This is §8.8's
+invitation rule reached from the same argument: *"I asked for another one"* has to
+be the way to fix a mail that went to spam, and it is not if the first link is
+still live in whatever mailbox it reached. Treating it as a conflict instead would
+mean the only way out of a confirmation that never arrived is to own a second email
+address.
+
+**A second submission from a *confirmed* address is refused.** At that point the
+address is holding a name and the second request is asking for a second
+installation, which is a real request and not this endpoint's to grant quietly. One
+confirmed address, one unprovisioned signup — see the abuse argument below for what
+that buys.
+
+**Following the link twice changes nothing, and that is the design rather than a
+tolerance.** Confirmation is idempotent: the second call finds the row already
+confirmed, keeps the moment of the *first* click, re-reserves nothing and sends
+nothing. A single-use token would have been the reflex, and it is wrong here for a
+reason that has nothing to do with attackers — people click twice, mail gets
+forwarded, and any company with a mail gateway has a link scanner that fetches
+every URL in a message **before its recipient sees it**. A single-use link is burnt
+by the scanner and the human is told it is invalid. What actually makes a replay
+worthless is that there is nothing to replay, and the token still expires and is
+still superseded.
+
+**The confirmation mail comes from the instance identity, not from a tenant's
+SMTP.** §8.8 refused to carve an exception to §8.7 for the invitation, with a good
+argument: one place decides who a message is from. This is not an exception to that
+rule, it is a message the rule cannot be applied to — `TenantMailer` asks the
+current tenant's profile whether they have their own server, and there is no tenant
+to ask.
+
+§8.7's fallback transplants exactly, though, and it is worth following because the
+first version of this feature got it wrong. There, an empty `MAILER_SENDER` sends
+from `no-reply@` at the *tenant's own primary domain*, and the argument for why
+that is honest rather than a guess is that the hostname **is** this installation as
+far as that customer is concerned. Replace the tenant with the signup host and the
+sentence still holds: `SIGNUP_HOST` is the name the prospective customer's site
+posted to and the name their confirmation link points at. So an empty
+`MAILER_SENDER` means `no-reply@` there, and signup adds no deployment step at
+all. The rejected alternative — requiring `MAILER_SENDER` whenever signup is on —
+would have made switching signup on quietly rewrite the `From` of every *tenant's*
+mail as well, since the two are one variable.
+
+**It is written in the visitor's language**, which the calling site forwards with
+the submission because there is nowhere else to get it: this person has no account
+on this installation, so no stored preference, and the `Accept-Language` of a
+server-to-server POST belongs to the calling server. A language this build does not
+have falls back to the installation's default rather than being refused — the same
+choice the translation catalogue makes one level down (§8.4.2), and the same check
+that keeps a caller from handing an arbitrary string to the translator and to a
+sixteen-character column.
+
+#### Two slug rules, on purpose
+
+`TenantProvisioner::SLUG_PATTERN` is `/^[a-z][a-z0-9_]{1,55}$/`. It permits
+**underscores** and forbids **hyphens**, which is exactly backwards for a string
+that becomes a DNS label: `my_company.xivi.app` is not a valid hostname.
+
+**It is not changed, and this paragraph exists so that nobody unifies the two.** It
+is right for what it guards — a provisioning slug is also a PostgreSQL database and
+role name, where an underscore is the ordinary separator and a hyphen would force
+every identifier to be quoted. Every tenant that exists is named that way and so is
+the whole test suite (`test_picker_candidates` and two dozen like it). And
+`provision()` never derives a hostname from a slug at all: hostnames are an explicit
+parameter, so an operator is free to route `acme.example.com` at a tenant called
+`acme_ag` and nothing is inconsistent.
+
+Self-service is the case where **nobody types the hostname**. The slug *is* the
+subdomain, so it gets a second, stricter rule:
+
+    ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$
+
+One DNS label as RFC 1123 allows it: lowercase alphanumerics and hyphens, no
+leading or trailing hyphen, at most 63 characters. The two rules overlap on names
+made only of lowercase letters and digits and disagree everywhere else, in both
+directions. `SelfServiceSlugTest` asserts that disagreement from both sides, so
+replacing either pattern with the other fails the build.
+
+**A consequence to hand to [XIV-98]**: because the two rules disagree, a
+hyphenated self-service slug can never equal an existing tenant's slug today, and
+the intake's check against the registry only bites for names both rules accept.
+Whatever mapping [XIV-98] chooses from a signup slug to a provisioning slug has to
+be checked here as well, or two customers can be promised names that collide once
+translated.
+
+**The name is derived from the company name, shown before submission, and
+editable** — and the derivation is part of the contract rather than the form's
+business. Two implementations of a transliteration rule disagree on the first
+umlaut somebody types, so the endpoint derives it, hands back what it derived, and
+[XIV-65]'s form shows that. It is locale-aware, because `Bäckerei` is `baeckerei`
+to a German reader and `backerei` to the default rules, and the German answer is the
+one a German company expects.
+
+**Reserved names are two lists.** The conventional one — `www`, `admin`, `api`,
+`mail`, `app`, `control`, `status`, `support` — exists because those are names a
+platform will want later and cannot take back. The second is computed from
+`app.system_hosts` and the control-plane host, and it is a boundary rather than a
+convention: [XIV-57] made `tenant:provision` refuse to route a tenant onto a system
+host, and that refusal fires when [XIV-98] runs — long after somebody has confirmed
+an address and been told the name is theirs. What is reserved is the **first label**
+of each such host, because that is what collides: a control plane at
+`control.xivi.app` is collided with by a signup for `control` under the same domain,
+not by one for the whole string.
+
+#### Abuse: confirmation and volume are different problems
+
+**Squatting** is answered by the two rules above, and the mechanism is worth stating
+plainly: **a name is held only by a confirmed address**. An unconfirmed signup
+reserves nothing, so a script that posts ten thousand company names has produced ten
+thousand rows and blocked nobody. Holding a name costs a working mailbox and a
+clicked link — *per name*, because a confirmed address may hold only one
+unprovisioned signup at a time. Without that second half the cost is paid once and
+reused for as many names as you like.
+
+The price of that is a race the design cannot remove and does not try to: two people
+ask for `acme`, both are told it is free because nothing is held, and the second to
+click their link is told it has gone. That is the anti-squatting rule costing
+somebody something, and it is the right side to take — the alternative is holding
+names for addresses that have proven nothing.
+
+**Volume** is a separate harm and needs a separate answer: a script posting a
+thousand addresses a minute has used this installation to send a thousand people
+mail they did not ask for. `symfony/rate-limiter` (MIT, first-party, checked and
+recorded in `THIRD-PARTY-NOTICES.md`) with three sliding windows: a small one per
+email address, which bounds how much mail a stranger can aim at one *person*; a
+loose one per client address, loose because [XIV-65]'s recommended integration is a
+server-side post and an office behind one NAT is one address; and a much larger one
+for availability checks, which write nothing and are made as somebody types.
+
+Two things about it are worth knowing rather than discovering. **The secret is
+checked before the limiter is touched** — otherwise anybody at all could exhaust a
+chosen victim's bucket without holding the credential, turning a defence against
+abuse into an instrument of it. And **there is no global cap**: with a server-side
+integration every request arrives from one transport address and the client address
+is supplied by the caller, so a compromised caller can spread itself across as many
+buckets as it likes. The thing that answers a compromised caller is rotating the
+secret, and a single ceiling on the endpoint would also be a single number that one
+busy afternoon turns into an outage for everybody.
+
+#### The contract is a public API, and its host is its own
+
+[XIV-65] made the landing page a separate site, so this is an interface somebody
+else compiles against rather than a form's private detail. That fixes four things:
+
+- **A documented request and response shape**, on
+  `Xivi\ControlPlane\Controller\SignupApiController`, next to the code rather than
+  only here.
+- **A version in the path** (`/api/signup/v1/`). Within v1: fields and error codes
+  may be *added*, and added fields must be optional; nothing may be removed,
+  renamed or made required. Anything else is v2, served beside v1.
+- **A stable error vocabulary** — `invalid_request`, `unauthorized`,
+  `invalid_email`, `invalid_slug`, `slug_taken`, `address_already_registered`,
+  `unknown_plan`, `rate_limited`, `mail_failed` — with its HTTP statuses decided in
+  one table rather than at each `return`. The message beside the code is one
+  **fixed** English sentence per code, for a developer's log; [XIV-65] owns the
+  words a visitor reads, in their language. Fixed rather than descriptive is a
+  security property rather than laziness — the *internal* refusal message names
+  which of three reasons made a slug unavailable, and the first version of this
+  endpoint returned it, undoing the paragraph below from inside the response that
+  paragraph was written for.
+- **A shared secret**, in `X-Xivi-Signup-Key`, compared in constant time and
+  **refusing everybody when unset**. A deployment that set a host and forgot the
+  secret has published an anonymous endpoint; failing closed makes that a feature
+  that does not work, which is noticed in minutes, rather than one that works for
+  everybody, which is not noticed at all.
+
+**A server-side post is the recommended integration**, and the difference is where
+the credential lives: in a browser-side design it is in the page's source, which is
+to say in everybody's hands, and the endpoint additionally has to appear on a public
+CORS origin list. There is deliberately **no CORS configuration anywhere in this
+feature**, and that is not a gap to be filled in later — adding it is the change
+that makes the browser-side design possible.
+
+**`slug_taken` is one word for three situations**: a customer has the name, a
+confirmed signup is holding it, and the platform keeps it. Distinguishing them would
+be more informative and is deliberately not done, because whatever the endpoint
+distinguishes, a caller can enumerate — and the useful action is the same in all
+three cases. **The honest limit**, because it is a limit rather than a fix: "not
+available" is still one bit, so the set of unavailable names is discoverable by
+anybody entitled to call this. What keeps that from being an enumeration of the
+customer list is the shared secret and the rate limiter, not the vocabulary. A
+deployment that proxies the availability check straight through to anonymous
+visitors has made that bit anonymous too, and should say so to itself.
+
+**It is served on a hostname of its own**, not under `/control/`. §8.9 asks for the
+control-plane host to be hard to guess, and a hostname configured into a third
+party's marketing site is the opposite kind of secret — it ends up in somebody
+else's deployment, somebody else's chat and eventually somebody else's repository.
+Serving an anonymous endpoint there would also aim the internet's traffic at the
+host that answers to the people who can see every customer. `SIGNUP_HOST` goes into
+`app.system_hosts` exactly as `CONTROL_PLANE_HOST` does, so a signup request
+resolves no tenant by the same mechanism rather than a second one, and the
+application refuses to build a routing table when the two hosts are equal.
+
+The firewall there is `security: false`, which is a decision rather than an
+omission: `main` matches every host, so without a block of its own a request here
+would sit inside the firewall whose provider looks people up in a customer's
+database. Nothing would come of it in practice — no session, no credential the
+provider is asked about — and "nothing would come of it in practice" is the wrong
+standard for a boundary. It is declared *below* the control-plane firewall so that
+a deployment which somehow got both hostnames equal ends up with an operator console
+that still demands a password rather than one with `security: false` in front of it.
+
+#### Off means the route does not exist
+
+[XIV-65]'s three states are page-and-endpoint, endpoint-only, and neither; the
+endpoint switch is this section's and the page's is that ticket's. Here, **off means
+no route is registered** — not a route that answers 404. A registered route is a
+controller the router can reach: it is in the compiled matcher, it is in
+`debug:router`, and it is one misplaced access rule away from running. A route that
+was never loaded is absent as a property of the routing table rather than of a check
+somebody has to keep correct.
+
+Symfony cannot say that in routing configuration, because **environment placeholders
+are forbidden there** — the same constraint that made `ControlPlaneRequestListener` a
+listener rather than a `host:` on the operator routes (§8.9). A route loader is the
+framework's own answer: it runs at route-load time, it can read what a service can
+read, and what it returns *is* the routing table. It also stamps the configured
+hostname onto every route it returns, which is why no signup controller carries a
+`host:` of its own, and it forces `https`, because the request carries a shared
+secret and the confirmation link is how somebody proves control of a mailbox.
+
+One variable does both jobs — empty `SIGNUP_HOST` is off, a hostname is on and says
+where — rather than a flag beside a hostname, which is two facts that can disagree.
+`SignupRouteLoaderTest` asserts the empty collection directly rather than by booting
+a second kernel: the claim is about the route collection, the loader is what
+produces it, and two kernels in one environment share a compiled matcher, so the
+kernel version of that test would pass or fail on test order.
+
+#### What is deliberately not built
+
+**The landing page and the form.** [XIV-65]'s, on its own site. What is provided
+from here is the derivation rule and the availability check as part of the contract.
+The one page that *is* here — where a confirmation link lands — is the plainest in
+the repository on purpose: it can only live on this side, because the token is a row
+in this database, and building anything marketing-shaped would be building something
+that ticket has to replace.
+
+**Provisioning.** [XIV-98]'s, and with it the removal of the row: this table holds
+*live* signups only. That is why `SignupStatus` has two cases and not three — a
+`provisioned` state here would be a second copy of a fact the registry already holds
+in `tenant.slug`, free to disagree with it, and the disagreement would be silent.
+
+**Any notion of which caller presented the secret.** There is one secret because
+there is one caller. When there are two — a partner, a reseller — that is the moment
+for a table of keys with a name against each.
 
 ---
 

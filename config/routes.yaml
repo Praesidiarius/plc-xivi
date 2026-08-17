@@ -9,3 +9,23 @@
 
 controllers:
     resource: routing.controllers
+
+# **The public signup endpoint, if this deployment has one** (XIV-64).
+#
+# Not a `resource` pointing at a directory: the loader named here decides whether
+# there are any routes at all, and when `SIGNUP_HOST` is empty it returns an
+# empty collection — so "switched off" means the routing table has nothing in it
+# rather than a route that answers 404. It also stamps the configured hostname
+# onto every route it does return, which is why none of the signup controllers
+# carries a `host:` of its own.
+#
+# A loader rather than configuration because Symfony forbids environment
+# placeholders in routing, which is the same constraint that made
+# ControlPlaneRequestListener a listener rather than a `host:` on the operator
+# routes (§8.9). See Xivi\ControlPlane\Routing\SignupRouteLoader.
+#
+# The `resource` is a placeholder the loader ignores and cannot be omitted;
+# `type` is what selects it.
+signup:
+    resource: .
+    type: xivi_signup

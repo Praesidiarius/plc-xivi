@@ -1,0 +1,421 @@
+<?php
+
+/*
+ * This file is part of the Xivi package.
+ *
+ * (c) Praesidiarius <praesidiarius@proton.me>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
+declare(strict_types=1);
+
+namespace Xivi\ControlPlane\Signup;
+
+use App\Registry\Repository\TenantRepository;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\Validator\Constraints\Email;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Xivi\ControlPlane\Entity\SignupRequest;
+use Xivi\ControlPlane\Entity\SignupStatus;
+use Xivi\ControlPlane\Provisioning\TenantProvisioner;
+use Xivi\ControlPlane\Repository\SignupRequestRepository;
+
+/**
+ * Recording a self-service signup, and confirming the address it was made from
+ * (XIV-64).
+ *
+ * ### What this class does not have
+ *
+ * **No {@see TenantProvisioner}, and no way to reach one.** That is the ticket's
+ * central constraint rather than an accident of scope, so it is stated here where
+ * somebody adding a constructor argument will read it. The provisioner connects
+ * with `TENANT_ADMIN_DSN`, whose own docblock calls it *"credentials allowed to
+ * CREATE DATABASE and CREATE ROLE; provisioning only"*. This class is reached by
+ * an anonymous request from the open internet. Wiring the two together would put
+ * the most privileged operation in the system one HTTP request away from the
+ * least trusted caller there is — not because of a bug, but by design, with the
+ * bug then being any flaw at all in the authentication, the parsing or the slug
+ * rules in front of it.
+ *
+ * So this writes one row and sends one mail. Turning a confirmed row into a
+ * customer is [XIV-98], and it runs somewhere an operator can see it.
+ *
+ * **The honest limit** (docs/architecture.md §8.12, and worth repeating rather
+ * than being read as a stronger claim than it is): what has been delivered here
+ * is a **code** boundary — a separate service, its own table, no provisioner in
+ * scope, nothing in this file that could create a database. It is *not* yet a
+ * privilege boundary. There is one instance and one set of environment
+ * variables, so `TENANT_ADMIN_DSN` is present in the process that serves this
+ * request whether or not anything here reads it. Making the process that answers
+ * the public endpoint one that does not hold that credential at all is [XIV-96].
+ *
+ * ### The two rules that make the endpoint cost something to abuse
+ *
+ * 1. **A name is held only by a confirmed address.** Submitting reserves
+ *    nothing, so a script that posts ten thousand company names has produced ten
+ *    thousand rows and blocked nobody. Holding a name costs a mailbox that can
+ *    receive and a link that gets clicked, per name.
+ * 2. **A confirmed address holds one unprovisioned signup at a time.** Otherwise
+ *    the cost above is paid once and then reused: one working mailbox, as many
+ *    names as you like.
+ *
+ * Volume is the rate limiter's problem rather than this class's, and it is
+ * applied in the controller — see `Xivi\ControlPlane\Controller\SignupApiController`. The two are
+ * different concerns and deliberately not merged: this one is about what is
+ * *true* of a signup, and that one is about how often somebody may ask.
+ *
+ * @author Praesidiarius <praesidiarius@proton.me>
+ */
+final readonly class SignupIntake
+{
+    /**
+     * How long somebody has to answer their confirmation mail.
+     *
+     * The same twenty-four hours §8.8 gives an invitation, and the argument
+     * transfers with one change of sign. There it was recorded as *short* —
+     * somebody who reads their mail on Monday cannot be told to have read it on
+     * Sunday — and the mitigation was that an administrator can send another.
+     * Here the person can reissue it themselves by submitting the form again,
+     * which is the same mitigation with nobody to ask, so the shorter window
+     * costs less. What it buys is that an unanswered signup stops occupying its
+     * address within a day.
+     */
+    public const string CONFIRMATION_WINDOW = 'PT24H';
+
+    /** `signup_request.company_name`'s width, checked here rather than by the driver. */
+    private const int MAX_COMPANY_LENGTH = 255;
+
+    /** `signup_request.email`'s width, and the same reasoning. */
+    private const int MAX_EMAIL_LENGTH = 180;
+
+    /**
+     * @param list<string> $plans the plans this installation sells, most common first
+     */
+    public function __construct(
+        private EntityManagerInterface $controlPlane,
+        private SignupRequestRepository $signups,
+        private TenantRepository $tenants,
+        private SelfServiceSlug $slugs,
+        private SignupMailer $mailer,
+        private ValidatorInterface $validator,
+        #[Autowire('%app.signup_plans%')]
+        private array $plans = ['standard'],
+        /**
+         * The languages this build actually has (XIV-8's closed set).
+         *
+         * A caller's `locale` is checked against it rather than believed, and
+         * for two reasons rather than one. The polite reason is that a build
+         * with no French in it cannot write a French confirmation, so falling
+         * back to the default is the honest answer. The other is that the value
+         * arrives from outside and is used to switch the translator's locale and
+         * is stored in a 16-character column — three different things that a
+         * caller must not be able to hand an arbitrary string to.
+         *
+         * @var list<string>
+         */
+        #[Autowire('%kernel.enabled_locales%')]
+        private array $locales = [],
+        #[Autowire('%kernel.default_locale%')]
+        private string $defaultLocale = 'en',
+    ) {
+    }
+
+    /**
+     * Writes down that somebody wants an installation, and mails them to ask
+     * whether they really do.
+     *
+     * ### What a second submission from the same address does
+     *
+     * It depends on whether the first one was confirmed, and the two answers are
+     * different on purpose.
+     *
+     * **Unconfirmed: the row is reused and the previous link dies.** This is the
+     * ordinary case — the mail went to spam, or they typed the company name
+     * wrong and started again — and treating it as a conflict would mean the
+     * only way out of a confirmation that never arrived is to own a second email
+     * address. So the row is rewritten in place with the new answers, a new token
+     * is minted, and the twenty-four hours start again. The old link stops
+     * working the instant the new one exists, which is §8.8's rule for
+     * invitations arriving at the same conclusion from the same argument: "I sent
+     * another one" has to be a way to fix a link that leaked.
+     *
+     * **Confirmed: refused.** At that point the address is holding a name, and
+     * the second submission is asking for a second installation. That is a real
+     * request and it is not this endpoint's to grant silently — one confirmed
+     * address, one unprovisioned signup, which is what stops a single working
+     * mailbox from collecting names.
+     *
+     * ### Order of operations
+     *
+     * The row is written and flushed *before* the mail goes out, and that is not
+     * negotiable in the other direction: a mail sent first would carry a link to
+     * a row that does not exist yet, and a failure between the two would leave a
+     * confirmation URL in somebody's inbox that answers "unknown" forever. The
+     * cost of this order is the case where the write succeeds and the send fails
+     * — which leaves a pending row holding nothing, occupying only its own
+     * address, replaceable by the very next submission from it. That is the
+     * cheaper failure by a long way, and the caller is told
+     * {@see SignupError::MailFailed} rather than being congratulated.
+     *
+     * @throws SignupRefused with the word the caller is answered with
+     */
+    public function record(SignupSubmission $submission): SignupRequest
+    {
+        $email = $this->validEmail($submission->email);
+        $company = $submission->companyName;
+
+        if ($company === '') {
+            throw SignupRefused::invalidBody('"company" is required');
+        }
+
+        // The column is 255 and the caller is anonymous. Checked here so that a
+        // long string is a documented refusal rather than a driver exception
+        // turning into a 500 — the endpoint's answers are a contract, and "the
+        // server broke" is not one of them.
+        if (mb_strlen($company) > self::MAX_COMPANY_LENGTH) {
+            throw SignupRefused::invalidBody(sprintf(
+                '"company" is longer than %d characters',
+                self::MAX_COMPANY_LENGTH,
+            ));
+        }
+
+        $locale = $this->validLocale($submission->locale);
+        $plan = $this->validPlan($submission->plan);
+        $slug = $this->validSlug($submission->slug, $company, $locale);
+
+        $existing = $this->signups->findOneByEmail($email);
+
+        if ($existing !== null && $existing->getStatus() === SignupStatus::Confirmed) {
+            throw SignupRefused::addressAlreadyRegistered($email);
+        }
+
+        $this->assertSlugIsFree($slug);
+
+        $token = ConfirmationToken::generate();
+        $expiresAt = new \DateTimeImmutable()->add(new \DateInterval(self::CONFIRMATION_WINDOW));
+
+        if ($existing !== null) {
+            $existing->reissue($company, $slug, $plan, $locale, $token->hash(), $expiresAt);
+            $signup = $existing;
+        } else {
+            $signup = new SignupRequest($email, $company, $slug, $plan, $locale, $token->hash(), $expiresAt);
+            $this->controlPlane->persist($signup);
+        }
+
+        try {
+            $this->controlPlane->flush();
+        } catch (UniqueConstraintViolationException $violation) {
+            // Two submissions for one address arriving together. The checks above
+            // read a moment ago and the index is what is actually true, so the
+            // loser is told what it would have been told a microsecond earlier.
+            throw SignupRefused::lostTheRace(SignupError::AddressAlreadyRegistered, $violation);
+        }
+
+        try {
+            $this->mailer->sendConfirmation($signup, $token);
+        } catch (\Throwable $failure) {
+            throw SignupRefused::mailFailed($failure);
+        }
+
+        return $signup;
+    }
+
+    /**
+     * Somebody followed the link in their mail.
+     *
+     * **Idempotent by construction**, because the ordinary case is that this runs
+     * more than once: people click twice, mail is forwarded, and corporate link
+     * scanners fetch every URL in a message before its recipient has opened it.
+     * A single-use token would turn all three into "your link is not valid", and
+     * the third would do it before the human had any chance at all. So the token
+     * survives its first use, and it is the row's *state* that makes the second
+     * call a no-op — see {@see SignupRequest::confirm()}.
+     *
+     * What actually stops a replay from being worth anything is that there is
+     * nothing to replay: confirming twice does not confirm twice, does not
+     * re-reserve, does not send a mail, and does not extend anything. The token
+     * still expires, and a second submission from the same address still
+     * invalidates it by overwriting the digest it is checked against.
+     *
+     * The order of the checks is deliberate. **Confirmed is tested before
+     * expired**, so somebody who confirmed on Monday and reopens the mail on
+     * Friday is told they are confirmed rather than told they are too late —
+     * which would be both wrong and alarming.
+     */
+    public function confirm(#[\SensitiveParameter] string $token): Confirmation
+    {
+        $signup = $this->signups->findOneByConfirmationTokenHash(ConfirmationToken::hashOf($token));
+
+        if ($signup === null) {
+            return Confirmation::unknown();
+        }
+
+        if ($signup->getStatus() === SignupStatus::Confirmed) {
+            return Confirmation::of(ConfirmationOutcome::AlreadyConfirmed, $signup);
+        }
+
+        if ($signup->confirmationHasExpired()) {
+            return Confirmation::of(ConfirmationOutcome::Expired, $signup);
+        }
+
+        // Nothing was held while this was pending, so the name may have gone in
+        // the meantime. Checked here as well as by the unique index, because the
+        // check produces the page and the index produces a stack trace.
+        if (!$this->slugIsFree($signup->getSlug())) {
+            return Confirmation::of(ConfirmationOutcome::SlugTaken, $signup);
+        }
+
+        $signup->confirm();
+
+        try {
+            $this->controlPlane->flush();
+        } catch (UniqueConstraintViolationException) {
+            // Two confirmations of one name, within the same instant. The index
+            // is the arbiter; the loser is told the name is gone, which is true.
+            $this->controlPlane->clear();
+
+            return Confirmation::of(ConfirmationOutcome::SlugTaken, $signup);
+        }
+
+        return Confirmation::of(ConfirmationOutcome::Confirmed, $signup);
+    }
+
+    /**
+     * Whether a name is free, and what it would be called.
+     *
+     * Reads and writes nothing, which is what makes it safe to expose as a
+     * separate call at all — and is also exactly why it is the surface worth
+     * being careful about: see {@see SignupError} for why one refusal word covers
+     * three different reasons, and docs/architecture.md §8.12 for the residual
+     * enumeration risk it does not remove.
+     */
+    public function availability(string $slug, string $companyName, string $locale = ''): SlugAvailability
+    {
+        $locale = $this->validLocale($locale);
+
+        try {
+            $slug = $this->validSlug($slug, $companyName, $locale);
+        } catch (SignupRefused $refused) {
+            return SlugAvailability::refused($slug, $refused->error);
+        }
+
+        return $this->slugIsFree($slug)
+            ? SlugAvailability::free($slug)
+            : SlugAvailability::refused($slug, SignupError::SlugTaken);
+    }
+
+    /** @return list<string> */
+    public function plans(): array
+    {
+        return $this->plans;
+    }
+
+    /**
+     * @throws SignupRefused
+     */
+    private function validEmail(string $email): string
+    {
+        // HTML5 mode: the same grammar a browser's `type="email"` enforces, which
+        // is the grammar the form on the other side of this API will have
+        // enforced already. Strict RFC mode would refuse addresses browsers
+        // accept, and this endpoint is not the place to be more correct than the
+        // form that feeds it.
+        if ($email === '' || mb_strlen($email) > self::MAX_EMAIL_LENGTH) {
+            throw SignupRefused::invalidEmail($email);
+        }
+
+        if (\count($this->validator->validate($email, new Email(mode: Email::VALIDATION_MODE_HTML5))) > 0) {
+            throw SignupRefused::invalidEmail($email);
+        }
+
+        return $email;
+    }
+
+    /**
+     * The language to answer in: what the caller asked for when this build has
+     * it, and the installation's own default otherwise.
+     *
+     * A fallback rather than a refusal, which is the same choice §8.8's
+     * translation catalogue makes one level down — an unknown language is a
+     * caller being more specific than this build can be, not a caller making a
+     * mistake. See the constructor for why it is not simply believed.
+     */
+    private function validLocale(string $locale): string
+    {
+        return \in_array($locale, $this->locales, true) ? $locale : $this->defaultLocale;
+    }
+
+    /**
+     * @throws SignupRefused
+     */
+    private function validPlan(string $plan): string
+    {
+        if ($plan === '') {
+            // The first configured plan is the default. A deployment that sells
+            // one thing therefore needs no `plan` in any request, and one that
+            // sells three has said which is ordinary by putting it first.
+            return $this->plans[0] ?? 'standard';
+        }
+
+        if (!\in_array($plan, $this->plans, true)) {
+            throw SignupRefused::unknownPlan($plan, $this->plans);
+        }
+
+        return $plan;
+    }
+
+    /**
+     * @throws SignupRefused
+     */
+    private function validSlug(string $slug, string $companyName, string $locale): string
+    {
+        if ($slug === '') {
+            $slug = $this->slugs->derive($companyName, $locale);
+
+            if ($slug === '') {
+                throw SignupRefused::undeducibleSlug($companyName);
+            }
+
+            return $slug;
+        }
+
+        if (!$this->slugs->isValid($slug)) {
+            throw SignupRefused::invalidSlug($slug);
+        }
+
+        return $slug;
+    }
+
+    /**
+     * @throws SignupRefused
+     */
+    private function assertSlugIsFree(string $slug): void
+    {
+        if ($this->slugs->isReserved($slug)) {
+            throw SignupRefused::slugIsReserved($slug);
+        }
+
+        if ($this->tenants->findOneBySlug($slug) !== null) {
+            throw SignupRefused::slugBelongsToATenant($slug);
+        }
+
+        if ($this->signups->slugIsReserved($slug)) {
+            throw SignupRefused::slugIsHeldByAnotherSignup($slug);
+        }
+    }
+
+    private function slugIsFree(string $slug): bool
+    {
+        try {
+            $this->assertSlugIsFree($slug);
+        } catch (SignupRefused) {
+            return false;
+        }
+
+        return true;
+    }
+}

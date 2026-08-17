@@ -92,6 +92,44 @@ security:
                 path: control_plane_logout
                 target: control_plane_login
 
+        # **The public signup endpoint, and it has no security at all on purpose**
+        # (XIV-64, §8.12).
+        #
+        # Below the control plane and above `main`, and both halves of that
+        # matter.
+        #
+        # Above `main` because `main` has no host restriction: without this block
+        # a request here would land in a firewall whose provider is
+        # `tenant_users`, looking people up in whichever customer's database the
+        # hostname resolved to — on a host where none resolves. Nothing would come
+        # of it in practice, because this endpoint carries no session and asks for
+        # no user. "Nothing would come of it in practice" is the wrong standard
+        # for a boundary, so the host gets a firewall that runs no authentication
+        # machinery: no provider, no session, nothing to hand a stray cookie to.
+        #
+        # Below `control_plane` because the two hostnames must differ and
+        # SignupRouteLoader refuses to build a routing table when they do not — but
+        # if that refusal is ever removed, this ordering decides which way the
+        # mistake falls. Control plane first means a misconfigured deployment gets
+        # an operator console that still demands a password. The other order means
+        # an operator console with `security: false` in front of it.
+        #
+        # **The endpoint is not unauthenticated.**
+        # Xivi\ControlPlane\Signup\SignupApiKey checks a shared secret in constant
+        # time, in the controller, and refuses when none is configured. A Symfony
+        # authenticator was the alternative: `access_token` wants a token handler
+        # producing a UserBadge and a provider to resolve it against, which means
+        # inventing a user for a caller that is a *deployment* rather than a
+        # person — a great deal more of this file for one hash_equals.
+        #
+        # `request_matcher` rather than `host:` for the reason the block above
+        # gives: that key is a regular expression in which every dot matches any
+        # character. SignupHost compares normalised strings, and matches nothing
+        # at all when signup is switched off.
+        signup:
+            request_matcher: Xivi\ControlPlane\Signup\SignupHost
+            security: false
+
         main:
             lazy: true
             provider: tenant_users

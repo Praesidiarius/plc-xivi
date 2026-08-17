@@ -720,3 +720,34 @@ flash:
     user_deactivated: '%email% can no longer sign in.'
     upload_broken: 'That file did not arrive intact (%reason%).'
     no_file: Choose a spreadsheet to import.
+
+# Self-service signup (XIV-64): the confirmation email, and the page its link
+# lands on. Both belong to somebody who is not a customer yet, which is why they
+# are here rather than anywhere tenant-shaped — there is no tenant to hold a
+# setting, an email template or a language preference.
+#
+# Written in the language the *visitor* was reading the form in, which the
+# calling site forwards with the submission. It is the only signal there is:
+# this person has no account on this installation and no session.
+signup:
+    mail:
+        subject: Confirm your Xivi installation
+        greeting: 'Hello %company%,'
+        body: >-
+            Somebody asked for a Xivi installation called %slug% using this address.
+            Follow the link below to confirm that it was you — nothing is created until
+            you do.
+        button: Confirm this address
+        expiry: 'The link stops working after %hours% hours, and asking again sends a new one.'
+        unexpected: >-
+            If you were not expecting this, nothing is required of you and nothing has been
+            created. You can ignore this message.
+    confirmation:
+        title: Signup confirmation
+        confirmed: 'Thank you — %company% is confirmed.'
+        already: '%company% was already confirmed. Nothing more is needed.'
+        expired: This link has expired.
+        slug_taken: 'The name %slug% was taken while this link was waiting.'
+        unknown: This link does not belong to a signup we are still waiting on.
+        next: 'We are setting up %slug% and will write to you when it is ready.'
+        sign_up_again: Signing up again from the same address starts a new one.
