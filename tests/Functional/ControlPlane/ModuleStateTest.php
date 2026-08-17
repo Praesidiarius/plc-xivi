@@ -13,11 +13,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\ControlPlane;
 
-use App\ControlPlane\Entity\Module;
-use App\ControlPlane\Entity\ModuleState;
-use App\ControlPlane\Module\CatalogEntry;
-use App\ControlPlane\Module\ModuleCatalog;
-use App\ControlPlane\Repository\ModuleRepository;
+use App\Registry\Catalog\CatalogEntry;
+use App\Registry\Catalog\ModuleCatalog;
+use App\Registry\Entity\Module;
+use App\Registry\Entity\ModuleState;
+use App\Registry\Repository\ModuleRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;

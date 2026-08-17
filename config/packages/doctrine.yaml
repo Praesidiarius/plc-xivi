@@ -30,11 +30,35 @@ doctrine:
                 identity_generation_preferences:
                     Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
                 mappings:
+                    # **Two mappings, one database, and the split between them is
+                    # XIV-60's** (§3, §4). Both land in the control-plane database
+                    # and neither table moved, so the schema and every migration
+                    # in migrations/control are untouched by this — what changed is
+                    # which half of the codebase owns the class.
+                    #
+                    # The registry is what a *tenant's* request reads: which
+                    # customer owns this hostname, what their database is called,
+                    # what the credential is, which modules exist. An instance
+                    # serving customers cannot boot without it, so it stays in the
+                    # application.
+                    Registry:
+                        type: attribute
+                        is_bundle: false
+                        dir: '%kernel.project_dir%/src/Registry/Entity'
+                        prefix: 'App\Registry\Entity'
+                        alias: Registry
+
+                    # The administration surface's own rows — an operator, and what
+                    # a tenant was measured to be using — which nothing on a
+                    # customer's request path reads. `is_bundle: false` even though
+                    # this *is* a bundle now: the path is spelled out for the same
+                    # reason the one above is, and a bundle-relative mapping would
+                    # only be shorter.
                     ControlPlane:
                         type: attribute
                         is_bundle: false
-                        dir: '%kernel.project_dir%/src/ControlPlane/Entity'
-                        prefix: 'App\ControlPlane\Entity'
+                        dir: '%kernel.project_dir%/packages/control-plane/src/Entity'
+                        prefix: 'Xivi\ControlPlane\Entity'
                         alias: ControlPlane
 
             tenant:

@@ -13,8 +13,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Tenant;
 
-use App\ControlPlane\Entity\Tenant;
 use App\Mail\RealMailRefused;
+use App\Registry\Entity\Tenant;
 use App\Tenancy\Security\TenantSecretCipher;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Mail\MailSendFailed;

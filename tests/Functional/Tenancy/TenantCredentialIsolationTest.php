@@ -13,15 +13,15 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Tenancy;
 
-use App\ControlPlane\Entity\Tenant;
-use App\ControlPlane\Provisioning\TenantProvisioner;
-use App\ControlPlane\Repository\TenantRepository;
+use App\Registry\Entity\Tenant;
+use App\Registry\Repository\TenantRepository;
 use App\Tenancy\Dbal\TenantDsnParser;
 use App\Tenancy\Security\TenantSecretCipher;
 use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Exception as DbalException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Xivi\ControlPlane\Provisioning\TenantProvisioner;
 
 /**
  * Proves that tenant isolation is enforced by Postgres, not only by the

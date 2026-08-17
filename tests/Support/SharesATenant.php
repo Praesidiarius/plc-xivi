@@ -13,10 +13,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Support;
 
-use App\ControlPlane\Entity\Tenant;
-use App\ControlPlane\Provisioning\TenantProvisioner;
-use App\ControlPlane\Repository\TenantRepository;
+use App\Registry\Entity\Tenant;
+use App\Registry\Repository\TenantRepository;
 use DAMA\DoctrineTestBundle\Doctrine\DBAL\StaticDriver;
+use Xivi\ControlPlane\Provisioning\TenantProvisioner;
 
 /**
  * One tenant per test class, kept clean by rolling each test back.

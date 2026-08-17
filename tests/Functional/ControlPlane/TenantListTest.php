@@ -13,13 +13,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\ControlPlane;
 
-use App\ControlPlane\Entity\Operator;
-use App\ControlPlane\Entity\Tenant;
-use App\ControlPlane\Entity\TenantStatus;
-use App\ControlPlane\Repository\OperatorRepository;
-use App\ControlPlane\Repository\TenantRepository;
-use App\ControlPlane\Security\ControlPlaneHost;
-use App\ControlPlane\Security\OperatorCreator;
+use App\Registry\Entity\Tenant;
+use App\Registry\Entity\TenantStatus;
+use App\Registry\Repository\TenantRepository;
 use App\Tenancy\Exception\NoTenantResolvedException;
 use App\Tenancy\TenantContext;
 use Doctrine\DBAL\Connection;
@@ -29,6 +25,10 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Response;
+use Xivi\ControlPlane\Entity\Operator;
+use Xivi\ControlPlane\Repository\OperatorRepository;
+use Xivi\ControlPlane\Security\ControlPlaneHost;
+use Xivi\ControlPlane\Security\OperatorCreator;
 
 /**
  * The tenant list, and the two boundaries it is built to keep (XIV-58).

@@ -13,9 +13,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Tenancy;
 
-use App\ControlPlane\Entity\Tenant;
-use App\ControlPlane\Provisioning\TenantProvisioner;
-use App\ControlPlane\Repository\TenantRepository;
+use App\Registry\Entity\Tenant;
+use App\Registry\Repository\TenantRepository;
 use App\Tenancy\TenantSwitcher;
 use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use Doctrine\ORM\EntityManagerInterface;
@@ -25,6 +24,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\HttpKernel\KernelInterface;
+use Xivi\ControlPlane\Provisioning\TenantProvisioner;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Record\RecordRepository;
 

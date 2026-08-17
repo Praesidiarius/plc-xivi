@@ -65,7 +65,7 @@ class UserRepository extends ServiceEntityRepository
      * over a customer whose users have all never signed in. Both are *never*,
      * which is the honest reading of each, and neither is confused with "we could
      * not look" — that state is the absence of a successful collection, not a
-     * null in one (see {@see \App\ControlPlane\Entity\TenantUsage}).
+     * null in one (see {@see \Xivi\ControlPlane\Entity\TenantUsage}).
      *
      * @return array{users: int, lastLoginAt: ?\DateTimeImmutable}
      */

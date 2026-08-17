@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 namespace App\Tenancy;
 
-use App\ControlPlane\Entity\Tenant;
+use App\Registry\Entity\Tenant;
 use App\Tenancy\Exception\NoTenantResolvedException;
 use Symfony\Contracts\Service\ResetInterface;
 

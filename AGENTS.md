@@ -124,13 +124,21 @@ wrong (XIV-73).
 ## Layout
 
 ```
-src/               the application: tenancy, control plane, security, controllers
-packages/core      the engine — metadata, field types, record storage
-packages/contact   a module built on it (also article, order, invoice)
+src/                       the application: tenancy, the tenant registry, security, controllers
+packages/core              the engine — metadata, field types, record storage
+packages/contact           a module built on it (also article, order, invoice)
+packages/control-plane     the administration surface: provisioning, operators, the tenant list
 ```
 
 A module may depend on core, never on another module; core may depend on neither
-the modules nor the application. `deptrac` enforces this in CI.
+the modules nor the application. **The control plane runs the other way**: it may
+depend on the application, and the application may never depend on it — what a
+tenant's own request needs from the control-plane database is `App\Registry`, in
+`src/` (§3.1). `deptrac` enforces all of it in CI.
+
+**Plant a violation when you add a layer to `deptrac.yaml`.** Every layer in it
+collected nothing at all until XIV-60 — the check was green for four months
+because it was empty, not because the code obeyed it.
 
 <!-- BEGIN AI_MATE_INSTRUCTIONS -->
 AI Mate Summary:

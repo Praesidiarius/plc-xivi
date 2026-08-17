@@ -5,9 +5,37 @@
 #   - core may never depend on a module, nor on the application
 #   - the application may depend on both; it is what wires them together
 #
-# Deliberately three layers. The application's own internals are not layered here:
-# §3 asks for module boundaries, and rules nobody agreed to are rules that get
-# disabled the first time they are inconvenient.
+# The application's own internals are not layered here: §3 asks for module
+# boundaries, and rules nobody agreed to are rules that get disabled the first
+# time they are inconvenient. The two layers below the modules are the exceptions,
+# and both earn it by running *against* the arrow everything else follows —
+# see ControlPlane and MateTools.
+
+
+# **Every layer here collected nothing at all until XIV-60**, and that is worth
+# reading before trusting anything below.
+#
+# The layers used to be `type: directory` with values like `^src/.*`. Deptrac's
+# directory collector matches the *absolute* path of the file — `/app/src/…` in
+# the container this runs in — so a pattern anchored with `^src/` matched nothing,
+# every layer was empty, and `composer deptrac` reported "Violations 0" for the
+# same reason an empty ruleset would. `debug:unassigned` listed the entire
+# codebase. So the check has been green since it was written and has never once
+# been asked a question; the ModuleContact/ModuleOrder rules further down were, in
+# the literal sense, decoration.
+#
+# Found while adding the ControlPlane layer, because a deliberately illegal import
+# was planted under `src/` to watch the new rule fire and nothing happened. Do
+# that when you next add a layer here — a boundary check is the one kind of test
+# that passes just as convincingly when it is not running.
+#
+# The collectors are `classLike` on the namespace now, which is the same statement
+# said in the language the layers were always really about: `App\`, `Xivi\Core\`
+# and each module are PSR-4 roots, one per directory, so nothing is expressed less
+# precisely than before and there is no path for an absolute prefix to break. The
+# module boundaries the brief has claimed since §3 were true all along — turning
+# the check on found zero violations across seven layers, which is the good
+# outcome and not the expected one.
 
 deptrac:
   paths:
@@ -17,33 +45,61 @@ deptrac:
   layers:
     - name: Core
       collectors:
-        - type: directory
-          value: ^packages/core/src/.*
+        - type: classLike
+          value: '^Xivi\\Core\\'
 
     - name: ModuleContact
       collectors:
-        - type: directory
-          value: ^packages/contact/src/.*
+        - type: classLike
+          value: '^Xivi\\Contact\\'
 
     - name: ModuleArticle
       collectors:
-        - type: directory
-          value: ^packages/article/src/.*
+        - type: classLike
+          value: '^Xivi\\Article\\'
 
     - name: ModuleOrder
       collectors:
-        - type: directory
-          value: ^packages/order/src/.*
+        - type: classLike
+          value: '^Xivi\\Order\\'
 
     - name: ModuleInvoice
       collectors:
-        - type: directory
-          value: ^packages/invoice/src/.*
+        - type: classLike
+          value: '^Xivi\\Invoice\\'
 
     - name: App
       collectors:
-        - type: directory
-          value: ^src/.*
+        - type: classLike
+          value: '^App\\'
+
+    # **The administration surface** (XIV-60), and the layer that exists because
+    # the direction was previously not merely unenforced but genuinely circular.
+    #
+    # Until this ticket there was one `App` layer over the whole of `src/`, so
+    # nothing checked which way the arrow between tenancy and the control plane
+    # ran — and it ran both ways. `TenantResolver` imported the control plane's
+    # `Tenant` entity, because reading the registry is the *first* thing a tenant
+    # request does; and `TenantProvisioner` imported `TenantSwitcher`, because
+    # creating a customer means connecting to the database you have just made. A
+    # layer boundary drawn round `src/ControlPlane` as it stood would have been
+    # unsatisfiable, which is exactly why it is worth having: it forced the
+    # question of what the two halves actually are.
+    #
+    # The answer is that they are two things (§3). What a tenant's request reads
+    # — the registry row, its credential, the module catalogue — stayed in the
+    # application as `App\Registry`, because an instance that serves customers
+    # cannot resolve a hostname without it. What an *operator* touches moved out
+    # here. The arrow now runs one way, up: this may reach into the application,
+    # and the application may never reach into this.
+    #
+    # That is not the modules' rule and must not be read as it. A module sits
+    # *under* the application and may only see core. This sits above it, like
+    # MateTools below, and the ruleset is what says which of the two a package is.
+    - name: ControlPlane
+      collectors:
+        - type: classLike
+          value: '^Xivi\\ControlPlane\\'
 
     # Development tooling, sitting *above* the application rather than beside the
     # modules (XIV-76). It is in packages/ because it is a composer package —
@@ -59,8 +115,8 @@ deptrac:
     # installed there.
     - name: MateTools
       collectors:
-        - type: directory
-          value: ^packages/xivi-mate/src/.*
+        - type: classLike
+          value: '^Xivi\\Mate\\'
 
   ruleset:
     # Core stands alone: it is handed an entity manager and a connection, and
@@ -85,6 +141,14 @@ deptrac:
     ModuleInvoice:
       - Core
 
+    # **ControlPlane is deliberately absent from this list, and that absence is
+    # the rule XIV-60 exists to state.** The application serves customers; it must
+    # be buildable, bootable and testable with no administration surface compiled
+    # into it at all. Everything it genuinely needs from the control-plane database
+    # — the tenant row, the credential, the module catalogue — is `App\Registry`,
+    # which is part of this layer. If a `use Xivi\ControlPlane\…` ever appears
+    # under `src/`, the answer is almost always that the thing doing the importing
+    # belongs in the package, not that this line needs another entry.
     App:
       - Core
       - ModuleContact
@@ -92,9 +156,20 @@ deptrac:
       - ModuleOrder
       - ModuleInvoice
 
+    # Provisioning a customer means creating a database, connecting to it as that
+    # customer, running the tenant migrations and installing modules — so the
+    # surface leans on tenancy, on the engine, and on the tenant application's own
+    # user and permission services. All of that is `App`, and none of it may lean
+    # back.
+    ControlPlane:
+      - App
+      - Core
+
     # It boots the kernel and asks the application's own services, which is the
     # point: a tool that reimplemented the queries would be a second API to the
-    # engine to keep in step with the engine.
+    # engine to keep in step with the engine. ControlPlane is on the list because
+    # two of the MCP tools ask the tenant introspector, which lives there.
     MateTools:
       - App
       - Core
+      - ControlPlane

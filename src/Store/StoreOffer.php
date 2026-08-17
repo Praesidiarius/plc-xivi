@@ -22,7 +22,7 @@ use Xivi\Core\Module\ModuleBlueprint;
  * Two facts about the same module from two different places, which is the whole
  * reason this exists rather than a template reaching for both. What the build
  * offers comes from the control plane crossed with the registry
- * ({@see \App\ControlPlane\Module\ModuleCatalog}); whether this customer has it,
+ * ({@see \App\Registry\Catalog\ModuleCatalog}); whether this customer has it,
  * and whether they have what it needs, comes from their **own** database and
  * nowhere else. Joining them in a value object is what keeps the controller from
  * being the place that knows the difference.

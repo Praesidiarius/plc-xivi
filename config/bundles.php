@@ -13,6 +13,7 @@ return [
     DAMA\DoctrineTestBundle\DAMADoctrineTestBundle::class => ['test' => true],
     Sensiolabs\GotenbergBundle\SensiolabsGotenbergBundle::class => ['all' => true],
     Xivi\Core\XiviCoreBundle::class => ['all' => true],
+    Xivi\ControlPlane\XiviControlPlaneBundle::class => ['all' => true],
     Xivi\Contact\XiviContactBundle::class => ['all' => true],
     Xivi\Article\XiviArticleBundle::class => ['all' => true],
     Xivi\Order\XiviOrderBundle::class => ['all' => true],

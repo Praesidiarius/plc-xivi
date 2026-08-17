@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 namespace App\Command;
 
-use App\ControlPlane\Repository\TenantRepository;
+use App\Registry\Repository\TenantRepository;
 use App\Tenancy\TenantSwitcher;
 use Symfony\Bridge\Doctrine\Middleware\Debug\DebugDataHolder;
 use Symfony\Component\Console\Attribute\AsCommand;

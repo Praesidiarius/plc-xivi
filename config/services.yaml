@@ -19,8 +19,14 @@ parameters:
     # `app.system_hosts` immediately below, so the host that serves the control
     # plane is by construction a host that resolves no tenant, and the two cannot
     # be set out of step with each other. It is also read by
-    # App\ControlPlane\Security\ControlPlaneHost, which is the firewall's request
+    # Xivi\ControlPlane\Security\ControlPlaneHost, which is the firewall's request
     # matcher and the request listener's rule — three readers, one fact.
+    #
+    # **The class that reads it is in a package now and this parameter is not**
+    # (XIV-60), which is the one place the boundary is visibly awkward and is
+    # deliberate anyway: `CONTROL_PLANE_HOST` is something a *deployment* sets, and
+    # a bundle that carried its own default would be answering a question about
+    # where it is installed rather than about what it does.
     #
     # It must not be a hostname any tenant owns, and provisioning refuses to make
     # it one (TenantProvisioner). The default is a `.localhost` name because
@@ -47,7 +53,7 @@ parameters:
     #
     # A parameter rather than a literal because it now has two readers that must
     # agree (XIV-57): it is the `dev` firewall's pattern in security.yaml, and it
-    # is what App\ControlPlane\EventListener\ControlPlaneRequestListener stands
+    # is what Xivi\ControlPlane\EventListener\ControlPlaneRequestListener stands
     # aside for when it refuses tenant paths on the control-plane host. Two copies
     # would drift, and the way you would find out is a control-plane page with no
     # stylesheet.
@@ -75,32 +81,15 @@ services:
         # under when@dev/when@test below, so the commands do not exist at all in
         # a production image — a stronger guarantee than a flag somebody could
         # pass by accident against a customer's database.
+        #
+        # Three entries shorter than it was (XIV-60), and nothing was relaxed: the
+        # control plane's introspector, `tenant:inspect` and `tenant:reset` moved
+        # into packages/control-plane, so the exclusions that keep them out of a
+        # production build moved with them into that package's own
+        # config/services.php. The argument for each is written there, unchanged.
         exclude:
             - '../src/Command/GenerateDemoDataCommand.php'
             - '../src/Command/ClearDemoDataCommand.php'
-            # Rebuilding a tenant from nothing and filling it with fiction
-            # (XIV-72). Excluded for the same reason and not for the dangerous
-            # one: tenant:deprovision is the more destructive command of the two
-            # and ships, because removing a customer is a real operation. This
-            # one is simply meaningless where the records are real.
-            - '../src/Command/ResetTenantCommand.php'
-            # Not a service at all, and excluded for a different reason from
-            # everything else in this list (XIV-74): it is the little object
-            # tenant:reset builds per run to remember how far it got, so it takes
-            # a slug and a module list as constructor arguments and the container
-            # could not autowire it if it tried. Excluded rather than given
-            # defaults, because the defaults would exist to satisfy a compiler
-            # pass rather than to mean anything.
-            - '../src/Command/ResetProgress.php'
-            # Reading a customer's whole shape out loud (XIV-76). Excluded for a
-            # third reason again: not dangerous and not meaningless, but it hands
-            # out every field definition and every hostname an installation has in
-            # one call, and it exists to serve development tooling — the MCP
-            # extension in packages/xivi-mate, which is itself a dev dependency
-            # and absent from a production build. A capability whose only callers
-            # cannot exist in production has no reason to be compiled into it.
-            - '../src/ControlPlane/Introspection/'
-            - '../src/ControlPlane/Command/InspectTenantCommand.php'
             # Faker is a dev dependency; this class would not even load in a
             # production build.
             - '../src/Demo/FakerSampleValues.php'
@@ -266,7 +255,7 @@ when@dev:
 
         App\Command\GenerateDemoDataCommand: ~
         App\Command\ClearDemoDataCommand: ~
-        App\Command\ResetTenantCommand: ~
+        Xivi\ControlPlane\Command\ResetTenantCommand: ~
 
         # **Public, and that is the load-bearing word** (XIV-76). Mate's MCP
         # server is its own process with its own container; a tool reaches this
@@ -275,10 +264,10 @@ when@dev:
         # than everywhere for the usual reason — a public service is one the
         # container can never inline or remove — and the blast radius is exactly
         # the environments where the MCP extension can be installed at all.
-        App\ControlPlane\Introspection\TenantInspector:
+        Xivi\ControlPlane\Introspection\TenantInspector:
             public: true
 
-        App\ControlPlane\Command\InspectTenantCommand: ~
+        Xivi\ControlPlane\Command\InspectTenantCommand: ~
 
         App\Demo\FakerSampleValues: ~
         Xivi\Core\Demo\SampleValues: '@App\Demo\FakerSampleValues'
@@ -308,15 +297,15 @@ when@test:
 
         App\Command\GenerateDemoDataCommand: ~
         App\Command\ClearDemoDataCommand: ~
-        App\Command\ResetTenantCommand: ~
+        Xivi\ControlPlane\Command\ResetTenantCommand: ~
 
         # Registered here too so the suite can cover it. Public is redundant in
         # this environment — `test.service_container` reaches private services
         # anyway — and is kept identical to dev so the two cannot drift.
-        App\ControlPlane\Introspection\TenantInspector:
+        Xivi\ControlPlane\Introspection\TenantInspector:
             public: true
 
-        App\ControlPlane\Command\InspectTenantCommand: ~
+        Xivi\ControlPlane\Command\InspectTenantCommand: ~
 
         App\Demo\FakerSampleValues: ~
         Xivi\Core\Demo\SampleValues: '@App\Demo\FakerSampleValues'

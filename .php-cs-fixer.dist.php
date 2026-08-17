@@ -47,6 +47,7 @@ $finder = (new PhpCsFixer\Finder())
         __DIR__ . '/src',
         __DIR__ . '/packages/core/src',
         __DIR__ . '/packages/contact/src',
+        __DIR__ . '/packages/control-plane/src',
         __DIR__ . '/packages/xivi-mate/src',
         __DIR__ . '/tests',
     ]);

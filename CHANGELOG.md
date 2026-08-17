@@ -68,6 +68,34 @@ lands in `Unreleased` here.
 
 ## [Unreleased]
 
+### Changed
+
+- **The administration surface is a package of its own** ([XIV-60]).
+  `src/ControlPlane` is now `packages/control-plane`, wired as a path repository
+  like the modules, and the rule about it is enforced rather than assumed: it may
+  depend on the application, and the application may never depend on it. Nothing
+  a customer sees changes, no table moved and no migration is needed (§3.1).
+- **`src/ControlPlane` did not move whole, and the half that stayed is the point**
+  ([XIV-60]). Every tenant request reads the control-plane database before it
+  knows whose request it is, so the tenant row, its credential and the module
+  catalogue stayed in the application as `App\Registry`. What moved is what an
+  *operator* touches: provisioning, migrations, secret rotation, operator identity
+  and its firewall, the tenant list and usage collection.
+- **If you import from the control plane in your own code, the namespace has
+  changed** ([XIV-60]) — `App\ControlPlane\…` is now either `App\Registry\…` or
+  `Xivi\ControlPlane\…` depending on which half it was. Every command, route,
+  service id and template still answers to the name it had.
+
+### Fixed
+
+- **`composer deptrac` had never checked anything** ([XIV-60]). Every layer in
+  `deptrac.yaml` was collected by a path pattern anchored `^src/`, which deptrac
+  matches against a file's absolute path — so no file was in any layer and the
+  check reported no violations for the same reason an empty configuration would.
+  The collectors match on namespace now. Turning it on for the first time found
+  **zero** real violations, so no code changed; the module boundaries the brief
+  has claimed since §3 were true all along, they were simply not being verified.
+
 ### Added
 
 - **What each customer is using, on the tenant list** ([XIV-59]). Every row now
@@ -378,6 +406,7 @@ lands in `Unreleased` here.
 [XIV-57]: https://xivi.youtrack.cloud/issue/XIV-57
 [XIV-58]: https://xivi.youtrack.cloud/issue/XIV-58
 [XIV-59]: https://xivi.youtrack.cloud/issue/XIV-59
+[XIV-60]: https://xivi.youtrack.cloud/issue/XIV-60
 [XIV-68]: https://xivi.youtrack.cloud/issue/XIV-68
 [XIV-80]: https://xivi.youtrack.cloud/issue/XIV-80
 [XIV-81]: https://xivi.youtrack.cloud/issue/XIV-81

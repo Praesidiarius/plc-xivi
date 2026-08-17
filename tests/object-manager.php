@@ -33,7 +33,12 @@ require __DIR__ . '/../vendor/autoload.php';
 
 $config = ORMSetup::createAttributeMetadataConfiguration(
     paths: [
-        __DIR__ . '/../src/ControlPlane/Entity',
+        // The control-plane database is mapped from two places since XIV-60 —
+        // the registry a tenant's own request reads, and the administration
+        // surface's own rows — and both have to be here or the association
+        // between them looks like a target entity that does not exist.
+        __DIR__ . '/../src/Registry/Entity',
+        __DIR__ . '/../packages/control-plane/src/Entity',
         __DIR__ . '/../src/Tenant/Entity',
     ],
     isDevMode: true,

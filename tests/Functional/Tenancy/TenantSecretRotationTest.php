@@ -13,9 +13,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Tenancy;
 
-use App\ControlPlane\Entity\Tenant;
-use App\ControlPlane\Provisioning\TenantProvisioner;
-use App\ControlPlane\Repository\TenantRepository;
+use App\Registry\Entity\Tenant;
+use App\Registry\Repository\TenantRepository;
 use App\Tenancy\Security\TenantSecretCipher;
 use App\Tenancy\Security\TenantSecretRotator;
 use App\Tenancy\TenantSwitcher;
@@ -24,6 +23,7 @@ use App\Tenant\Settings\TenantProfileManager;
 use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Xivi\ControlPlane\Provisioning\TenantProvisioner;
 
 /**
  * A full key rotation against real rows: the tenant keeps working throughout,

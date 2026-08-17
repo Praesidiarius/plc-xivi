@@ -13,9 +13,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\ControlPlane;
 
-use App\ControlPlane\Entity\Tenant;
-use App\ControlPlane\Introspection\TenantInspector;
-use App\ControlPlane\Introspection\UnknownTenant;
+use App\Registry\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
@@ -24,6 +22,8 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Xivi\Contact\ContactModule;
+use Xivi\ControlPlane\Introspection\TenantInspector;
+use Xivi\ControlPlane\Introspection\UnknownTenant;
 use Xivi\Core\Metadata\MetadataEditor;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
