@@ -70,6 +70,24 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **Type to find a record instead of scrolling for one** ([XIV-36]). A reference
+  picker with more than about twenty candidates becomes a search box that queries
+  as you type and pages through everything you may see, instead of a dropdown
+  capped at two hundred — so linking to the nine thousandth contact is possible
+  for the first time. A `choice` field with a long list gets the same box, filtered
+  in the browser with no request at all. It is decided from the candidate count by
+  default; the metadata editor has a per-field *Search box* setting of
+  *Automatic* / *Always* / *Never* beside the width for anybody who wants to say
+  so. Nothing about the value changes — same storage, same validation, same
+  filtering, same export — which is why this is an option and not a field type
+  (§5).
+- **A search endpoint for a module's records**, `GET /m/{module}/search`
+  ([XIV-36]). Generic over module and variant, sorted and paged by the same title
+  fields the picker used, and **scoped exactly as the picker is**: it needs *view*
+  on the module and applies the same record-level predicate a list does, so
+  somebody restricted to their own records cannot find a colleague's by typing its
+  name (§8.4).
+
 - **Your due follow-ups, on the dashboard** ([XIV-81]). A widget listing what is
   assigned to you and not yet done, soonest first, narrowable to *due today*,
   *due this week* or *all*. The lenses are ceilings with no floor, so something
@@ -133,6 +151,12 @@ lands in `Unreleased` here.
   deliberately not reported.
 
 ### Changed
+
+- **The picker's truncation notice now appears only where a picker can still
+  truncate** ([XIV-36]). It is unchanged and still says "showing the first 200 of
+  9 421" — but under the new default a picker that large is a search box with no
+  ceiling, so the sentence has nothing to say. A field set to *Never* keeps both
+  the dropdown and the notice.
 
 - **Narrowing the dashboard's follow-up list no longer reloads the page**
   ([XIV-84]). *Today*, *this week* and *all* are buttons on the card rather than
@@ -210,6 +234,13 @@ lands in `Unreleased` here.
   cost, not a query cost, and the thing that would actually move it is a control
   that does not emit the options at all.
 
+- **And a control that does not emit the options arrived** ([XIV-36]). Not what
+  it was built for: the same 500-line order form, the same 250-article catalogue,
+  measured on one machine back to back — **5 829 901 bytes to 2 173 433 (−63%),
+  268.9 MB to 233.6 MB (−13%), 4 186 ms to 3 032 ms**, and 13 queries to 15. The
+  ceiling moves up and does not go away, because §5.1's other finding still holds:
+  most of the memory is one Symfony form per row, and no widget changes that.
+
 ### Upgrade notes
 
 - **Run `bin/console tenant:migrate` after merging** ([XIV-80], [XIV-83]).
@@ -227,6 +258,7 @@ lands in `Unreleased` here.
   beside the empty option, so the page says what it is doing.
 
 [XIV-25]: https://xivi.youtrack.cloud/issue/XIV-25
+[XIV-36]: https://xivi.youtrack.cloud/issue/XIV-36
 [XIV-54]: https://xivi.youtrack.cloud/issue/XIV-54
 [XIV-68]: https://xivi.youtrack.cloud/issue/XIV-68
 [XIV-80]: https://xivi.youtrack.cloud/issue/XIV-80

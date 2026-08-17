@@ -162,6 +162,7 @@ field:
     order: Order
     width: Width
     width_default: Type default
+    autocomplete: Search box
     back_to: Back to %module%
     rule_required: required
     rule_unique: unique

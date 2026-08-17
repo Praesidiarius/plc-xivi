@@ -19,6 +19,15 @@ operator:
     empty: is empty
     filled: is not empty
 
+# Whether somebody types to narrow a field's candidates (XIV-36). Read in the
+# metadata editor, beside the field's width — three answers rather than a tick
+# box, because the count is not the only reason to want typing and "never" is
+# what a field with four options wants forever.
+autocomplete:
+    auto: Automatic
+    always: Always
+    never: Never
+
 document:
     marker:
         record_id: Record number

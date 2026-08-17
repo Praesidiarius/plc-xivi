@@ -280,6 +280,40 @@ Definition rows carry the UI hints beside the rules: `required`, `unique`,
 
 Closed, not open: adding a field type is a deliberate code change, not customer config.
 
+**A widget is an option, not a type** (XIV-36). Autocomplete was the first thing to
+test that line, and the answer is worth writing down because the question will be
+asked again about the next control somebody wants. A field type owns what a value
+*means*; how somebody picks it is not part of the meaning. An
+`autocomplete_choice` type would have copied `choice`'s storage, its constraints,
+its operators and its display and differed in one method — and from the day it
+existed, a customer wanting to switch a field over would have been doing a **data
+migration through the metadata editor** (§5.4 refuses changes that strand data)
+instead of ticking a box.
+
+The rule this follows is XIV-22's, from when the engine grew `decimal`: `integer`,
+`decimal` and `currency` "are the same string in the database and differ in what
+they print", and what earned a new type there was a difference in *meaning*, not
+in appearance. So the test to apply to the next candidate is: **does turning it on
+change what is stored, what validates, how the field filters, or how it exports?**
+If not, it is an option on the existing type. If so, it may be a type. A type per
+widget is how a small closed set stops being one.
+
+The option itself is `auto` / `always` / `never` rather than a boolean, and
+defaults to auto. The engine knows how many candidates there are, so it decides:
+a plain select while the count is small, a search box once it is not — a customer
+should not have to discover a setting because their contact list grew past a
+number they never see. The override earns its place because the count is not the
+only reason to want typing, and `never` is what a field with four options wants
+forever. Which types offer it is the *type's* declaration, which is a first step
+toward what §5.4 says the real shape is: a type saying which of its options are
+the customer's to set.
+
+It lands very differently on the two types that have it. On `choice` the options
+are a closed list in the field's own settings and are already in the page, so
+autocomplete is client-side filtering: no endpoint, no permission question, no
+ceiling. On `reference` it is the half that was actually broken at scale, and it
+needed a server round trip — see §7.6.
+
 **A type may need an answer only the application has** (XIV-11). `currency` shows
 the price in the currency this installation works in, which lives in the tenant
 profile (§8.6) — and core is handed a connection without ever learning whose it
@@ -576,6 +610,32 @@ the row of inputs; the inputs are not what costs.
   does not. What would actually move it is a control that never emits the options
   — which is XIV-36's autocomplete, arriving from a direction nobody chose it for.
 
+- **And it did.** XIV-36 makes a picker with more than twenty candidates a search
+  box, and a catalogue of 250 articles is exactly such a picker — so a 500-line
+  order form stopped emitting 200 `<option>` elements per row without anybody
+  choosing that as the fix. Measured on one machine, both branches back to back,
+  the same 500 lines against the same 250 articles:
+
+  | | bytes | peak MB | queries | ms |
+  | --- | ---: | ---: | ---: | ---: |
+  | before (XIV-87) | 5 829 901 | 268.9 | 13 | 4 186 |
+  | after (XIV-36) | **2 173 433** | **233.6** | 15 | **3 032** |
+
+  **Bytes −63%, memory −13%, time −25%, and two queries more.** The two are the
+  candidate list `auto` decides on — read once for the request, not once per row
+  — and one priming statement; both are flat in the row count. Memory moves far
+  less than bytes because §5.1's other finding still holds: the weight of the
+  form is the *forms*, one per row with a `FormView` behind it, and no widget
+  changes that. So this raises the ceiling somewhat and does not remove it, which
+  is the honest reading of the same table that predicted it.
+
+  **It needed the memo to be true.** An autocompleting picker has no candidate
+  list to name the linked record out of, so each row asked separately what its
+  article was called — 494 queries on the first measurement, worse than what
+  XIV-87 had just fixed. Reading through `ReferenceTargets` and priming the
+  rows in `RecordFormData` (§5.3's argument, applied to the form rather than the
+  page) is what brings it to 15.
+
 - **The form's weight is the form.** Every row is a Symfony form of eight
   controls with a `FormView` behind it, and that is the bulk of the 0.44 MB.
   Measured against a catalogue of 25 articles instead of 250 — which shrinks the
@@ -751,6 +811,20 @@ build one rather than the list of ANDs that covers the honest 90%; and keyset
 paging, which is the answer when someone is on page 400 and until then costs a
 sort key in every URL. LIMIT/OFFSET is correct, and slower the deeper it goes.
 
+**One closed disjunction, which is not that `OR`** (XIV-36). A `RecordQuery` may
+carry a `Search`: one string, looked for across a fixed set of the shape's own
+fields, compiled as a single parenthesised group and ANDed with everything else.
+It exists because a record is named by its *title fields* — plural — so a search
+that could only look in one of them would find Ada by "Ada" and not by
+"Lovelace", which nobody would call a search. What the paragraph above refuses is
+a tree: something that composes, that a URL can express, and that needs an
+interface to build. This composes with nothing, its fields come from the
+definitions rather than from a request, and a field whose type cannot answer
+"contains" is skipped. The parentheses are the load-bearing part — without them
+the group's last term would bind to the `AND` chain and the soft-delete and
+access predicates would stop applying, which is a permission bug wearing a syntax
+error's clothes.
+
 #### Once a set of records is in hand, read what it names (XIV-54)
 
 A reference renders as the *name* of the record it points at (§7.6), and a name
@@ -892,6 +966,15 @@ its options are the customer's to set — the same way it already owns its
 validation, its storage and its widget. Then the editor could draw the right
 controls per type instead of three fixed ones, and a numbering pattern would be
 editable by the person whose numbers they are.
+
+**The first step in that direction is taken** (XIV-36). Autocomplete is a setting
+that clearly belongs to the customer and means nothing on most types, so the
+editor draws its control only for the types that declare they have it, and names
+it in the save only for those — a `text` field's save therefore cannot clear a
+setting it never had. It is deliberately one option and an `instanceof` rather
+than the general declaration above: generalising an interface from a single
+example is guessing at XIV-27's shape with one example's worth of evidence. What
+XIV-27 has to do is replace that check with a declared list, not invent the idea.
 
 **A field can say it names the record.** Something has to decide what a record is
 *called* — the heading on its page today, and whatever names it in a link or a
@@ -2736,6 +2819,29 @@ Not yet decided. Decide deliberately rather than by accident.
      inherited-value drift check share, under exactly the access rule above. See §5.3 for
      the argument and the numbers.
 
+   - **A picker somebody may type into, and the endpoint behind it** (XIV-36). A
+     reference's dropdown was capped at two hundred and said so (XIV-35), which is honest
+     and is not a way to find the nine thousandth contact. Past a threshold the control
+     becomes a search box that pages through the endpoint instead, so under `auto` a
+     truncated picker cannot happen: the ceiling is replaced rather than raised, and the
+     notice survives for `never`, where the ceiling survives too. Whether it does this is
+     an option on the field and not a field type (§5).
+
+     **The endpoint is the sharp part, and it is scoped exactly as the picker is**
+     (XIV-13, §8.4). An unrestricted search is strictly worse than the unrestricted
+     picker that ticket closed: a picker leaks the names it happens to render, once, on a
+     page somebody was allowed to open, where a search box lets them enumerate a module a
+     letter at a time. Same `RecordAccess`, same `View` check on the target module, no
+     exception for administrators written into the query. One route, generic over module
+     and variant and sorting and paging by the same title fields the dropdown used — a
+     module-specific search route would be the code the engine exists not to have — and
+     what the widget may *find* and what the form will *accept* go through one reading, or
+     a record somebody clicks comes back as an invalid choice.
+
+     The reading is shared with `CandidateLists` (XIV-87) for that reason, and core learns
+     the URL through an interface the application answers, the same seam as
+     `InstanceCurrency` and `RecordAccessProvider`.
+
    Still open: nothing enforces that the id points at something, which is the price of the
    above and is deliberate rather than forgotten.
 
@@ -3013,6 +3119,15 @@ controllers, so a new controller is covered the day it is written.
 permission screens themselves — the last because gating them with a module
 permission would be circular. Importing is no longer among them: it is its own
 grant, which is the answer §5.6 said this section would give it.
+
+**And so is the endpoint it became** (XIV-36). Once a picker can be typed into, the
+same argument applies harder: a search box is a way to enumerate a module by
+letters, where a dropdown only leaked the page it drew. The route carries
+`view` on the target module and the query carries the same `RecordAccess`
+predicate a list compiles — both seams, because neither implies the other, and
+there is a test that a reader scoped to their own records cannot find a
+colleague's by name. It answers 404 for a module the customer does not have, like
+every other module route.
 
 **A reference picker is scoped** (XIV-13), which answers what this section used to
 leave open. An unrestricted picker is a way to read the names of records somebody

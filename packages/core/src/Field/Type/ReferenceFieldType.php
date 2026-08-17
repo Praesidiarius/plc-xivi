@@ -16,7 +16,8 @@ namespace Xivi\Core\Field\Type;
 use Symfony\Component\DependencyInjection\Attribute\AutowireServiceClosure;
 use Symfony\Contracts\Service\ResetInterface;
 use Xivi\Core\Entity\FieldDefinition;
-use Xivi\Core\Field\FieldType;
+use Xivi\Core\Field\Autocomplete;
+use Xivi\Core\Field\Autocompletes;
 use Xivi\Core\Field\LinksToRecord;
 use Xivi\Core\Field\PrimesFromRecords;
 use Xivi\Core\Field\RecordLink;
@@ -31,6 +32,7 @@ use Xivi\Core\Query\Operator;
 use Xivi\Core\Query\RecordQuery;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordRepository;
+use Xivi\Core\Record\RecordTitle;
 use Xivi\Core\Record\ReferenceTargets;
 
 /**
@@ -54,9 +56,23 @@ use Xivi\Core\Record\ReferenceTargets;
  * The variant is optional and narrows the candidates, so a person's employer
  * offers companies rather than every contact in the database.
  *
+ * A third option says whether somebody types to find the record rather than
+ * scrolling for it (XIV-36):
+ *
+ *     ['module' => 'contact', 'variant' => 'company', 'autocomplete' => 'never']
+ *
+ * **This is the type that needed it.** A `choice` holds a dozen options in the
+ * page already; a reference points at records and capped its dropdown at two
+ * hundred, which is the picker that is actually broken at scale and the only one
+ * worth a server round trip. It is still an option and not a type of its own —
+ * see {@see Autocomplete} — and everything below this line is untouched by it:
+ * the storage, the (deliberately absent) constraints, the operators, the SQL and
+ * the display are what a reference *means*, and none of them can tell which
+ * widget was used to pick the id.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
-final class ReferenceFieldType implements FieldType, LinksToRecord, PrimesFromRecords, ResetInterface
+final class ReferenceFieldType implements Autocompletes, LinksToRecord, PrimesFromRecords, ResetInterface
 {
     public const string MODULE = 'module';
     public const string VARIANT = 'variant';
@@ -224,6 +240,12 @@ final class ReferenceFieldType implements FieldType, LinksToRecord, PrimesFromRe
             'target_module' => self::targetModule($field),
             'target_variant' => self::targetVariant($field),
             'required' => $field->isRequired(),
+            // Read from the definition here and resolved against the candidate
+            // count by the form type (XIV-36), because "how many are there" is a
+            // question about the database and a field type is handed a
+            // definition rather than a connection — the same division that put
+            // the picker in a form type in the first place.
+            'autocomplete_mode' => Autocomplete::of($field),
         ];
     }
 
@@ -292,16 +314,12 @@ final class ReferenceFieldType implements FieldType, LinksToRecord, PrimesFromRe
             return sprintf('#%d', $id);
         }
 
-        $parts = [];
-        foreach ($module->getTitleFields() as $titleField) {
-            $shown = trim($this->titleOfField($titleField, $record->get($titleField->getKey())));
-
-            if ($shown !== '') {
-                $parts[] = $shown;
-            }
-        }
-
-        return $parts === [] ? sprintf('%s #%d', $module->getLabel(), $id) : implode(' ', $parts);
+        // Built where every other caller builds it (XIV-36). Three places used
+        // to assemble a record's name out of its title fields and were about to
+        // become four; the rules about what a name may contain are subtle enough
+        // — no references, scalars only, never blank — that copies of them drift
+        // rather than staying identical. See RecordTitle.
+        return RecordTitle::of($module, $record);
     }
 
     /**
@@ -436,21 +454,6 @@ final class ReferenceFieldType implements FieldType, LinksToRecord, PrimesFromRe
         }
 
         return new RecordLink($moduleKey, $id);
-    }
-
-    /**
-     * Scalars only, and never another reference — which would recurse, and is
-     * not what anybody names a record by anyway. Asking each field's own type to
-     * render itself would mean holding the registry this type lives in, so a
-     * date used as a title reads as its stored form here rather than not at all.
-     */
-    private function titleOfField(FieldDefinition $field, mixed $value): string
-    {
-        if ($field->getType() === $this->key() || !\is_scalar($value)) {
-            return '';
-        }
-
-        return (string) $value;
     }
 
     /**

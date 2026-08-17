@@ -31,4 +31,13 @@ return [
     '@hotwired/stimulus' => ['version' => '3.2.2'],
     '@symfony/stimulus-bundle' => ['path' => './vendor/symfony/stimulus-bundle/assets/dist/loader.js'],
     '@symfony/ux-live-component' => ['path' => './vendor/symfony/ux-live-component/assets/dist/live_controller.js'],
+    // Tom Select is what the autocomplete controller attaches to a select
+    // (XIV-36), and it brings its own two. **Only the Bootstrap 5 stylesheet**:
+    // the recipe offers four, of which this application can use exactly one, and
+    // the other three would be downloaded into assets/vendor/ and served to
+    // nobody. Which one is chosen is in assets/controllers.json.
+    'tom-select' => ['version' => '2.6.2'],
+    '@orchidjs/sifter' => ['version' => '1.1.0'],
+    '@orchidjs/unicode-variants' => ['version' => '1.1.2'],
+    'tom-select/dist/css/tom-select.bootstrap5.css' => ['version' => '2.6.2', 'type' => 'css'],
 ];

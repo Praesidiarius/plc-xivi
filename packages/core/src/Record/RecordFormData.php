@@ -24,12 +24,29 @@ use Xivi\Core\Entity\ModuleDefinition;
  * already owns everything it touches, and what a form starts with is a fact
  * about those two rather than about the request that happens to be asking.
  *
+ * **It primes what those rows name** (XIV-54, and it took XIV-36 to need it).
+ * The record page has always primed because it *renders* references; a form did
+ * not have to, because a select renders a record's name out of a candidate list
+ * it was going to read anyway. An autocompleting picker has no candidate list —
+ * that is the point of it — so each row asks separately what the record it
+ * points at is called, and five hundred order lines asked five hundred times.
+ * Measured at 494 queries on a 500-line form, which would have been worse than
+ * the number XIV-87 had just fixed.
+ *
+ * This is the place, for exactly the reason §5.3 gives: nothing during rendering
+ * knows every id, and here the whole set is in hand. Priming stays an
+ * optimisation and never a requirement — a caller that skipped it would be
+ * slower and never wrong — so this is one call and no rule anybody has to
+ * remember.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class RecordFormData
 {
-    public function __construct(private RecordRepository $records)
-    {
+    public function __construct(
+        private RecordRepository $records,
+        private RecordPrimer $primer,
+    ) {
     }
 
     /**
@@ -42,6 +59,11 @@ final readonly class RecordFormData
     {
         $data = ['fields' => $record->data];
 
+        // The record's own references too, so a form primes all of what it
+        // draws rather than some of it — the same half-rule the record page
+        // refused to leave behind (XIV-54).
+        $this->primer->prime($definition, [$record]);
+
         foreach ($definition->getCollections() as $collection) {
             // Not on the form at all (XIV-16), so it needs no starting rows.
             if ($collection->isDerived()) {
@@ -49,6 +71,9 @@ final readonly class RecordFormData
             }
 
             $children = $record->isNew() ? [] : $this->records->findChildren($collection, (int) $record->id);
+
+            // Every row this collection will draw, before any of them is drawn.
+            $this->primer->prime($collection, $children);
 
             $rows = array_map(
                 static fn (Record $child): array => [

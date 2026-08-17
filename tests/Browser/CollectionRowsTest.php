@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace App\Tests\Browser;
 
 use App\Tenancy\TenantSwitcher;
+use App\Tenant\Repository\UserRepository;
 use App\Tenant\Security\UserCreator;
 use App\Tests\Support\SharesATenant;
 use Symfony\Component\Panther\Client;
@@ -340,7 +341,19 @@ final class CollectionRowsTest extends PantherTestCase
                 }
             });
 
-            self::service(UserCreator::class)->create($tenant, self::EMAIL, 'E2E', self::PASSWORD, ['ROLE_ADMIN']);
+            // **Only if nobody has made them yet** (XIV-36). There are two
+            // browser test classes now and they share this tenant, because the
+            // Host header decides which customer a request is for and there is
+            // exactly one hostname both containers can resolve. Whichever runs
+            // first provisions; the second must not try to create the same email
+            // again, which is a unique constraint and would read as a failure of
+            // whatever it was actually testing.
+            if (self::service(TenantSwitcher::class)->runFor(
+                $tenant,
+                fn (): bool => self::service(UserRepository::class)->findOneByEmail(self::EMAIL) === null,
+            )) {
+                self::service(UserCreator::class)->create($tenant, self::EMAIL, 'E2E', self::PASSWORD, ['ROLE_ADMIN']);
+            }
         });
     }
 

@@ -16,7 +16,8 @@ namespace Xivi\Core\Field\Type;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Validator\Constraints as Assert;
 use Xivi\Core\Entity\FieldDefinition;
-use Xivi\Core\Field\FieldType;
+use Xivi\Core\Field\Autocomplete;
+use Xivi\Core\Field\Autocompletes;
 use Xivi\Core\Query\Operator;
 
 /**
@@ -30,9 +31,16 @@ use Xivi\Core\Query\Operator;
  * as the one that decides which variant a record is, and the variants *are* that
  * field's options. No second list to keep in step.
  *
+ * **Somebody may type to narrow it** (XIV-36), which is an option here and not a
+ * second field type — see {@see Autocomplete} for the argument. It is the
+ * cheaper half of that ticket by a wide margin: the options are a closed list in
+ * the field's own settings, so they are all in the page already and narrowing
+ * them is filtering something that is present. No endpoint, no permission
+ * question, no ceiling, and nothing about the value changes.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
-final class ChoiceFieldType implements FieldType
+final class ChoiceFieldType implements Autocompletes
 {
     /** Stored value => label, in `options['choices']`. */
     public const string CHOICES = 'choices';
@@ -94,13 +102,23 @@ final class ChoiceFieldType implements FieldType
 
     public function formOptions(FieldDefinition $field): array
     {
+        $choices = self::choicesOf($field);
+
         return [
             // Symfony wants label => value; the definition stores value => label,
             // because the value is the part that ends up in the database and so
             // is the part worth reading first.
-            'choices' => array_flip(self::choicesOf($field)),
+            'choices' => array_flip($choices),
             'placeholder' => $field->isRequired() ? false : '—',
             'expanded' => false,
+            // **Decided here rather than in the widget**, because everything the
+            // decision needs is in the definition: how many options there are is
+            // not a question about the database, the way a reference's candidate
+            // count is. So this type answers it outright and the form type is
+            // handed a boolean, which is also the whole of what a `choice`
+            // autocomplete costs — the list is in the page either way and the
+            // browser filters it.
+            'autocomplete' => Autocomplete::of($field)->wants(\count($choices)),
         ];
     }
 

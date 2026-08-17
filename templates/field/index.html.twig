@@ -49,6 +49,7 @@
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.rules'|trans }}</th>
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.order'|trans }}</th>
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.width'|trans }}</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.autocomplete'|trans }}</th>
 									<th scope="col"></th>
 								</tr>
 							</thead>
@@ -101,6 +102,23 @@
 													<option value="{{ n }}" {{ field.width == n ? 'selected' : '' }}>{{ n }}/12</option>
 												{% endfor %}
 											</select>
+										</td>
+										{# Whether somebody types to narrow this field, or scrolls it
+										   (XIV-36). Only for the types that have candidates to narrow —
+										   a select beside a date would be a control that does nothing.
+										   Blank is the useful answer for almost every field: the engine
+										   knows how many candidates there are and decides, so a contact
+										   list that grows past a dropdown's worth turns into a search box
+										   without anybody having to find this setting. #}
+										<td>
+											{% if field.type in autocompletable %}
+												<select form="f{{ field.id }}" class="form-select form-select-sm"
+														name="autocomplete" style="width: 8rem">
+													{% for value, label in autocompleteChoices %}
+														<option value="{{ value }}" {{ field.getOption('autocomplete', '') == value ? 'selected' : '' }}>{{ label|trans({}, 'xivi') }}</option>
+													{% endfor %}
+												</select>
+											{% endif %}
 										</td>
 										<td class="text-end text-nowrap">
 											<form id="f{{ field.id }}" method="post"

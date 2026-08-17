@@ -12,6 +12,12 @@ operator:
     empty: ist leer
     filled: ist nicht leer
 
+# Ob jemand tippt, um die Auswahl einzugrenzen (XIV-36).
+autocomplete:
+    auto: Automatisch
+    always: Immer
+    never: Nie
+
 document:
     marker:
         record_id: Datensatznummer
