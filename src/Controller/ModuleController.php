@@ -54,6 +54,7 @@ use Xivi\Core\Query\UnsupportedQuery;
 use Xivi\Core\Record\InheritedValues;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordAction;
+use Xivi\Core\Record\RecordPrimer;
 use Xivi\Core\Record\RecordRepository;
 use Xivi\Core\Record\RecordWriter;
 use Xivi\Core\Seed\Seeder;
@@ -126,6 +127,11 @@ final class ModuleController extends AbstractController
         // set; the *grouping* happens here in PHP, so this is where it has to be
         // asked for a second time.
         private readonly DisplayTimezone $timezones,
+        // Told about a set of records once, before any of it is rendered
+        // (XIV-54). Every page here that shows more than one record calls it;
+        // none of them has to, which is the property that keeps it from being a
+        // rule somebody has to remember.
+        private readonly RecordPrimer $primer,
     ) {
     }
 
@@ -154,6 +160,15 @@ final class ModuleController extends AbstractController
             $records = $this->records->findBy($definition, $query, $access);
             $total = $this->records->countBy($definition, $query, $access);
         }
+
+        // A page of records is in hand and every one of them is about to be
+        // rendered, so whatever they name is read now rather than column by
+        // column (XIV-54). Worth little here — a page is 25 records and the
+        // saving is 24 round trips on a page already measured in the low tens of
+        // milliseconds — and done because at this point it is one line. The case
+        // it was built for is the record page below, where the rows have no
+        // ceiling at all.
+        $this->primer->prime($definition, $records);
 
         return $this->render('module/index.html.twig', [
             'module' => $definition,
@@ -290,7 +305,23 @@ final class ModuleController extends AbstractController
         $children = [];
         foreach ($definition->getCollections() as $collection) {
             $children[$collection->getKey()] = $this->records->findChildren($collection, $id);
+
+            // **This is what XIV-54 exists for.** `findChildren()` has no LIMIT
+            // — an invoice with 500 lines renders 500 rows — and each row names
+            // an article through a reference. Rendered one at a time that is a
+            // lookup per row, and the drift check below is a second one; primed
+            // here it is one query per target module, and the page costs the
+            // same number of queries whether the invoice has five lines or five
+            // hundred. The rows are already in hand, which is the only reason
+            // this can be done at all: nothing during rendering knows every id.
+            $this->primer->prime($collection, $children[$collection->getKey()]);
         }
+
+        // And the record's own references — one record, so this saves nothing
+        // measurable and is done because leaving it out would mean the page
+        // primed some of what it draws and not the rest, which is the kind of
+        // half-rule that gets copied.
+        $this->primer->prime($definition, [$record]);
 
         $lifecycle = $this->lifecycles->for($definition->getKey());
 

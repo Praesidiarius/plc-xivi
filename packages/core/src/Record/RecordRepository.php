@@ -138,16 +138,21 @@ final readonly class RecordRepository
     }
 
     /**
-     * Several records of one shape, by id, in one query (XIV-81).
+     * Several records of one shape, by id, in one query (XIV-81, XIV-54).
      *
-     * The sibling of {@see findChildrenOfAny()} one level up, and it exists for
-     * exactly the same reason: a caller holding a list of ids wants the rows, and
-     * a loop of `find()` is a query per row. The dashboard's follow-up widget is
-     * the caller that forced it — follow-ups live in one shared table and name a
-     * record each (§5.18), so resolving a page of them back to something worth
-     * reading is one lookup per *module*, not one per follow-up. §5.16 names that
-     * N+1 as the cost a dashboard cannot afford on the first page after signing
-     * in.
+     * The sibling of {@see findChildrenOfAny()} one level sideways, and it exists
+     * for exactly the same reason: a caller holding a list of ids wants the rows,
+     * and a loop of `find()` is a query per row. **Two tickets arrived at this
+     * method independently**, which is the best argument available that it is the
+     * right shape. The dashboard's follow-up widget needed it first — follow-ups
+     * live in one shared table and name a record each (§5.18), so resolving a
+     * page of them back to something worth reading is one lookup per *module*,
+     * not one per follow-up, and §5.16 names that N+1 as the cost a dashboard
+     * cannot afford on the first page after signing in. Reference priming needed
+     * the same thing for a different reason: a page holding a set of records
+     * knows every id its references point at before it renders any of them, and
+     * asking one at a time is how an invoice with 500 lines came to make 500
+     * lookups of a handful of articles.
      *
      * **Not expressible through the query layer**, which is where this would
      * otherwise belong. §5.3 compiles conditions against the customer's own field
@@ -159,11 +164,16 @@ final readonly class RecordRepository
      *
      * The ids are bound as an array parameter and never interpolated; the only
      * text this builds a statement out of is the table name off the definition
-     * row, as everywhere else here.
+     * row, as everywhere else here. They are deduplicated first, because both
+     * callers arrive with a column of values rather than a set — five hundred
+     * lines naming the same six articles is the ordinary case.
      *
-     * Order is not promised, and callers should not want one: the follow-ups
-     * already carry the order they are shown in, and this is a lookup table
-     * rather than a list.
+     * **Unordered on purpose.** Both callers are filling a lookup keyed by id
+     * rather than drawing a list, so an ORDER BY here would be a sort nobody
+     * reads. Deleted rows are excluded, which is what makes this agree with
+     * {@see find()} — a stale reference has to look the same whether it was
+     * primed or looked up, or priming would change what a page says rather than
+     * only how many queries it took to say it.
      *
      * @param list<int> $ids
      *

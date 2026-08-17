@@ -16,8 +16,6 @@ namespace Xivi\Core\Record;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\Type\ReferenceFieldType;
-use Xivi\Core\Metadata\MetadataRepository;
-use Xivi\Core\Metadata\ModuleNotInstalled;
 
 /**
  * Filling in what a row takes from the record it points at, and noticing when it
@@ -42,10 +40,21 @@ use Xivi\Core\Metadata\ModuleNotInstalled;
  */
 final readonly class InheritedValues
 {
-    public function __construct(
-        private MetadataRepository $metadata,
-        private RecordRepository $records,
-    ) {
+    /**
+     * The target records come from the memo three readers share (XIV-54), not
+     * from the repository directly.
+     *
+     * This class asks the same question the reference field asks — what is at
+     * the other end of this link — about the same rows, on the same page: the
+     * record page draws a line's article *and* checks whether the price copied
+     * off it has drifted. Read separately that was two lookups per row of the
+     * same article, and the drift half was the one with no memo at all, so an
+     * order with 500 lines asked about each of its articles twice and got a
+     * bounded page for neither. One memo makes the second question free and
+     * makes both of them free once the page has primed.
+     */
+    public function __construct(private ReferenceTargets $targets)
+    {
     }
 
     /**
@@ -136,15 +145,10 @@ final readonly class InheritedValues
             return null;
         }
 
-        try {
-            $module = $this->metadata->get(ReferenceFieldType::targetModule($reference));
-        } catch (ModuleNotInstalled) {
-            // A link into a module the customer does not have (§3). Nothing to
-            // inherit and nothing to compare, and neither is an error.
-            return null;
-        }
-
-        return $this->records->find($module, (int) $id);
+        // Null covers a link into a module the customer does not have (§3) as
+        // well as one at a record that is gone. Nothing to inherit and nothing
+        // to compare in either case, and neither is an error.
+        return $this->targets->of(ReferenceFieldType::targetModule($reference), (int) $id);
     }
 
     private static function isEmpty(mixed $value): bool
