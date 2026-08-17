@@ -138,6 +138,41 @@ final readonly class RecordRepository
     }
 
     /**
+     * The records with any of these ids, in one statement (XIV-54).
+     *
+     * The reference sibling of {@see self::findChildrenOfAny()}: same move, same
+     * `IN (…)`, one level sideways. A page holding a set of records already
+     * knows every id its references point at before it renders any of them, and
+     * asking for them one at a time is how an invoice with 500 lines came to
+     * make 500 lookups of a handful of articles.
+     *
+     * **Unordered on purpose.** The caller is filling a memo keyed by id, not
+     * drawing a list, so an ORDER BY here would be a sort nobody reads. Deleted
+     * rows are excluded, which is what makes this agree with {@see self::find()}
+     * — a stale reference has to look the same whether it was primed or looked
+     * up, or priming would change what a page says rather than only how many
+     * queries it took to say it.
+     *
+     * @param list<int> $ids
+     *
+     * @return list<Record>
+     */
+    public function findAny(ShapeDefinition $shape, array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        $rows = $this->connection->fetchAllAssociative(
+            sprintf('SELECT * FROM %s WHERE id IN (:ids) AND deleted_at IS NULL', $this->table($shape)),
+            ['ids' => $ids],
+            ['ids' => ArrayParameterType::INTEGER],
+        );
+
+        return array_map(fn (array $row): Record => $this->hydrate($shape, $row), $rows);
+    }
+
+    /**
      * Deliberately minimal — ordering, filtering and pagination across JSONB and
      * real columns is §7.3, and guessing at it here would be the concatenated-SQL
      * mess that section exists to avoid.

@@ -68,7 +68,20 @@ lands in `Unreleased` here.
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- **A record page no longer asks the database once per row for the names its
+  rows point at** ([XIV-54]). A page of a record with a collection now reads
+  what its rows name in one query per target module, so an order with 500 lines
+  costs 16 queries instead of 2014, and 5 lines cost the same 16. The document
+  path benefits identically — 500 lines expanded from a .docx template went from
+  503 queries to 4 — and a 25-row list from 32 to 8. See §5.3.
+- **The names a request resolves are now dropped when it ends.** They always
+  were meant to be (§7.4) and in a classic request they effectively were; they
+  now say so through `ResetInterface` rather than relying on the process ending,
+  which matters for anything long-running.
+
+[XIV-54]: https://xivi.youtrack.cloud/issue/XIV-54
 
 ## Releases
 

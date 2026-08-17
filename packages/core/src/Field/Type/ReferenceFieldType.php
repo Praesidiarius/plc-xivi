@@ -14,9 +14,11 @@ declare(strict_types=1);
 namespace Xivi\Core\Field\Type;
 
 use Symfony\Component\DependencyInjection\Attribute\AutowireServiceClosure;
+use Symfony\Contracts\Service\ResetInterface;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Field\FieldType;
 use Xivi\Core\Field\LinksToRecord;
+use Xivi\Core\Field\PrimesFromRecords;
 use Xivi\Core\Field\RecordLink;
 use Xivi\Core\Form\RecordReferenceType;
 use Xivi\Core\Metadata\MetadataRepository;
@@ -29,6 +31,7 @@ use Xivi\Core\Query\Operator;
 use Xivi\Core\Query\RecordQuery;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordRepository;
+use Xivi\Core\Record\ReferenceTargets;
 
 /**
  * A link to another record, stored as its id (§7.6).
@@ -53,7 +56,7 @@ use Xivi\Core\Record\RecordRepository;
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
-final class ReferenceFieldType implements FieldType, LinksToRecord
+final class ReferenceFieldType implements FieldType, LinksToRecord, PrimesFromRecords, ResetInterface
 {
     public const string MODULE = 'module';
     public const string VARIANT = 'variant';
@@ -65,28 +68,21 @@ final class ReferenceFieldType implements FieldType, LinksToRecord
     private const int CANDIDATES = 200;
 
     /**
-     * Titles already resolved this request.
+     * Titles already built this request.
      *
-     * A list of fifty records each showing a link would otherwise be fifty
-     * lookups of a handful of ids. This is not a cache in any durable sense —
-     * it lives and dies with the request, so it cannot serve one tenant's data
-     * to another (§7.4).
+     * A list of fifty records each showing a link would otherwise build fifty
+     * names out of the same handful of records. This is not a cache in any
+     * durable sense — it lives and dies with the request, so it cannot serve one
+     * tenant's data to another (§7.4), and {@see self::reset()} says so to the
+     * framework rather than trusting the process to end.
+     *
+     * The *records* the names are read off are memoised one layer down, in
+     * {@see ReferenceTargets}, because the name is not the only question asked
+     * about them (XIV-54).
      *
      * @var array<string, string>
      */
     private array $titles = [];
-
-    /**
-     * The records those titles were read off, kept for the same request.
-     *
-     * The name and the link are two questions about one record (XIV-42), and
-     * asking the database twice for it would double the queries a list already
-     * makes. `false` is a record that was looked for and is not there — a stale
-     * reference, which is a different answer from "not looked up yet".
-     *
-     * @var array<string, Record|false>
-     */
-    private array $targets = [];
 
     /**
      * Ids a generated link may point at, per field. Same lifetime as the titles
@@ -97,13 +93,22 @@ final class ReferenceFieldType implements FieldType, LinksToRecord
     private array $candidates = [];
 
     /**
-     * The record repository arrives as a closure, and that is not fussiness.
+     * The record repository still arrives as a closure, and that is not
+     * fussiness.
      *
-     * This type reads records to name them; reading records goes through
-     * RecordRepository, which needs the field type registry to hydrate values —
-     * which builds this type. A real cycle, and the container recurses until it
-     * gives up. Deferring one edge of it until the moment a title is actually
-     * wanted breaks the loop without pretending the dependency is not there.
+     * Reading records goes through RecordRepository, which needs the field type
+     * registry to hydrate values — which builds this type. A real cycle, and the
+     * container recurses until it gives up. Deferring one edge of it until the
+     * moment a record is actually wanted breaks the loop without pretending the
+     * dependency is not there.
+     *
+     * It is only the *demo generator's* candidates that still come through here
+     * (XIV-54): every read that names a record now goes through
+     * {@see ReferenceTargets}, which carries the same deferred closure for the
+     * same reason and adds the memo three callers share. Picking candidates is
+     * not that — it is a filtered page of a module rather than a lookup by id,
+     * it happens once per field rather than once per value, and nothing renders
+     * it.
      *
      * @param \Closure(): RecordRepository $records
      */
@@ -112,6 +117,7 @@ final class ReferenceFieldType implements FieldType, LinksToRecord
         #[AutowireServiceClosure(RecordRepository::class)]
         private readonly \Closure $records,
         private readonly RecordAccessProvider $access,
+        private readonly ReferenceTargets $targets,
     ) {
     }
 
@@ -307,26 +313,82 @@ final class ReferenceFieldType implements FieldType, LinksToRecord
      * nobody can use, and whoever may open the order can already see what it is
      * for. What the reader's own permissions decide is whether they are offered
      * a *link* — see {@see self::linkOf()}.
+     *
+     * One line, because the memo behind it belongs to more than this type
+     * (XIV-54) — and unchanged in what it answers: a primed target and one
+     * looked up here are the same record read under the same rule, which is what
+     * lets priming be an optimisation rather than a second access policy.
      */
     private function targetOf(string $moduleKey, int $id): ?Record
     {
-        $key = $moduleKey . '#' . $id;
+        return $this->targets->of($moduleKey, $id);
+    }
 
-        if (!isset($this->targets[$key])) {
-            try {
-                $module = $this->metadata->get($moduleKey);
-            } catch (ModuleNotInstalled) {
-                // Not installed here, so there is nothing to find and nothing
-                // worth remembering about it.
-                return null;
+    /**
+     * Read every record this set of rows will be named after, in one query per
+     * target module (XIV-54).
+     *
+     * **Where this earns its keep is a collection, not a list.** A record page
+     * draws every row a collection has and `findChildren()` has no LIMIT, so an
+     * invoice with 500 lines naming 500 articles made 500 lookups on the record
+     * page and 500 more on the document path, where the rows are drawn again
+     * into a .docx. A list is capped at a page of 25 and was never the problem —
+     * it is primed too, because by the time this exists doing so is one call.
+     *
+     * Ids are collected per *target module* rather than per field, which is the
+     * whole reason a type is handed all of its fields at once: an order line
+     * pointing at an article and a contact is two queries, and two fields both
+     * pointing at contacts is one. Duplicates collapse on the way in, because a
+     * collection where every line sells the same article should ask about it
+     * once.
+     */
+    public function primeFrom(array $fields, array $records): void
+    {
+        /** @var array<string, array<int, int>> $ids */
+        $ids = [];
+
+        foreach ($fields as $field) {
+            $module = self::targetModule($field);
+
+            if ($module === '') {
+                // A reference with no target: a field half-configured in the
+                // editor. It renders as nothing today and primes nothing here.
+                continue;
             }
 
-            $this->targets[$key] = ($this->records)()->find($module, $id) ?? false;
+            foreach ($records as $record) {
+                $id = $this->fromStorage($record->get($field->getKey()), $field);
+
+                if ($id !== null) {
+                    $ids[$module][$id] = $id;
+                }
+            }
         }
 
-        $record = $this->targets[$key];
+        foreach ($ids as $module => $found) {
+            $this->targets->prime($module, array_values($found));
+        }
+    }
 
-        return $record === false ? null : $record;
+    /**
+     * The names go with the request that asked for them (§7.4).
+     *
+     * Symfony's services resetter calls this on `kernel.terminate` — the
+     * `kernel.reset` tag comes from autoconfiguration, so there is nothing to
+     * register. Under a classic request the process was going to end anyway;
+     * under a worker, or a test that keeps one kernel across a dozen requests,
+     * this is the difference between a memo and a leak that shows one customer's
+     * record names on another's page.
+     *
+     * The candidate ids go too. They are a development-only convenience — a
+     * generated link has to point somewhere real — and a run that outlives a
+     * request has no business remembering which ids were plausible in a database
+     * it may no longer be connected to.
+     */
+    public function reset(): void
+    {
+        $this->titles = [];
+        $this->candidates = [];
     }
 
     /**

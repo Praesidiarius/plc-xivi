@@ -16,6 +16,7 @@ namespace Xivi\Core\Document;
 use Xivi\Core\Entity\CollectionDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Record\Record;
+use Xivi\Core\Record\RecordPrimer;
 use Xivi\Core\Record\RecordRepository;
 
 /**
@@ -62,6 +63,12 @@ final readonly class RepeatingBlocks
     public function __construct(
         private RecordRepository $records,
         private DocumentMarkers $markers,
+        // The rows are drawn here exactly as the record page draws them, so they
+        // are read ahead here too (XIV-54). A long invoice is the case: it is the
+        // document that has 500 lines, and generating a PDF is where hundreds of
+        // extra round trips are least welcome, since the request is already
+        // waiting on a converter.
+        private RecordPrimer $primer,
     ) {
     }
 
@@ -113,7 +120,14 @@ final readonly class RepeatingBlocks
         foreach (array_reverse(self::group($blocks)) as $group) {
             $collection = $group[0]['collection'];
             $key = $collection->getKey();
-            $rows[$key] ??= $this->records->findChildren($collection, $recordId);
+            // Read once per collection however many groups draw it, and primed
+            // in the same breath: `??=` means the priming happens on the read
+            // rather than on every group, and a second table listing the same
+            // lines finds both the rows and their references already in hand.
+            if (!isset($rows[$key])) {
+                $rows[$key] = $this->records->findChildren($collection, $recordId);
+                $this->primer->prime($collection, $rows[$key]);
+            }
 
             $drawn = '';
 

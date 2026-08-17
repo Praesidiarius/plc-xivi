@@ -644,6 +644,79 @@ build one rather than the list of ANDs that covers the honest 90%; and keyset
 paging, which is the answer when someone is on page 400 and until then costs a
 sort key in every URL. LIMIT/OFFSET is correct, and slower the deeper it goes.
 
+#### Once a set of records is in hand, read what it names (XIV-54)
+
+A reference renders as the *name* of the record it points at (§7.6), and a name
+is a second row from a second table. Asked for one value at a time — which is how
+a template renders — that is a lookup per value.
+
+**The number that matters is a collection's, not a list's.** XIV-46 measured this
+against a 25-row list and XIV-53 then removed most of what it measured, so both
+earlier conclusions were about the wrong number. `findChildren()` has **no
+LIMIT**: a record page draws every row a collection has, so an invoice with 500
+lines draws 500 rows and each one names an article. Measured on an order page
+before this existed: 34 queries at 5 lines, 214 at 50, **2014 at 500** — four per
+row, because a line asks about its article twice over (the reference for its name,
+the drift check for whether the price copied off it still matches, §5.9) and the
+drift half had no memo at all. The same rows drawn into a .docx cost 503 for 500
+lines, which is the worse place to pay it: the request is already waiting on a
+converter.
+
+**The objection that had blocked batching was about rendering and not about
+data.** There is indeed no moment during rendering at which every id is known —
+`display()` is called per value, one row at a time. But both call sites hold the
+whole set *before* rendering starts: a list has its page back from `findBy()`, a
+record page has every row back from `findChildren()`. So the priming pass has an
+obvious home, and the shape is one `WHERE id IN (…)` per target module — the same
+move `findChildrenOfAny()` already makes one level up, copied rather than
+reinvented.
+
+Four decisions hold it together:
+
+- **Priming is an optimisation and never a requirement.** Every reader still
+  falls back to a single memoised lookup, so a caller that forgets is slower and
+  never wrong. A seam that breaks when nobody calls it would be worse than the
+  queries it saves, because forgetting is silent and every new call site is a
+  chance to forget. `RecordPrimer::prime()` is therefore called from the list, the
+  record page and the document path, and none of them has to.
+- **The primer does not know what a reference is.** It groups a shape's fields by
+  type and hands each type its own; a type that can use a whole set says so by
+  implementing `PrimesFromRecords`. Batching *per target module* is then the
+  type's decision, which is knowledge the primer would need a switch on field type
+  to have — the thing field types exist to prevent, and the same argument
+  `LinksToRecord` makes about drawing an anchor.
+- **One memo, three readers.** The records live in `ReferenceTargets`, which the
+  name, the link and the drift check all read. That removes a duplicate lookup
+  that predates the batching: the page asked the database for the same article
+  twice per row. A record looked for and *not* found is remembered as missing, so
+  a collection full of stale links stays bounded too.
+- **The memo dies with the request** (§7.4). It holds one customer's records, so
+  anything longer-lived would eventually name their articles on somebody else's
+  page — a wrong label rather than an error, which is the kind that ships. It
+  implements `ResetInterface`, so Symfony's services resetter empties it on
+  `kernel.terminate` rather than the guarantee resting on the process ending.
+  That was not true before: under `disableReboot()` the old memo visibly survived
+  from one request into the next, which is exactly the shape §7.4 warns about.
+
+**Priming reads under exactly the rule `titleOf()` already read under, which is
+unscoped** (§8.4, XIV-42). The name of a linked record is shown to anybody who may
+read the record pointing at it; whether they are offered a *link* is the separate
+question, and it is still answered per reader, from the record already in memory.
+Stating it rather than quietly widening or narrowing it is the point: a batched
+read is where a permission changes by accident, and the ticket asked for the
+existing rule and not a second one.
+
+Afterwards, the same pages: **16 queries at 5, 50 and 500 lines** — flat, and the
+assertion in `ReferencePrimingTest` is `assertSame` between two sizes precisely so
+that a bound which starts growing again fails rather than merely gets slower. The
+document path: 503 → 4. The list, which was never the case this was built for and
+was primed because by then it was one line: 32 → 8 for 25 rows naming 25
+contacts.
+
+Not touched here, and named so it is not confused with this: the unbounded row
+count itself is XIV-68. Priming makes 500 rows cheap to *name*; it does not make
+drawing 500 rows a good idea.
+
 ---
 
 ### 5.4 The metadata editor
@@ -2175,6 +2248,13 @@ Not yet decided. Decide deliberately rather than by accident.
      The link is a **second seam** rather than something `display()` returns, because that
      method's output goes into .docx templates, spreadsheet cells and the record titles
      the picker shows — an `<a>` in there is markup printed on a letter.
+
+   - **What a set of records names is read before it is rendered** (XIV-54). Naming a
+     record is a second row from a second table, and a collection has no LIMIT — so the
+     cost that mattered was a record page's rows rather than a list's. One
+     `WHERE id IN (…)` per target module, filled into a memo the name, the link and the
+     inherited-value drift check share, under exactly the access rule above. See §5.3 for
+     the argument and the numbers.
 
    Still open: nothing enforces that the id points at something, which is the price of the
    above and is deliberate rather than forgotten.
