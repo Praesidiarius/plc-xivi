@@ -181,6 +181,12 @@ lands in `Unreleased` here.
   now means history: the only thing offered on an archived follow-up is reopening
   it, and the write path refuses the rest whatever the page happens to be showing.
 
+- **A long edit form stops asking the database for the same picker list once per
+  row** ([XIV-87]). Opening a 500-line order for editing made 973 queries and now
+  makes 13, the same 13 a 100-line one makes, and the page renders about a third
+  faster. It does **not** move the limit below — see the note under *Measured*,
+  because the reason is worth knowing.
+
 ### Measured
 
 - **How long a collection can get before its record page breaks, measured**
@@ -195,6 +201,14 @@ lands in `Unreleased` here.
   **250 lines**, and above that it answers 500 rather than a page. The read view
   goes about forty times further. Neither has a limit yet — which of XIV-68's
   three bounds to build is its remaining half, and is deliberately still open.
+- **That ceiling survived the picker fix, which is the useful part of the
+  finding** ([XIV-87]). Batching the candidate reads took a 500-line edit form
+  from 973 queries to 13 and about a third off its render time, and moved its
+  memory from 221 MB to 212 MB — because every row still *renders* two hundred
+  `<option>` elements whether or not they were read once or five hundred times.
+  The bytes are identical to the byte. So the edit form's limit is a rendering
+  cost, not a query cost, and the thing that would actually move it is a control
+  that does not emit the options at all.
 
 ### Upgrade notes
 
@@ -221,6 +235,7 @@ lands in `Unreleased` here.
 [XIV-83]: https://xivi.youtrack.cloud/issue/XIV-83
 [XIV-84]: https://xivi.youtrack.cloud/issue/XIV-84
 [XIV-85]: https://xivi.youtrack.cloud/issue/XIV-85
+[XIV-87]: https://xivi.youtrack.cloud/issue/XIV-87
 
 ## Releases
 
