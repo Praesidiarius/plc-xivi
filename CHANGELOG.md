@@ -68,6 +68,18 @@ lands in `Unreleased` here.
 
 ## [Unreleased]
 
+- **The production image build no longer re-downloads every dependency**
+  ([XIV-99]). It kept a `--no-cache` inherited from the Symfony Docker recipe, so
+  each build fetched every package from GitHub — which made the build fail
+  outright during a GitHub incident, blocking merges for an hour. A BuildKit
+  cache mount keeps the archives out of the image *and* out of the download path,
+  so a rebuild with an unchanged `composer.lock` needs almost nothing.
+- **Act on this if you build images: `auth.json` is now excluded from the build
+  context** ([XIV-99]). A composer credential placed there for `bin/ci` was being
+  copied into the image by the source `COPY`. `.gitignore` does not cover Docker;
+  `.dockerignore` does, and now does. Authentication is optional and does *not*
+  affect GitHub's archive limit — that one is per address, measured.
+
 ### Changed
 
 - **Run both migration sets on deploy** ([XIV-97]) —
@@ -437,6 +449,7 @@ lands in `Unreleased` here.
 [XIV-83]: https://xivi.youtrack.cloud/issue/XIV-83
 [XIV-84]: https://xivi.youtrack.cloud/issue/XIV-84
 [XIV-85]: https://xivi.youtrack.cloud/issue/XIV-85
+[XIV-99]: https://xivi.youtrack.cloud/issue/XIV-99
 [XIV-87]: https://xivi.youtrack.cloud/issue/XIV-87
 [XIV-89]: https://xivi.youtrack.cloud/issue/XIV-89
 [XIV-91]: https://xivi.youtrack.cloud/issue/XIV-91

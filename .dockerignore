@@ -50,3 +50,14 @@ vendor/
 # it from the context is what stops a stale one from somebody's laptop being
 # copied over the top of the real one.
 .env.*
+
+# Composer credentials (XIV-99). `.gitignore` covers this file for git and Docker
+# does not read `.gitignore` — the build context is a separate list, and this is
+# the one that decides what reaches an image. Leaving it out put a real token
+# into a production image: `COPY --link --exclude=frankenphp/ . ./` copies the
+# context wholesale, and the file survived at mode 600 owned by root, where a
+# grep run as the image's own unprivileged user could not see it.
+#
+# The credential reaches the build through a BuildKit secret mount instead, which
+# exists only while `composer install` runs.
+auth.json

@@ -113,7 +113,56 @@ COPY --link composer.* symfony.* ./
 # The monorepo's own packages are Composer path repositories, so they have to be
 # present before install can resolve them (docs/architecture.md §3).
 COPY --link packages packages/
-RUN composer install --no-cache --prefer-dist --no-dev --no-autoloader --no-scripts --no-progress
+# **A cache mount rather than `--no-cache`** (XIV-99). The recipe this line came
+# from passes `--no-cache` so that nothing is left inside the image, which is
+# right — a layer full of zip archives is weight nobody wants. But it also means
+# every dependency's dist is fetched from codeload on *every* build, and after a
+# day of merges GitHub starts answering `HTTP/2 429` and the build fails for a
+# reason that has nothing to do with what is being built.
+#
+# A BuildKit cache mount keeps both properties: the archives live outside the
+# image, so no layer grows, and they survive between builds, so a rebuild
+# downloads only what actually changed. `COMPOSER_CACHE_DIR` is set explicitly
+# rather than relying on `$HOME`, because the mount target has to be a path this
+# file names and not one the base image happens to choose.
+# **And an optional credential, mounted rather than copied** (XIV-99). Every
+# package here is public, so this buys no access — it raises the *API* allowance
+# from 60 requests an hour to 5,000, which composer spends on metadata.
+#
+# **It does not lift the limit that actually broke a build**, and that is worth
+# writing down because it is the obvious wrong guess. The failure was
+# `HTTP/2 429` from `codeload.github.com` while fetching dist archives, and that
+# limit is per address: measured on the same URL, anonymous and authenticated
+# both answered 429. A token is not the fix for it. **The cache mount above is**,
+# because the archives it stops re-fetching are the requests being counted.
+#
+# `type=secret` and not an `ARG` or a `COPY`: a build argument is recorded in the
+# image's own history and a copied file is a layer, and a token in either is a
+# token that has leaked. A secret mount exists only while this one command runs.
+#
+# `required=false` on purpose — a checkout with no token still builds, just
+# against the anonymous limit. That keeps `git clone && bin/ci` working for
+# somebody who has never heard of this line.
+# **The mount target is outside `/app`**, so that nothing which copies `/app` can
+# pick it up, and composer is pointed at it through `COMPOSER_AUTH` — expanded by
+# the shell inside this one command, so the token is in no layer and the image
+# history records only the `$(cat …)` that produced it.
+#
+# **That was not what leaked, and the real cause is worth writing down.** A token
+# did reach a production image during this work, and the mount target was a red
+# herring: the file was in the **build context**. `.gitignore` covered it, Docker
+# does not read `.gitignore`, and `COPY --link --exclude=frankenphp/ . ./` below
+# copies the context wholesale. `.dockerignore` is the list that decides what
+# reaches an image, and it now excludes `auth.json`.
+#
+# It survived at mode 600 owned by root, so the obvious check — grep inside the
+# image — found nothing, because the image runs as an unprivileged user. **Verify
+# as root or the check is worse than none**, because it produces confidence.
+RUN --mount=type=cache,target=/tmp/composer-cache,sharing=locked \
+    --mount=type=secret,id=composer_auth,target=/run/secrets/composer_auth,required=false \
+    COMPOSER_CACHE_DIR=/tmp/composer-cache \
+    COMPOSER_AUTH="$(cat /run/secrets/composer_auth 2>/dev/null || echo '{}')" \
+    composer install --prefer-dist --no-dev --no-autoloader --no-scripts --no-progress
 
 # copy sources
 COPY --link --exclude=frankenphp/ . ./
