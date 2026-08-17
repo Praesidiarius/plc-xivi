@@ -70,6 +70,13 @@ lands in `Unreleased` here.
 
 ### Changed
 
+- **Run both migration sets on deploy** ([XIV-97]) —
+  `doctrine:migrations:migrate --em=control` *and* `tenant:migrate`. They convert
+  eleven `SERIAL` primary keys to identity columns across the two databases and
+  carry each sequence's current position over, so nothing is renumbered and no
+  behaviour changes. Do not apply the three lines
+  `doctrine:schema:update --dump-sql` suggests instead: they restart every
+  sequence at 1 (§9.2).
 - **The administration surface is a package of its own** ([XIV-60]).
   `src/ControlPlane` is now `packages/control-plane`, wired as a path repository
   like the modules, and the rule about it is enforced rather than assumed: it may
@@ -88,6 +95,12 @@ lands in `Unreleased` here.
 
 ### Fixed
 
+- **`doctrine:schema:validate --em=control` is green again** ([XIV-97]), for the
+  first time since the second migration was written. It had reported the schema
+  out of sync every day for months and the whole difference was three columns
+  declared `SERIAL` where Doctrine expects an identity column — so the one check
+  that would have caught a real missing migration had become a line nobody read.
+  Nothing about the running system changes (§9.2).
 - **`composer deptrac` had never checked anything** ([XIV-60]). Every layer in
   `deptrac.yaml` was collected by a path pattern anchored `^src/`, which deptrac
   matches against a file's absolute path — so no file was in any layer and the
@@ -98,6 +111,16 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **`tenant:schema:validate`, which asks a question nothing could ask before**
+  ([XIV-97]) — whether a *customer's* database still matches the mapping the code
+  expects. `doctrine:schema:validate --em=tenant` cannot: the DSN comes from a
+  resolved tenant and a console command has none. It reads and writes nothing,
+  reports each customer by name and groups them by what they say, so "some
+  tenants were migrated and some were not" is visible at a glance. **It reports
+  thirteen differences today** — index names, partial indexes the mapping cannot
+  express, two column defaults and one nullable column — none of them new, all of
+  them written down in §9.2, and each needing a decision rather than a
+  conversion. That is a ticket of its own.
 - **What each customer is using, on the tenant list** ([XIV-59]). Every row now
   shows how many users that customer has, when anybody last signed in and how
   many records are in there — enough to tell somebody who is using Xivi from
@@ -417,6 +440,7 @@ lands in `Unreleased` here.
 [XIV-87]: https://xivi.youtrack.cloud/issue/XIV-87
 [XIV-89]: https://xivi.youtrack.cloud/issue/XIV-89
 [XIV-91]: https://xivi.youtrack.cloud/issue/XIV-91
+[XIV-97]: https://xivi.youtrack.cloud/issue/XIV-97
 
 ## Releases
 

@@ -178,9 +178,20 @@ final class TenantListTest extends WebTestCase
         $crawler = $this->openList();
 
         $alert = $crawler->filter('[role="alert"]')->text();
-        self::assertStringContainsString('2 customers are not being served', $alert);
+
+        // **Both of this class's own unhealthy tenants are named, and the count
+        // is not asserted.** The registry is one table shared by every test
+        // class in the suite, so any other class that leaves a tenant in a
+        // non-serving status changes the total — `CrossModuleLinkTest`'s does,
+        // and which worker runs it first decides whether it is there yet.
+        // Asserting "2 customers" made this pass or fail on the parallel
+        // schedule rather than on the behaviour, which is the one thing a test
+        // must not do. What the acceptance criterion actually asks is that a
+        // tenant nobody is serving is named without going looking for it, and
+        // that is what these two lines say.
         self::assertStringContainsString(self::STUCK, $alert);
         self::assertStringContainsString(self::SUSPENDED, $alert);
+        self::assertMatchesRegularExpression('/\d+ customers? (are|is) not being served/', $alert);
 
         $order = $this->slugOrder($crawler);
 
