@@ -18,9 +18,11 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\Routing\RouteCollection;
 use Xivi\ControlPlane\Controller\SignupApiController;
 use Xivi\ControlPlane\Controller\SignupConfirmationController;
+use Xivi\ControlPlane\Controller\SignupPageController;
 use Xivi\ControlPlane\Security\ControlPlaneHost;
 use Xivi\ControlPlane\Signup\SignupApiKey;
 use Xivi\ControlPlane\Signup\SignupHost;
+use Xivi\ControlPlane\Signup\SignupPage;
 
 /**
  * Whether the public signup endpoint exists at all (XIV-64).
@@ -54,6 +56,34 @@ use Xivi\ControlPlane\Signup\SignupHost;
  * static text, unlike `security.yaml`'s `host:` key, so the dots in a hostname
  * are dots.
  *
+ * ### Two switches, one loader (XIV-65)
+ *
+ * [XIV-65] added a landing page and a second switch for it, and the second switch
+ * is read here rather than anywhere else so that the two compose in one place.
+ * `SIGNUP_HOST` decides whether there is an intake and where; `SIGNUP_PAGE`
+ * decides whether this installation also draws the form. The states that fall out
+ * are the three a deployment asks for:
+ *
+ *     SIGNUP_HOST empty            → nothing at all, whatever SIGNUP_PAGE says
+ *     SIGNUP_HOST set, page false  → the intake and the confirmation page
+ *     SIGNUP_HOST set, page true   → those, and the landing page as well
+ *
+ * The early return below is what makes the first line true for both switches at
+ * once: a page whose only job is to post to an intake cannot outlive the intake,
+ * and the fourth state is therefore not a refusal but an unsayable thing. See
+ * {@see SignupPage} for the argument in full, and for why the page shares the
+ * intake's hostname rather than having one of its own.
+ *
+ * **The page is switched off the same way the endpoint is** — by not being
+ * loaded. A `SIGNUP_PAGE=false` deployment has no `signup_page` route, no
+ * `signup_page_submit` and no `signup_page_name`; they are absent from the
+ * compiled matcher and from `debug:router`, exactly as the whole feature is when
+ * the host is empty. That is the acceptance criterion this ticket repeats from
+ * [XIV-64], and it is why the page is a plain controller rather than a live
+ * component — a component answers at a route this feature does not own, and could
+ * not have been switched off this way. `SignupPageController`'s docblock has that
+ * argument.
+ *
  * ### Two refusals that stop the build rather than the request
  *
  * Both are configuration mistakes that would otherwise be discovered by their
@@ -83,10 +113,37 @@ final class SignupRouteLoader extends Loader
     /** What `config/routes.yaml` names as the `type` of its signup resource. */
     public const string TYPE = 'xivi_signup';
 
+    /**
+     * **Every controller of the signup surface, and the list is load-bearing
+     * twice** (XIV-65).
+     *
+     * This loader reads it to decide what to import, and
+     * {@see \Xivi\ControlPlane\DependencyInjection\SignupRoutesComeOnlyFromTheLoaderPass}
+     * reads it to make sure *nothing else* imports the same classes. Two readers,
+     * one list, because the second reader existing at all is the answer to a bug
+     * this class silently had — see that pass for what it was.
+     */
+    public const array CONTROLLERS = [
+        SignupApiController::class,
+        SignupConfirmationController::class,
+        SignupPageController::class,
+    ];
+
+    /**
+     * The ones the page switch owns, as opposed to the endpoint's.
+     *
+     * Separate from the list above rather than filtered out of it, because the
+     * pass has to untag *all* signup controllers whatever either switch says: a
+     * page whose routes are absent from this collection and present in the
+     * routing table anyway is precisely the failure both are guarding against.
+     */
+    private const array PAGE_CONTROLLERS = [SignupPageController::class];
+
     public function __construct(
         private readonly SignupHost $host,
         private readonly ControlPlaneHost $controlPlane,
         private readonly SignupApiKey $apiKey,
+        private readonly SignupPage $page,
         ?string $env = null,
     ) {
         parent::__construct($env);
@@ -119,7 +176,16 @@ final class SignupRouteLoader extends Loader
             );
         }
 
-        foreach ([SignupApiController::class, SignupConfirmationController::class] as $controller) {
+        foreach (self::CONTROLLERS as $controller) {
+            // **The landing page, only if this deployment draws its own**
+            // (XIV-65). Skipped here rather than loaded separately, so that the
+            // host, the scheme and the "off means absent" property below are
+            // stated once and cannot come to differ between the page and the
+            // endpoint it posts to.
+            if (\in_array($controller, self::PAGE_CONTROLLERS, true) && !$this->page->isEnabled()) {
+                continue;
+            }
+
             $routes->addCollection($this->import($controller, 'attribute'));
         }
 

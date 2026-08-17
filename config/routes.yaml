@@ -7,10 +7,7 @@
 # To list all registered routes, run the following command:
 #   bin/console debug:router
 
-controllers:
-    resource: routing.controllers
-
-# **The public signup endpoint, if this deployment has one** (XIV-64).
+# **The public signup surface, if this deployment has one** (XIV-64, XIV-65).
 #
 # Not a `resource` pointing at a directory: the loader named here decides whether
 # there are any routes at all, and when `SIGNUP_HOST` is empty it returns an
@@ -26,6 +23,37 @@ controllers:
 #
 # The `resource` is a placeholder the loader ignores and cannot be omitted;
 # `type` is what selects it.
+#
+# ---
+#
+# **It is imported first, and that is load-bearing** (XIV-65).
+#
+# Symfony matches routes in the order they were loaded, and the application's own
+# dashboard is at `/` with **no host restriction** — as everything under
+# `controllers:` is, because a tenant's installation is served on whichever
+# hostname that customer owns. A landing page at `/` loaded *after* it can
+# therefore never match: `https://signup.example/` reaches the dashboard, which
+# asks for a tenant on a host that deliberately resolves none, and answers with a
+# 500 rather than a form. That was not a new hazard, only one nothing had been
+# standing on: before XIV-65 there was simply nothing served at `/` over here.
+#
+# It is safe in the other direction because every route this loader returns
+# carries the signup host and `https`, so on any other hostname none of them
+# matches at all and nothing below is shadowed anywhere it is wanted.
+#
+# **Reordering these two keys used to unbind the host of the whole feature**, and
+# that it no longer does is the work of one compiler pass rather than of this
+# comment: `resource: routing.controllers` loads every class carrying a `#[Route]`
+# attribute, the signup controllers included, *without* a host or a scheme — so
+# the two imports were registering the same route names twice and whichever came
+# last won. Xivi\ControlPlane\DependencyInjection\SignupRoutesComeOnlyFromTheLoaderPass
+# takes those classes out of the framework's loader entirely, which is also what
+# makes "signup off means no route" true of the routing table rather than only of
+# the collection SignupRouteLoader returns. Read that class before touching this
+# file; the bug it describes was live and does not announce itself.
 signup:
     resource: .
     type: xivi_signup
+
+controllers:
+    resource: routing.controllers

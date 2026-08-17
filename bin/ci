@@ -11,6 +11,9 @@
 #   bin/ci --coverage      measure coverage and hold it above the floor
 #   bin/ci --no-changelog  allow a branch that adds no changelog entry
 #
+# A branch whose entire diff is the landing page's copy needs no entry and no
+# flag; see CONTENT_ONLY_PATHS below for the decision and how narrow it is.
+#
 # **Two branches at once:** make a git worktree. A different directory gets its
 # own compose project, its own ports, its own tenant databases and its own dev
 # image, all derived from the directory name, so two checkouts run the suite at
@@ -75,7 +78,7 @@ for arg in "$@"; do
 		--no-build) build_prod_image=false ;;
 		--coverage) coverage=true ;;
 		--no-changelog) check_changelog=false ;;
-		-h|--help) sed -n '3,20p' "${BASH_SOURCE[0]}" | cut -c 3-; exit 0 ;;
+		-h|--help) sed -n '3,23p' "${BASH_SOURCE[0]}" | cut -c 3-; exit 0 ;;
 		*) printf 'unknown option: %s\n' "$arg" >&2; exit 64 ;;
 	esac
 done
@@ -95,19 +98,89 @@ fi
 # --no-changelog is the escape hatch for a branch that genuinely changed nothing
 # anybody would be told about. It exists on purpose: a check with no way out is
 # one that eventually gets deleted rather than answered.
+#
+# ---
+#
+# **Content-only branches are exempt, and that is a decision rather than a
+# loophole** (XIV-65, docs/architecture.md §8.13).
+#
+# The landing page has words on it, and words get edited. A comma moved on a
+# signup form is not something to write in a file that documents an ERP — the
+# entry would say nothing anybody can act on, which is how a changelog becomes
+# noise — and the alternative is `--no-changelog`, typed routinely, until it is
+# typed on the branch that did need an entry. A gate people skip out of habit
+# stops being a gate, and it stops being one quietly.
+#
+# So the rule is stated here instead, mechanically, and it is narrow on purpose:
+#
+#   * The exemption is per *branch*, not per file. Every path the branch touches
+#     has to be content. One line of PHP and the gate applies exactly as before,
+#     which is what keeps "add a translation key" from carrying a feature through.
+#   * What counts as content is a **short, explicit list** below, not a rule like
+#     "anything under translations/". The application's own catalogue is product
+#     text — renaming "Invoice" is a change a customer sees — while the landing
+#     page's catalogue exists to be edited by whoever writes the marketing copy,
+#     which is why XIV-65 gave it a domain of its own rather than adding keys to
+#     `messages`.
+#
+# A branch that wants an entry anyway simply writes one; nothing here refuses it.
+CONTENT_ONLY_PATHS=(
+	'translations/landing.*.yaml'
+	'packages/control-plane/templates/signup_page.html.twig'
+)
+
+# Whether every path given on stdin is in the list above. Empty input is *not*
+# content-only: "this branch changed nothing" is a different situation and the
+# ordinary message for it is the right one.
+only_content() {
+	local path seen=false
+
+	while IFS= read -r path; do
+		[ -n "$path" ] || continue
+		seen=true
+
+		local matched=false
+		for pattern in "${CONTENT_ONLY_PATHS[@]}"; do
+			# shellcheck disable=SC2053  # the right-hand side is a glob on purpose
+			if [[ "$path" == $pattern ]]; then
+				matched=true
+				break
+			fi
+		done
+
+		[ "$matched" = true ] || return 1
+	done
+
+	[ "$seen" = true ]
+}
+
 if [ "$check_changelog" = true ]; then
 	step 'The changelog mentions this branch'
 
 	branch=$(git rev-parse --abbrev-ref HEAD)
 	base=$(git merge-base HEAD main 2>/dev/null || true)
 
+	# Committed, staged, unstaged and untracked alike — the same three things the
+	# CHANGELOG check below looks at, so the two cannot answer about different
+	# versions of the branch.
+	changed_paths=$( { git diff --name-only "$base" HEAD 2>/dev/null || true
+	                   git diff --name-only HEAD 2>/dev/null || true
+	                   git ls-files --others --exclude-standard 2>/dev/null || true
+	                 } | sort -u )
+
 	if [ "$branch" = 'main' ] || [ -z "$base" ]; then
 		printf 'Not on a branch off main; nothing to compare.\n'
+	elif printf '%s\n' "$changed_paths" | only_content; then
+		printf 'Content only, so no changelog entry is expected:\n'
+		printf '%s\n' "$changed_paths" | sed 's/^/    /'
 	elif git diff --quiet "$base" HEAD -- CHANGELOG.md && git diff --quiet HEAD -- CHANGELOG.md; then
 		printf 'CHANGELOG.md is unchanged on this branch.\n\n' >&2
 		printf 'Add an entry under [Unreleased], with the issue number if there is\n' >&2
 		printf 'one — see the [XIV-2] style at the bottom of the file. If this branch\n' >&2
-		printf 'really has nothing worth telling anybody about, pass --no-changelog.\n' >&2
+		printf 'really has nothing worth telling anybody about, pass --no-changelog.\n\n' >&2
+		printf 'A branch that only edits the landing page and its copy is exempt\n' >&2
+		printf 'without the flag — see CONTENT_ONLY_PATHS above for what that means\n' >&2
+		printf 'and why the exemption is that narrow.\n' >&2
 		exit 65
 	else
 		printf 'CHANGELOG.md has been updated.\n'

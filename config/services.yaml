@@ -58,6 +58,21 @@ parameters:
     # plane uses one: browsers resolve those to the loopback with no hosts file.
     app.signup_host: '%env(SIGNUP_HOST)%'
 
+    # **Whether this installation draws its own signup page** (XIV-65).
+    #
+    # The second of the two switches, and it is a boolean rather than a second
+    # hostname because it has no second job: the page is served on
+    # %app.signup_host%, which is already decided above. The three states are
+    # page-and-endpoint (the default when signup is on), endpoint-only for a
+    # deployment that has built its own front end and posts to the published
+    # contract, and neither — which is what an empty SIGNUP_HOST means, whatever
+    # this says, and which is the shipped default.
+    #
+    # Read in exactly one place, Xivi\ControlPlane\Signup\SignupPage, which
+    # combines it with the host so that "a page with no intake behind it" is not
+    # expressible rather than being refused by a check somewhere.
+    app.signup_page: '%env(bool:SIGNUP_PAGE)%'
+
     # **Which plans self-service may ask for** (XIV-64). `Tenant::$plan` has
     # existed since the registry did and defaults to `standard`; billing is out
     # of scope and writing the intake as though one plan is the only one would

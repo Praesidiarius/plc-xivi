@@ -1,0 +1,39 @@
+# Die Worte der Landingpage (XIV-65). Siehe landing.en.yaml für den Grund, warum
+# diese Datei ein eigener Katalog ist — sie ist die Hälfte der Änderungen, die
+# `bin/ci` ohne CHANGELOG-Eintrag durchlässt (docs/architecture.md §8.13).
+landing:
+    title: Dein eigenes Xivi
+    headline: Deine eigene Xivi-Installation
+    subhead: Eigene Datenbank, eigene Adresse, und niemandes Daten sonst darin.
+
+    form:
+        company: Firmenname
+        address: Deine Adresse
+        address_help: Unter dieser Adresse meldest du dich an. Du kannst sie ändern.
+        email: E-Mail-Adresse
+        email_help: >-
+            Wir schicken eine Nachricht dorthin, um die Adresse zu bestätigen. Vorher wird nichts
+            eingerichtet.
+        plan: Tarif
+        submit: Installation erstellen
+        confirmation_note: Keine Zahlungsdaten, und nichts wird eingerichtet, bevor du deine Adresse bestätigst.
+
+    name:
+        free: '%slug% ist frei.'
+
+    done:
+        sent: 'Schau in %email% nach.'
+        next: 'Bestätige die Adresse in dieser Nachricht, dann richten wir %slug% für dich ein.'
+        expiry: 'Der Link gilt %hours% Stunden. Wenn du das Formular erneut ausfüllst, kommt ein neuer.'
+
+    error:
+        slug_taken: Diese Adresse ist vergeben. Nimm eine andere.
+        address_already_registered: >-
+            Für diese E-Mail-Adresse ist bereits eine Installation unterwegs. Schau in deinem
+            Posteingang nach der Bestätigung, oder schreib uns, falls sie nie angekommen ist.
+        rate_limited: 'Zu viele Versuche von hier. Versuch es in etwa %minutes% Minuten noch einmal.'
+        invalid_email: Das sieht nicht nach einer E-Mail-Adresse aus.
+        invalid_slug: Eine Adresse darf nur Kleinbuchstaben, Ziffern und Bindestriche enthalten.
+        unknown_plan: Diesen Tarif bieten wir nicht an.
+        mail_failed: Die Bestätigung konnte gerade nicht verschickt werden. Bitte versuch es noch einmal.
+        unavailable: Bei uns ist etwas schiefgegangen. Bitte versuch es gleich noch einmal.

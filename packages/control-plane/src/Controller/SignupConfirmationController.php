@@ -24,19 +24,22 @@ use Xivi\ControlPlane\Signup\SignupIntake;
 /**
  * Where a confirmation link lands (XIV-64).
  *
- * ### This is not the page [XIV-65] owns
+ * ### This is not the landing page
  *
- * That ticket owns the *form* — the marketing page a visitor fills in, on the
- * site that posts to {@see SignupApiController}. This is the other end of a link
- * in an email, and it has to exist here because it is the only place that can
- * answer it: the token is a row in the control-plane database, and the calling
- * site has no access to that and should not.
+ * {@see SignupPageController} is that — the form a visitor fills in, which posts
+ * to {@see SignupApiController} holding the shared secret (XIV-65, §8.13). This
+ * is the other end of a link in an email, and it has to exist here because it is
+ * the only place that can answer it: the token is a row in the control-plane
+ * database, and a caller has no access to that and should not.
  *
- * So it is deliberately the plainest page in the repository. It says which of
- * the five things happened, in the language the mail was written in, and it does
- * not attempt to be a landing page. When [XIV-65]'s site wants the visitor
- * returned to it after confirming, that is a redirect target it configures, and
- * it is a small change to this action rather than a rewrite of it.
+ * The two share a hostname, which is deliberate — a visitor asked to confirm at a
+ * name they have never seen has been handed the shape of a phishing mail — and
+ * they deliberately do not share a look. This one stays the plainest page in the
+ * repository: it says which of the five things happened, in the language the mail
+ * was written in, and does not attempt to sell anything to somebody who has
+ * already decided. When a deployment wants the visitor returned to a site of its
+ * own after confirming, that is a redirect target it configures, and it is a
+ * small change to this action rather than a rewrite of it.
  *
  * ### The status codes are not decoration
  *

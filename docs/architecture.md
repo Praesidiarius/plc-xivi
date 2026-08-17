@@ -4692,9 +4692,32 @@ translated.
 editable** — and the derivation is part of the contract rather than the form's
 business. Two implementations of a transliteration rule disagree on the first
 umlaut somebody types, so the endpoint derives it, hands back what it derived, and
-[XIV-65]'s form shows that. It is locale-aware, because `Bäckerei` is `baeckerei`
-to a German reader and `backerei` to the default rules, and the German answer is the
-one a German company expects.
+§8.13's form shows that.
+
+**The rule takes nothing from the request, which is [XIV-100]'s fix.** It was
+locale-aware — `Bäckerei` is `baeckerei` to a German reader and `backerei` to the
+default rules — and that was wrong for a reason that is easy to miss, because
+there was only ever *one* derivation and both endpoints already called it. What
+differed was the argument. `locale` is an **optional** field on both requests, its
+documented job is to choose the language of the confirmation mail, and nothing
+obliged a caller to send the same value to the availability check and to the
+submission. So the preview said `muller-bau-ag`, the submission created
+`mueller-bau-ag`, and the `available: true` had been computed about a name nobody
+would ever be given.
+
+Passing the locale more carefully does not fix that: two requests are two
+requests, and any rule that reads an optional field can be made to disagree with
+itself by a caller that forgets it once. So the request stops deciding. The mail's
+language is a property of the *reader* and rightly varies; the slug is a hostname,
+it is permanent, and it belongs to the *company* — which writes itself `Mueller`
+whenever ASCII is required, on Monday in German and on Tuesday in English.
+`SelfServiceSlug::TRANSLITERATION_LOCALE` is `de`, chosen deliberately for the
+market this is sold into, and every other language keeps what it had: the locale
+maps only add expansions on top of the generic ASCII rules, so `é` is still `e`
+under `de` exactly as under `en`. What it costs is the handful of languages with
+an expansion of their own — a Swedish `Å` is `a` here rather than `aa` — and a
+deployment selling somewhere that trade is wrong changes one constant, which is a
+decision about the installation rather than about a request.
 
 **Reserved names are two lists.** The conventional one — `www`, `admin`, `api`,
 `mail`, `app`, `control`, `status`, `support` — exists because those are names a
@@ -4744,8 +4767,12 @@ busy afternoon turns into an outage for everybody.
 
 #### The contract is a public API, and its host is its own
 
-[XIV-65] made the landing page a separate site, so this is an interface somebody
-else compiles against rather than a form's private detail. That fixes four things:
+The intake is an interface somebody else compiles against rather than a form's
+private detail — that was the assumption when it was written, and §8.13 kept it
+even though the landing page ended up in this repository: the page holds the
+secret and posts to this contract like any other caller, so a deployment that
+builds its own front end is on the same footing as the one shipped here. That
+fixes four things:
 
 - **A documented request and response shape**, on
   `Xivi\ControlPlane\Controller\SignupApiController`, next to the code rather than
@@ -4808,8 +4835,8 @@ that still demands a password rather than one with `security: false` in front of
 
 #### Off means the route does not exist
 
-[XIV-65]'s three states are page-and-endpoint, endpoint-only, and neither; the
-endpoint switch is this section's and the page's is that ticket's. Here, **off means
+The three states are page-and-endpoint, endpoint-only, and neither; the endpoint
+switch is this section's and the page's is §8.13's. Here, **off means
 no route is registered** — not a route that answers 404. A registered route is a
 controller the router can reach: it is in the compiled matcher, it is in
 `debug:router`, and it is one misplaced access rule away from running. A route that
@@ -4832,14 +4859,24 @@ a second kernel: the claim is about the route collection, the loader is what
 produces it, and two kernels in one environment share a compiled matcher, so the
 kernel version of that test would pass or fail on test order.
 
+**That was not enough, and §8.13 found out why.** The loader was right about its
+own collection and the routing table held a second, host-less copy of every signup
+route registered by the framework's own `routing.controllers` — present even with
+`SIGNUP_HOST` empty. The fix and the assertion that catches it are in §8.13; the
+lesson to carry back here is that a claim about "the routing table" has to be
+asserted against the router, because a loader can only ever be asked about what it
+returns.
+
 #### What is deliberately not built
 
-**The landing page and the form.** [XIV-65]'s, on its own site. What is provided
-from here is the derivation rule and the availability check as part of the contract.
-The one page that *is* here — where a confirmation link lands — is the plainest in
-the repository on purpose: it can only live on this side, because the token is a row
-in this database, and building anything marketing-shaped would be building something
-that ticket has to replace.
+**The landing page and the form.** §8.13's — which, in the event, is served from
+this repository and on this hostname rather than from a site of its own; the
+argument for that is there. What is provided from *here* is the derivation rule
+and the availability check as part of the contract. The one page that was here
+first — where a confirmation link lands — is the plainest in the repository on
+purpose: it can only live on this side, because the token is a row in this
+database, and it remains deliberately unlike the landing page rather than an
+early draft of it.
 
 **Provisioning.** [XIV-98]'s, and with it the removal of the row: this table holds
 *live* signups only. That is why `SignupStatus` has two cases and not three — a
@@ -4849,6 +4886,200 @@ in `tenant.slug`, free to disagree with it, and the disagreement would be silent
 **Any notion of which caller presented the secret.** There is one secret because
 there is one caller. When there are two — a partner, a reseller — that is the moment
 for a table of keys with a name against each.
+
+### 8.13 A landing page, and the scope is the decision (XIV-65)
+
+§8.12 built an intake and deliberately built no way in to it. This is the way in:
+one page, one form, on the signup host. A visitor types their company name,
+watches the address they will be given appear, edits it if they want it
+different, and submits.
+
+**It is a landing page and not a marketing site**, and that was weighed before it
+was built rather than discovered while building it. The two have nothing in common
+except this form: different authors, different release cadence, different risk
+appetite, different reviewers. A marketing site in this repository would put a
+copy edit through a suite that provisions PostgreSQL databases, and would put an
+ERP release behind somebody's rewrite of a features page. So the scope is a
+landing page, no pricing, no feature grid and no content model — and **the day a
+real marketing site is wanted, this section reopens**. The answer then is not to
+grow this page: it is a site of its own posting to the published contract, which
+is exactly what §8.12 made the contract public *for* and what the "endpoint only"
+state below exists to serve.
+
+#### Three states, two switches, and one `and`
+
+The page and the endpoint are wanted independently:
+
+- **page and endpoint** — the default when signup is on, and what the company
+  selling this runs.
+- **endpoint only** — somebody has built their own front end. The built-in page
+  would be a second front door onto the same intake, worse than theirs and
+  confusing to find.
+- **neither** — a single company self-hosting, for whom an open endpoint that
+  records signups is a liability rather than a feature. **This is the shipped
+  default**: `.env` leaves `SIGNUP_HOST` empty.
+
+`SIGNUP_HOST` is §8.12's and says whether there is an intake and where.
+`SIGNUP_PAGE` is this one and says whether we also draw the form. They are
+combined in one place, `SignupPage::isEnabled()`, and the combination is an `and`
+— so the fourth state, a page with no intake behind it, is **not expressible**
+rather than refused by a check. That is worth being deliberate about because it is
+the combination that would fail worst: a form that renders, accepts a company
+name and then cannot post anywhere looks like it works to everybody except the
+person filling it in.
+
+A boolean here where §8.12 refused one for the endpoint, and the asymmetry is not
+an inconsistency. That variable had a second job — it has to say *where* — so a
+flag beside it would have been two facts that can disagree, and the disagreement
+everybody eventually has is "enabled, but nobody said where". This one has no
+second job, because where the page is served is already decided.
+
+#### The page shares the endpoint's hostname
+
+§8.12 argues at length that the *endpoint* must not be served on the control-plane
+host, because a hostname configured into a third party's site ends up in somebody
+else's repository and the operator console's should not. That argument is about
+secrecy and the page has none to lose: it is anonymous, public and meant to be
+linked to.
+
+What decides it is the confirmation link. It lands on `SIGNUP_HOST/signup/confirm/…`
+because only this side can answer it — the token is a row in the control-plane
+database — and a visitor who filled in a form at one name and is asked to confirm
+at another has been handed the exact shape of a phishing mail. One name, from the
+form to the mailbox and back. A second hostname would also be a second variable, a
+second DNS record and a second certificate for a page whose entire job is to post
+to the first one.
+
+#### It goes through the front door, and the front door is what the test proves
+
+The page could call `SignupIntake` directly; it is in the same process. It does
+not, and there are two reasons that outlive the convenience.
+
+**The secret is the design.** §8.12 recommends a server-side post carrying
+`X-Xivi-Signup-Key` because the alternative puts the credential in the page's
+source and forces a CORS origin list onto an anonymous endpoint. This page is the
+*reference* implementation of that integration; one that reached past the contract
+would be recommending one thing and doing another, and the first person to copy it
+would copy the wrong half.
+
+**The contract has to be exercised by something the company itself runs**, or its
+shape, its header name, its status codes and its error vocabulary are proven only
+by a test. Going through the front door means we are broken by the same change
+that breaks a customer's integration, in our own staging, first.
+
+**The request is real; the socket is not.** `SignupClient` builds a genuine
+`Request` — POST, `application/json`, the documented body, the secret in the
+documented header — and hands it to the kernel as a sub-request. It is routed by
+the router to the real controller, parsed by the real `SignupSubmission`, checked
+against the real secret, charged to the real rate limiter and written to the real
+database, and the response is parsed back out of JSON exactly as a third party
+would parse it. What that proves is the whole published contract. What it does not
+prove is DNS, TLS and whatever proxy sits in front, and saying so is part of the
+claim rather than a caveat on it.
+
+A real socket was the alternative and lost on two grounds. FrankenPHP runs in
+classic mode (§9.2), so a request occupies a worker: a page that opens a
+connection back to its own server holds one worker while waiting for a second, and
+with *n* workers, *n* simultaneous submissions deadlock the instance on precisely
+the busiest day. And the container would have to resolve and trust its own public
+name, which behind a terminating load balancer or split-horizon DNS it frequently
+cannot — a landing page that works everywhere except production.
+
+#### What the page gives away, said out loud
+
+A live name check **is** an availability oracle offered to anonymous visitors.
+§8.12 names this and asks a deployment that proxies the check to say so to itself;
+this is that deployment saying so. `available: false` is one bit and a script can
+walk it. What is left in front of that bit is the per-visitor `signup_slug_check`
+bucket, which bounds a walker rather than preventing one, and the fact that
+"unavailable" is one word for three situations — so a walker cannot tell a
+customer from a reserved word. That is the price of showing somebody their address
+before they commit to it, which is the whole point of the ticket. A deployment
+unwilling to pay it switches the page off and keeps the endpoint.
+
+The visitor's own address is forwarded to the intake so the limiter counts per
+visitor rather than per installation; without it the client bucket would be a
+single counter for the internet, either large enough to bound nothing or small
+enough to be an outage.
+
+**No CSRF token**, which is a decision. CSRF protection stops a third-party page
+spending a credential the browser holds, and there is none here: the signup host
+has `security: false`, nothing on the page is authenticated, and a forged
+cross-site post achieves exactly what the forger could achieve by posting from
+their own server. The one thing a forgery buys is that the victim's address lands
+in the client bucket instead of the attacker's — a rate-limiting nuisance, not a
+boundary — and paying for it would mean starting a session for every anonymous
+visitor to the one host in this system that has none.
+
+#### Not a Live Component, and the reason is structural
+
+XIV-33 adopted Symfony UX Live Components and this page is exactly their shape, so
+the departure needs an argument. A live component answers at
+`/_components/{name}/{action}`, a route the bundle registers once for every host
+this installation serves, and the component is resolved from that route's
+parameter rather than from any route of its own. A `SignupForm` component would
+therefore keep answering after `SIGNUP_PAGE` had switched the page off, and on
+every tenant's hostname besides — a page that is "off" while its actions still
+run, which is the hidden-page failure §8.12 wrote a route loader to avoid. Nothing
+in the bundle's configuration can say otherwise, because the route that reaches it
+is not this feature's to bind.
+
+So the page is a plain controller whose routes the loader owns, and the live half
+is sixty lines of Stimulus posting to one of them. Server-rendered stays true: the
+script sets text into three elements and toggles two classes, and there is
+deliberately no transliteration in it — a copy of the derivation rule in the
+browser is XIV-100 again, one layer further out and worse, because the customer
+would be reading our answer while the server recorded its own.
+
+#### The defect this found in §8.12, which was live
+
+`SignupRouteLoader` keeps its promise about the collection it returns and
+`SignupRouteLoaderTest` proves it about that collection. It was not true of the
+routing table.
+
+Symfony autoconfigures **every class carrying a `#[Route]` attribute** with
+`routing.controller`, and `config/routes.yaml`'s `resource: routing.controllers`
+loads all of them. The signup controllers carry `#[Route]` attributes, so they
+were loaded twice: once by this feature's loader with the host and `https` stamped
+on, and once by the framework's with neither. Route names are unique in a
+collection, so the survivor was whichever loaded last — which happened to be the
+loader's, purely because `signup:` sat below `controllers:` in a YAML file.
+
+With `SIGNUP_HOST` empty — the shipped default, the state a self-hosting company
+relies on — `debug:router` still listed every signup route, on every hostname,
+over plain HTTP. Only `SignupApiKey` failing closed on an unset secret kept that
+from being an open intake, which is a defence in depth doing the entire job alone.
+And moving two keys in `config/routes.yaml` silently unbound the host of the whole
+feature; that is how it was found.
+
+`SignupRoutesComeOnlyFromTheLoaderPass` takes those classes out of the framework's
+loader, so the loader is the only thing in the process that can register a signup
+route. The assertion that would have caught it is in `SignupPageTest` and is made
+against the **router** rather than the loader: every route named `signup_*` in the
+compiled table carries the configured host and `https`, and the set of them is
+exactly what the loader returns.
+
+#### How a content-only change gets through the changelog gate
+
+`bin/ci` requires every branch to add a `CHANGELOG.md` entry, which is right for
+anything a reader has to act on and absurd for a comma moved on a signup form. The
+entry would say nothing, which is how a changelog becomes noise; and the
+alternative is `--no-changelog`, typed routinely, until it is typed on the branch
+that did need one. **A gate people skip out of habit stops being a gate, and it
+stops being one quietly.**
+
+So the rule is stated mechanically instead. The landing page's copy lives in a
+catalogue of its own, `translations/landing.*.yaml`, rather than as keys in
+`messages` — and `bin/ci` exempts a branch whose **entire** diff is that catalogue
+and the page template. It is narrow in two deliberate ways: the exemption is per
+branch rather than per file, so one line of PHP anywhere and the gate applies
+exactly as before; and what counts as content is a short explicit list rather than
+a rule like "anything under `translations/`", because the application's own
+catalogue is product text — renaming *Invoice* is a change a customer sees.
+
+Giving the page its own translation domain was worth doing for that reason alone.
+It is also the right shape independently: the person who edits marketing copy
+should not be editing the file that names the engine's fields.
 
 ---
 

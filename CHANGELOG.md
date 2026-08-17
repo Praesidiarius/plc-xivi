@@ -68,6 +68,22 @@ lands in `Unreleased` here.
 
 ## [Unreleased]
 
+- **A landing page with a signup form, on the signup host** ([XIV-65]). A visitor
+  types their company name, watches the address they will get appear, edits it if
+  they want it different, and submits. The page posts server-side to
+  [XIV-64]'s published contract holding the shared secret, so nothing about the
+  credential reaches the browser and no CORS is involved (§8.13).
+- **Act on this if you self-host: signup is off by default and now really is
+  off** ([XIV-65]). `SIGNUP_PAGE` is the second switch — page and endpoint,
+  endpoint only, or neither — and an empty `SIGNUP_HOST` still means neither,
+  whatever it says. See the *Fixed* entry below for the half of that which was
+  not previously true.
+- **Act on this if a page's wording is all you changed** ([XIV-65]): `bin/ci` no
+  longer asks for a changelog entry when a branch touches nothing but
+  `translations/landing.*.yaml` and the landing page template. Anything else on
+  the branch and the gate applies exactly as before. `--no-changelog` typed out of
+  habit was the alternative, and a gate people skip stops being one (§8.13).
+
 - **The production image build no longer re-downloads every dependency**
   ([XIV-99]). It kept a `--no-cache` inherited from the Symfony Docker recipe, so
   each build fetched every package from GitHub — which made the build fail
@@ -107,6 +123,24 @@ lands in `Unreleased` here.
 
 ### Fixed
 
+- **Switching signup off did not remove its routes** ([XIV-65], fixing [XIV-64]).
+  Symfony registers every class carrying a `#[Route]` attribute through
+  `routing.controllers`, so the three signup controllers were being loaded a
+  second time **without a host and without `https`** — and with `SIGNUP_HOST`
+  empty, which is the shipped default, `debug:router` still listed every signup
+  route, on every hostname this installation serves. Only the shared secret
+  failing closed on an unset value kept that from being an open intake. The
+  controllers are taken out of the framework's loader now, so "off means no
+  route" is a property of the routing table rather than of the order of two keys
+  in `config/routes.yaml` (§8.13).
+- **The address shown before submitting is the address you get** ([XIV-100]).
+  `POST /api/signup/v1/slug` derived `muller-bau-ag` from *Müller Bau AG* while
+  `POST /api/signup/v1/requests` created `mueller-bau-ag`, so the availability
+  answer was about a name nobody would ever be given. The derivation no longer
+  reads the request's `locale` — that field chooses the language of the
+  confirmation mail, and a permanent hostname is not something a reading language
+  gets to decide. Transliteration is pinned to the German rules, so `ü` is `ue`
+  (§8.12).
 - **`doctrine:schema:validate --em=control` is green again** ([XIV-97]), for the
   first time since the second migration was written. It had reported the schema
   out of sync every day for months and the whole difference was three columns
@@ -480,6 +514,7 @@ lands in `Unreleased` here.
 [XIV-59]: https://xivi.youtrack.cloud/issue/XIV-59
 [XIV-60]: https://xivi.youtrack.cloud/issue/XIV-60
 [XIV-64]: https://xivi.youtrack.cloud/issue/XIV-64
+[XIV-65]: https://xivi.youtrack.cloud/issue/XIV-65
 [XIV-68]: https://xivi.youtrack.cloud/issue/XIV-68
 [XIV-80]: https://xivi.youtrack.cloud/issue/XIV-80
 [XIV-81]: https://xivi.youtrack.cloud/issue/XIV-81
@@ -493,6 +528,7 @@ lands in `Unreleased` here.
 [XIV-97]: https://xivi.youtrack.cloud/issue/XIV-97
 [XIV-98]: https://xivi.youtrack.cloud/issue/XIV-98
 [XIV-99]: https://xivi.youtrack.cloud/issue/XIV-99
+[XIV-100]: https://xivi.youtrack.cloud/issue/XIV-100
 
 ## Releases
 

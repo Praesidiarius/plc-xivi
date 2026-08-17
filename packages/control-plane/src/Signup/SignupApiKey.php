@@ -96,6 +96,40 @@ final readonly class SignupApiKey
         }
     }
 
+    /**
+     * Puts the secret on a request this installation is about to make (XIV-65).
+     *
+     * **The other half of `assertPresented()`, and it lives here so that the
+     * secret has exactly one reader.** [XIV-65]'s landing page is a caller of the
+     * intake like any other — it holds the credential and posts server-side, which
+     * is the integration this class was designed for — so something had to be able
+     * to *send* the value. The alternative was to autowire
+     * `%env(XIVI_SIGNUP_SECRET)%` a second time, into the client. That would have
+     * been two classes holding a secret in a private property, two places to grep
+     * when it is rotated, and two places for one of them to start logging it. One
+     * class, two verbs.
+     *
+     * It is a `Request` rather than an array of headers because the caller is
+     * building a request object anyway ({@see SignupClient}) — and because handing
+     * back the string, however briefly, is the shape that ends up interpolated
+     * into a log line by somebody debugging.
+     *
+     * Silent when nothing is configured, which is not a failure to fail closed:
+     * the endpoint refuses an absent header, so a page built with no secret gets
+     * `unauthorized` from the intake and says so. The loud version of that refusal
+     * is in {@see \Xivi\ControlPlane\Routing\SignupRouteLoader}, which will not
+     * build a routing table at all for a host with no secret, so this situation
+     * does not arise in a deployment that started.
+     */
+    public function presentOn(Request $request): void
+    {
+        if (!$this->isConfigured()) {
+            return;
+        }
+
+        $request->headers->set(self::HEADER, $this->secret);
+    }
+
     /** Whether a secret has been configured at all; see the class docblock for why this fails closed. */
     public function isConfigured(): bool
     {

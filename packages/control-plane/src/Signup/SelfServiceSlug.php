@@ -145,6 +145,15 @@ final readonly class SelfServiceSlug
     }
 
     /**
+     * The transliteration rule every derived name goes through, chosen once
+     * (XIV-100).
+     *
+     * Read the `derive()` docblock before changing this. The short version is
+     * that it is **not** the visitor's reading language, on purpose.
+     */
+    public const string TRANSLITERATION_LOCALE = 'de';
+
+    /**
      * The name a company gets by default, derived from what they call
      * themselves.
      *
@@ -155,19 +164,65 @@ final readonly class SelfServiceSlug
      * out is a customer being told their suggested name is invalid the moment
      * they submit it.
      *
-     * Transliteration is locale-aware, which is not a detail here: `Bäckerei` is
-     * `baeckerei` to a German reader and `backerei` to Symfony's default rules,
-     * and the German answer is the one a German company expects to see. The
-     * caller passes the language the visitor is reading the form in.
+     * ### The rule does not vary with the request, and that is XIV-100's fix
+     *
+     * This method used to take the locale the visitor was reading the form in and
+     * hand it to `AsciiSlugger`, which is what the component's locale argument is
+     * for: `Müller` is `mueller` under `de` and `muller` under everything else.
+     * It was reported as a bug and it was one, though not quite the one it looked
+     * like. There was already only one derivation and both endpoints already
+     * called it; what differed was the *argument*. `locale` is an **optional**
+     * field on both requests, its documented job is to choose the language of the
+     * confirmation mail, and nothing anywhere obliged a caller to send the same
+     * value to `POST /api/signup/v1/slug` and to `POST /api/signup/v1/requests`.
+     * So the preview said `muller-bau-ag`, the submission created
+     * `mueller-bau-ag`, and the availability answer — the one that decides whether
+     * a name is free — had been computed about a name nobody would ever get.
+     *
+     * Passing the locale more carefully does not fix that. Two requests are two
+     * requests, the field is optional in both, and any rule that reads it can be
+     * made to disagree with itself by a caller that forgets it once. So the
+     * request stops deciding:
+     *
+     *   * **`locale` still chooses the confirmation mail's language.** That is a
+     *     property of the *reader*, it is right that it varies per request, and
+     *     nothing about it is permanent.
+     *   * **The slug is a hostname.** It is permanent — §8.12 calls it forever —
+     *     and it belongs to the *company*, not to whichever language somebody
+     *     happened to have the form open in. A company called `Müller Bau AG`
+     *     writes itself `Mueller` when it has to be ASCII, on Monday in German and
+     *     on Tuesday in English. Letting a UI toggle decide a permanent address is
+     *     the coupling, and removing the parameter is what makes the coupling
+     *     impossible rather than merely discouraged.
+     *
+     * ### Why `de` is the rule that was chosen
+     *
+     * {@see TRANSLITERATION_LOCALE} is `de`, which expands `ä ö ü ß` to
+     * `ae oe ue ss` instead of stripping the diaeresis. This product is sold into
+     * a German-speaking market, and that expansion is what those companies write
+     * themselves the moment ASCII is required — in their own domain names, in
+     * their own email addresses. The default rules give `muller`, which is what a
+     * library does when nobody has told it anything, and it is a name the customer
+     * does not recognise as theirs.
+     *
+     * Every other language keeps everything it had: the locale maps only *add*
+     * expansions on top of the generic ASCII transliteration, so `é` is still `e`,
+     * `ø` is still `o` and `œ` is still `oe` under `de` exactly as under `en`. The
+     * cost of pinning is confined to the handful of languages with an expansion of
+     * their own that differs from German's — a Swedish `Å` is `a` here rather than
+     * `aa`. That is the price of one permanent answer per company name, it is
+     * small, and a deployment selling into a market where it is the wrong trade
+     * changes this constant, which is a decision about the installation rather
+     * than about a request.
      *
      * Returns an empty string when nothing usable is left — a company name made
      * entirely of characters that do not transliterate. That is a refusal
      * (`invalid_slug`) rather than an invented name, because a suggestion nobody
      * recognises is worse than being asked to type one.
      */
-    public function derive(string $companyName, string $locale = 'en'): string
+    public function derive(string $companyName): string
     {
-        $slug = new AsciiSlugger($locale)->slug($companyName, '-')->lower()->toString();
+        $slug = new AsciiSlugger(self::TRANSLITERATION_LOCALE)->slug($companyName, '-')->lower()->toString();
 
         // The slugger has already done the transliteration and the separator;
         // this is the part that makes the result a *DNS label* rather than a

@@ -18,10 +18,10 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Everything the signup endpoint can say no with (XIV-64).
  *
- * **This is a published vocabulary, not an internal enum.** [XIV-65]'s landing
- * page is a *different codebase* — the whole point of that ticket is that signup
- * is an external interface rather than a form's private detail — so these
- * strings are what a caller written by somebody else branches on. They are
+ * **This is a published vocabulary, not an internal enum.** Signup is an external
+ * interface rather than a form's private detail — the landing page shipped beside
+ * it ([XIV-65]) reads these strings over HTTP like anybody else's site would — so
+ * these are what a caller written by somebody else branches on. They are
  * therefore subject to the same rule as the request and response shapes: a case
  * may be **added** within `v1`, because a caller that does not recognise it can
  * fall back to showing the message; a case may not be **removed or renamed**

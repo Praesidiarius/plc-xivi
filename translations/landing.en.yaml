@@ -1,0 +1,60 @@
+# The landing page's words (XIV-65).
+#
+# **A catalogue of its own, and that is the changelog decision made structural**
+# (docs/architecture.md §8.13). `bin/ci` requires every branch to add a CHANGELOG
+# entry, which is right for anything an ERP's readers have to act on and absurd
+# for a copy edit to a signup form — and a gate answered routinely with
+# `--no-changelog` stops being a gate. So the page's copy lives here, apart from
+# `messages`, and the gate exempts a branch whose entire diff is this file, its
+# translations and the page template. Anything else on the branch and the gate
+# applies exactly as before.
+#
+# It is also where the published error vocabulary becomes something a person can
+# act on. The endpoint answers with a code and one fixed English sentence written
+# for a developer's log (§8.12); these are the sentences a visitor reads, in their
+# own language, and each is an instruction rather than a diagnosis.
+landing:
+    title: Get your own Xivi
+    headline: Your own Xivi installation
+    subhead: Your own database, your own address, and nobody else's data in it.
+
+    form:
+        company: Company name
+        address: Your address
+        address_help: This becomes the address you sign in at. You can change it.
+        email: Email address
+        email_help: We send one message here to confirm it is yours. Nothing is created until you answer it.
+        plan: Plan
+        submit: Create my installation
+        confirmation_note: No payment details, and nothing is set up until you confirm your address.
+
+    name:
+        free: '%slug% is available.'
+
+    done:
+        sent: 'Check %email%.'
+        next: 'Confirm the address in that message and we will set up %slug% for you.'
+        expiry: 'The link stops working after %hours% hours. Filling this in again sends a new one.'
+
+    # One key per case of Xivi\ControlPlane\Signup\SignupError, and the controller
+    # matches over the enum with no default — so a case added to the vocabulary
+    # fails the build here rather than showing somebody a blank line.
+    error:
+        # Deliberately does not say *why*. The endpoint answers one word for
+        # "a customer has it", "a confirmed signup is holding it" and "the
+        # platform keeps it", because whatever it distinguishes, a caller can
+        # enumerate — and a page that guessed would undo that from the outside.
+        slug_taken: That address is taken. Try another one.
+        address_already_registered: >-
+            This email address already has an installation on the way. Check your inbox for the
+            confirmation, or write to us if it never arrived.
+        rate_limited: 'Too many attempts from here. Try again in about %minutes% minutes.'
+        invalid_email: That does not look like an email address.
+        invalid_slug: An address can only use lowercase letters, digits and hyphens.
+        unknown_plan: That plan is not one we offer.
+        mail_failed: We could not send the confirmation message just now. Please try again.
+        # Two the visitor did not cause and cannot act on — a misconfigured page,
+        # or a request the endpoint did not recognise. One honest sentence, and
+        # pointedly not an explanation of a credential a stranger has never heard
+        # of.
+        unavailable: Something went wrong at our end. Please try again in a moment.
