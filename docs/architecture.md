@@ -958,6 +958,77 @@ about a file is not the same as their agreeing about what to draw.**
 the PDF for exactly that case, and the page says so rather than showing a stack
 trace.
 
+**A placeholder nothing will fill is now said out loud** (XIV-25). An order
+template printed `[contacŧ]` into a finished document instead of the customer's
+name — the last character being U+0167, `t` with a stroke, which is AltGr and the
+key beside `t` on a Swiss layout and at body-text size is indistinguishable from
+the letter it is not. Nothing is called that, so the generator left the words
+alone. **That behaviour is right and the silence was not.** Blanking an unknown
+marker would swallow the mistake, and the rule above already fills every marker
+the engine *knows* with the empty string precisely so that nothing prints its own
+brackets by accident. What was missing is that nobody was told: a bracket in a
+finished PDF has two readings — "the engine failed to replace it" and "you typed
+something else" — which look identical on the page, and the first is where
+everybody starts.
+
+**It is a comparison, and both halves already existed.** `TemplateTokens` reads
+the `[tokens]` out of the .docx and `DocumentMarkers::keysFor()` says what this
+module's vocabulary is — its fields across every variant, the general markers,
+and the collection markers including the per-kind forms (§5.11). What the second
+does not answer, the first reports. The scan was **extracted rather than
+written**: `RepeatingBlocks` was already stripping the markup and reading
+brackets out of the resulting text, because Word cuts a placeholder somebody
+typed in one go across several runs, and a third private copy of that trick is
+how three scanners come to disagree about what a marker is — with the
+disagreement surfacing as a report that calls a good template broken, or misses
+the one that is. The extraction moved where the `strip_tags` lives and changed
+nothing the generator decides.
+
+**It reports and it does not refuse.** Square brackets in a letter are legal
+prose, a customer may be half-way through writing a template, and a token nobody
+recognises may well be one somebody meant. So the upload is accepted and a second
+sentence appears beside it, and **the wording says what will happen to the text
+rather than what is wrong with it**: "`[contacŧ]` will be printed just as it is —
+there is no placeholder by that name."
+
+**Said beside the template, not only at upload.** The check runs for every
+template each time the templates page is drawn, which is what covers the case
+upload-time checking cannot: a template written against `[vat_number]` goes stale
+the afternoon somebody removes that field, nothing about the file changed, and
+the one moment a check on upload would have caught it is long past. The cost is
+one unzip per template on a rarely-visited page holding few of them, which is
+affordable exactly because templates are small and few for the reasons given
+above. The upload also says it in a flash, so the same sentence appears twice on
+that one screen — kept on purpose, because the flash is about the upload somebody
+just made and the line on the row is about the template from then on, and a
+template sorted into the middle of a long list would otherwise say this where
+nobody has a reason to look. One translation key writes both.
+
+**The vocabulary, not the record.** A template naming no kind of record and using
+`[company_name]` is not reported, even though that marker comes out blank on a
+person. It is a real marker of the module; the reason it is empty is the record
+in front of it rather than the template. Reporting it would put the upload page
+in an argument with the reference list printed beside it, which is a worse
+wrongness than the one it would catch.
+
+**Unused markers are deliberately not reported**, and the ticket left that open.
+A template that never mentions the record it belongs to may well be a mistake,
+but "you did not use `[status]`" belongs on every upload of every template and is
+therefore noise nobody reads twice — and a reader who has learned to skip that
+line skips the unknown tokens sitting next to it. The two are not the same kind
+of fact: an unknown token has a wrong answer behind it, an unused one is a
+preference about how somebody's letter reads. If it is ever wanted it wants a
+quieter place than this one.
+
+**And no copy button on the reference list**, which the ticket also raised. It
+would help only at the moment somebody types a *new* token, and the more common
+way a template goes wrong — a field renamed under a template written months ago —
+is untouched by it; the report catches both. It would also mean an interactive
+control inside `_markers.html.twig`, which the email templates page (§5.13) draws
+from the same macro and has no upload to protect. Worth doing on its own ticket
+if hand-typed tokens turn out to be a recurring source of this, rather than as a
+reflex attached to the one that reports them.
+
 *Repeating blocks, once still to decide, are §5.11 — a template can lay out a
 contact's addresses or an invoice's lines, and a table row carrying a collection
 marker is what grows.*

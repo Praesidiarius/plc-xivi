@@ -274,6 +274,29 @@ final class RepeatingBlockTest extends WebTestCase
         self::assertStringContainsString('[taxes.rate]', $page, 'a collection with no kinds needs none');
     }
 
+    /**
+     * And a template that uses them is told nothing (XIV-25).
+     *
+     * A collection marker is a marker even though it is never substituted where
+     * the flat ones are — the row it sits in is multiplied first and the copies
+     * carry values — and the per-kind form is a marker too. A review that only
+     * knew the flat vocabulary would report every invoice template in the
+     * installation, which is the fastest way to teach somebody to ignore it.
+     */
+    public function testACollectionsMarkersAreKnownToTheReview(): void
+    {
+        $this->upload(
+            'Lines',
+            [['[lines:article.description]', '[lines:article.line_total]'], ['[lines.description]']],
+            paragraph: 'Order [number] on [today]: [gross_total], [taxes.rate].',
+        );
+
+        self::assertStringNotContainsString(
+            'printed just as',
+            $this->client->getCrawler()->filter('main')->text(),
+        );
+    }
+
     // -- helpers ------------------------------------------------------------
 
     /**

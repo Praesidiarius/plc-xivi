@@ -51,6 +51,18 @@ mail:
 field:
     remove_holding: '{count, plural, one {<strong>#</strong> record currently holds a value for it.} other {<strong>#</strong> records currently hold a value for it.}}'
 
+document:
+    # A placeholder nothing will fill in (XIV-25). Counted rather than worded
+    # around the number, because this is read once with one token in it and once
+    # with five, and "will be printed just as it is" is the sentence that makes
+    # the point — the reader has to picture the bracket in the finished letter.
+    #
+    # It says what will *happen* and never that anything is wrong: the template
+    # is accepted, square brackets are legal prose, and an unknown token may well
+    # be one somebody meant. The tokens lead, because they are what somebody has
+    # to go and find in Word.
+    unknown_placeholders: '{count, plural, one {{placeholders} will be printed just as it is — there is no placeholder by that name.} other {{placeholders} will be printed just as they are — there are no placeholders by those names.}}'
+
 import:
     written: '{added, plural, one {# added} other {# added}}, {updated, plural, one {# updated} other {# updated}}'
     rows_written: '{count, plural, one {# written} other {# written}}'

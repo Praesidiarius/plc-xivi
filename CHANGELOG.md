@@ -122,6 +122,15 @@ lands in `Unreleased` here.
   `tenant:module:install` has `--no-follow-ups`. Unlike the preset, this one is
   **not permanent**: it can be turned on or off at any time afterwards, and
   switching it off deletes nothing.
+- **A document template says which of its placeholders nothing will fill in**
+  ([XIV-25]). Uploading one now names every `[token]` in it that no marker
+  answers — and so does the templates page for the ones already there, so a
+  template that has gone stale because a field was renamed shows up without
+  anybody re-uploading it. The template is still accepted either way: brackets
+  in a letter are legal, and the wording says what will happen to the text
+  ("`[contacŧ]` will be printed just as it is") rather than calling it an error.
+  See §5.7 for why unknown markers print themselves and why unused ones are
+  deliberately not reported.
 
 ### Changed
 
@@ -178,6 +187,7 @@ lands in `Unreleased` here.
   Brazil and Russia among them. The company profile names which zone is in force
   beside the empty option, so the page says what it is doing.
 
+[XIV-25]: https://xivi.youtrack.cloud/issue/XIV-25
 [XIV-80]: https://xivi.youtrack.cloud/issue/XIV-80
 [XIV-81]: https://xivi.youtrack.cloud/issue/XIV-81
 [XIV-82]: https://xivi.youtrack.cloud/issue/XIV-82

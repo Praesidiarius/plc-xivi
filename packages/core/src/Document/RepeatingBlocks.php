@@ -54,7 +54,7 @@ use Xivi\Core\Record\RecordRepository;
 final readonly class RepeatingBlocks
 {
     /** `[lines.description]`, or `[lines:article.description]`. */
-    private const string MARKER = '/\[([a-z0-9_]+)(?::([a-z0-9_]+))?\.([a-z0-9_]+)\]/i';
+    private const string MARKER = '/^\[([a-z0-9_]+)(?::([a-z0-9_]+))?\.([a-z0-9_]+)\]$/i';
 
     /** The parts a table can live in. A letterhead is mostly header, and may hold one. */
     private const string PARTS = '#^word/(document|header\d*|footer\d*)\.xml$#';
@@ -234,22 +234,27 @@ final readonly class RepeatingBlocks
      * thing anybody means, and picking the first is a decision rather than an
      * error message about a Word document.
      *
+     * The tokens come from {@see TemplateTokens} rather than from a scan of our
+     * own (XIV-25). That extraction changed where the `strip_tags` lives and
+     * nothing else: this still asks the same question of the same text, and the
+     * marker grammar below — which is the part that decides anything — is the
+     * one that was always here, now anchored because it is applied to one token
+     * at a time instead of to a whole row at once.
+     *
      * @return array{collection: CollectionDefinition, variant: string|null, tokens: array<string, string>}|null
      */
     private static function markersOf(string $xml, ModuleDefinition $module): ?array
     {
-        // Against the text rather than the markup, so a marker Word has split
-        // across runs still reads as one word here.
-        if (preg_match_all(self::MARKER, strip_tags($xml), $matches, \PREG_SET_ORDER) === 0) {
-            return null;
-        }
-
         $collection = null;
         $variant = null;
         $tokens = [];
 
-        foreach ($matches as $match) {
-            [$token, $name, $kind, $field] = [$match[0], $match[1], $match[2], $match[3]];
+        foreach (TemplateTokens::in($xml) as $token) {
+            if (preg_match(self::MARKER, $token, $match) !== 1) {
+                continue;
+            }
+
+            [$name, $kind, $field] = [$match[1], $match[2], $match[3]];
 
             $found = $module->getCollection($name);
 
