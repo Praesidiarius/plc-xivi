@@ -537,9 +537,10 @@ refused to choose between them until somebody had a number. This is the number.
 Measured by `tests/Measurement/CollectionCeilingTest.php`, which builds an order
 of N article lines against a catalogue of 250 articles and asks for the two pages
 that draw them. It is in no test suite: `bin/ci` should not spend four minutes
-building ten thousand order lines. **The decision the ticket also asks for is
-deliberately not recorded here** — this section is the evidence, and the choice
-belongs to whoever makes it.
+building ten thousand order lines. **This section is the evidence and nothing
+else**; the decision taken from it is the next one, and everything below was
+written before it was taken — the numbers are what they were on the day, with the
+corrections named where they landed.
 
 Per request, `APP_DEBUG=0`, memory counted at the allocator:
 
@@ -658,6 +659,83 @@ re-measures them: writing a long document is fast — 2.4 s for ten thousand lin
 with the derivers running, two per cent of what drawing the form costs — and the
 row data itself is small. The rows are not the weight; what the rows make the
 page build is.
+
+#### Four hundred rows, and the room to draw them (XIV-68)
+
+The decision the table above was taken for. **Four hundred rows is the supported
+size of a collection**, refused above that at write time, and a request is
+allowed 256M so that four hundred renders.
+
+**Why four hundred and not a number the measurement points at.** It is not a
+ceiling, it is a promise: orders and invoices are usually well under a hundred
+lines, so four hundred is ample for the documents this is for, and it is a round
+number somebody can hold in their head. What the measurement decides is not the
+cap but what has to be true underneath it — and on that it was decisive.
+
+**The cap alone was not sufficient, which is the part that is easy to miss.**
+Re-measured on the merged tree after XIV-36 took 63% off the form's bytes, same
+250-article catalogue, `APP_DEBUG=0`, per request:
+
+| rows | edit form peak |
+| ---: | ---: |
+| 100 | 35.9 MB |
+| 300 | 105.9 MB |
+| **400** | **140.3 MB** |
+| 500 | 173.1 MB |
+
+The 100 and 400 rows were taken again after the cap and the ini change landed —
+35.9 MB and 140.3 MB, both answering 200 — and 500 cannot be taken again, because
+the cap now refuses to build the fixture. That is the right way round: the tool's
+job is no longer finding the ceiling but confirming that the supported size still
+draws, so its default sizes stop at 400 and measuring past it is a deliberate act.
+
+About **0.35 MB per row on a base near 1 MB**, straight-line as everything here
+has been. Nothing in `frankenphp/conf.d` set `memory_limit`, so a request ran on
+PHP's stock **128M** — which puts the genuine ceiling at **~365 rows**. A 400-line
+order would have answered 500 at exactly the number being called supported.
+
+So `memory_limit = 256M`, in `frankenphp/conf.d/10-app.ini`, with the measurement
+named in a comment beside it. That is the whole of "make 400 work": one line and
+no product code. It puts a 400-row form at **55% of its allowance**, which is
+headroom for the per-row constant to drift as the form grows rather than a figure
+sitting just above the requirement. **Raising the cap means moving this with it**,
+at about a third of a megabyte a row.
+
+**Refused at write time, not truncated at render time.** A record page that
+quietly drew 400 of 500 lines would be a document lying about itself, and a
+document that lies is worse than a save that refuses. Three paths write rows —
+the record form, the importer (XIV-26) and anything holding `RecordWriter` — and
+they meet at `RecordWriter::save()`, so **the check is there and there is no
+fourth path to remember**. The form and the importer each ask first anyway, and
+that is not the check repeated: it is each of them turning the same refusal into
+what its reader is looking at, a message on the form and a problem against a
+sheet. The number and the sentence live once, in `Core\Record\CollectionLimit`.
+
+The message names the limit *and* the attempted count and says what to do —
+the shape XIV-35's truncation notice established, where a bound reads as a bound
+rather than as something having gone wrong.
+
+**Shape C — paginating the edit form — was declined rather than forgotten.** It
+was the right answer while the ceiling looked like 250 rows and a legitimate
+3 000-line order looked plausible. Against a 400-row cap it is a large change to
+what a partial submit means: positions are renumbered across the whole list
+(XIV-21), a collection the writer is handed is *the* contents of that collection
+and anything missing is removed, and every derived total on the record is a fact
+about all of its lines at once (§5.9). Paying for all three to serve a case that
+does not arise is the trade being refused.
+
+**The read view keeps no bound of its own**, and that is a decision rather than an
+omission. It is 18 queries flat at every measured size (XIV-54) and about 15 KB
+per row, so it survives to roughly 9 500 rows; with writes capped at 400 it is
+never within an order of magnitude of trouble, and a second limit would be a
+number somebody has to keep in step with the first for no benefit. The same
+argument retires the history render noted above: `_history.html.twig` draws every
+collection change inside each of the five shown entries, so the creation entry of
+an N-line order is N list items — alarming at 10 000 and unremarkable at 400.
+
+**Nothing is rejected retroactively.** The cap is a rule about writes. A record
+holding more than it still reads, and nothing can have produced one, because the
+genuine ceiling was below the cap until the memory limit moved.
 
 ### 5.2 History is per module, and per action
 

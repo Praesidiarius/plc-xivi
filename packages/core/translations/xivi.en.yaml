@@ -56,6 +56,12 @@ lifecycle:
     refused_final: 'This record is at "%state%" and does not move on from there.'
     refused_unknown: That is not a step this record has.
 
+# A rule about a record rather than about any one value in it (XIV-68). It names
+# the limit and what was counted, and says what to do next, because "too many
+# rows" on its own leaves somebody guessing at both numbers.
+record:
+    collection_too_long: '%collection% holds at most %limit% rows and this one has %count%, so nothing was saved. Split it across more than one record.'
+
 history:
     period:
         today: Today

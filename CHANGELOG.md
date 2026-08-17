@@ -152,6 +152,18 @@ lands in `Unreleased` here.
 
 ### Changed
 
+- **A collection now holds at most 400 rows, and says so** ([XIV-68]). An order
+  with more lines than that, a contact with more addresses, is refused when it is
+  saved rather than half-drawn or answered with a 500 — on the record form, on an
+  import and through the engine alike, with a message naming the limit and how
+  many rows arrived. 400 is the supported size of a document here; §5.1 has the
+  measurement it rests on, and why paginating the edit form was declined rather
+  than forgotten.
+- **A PHP request is now allowed 256M** ([XIV-68]), set in
+  `frankenphp/conf.d/10-app.ini`, where nothing set it before and it ran on PHP's
+  stock 128M. **Act on this if you host Xivi yourself and pin container memory**:
+  the edit form of a 400-line order needs 140 MB and would have answered 500 on
+  the old default. Nothing else in the request path changed.
 - **The picker's truncation notice now appears only where a picker can still
   truncate** ([XIV-36]). It is unchanged and still says "showing the first 200 of
   9 421" — but under the new default a picker that large is a search box with no
@@ -223,8 +235,9 @@ lands in `Unreleased` here.
 - **Act on this if you have long documents.** The edit form of an order or an
   invoice needs more memory than a PHP request is allowed somewhere around
   **250 lines**, and above that it answers 500 rather than a page. The read view
-  goes about forty times further. Neither has a limit yet — which of XIV-68's
-  three bounds to build is its remaining half, and is deliberately still open.
+  goes about forty times further. **Both halves of that are now answered** — see
+  the cap and the memory limit under *Changed* — and the read view is deliberately
+  left unbounded, because with writes capped it is never near its own ceiling.
 - **That ceiling survived the picker fix, which is the useful part of the
   finding** ([XIV-87]). Batching the candidate reads took a 500-line edit form
   from 973 queries to 13 and about a third off its render time, and moved its
@@ -240,6 +253,14 @@ lands in `Unreleased` here.
   268.9 MB to 233.6 MB (−13%), 4 186 ms to 3 032 ms**, and 13 queries to 15. The
   ceiling moves up and does not go away, because §5.1's other finding still holds:
   most of the memory is one Symfony form per row, and no widget changes that.
+
+- **And the supported size was measured again against what it now costs**
+  ([XIV-68]). A 400-line order's edit form: **140.3 MB per request, 15 queries,
+  1.74 MB of HTML, answering 200** — 55% of the 256M a request is now allowed, and
+  above the 128M it used to have. The measurement tool's default sizes stop at the
+  cap now, because the cap refuses to build a longer fixture and the question it
+  answers has changed from "where does this break" to "does the supported size
+  still draw".
 
 ### Upgrade notes
 

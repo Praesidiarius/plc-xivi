@@ -21,6 +21,7 @@ use Xivi\Core\Entity\CollectionDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Export\RecordExporter;
+use Xivi\Core\Record\CollectionLimit;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordRepository;
 use Xivi\Core\Record\RecordWriter;
@@ -314,6 +315,29 @@ final readonly class RecordImporter
 
                     $attached[$key][] = ['id' => $childRow['id'], 'data' => $childMerged];
                     ++$written[$key];
+                }
+
+                // The cap, asked here rather than left to the writer (XIV-68).
+                // The writer would refuse this too, and would do it by throwing —
+                // which is right for a caller with nobody watching and wrong for
+                // a file somebody uploaded. This is the same reason the wrong
+                // parent above is caught here: an import answers with a list of
+                // problems naming sheets, not with a stack trace.
+                //
+                // Against a sheet rather than a row, because no single row is the
+                // one that went too far — the length is a property of the sheet's
+                // rows for this parent, and pointing at row 401 would invite
+                // deleting exactly one line.
+                $size = \count($attached[$key] ?? []);
+
+                if (!CollectionLimit::allows($size)) {
+                    $problems[] = new ImportProblem(
+                        $sheet,
+                        null,
+                        CollectionLimit::MESSAGE,
+                        CollectionLimit::parameters($collection->getLabel(), $size),
+                    );
+                    $failed = true;
                 }
 
                 // A sheet that is present speaks for the whole collection, so a
