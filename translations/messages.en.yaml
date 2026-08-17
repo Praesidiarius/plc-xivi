@@ -179,6 +179,39 @@ field:
         Nothing here deletes data. Permanently removing the values is a separate
         operation and does not exist yet — see docs/architecture.md §7.2.
     remove_confirm: Remove the field
+    # The numbering page (XIV-27). Its sentences do more work than most labels
+    # here, because what a customer is deciding is a small language with quiet
+    # failure modes: the help text has to teach the syntax, and the two notices
+    # have to say the parts nobody would guess — that a pattern is not a
+    # renumbering, and that adding {year} moves to a counter of its own.
+    numbering:
+        title: Numbering
+        pattern: Pattern
+        pattern_help: >-
+            <code>{number}</code> is the counter, and <code>{number:4}</code> pads it to four
+            digits so that sorting the text sorts the documents. <code>{year}</code> is the
+            year the number is given out in — and a pattern containing it counts from one
+            again each January, because it has a counter of its own.
+        numbers_nothing: >-
+            This has no <code>{number}</code> in it, so it would number nothing and the field
+            would be left to be typed in by hand. It cannot be saved.
+        next_is: The next number will be
+        from_year: 'From the counter for %period%, which starts again each January.'
+        from_forever: From one counter, which never starts again.
+        counter_switch: >-
+            This draws from a different counter than the pattern in use now, and that counter
+            is at %at%. Nothing is renumbered — the next number is simply the next one that
+            counter gives out, which may be lower than the last one you saw.
+        counter_label: Start the counter at
+        counter_help: 'Leave this empty to carry on from %at%. Set it if you are moving from another system and your next number has to be one it already reached.'
+        counter_back: >-
+            The counter is at %at%, so a lower number would be given out a second time. This
+            will be refused — a duplicate number on a document is not something that can be
+            corrected afterwards.
+        nothing_renumbered: >-
+            Numbers already given out never change. This decides what the next one looks like
+            and where it comes from, and nothing at all about the documents anybody is
+            already holding.
 
 import:
     file: Spreadsheet
@@ -622,6 +655,10 @@ flash:
     field_added: 'Added "%field%".'
     field_saved: 'Saved "%field%".'
     field_removed: 'Removed "%field%". Its values are still stored.'
+    # Numbering (XIV-27). The second sentence is the one worth flashing: the
+    # first thought of anybody who has just changed a numbering pattern is what
+    # it did to the numbers already out there, and the answer is nothing.
+    numbering_saved: 'Saved the numbering for "%field%". Numbers already given out are unchanged.'
     module_installed: 'Installed "%module%". Nobody can see it until somebody is granted permission on it.'
     group_created: 'Created "%group%". Now say what it may do.'
     group_saved: 'Saved "%group%".'

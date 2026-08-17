@@ -82,6 +82,28 @@ lands in `Unreleased` here.
   is scoped by hostname and not by permission, and nothing else on the profile
   comes out of it. Changing the logo needs the same *edit* grant as changing the
   company name. See §8.6 for the argument and the cache design.
+- **Your order and invoice numbers are yours to shape** ([XIV-27]). A numbered
+  field now has a *Numbering* page in the module's field editor, where the
+  pattern — `ORD-{year}-{number:4}` — can be changed to your own prefix, your own
+  width and your own answer to whether it restarts each year. **The page shows
+  the next number as you type it**, so a width too narrow to sort correctly is
+  visible before it is saved rather than at the hundredth document, and a pattern
+  with no `{number}` in it is refused with a reason instead of quietly numbering
+  nothing. Nothing already given out is renumbered, ever (§5.10).
+- **The counter can be set to where your old system left off** ([XIV-27]). If
+  your next invoice has to be 1043, type 1043. **A value at or below a number
+  already given out is refused** — a duplicate number on a document is not
+  something an apology fixes — and the refusal is in the database statement that
+  moves the counter, so it holds for anything that ever writes one.
+- **Adding or removing `{year}` moves to a different counter, and the page says
+  so before you save** ([XIV-27]). That counter has its own starting point, so
+  the next document can be `ORD-2026-0001` after `ORD-0087`. Defensible,
+  surprising, and now impossible to meet by accident.
+- **Turning numbering on for a field that has none is not part of this**
+  ([XIV-27]) — the page appears on fields that are numbered already. What should
+  happen to records that already exist, and to values somebody typed by hand, is
+  a decision about your data rather than about a form; §5.10 gives the reasoning
+  and [XIV-91] holds the question.
 
 - **Type to find a record instead of scrolling for one** ([XIV-36]). A reference
   picker with more than about twenty candidates becomes a search box that queries
@@ -300,6 +322,7 @@ lands in `Unreleased` here.
   beside the empty option, so the page says what it is doing.
 
 [XIV-25]: https://xivi.youtrack.cloud/issue/XIV-25
+[XIV-27]: https://xivi.youtrack.cloud/issue/XIV-27
 [XIV-36]: https://xivi.youtrack.cloud/issue/XIV-36
 [XIV-49]: https://xivi.youtrack.cloud/issue/XIV-49
 [XIV-54]: https://xivi.youtrack.cloud/issue/XIV-54
@@ -312,6 +335,7 @@ lands in `Unreleased` here.
 [XIV-85]: https://xivi.youtrack.cloud/issue/XIV-85
 [XIV-87]: https://xivi.youtrack.cloud/issue/XIV-87
 [XIV-89]: https://xivi.youtrack.cloud/issue/XIV-89
+[XIV-91]: https://xivi.youtrack.cloud/issue/XIV-91
 
 ## Releases
 

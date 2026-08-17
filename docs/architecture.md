@@ -1039,20 +1039,41 @@ drew, and a setting it means to *empty* it names as null — the difference betw
 "not mentioned" and "mentioned as nothing" is what lets a form both leave alone
 what it does not know and still clear the boxes it does.
 
-That is a patch over the real shape, which is that a **type** should say which of
-its options are the customer's to set — the same way it already owns its
-validation, its storage and its widget. Then the editor could draw the right
-controls per type instead of three fixed ones, and a numbering pattern would be
-editable by the person whose numbers they are.
+That was a patch over the real shape, which is that a **type** says which of its
+options are the customer's to set — the same way it already owns its validation,
+its storage and its widget — so the editor can draw the right controls per type
+instead of three fixed ones.
 
-**The first step in that direction is taken** (XIV-36). Autocomplete is a setting
-that clearly belongs to the customer and means nothing on most types, so the
-editor draws its control only for the types that declare they have it, and names
-it in the save only for those — a `text` field's save therefore cannot clear a
-setting it never had. It is deliberately one option and an `instanceof` rather
-than the general declaration above: generalising an interface from a single
-example is guessing at XIV-27's shape with one example's worth of evidence. What
-XIV-27 has to do is replace that check with a declared list, not invent the idea.
+**That shape now exists** (XIV-36, then XIV-27). Autocomplete came first, as one
+option behind one `instanceof`, and said in as many words that generalising an
+interface from a single example would be guessing. Numbering was the second, and
+two is the number at which the general form can be written from evidence: the
+editor holds **one declared list of option to capability interface** —
+`autocomplete` to `Autocompletes`, `sequence` to `Numbers` — and resolves it once
+against the registry. A third option is a marker interface, a line in that list
+and a control in the template, rather than another branch through the controller.
+
+What stays per option, deliberately, is *drawing* it. A select of three fixed
+answers and a numbering pattern with a live preview and a counter beside it have
+nothing in common except the question "may this type have one"; generalising the
+control as well would mean inventing a widget-description language to save two
+`{% if %}`s, which is the speculative generalisation §1 warns about wearing a
+different hat.
+
+The rest of the rule is unchanged and is what makes the list safe: a control the
+editor draws is **named on every save, cleared when blank**, and a type that does
+not offer it is not named at all — so a `text` field's save says nothing about
+autocomplete and could not clear one even if something had put it there. A
+setting a form does not mention is one it can neither wipe nor invent.
+
+**Numbering is the one that does not fit in the table** (XIV-27). Its control is a
+page of its own, because what a customer is deciding there is a pattern, the
+number that pattern will produce and the counter it will come out of — and the
+last two have to be shown *as it is typed*, before anything is saved. §5.10 has
+the argument, including why the pattern syntax stayed a template rather than
+becoming an expression language, and why turning numbering on for a field that
+has none is a separate question about records rather than a control this page
+quietly grew.
 
 **A field can say it names the record.** Something has to decide what a record is
 *called* — the heading on its page today, and whatever names it in a link or a
@@ -1535,7 +1556,7 @@ payment terms that change must not restate a deadline somebody was already given
 
 ---
 
-### 5.10 Document numbers (XIV-15)
+### 5.10 Document numbers (XIV-15, XIV-27)
 
 A field may be numbered from a sequence: `ORD-2026-0001`, `INV-2026-0001`. Two
 things can go wrong with a document number and both are fatal — one that changes
@@ -1546,10 +1567,11 @@ one — so the mechanism is small and the decisions are written down.
 special about it is *who fills it in*, which is a fact about the field rather
 than about the kind of value. So `NumberFormat::from('ORD-{year}-{number:4}')`
 spreads into any text field's options, the way inherited values do (§5.1), so it
-is per customer and changeable without a deployment.
-*Not changeable by the customer themselves yet* — the editor's form draws three
-settings and this is not one of them (XIV-27). The mechanism is theirs; the
-control is missing.
+is per customer and changeable without a deployment — **and, since XIV-27,
+changeable by the customer**, on a page of their own in the metadata editor. For
+two releases this section claimed that and it was false: the mechanism was
+theirs, the control was missing, and every Xivi customer's orders were called
+`ORD-` whether they sold orders or Aufträge.
 
 **One pattern instead of three settings.** Prefix, padding and "resets each year"
 were never independent: a year in the number that did not reset would look absurd
@@ -1586,6 +1608,98 @@ at, which is exactly what somebody asking about it wants.
 **The year is the year the number is allocated in**, never a date on the record.
 Otherwise backdating an order to December reaches into last year's numbering,
 which is a book that is closed.
+
+#### The customer's own numbering (XIV-27)
+
+**A page, not a cell in the field table, and it shows the number it will
+produce.** `ORD-{year}-{number:4}` is a small language and every one of its
+failure modes is quiet: a pattern with no `{number}` numbers nothing — the field
+simply goes on being an ordinary text field — and a width too narrow stops
+sorting correctly once the counter passes it, on a list somebody reads every day.
+None of that can be explained by validating a text box on submit. What answers all
+of it is rendering the next number *from the pattern as typed*, which turns a
+syntax somebody has to learn into something they watch working. That is the whole
+justification for a Live Component (§8.3) here rather than another column beside
+the width and the search-box setting.
+
+**The syntax stays a template, and that decision is now load-bearing.** Symfony's
+ExpressionLanguage was proposed for it and rejected; the argument in full is on
+XIV-27 and the short version is that `NumberFormat` reads the pattern **without
+running it** — `{number}` decides whether the field is numbered at all, `{year}`
+decides *which counter* the number comes from — and this page turns both into
+promises kept before anything is saved. An evaluator can only answer by
+evaluating, and `'ORD-' ~ (annual ? year : '')` has no static answer at all: an
+expression language is precisely the tool that makes static derivation
+impossible, and static derivation is what the numbering rests on. It would also
+have inverted the ergonomics — the pattern is 95% literal text with two holes in
+it — and answered none of the things this ticket was actually about.
+
+**Refused rather than silently inert.** A pattern with no counter in it means one
+thing to a blueprint and another to a form. To a blueprint it means "this field
+is not numbered", which is right and should stay silent. To somebody who has just
+typed it into the editor it would be silence in place of an answer, and they
+would find out at their first blank invoice — so `MetadataEditor` refuses it,
+**on the write path** rather than in the controller, which is where an import or
+a console command meets the same rule.
+
+**Which counter the next number comes from is said out loud, before saving.**
+This is the part nobody guesses. Switching from `ORD-{number:4}` to
+`ORD-{year}-{number:4}` does not reset anything: it starts drawing from a
+different counter, one that has always existed and has never been used, so the
+next order is `ORD-2026-0001` after `ORD-0087`. Defensible, surprising, and
+therefore a sentence on the page rather than a footnote in a changelog. Nothing
+is renumbered by any of this, and the page says that too — the numbers already
+given out are on documents customers are holding, and the metadata editor cannot
+reach them.
+
+**The counter's next value is settable, and that is the one control here that can
+produce a duplicate.** It earns its place because without it numbering can only
+be adopted by a business on its first day of trading: somebody migrating from
+another system arrives mid-sequence and their next invoice has to be 1043. So it
+exists, and **it only moves forward**. The guard is one statement —
+`ON CONFLICT DO UPDATE ... WHERE next_value <= :next` — for the same reason
+allocation is: reading the counter in PHP and writing it back is the
+read-then-write race this whole feature was designed around, and it would lose in
+the way that matters, by consuming a number between the check and the write. No
+rows come back when the condition fails, which is how the caller learns it was
+refused. The page warns before the refusal happens; the refusal does not depend
+on the page.
+
+**Which types may be numbered is declared, not asked with `instanceof`.** A
+`text` field can carry a document number and nothing else can: `ORD-2026-0001` is
+a string in every part of itself, including the leading zeros that make it sort,
+and an `integer` would store 1 and print 1. So `TextFieldType` implements
+`Numbers`, XIV-36's `Autocompletes` stays as it is, and the editor holds **one
+declared list of option to capability** — which is the shape §5.4 has been
+describing since it was written, arrived at from two examples rather than
+invented from one.
+
+**What this deliberately does not do: make an unnumbered field numbered.** The
+control appears on fields that are numbered already, and the reason is not
+squeamishness about scope — it is that turning numbering *on* is a question about
+records, not about definitions, and it has three answers this ticket could only
+have guessed at:
+
+- **The rows that have no number.** `AssignsNumbers` fills the field whenever it
+  is empty, on any save, which is what makes "assigned once and never changes"
+  work. Switch a populated field to numbered and the existing records get their
+  numbers *in the order somebody happens to edit them* — so the oldest contact
+  becomes 0001 by being opened, and a number that is supposed to record when a
+  document was made records when it was last touched instead. Fixing that means
+  choosing between a backfill (writing numbers into hundreds of records as a side
+  effect of a metadata screen) and numbering only on creation (leaving permanent
+  blanks in a field the module may use as the record's title, §5.4).
+- **The values somebody already typed.** A text field being made numbered may
+  hold hand-written references, and a counter starting at 1 knows nothing about
+  them. That is a duplicate the guard above cannot see, because the guard reads
+  the counter and the collision is in the column.
+- **The reverse is the same question.** Un-numbering a field leaves every record
+  carrying a number that nothing maintains, which is why an emptied pattern is
+  refused rather than treated as "off".
+
+Each of those is a decision about customer data, and the honest place for them is
+a ticket that is about them rather than a checkbox added to a page about
+patterns. XIV-91 holds the question.
 
 ---
 

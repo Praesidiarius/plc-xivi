@@ -110,7 +110,17 @@ import:
 module:
     requires_missing: '"%module%" needs %missing%, which is not installed here. Install that first.'
 
+# What a customer is told when the engine will not touch a counter (XIV-27).
+# Winding one back is the only way this feature can hand two documents the same
+# number, so the sentence names where the counter stands rather than only saying
+# no — being refused without being told the number that would work sends
+# somebody guessing upward one attempt at a time.
+numbering:
+    counter_back: 'This counter is at %at%, so the next number it gives out is %at%. %wanted% is at or below a number already on a record, and a counter only moves forward.'
+    counter_back_in: 'The counter for %period% is at %at%, so the next number it gives out is %at%. %wanted% is at or below a number already on a record, and a counter only moves forward.'
+
 metadata:
+    pattern_numbers_nothing: 'A numbering pattern has to say where the counter goes: it needs {number} in it, as in ORD-{year}-{number:4}. "%pattern%" would leave this field numbering nothing.'
     empty_label: 'A shape needs a label: it is what the navigation and every page heading call it.'
     bad_key: 'A field name must start with a letter and contain only lowercase letters, numbers and underscores. "%key%" does not.'
     key_taken: '"%shape%" already has a field named "%key%".'

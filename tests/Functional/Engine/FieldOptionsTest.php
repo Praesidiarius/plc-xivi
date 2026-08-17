@@ -89,6 +89,33 @@ final class FieldOptionsTest extends WebTestCase
         self::assertSame($before, $this->optionsOf(OrderModule::KEY, OrderModule::NUMBER));
     }
 
+    /**
+     * And one the *customer* typed keeps being theirs (XIV-27).
+     *
+     * The test above is about the seeded pattern surviving; this is the case
+     * that only exists now that there is a control for it, and it is the one the
+     * dependency between these two tickets was about. A pattern set on the
+     * numbering page is written through the same merge — so it has to survive an
+     * edit made on the field table, which knows nothing about numbering, and the
+     * numbering page has to leave that field's other settings alone in return.
+     */
+    public function testAPatternTheCustomerTypedSurvivesAnUnrelatedEdit(): void
+    {
+        $this->setNumbering(OrderModule::KEY, OrderModule::NUMBER, 'AUF-{year}-{number:5}');
+
+        $options = $this->optionsOf(OrderModule::KEY, OrderModule::NUMBER);
+        self::assertSame('AUF-{year}-{number:5}', $options[NumberFormat::OPTION] ?? null);
+        self::assertSame(40, $options['max_length'] ?? null, 'and the setting the numbering page never drew');
+
+        $this->rename(OrderModule::KEY, OrderModule::NUMBER, 'Belegnummer');
+
+        self::assertSame(
+            'AUF-{year}-{number:5}',
+            $this->optionsOf(OrderModule::KEY, OrderModule::NUMBER)[NumberFormat::OPTION] ?? null,
+            'still theirs, after an edit that was about the label',
+        );
+    }
+
     /** A choice field keeps its choices, which for a lifecycle are its states. */
     public function testAChoiceFieldKeepsItsChoices(): void
     {
@@ -262,6 +289,19 @@ final class FieldOptionsTest extends WebTestCase
         foreach ($settings as $name => $value) {
             $form[$name] = $value;
         }
+
+        $this->client->submit($form);
+        self::assertResponseRedirects();
+    }
+
+    /** Sets a field's numbering pattern through the page a customer uses (XIV-27). */
+    private function setNumbering(string $module, string $field, string $pattern): void
+    {
+        $id = $this->fieldOf($module, $field)->getId();
+
+        $crawler = $this->client->request('GET', $this->url(sprintf('/m/%s/fields/%d/numbering', $module, $id)));
+        $form = $crawler->filter('form[action$="/numbering"]')->form();
+        $form[NumberFormat::OPTION] = $pattern;
 
         $this->client->submit($form);
         self::assertResponseRedirects();

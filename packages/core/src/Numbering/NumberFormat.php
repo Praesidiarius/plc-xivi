@@ -37,11 +37,28 @@ use Xivi\Core\Entity\FieldDefinition;
  * than as a field type. A number is a string; what is special about it is who
  * fills it in, and that is a fact about the field rather than about the kind of
  * value. So it works on any text field, and a customer can change the pattern in
- * the metadata editor without a deployment (§5.4).
+ * the metadata editor without a deployment (§5.4, XIV-27).
  *
  * A pattern with no `{number}` in it is not a sequence. Every record would be
- * called the same thing, and silently numbering nothing is the kinder failure:
- * the field goes on being an ordinary text field somebody can type in.
+ * called the same thing, and silently numbering nothing is the kinder failure
+ * *for a pattern that arrives from a blueprint*: the field goes on being an
+ * ordinary text field somebody can type in. It is the wrong answer for one
+ * somebody has just typed into a form, which is why the editor refuses that
+ * instead of storing it ({@see \Xivi\Core\Metadata\MetadataEditor}) — a customer
+ * who meant to set up numbering and got silence would have no way of telling
+ * that from success. Same rule, two audiences, and the difference is only who
+ * can still be told.
+ *
+ * **Everything here is static analysis of the pattern text**, which is the
+ * property XIV-27 turned into a promise to the reader. {@see of()} decides
+ * whether this field is numbered at all by looking for `{number}`, and
+ * {@see period()} decides *which counter* a number comes out of by looking for
+ * `{year}` — so a page can say both before anything is saved, from what has been
+ * typed so far. Symfony's ExpressionLanguage was proposed for the syntax and
+ * rejected on exactly this point: an evaluator can only answer by running, and
+ * `'ORD-' ~ (annual ? year : '')` has no static answer at all. The full argument
+ * is on XIV-27; what it leaves behind here is a rule — the two regexes below stay
+ * regexes.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
@@ -74,11 +91,22 @@ final readonly class NumberFormat
     {
         $pattern = $field->getOption(self::OPTION);
 
-        if (!\is_string($pattern) || preg_match(self::COUNTER, $pattern) !== 1) {
-            return null;
-        }
+        return \is_string($pattern) ? self::parse($pattern) : null;
+    }
 
-        return new self($pattern);
+    /**
+     * The same question about a pattern nobody has stored yet (XIV-27).
+     *
+     * The editor's preview asks this on every keystroke, against text that is
+     * half-typed most of the time, so it answers with null rather than throwing:
+     * `ORD-{numb` is somebody mid-word, not an error, and a page that raised on
+     * the way to a valid pattern would be unusable. What to *do* about a null is
+     * the caller's — the preview says "this would number nothing" and the editor
+     * refuses to save it.
+     */
+    public static function parse(string $pattern): ?self
+    {
+        return preg_match(self::COUNTER, $pattern) === 1 ? new self($pattern) : null;
     }
 
     /**
@@ -91,7 +119,22 @@ final readonly class NumberFormat
      */
     public function period(\DateTimeImmutable $on): string
     {
-        return str_contains($this->pattern, self::YEAR) ? $on->format('Y') : '';
+        return $this->resetsAnnually() ? $on->format('Y') : '';
+    }
+
+    /**
+     * Whether the counter behind this starts again each January.
+     *
+     * The same fact {@see period()} reads, asked as the question a person asks —
+     * and it is the sentence the editor puts on screen, because "the counter for
+     * 2026" and "one counter, always" are the two things a customer is choosing
+     * between when they add or remove `{year}` without necessarily realising it
+     * (XIV-27). A template comparing `period()` against the empty string would be
+     * the same knowledge, written where nobody would look for it.
+     */
+    public function resetsAnnually(): bool
+    {
+        return str_contains($this->pattern, self::YEAR);
     }
 
     /** What the number looks like once it is the record's. */
