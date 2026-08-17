@@ -492,6 +492,81 @@ whole table and unique within one parent are different rules, and which one a
 customer means is not something the installer should decide for them. It waits
 for the same decision §7.5 is waiting for.
 
+#### How long a collection can get, measured (XIV-68)
+
+**Nothing bounds one.** `findChildren()` has no `LIMIT`, the record page draws
+every row it returns, and so does the form. Everything else that reads records
+has a ceiling — a list is 25 a page, a reference picker stops at 200 and says so
+— and this is the one path with none. XIV-68 named three possible bounds and
+refused to choose between them until somebody had a number. This is the number.
+
+Measured by `tests/Measurement/CollectionCeilingTest.php`, which builds an order
+of N article lines against a catalogue of 250 articles and asks for the two pages
+that draw them. It is in no test suite: `bin/ci` should not spend four minutes
+building ten thousand order lines. **The decision the ticket also asks for is
+deliberately not recorded here** — this section is the evidence, and the choice
+belongs to whoever makes it.
+
+Per request, `APP_DEBUG=0`, memory counted at the allocator:
+
+| rows | read ms | read bytes | read queries | read MB | edit ms | edit bytes | edit queries | edit MB |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 10 | 60 | 32 K | 50 | 0.5 | 226 | 132 K | 31 | 5.7 |
+| 100 | 240 | 186 K | 391 | 1.7 | 1 392 | 1.2 M | 205 | 45.6 |
+| 500 | 682 | 870 K | 1 600 | 7.0 | 5 878 | 5.8 M | 973 | 221 |
+| 1 000 | 785 | 1.7 M | 2 896 | 13.4 | 11 756 | 11.6 M | 1 933 | 444 |
+| 5 000 | 3 505 | 8.6 M | 14 416 | 66.4 | 59 463 | 58.3 M | 9 613 | 2 206 |
+| 10 000 | 7 714 | 17.1 M | 28 816 | 132.5 | 125 017 | 116.6 M | 19 213 | 4 396 |
+
+Everything is linear in the row count, which is the first thing worth saying: the
+page does not degrade at some threshold, it scales exactly, and the constant is
+large. **13 KB of memory per row on the read view and 0.44 MB per row on the
+form** — a factor of thirty-three between two pages showing the same rows.
+
+**Where it falls over is memory, and the number is 128M**: what a PHP request is
+allowed, which is the stock default and is not raised anywhere here. The **edit
+form crosses it at roughly 250 lines** and the **read view at roughly 9 500**.
+Above that the page does not get slow, it answers 500 — and not a 500 anybody can
+read: pinned at 512M to watch it happen, the form dies with "Allowed memory size
+exhausted" inside Twig, half-rendered.
+
+**Two hundred and fifty lines is a real document**, which is what makes this
+finding worth acting on. Ten thousand is not.
+
+**Neither view is expensive for the reason the ticket predicted.** XIV-68 blamed
+the row of inputs; the inputs are not what costs.
+
+- **The read view's queries are the drift check.** An order line inherits three
+  values from its article (§5.1's copied values) and
+  `InheritedValues::driftedIn()` resolves the reference once per inherited field
+  with no memo — **three identical `SELECT`s per line**, which is 28 800 of the
+  read view's 28 816 queries at ten thousand rows. Naming the article costs one
+  more lookup per *distinct* article, and that one is memoised, so it is bounded
+  by the catalogue. XIV-54 batches the memoised lookup and does not touch the
+  three, so it removes a percent or so of this and the page stays O(N).
+- **The form's weight is the form.** Every row is a Symfony form of eight
+  controls with a `FormView` behind it, and that is the bulk of the 0.44 MB.
+  Measured against a catalogue of 25 articles instead of 250 — which shrinks the
+  picker from 200 options to 25 — the same 500-line form drops from 5.8 MB and
+  221 MB to 2.3 MB and 168 MB. So the picker is 60% of the *bytes* and only a
+  quarter of the *memory*: `RecordReferenceType` re-resolves its candidates per
+  form instance, which is two queries and 200 `<option>`s per row and is worth
+  fixing, but fixing it moves the ceiling from ~250 lines to ~400, not to
+  thousands. A page that builds one form per row is expensive per row, and no
+  amount of query work changes that.
+
+**The record page has a second unbounded render nobody has counted.** The history
+card shows five entries (§5.2), and `_history.html.twig` draws every collection
+change inside each of them — so the entry recording the creation of a
+10 000-line order is 10 000 list items on the record page, beside the 10 000 rows
+of the lines table. Bounding `findChildren()` alone would leave that standing.
+
+Two things that turned out **not** to be the problem, recorded so nobody
+re-measures them: writing a long document is fast — 2.4 s for ten thousand lines
+with the derivers running, two per cent of what drawing the form costs — and the
+row data itself is small. The rows are not the weight; what the rows make the
+page build is.
+
 ### 5.2 History is per module, and per action
 
 Every change to a record is recorded: who, when, and what changed.

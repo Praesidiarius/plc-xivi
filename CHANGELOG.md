@@ -68,7 +68,22 @@ lands in `Unreleased` here.
 
 ## [Unreleased]
 
-Nothing yet.
+### Measured
+
+- **How long a collection can get before its record page breaks, measured**
+  ([XIV-68]). `tests/Measurement/CollectionCeilingTest.php` builds an order of a
+  given number of lines and records what the read view and the edit form cost —
+  time, bytes, queries and memory. Nothing in the product changed; §5.1 of the
+  brief now carries the table and what it says. Run it with
+  `bin/compose exec -e APP_DEBUG=0 php vendor/bin/phpunit tests/Measurement/CollectionCeilingTest.php`;
+  it is in no test suite, so `bin/ci` does not pay for it.
+- **Act on this if you have long documents.** The edit form of an order or an
+  invoice needs more memory than a PHP request is allowed somewhere around
+  **250 lines**, and above that it answers 500 rather than a page. The read view
+  goes about forty times further. Neither has a limit yet — which of XIV-68's
+  three bounds to build is its remaining half, and is deliberately still open.
+
+[XIV-68]: https://xivi.youtrack.cloud/issue/XIV-68
 
 ## Releases
 

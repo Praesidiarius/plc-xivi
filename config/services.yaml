@@ -290,6 +290,24 @@ when@test:
             tags:
                 - { name: 'doctrine.middleware', connection: 'tenant', priority: 50 }
 
+        # Counting the tenant connection's statements, so "this is not an N+1"
+        # can be asserted rather than believed (XIV-81). DBAL's own logging
+        # middleware does the wrapping; all that is supplied here is a logger
+        # that counts — see tests/Support/Dbal/CountsQueries.php for why that is
+        # the whole of it.
+        #
+        # Inside the two above rather than outside, so it sees the statements as
+        # the application issues them: DAMA's transaction and the connection-key
+        # middleware are both about *which* database is being talked to, and
+        # neither is a query anybody wrote.
+        App\Tests\Support\Dbal\CountsQueries:
+            public: true
+
+        Doctrine\DBAL\Logging\Middleware:
+            arguments: ['@App\Tests\Support\Dbal\CountsQueries']
+            tags:
+                - { name: 'doctrine.middleware', connection: 'tenant', priority: 40 }
+
         # A module that exists only here, so the lifecycle machinery has
         # something to be tested against without inventing product behaviour in
         # a module customers actually have (XIV-14).
