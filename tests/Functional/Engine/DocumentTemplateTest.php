@@ -28,6 +28,8 @@ use Symfony\Component\DomCrawler\Field\FileFormField;
 use Symfony\Component\DomCrawler\Form;
 use Symfony\Component\HttpFoundation\Response;
 use Xivi\Contact\ContactModule;
+use Xivi\Core\Metadata\MetadataEditor;
+use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
 use Xivi\Core\Permission\ModuleAction;
@@ -331,6 +333,139 @@ final class DocumentTemplateTest extends WebTestCase
         self::assertCount(3, $entries);
     }
 
+    /**
+     * The bug this ticket came from, to the character (XIV-25).
+     *
+     * An order template printed `[contacŧ]` into a finished document instead of
+     * the customer's name. The last character is U+0167 — `t` with a stroke,
+     * which is AltGr and the key beside `t` on a Swiss layout — and at body-text
+     * size it is indistinguishable from the letter it is not. Nothing is called
+     * that, so the generator correctly left the words alone, and the only place
+     * anybody could have found out was the finished PDF.
+     */
+    public function testAPlaceholderDifferingByOneCharacterIsNamed(): void
+    {
+        $this->upload('Order letter', 'Dear [contacŧ], your order is ready.');
+
+        $page = $this->client->getCrawler()->filter('main')->text();
+
+        self::assertStringContainsString('[contacŧ]', $page, 'named, not merely counted');
+        self::assertStringContainsString('printed just as it is', $page);
+    }
+
+    /**
+     * It reports and it does not refuse.
+     *
+     * Square brackets in a letter are legal prose, a customer may be half-way
+     * through writing a template, and an unknown token may well be one somebody
+     * meant. Refusing the upload would trade a silent wrongness for a loud one.
+     */
+    public function testATemplateWithAnUnknownPlaceholderIsStillAccepted(): void
+    {
+        $template = $this->upload('Half written', 'Dear [contacŧ].');
+
+        // Read before anything else is done, because the upload's own redirect
+        // is where somebody finds out.
+        $page = $this->client->getCrawler()->filter('main')->text();
+        $id = $this->aContact();
+
+        self::assertStringContainsString('Half written', $page, 'the template is kept');
+        self::assertStringContainsString('printed just as it is', $page, 'and told about, not rejected');
+
+        // And it generates, brackets and all — which is the behaviour that was
+        // right all along and is deliberately unchanged.
+        $this->client->request('GET', $this->url(sprintf('/m/contact/%d/document/download?template=%d&format=docx', $id, $template)));
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Dear [contacŧ].', $this->textOf((string) $this->client->getResponse()->getContent()));
+    }
+
+    /**
+     * The case a naive implementation gets wrong, and the reason this reuses the
+     * generator's own scan rather than a second one.
+     *
+     * Word cuts a placeholder somebody typed in one go across several runs —
+     * `[first_na` in one and `me]` in the next — at every spell-check boundary
+     * it feels like. A checker that searched the XML for `[first_name]` would
+     * find nothing and report a perfectly good template as broken, which is a
+     * worse failure than the silence it was built to fix: it is wrong about
+     * exactly the templates a human typed by hand.
+     */
+    public function testAMarkerWordHasSplitAcrossRunsIsRecognised(): void
+    {
+        $template = $this->upload('Split letter', ['Dear [first_na', 'me] [last_na', 'me].']);
+
+        $page = $this->client->getCrawler()->filter('main')->text();
+        $id = $this->aContact();
+
+        // Nothing at all, which is the assertion: the reference panel beside the
+        // form prints `[first_name]` on every render, so the thing to look for
+        // is the sentence the report would have added and not the token.
+        self::assertStringNotContainsString('printed just as', $page, 'a correct template reports nothing');
+
+        // And the split is a real one: this is the same document the generator
+        // fills, so a test that only asserted silence could be passing because
+        // nothing was scanned at all.
+        $this->client->request('GET', $this->url(sprintf('/m/contact/%d/document/download?template=%d&format=docx', $id, $template)));
+
+        self::assertStringContainsString('Dear Ada Lovelace.', $this->textOf((string) $this->client->getResponse()->getContent()));
+    }
+
+    /**
+     * Everything the reference list beside the form offers counts as known.
+     *
+     * All three sections of it, because the vocabulary the report checks against
+     * and the vocabulary the page prints are the same list — a checker with its
+     * own idea of what a marker is starts crying wolf the first time somebody
+     * adds one.
+     *
+     * `[company_name]` is a company's field on a template naming no kind of
+     * record, and is deliberately not reported: it is a real marker of this
+     * module, and the reason it comes out blank on a person is the record rather
+     * than the template.
+     */
+    public function testTheModulesGeneralAndCollectionMarkersAllCountAsKnown(): void
+    {
+        $this->upload(
+            'Everything',
+            'From [tenant.name] on [today], written by [user.name]: '
+            . '[first_name] [company_name] #[record_id], [addresses.street] [addresses.city].',
+        );
+
+        $page = $this->client->getCrawler()->filter('main')->text();
+
+        self::assertStringNotContainsString('printed just as', $page);
+    }
+
+    /**
+     * The other half of the ticket: a template nobody has touched can go wrong
+     * on its own.
+     *
+     * A field renamed or removed months after the letter was written leaves the
+     * template naming something that no longer exists, and the moment of upload
+     * — the one moment a check on upload alone would catch — is long past. So
+     * the check runs against what is stored, every time this page is drawn.
+     */
+    public function testATemplateAlreadyUploadedIsCheckedAgainWhenAFieldGoesAway(): void
+    {
+        $this->addField('vat_number', 'VAT number');
+        $this->upload('Invoice letter', 'VAT [vat_number].');
+
+        // Nothing to say while the field is there…
+        self::assertStringNotContainsString(
+            'printed just as',
+            $this->client->request('GET', $this->url('/m/contact/templates'))->filter('main')->text(),
+        );
+
+        $this->removeField('vat_number');
+
+        // …and the same template, unchanged, now says what it will print.
+        $page = $this->client->request('GET', $this->url('/m/contact/templates'))->filter('main')->text();
+
+        self::assertStringContainsString('[vat_number]', $page);
+        self::assertStringContainsString('printed just as it is', $page);
+    }
+
     /** A .docx is a zip with a document in it, and the extension proves nothing. */
     public function testSomethingThatIsNotADocxIsRefused(): void
     {
@@ -393,8 +528,14 @@ final class DocumentTemplateTest extends WebTestCase
 
     // -- helpers ------------------------------------------------------------
 
-    /** Uploads a template through the browser and returns its id. */
-    private function upload(string $name, string $body, ?string $variant = null, ?string $placeholderControl = null): int
+    /**
+     * Uploads a template through the browser and returns its id.
+     *
+     * @param string|list<string> $body a list is one paragraph whose text Word
+     *                                  has split across runs, which is what
+     *                                  happens to anything typed by hand
+     */
+    private function upload(string $name, string|array $body, ?string $variant = null, ?string $placeholderControl = null): int
     {
         $path = self::aDocx($body, $placeholderControl);
 
@@ -440,8 +581,11 @@ final class DocumentTemplateTest extends WebTestCase
      *
      * Three parts is all Word needs to open a file: the content types, the
      * relationship naming the main document, and the document itself.
+     *
+     * @param string|list<string> $text one run, or the several Word cuts a
+     *                                  hand-typed line into
      */
-    private static function aDocx(string $text, ?string $placeholderControl = null): string
+    private static function aDocx(string|array $text, ?string $placeholderControl = null): string
     {
         $path = tempnam(sys_get_temp_dir(), 'xivi-test-template-') . '.docx';
 
@@ -463,10 +607,19 @@ final class DocumentTemplateTest extends WebTestCase
             . '<w:sdtContent><w:r><w:t>' . htmlspecialchars($placeholderControl, \ENT_XML1) . '</w:t></w:r></w:sdtContent>'
             . '</w:sdt></w:p>';
 
+        // One `<w:r>` per run. A caller that passes several is reproducing what
+        // Word does to a placeholder somebody typed in one go, which is the
+        // whole reason the scanning has to be tolerant of markup (XIV-25).
+        $runs = '';
+
+        foreach (\is_array($text) ? $text : [$text] as $run) {
+            $runs .= '<w:r><w:t xml:space="preserve">' . htmlspecialchars($run, \ENT_XML1) . '</w:t></w:r>';
+        }
+
         $zip->addFromString('word/document.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'
             . $control
-            . '<w:p><w:r><w:t xml:space="preserve">' . htmlspecialchars($text, \ENT_XML1) . '</w:t></w:r></w:p>'
+            . '<w:p>' . $runs . '</w:p>'
             . '</w:body></w:document>');
         $zip->close();
 
@@ -503,6 +656,31 @@ final class DocumentTemplateTest extends WebTestCase
             ['kind' => 'person', 'first_name' => 'Ada', 'last_name' => 'Lovelace', ...$values],
             variant: 'person',
         ));
+    }
+
+    /**
+     * A field this customer added, which is the only kind that can go away
+     * again: a module's own field is refused removal on purpose (§7.2), so
+     * the staleness a template suffers from is always a customer's own.
+     */
+    private function addField(string $key, string $label): void
+    {
+        self::service(TenantSwitcher::class)->runFor($this->tenant, static fn () => self::service(MetadataEditor::class)->addField(
+            shape: self::service(MetadataRepository::class)->get(ContactModule::KEY),
+            key: $key,
+            label: $label,
+            type: 'text',
+        ));
+    }
+
+    private function removeField(string $key): void
+    {
+        self::service(TenantSwitcher::class)->runFor($this->tenant, static function () use ($key): void {
+            $field = self::service(MetadataRepository::class)->get(ContactModule::KEY)->getField($key);
+            \assert($field !== null);
+
+            self::service(MetadataEditor::class)->removeField($field);
+        });
     }
 
     private function grant(string $email, ModuleAction $action): void

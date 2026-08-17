@@ -184,26 +184,89 @@ final readonly class DocumentMarkers
      */
     public function dataFor(ModuleDefinition $module, Record $record): array
     {
-        $data = [];
-
         // Every collection marker, worth nothing (XIV-17). The ones inside a
         // repeating block are gone by the time this runs — a copy of the block
         // carries values rather than markers — so what is left is a collection
         // marker written somewhere no row could be drawn, and the same rule
         // applies to it as to any other unfilled marker: blank beats brackets.
-        foreach ($module->getCollections() as $collection) {
-            foreach (['', ...array_keys($collection->getVariants())] as $variant) {
-                foreach ($collection->getFields() as $field) {
-                    $data[self::collectionKey($collection->getKey(), $variant, $field->getKey())] = '';
-                }
-            }
-        }
+        $data = array_fill_keys(self::collectionKeysOf($module), '');
 
         foreach ([...$this->general(), ...$this->forShape($module, $module->variantOf($record->data), $record)] as $marker) {
             $data[$marker->key] = $marker->example ?? '';
         }
 
         return $data;
+    }
+
+    /**
+     * Every key this module's templates may write, whatever record fills them
+     * (XIV-25).
+     *
+     * The vocabulary rather than one record's data, and the difference matters.
+     * {@see self::dataFor} answers "what is this marker worth *here*", which
+     * depends on the record's variant; this answers "is anything called that at
+     * all", which does not. So a company template naming `[first_name]` is not
+     * reported: a person's field is a real marker of this module, and the reason
+     * it comes out blank on a company is the record rather than the template.
+     * Reporting it would mean the upload page arguing with the reference list
+     * printed beside it, which is a worse wrongness than the one it would catch.
+     *
+     * The three sources are the three sections of that reference list, and it is
+     * the same code producing both — which is the rule §5.7 set for the list and
+     * the substitution and applies here for the third time. A checker with its
+     * own idea of the vocabulary is a checker that starts crying wolf the first
+     * time somebody adds a marker.
+     *
+     * @return list<string>
+     */
+    public function keysFor(ModuleDefinition $module): array
+    {
+        $keys = self::collectionKeysOf($module);
+
+        foreach ($this->general() as $marker) {
+            $keys[] = $marker->key;
+        }
+
+        // Every variant, and the variant-less list besides: a template naming no
+        // kind of record is offered on all of them, so all of their fields are
+        // words it may legitimately use.
+        foreach ([null, ...array_keys($module->getVariants())] as $variant) {
+            foreach ($this->forShape($module, $variant) as $marker) {
+                $keys[] = $marker->key;
+            }
+        }
+
+        return array_values(array_unique($keys));
+    }
+
+    /**
+     * Every collection marker of a module, per-kind forms included (XIV-17).
+     *
+     * Both callers want the same superset — the substitution blanks them and the
+     * review counts them as known — and they have to want the same one, or a
+     * template would be told a marker is unknown and then watch the generator
+     * fill it in.
+     *
+     * `getFields()` rather than `getFieldsFor()`, deliberately: a field a kind
+     * does not use still substitutes to the empty string in a row of that kind,
+     * so it is a word the engine answers even where the reference list does not
+     * offer it.
+     *
+     * @return list<string>
+     */
+    private static function collectionKeysOf(ModuleDefinition $module): array
+    {
+        $keys = [];
+
+        foreach ($module->getCollections() as $collection) {
+            foreach (['', ...array_keys($collection->getVariants())] as $variant) {
+                foreach ($collection->getFields() as $field) {
+                    $keys[] = self::collectionKey($collection->getKey(), $variant, $field->getKey());
+                }
+            }
+        }
+
+        return $keys;
     }
 
     /** `lines.description`, or `lines:article.description` when it names a kind. */

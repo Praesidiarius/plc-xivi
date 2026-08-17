@@ -28,6 +28,7 @@ use Xivi\Core\Document\DocumentFormat;
 use Xivi\Core\Document\DocumentGenerator;
 use Xivi\Core\Document\DocumentMarkers;
 use Xivi\Core\Document\DocumentTemplateRepository;
+use Xivi\Core\Document\TemplateReview;
 use Xivi\Core\Entity\CollectionDefinition;
 use Xivi\Core\Entity\DocumentTemplate;
 use Xivi\Core\Entity\ModuleDefinition;
@@ -64,6 +65,7 @@ final class DocumentController extends AbstractController
         private readonly RecordRepository $records,
         private readonly DocumentTemplateRepository $templates,
         private readonly DocumentMarkers $markers,
+        private readonly TemplateReview $review,
         private readonly DocumentGenerator $generator,
         private readonly TranslatorInterface $translator,
     ) {
@@ -82,10 +84,19 @@ final class DocumentController extends AbstractController
     public function index(string $module): Response
     {
         $definition = $this->definition($module);
+        $templates = $this->templates->forModule($definition->getKey());
 
         return $this->render('document/index.html.twig', [
             'module' => $definition,
-            'templates' => $this->templates->forModule($definition->getKey()),
+            'templates' => $templates,
+            // What each of them says that nothing will fill in (XIV-25). Every
+            // template on every render, rather than only the one just uploaded:
+            // a template goes stale without being touched — the field it names
+            // gets renamed — and this is the page somebody is on when they
+            // wonder why a letter has a bracket in it. The cost is one unzip
+            // per template on a page that is visited rarely and holds few
+            // (§5.7 keeps them small and few on purpose).
+            'unknown' => $this->unknownPlaceholders($definition, $templates),
             'variants' => $definition->getVariants(),
             // One reference list per variant, because a letter to a person and a
             // letter to a company are different documents (§5.5) — and one more
@@ -116,7 +127,7 @@ final class DocumentController extends AbstractController
         $variant = (string) $request->request->get('variant', '');
 
         try {
-            $this->templates->save(new DocumentTemplate(
+            $uploaded = new DocumentTemplate(
                 $definition->getKey(),
                 $name === '' ? $this->fallbackName($file) : $name,
                 $this->filenameOf($file),
@@ -126,9 +137,18 @@ final class DocumentController extends AbstractController
                 // than an error nobody can act on.
                 isset($definition->getVariants()[$variant]) ? $variant : null,
                 $this->currentUserLabel(),
-            ));
+            );
 
+            $this->templates->save($uploaded);
             $this->addFlash('success', $this->translator->trans('flash.template_uploaded'));
+
+            // **Saved first, then reviewed** (XIV-25). The order is the whole
+            // decision: a template with a placeholder nobody recognises is one
+            // somebody may well have meant — literal brackets are legal in a
+            // letter, and half-written templates get uploaded — so this is a
+            // second sentence beside "uploaded" rather than a refusal. The
+            // wording says what will happen to the text, not that it is wrong.
+            $this->reportUnknown($this->review->unknownIn($uploaded, $definition));
         } catch (DocumentFailed $e) {
             $this->addFlash('warning', $e->translatable()->trans($this->translator));
         }
@@ -257,6 +277,66 @@ final class DocumentController extends AbstractController
         }
 
         return $lists;
+    }
+
+    /**
+     * What each uploaded template says that no marker answers (XIV-25).
+     *
+     * Keyed by template id so the list beside it can say which one, and computed
+     * for every template rather than for the one being uploaded. That is the
+     * half of the ticket that is not about uploading at all: a template written
+     * against `[status]` stops being right the afternoon somebody renames that
+     * field, and nothing about the template changed — so a check that only ever
+     * ran at upload would be a check that never runs again for the templates
+     * most likely to have gone wrong.
+     *
+     * @param list<DocumentTemplate> $templates
+     *
+     * @return array<int, list<string>>
+     */
+    private function unknownPlaceholders(ModuleDefinition $definition, array $templates): array
+    {
+        $unknown = [];
+
+        foreach ($templates as $template) {
+            $id = $template->getId();
+
+            if ($id !== null) {
+                $unknown[$id] = $this->review->unknownIn($template, $definition);
+            }
+        }
+
+        return $unknown;
+    }
+
+    /**
+     * Says it once, in the language of what will happen (XIV-25).
+     *
+     * A warning rather than an error, because nothing failed: the template is
+     * saved, the document will generate, and these words will appear in it
+     * exactly as they stand.
+     *
+     * **The same sentence then appears twice on the page it redirects to, and
+     * that is deliberate.** The two are answering different questions. The flash
+     * is about the upload somebody just made and sits where they are looking;
+     * the line on the row is about the template and is still there next month,
+     * when the reason to read it is a field that has been renamed since. Without
+     * the flash, a template sorted into the middle of a long list would say this
+     * somewhere nobody has any reason to look. It is one translation key doing
+     * both, so the two cannot come to disagree about the wording.
+     *
+     * @param list<string> $unknown
+     */
+    private function reportUnknown(array $unknown): void
+    {
+        if ($unknown === []) {
+            return;
+        }
+
+        $this->addFlash('warning', $this->translator->trans('document.unknown_placeholders', [
+            '%placeholders%' => implode(', ', $unknown),
+            '%count%' => \count($unknown),
+        ]));
     }
 
     /**

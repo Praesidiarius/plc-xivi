@@ -45,6 +45,31 @@
 													<i class="bi bi-file-earmark-word text-body-secondary" aria-hidden="true"></i>
 													{{ template.name }}
 													<div class="small text-body-secondary">{{ template.filename }}</div>
+
+													{#
+														What this template says that nothing will fill in (XIV-25).
+
+														Beside the template rather than only in a flash on upload,
+														because the two ways a template ends up with a placeholder
+														nobody recognises are a typo made once and a field renamed
+														long afterwards — and only the first of them happens while
+														somebody is watching. A finished document cannot tell the
+														two readings of a bracket apart, so the page has to.
+
+														Worded as what will happen rather than as an error, and
+														shown without refusing anything: square brackets in a
+														letter are legal prose and a half-written template is a
+														real thing to upload.
+													#}
+													{% if unknown[template.id]|default([]) is not empty %}
+														<div class="small text-warning-emphasis mt-1 template-unknown">
+															<i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+															{{ 'document.unknown_placeholders'|trans({
+																'%placeholders%': unknown[template.id]|join(', '),
+																'%count%': unknown[template.id]|length,
+															}) }}
+														</div>
+													{% endif %}
 												</th>
 												<td>
 													{# A template naming no variant is offered on every record. #}

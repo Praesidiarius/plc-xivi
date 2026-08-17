@@ -28,6 +28,9 @@ mail:
 field:
     remove_holding: '{count, plural, one {<strong>#</strong> Datensatz hat zurzeit einen Wert dafür.} other {<strong>#</strong> Datensätze haben zurzeit einen Wert dafür.}}'
 
+document:
+    unknown_placeholders: '{count, plural, one {{placeholders} wird genau so gedruckt, wie es dasteht — einen Platzhalter mit diesem Namen gibt es nicht.} other {{placeholders} werden genau so gedruckt, wie sie dastehen — Platzhalter mit diesen Namen gibt es nicht.}}'
+
 import:
     written: '{added, plural, one {# hinzugefügt} other {# hinzugefügt}}, {updated, plural, one {# geändert} other {# geändert}}'
     rows_written: '{count, plural, one {# geschrieben} other {# geschrieben}}'

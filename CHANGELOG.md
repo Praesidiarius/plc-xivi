@@ -68,7 +68,19 @@ lands in `Unreleased` here.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **A document template says which of its placeholders nothing will fill in**
+  ([XIV-25]). Uploading one now names every `[token]` in it that no marker
+  answers — and so does the templates page for the ones already there, so a
+  template that has gone stale because a field was renamed shows up without
+  anybody re-uploading it. The template is still accepted either way: brackets
+  in a letter are legal, and the wording says what will happen to the text
+  ("`[contacŧ]` will be printed just as it is") rather than calling it an error.
+  See §5.7 for why unknown markers print themselves and why unused ones are
+  deliberately not reported.
+
+[XIV-25]: https://xivi.youtrack.cloud/issue/XIV-25
 
 ## Releases
 
