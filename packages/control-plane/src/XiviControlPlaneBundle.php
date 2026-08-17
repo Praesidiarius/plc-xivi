@@ -13,9 +13,11 @@ declare(strict_types=1);
 
 namespace Xivi\ControlPlane;
 
+use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
+use Xivi\ControlPlane\DependencyInjection\SignupRoutesComeOnlyFromTheLoaderPass;
 
 /**
  * **The administration surface, and only that** (XIV-60, docs/architecture.md §3).
@@ -54,5 +56,24 @@ final class XiviControlPlaneBundle extends AbstractBundle
     public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
     {
         $container->import(__DIR__ . '/../config/services.php');
+    }
+
+    /**
+     * One compiler pass, and its docblock is the argument for it.
+     *
+     * Priority 10 rather than the default 0: autoconfiguration adds the tag it
+     * removes at priority 100, and Symfony's own `RoutingControllerPass` reads
+     * that tag at 0. Ten is the only window where taking the tag off means
+     * anything.
+     */
+    public function build(ContainerBuilder $container): void
+    {
+        parent::build($container);
+
+        $container->addCompilerPass(
+            new SignupRoutesComeOnlyFromTheLoaderPass(),
+            PassConfig::TYPE_BEFORE_OPTIMIZATION,
+            10,
+        );
     }
 }

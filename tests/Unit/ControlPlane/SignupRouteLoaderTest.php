@@ -22,10 +22,20 @@ use Xivi\ControlPlane\Routing\SignupRouteLoader;
 use Xivi\ControlPlane\Security\ControlPlaneHost;
 use Xivi\ControlPlane\Signup\SignupApiKey;
 use Xivi\ControlPlane\Signup\SignupHost;
+use Xivi\ControlPlane\Signup\SignupPage;
 
 /**
- * **"Switched off" means no route is registered** (XIV-64), which is the
- * acceptance criterion this class exists to prove.
+ * **"Switched off" means no route is registered** (XIV-64, XIV-65), which is the
+ * acceptance criterion this class exists to prove — now for two switches rather
+ * than one.
+ *
+ * There are three states a deployment asks for and all three are asserted here:
+ * page and endpoint, endpoint only, and neither. The fourth combination — a page
+ * with no intake behind it — is not tested because it cannot be constructed:
+ * {@see SignupPage} composes the two with an `and`, so an empty `SIGNUP_HOST` is
+ * off whatever the page switch says. That is asserted from both sides in
+ * {@see testSwitchingBothOffLeavesNoRouteRegisteredAtAll()}, which is the nearest
+ * a test can get to proving a state is unreachable.
  *
  * ### Why the loader rather than a booted kernel
  *
@@ -48,6 +58,7 @@ use Xivi\ControlPlane\Signup\SignupHost;
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[CoversClass(SignupRouteLoader::class)]
+#[CoversClass(SignupPage::class)]
 final class SignupRouteLoaderTest extends TestCase
 {
     private const string SECRET = 'a-secret-that-is-configured';
@@ -70,18 +81,74 @@ final class SignupRouteLoaderTest extends TestCase
         self::assertCount(0, $routes);
     }
 
-    public function testAConfiguredHostRegistersTheThreeRoutesOnThatHostOnly(): void
+    /**
+     * **Page and endpoint**, which is the default state and the one the company
+     * selling this runs (XIV-65).
+     */
+    public function testAConfiguredHostRegistersTheEndpointAndThePageOnThatHostOnly(): void
     {
         $routes = $this->loader(host: 'signup.xivi.example')->load('.', SignupRouteLoader::TYPE);
 
         self::assertSame(
-            ['signup_api_v1_request', 'signup_api_v1_slug', 'signup_confirm'],
+            [
+                'signup_api_v1_request',
+                'signup_api_v1_slug',
+                'signup_confirm',
+                'signup_page',
+                'signup_page_name',
+                'signup_page_submit',
+            ],
             self::sortedNames($routes->all()),
         );
 
         foreach ($routes as $name => $route) {
             self::assertSame('signup.xivi.example', $route->getHost(), $name . ' is bound to the signup host');
             self::assertSame(['https'], $route->getSchemes(), $name . ' carries a secret and stays on TLS');
+        }
+    }
+
+    /**
+     * **Endpoint only** (XIV-65): somebody has built their own site and posts to
+     * the published contract, so the built-in page would be a second and worse
+     * front door onto the same intake.
+     *
+     * The assertion that matters is the second one. Switching the page off has to
+     * mean its routes are **not in the table** — not a controller that renders
+     * nothing, not a template behind a flag. A live component would have failed
+     * this test, because a component answers at a route the bundle registers for
+     * every host and this feature cannot unregister it; that is why the page is a
+     * plain controller, and this is where the difference is visible.
+     */
+    public function testThePageCanBeSwitchedOffWhileTheEndpointStays(): void
+    {
+        $routes = $this->loader(host: 'signup.xivi.example', page: false)->load('.', SignupRouteLoader::TYPE);
+
+        self::assertSame(
+            ['signup_api_v1_request', 'signup_api_v1_slug', 'signup_confirm'],
+            self::sortedNames($routes->all()),
+            'the contract is still served',
+        );
+
+        foreach (['signup_page', 'signup_page_submit', 'signup_page_name'] as $gone) {
+            self::assertNull($routes->get($gone), $gone . ' must not be in the routing table at all');
+        }
+    }
+
+    /**
+     * **Neither** (XIV-65): a single company self-hosting, for whom an open
+     * endpoint that records signups is a liability rather than a feature. It is
+     * also the shipped default — `.env` leaves `SIGNUP_HOST` empty.
+     *
+     * Asserted from both sides of the page switch, because the claim is that the
+     * two switches *compose*: an empty host is off whatever `SIGNUP_PAGE` says,
+     * and a page with no intake behind it is not a state this can be put into.
+     */
+    public function testSwitchingBothOffLeavesNoRouteRegisteredAtAll(): void
+    {
+        foreach ([true, false] as $page) {
+            $routes = $this->loader(host: '', page: $page)->load('.', SignupRouteLoader::TYPE);
+
+            self::assertCount(0, $routes, sprintf('SIGNUP_PAGE=%s cannot resurrect a page', var_export($page, true)));
         }
     }
 
@@ -151,12 +218,21 @@ final class SignupRouteLoaderTest extends TestCase
      * returns are the controllers' own `#[Route]` attributes and a stub would be
      * asserting against a fixture rather than against the endpoint.
      */
-    private function loader(string $host, string $secret = self::SECRET): SignupRouteLoader
+    private function loader(string $host, string $secret = self::SECRET, bool $page = true): SignupRouteLoader
     {
+        $signupHost = new SignupHost($host);
+
         $loader = new SignupRouteLoader(
-            new SignupHost($host),
+            $signupHost,
             new ControlPlaneHost('control.xivi.example'),
             new SignupApiKey($secret),
+            // The real SignupPage rather than a stub, because the thing under test
+            // is partly the *composition* of the two switches: a stub returning a
+            // boolean would assert that the loader reads a flag, which is not the
+            // claim. Handing it the same host object the loader has means the
+            // "page cannot outlive the endpoint" rule is exercised rather than
+            // assumed.
+            new SignupPage($signupHost, $page),
         );
 
         // The framework's own subclass, which is what the application uses: it

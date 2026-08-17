@@ -18,6 +18,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
 use Symfony\Component\Routing\Attribute\Route;
+use Xivi\ControlPlane\Signup\SelfServiceSlug;
 use Xivi\ControlPlane\Signup\SignupApiKey;
 use Xivi\ControlPlane\Signup\SignupError;
 use Xivi\ControlPlane\Signup\SignupIntake;
@@ -28,11 +29,18 @@ use Xivi\ControlPlane\Signup\SignupSubmission;
 /**
  * The public signup API (XIV-64).
  *
- * **This is an interface somebody else compiles against**, which is [XIV-65]'s
- * doing: the landing page is a separate site with its own deployment, so what is
- * written below is a contract rather than a description of how one page happens
- * to talk to one action. It is documented here rather than only in the brief
- * because this is the file somebody changes.
+ * **This is an interface somebody else compiles against**, so what is written
+ * below is a contract rather than a description of how one page happens to talk
+ * to one action. It is documented here rather than only in the brief because this
+ * is the file somebody changes.
+ *
+ * That was the assumption when it was written and [XIV-65] kept it even though
+ * the landing page ended up in this repository: {@see SignupPageController} holds
+ * the shared secret and posts to these routes like any other caller, over a real
+ * request the router routes here. A deployment that builds its own front end is
+ * therefore on exactly the same footing as the page shipped beside this, which is
+ * the property worth having — nothing here has a private door, so nothing here
+ * can quietly stop working for everybody but us. See §8.13.
  *
  * ---
  *
@@ -86,6 +94,16 @@ use Xivi\ControlPlane\Signup\SignupSubmission;
  * `available` is the answer and `reason` is present only when it is `false`. The
  * reason is a {@see SignupError} value, so a caller renders it with the same
  * table it renders a refused submission with.
+ *
+ * **`slug` here is the name `/requests` would create from the same `company`**,
+ * and that is a guarantee rather than a coincidence (XIV-100). Both actions go
+ * through one derivation, {@see SelfServiceSlug::derive()}, which reads nothing
+ * from the request but the company name — so a preview and a submission cannot
+ * be made to disagree by sending different optional fields to the two. `locale`
+ * is still accepted here and is now inert: it names the language of the
+ * confirmation mail, and a permanent hostname is not the sort of thing a reading
+ * language gets to decide. Accepted rather than refused, because a field that
+ * stops mattering is not a field that may be removed inside `v1`.
  *
  * ### Errors
  *
@@ -177,11 +195,10 @@ final readonly class SignupApiController
                 SignupRateLimits::clientAddress($request, $submission->clientIp),
             );
 
-            $availability = $this->intake->availability(
-                $submission->slug,
-                $submission->companyName,
-                $submission->locale,
-            );
+            // No locale: the derivation stopped taking one in XIV-100, because a
+            // field that is optional on both of these calls cannot be allowed to
+            // decide a permanent hostname. See {@see SelfServiceSlug::derive()}.
+            $availability = $this->intake->availability($submission->slug, $submission->companyName);
         } catch (SignupRefused $refused) {
             return self::refusal($refused);
         }

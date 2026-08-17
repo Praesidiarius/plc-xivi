@@ -1,0 +1,168 @@
+{% extends 'base.html.twig' %}
+
+{#
+	The landing page and its signup form (XIV-65).
+
+	**A landing page, not a marketing site.** One screen: what this is, and the
+	form. No pricing table, no feature grid, no content model — that was decided
+	when the ticket was written and the reasoning is in docs/architecture.md
+	§8.13. The day somebody wants pages, the answer is a site of its own posting
+	to the published contract, which is the "endpoint only" state.
+
+	**Every word a visitor reads is in the `landing` domain**, and none of them
+	are in this file. That is deliberate and it is the changelog decision made
+	structural: `translations/landing.*.yaml` and this template are the only
+	things a copy edit touches, and `bin/ci` exempts a branch that touches
+	nothing else from needing a changelog entry. Putting a sentence inline here
+	would work and would quietly take that property away.
+
+	`base.html.twig` rather than a layout of its own, and the note in that file
+	predicted this ticket would be the moment to split. It is not, yet: what this
+	page uses from there is the `<head>` — the favicon rule, the pre-paint theme
+	script, the importmap — and the footer block is already overridable, which is
+	the only part a signed-out page wanted differently. A second layout would
+	duplicate three things to change none of them.
+#}
+{% block title %}{{ 'landing.title'|trans({}, 'landing') }}{% endblock %}
+
+{#
+	No application footer. There is no application here — the reader has not
+	signed in to anything and there is nothing to sign in to yet — so the version
+	goes inside the card, the same way the sign-in pages do it (XIV-79).
+#}
+{% block footer %}{% endblock %}
+
+{% block body %}
+	<main class="signin-shell">
+		<div style="width: 34rem; max-width: 100%;">
+			<div class="text-center mb-4">
+				<h1 class="h3 mb-2">{{ 'landing.headline'|trans({}, 'landing') }}</h1>
+				<p class="text-body-secondary mb-0">{{ 'landing.subhead'|trans({}, 'landing') }}</p>
+			</div>
+
+			{#
+				Two states and no third. Either the signup was recorded — in which
+				case the form has done its job and is gone, because leaving it under
+				a success message invites the reload that resends the mail — or it is
+				still to be filled in.
+			#}
+			{% if outcome is defined and outcome.isAccepted %}
+				<div class="card shadow-sm">
+					<div class="card-body p-4">
+						<div class="alert alert-success py-2 small mb-3" role="alert">
+							{{ 'landing.done.sent'|trans({'%email%': outcome.email}, 'landing') }}
+						</div>
+
+						<p class="mb-2">{{ 'landing.done.next'|trans({'%slug%': outcome.slug}, 'landing') }}</p>
+
+						{#
+							The window, in hours rather than as a timestamp: a moment
+							written in a timezone the reader may not be in is a worse
+							answer than "a day". The number comes from the intake's own
+							constant, so it cannot drift from the window the token
+							actually has.
+						#}
+						<p class="text-body-secondary small mb-0">
+							{{ 'landing.done.expiry'|trans({'%hours%': confirmation_hours}, 'landing') }}
+						</p>
+
+						<p class="text-body-secondary small mb-0 mt-4">Xivi {{ app_version }}</p>
+					</div>
+				</div>
+			{% else %}
+				<div class="card shadow-sm">
+					<div class="card-body p-4">
+						{#
+							The one place a refusal is shown, and the words come from the
+							controller: the intake answers with a code from a published
+							vocabulary and one fixed English sentence for a log, and §8.12
+							gives this ticket the words a visitor reads, in their language.
+						#}
+						{% if error is defined and error is not null %}
+							<div class="alert alert-danger py-2 small" role="alert">{{ error }}</div>
+						{% endif %}
+
+						{#
+							`data-controller` wires the live name check. Everything below
+							works without it — the field is a plain text input with whatever
+							the server last derived in it, and the form posts normally — so a
+							browser that never runs the script gets a form that asks for a
+							name instead of one that suggests it.
+						#}
+						<form method="post"
+						      action="{{ path('signup_page_submit') }}"
+						      data-controller="signup-name"
+						      data-signup-name-url-value="{{ path('signup_page_name') }}">
+							<div class="mb-3">
+								<label for="company" class="form-label">{{ 'landing.form.company'|trans({}, 'landing') }}</label>
+								<input type="text" id="company" name="company" value="{{ draft.company }}"
+								       class="form-control" autocomplete="organization"
+								       data-signup-name-target="company"
+								       data-action="input->signup-name#company"
+								       required autofocus>
+							</div>
+
+							<div class="mb-3">
+								<label for="slug" class="form-label">{{ 'landing.form.address'|trans({}, 'landing') }}</label>
+								{#
+									The name and the domain it becomes, side by side, because
+									the thing being chosen is a hostname and showing it as a
+									bare word makes it look like a display label somebody can
+									change their mind about later.
+								#}
+								<div class="input-group">
+									<input type="text" id="slug" name="slug" value="{{ draft.slug }}"
+									       class="form-control" autocomplete="off" spellcheck="false"
+									       data-signup-name-target="slug"
+									       data-action="input->signup-name#slug"
+									       aria-describedby="address-help">
+									<span class="input-group-text">.{{ domain }}</span>
+								</div>
+								<div id="address-help" class="form-text" data-signup-name-target="message">
+									{{ 'landing.form.address_help'|trans({}, 'landing') }}
+								</div>
+							</div>
+
+							<div class="mb-3">
+								<label for="email" class="form-label">{{ 'landing.form.email'|trans({}, 'landing') }}</label>
+								<input type="email" id="email" name="email" value="{{ draft.email }}"
+								       class="form-control" autocomplete="email" required>
+								<div class="form-text">{{ 'landing.form.email_help'|trans({}, 'landing') }}</div>
+							</div>
+
+							{#
+								Plans are a list a deployment configures and usually has one
+								of. One plan is not a choice, so it is not drawn as one — the
+								field goes in hidden and the page stays a form with three
+								boxes rather than a form with three boxes and a select
+								containing the only possible answer.
+							#}
+							{% if plans|length > 1 %}
+								<div class="mb-4">
+									<label for="plan" class="form-label">{{ 'landing.form.plan'|trans({}, 'landing') }}</label>
+									<select id="plan" name="plan" class="form-select">
+										{% for plan in plans %}
+											<option value="{{ plan }}" {{ plan == draft.plan ? 'selected' : '' }}>{{ plan }}</option>
+										{% endfor %}
+									</select>
+								</div>
+							{% elseif plans|length == 1 %}
+								<input type="hidden" name="plan" value="{{ plans|first }}">
+							{% endif %}
+
+							<button type="submit" class="btn btn-primary w-100">
+								{{ 'landing.form.submit'|trans({}, 'landing') }}
+							</button>
+						</form>
+
+						<p class="text-body-secondary small mb-0 mt-4 text-center">
+							{{ 'landing.form.confirmation_note'|trans({}, 'landing') }}
+						</p>
+
+						<p class="text-body-secondary small mb-0 mt-3 text-center">Xivi {{ app_version }}</p>
+					</div>
+				</div>
+			{% endif %}
+		</div>
+	</main>
+{% endblock %}

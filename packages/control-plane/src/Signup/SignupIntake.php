@@ -185,7 +185,14 @@ final readonly class SignupIntake
 
         $locale = $this->validLocale($submission->locale);
         $plan = $this->validPlan($submission->plan);
-        $slug = $this->validSlug($submission->slug, $company, $locale);
+
+        // The locale is *not* passed here, and XIV-100 is why: it chooses the
+        // language of the confirmation mail and nothing else. See
+        // {@see SelfServiceSlug::derive()} for the argument — the short version is
+        // that a hostname is permanent and must not depend on which language
+        // somebody read the form in, and that the preview and the submission are
+        // two requests which can carry different values of an optional field.
+        $slug = $this->validSlug($submission->slug, $company);
 
         $existing = $this->signups->findOneByEmail($email);
 
@@ -292,13 +299,18 @@ final readonly class SignupIntake
      * being careful about: see {@see SignupError} for why one refusal word covers
      * three different reasons, and docs/architecture.md §8.12 for the residual
      * enumeration risk it does not remove.
+     *
+     * **It answers about the name {@see record()} would create**, which is the
+     * half of XIV-100 that was not merely cosmetic: an `available: true` computed
+     * for a name the submission was never going to produce is not a wrong label
+     * on the right answer, it is an answer about a different question. The two go
+     * through one derivation that takes nothing from the request but the company
+     * name, so there is no longer an argument the two calls can disagree on.
      */
-    public function availability(string $slug, string $companyName, string $locale = ''): SlugAvailability
+    public function availability(string $slug, string $companyName): SlugAvailability
     {
-        $locale = $this->validLocale($locale);
-
         try {
-            $slug = $this->validSlug($slug, $companyName, $locale);
+            $slug = $this->validSlug($slug, $companyName);
         } catch (SignupRefused $refused) {
             return SlugAvailability::refused($slug, $refused->error);
         }
@@ -371,10 +383,10 @@ final readonly class SignupIntake
     /**
      * @throws SignupRefused
      */
-    private function validSlug(string $slug, string $companyName, string $locale): string
+    private function validSlug(string $slug, string $companyName): string
     {
         if ($slug === '') {
-            $slug = $this->slugs->derive($companyName, $locale);
+            $slug = $this->slugs->derive($companyName);
 
             if ($slug === '') {
                 throw SignupRefused::undeducibleSlug($companyName);

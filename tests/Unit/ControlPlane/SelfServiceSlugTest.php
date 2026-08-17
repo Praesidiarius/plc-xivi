@@ -118,9 +118,9 @@ final class SelfServiceSlugTest extends TestCase
      * shown before submission is the name that gets recorded.
      */
     #[DataProvider('companyNames')]
-    public function testANameIsDerivedFromTheCompany(string $company, string $locale, string $expected): void
+    public function testANameIsDerivedFromTheCompany(string $company, string $expected): void
     {
-        $derived = $this->slugs()->derive($company, $locale);
+        $derived = $this->slugs()->derive($company);
 
         self::assertSame($expected, $derived);
         self::assertTrue(
@@ -129,22 +129,59 @@ final class SelfServiceSlugTest extends TestCase
         );
     }
 
-    /** @return iterable<string, array{string, string, string}> */
+    /** @return iterable<string, array{string, string}> */
     public static function companyNames(): iterable
     {
-        yield 'the ordinary case' => ['Acme AG', 'en', 'acme-ag'];
-        yield 'punctuation becomes a separator rather than vanishing' => ['A+B Consulting', 'en', 'a-b-consulting'];
-        yield 'legal forms with dots' => ['Meier & Co. GmbH', 'de', 'meier-co-gmbh'];
+        yield 'the ordinary case' => ['Acme AG', 'acme-ag'];
+        yield 'punctuation becomes a separator rather than vanishing' => ['A+B Consulting', 'a-b-consulting'];
+        yield 'legal forms with dots' => ['Meier & Co. GmbH', 'meier-co-gmbh'];
         // The one that would differ between a server and a page's JavaScript,
         // which is the whole argument for deriving on one side only: a German
         // reader expects `ae`, and Symfony's default rules give `a`.
-        yield 'German transliteration' => ['Bäckerei Müller', 'de', 'baeckerei-mueller'];
-        yield 'leading and trailing noise is trimmed' => ['  --Acme--  ', 'en', 'acme'];
+        yield 'German transliteration' => ['Bäckerei Müller', 'baeckerei-mueller'];
+        yield 'leading and trailing noise is trimmed' => ['  --Acme--  ', 'acme'];
         // 63 characters of `ab-` land exactly on a separator, which is the one
         // thing the pattern forbids at the end — so the cut is trimmed again and
         // the answer is 62 characters rather than an illegal 63.
-        yield 'a long name is cut to a legal label' => [str_repeat('ab ', 40), 'en', str_repeat('ab-', 20) . 'ab'];
-        yield 'nothing usable is an empty answer rather than an invented one' => ['!!! ???', 'en', ''];
+        yield 'a long name is cut to a legal label' => [str_repeat('ab ', 40), str_repeat('ab-', 20) . 'ab'];
+        yield 'nothing usable is an empty answer rather than an invented one' => ['!!! ???', ''];
+        // Every other language keeps what it had, which is what makes pinning the
+        // transliteration cheap: the locale maps only add expansions on top of the
+        // generic ASCII rules, so an accent is still folded the ordinary way.
+        yield 'accents outside the pinned locale are still folded' => ['Café Étoile', 'cafe-etoile'];
+    }
+
+    /**
+     * **One company name, one address, whatever language anybody is reading in**
+     * (XIV-100).
+     *
+     * The bug reported was that a preview said `muller-bau-ag` and the submission
+     * created `mueller-bau-ag`, which looked like two derivations and was not:
+     * there was one, and it took the request's `locale` — an *optional* field
+     * whose documented job is to choose the language of the confirmation mail.
+     * Two requests, one optional field, and nothing obliging a caller to send the
+     * same value to both.
+     *
+     * The fix removed the parameter rather than passing it more carefully, and
+     * this is the test that stops it coming back: `derive()` takes exactly one
+     * argument, so there is no longer anything for two callers to disagree about.
+     * A hostname is permanent and belongs to the company; which language somebody
+     * had the form open in is not the sort of fact that gets to decide one.
+     */
+    public function testTheDerivationTakesNothingFromTheRequest(): void
+    {
+        $derive = new \ReflectionMethod(SelfServiceSlug::class, 'derive');
+
+        self::assertSame(
+            1,
+            $derive->getNumberOfParameters(),
+            'derive() takes the company name and nothing else; see XIV-100',
+        );
+
+        // And the rule that was chosen. The reported name, spelled the German way
+        // — asserted through its effect rather than by comparing the constant to
+        // its own value, which is a tautology PHPStan is right to refuse.
+        self::assertSame('mueller-bau-ag', $this->slugs()->derive('Müller Bau AG'));
     }
 
     /**

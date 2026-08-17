@@ -279,7 +279,7 @@ final class SignupEndpointTest extends WebTestCase
         [$status, $body] = $this->check(['company' => 'Bäckerei Müller', 'locale' => 'de']);
 
         self::assertSame(Response::HTTP_OK, $status);
-        self::assertSame('baeckerei-mueller', $body['slug'], 'German transliteration, from the visitor’s language');
+        self::assertSame('baeckerei-mueller', $body['slug'], 'the installation’s transliteration rule');
         self::assertTrue($body['available']);
         self::assertArrayNotHasKey('reason', $body, 'a reason is present only when the answer is no');
 
@@ -288,6 +288,49 @@ final class SignupEndpointTest extends WebTestCase
         self::assertSame('www', $body['slug']);
         self::assertFalse($body['available']);
         self::assertSame('slug_taken', $body['reason']);
+    }
+
+    /**
+     * **The name the preview shows is the name the submission creates** (XIV-100).
+     *
+     * The reported bug, reproduced as it was reported: an availability check and a
+     * submission of the same company name, answering `muller-bau-ag` and
+     * `mueller-bau-ag`. There was only ever one derivation and both calls already
+     * went through it — what differed was the argument, because `locale` is
+     * optional on both and nothing obliged a caller to send the same value twice.
+     *
+     * So the two calls here are made **deliberately out of step**: one carries no
+     * locale, the other carries German, and one of them is the check while the
+     * other is the write. That is the shape a real form takes without meaning to —
+     * a keystroke-driven check with a thin body, and a submission with everything
+     * on it — and it is exactly what used to disagree. If the derivation ever
+     * reads the request again, this fails.
+     *
+     * The availability answer matters as much as the spelling: `available: true`
+     * computed for a name the submission was never going to produce is not a
+     * cosmetic mismatch, it is an answer about a different question.
+     */
+    public function testThePreviewedNameIsTheNameThatGetsCreated(): void
+    {
+        $company = 'Müller Bau AG';
+
+        [$status, $preview] = $this->check(['company' => $company]);
+        self::assertSame(Response::HTTP_OK, $status);
+        self::assertTrue($preview['available'], 'nobody is called that yet');
+
+        [$status, $created] = $this->submit([
+            'email' => 'umlaut' . self::ADDRESS_SUFFIX,
+            'company' => $company,
+            'locale' => 'de',
+        ]);
+
+        self::assertSame(Response::HTTP_CREATED, $status);
+        self::assertSame(
+            $preview['slug'],
+            $created['slug'],
+            'the customer was shown one address and given another',
+        );
+        self::assertSame('mueller-bau-ag', $created['slug'], 'and the rule that was chosen is the German one');
     }
 
     /**

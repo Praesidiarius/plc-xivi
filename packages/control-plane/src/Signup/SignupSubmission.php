@@ -17,10 +17,10 @@ namespace Xivi\ControlPlane\Signup;
  * The request body of `POST /api/signup/v1/requests`, as a value (XIV-64).
  *
  * **This class is the published request shape.** It is here rather than in the
- * controller because the shape is the contract: [XIV-65]'s landing page is a
- * separate codebase posting into this, so "which fields exist and which are
- * optional" is an interface somebody else compiles against, not a detail of how
- * one action happens to read `$request`.
+ * controller because the shape is the contract: anybody's site may post into
+ * this, the landing page shipped in this repository included ([XIV-65], §8.13),
+ * so "which fields exist and which are optional" is an interface somebody else
+ * compiles against, not a detail of how one action happens to read `$request`.
  *
  * The versioning rule that follows from that: within `v1` a field may be
  * **added** and it must be optional, because an existing caller will not send
