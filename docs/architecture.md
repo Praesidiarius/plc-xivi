@@ -4143,7 +4143,148 @@ and the control plane has no account page to hold anybody on.
 **No page.** Signing in lands on a placeholder that says what it is and what
 replaces it, which is [XIV-58], the tenant list. That is the expected shape of this
 ticket, not an unfinished edge of it — the same shape `DashboardController` had
-before there were modules to show.
+before there were modules to show. **That placeholder is gone**; §8.10 is what
+took its place.
+
+### 8.10 The tenant list, and the boundary it keeps (XIV-58)
+
+The page an operator lands on is the registry, drawn as a table: name and slug,
+status, plan, primary domain, created and provisioned, enabled modules. Every
+column of it is a field of the `tenant` row, which is the whole design and is
+worth saying out loud rather than treating as a coincidence of what happened to
+be easy.
+
+`tenant:list` **still works and was not replaced.** A headless deployment has no
+browser, and the command is what somebody has in an SSH session at three in the
+morning. What the page adds is not the data.
+
+#### One request, one database — and here that database is the control plane's
+
+**This page opens no tenant connection at all.** §4 makes that sentence true of
+every request in the application, and §8.9 makes it true of this host in the
+strongest available way: a control-plane request resolves no tenant, so the
+`tenant` connection is not merely unused but deliberately unusable, and anything
+touching it gets `NoTenantResolvedException` rather than the previous customer's
+database.
+
+That property is not a side effect of the columns this page happens to show. It
+is the reason [XIV-59] — how many users a customer has, when anybody last signed
+in, how many records are in there — is a design problem rather than a `LEFT
+JOIN`. Those figures live in the customers' own databases, one connection each,
+and a page listing forty tenants that fetched them inline would open forty
+connections to draw a column. There are several defensible answers to that — a
+roll-up written back to the registry on a schedule, an on-demand figure for one
+tenant, an explicit per-row fetch the reader asks for — and **none of them can be
+chosen honestly while a join looks available.** The first person who wants "just
+the user count" here will find it is one line away and that nothing in the file
+physically stops them. What stops them is knowing why it is not there, which is
+why the argument is in `TenantListController`'s docblock as well as in this
+paragraph.
+
+`TenantListTest` proves it rather than asserting it in prose. Three things
+together: no tenant is resolved after the request; the tenant connection was left
+unopened by a request that rendered every row; and touching that connection
+afterwards throws — which is what stops the second from being a statement about
+DBAL's laziness. The fixtures compound it. **The three tenants it lists have no
+databases at all** — rows written straight into the registry, with DSNs naming a
+host that does not resolve — so a page that connected would not be quietly wrong,
+it would be red. Provisioning three real customers would have been the more
+realistic fixture and a strictly weaker instrument.
+
+#### The row also carries a credential, and the defence is a type
+
+A `Tenant` holds `database_dsn` and `database_password`. Neither belongs on this
+page or in its HTML, and neither ever arrives there on purpose: it arrives as a
+`|json_encode` into a Stimulus data attribute, a `dump()` left in a template, a
+serializer normalising an entity for a fragment, a profiler panel on a page
+somebody pastes into a chat. Every one of those is a mistake that reads as
+harmless while it is being made, so "be careful in the template" is not a
+control.
+
+**So the entity never reaches the template.** `App\ControlPlane\View\TenantSummary`
+is a readonly object of seven scalars and two arrays, with a private constructor
+and one static factory — the single place in the codebase that reads a `Tenant`
+for this page, and it does not read those two columns. Dump it, encode it, hand it
+to a JavaScript component: there is no credential in it. That is a property of the
+type rather than of whoever edits the template next, which is the only kind worth
+having.
+
+The test asserts it from the other side anyway, over the headers as well as the
+body, and looks for the DSN's *parts* as well as the whole so that a "which server
+is this customer on" column parsed out of the DSN still fails. `TenantLogoTest`
+set exactly this shape in XIV-49, for a tenant settings row that holds an SMTP
+password beside the one column that is deliberately public. Both halves are
+wanted: the type makes the leak impossible, and the test notices when somebody
+decides the entity would be more convenient after all.
+
+#### Status is designed around, not printed
+
+A registry sorted by name is one in which a tenant stuck in `provisioning` since
+Tuesday sits on the third screen between two healthy customers, in a cell that
+looks like every other cell. Provisioning is measured in seconds, so a tenant
+found in that state by somebody loading a page is not mid-flight — it is what a
+run that died halfway leaves behind (§4.1), and it is the single thing an operator
+wants to see from the doorway.
+
+Two things carry that, and both are needed:
+
+1. **The table is ordered by `TenantStatus::attentionRank()` first and by name
+   second.** The rank is a `match` on the enum rather than an `ORDER BY status`,
+   because the stored strings sort alphabetically — `active`, `provisioning`,
+   `suspended`, `trial` — which puts the healthy majority on top by accident of
+   spelling. Provisioning outranks suspended: both stop a customer being served,
+   but somebody *chose* the second. The rank is deliberately not derived from
+   `servesRequests()`, which collapses those two; that predicate answers "may this
+   hostname be served" and this one answers "who should read this row first", and
+   a status added later can move in one without moving in the other.
+2. **The page opens with a line saying how many customers are not being served,
+   and naming them** — and is drawn only when that number is not zero. A banner
+   permanently reading "0 customers are not being served" is furniture, and
+   furniture is what the eye learns to skip. "Not being served" rather than
+   "broken" because it is a fact rather than a judgement: a suspended customer
+   belongs in the same count as a provisioning run that died.
+
+**Rejected: computing "stuck" from a threshold** — `provisioning` with
+`updated_at` older than a day, drawn as a warning. It is the obvious reading and
+it is not built, because the threshold would be fiction. A tenant provisioning for
+twenty-three hours is exactly as broken as one provisioning for twenty-five, and a
+line drawn between them teaches the reader that everything under it is fine. What
+the page says instead is weaker and true: this customer is not being served, the
+row was created *then*, and it was provisioned — for a stuck tenant — never. That
+is a date beside an em dash, and it reads as what it is. The reader supplies the
+judgement, which is the half of "has it moved in a day" that no constant in this
+repository could supply honestly.
+
+**Rejected: a separate page, or a filter, for the unhealthy rows.** Both put the
+thing worth seeing behind a click on a page whose entire job is that nobody has to
+go looking. The cost of the ordering chosen instead is real and small: looking one
+customer up by name now means finding them in the second group rather than in
+strict alphabetical position. The registry is one row per customer, so this is a
+list of tens; grouping a list of tens by state is a reading order, not an
+obstacle. When it stops being tens the answer is a search box and paging, not a
+different sort — and paging is the moment the ranking has to reach SQL, which is
+when duplicating it as a `CASE` becomes a cost worth paying for a reason rather
+than by default.
+
+#### Two smaller decisions the ticket left open
+
+**A tenant with no hostname is shown, not skipped.** `findAllWithDomains()` uses a
+`leftJoin` where `findOneByHostname()` uses an inner one, because provisioning
+writes the registry row before it routes a domain to it — so a run that died in
+between leaves exactly a tenant with no domains, and an inner join would silently
+omit the row this page is most needed for. It draws an em dash, which is the
+honest rendering.
+
+**The modules column is what the control plane believes, not what the customer
+has.** §6.1 makes those two able to differ, and reconciling them means reading
+each tenant's own metadata, which is a tenant connection this page does not open.
+The column is `tenant.enabled_modules` and nothing else.
+
+**No lifecycle actions.** Provision, suspend, migrate, rotate and deprovision all
+have working commands, several of them with refusals and confirmations that a
+button would have to reproduce (§4.1 is an essay about one of them). A page that
+lists customers and a button that destroys one are different kinds of thing, and
+the second gets its own ticket when somebody wants it.
 
 ---
 

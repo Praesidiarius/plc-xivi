@@ -60,6 +60,39 @@ class TenantRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Every tenant, with its hostnames already in hand (XIV-58).
+     *
+     * `findAllOrdered()` above serves `tenant:list`, which prints the hostnames
+     * too and pays for them one lazy load per row — invisible at a console, where
+     * the command runs once and nobody is watching a latency budget. A page is a
+     * different setting, so this asks for the join.
+     *
+     * **A `leftJoin`, not the `innerJoin` that `findOneByHostname()` uses**, and
+     * the difference is the entire reason this is a separate method rather than a
+     * flag on that one. An inner join drops a tenant with no domains, and a tenant
+     * with no domains is exactly the wreckage this page is for: provisioning
+     * writes the row before it routes any hostname to it, so a run that died in
+     * between leaves precisely that. Silently omitting it would make the list
+     * *least* trustworthy in the one case somebody is reading it for.
+     *
+     * The ordering is by name and stops there. Which rows a reader should see
+     * first is {@see \App\ControlPlane\Entity\TenantStatus::attentionRank()}'s
+     * answer, and it is applied in PHP rather than translated into a `CASE` in the
+     * `ORDER BY` — see `TenantListController` for why that is not laziness.
+     *
+     * @return list<Tenant>
+     */
+    public function findAllWithDomains(): array
+    {
+        return $this->createQueryBuilder('t')
+            ->leftJoin('t.domains', 'd')
+            ->addSelect('d')
+            ->orderBy('t.name', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function hostnameIsTaken(string $hostname): bool
     {
         return $this->getEntityManager()

@@ -70,11 +70,23 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **Every tenant on one page** ([XIV-58]). Signing in to the control plane now
+  lands on the registry itself — name and slug, status, plan, primary domain,
+  when the row was created and when it was provisioned, which modules are enabled
+  — instead of XIV-57's placeholder, which is gone. **Ordered by status rather
+  than by name**, so a tenant stuck in *provisioning* is at the top instead of on
+  the third screen, and the page opens with a line naming the customers that are
+  not being served (§8.10).
+- **The tenant list reads only the control-plane database** ([XIV-58]). It opens
+  no connection to any customer's database, and a test proves it — which is what
+  keeps usage figures ([XIV-59]) a design decision rather than a join somebody
+  adds in passing. `tenant:list` is unchanged and still works; a headless
+  deployment needs it.
 - **Somebody can sign in to the control plane** ([XIV-57]). Operators are rows in
   the control-plane database with their own entity, provider and firewall — never
   promoted users of a designated tenant, which would make one customer's database
-  the key to every other customer's (§8.9). Signing in lands on a placeholder;
-  the tenant list is [XIV-58].
+  the key to every other customer's (§8.9). Signing in lands on the tenant list
+  above.
 - **The control plane is served on a host of its own, and only there** ([XIV-57]).
   A control-plane URL answers 404 on every customer's hostname, and the tenant
   application answers 404 on the control plane's. A request there resolves no
@@ -348,6 +360,7 @@ lands in `Unreleased` here.
 [XIV-54]: https://xivi.youtrack.cloud/issue/XIV-54
 [XIV-57]: https://xivi.youtrack.cloud/issue/XIV-57
 [XIV-58]: https://xivi.youtrack.cloud/issue/XIV-58
+[XIV-59]: https://xivi.youtrack.cloud/issue/XIV-59
 [XIV-68]: https://xivi.youtrack.cloud/issue/XIV-68
 [XIV-80]: https://xivi.youtrack.cloud/issue/XIV-80
 [XIV-81]: https://xivi.youtrack.cloud/issue/XIV-81
