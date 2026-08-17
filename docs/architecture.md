@@ -536,14 +536,29 @@ finding worth acting on. Ten thousand is not.
 **Neither view is expensive for the reason the ticket predicted.** XIV-68 blamed
 the row of inputs; the inputs are not what costs.
 
-- **The read view's queries are the drift check.** An order line inherits three
-  values from its article (§5.1's copied values) and
-  `InheritedValues::driftedIn()` resolves the reference once per inherited field
-  with no memo — **three identical `SELECT`s per line**, which is 28 800 of the
-  read view's 28 816 queries at ten thousand rows. Naming the article costs one
-  more lookup per *distinct* article, and that one is memoised, so it is bounded
-  by the catalogue. XIV-54 batches the memoised lookup and does not touch the
-  three, so it removes a percent or so of this and the page stays O(N).
+- **The read view's queries were the drift check, and XIV-54 removed them.** An
+  order line inherits three values from its article (§5.1's copied values) and
+  `InheritedValues::driftedIn()` resolved the reference once per inherited field
+  with no memo — **three identical `SELECT`s per line**, which was 28 800 of the
+  read view's 28 816 queries at ten thousand rows. The table above was measured
+  before XIV-54 landed, and predicted that ticket would remove "a percent or so"
+  and leave the page O(N). **That prediction was wrong**, because XIV-54 widened
+  its own scope to cover exactly this: `InheritedValues` reads through the shared
+  `ReferenceTargets` memo now rather than going to `RecordRepository` per field.
+
+  Re-measured on the merged tree, same catalogue of 250 articles:
+
+  | rows | read queries before | read queries after | read ms before | read ms after |
+  | ---: | ---: | ---: | ---: | ---: |
+  | 10 | 50 | **18** | 47 | 47 |
+  | 100 | 391 | **18** | 240 | 91 |
+  | 500 | 1 600 | **18** | 682 | 323 |
+  | 1 000 | 2 896 | **18** | 785 | 555 |
+
+  Flat, not merely bounded by the catalogue. What remains linear on the read view
+  is bytes and memory, which is the rendering rather than the reading — so the
+  read view's ceiling is still where the table above puts it, and it is no longer
+  a query problem at all.
 - **The form's weight is the form.** Every row is a Symfony form of eight
   controls with a `FormView` behind it, and that is the bulk of the 0.44 MB.
   Measured against a catalogue of 25 articles instead of 250 — which shrinks the
