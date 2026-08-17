@@ -42,6 +42,11 @@ login:
     submit: Anmelden
     invitation_failed: Bitte die Administration um eine neue Einladung — jeder Link gilt einmal und 24 Stunden lang.
 
+control_plane:
+    title: Steuerungsebene
+    placeholder_heading: Noch nichts zu sehen
+    placeholder_body: Die Anmeldung funktioniert. Als Erstes erscheint hier die Liste der Mandanten.
+
 dashboard:
     follow_ups: Deine Wiedervorlagen
     no_access: Du hast noch auf kein Modul Zugriff. Eine Administratorin oder ein Administrator kann ihn dir geben.

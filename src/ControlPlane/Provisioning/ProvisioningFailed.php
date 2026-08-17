@@ -42,6 +42,20 @@ final class ProvisioningFailed extends \RuntimeException
         return new self(sprintf('Hostname "%s" is already routed to another tenant.', $hostname));
     }
 
+    /**
+     * A hostname this installation serves without a tenant (XIV-57): the control
+     * plane's above all, and the loopback and container names beside it.
+     */
+    public static function hostnameIsReserved(string $hostname): self
+    {
+        return new self(sprintf(
+            'Hostname "%s" is served without a tenant (app.system_hosts), so nothing routed to it '
+            . 'would ever reach this customer. The control plane is one of those hosts; give the '
+            . 'tenant a name of its own.',
+            $hostname,
+        ));
+    }
+
     public static function dsnWithoutUser(string $slug): self
     {
         return new self(sprintf(

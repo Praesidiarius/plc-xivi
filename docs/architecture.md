@@ -4000,6 +4000,151 @@ that ticket arrives is the router's request context — a URL generated off a cr
 has no hostname to be absolute against, and a tenant's hostname is the one thing
 that link cannot get wrong.
 
+### 8.9 An operator is not a tenant user (XIV-57)
+
+Everything above this section is about people who belong to one customer. §8.1 puts
+them in that customer's own database and binds the security provider to the tenant
+entity manager, so *who is admin@example.com* is a question only one database can
+answer; §8.2 stamps the session with the tenant it was minted for, because those
+identifiers collide across customers. Neither of those is a precaution. They are
+the reason a cross-tenant leak is structurally impossible here rather than
+carefully avoided: a request resolves exactly one tenant and can only ever see that
+one.
+
+**An operator is the first identity that does not fit that shape**, and it does not
+fit for a reason that cannot be engineered away: their subject matter is *the set
+of tenants*. Somebody who has to look at the registry, provision a customer or read
+why a migration failed is by definition not about one customer, so there is no
+tenant database that is the right place to keep them.
+
+So: **an operator is a row in the control-plane database** — its own entity
+(`App\ControlPlane\Entity\Operator`), its own provider, its own firewall, its own
+host. Nothing about a tenant user changes.
+
+#### Two alternatives, rejected
+
+**A promoted user of a designated tenant.** Nominate one customer's installation as
+the administrative one and give a `ROLE_OPERATOR` there platform-wide powers. It
+needs no new table, no new firewall and no new host, which is the whole of its
+appeal. It is rejected because it makes one customer's database the key to every
+other customer's: whoever can write to that tenant's `app_user` table — a bug in a
+user screen, a stray SQL grant, a compromised administrator of what might be the
+smallest customer on the platform — is an operator. It also inverts the ownership
+the rest of §8 is built on. The rows in a customer's database are the customer's,
+and an identity that governs their competitors is not.
+
+**No accounts at all.** Bind the control plane to loopback and reach it over an SSH
+tunnel, or put an authenticating proxy in front of it. Honest for exactly one
+operator on exactly one machine, and it is a real answer for that case — which is
+why it is worth recording rather than dismissing. It is rejected because the second
+operator turns it into a migration: at that point there is no way to say who did
+what, no way to remove one person's access without rotating everybody's, and the
+work of adding accounts has to be done anyway, on a system that has since acquired
+screens built on the assumption that whoever reached them is trusted.
+
+#### The invariant: the firewall's *order* is the security boundary
+
+The `main` firewall has no `host:` restriction, so it matches every request, and
+Symfony takes the first firewall whose matcher accepts. **The control-plane
+firewall is therefore declared above it, and that ordering is the boundary.** Move
+it below and a control-plane sign-in falls through to `main`, whose provider is
+`tenant_users` — so an operator's password would be checked against
+`app_user` in whichever customer's database the hostname resolved to. That is
+precisely the leak §8.1 and §8.2 exist to prevent, arriving through a line moved in
+a YAML file rather than through a design mistake.
+
+A comment saying "do not reorder these" is read by everybody except the person who
+reorders them, so `ControlPlaneFirewallTest` asks the **compiled firewall map**
+which firewall takes a control-plane request and which provider it would
+authenticate against, and `ControlPlaneSignInTest` gives the same email address a
+different password on each side and proves the tenant's one is refused. The
+ordering fails the build rather than shipping.
+
+**The firewall is host-scoped by a request matcher rather than by `host:`.** That
+key is a regular expression, and a hostname written into one is a pattern in which
+every dot matches any character — `control.example.com` also accepts
+`controlXexample.com`, a name somebody else can own.
+`App\ControlPlane\Security\ControlPlaneHost` compares normalised strings instead,
+through `TenantResolver::normalize()`, which is the same function tenancy uses to
+decide that a host is served without a tenant. One normalisation, so the firewall
+matches exactly the host on which no tenant resolves.
+
+#### Where it is served, and what makes it resolve no tenant
+
+`CONTROL_PLANE_HOST` names it, and that parameter is written into
+`app.system_hosts` in `config/services.yaml`. That is the whole mechanism for "a
+control-plane request resolves no tenant" — §4's existing one, not a second: the
+tenancy listener checks that list before it consults the registry, clears the
+tenant connection and leaves it deliberately unusable. Reusing it rather than
+inventing a parallel rule is what stops the two from ever disagreeing, and it means
+the deployment step is one variable rather than two things to keep in step (see
+README, *Configuration*).
+
+Provisioning refuses to route a tenant to any host on that list. Without the
+refusal the mistake is silent in the worst way available: the row is created, the
+tenancy listener never consults it, and that customer's users are shown the
+platform's sign-in page instead of their own.
+
+Three layers keep a customer away from a control-plane route, and they are worth
+distinguishing because only the first two are boundaries:
+
+1. **The route does not exist on their hostname.** `ControlPlaneRequestListener`
+   answers 404 for `/control/…` anywhere but the control-plane host, and for
+   anything *but* `/control/…` on it. A 404 rather than a 403, because the path
+   really is not there and because a 403 confirms there is something worth being
+   refused from. It is a listener rather than a `host:` on the routes only because
+   Symfony forbids environment placeholders in routing configuration, so a
+   host-scoped route would have to carry a hostname compiled into the source.
+2. **The credential is answered by the control plane.** The firewall above.
+3. **`access_control` asks for `ROLE_OPERATOR`.** Third, and the weakest of the
+   three by construction: a role is a string in a customer's own database, and
+   nothing stops a customer's administrator writing `ROLE_OPERATOR` into their own
+   row. The test suite creates exactly that person and proves they are still
+   nobody here. Correspondingly, an operator holds **no `ROLE_USER`**, so the `^/`
+   rule that guards the tenant application refuses them — which is why an operator
+   who wanders towards a tenant screen is told no rather than collecting a 500
+   from a connection that has no tenant behind it.
+
+#### Sessions
+
+Separate firewalls have separate session contexts, so a token minted for an
+operator is stored under a key `main` does not look for and vice versa. Symfony
+would have given that for nothing, since a firewall's context defaults to its own
+name — and both are written out in `security.yaml` anyway, because "an operator
+session and a tenant session are not interchangeable" is a security property and
+one holding only because nobody has changed a default is one line of somebody
+else's release notes away from not holding. `TenantSessionGuard` covers the same
+ground from the other side: a session stamped for a tenant, replayed on a host that
+resolves none, is discarded.
+
+#### What is deliberately not built yet
+
+**No permission model.** Every operator has `ROLE_OPERATOR` and nothing else. There
+is one kind of operator so far, and a read-only or billing-only operator is a
+distinction to draw when there is a second kind to draw it against — §8.4's
+catalogue exists because modules and verbs were both real by then.
+
+**No `active` flag and no way to revoke one from the console.** Deleting the row is
+the revocation, and there is no `control:operator:delete` yet. That is a gap rather
+than a decision, and it is the same gap §4.1 argues about for tenants: an operator
+who cannot remove an account from the console will remove it in `psql`. It is small
+and it is named here so it is not rediscovered.
+
+**No invitations and no sign-up.** `control:operator:create` is the only way an
+operator comes into existence. Invitations exist on the tenant side (§8.8) because
+an administrator has colleagues to admit and no way to hand them a password; an
+operator is created at a console by somebody who already has one, and a mailed link
+admitting its holder to every customer's registry is not a convenience worth
+inventing before anybody has asked for it. The password is **asked for rather than
+generated**, which departs from §8.5 deliberately: a generated password is safe
+there because `must_change_password` holds the account until its owner replaces it,
+and the control plane has no account page to hold anybody on.
+
+**No page.** Signing in lands on a placeholder that says what it is and what
+replaces it, which is [XIV-58], the tenant list. That is the expected shape of this
+ticket, not an unfinished edge of it — the same shape `DashboardController` had
+before there were modules to show.
+
 ---
 
 ## 9. Status

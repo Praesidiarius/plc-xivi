@@ -432,6 +432,7 @@ and §6.4 of the brief argues why that is a rule rather than a nicety.
 | `tenant:migrate [--slug=]` | Applies tenant migrations to every tenant; run it on every deploy |
 | `tenant:permissions:grant-all <slug>` | Grants every action on every installed module to one tenant's non-admin users; the upgrade path for an installation that predates permissions, and the way back into a locked-out one |
 | `tenant:rotate-secrets` | Re-encrypts stored passwords with the active key |
+| `control:operator:create <email>` | Creates somebody who can sign in to the control plane; asks for the password, or takes `--password` for a scripted run |
 | `doctrine:migrations:migrate --em=control` | Control-plane schema only |
 
 Any console command can be pointed at one tenant's database with the `TENANT`
@@ -465,11 +466,45 @@ Symfony secrets vault in production.
 | `TENANT_ADMIN_DSN` | Used **only** by provisioning, for `CREATE DATABASE` / `CREATE ROLE` |
 | `TENANT_SECRET_KEYS` | `{"id": "base64 32 bytes"}` — keys that encrypt tenant passwords |
 | `TENANT_SECRET_KEY_ID` | Which of those keys new values are written with |
+| `CONTROL_PLANE_HOST` | The hostname the control plane is served on — see below |
+
+### The control plane needs a hostname of its own
+
+**This is a deployment step, and skipping it means the control plane is served on
+`control.localhost`,** which is the development default and is not a hostname
+anybody will reach in production.
+
+Set `CONTROL_PLANE_HOST` to a name this installation answers on and that **no
+customer is served on**. That one variable is all there is to it: the value is
+written into `app.system_hosts` in `config/services.yaml`, which is the list of
+hosts served *without* a tenant — so the host that serves the control plane is by
+construction one that resolves no customer, and there is no second place to keep in
+step with the first. Point DNS and the certificate at it like any other host; there
+is no separate deployment, since it is the same application.
+
+Two consequences worth knowing before you pick a name:
+
+- **Nothing else is served there.** A request to that host for anything but
+  `/control/…` answers 404, and `/control/…` answers 404 on every other host.
+- **`tenant:provision` refuses to route a customer to it**, along with every other
+  entry in `app.system_hosts`. Given what is behind it, prefer a name that is not
+  guessable from the customer-facing domain.
+
+Then create the first operator — there is no sign-up, and the control plane refuses
+everybody until this has been run:
+
+```bash
+bin/compose exec php bin/console control:operator:create you@example.com
+```
+
+The reasoning, and why an operator is not a promoted user of some tenant, is in
+§8.9 of the brief.
 
 ### Before deploying anywhere real
 
 The values committed in `.env` are placeholders and are public. Replace at minimum
-`APP_SECRET`, `TENANT_SECRET_KEYS` and the PostgreSQL password.
+`APP_SECRET`, `TENANT_SECRET_KEYS`, `CONTROL_PLANE_HOST` and the PostgreSQL
+password.
 
 ```bash
 php -r 'echo base64_encode(random_bytes(32)), PHP_EOL;'   # a TENANT_SECRET_KEYS value

@@ -1,0 +1,35 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'control_plane.title'|trans }}{% endblock %}
+
+{#
+	**The page an operator lands on, and it is empty on purpose** (XIV-57).
+
+	No `_topbar.html.twig` here: that bar is the tenant application's navigation —
+	the customer's modules, their company name, their account menu — and every one
+	of those needs a resolved tenant, which this host deliberately has not got. The
+	control plane will grow navigation of its own when it has more than one page to
+	navigate between, which is [XIV-58].
+
+	See `ControlPlaneDashboardController` for why nothing was built here.
+#}
+{% block body %}
+	<main class="container page-shell py-4">
+		<div class="d-flex align-items-center justify-content-between mb-4">
+			<h1 class="h4 mb-0">{{ 'control_plane.title'|trans }}</h1>
+			<div class="d-flex align-items-center gap-3">
+				<span class="text-body-secondary small">{{ app.user.name }}</span>
+				<a class="btn btn-sm btn-outline-secondary" href="{{ path('control_plane_logout') }}">
+					{{ 'nav.sign_out'|trans }}
+				</a>
+			</div>
+		</div>
+
+		<div class="card">
+			<div class="card-body">
+				<h2 class="h6">{{ 'control_plane.placeholder_heading'|trans }}</h2>
+				<p class="text-body-secondary mb-0">{{ 'control_plane.placeholder_body'|trans }}</p>
+			</div>
+		</div>
+	</main>
+{% endblock %}

@@ -6,22 +6,103 @@ security:
         # manager_name is the whole trick: users are looked up through the tenant
         # entity manager, so "who is admin@example.com" is only ever answered by
         # the database of the customer being served. Without it this provider
-        # would query the control plane, which holds no users at all.
+        # would query the control plane, which held no users at all — a sentence
+        # that stopped being true with XIV-57 and whose *point* did not: what the
+        # control plane now holds is operators, who are not users of anybody's
+        # installation. Nothing on this side may ever be looked up over there,
+        # and nothing over there may ever be looked up here.
         tenant_users:
             entity:
                 class: App\Tenant\Entity\User
                 property: email
                 manager_name: tenant
 
+        # The other half of that sentence (XIV-57, §8.9). `manager_name` is
+        # omitted rather than set to `control`, because the control plane is the
+        # *default* entity manager — naming it would be correct and would also
+        # suggest there is a choice being made here per request, which is exactly
+        # the wrong idea to leave lying next to the provider above.
+        operators:
+            entity:
+                class: App\ControlPlane\Entity\Operator
+                property: email
+
     firewalls:
+        # Assets and dev tooling, on every host. The pattern is a parameter
+        # (XIV-57) because ControlPlaneRequestListener has to stand aside for the
+        # same set — see config/services.yaml.
         dev:
-            pattern: ^/(_profiler|_wdt|assets|build)/
+            pattern: '%app.shared_paths%'
             security: false
+
+        # **The control plane, and it must stay above `main`** (XIV-57).
+        #
+        # Symfony takes the first firewall whose matcher accepts the request, and
+        # `main` below has no host restriction of any kind — it matches
+        # everything. So the order of these two blocks is not presentation: put
+        # this one second and every control-plane request falls through to a
+        # firewall whose provider looks people up in `tenant_users`, which is to
+        # say in whichever customer's database the hostname resolved to. An
+        # operator sign-in answered by a customer's `app_user` table is precisely
+        # the cross-tenant leak §7.4 and §8.1 are built to make impossible,
+        # arriving through a line moved in a YAML file rather than through a
+        # design mistake.
+        #
+        # **That is why there is a test for it and not a warning comment.**
+        # ControlPlaneFirewallTest asks the compiled firewall map which firewall
+        # takes a control-plane request and which provider it authenticates
+        # against, so a reordering fails the build instead of shipping.
+        #
+        # `request_matcher` rather than `host:`, because `host:` is a regular
+        # expression and a hostname is full of dots that would each match any
+        # character. App\ControlPlane\Security\ControlPlaneHost compares
+        # normalised strings, through the same normalisation tenancy uses to
+        # decide that this host resolves no tenant.
+        control_plane:
+            lazy: true
+            request_matcher: App\ControlPlane\Security\ControlPlaneHost
+            provider: operators
+            entry_point: form_login
+
+            # **Said out loud rather than inherited** (XIV-57). Symfony defaults a
+            # firewall's context to its own name, so these two are already
+            # separate and a session minted here is already not a token `main`
+            # would restore. Written down because "already" is doing the work of a
+            # security boundary in that sentence: an operator session and a tenant
+            # session must never be interchangeable, and a property that holds
+            # because nobody has changed a default is one line of somebody else's
+            # release notes away from not holding.
+            context: control_plane
+
+            form_login:
+                login_path: control_plane_login
+                check_path: control_plane_login
+                username_parameter: email
+                password_parameter: password
+                enable_csrf: true
+                default_target_path: control_plane_home
+
+            # No `login_link` here, deliberately. Invitations exist because a
+            # tenant administrator has colleagues to let in and no way to hand
+            # them a password (XIV-1, §8.8); an operator is created at a console
+            # by somebody who already has one, and a mailed link that admits
+            # somebody to every customer's registry is not a convenience worth
+            # inventing before anybody has asked for it.
+            logout:
+                path: control_plane_logout
+                target: control_plane_login
 
         main:
             lazy: true
             provider: tenant_users
             entry_point: form_login
+
+            # The other half of the pair above: the default this would have had
+            # anyway, written down so that the separation between an operator's
+            # session and a customer's is a decision in this file rather than a
+            # framework default. Its value is the firewall's own name, so saying
+            # it changes nothing and invalidates nobody's session.
+            context: main
 
             # Without this, User::active is a column nothing reads: a deactivated
             # user signs in exactly as before (§8.5).
@@ -91,6 +172,26 @@ security:
                 target: login
 
     access_control:
+        # **The control plane, first, because these rules are matched in order
+        # and are global rather than per firewall** (XIV-57).
+        #
+        # Global is the word that matters. There is one `access_control` list for
+        # every firewall, so these two lines say what `/control/…` requires
+        # wherever it is asked for — and the `^/` rule at the bottom keeps saying
+        # what it always said, including on the control-plane host, where an
+        # operator holding no ROLE_USER is refused by it. That is the intended
+        # reading in both directions: the tenant application is for users and the
+        # control plane is for operators, and neither role is a subset of the
+        # other.
+        #
+        # None of this is what keeps a tenant user out, and it must not be
+        # mistaken for it. A role is a string in a customer's own database;
+        # ControlPlaneRequestListener is what makes these paths not exist on a
+        # customer's hostname at all, and the firewall above is what makes a
+        # credential presented here answerable only by the control plane. This is
+        # the third layer, not the first.
+        - { path: ^/control/login$, roles: PUBLIC_ACCESS }
+        - { path: ^/control, roles: ROLE_OPERATOR }
         - { path: ^/login$, roles: PUBLIC_ACCESS }
         # The invitation link's landing point (XIV-1). Public in the same sense
         # /login is: the authenticator intercepts it, and an unsigned or expired
