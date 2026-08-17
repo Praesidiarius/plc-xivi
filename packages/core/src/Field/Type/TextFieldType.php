@@ -17,13 +17,20 @@ use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Validator\Constraints as Assert;
 use Xivi\Core\Demo\SampleVocabulary;
 use Xivi\Core\Entity\FieldDefinition;
-use Xivi\Core\Field\FieldType;
+use Xivi\Core\Field\Numbers;
 use Xivi\Core\Query\Operator;
 
 /**
+ * The plain string, and the only type a document number can live on (XIV-27).
+ *
+ * {@see Numbers} is what says so, and it says it here rather than anywhere else
+ * because `ORD-2026-0001` is a string in every part of itself: the prefix, the
+ * leading zeros that make it sort, and the year. Nothing else in the registry
+ * could hold one without throwing part of it away.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
-final class TextFieldType implements FieldType
+final class TextFieldType implements Numbers
 {
     public const int DEFAULT_MAX_LENGTH = 255;
 

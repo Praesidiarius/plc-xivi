@@ -1,0 +1,38 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'field.numbering.title'|trans }} — {{ field.label }}{% endblock %}
+
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<div class="d-flex align-items-center justify-content-between mb-3">
+			<div>
+				<h1 class="h3 mb-0">{{ 'field.numbering.title'|trans }} — {{ field.label }}</h1>
+				{#
+					The field's key, because this page is about one column of one
+					module and the label is the part that can be changed twice a year.
+					The counter is named by the key underneath (§5.10), so it is the
+					thing that will still identify this on the day somebody asks why the
+					numbers look like that.
+				#}
+				<p class="text-body-secondary small mb-0">
+					{{ module.label }} · <code>{{ field.key }}</code>
+				</p>
+			</div>
+			<a class="btn btn-link" href="{{ path('field_index', {module: module.key}) }}">{{ 'common.fields'|trans }}</a>
+		</div>
+
+		{#
+			The pattern, the number it produces and the counter it comes from are one
+			control and not three, which is why they are one component. The pattern is
+			handed in as the starting value of a writable prop; everything else the
+			component reads for itself, so what it shows after a keystroke and what it
+			shows on arrival come from the same code.
+		#}
+		<twig:FieldNumbering module="{{ module.key }}" fieldId="{{ field.id }}"
+		                     pattern="{{ field.getOption('sequence') }}" />
+	</main>
+{% endblock %}

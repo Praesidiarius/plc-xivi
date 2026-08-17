@@ -80,6 +80,35 @@ final class NumberFormatTest extends TestCase
         self::assertNull(NumberFormat::of($this->field([NumberFormat::OPTION => ['not' => 'a string']])));
     }
 
+    /**
+     * The same question about text nobody has stored yet (XIV-27).
+     *
+     * This is what the metadata editor's preview asks on every keystroke, so the
+     * half-typed cases are the ones that matter: they answer null rather than
+     * throwing, because `ORD-{numb` is somebody mid-word on the way to a pattern
+     * that works.
+     */
+    public function testAPatternCanBeReadBeforeItIsStored(): void
+    {
+        self::assertNotNull(NumberFormat::parse('ORD-{year}-{number:4}'));
+        self::assertNull(NumberFormat::parse('ORD-{numb'), 'mid-word');
+        self::assertNull(NumberFormat::parse('INVOICE'), 'and a pattern that would name every record the same');
+        self::assertNull(NumberFormat::parse(''), 'and an emptied box');
+    }
+
+    /**
+     * Whether the counter restarts, asked as the question a person asks.
+     *
+     * The editor puts this on screen in words before anything is saved — "the
+     * counter for 2026" against "one counter, always" — which is the whole
+     * reason the pattern is read statically rather than evaluated.
+     */
+    public function testWhetherASequenceRestartsIsReadableFromThePatternAlone(): void
+    {
+        self::assertTrue(NumberFormat::parse('ORD-{year}-{number:4}')?->resetsAnnually());
+        self::assertFalse(NumberFormat::parse('ORD-{number:6}')?->resetsAnnually());
+    }
+
     // -- helpers ------------------------------------------------------------
 
     private function render(string $pattern, int $value, string $on): string

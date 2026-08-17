@@ -98,7 +98,16 @@ import:
 module:
     requires_missing: '„%module%“ braucht %missing%, und das ist hier nicht installiert. Installiere das zuerst.'
 
+# Was jemand zu hören bekommt, wenn die Engine einen Zähler nicht anfasst
+# (XIV-27). Ihn zurückzudrehen ist die einzige Stelle, an der diese Funktion zwei
+# Belegen dieselbe Nummer geben kann — deshalb nennt der Satz den Stand des
+# Zählers und sagt nicht bloß nein.
+numbering:
+    counter_back: 'Dieser Zähler steht auf %at%, die nächste Nummer ist also %at%. %wanted% liegt auf oder unter einer bereits vergebenen Nummer, und ein Zähler läuft nur vorwärts.'
+    counter_back_in: 'Der Zähler für %period% steht auf %at%, die nächste Nummer ist also %at%. %wanted% liegt auf oder unter einer bereits vergebenen Nummer, und ein Zähler läuft nur vorwärts.'
+
 metadata:
+    pattern_numbers_nothing: 'Ein Nummernmuster muss sagen, wo der Zähler steht: es braucht {number}, etwa AUF-{year}-{number:4}. Mit „%pattern%“ würde dieses Feld gar nichts nummerieren.'
     empty_label: 'Eine Form braucht eine Bezeichnung: so nennen sie die Navigation und jede Seitenüberschrift.'
     bad_key: 'Ein Feldname muss mit einem Buchstaben beginnen und darf nur Kleinbuchstaben, Zahlen und Unterstriche enthalten. „%key%“ tut das nicht.'
     key_taken: '„%shape%“ hat bereits ein Feld namens „%key%“.'

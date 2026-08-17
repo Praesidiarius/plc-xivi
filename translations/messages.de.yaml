@@ -167,6 +167,39 @@ field:
         Hier wird nichts gelöscht. Die Werte endgültig zu entfernen ist ein eigener
         Vorgang und existiert noch nicht — siehe docs/architecture.md §7.2.
     remove_confirm: Feld entfernen
+    # Die Nummerierungsseite (XIV-27). Diese Sätze leisten mehr als die üblichen
+    # Beschriftungen: Der Hilfetext muss die Syntax beibringen, und die beiden
+    # Hinweise müssen das sagen, was niemand errät — dass ein Muster nichts
+    # umnummeriert und dass {year} auf einen eigenen Zähler wechselt.
+    numbering:
+        title: Nummerierung
+        pattern: Muster
+        pattern_help: >-
+            <code>{number}</code> ist der Zähler, <code>{number:4}</code> füllt ihn auf vier
+            Stellen auf — damit die Sortierung nach Text die Belege richtig sortiert.
+            <code>{year}</code> ist das Jahr, in dem die Nummer vergeben wird; ein Muster mit
+            <code>{year}</code> beginnt jeden Januar wieder bei eins, weil es einen eigenen
+            Zähler hat.
+        numbers_nothing: >-
+            Hier fehlt <code>{number}</code>. Das Feld würde gar nichts nummerieren und müsste
+            von Hand ausgefüllt werden. So lässt es sich nicht speichern.
+        next_is: Die nächste Nummer lautet
+        from_year: 'Aus dem Zähler für %period%, der jeden Januar neu beginnt.'
+        from_forever: Aus einem einzigen Zähler, der nie neu beginnt.
+        counter_switch: >-
+            Das ist ein anderer Zähler als beim aktuellen Muster, und dieser Zähler steht auf
+            %at%. Es wird nichts umnummeriert — die nächste Nummer ist schlicht die nächste
+            aus diesem Zähler und kann niedriger sein als die zuletzt vergebene.
+        counter_label: Zähler setzen auf
+        counter_help: 'Leer lassen, um bei %at% weiterzuzählen. Setze ihn, wenn du aus einem anderen System kommst und deine nächste Nummer eine ist, die dort schon erreicht war.'
+        counter_back: >-
+            Der Zähler steht auf %at%; eine kleinere Nummer würde ein zweites Mal vergeben.
+            Das wird abgelehnt — eine doppelte Nummer auf einem Beleg lässt sich nachträglich
+            nicht mehr korrigieren.
+        nothing_renumbered: >-
+            Bereits vergebene Nummern ändern sich nie. Hier wird nur entschieden, wie die
+            nächste aussieht und woher sie kommt — an den Belegen, die jemand in Händen hält,
+            ändert das nichts.
 
 import:
     file: Tabelle
@@ -610,6 +643,10 @@ flash:
     field_added: '„%field%“ hinzugefügt.'
     field_saved: '„%field%“ gespeichert.'
     field_removed: '„%field%“ entfernt. Die Werte bleiben gespeichert.'
+    # Nummerierung (XIV-27). Der zweite Satz ist der wichtige: Wer gerade ein
+    # Nummernmuster geändert hat, denkt zuerst an die bereits vergebenen Nummern
+    # — und die Antwort lautet, dass sich daran nichts ändert.
+    numbering_saved: 'Nummerierung für „%field%“ gespeichert. Bereits vergebene Nummern bleiben unverändert.'
     module_installed: '„%module%“ installiert. Niemand sieht es, bis jemand eine Berechtigung darauf bekommt.'
     group_created: '„%group%“ erstellt. Sage jetzt, was sie darf.'
     group_saved: '„%group%“ gespeichert.'

@@ -111,7 +111,7 @@
 										   list that grows past a dropdown's worth turns into a search box
 										   without anybody having to find this setting. #}
 										<td>
-											{% if field.type in autocompletable %}
+											{% if field.type in settable.autocomplete %}
 												<select form="f{{ field.id }}" class="form-select form-select-sm"
 														name="autocomplete" style="width: 8rem">
 													{% for value, label in autocompleteChoices %}
@@ -129,6 +129,19 @@
 												{% endif %}
 												<button class="btn btn-sm btn-outline-secondary" type="submit">{{ 'common.save'|trans }}</button>
 											</form>
+											{#
+												Numbering is a page rather than a cell (XIV-27): what is
+												decided there is a pattern, the number it produces and the
+												counter it comes from, and the number has to be shown as it
+												is typed. The link appears only where the field is numbered
+												*already* — making an ordinary text field numbered is a
+												question about the records it already holds, and §5.10 says
+												why that is a different feature.
+											#}
+											{% if field.id in numbered %}
+												<a class="btn btn-sm btn-outline-secondary"
+												   href="{{ path('field_numbering', {module: module.key, field: field.id}) }}">{{ 'field.numbering.title'|trans }}</a>
+											{% endif %}
 											{% if field.system %}
 												{# Came with the module; removing it is §7.2's other half. #}
 												<span class="text-body-secondary small">module field</span>

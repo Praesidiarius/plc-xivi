@@ -94,6 +94,36 @@ final class MetadataChangeRefused extends \RuntimeException
         );
     }
 
+    /**
+     * A numbering pattern that would number nothing (XIV-27).
+     *
+     * {@see \Xivi\Core\Numbering\NumberFormat} treats a pattern without
+     * `{number}` in it as "this field is not a sequence", which is the right
+     * answer for a blueprint and the wrong one for a form: somebody who has just
+     * typed a pattern into the metadata editor and been told nothing would have
+     * no way of telling silence from success, and would find out when their
+     * first invoice came out blank.
+     *
+     * An emptied box lands here too, and that is deliberate rather than
+     * incidental. Turning numbering *off* on a field that has it is not a
+     * shorter version of changing the pattern — every record already carries a
+     * number that nothing would maintain — so it is the same follow-up question
+     * as turning it on (§5.10), and until that is answered the honest response
+     * to an empty pattern is this sentence.
+     */
+    public static function patternNumbersNothing(string $pattern): self
+    {
+        return self::of(
+            sprintf(
+                'A numbering pattern has to say where the counter goes: it needs {number} in it, as in '
+                . 'ORD-{year}-{number:4}. "%s" would leave this field numbering nothing.',
+                $pattern,
+            ),
+            'metadata.pattern_numbers_nothing',
+            ['%pattern%' => $pattern],
+        );
+    }
+
     public static function wouldInvalidateRecords(string $key, int $records): self
     {
         return self::of(

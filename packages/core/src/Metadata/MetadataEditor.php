@@ -17,6 +17,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Numbering\NumberFormat;
 use Xivi\Core\Record\RecordRepository;
 
 /**
@@ -96,6 +97,7 @@ final readonly class MetadataEditor
             // makes it removable later.
             system: false,
         );
+        self::assertNumbersSomething($options);
         // Through the same merge as an edit, so a setting somebody left blank is
         // an absent option rather than a null stored in the JSON.
         $field->setOptions(self::withOptions([], $options));
@@ -134,6 +136,7 @@ final readonly class MetadataEditor
         array $options = [],
         ?int $width = null,
     ): void {
+        self::assertNumbersSomething($options);
         $this->assertRecordsSurvive(
             $field->getShape(),
             $field,
@@ -194,6 +197,44 @@ final readonly class MetadataEditor
         }
 
         return $existing;
+    }
+
+    /**
+     * A numbering pattern that arrives here has to number something (XIV-27).
+     *
+     * **On the write path rather than in the form**, and that is the whole point
+     * of it being here. The metadata editor is not the only thing that calls
+     * this — a module installer, an import, a console command and whatever comes
+     * next all go through the same two methods — and a rule that lived in a
+     * controller would be a rule that holds on one screen. What it protects
+     * against is not a hostile caller but a quiet one: a pattern with no
+     * `{number}` is *accepted* by every other part of the engine, as the field
+     * simply not being a sequence, so nothing downstream would ever complain.
+     *
+     * Only a pattern that is *named* is checked. The merge below reads null as
+     * "clear this option" and an absent key as "leave it alone", and neither of
+     * those is a bad pattern — a form that draws no numbering control says
+     * nothing about numbering, which is exactly what XIV-26 built.
+     *
+     * @param array<string, mixed> $options
+     *
+     * @throws MetadataChangeRefused
+     */
+    private static function assertNumbersSomething(array $options): void
+    {
+        if (!\array_key_exists(NumberFormat::OPTION, $options)) {
+            return;
+        }
+
+        $pattern = $options[NumberFormat::OPTION];
+
+        if ($pattern === null) {
+            return;
+        }
+
+        if (!\is_string($pattern) || NumberFormat::parse($pattern) === null) {
+            throw MetadataChangeRefused::patternNumbersNothing(\is_string($pattern) ? $pattern : '');
+        }
     }
 
     /**
