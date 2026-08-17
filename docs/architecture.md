@@ -2080,6 +2080,27 @@ resolution per user in the tenant that most record pages should never pay for.
 forty settled follow-ups must not push its own fields off the screen, so what sits
 on the page is one small button saying how many there are.
 
+**And what is in it is history, which does not change** (XIV-85). This shipped
+wrong: the archive drew the same note thread the open list does, so a settled
+follow-up came with an add box, an edit link and a delete link, and every one of
+them worked — an edit even bumped the follow-up's `updated_at`, so something
+finished last month reported activity today. `done_at` is now a state and not
+merely a flag on a list: while it is set, the only thing permitted is reopening,
+and adding a note, rewriting one, removing one and reassigning all refuse.
+
+Two details follow from calling it a state rather than a filter. **Marking done
+something already done is refused rather than treated as a no-op**, because a
+second stamp would overwrite the moment it was actually settled — the one fact the
+archive exists to keep. And **reopening is deliberately not subject to the rule it
+enforces**, which is what makes this reversible rather than a trapdoor: an item
+put back on the list is ordinary again in every respect.
+
+**The check is on the write path and not only in the panel**, the same split this
+section already makes for note authorship. A screen that stops drawing the note
+box helps whoever is looking at it and does nothing for the page that was open
+across somebody else pressing Done — which is the case that produced the bug
+report, and the only one a hidden button cannot address.
+
 **Priority renders as a coloured left border, and the mapping is not an
 identity**: `info → info`, `warning → warning`, `important → danger`. Two of the
 three agree by coincidence, which is the trap — a template printing the stored

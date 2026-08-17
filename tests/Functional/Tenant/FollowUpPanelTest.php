@@ -21,7 +21,9 @@ use App\Tenant\Entity\FollowUpPriority;
 use App\Tenant\Entity\PermissionGrant;
 use App\Tenant\Entity\User;
 use App\Tenant\FollowUp\FollowUpManager;
+use App\Tenant\FollowUp\FollowUpRefused;
 use App\Tenant\FollowUp\ModuleFollowUps;
+use App\Tenant\Repository\FollowUpNoteRepository;
 use App\Tenant\Repository\FollowUpRepository;
 use App\Tenant\Repository\UserRepository;
 use App\Tenant\Security\UserCreator;
@@ -250,6 +252,88 @@ final class FollowUpPanelTest extends WebTestCase
             'Sent them the catalogue',
             $this->panelAs(self::KEEPER)->call('revealArchive')->render()->toString(),
         );
+    }
+
+    /**
+     * An archived follow-up takes no changes, and the panel offers none (XIV-85).
+     *
+     * The bug this replaces: the archive drew the same note thread the active
+     * list does, so a settled follow-up came with an add box, an edit link and a
+     * delete link — and every one of them worked. Editing a note on one even
+     * bumped its `updated_at`, so something finished last month reported activity
+     * today.
+     *
+     * Both halves are asserted, and the write path is the half that matters. A
+     * panel that stops drawing the box is a courtesy to whoever is looking at it;
+     * the rule has to hold for the page that was open when somebody else pressed
+     * Done, which is precisely the case a hidden button does nothing about.
+     */
+    public function testAnArchivedFollowUpTakesNoChanges(): void
+    {
+        $followUpId = $this->open(FollowUpPriority::Info, 'Everything that was outstanding');
+        $noteId = $this->addNoteAs(self::KEEPER, $followUpId, 'One more thing before we close this');
+        $this->markDone($followUpId);
+
+        $archive = $this->panelAs(self::KEEPER)->call('revealArchive')->render()->toString();
+        $path = sprintf('/m/%s/%d/follow-ups/%d', self::MODULE, $this->recordId, $followUpId);
+
+        // Asserted on the rendered paths, not the route names — a route name
+        // never appears in HTML, so `assertStringNotContainsString('follow_up_…')`
+        // is a test that cannot fail.
+        self::assertStringContainsString('Everything that was outstanding', $archive, 'the archive still reads');
+        self::assertStringContainsString($path . '/reopen', $archive, 'the one door out stays');
+        self::assertStringNotContainsString(
+            sprintf('action="%s/notes"', $path),
+            $archive,
+            'and there is nothing to write with',
+        );
+        self::assertStringNotContainsString($path . '/notes/' . $noteId . '/delete', $archive);
+        self::assertStringNotContainsString('startEditing', $archive, 'nor anything to rewrite with');
+
+        // The write path refuses regardless of what was drawn — including for the
+        // note's own author, who is the only person edit and delete ever answer to.
+        $this->assertRefused(fn (FollowUpManager $m) => $m->addNote(
+            $this->userNow(self::KEEPER),
+            $this->followUp($followUpId),
+            'Sneaking one in',
+        ));
+
+        $this->assertRefused(fn (FollowUpManager $m) => $m->editNote(
+            $this->userNow(self::KEEPER),
+            $this->note($noteId),
+            'Rewriting history',
+        ));
+
+        $this->assertRefused(fn (FollowUpManager $m) => $m->deleteNote(
+            $this->userNow(self::KEEPER),
+            $this->note($noteId),
+        ));
+
+        $this->assertRefused(fn (FollowUpManager $m) => $m->markDone(
+            $this->userNow(self::KEEPER),
+            $this->followUp($followUpId),
+        ));
+    }
+
+    /**
+     * And reopening puts everything back, which is what makes the rule a state
+     * rather than a one-way door.
+     */
+    public function testReopeningMakesAFollowUpOrdinaryAgain(): void
+    {
+        $followUpId = $this->open(FollowUpPriority::Info, 'Briefly settled');
+        $this->markDone($followUpId);
+
+        $this->inTenant(fn () => self::service(FollowUpManager::class)
+            ->reopen($this->userNow(self::KEEPER), $this->followUp($followUpId)));
+
+        $note = $this->inTenant(fn () => self::service(FollowUpManager::class)->addNote(
+            $this->userNow(self::KEEPER),
+            $this->followUp($followUpId),
+            'Back on the list after all',
+        ));
+
+        self::assertNotNull($note->getId());
     }
 
     /**
@@ -700,6 +784,38 @@ final class FollowUpPanelTest extends WebTestCase
         self::assertInstanceOf(FollowUp::class, $followUp);
 
         return $followUp;
+    }
+
+    /** One note, likewise. */
+    private function note(int $id): FollowUpNote
+    {
+        $note = self::service(FollowUpNoteRepository::class)->find($id);
+        self::assertInstanceOf(FollowUpNote::class, $note);
+
+        return $note;
+    }
+
+    /**
+     * The manager refuses, whatever the panel did or did not draw.
+     *
+     * Written as "it threw" rather than "it threw this exact message", because
+     * what is being defended is that the write path has an opinion at all — the
+     * wording is {@see FollowUpRefused}'s to change and is asserted where it is
+     * shown to somebody.
+     *
+     * @param callable(FollowUpManager): mixed $work
+     */
+    private function assertRefused(callable $work): void
+    {
+        $this->inTenant(function () use ($work): void {
+            try {
+                $work(self::service(FollowUpManager::class));
+            } catch (FollowUpRefused) {
+                return;
+            }
+
+            self::fail('the write path accepted a change to an archived follow-up');
+        });
     }
 
     /**

@@ -122,6 +122,23 @@ final class FollowUpRefused extends \RuntimeException
         );
     }
 
+    /**
+     * It is archived, and an archive that changes is not one (XIV-85).
+     *
+     * Every mutation refuses on this except reopening, which is the one door out
+     * and therefore cannot be behind it. The message says what to do rather than
+     * only what went wrong, because the thing that produces this refusal is
+     * nearly always a page that was open when somebody marked the item done —
+     * and "reopen it first" is the whole of what that reader needs.
+     */
+    public static function alreadyDone(): self
+    {
+        return self::of(
+            'This follow-up is done. Reopen it before changing anything on it.',
+            'refusal.follow_up_already_done',
+        );
+    }
+
     /** @param array<string, mixed> $parameters */
     private static function of(string $message, string $key, array $parameters = []): self
     {

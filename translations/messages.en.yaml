@@ -491,6 +491,7 @@ refusal:
     follow_up_assignee_blind: '%assignee% is not allowed to see this record, so it cannot be assigned to them.'
     follow_up_not_your_note: 'A note can only be changed by whoever wrote it.'
     follow_up_empty_note: 'A note needs something in it.'
+    follow_up_already_done: 'This follow-up is done. Reopen it before changing anything on it.'
 
 # Follow-ups (XIV-80). The words are the application's rather than a module's:
 # every module shares one pair of tables, so there is nobody else to own them.

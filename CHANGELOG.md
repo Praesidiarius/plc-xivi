@@ -154,6 +154,14 @@ lands in `Unreleased` here.
   migration widens it, and the permission catalogue itself still needs no
   migration when a verb is added.
 
+### Fixed
+
+- **An archived follow-up can no longer be written to** ([XIV-85]). Its notes
+  took new entries, edits and deletions, and an edit even bumped the follow-up's
+  timestamp — so something settled last month reported activity today. `done_at`
+  now means history: the only thing offered on an archived follow-up is reopening
+  it, and the write path refuses the rest whatever the page happens to be showing.
+
 ### Upgrade notes
 
 - **Run `bin/console tenant:migrate` after merging** ([XIV-80], [XIV-83]).
@@ -175,6 +183,7 @@ lands in `Unreleased` here.
 [XIV-82]: https://xivi.youtrack.cloud/issue/XIV-82
 [XIV-83]: https://xivi.youtrack.cloud/issue/XIV-83
 [XIV-84]: https://xivi.youtrack.cloud/issue/XIV-84
+[XIV-85]: https://xivi.youtrack.cloud/issue/XIV-85
 
 ## Releases
 

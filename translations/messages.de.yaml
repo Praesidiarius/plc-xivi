@@ -480,6 +480,7 @@ refusal:
     follow_up_assignee_blind: '%assignee% darf diesen Datensatz nicht sehen, deshalb lässt sich die Wiedervorlage nicht zuweisen.'
     follow_up_not_your_note: 'Eine Notiz kann nur ändern, wer sie geschrieben hat.'
     follow_up_empty_note: 'Eine Notiz braucht einen Inhalt.'
+    follow_up_already_done: 'Diese Wiedervorlage ist erledigt. Öffne sie wieder, bevor du etwas daran änderst.'
 
 # Wiedervorlagen (XIV-80). Die Wörter gehören der Anwendung und keinem Modul:
 # alle Module teilen sich ein Tabellenpaar, es gibt also niemanden sonst, dem sie
