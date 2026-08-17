@@ -74,6 +74,18 @@ group:
     delete_members: '{count, plural, =0 {Nobody is in this group,} one {# person is in this group,} other {# people are in this group,}}'
     delete_grants: '{count, plural, one {and it grants # permission.} other {and it grants # permissions.}}'
 
+control_plane:
+    # The headline of the tenant list (XIV-58), and the one sentence an operator
+    # is meant to read before anything else on the page. It is drawn only when the
+    # number is not zero, so there is no `=0` case: "0 customers are not being
+    # served" is a banner the eye learns to skip, and skipping it is the failure
+    # this line exists to prevent.
+    #
+    # "not being served" rather than "broken" or "need attention", because it is
+    # the fact rather than a judgement — a suspended customer is deliberately not
+    # being served and belongs in the same count as a provisioning run that died.
+    not_serving: '{count, plural, one {# customer is not being served.} other {# customers are not being served.}}'
+
 flash:
     password_too_short: '{count, plural, one {Use at least # character.} other {Use at least # characters.}}'
     imported: 'Imported. {module}: {added, plural, other {# added}}, {updated, plural, other {# updated}}.'

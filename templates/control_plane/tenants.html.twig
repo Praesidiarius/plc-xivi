@@ -1,0 +1,172 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'control_plane.tenants'|trans }}{% endblock %}
+
+{#
+	**Every customer on this installation, and nothing from any of their
+	databases** (XIV-58).
+
+	No `_topbar.html.twig`, for the reason XIV-57's placeholder gave and this page
+	inherits: that bar is the tenant application's navigation — the customer's
+	modules, their company name, their account menu — and every one of those needs
+	a resolved tenant, which this host deliberately has not got. The header below
+	is the control plane's own, and it is still small because there is still one
+	page to navigate between. When there is a second, that is the moment for a
+	nav, not before.
+
+	**Every value here comes off a `TenantSummary`, never off a `Tenant`.** The
+	registry row carries `database_dsn` and an encrypted `database_password`, and
+	the way those reach a browser is never a decision somebody makes — it is a
+	`|json_encode` into a data attribute, a `dump()` left behind, a serializer
+	normalising an entity for a fragment. The controller hands this template a list
+	of summaries that do not contain either column, so there is nothing here to
+	leak. Read `App\ControlPlane\View\TenantSummary` before adding a variable to
+	this page, and `TenantListTest` for the assertion that keeps it true.
+#}
+{% block body %}
+	<main class="container page-shell py-4">
+		<div class="d-flex align-items-center justify-content-between mb-4">
+			<h1 class="h4 mb-0">{{ 'control_plane.title'|trans }}</h1>
+			<div class="d-flex align-items-center gap-3">
+				<span class="text-body-secondary small">{{ app.user.name }}</span>
+				<a class="btn btn-sm btn-outline-secondary" href="{{ path('control_plane_logout') }}">
+					{{ 'nav.sign_out'|trans }}
+				</a>
+			</div>
+		</div>
+
+		{#
+			**The line that makes a stuck tenant answerable from the doorway.**
+
+			Drawn only when there is something to say. A banner that is always
+			present, reading "0 customers need attention" on all but three days of
+			the year, is the same thing as no banner at all — the reader's eye
+			learns to skip the box rather than to read the number in it. So when
+			every customer is being served there is nothing here, and the absence is
+			the good news.
+
+			It names the slugs rather than counting them alone, because the count on
+			its own sends somebody scanning the table for the row it is about, and
+			the table is right underneath. Two facts and no click.
+		#}
+		{% if notServing is not empty %}
+			<div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+				<i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+				<div>
+					<strong>{{ 'control_plane.not_serving'|trans({'%count%': notServing|length}) }}</strong>
+					<div class="small font-monospace">
+						{{- notServing|map(t => t.slug)|join(', ') -}}
+					</div>
+				</div>
+			</div>
+		{% endif %}
+
+		{% if tenants is empty %}
+			<div class="card">
+				<div class="card-body">
+					<h2 class="h6">{{ 'control_plane.no_tenants'|trans }}</h2>
+					<p class="text-body-secondary mb-0">
+						{{ 'control_plane.no_tenants_hint'|trans }}
+						<code>bin/console tenant:provision</code>
+					</p>
+				</div>
+			</div>
+		{% else %}
+			<div class="table-responsive">
+				<table class="table align-middle">
+					<thead>
+						<tr>
+							<th scope="col">{{ 'common.name'|trans }}</th>
+							<th scope="col">{{ 'control_plane.status'|trans }}</th>
+							<th scope="col">{{ 'control_plane.plan'|trans }}</th>
+							<th scope="col">{{ 'control_plane.domain'|trans }}</th>
+							<th scope="col">{{ 'control_plane.created'|trans }}</th>
+							<th scope="col">{{ 'control_plane.provisioned'|trans }}</th>
+							<th scope="col">{{ 'control_plane.modules'|trans }}</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#
+							Ordered by status first and name second, in the controller — see
+							`TenantListController` for the argument. What is left to do here
+							is make the grouping visible, because a sort nobody can see reads
+							as an arbitrary order.
+						#}
+						{% for tenant in tenants %}
+							<tr class="{{ tenant.servesRequests ? '' : 'table-warning' }}">
+								<td>
+									<div>{{ tenant.name }}</div>
+									<div class="small text-body-secondary font-monospace">{{ tenant.slug }}</div>
+								</td>
+								<td>
+									{#
+										Colour and the word, never colour alone: about one reader in
+										twelve cannot tell these hues apart, and a badge whose only
+										content is a shade is unreadable in the screenshot somebody
+										pastes into a chat.
+									#}
+									<span class="badge text-bg-{{ tenant.statusVariant }}">
+										{{ ('control_plane.status_' ~ tenant.status.value)|trans }}
+									</span>
+								</td>
+								<td>{{ tenant.plan }}</td>
+								<td>
+									{#
+										The primary hostname, which is the one a customer's people
+										type. The others are shown because a tenant with several is
+										usually mid-rename and the old name is the interesting one;
+										a tenant with *none* shows an em dash, and that is not a
+										rendering accident — provisioning writes the row before it
+										routes a hostname, so a blank here is a run that died in
+										between.
+									#}
+									{% if tenant.primaryDomain %}
+										<div class="font-monospace">{{ tenant.primaryDomain }}</div>
+										{% if tenant.hostnames|length > 1 %}
+											<div class="small text-body-secondary font-monospace">
+												{{- tenant.hostnames|slice(1)|join(', ') -}}
+											</div>
+										{% endif %}
+									{% else %}
+										<span class="text-body-secondary">&mdash;</span>
+									{% endif %}
+								</td>
+								<td class="font-monospace small">{{ tenant.createdAt|date('Y-m-d H:i') }}</td>
+								<td class="font-monospace small">
+									{#
+										Empty for a tenant that never finished provisioning, and the
+										pair of columns is the whole story that a "stuck" flag would
+										have flattened into a boolean: created three days ago, never
+										provisioned. The reader decides what three days means, which
+										is the judgement no threshold in this codebase could make
+										honestly.
+									#}
+									{% if tenant.provisionedAt %}
+										{{ tenant.provisionedAt|date('Y-m-d H:i') }}
+									{% else %}
+										<span class="text-body-secondary">&mdash;</span>
+									{% endif %}
+								</td>
+								<td>
+									{#
+										The keys the registry row records, not the modules the
+										customer's own database has installed. Those two can differ —
+										§6.1 — and reconciling them means reading each tenant's
+										metadata, which is a tenant connection this page does not
+										open. What is shown is therefore labelled by what it is: what
+										the control plane believes.
+									#}
+									{% for module in tenant.modules %}
+										<span class="badge text-bg-light font-monospace">{{ module }}</span>
+									{% else %}
+										<span class="text-body-secondary">&mdash;</span>
+									{% endfor %}
+								</td>
+							</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+			</div>
+		{% endif %}
+	</main>
+{% endblock %}

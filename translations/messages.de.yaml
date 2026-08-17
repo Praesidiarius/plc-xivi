@@ -44,8 +44,19 @@ login:
 
 control_plane:
     title: Steuerungsebene
-    placeholder_heading: Noch nichts zu sehen
-    placeholder_body: Die Anmeldung funktioniert. Als Erstes erscheint hier die Liste der Mandanten.
+    tenants: Mandanten
+    status: Status
+    plan: Tarif
+    domain: Domain
+    created: Angelegt
+    provisioned: Bereitgestellt
+    modules: Module
+    status_provisioning: Wird bereitgestellt
+    status_trial: Test
+    status_active: Aktiv
+    status_suspended: Gesperrt
+    no_tenants: Noch keine Kunden
+    no_tenants_hint: 'Lege den ersten an mit'
 
 dashboard:
     follow_ups: Deine Wiedervorlagen

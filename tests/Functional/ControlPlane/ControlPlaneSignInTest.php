@@ -265,15 +265,23 @@ final class ControlPlaneSignInTest extends WebTestCase
     }
 
     /**
-     * The landing page says what it is and what replaces it, which is the whole
-     * of what it does (XIV-58 is the replacement).
+     * Signing in lands on the tenant list (XIV-58), which is what replaced this
+     * ticket's placeholder.
+     *
+     * Asserted from here as well as from `TenantListTest` because it is a
+     * different claim: that ticket's page is the *default target path* of this
+     * ticket's firewall, so the two are coupled through `security.yaml` and a
+     * renamed route would break the landing without breaking the page. One
+     * assertion, on the customer this class already provisions.
      */
-    public function testSigningInLandsOnAPlaceholderThatSaysSo(): void
+    public function testSigningInLandsOnTheTenantList(): void
     {
         $this->signInToControlPlane(self::OPERATOR_PASSWORD);
         $crawler = $this->client->request('GET', sprintf('https://%s/control/', $this->controlPlaneHost));
 
-        self::assertStringContainsString('tenant list', $crawler->filter('body')->text());
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString(self::TENANT, $crawler->filter('body')->text());
+        self::assertStringContainsString(self::TENANT_HOST, $crawler->filter('body')->text());
     }
 
     /**
