@@ -170,12 +170,18 @@ final class FollowUpPanelTest extends WebTestCase
     }
 
     /**
-     * Priority is a coloured left border, and `important` is `danger`.
+     * Priority is a bar down the leading edge, and `important` is `danger`.
      *
      * The one mapping in this feature that is not an identity, which is why it
      * has a test of its own: `info` and `warning` would come out right from a
      * template that simply printed the stored word, and `important` would come
      * out as no colour at all — silently, on the priority that must not go quiet.
+     *
+     * Asserted through the custom property rather than a `border-*` utility since
+     * XIV-84. Bootstrap has no per-side border *colour* class, so the old markup
+     * tinted the card's whole outline and only widened the left edge; the colour
+     * travels in `--follow-up-tone` now and `.follow-up-priority` is what reads
+     * it. The negative assertion is the half worth keeping either way.
      */
     public function testPriorityIsALeftBorderAndImportantIsDrawnAsDanger(): void
     {
@@ -185,10 +191,11 @@ final class FollowUpPanelTest extends WebTestCase
 
         $html = $this->showAs(self::KEEPER);
 
-        self::assertStringContainsString('border-start border-4 border-danger', $html);
-        self::assertStringContainsString('border-start border-4 border-info', $html);
-        self::assertStringContainsString('border-start border-4 border-warning', $html);
-        self::assertStringNotContainsString('border-important', $html, 'Bootstrap has no such context');
+        self::assertStringContainsString('follow-up-priority', $html);
+        self::assertStringContainsString('--follow-up-tone: var(--bs-danger)', $html);
+        self::assertStringContainsString('--follow-up-tone: var(--bs-info)', $html);
+        self::assertStringContainsString('--follow-up-tone: var(--bs-warning)', $html);
+        self::assertStringNotContainsString('--bs-important', $html, 'Bootstrap has no such context');
     }
 
     /**

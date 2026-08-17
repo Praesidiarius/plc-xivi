@@ -49,16 +49,25 @@
 			<section id="follow-ups" class="mb-3">
 				{% for followUp in active %}
 					{#
-						Priority as a coloured left border, which is the whole of how
+						Priority as a bar down the leading edge, which is the whole of how
 						urgency reads here. The tone comes from `follow_up_tone()` and
 						never from the stored word: two of the three names happen to be
 						Bootstrap contexts and `important` is not, so interpolating the
 						enum's value would leave the loudest priority with no colour at
-						all. The dashboard widget draws its badge from the same function,
-						because two copies of a mapping that is not an identity is how
-						two screens end up disagreeing about three words.
+						all. The dashboard widget draws the same bar from the same
+						function, because two copies of a mapping that is not an identity
+						is how two screens end up disagreeing about three words.
+
+						`border-0` and then one edge back, rather than Bootstrap's
+						`border-start border-4 border-{tone}` this used to carry (XIV-84).
+						That looked like one instruction and was two: `border-{color}`
+						has no per-side form, so it tinted the card's whole outline in the
+						priority colour and only *widened* the left. A card ringed in red
+						says something louder than the bar was meant to, and at three
+						priorities on one page it read as three boxes rather than one list.
 					#}
-					<div class="card mb-2 border-start border-4 border-{{ follow_up_tone(followUp.priority) }}">
+					<div class="card mb-2 border-0 follow-up-priority"
+					     style="--follow-up-tone: var(--bs-{{ follow_up_tone(followUp.priority) }})">
 						<div class="card-body">
 							<div class="d-flex align-items-start justify-content-between gap-3">
 								<div>

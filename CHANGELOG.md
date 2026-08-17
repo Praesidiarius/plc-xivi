@@ -125,6 +125,17 @@ lands in `Unreleased` here.
 
 ### Changed
 
+- **Narrowing the dashboard's follow-up list no longer reloads the page**
+  ([XIV-84]). *Today*, *this week* and *all* are buttons on the card rather than
+  three links carrying `?follow_ups=…`, so the lens stops occupying the address
+  bar and stops leaving a history entry behind every time you change your mind.
+- **A follow-up's priority reads as a 4px bar down its leading edge**
+  ([XIV-84]), on the record page and on the dashboard alike. The record page used
+  to ring the whole card in the priority colour, which at three priorities on one
+  page read as three boxes rather than one list.
+- **Information-priority follow-ups are blue on the dashboard**, not grey
+  ([XIV-84]) — the widget shipped with a stopgap colour of its own and now draws
+  from the same mapping the record page does.
 - **Record timelines group by your own days** ([XIV-83]). "Today", "this week" and
   "this month" were worked out on UTC midnights, so an entry made just after
   midnight could sit under yesterday on a page you had just made (§5.2).
@@ -163,6 +174,7 @@ lands in `Unreleased` here.
 [XIV-81]: https://xivi.youtrack.cloud/issue/XIV-81
 [XIV-82]: https://xivi.youtrack.cloud/issue/XIV-82
 [XIV-83]: https://xivi.youtrack.cloud/issue/XIV-83
+[XIV-84]: https://xivi.youtrack.cloud/issue/XIV-84
 
 ## Releases
 

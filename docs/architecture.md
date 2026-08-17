@@ -2629,6 +2629,28 @@ try/catch per panel is refused: a dashboard that silently omits one is a dashboa
 nobody can trust to be complete, and the follow-up widget in particular is a list
 of work somebody was given.
 
+**A widget's own controls are its own state, not the URL's** (XIV-84). The
+follow-up lens shipped as three links carrying `?follow_ups=today`, on the
+argument that a GET which changes what a page shows is a GET. That argument is
+sound and it answered the wrong question. **Narrowing a summary is not
+navigation**: nobody wants a history entry for it, nobody sends a colleague a link
+to their own follow-up list, and — the part that only shows up with a second
+widget — the address bar is shared, so every widget with a control on it would
+have been negotiating for room on one URL. A page of five widgets whose state is
+five query parameters is a page whose back button means nothing in particular.
+
+So a widget that has a control owns it, as a Live Component (§8.3), and the panel
+it hands the dashboard is the mount. The line this draws is worth stating because
+it is not "components are nicer": **the dashboard decides whether a card exists,
+the card decides what is in it.** Whether this customer does follow-ups at all is
+a fact about the installation, settled before anything renders and unchanged by
+anybody looking at it; which of them are due this week changes while they look.
+Those are different lifetimes, and the widget interface is the seam between them —
+which is why `panel()` still returns a template and an array, and the array is now
+empty.
+
+The URL keeps what it was always for: which page you are on.
+
 ### 8.4 Authorization: grants, resolved per person
 
 Waiting was the right call. The record-level half turned out to be a query
