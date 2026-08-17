@@ -559,6 +559,23 @@ the row of inputs; the inputs are not what costs.
   is bytes and memory, which is the rendering rather than the reading — so the
   read view's ceiling is still where the table above puts it, and it is no longer
   a query problem at all.
+- **The form's queries were the picker, and XIV-87 removed them without moving
+  the ceiling.** `RecordReferenceType` resolved its candidate list through a lazy
+  option, which the resolver computes per form *instance* — and a collection row
+  is a form, so five hundred lines rebuilt the same list five hundred times.
+  Reading it once per request took the 500-line form from **973 queries to 13**,
+  the same 13 a 100-line form makes, and about a third off the render time.
+
+  **It moved memory from 221 MB to 212 MB and the byte count not at all** —
+  5 830 106 before, 5 830 105 after. That is the finding worth keeping: every row
+  still *renders* two hundred `<option>` elements whether the list behind them
+  was read once or five hundred times, so the edit form's limit is a **rendering**
+  cost rather than a query cost. XIV-68's estimate that fixing the picker would
+  move the ceiling from ~250 lines to ~400 was extrapolated from shrinking the
+  *catalogue*, which also removes the options from the HTML; batching the reads
+  does not. What would actually move it is a control that never emits the options
+  — which is XIV-36's autocomplete, arriving from a direction nobody chose it for.
+
 - **The form's weight is the form.** Every row is a Symfony form of eight
   controls with a `FormView` behind it, and that is the bulk of the 0.44 MB.
   Measured against a catalogue of 25 articles instead of 250 — which shrinks the
