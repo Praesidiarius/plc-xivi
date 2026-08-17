@@ -27,6 +27,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Xivi\Article\ArticleModule;
 use Xivi\Contact\ContactModule;
+use Xivi\Core\Field\Autocomplete;
 use Xivi\Core\Field\FieldTypeRegistry;
 use Xivi\Core\Form\RecordReferenceType;
 use Xivi\Core\Metadata\MetadataEditor;
@@ -231,6 +232,13 @@ final class CrossModuleLinkTest extends WebTestCase
      * The count comes from the same access predicate as the options, because a
      * total that included records the reader may not see would say how many
      * exist one integer at a time — which is the leak scoping the picker closed.
+     *
+     * **The field is told to stay a plain select first** (XIV-36), and that is
+     * the whole relationship between the two tickets. A ceiling and an apology
+     * for it go together: `never` keeps both, and under the default a picker
+     * with two hundred and five candidates is a search box that pages through
+     * every one of them, so there is nothing left to apologise for. The notice
+     * has not moved and still fires for exactly the case it was written for.
      */
     public function testAPickerSaysWhenItIsShowingOnlyTheFirstFew(): void
     {
@@ -248,12 +256,45 @@ final class CrossModuleLinkTest extends WebTestCase
             }
         });
 
+        $this->keepsAPlainSelect();
+
         $help = $this->client->request('GET', $this->url('/m/article/new'))
             ->filter(sprintf('#%s_help', str_replace(['[', ']'], ['_', ''], self::field(self::SUPPLIER))));
 
         self::assertCount(1, $help, 'the picker explains itself');
         self::assertStringContainsString((string) RecordReferenceType::MAX_CHOICES, $help->text());
         self::assertStringContainsString((string) $wanted, $help->text(), 'and says how many there really are');
+    }
+
+    /**
+     * Says `never` on the supplier field, through the editor rather than by
+     * reaching into the definition (XIV-36).
+     *
+     * Through `updateField()` on purpose: it is the same merge a customer's own
+     * save goes through, so this exercises the option arriving the way it really
+     * arrives instead of a shortcut that would still pass if the merge dropped
+     * it.
+     */
+    private function keepsAPlainSelect(): void
+    {
+        self::service(TenantSwitcher::class)->runFor($this->tenant, function (): void {
+            $article = self::service(MetadataRepository::class)->get(ArticleModule::KEY);
+            $field = $article->getField(self::SUPPLIER);
+            self::assertNotNull($field);
+
+            self::service(MetadataEditor::class)->updateField(
+                field: $field,
+                label: $field->getLabel(),
+                required: $field->isRequired(),
+                unique: $field->isUnique(),
+                filterable: $field->isFilterable(),
+                listed: $field->isListed(),
+                title: $field->isTitle(),
+                position: $field->getPosition(),
+                options: [Autocomplete::OPTION => Autocomplete::Never->value],
+                width: $field->getWidth(),
+            );
+        });
     }
 
     /** And the name is a way to get there (XIV-42). */

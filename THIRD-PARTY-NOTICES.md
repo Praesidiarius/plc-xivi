@@ -68,8 +68,9 @@ contacted when a customer loads a page.
 **Symfony UX** — MIT, Copyright (c) Fabien Potencier.
 <https://github.com/symfony/ux>
 
-`ux-live-component`, `ux-twig-component` and `stimulus-bundle`, which is what
-makes a form re-render itself on the server. Their JavaScript is served from this
+`ux-live-component`, `ux-twig-component`, `stimulus-bundle` and
+`ux-autocomplete`, which between them make a form re-render itself on the server
+and a picker searchable. Their JavaScript is served from this
 application's own host like everything else, out of the packages themselves
 rather than a download.
 
@@ -77,6 +78,30 @@ rather than a download.
 <https://github.com/hotwired/stimulus>
 
 Brought in by the above and fetched into `assets/vendor/` by `importmap:install`.
+
+**Tom Select** — Apache-2.0, Copyright (c) 2020-2021 Josh Schmidt and
+contributors. <https://github.com/orchidjs/tom-select>
+
+The search box a reference or a long choice list turns into (XIV-36). It arrives
+under `symfony/ux-autocomplete` (MIT, Symfony UX above), which is the PHP half —
+a form-type extension and a Stimulus controller — while Tom Select is the widget
+itself. It brings **`@orchidjs/sifter`** and **`@orchidjs/unicode-variants`**,
+both Apache-2.0 and by the same author, which do the matching and the accent
+folding. Same arrangement as everything else here: fetched into `assets/vendor/`
+by `importmap:install` and self-hosted, not committed and not from a CDN.
+
+Apache-2.0 rather than MIT is worth stating rather than leaving to be
+rediscovered. It is permissive and compatible with MIT; what it adds is a
+requirement to preserve notices — which this entry is — and an express patent
+grant, which is a term in the licensee's favour. Only the Bootstrap 5 stylesheet
+of the four Tom Select ships is in `importmap.php`; the other three are for
+frameworks this application does not use.
+
+*The package's headline feature, `AsEntityAutocompleteField`, is for Doctrine
+entities and is deliberately unused: records here are JSONB rows with no entity
+class (§5). The plain path — a field with a URL — is the one this project is on,
+and `config/routes/ux_autocomplete.yaml` from the recipe was removed with it,
+since the route it registers only serves the entity helper.*
 
 *htmx (0BSD) was here between XIV-28 and XIV-33 and has been removed; see brief
 §8.3 for why the choice changed.*

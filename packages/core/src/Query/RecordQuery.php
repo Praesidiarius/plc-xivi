@@ -38,12 +38,17 @@ final readonly class RecordQuery
     /**
      * @param list<Filter> $filters
      * @param list<Sort>   $sorts
+     * @param ?Search      $search  one string across several fields (XIV-36),
+     *                              ANDed with the filters like any other
+     *                              condition. Null is the ordinary case and the
+     *                              one every caller before the picker takes.
      */
     public function __construct(
         public array $filters = [],
         public array $sorts = [],
         public int $page = 1,
         public int $perPage = self::DEFAULT_PER_PAGE,
+        public ?Search $search = null,
     ) {
     }
 
@@ -54,12 +59,12 @@ final readonly class RecordQuery
 
     public function withSorts(Sort ...$sorts): self
     {
-        return new self($this->filters, array_values($sorts), $this->page, $this->perPage);
+        return new self($this->filters, array_values($sorts), $this->page, $this->perPage, $this->search);
     }
 
     public function withPage(int $page): self
     {
-        return new self($this->filters, $this->sorts, $page, $this->perPage);
+        return new self($this->filters, $this->sorts, $page, $this->perPage, $this->search);
     }
 
     public function sortOn(string $field): ?Sort

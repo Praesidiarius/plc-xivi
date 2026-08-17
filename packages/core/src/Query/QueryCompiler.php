@@ -116,6 +116,10 @@ final readonly class QueryCompiler
             $conditions[] = $this->predicate($module, $filter, $slot, $parameters, $types);
         }
 
+        if ($query->search !== null && !$query->search->isEmpty()) {
+            $conditions[] = $this->searchGroup($module, $query->search, $slot, $parameters, $types);
+        }
+
         return new CompiledQuery(
             where: implode(' AND ', $conditions),
             parameters: $parameters,
@@ -158,6 +162,65 @@ final readonly class QueryCompiler
         }
 
         throw UnsupportedQuery::unknownCollection($filter->through, $module->getKey());
+    }
+
+    /**
+     * One string looked for across several fields, as a parenthesised OR
+     * (XIV-36).
+     *
+     * **The only disjunction this compiler emits**, and the parentheses are the
+     * load-bearing part: without them the group's last term would bind to the
+     * `AND` chain around it and the soft-delete and access predicates would stop
+     * applying to everything, which is a permission bug wearing a syntax error's
+     * clothes. See {@see Search} for why this is not the `OR` §5.3 refused.
+     *
+     * Every term goes through {@see self::comparison()} like any other
+     * condition, so the value is bound, the field name is bound, and the type
+     * still decides how its stored value is read. A field whose type does not
+     * answer `contains` is skipped rather than refused — a shape named partly by
+     * a date is still findable by the half of its name that is text, and raising
+     * would turn one odd title field into a picker that cannot be typed into at
+     * all.
+     *
+     * If that leaves nothing to look in, the answer is `FALSE` rather than the
+     * unfiltered page: somebody typed something, and a search that silently
+     * ignores what was typed shows a list that looks like a result and is not
+     * one — §5.3's own objection to filters that quietly do nothing.
+     *
+     * @param array<string, mixed>         $parameters
+     * @param array<string, ParameterType> $types
+     */
+    private function searchGroup(
+        ModuleDefinition $module,
+        Search $search,
+        int &$slot,
+        array &$parameters,
+        array &$types,
+    ): string {
+        $terms = [];
+
+        foreach ($search->fields as $key) {
+            $field = $module->getField($key);
+
+            if ($field === null) {
+                continue;
+            }
+
+            if (!\in_array(Operator::Contains, $this->fieldTypes->get($field->getType())->operators(), true)) {
+                continue;
+            }
+
+            $terms[] = $this->comparison(
+                $field,
+                new Filter($key, Operator::Contains, $search->text),
+                self::ALIAS,
+                $slot,
+                $parameters,
+                $types,
+            );
+        }
+
+        return $terms === [] ? 'FALSE' : '(' . implode(' OR ', $terms) . ')';
     }
 
     /**

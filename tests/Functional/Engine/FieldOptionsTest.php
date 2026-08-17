@@ -21,6 +21,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Xivi\Contact\ContactModule;
 use Xivi\Core\Entity\FieldDefinition;
+use Xivi\Core\Field\Autocomplete;
 use Xivi\Core\Field\Type\ReferenceFieldType;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
@@ -173,6 +174,61 @@ final class FieldOptionsTest extends WebTestCase
         $this->rename(OrderModule::KEY, 'description', 'Bezeichnung', OrderModule::LINES, ['max_length' => '120']);
 
         self::assertSame(120, $this->optionsOf(OrderModule::KEY, 'description', OrderModule::LINES)['max_length'] ?? null);
+    }
+
+    /**
+     * A field told how it is picked keeps being told (XIV-36).
+     *
+     * The newest option, and the one most likely to be lost the way the others
+     * were: it is *drawn* by this form, so it lives on the far side of the same
+     * merge — named on every save, cleared when blank, and therefore capable of
+     * being wiped by a rename if that merge ever stopped naming it. Set here
+     * through the control a customer uses rather than by writing the definition,
+     * because the bug XIV-26 was about was in what the form sent.
+     */
+    public function testAFieldKeepsHowItIsPicked(): void
+    {
+        $this->rename(OrderModule::KEY, 'contact', 'Auftraggeberin', settings: [
+            Autocomplete::OPTION => Autocomplete::Never->value,
+        ]);
+
+        self::assertSame(
+            Autocomplete::Never->value,
+            $this->optionsOf(OrderModule::KEY, 'contact')[Autocomplete::OPTION] ?? null,
+        );
+
+        // And a second, unrelated save leaves it alone — which is the whole
+        // claim, since the first save is the one that set it.
+        $this->rename(OrderModule::KEY, 'contact', 'Kundin');
+
+        self::assertSame(
+            Autocomplete::Never->value,
+            $this->optionsOf(OrderModule::KEY, 'contact')[Autocomplete::OPTION] ?? null,
+            'still never, after an edit that was about the label',
+        );
+        self::assertSame(
+            ContactModule::KEY,
+            $this->optionsOf(OrderModule::KEY, 'contact')[ReferenceFieldType::MODULE] ?? null,
+            'and its neighbours are still there',
+        );
+    }
+
+    /**
+     * A field whose type has nothing to autocomplete never grows the option.
+     *
+     * The other half of the type-aware control: the editor draws it only where
+     * it means something, so a `text` field's save says nothing about
+     * autocomplete at all — and a setting a form does not mention is one it
+     * cannot invent any more than it can wipe.
+     */
+    public function testAFieldWithNothingToPickDoesNotGrowTheOption(): void
+    {
+        $this->rename(OrderModule::KEY, 'description', 'Bezeichnung', OrderModule::LINES);
+
+        self::assertArrayNotHasKey(
+            Autocomplete::OPTION,
+            $this->optionsOf(OrderModule::KEY, 'description', OrderModule::LINES),
+        );
     }
 
     /** The rename itself still happens — the point of the page (XIV-8). */

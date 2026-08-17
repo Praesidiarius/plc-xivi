@@ -14,17 +14,8 @@ declare(strict_types=1);
 namespace Xivi\Core\Form;
 
 use Symfony\Contracts\Service\ResetInterface;
-use Xivi\Core\Entity\ModuleDefinition;
-use Xivi\Core\Metadata\MetadataRepository;
-use Xivi\Core\Metadata\ModuleNotInstalled;
-use Xivi\Core\Permission\ModuleAction;
-use Xivi\Core\Permission\RecordAccessProvider;
-use Xivi\Core\Query\Filter;
-use Xivi\Core\Query\Operator;
-use Xivi\Core\Query\RecordQuery;
-use Xivi\Core\Query\Sort;
-use Xivi\Core\Record\Record;
-use Xivi\Core\Record\RecordRepository;
+use Xivi\Core\Record\Candidate;
+use Xivi\Core\Record\RecordCandidates;
 
 /**
  * What a reference picker may point at, read once per request instead of once
@@ -84,11 +75,23 @@ final class CandidateLists implements ResetInterface
      */
     private array $lists = [];
 
-    public function __construct(
-        private readonly MetadataRepository $metadata,
-        private readonly RecordRepository $records,
-        private readonly RecordAccessProvider $access,
-    ) {
+    /**
+     * **Reading them is not this class's job either** (XIV-36).
+     *
+     * What a module's candidates are — narrowed to a variant, scoped to this
+     * reader, ordered by what they are called and named from the title fields —
+     * moved to {@see RecordCandidates} when the search endpoint arrived, because
+     * a picker and the search box that replaces it have to answer with exactly
+     * the same records in exactly the same order. Two copies of that reading
+     * would be two things to keep in step and one of them eventually wrong: a
+     * candidate offered by one and refused by the other is a record somebody can
+     * see, click, and then be told is not a valid choice.
+     *
+     * So what is left here really is only the memo and its lifetime, which is
+     * what XIV-87 was about.
+     */
+    public function __construct(private readonly RecordCandidates $candidates)
+    {
     }
 
     /**
@@ -123,92 +126,24 @@ final class CandidateLists implements ResetInterface
     /** @return array{choices: array<string, int>, total: int} */
     private function read(string $moduleKey, ?string $variant): array
     {
-        try {
-            $module = $this->metadata->get($moduleKey);
-        } catch (ModuleNotInstalled) {
-            // A reference to a module this customer does not have. §7.6 has not
-            // decided what that should mean; offering nothing is at least honest.
-            return ['choices' => [], 'total' => 0];
-        }
-
-        $filters = [];
-
-        if ($variant !== null && $module->getVariantField() !== null) {
-            $filters[] = new Filter($module->getVariantField(), Operator::Equals, $variant);
-        }
-
-        // Scoped, which settles the question §8.4 left open (XIV-13). A picker
-        // is a list of other people's records shown on this page, so an
-        // unrestricted one is a way to read the names of records somebody may
-        // not open — by pointing at them and reading the label back.
-        //
-        // The cost is real and worth stating: somebody scoped to their own
-        // records cannot link to a colleague's, and will see a picker that omits
-        // the answer they wanted rather than a message saying why. That is the
-        // safer half of the trade, and the one that can be widened later by a
-        // grant instead of by a deploy.
-        //
-        // **The same predicate for both**, or the count leaks. A total that
-        // included records this reader may not see would say how many exist, one
-        // integer at a time, which is what scoping the picker was for.
-        $access = $this->access->accessFor($moduleKey, ModuleAction::View);
-        $query = new RecordQuery(
-            filters: $filters,
-            sorts: self::sortByTitle($module),
-            perPage: RecordReferenceType::MAX_CHOICES,
-        );
-
-        $candidates = $this->records->findBy($module, $query, $access);
-
+        $found = $this->candidates->find($moduleKey, $variant, '', 1, RecordReferenceType::MAX_CHOICES);
         $choices = [];
 
-        foreach ($candidates as $record) {
-            $label = self::titleOf($module, $record);
-
-            // Two records called the same thing would collapse into one option,
-            // and the second would be unpickable. The id is ugly but it is the
-            // only thing guaranteed to tell them apart.
-            if (isset($choices[$label])) {
-                $label = sprintf('%s (#%d)', $label, (int) $record->id);
-            }
-
-            $choices[$label] = (int) $record->id;
+        foreach ($found as $candidate) {
+            \assert($candidate instanceof Candidate);
+            $choices[$candidate->label] = $candidate->id;
         }
 
         // Only asked when the page is full: below the ceiling the answer is the
         // number already in hand, and a second query for it would be waste on
-        // every picker in the application.
-        $total = \count($candidates) < RecordReferenceType::MAX_CHOICES
-            ? \count($candidates)
-            : $this->records->countBy($module, $query, $access);
+        // every picker in the application. The same predicate as the page either
+        // way, or the count leaks — a total that included records this reader
+        // may not see would say how many exist, one integer at a time, which is
+        // what scoping the picker was for.
+        $total = \count($found) < RecordReferenceType::MAX_CHOICES
+            ? \count($found)
+            : $this->candidates->count($moduleKey, $variant);
 
         return ['choices' => $choices, 'total' => $total];
-    }
-
-    /**
-     * Ordered by what they are called, since that is what somebody is scanning.
-     *
-     * @return list<Sort>
-     */
-    private static function sortByTitle(ModuleDefinition $module): array
-    {
-        $first = $module->getTitleFields()[0] ?? null;
-
-        return $first === null ? [] : [new Sort($first->getKey())];
-    }
-
-    private static function titleOf(ModuleDefinition $module, Record $record): string
-    {
-        $parts = [];
-
-        foreach ($module->getTitleFields() as $field) {
-            $value = $record->get($field->getKey());
-
-            if (\is_scalar($value) && (string) $value !== '') {
-                $parts[] = (string) $value;
-            }
-        }
-
-        return $parts === [] ? sprintf('%s #%d', $module->getLabel(), (int) $record->id) : implode(' ', $parts);
     }
 }

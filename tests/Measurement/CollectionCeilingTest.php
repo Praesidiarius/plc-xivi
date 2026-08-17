@@ -119,6 +119,14 @@ final class CollectionCeilingTest extends WebTestCase
      * edit form renders the first two hundred of them; a catalogue of twenty
      * would measure a shop that does not exist and would hide the multiplier
      * that turns out to matter most.
+     *
+     * **It also decides which control the form draws now** (XIV-36). A catalogue
+     * past `Autocomplete::AUTO_ABOVE` makes each row's picker a search box, which
+     * emits no options at all — so this number no longer separates "big
+     * catalogue" from "small catalogue" alone, it separates two widgets. That is
+     * the finding rather than a distortion: below the threshold the form draws
+     * the same selects it always did, and the numbers in §5.1 name which side of
+     * it they were taken on.
      */
     private const string DEFAULT_ARTICLES = '250';
 

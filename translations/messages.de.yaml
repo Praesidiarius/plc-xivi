@@ -150,6 +150,7 @@ field:
     order: Reihenfolge
     width: Breite
     width_default: Feldtyp-Standard
+    autocomplete: Suchfeld
     back_to: Zurück zu %module%
     rule_required: Pflichtfeld
     rule_unique: eindeutig

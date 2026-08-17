@@ -117,6 +117,12 @@ services:
     # every other check uses.
     Xivi\Core\Permission\RecordAccessProvider: '@App\Tenant\Security\CurrentUserRecordAccess'
 
+    # Where an autocompleting picker goes to search (XIV-36). Same seam again:
+    # a route is the application's to name, and a form type in core that built
+    # the path itself would only work under an application that happened to
+    # spell it the same way.
+    Xivi\Core\Record\RecordSearchUrl: '@App\Record\RecordSearchUrls'
+
     Xivi\Core\Record\RecordWriter:
         arguments:
             $connection: '@doctrine.dbal.tenant_connection'

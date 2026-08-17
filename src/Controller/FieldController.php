@@ -24,6 +24,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
+use Xivi\Core\Field\Autocomplete;
+use Xivi\Core\Field\Autocompletes;
 use Xivi\Core\Field\FieldTypeRegistry;
 use Xivi\Core\Field\UnknownFieldType;
 use Xivi\Core\Metadata\MetadataChangeRefused;
@@ -66,6 +68,25 @@ final class FieldController extends AbstractController
      */
     private const array SETTINGS = ['max_length', 'min', 'max'];
 
+    /**
+     * The one setting whose control depends on the field's *type* (XIV-36).
+     *
+     * Everything in SETTINGS above is a number and is drawn for every field
+     * whether or not it means anything there. Autocomplete is not: a `text`
+     * field has nothing to autocomplete against, and a select offering the
+     * choice beside it would be a control that does nothing, which is worse than
+     * an absent one.
+     *
+     * So the *type* is asked, by implementing {@see Autocompletes}. That is a
+     * first, small step toward what §5.4 says the real shape is — a type
+     * declaring which of its options are the customer's to set, so this form can
+     * draw the right controls per type rather than three fixed ones — and it is
+     * deliberately not that shape yet. Generalising from one option would be
+     * guessing at XIV-27's interface with one example; when XIV-27 arrives, this
+     * constant and the `instanceof` behind it become a lookup in a declared list.
+     */
+    private const string AUTOCOMPLETE = Autocomplete::OPTION;
+
     public function __construct(
         private readonly MetadataRepository $metadata,
         private readonly MetadataEditor $editor,
@@ -83,6 +104,12 @@ final class FieldController extends AbstractController
             'module' => $definition,
             'shapes' => self::shapesOf($definition),
             'types' => $this->fieldTypes->all(),
+            // Which types offer the autocomplete control, as a list of keys
+            // (XIV-36). Resolved here rather than in the template because Twig
+            // has no `instanceof`, and giving it one so a page could ask what a
+            // service implements would be a worse answer than a list of strings.
+            'autocompletable' => $this->autocompletable(),
+            'autocompleteChoices' => Autocomplete::settable(),
         ]);
     }
 
@@ -134,7 +161,7 @@ final class FieldController extends AbstractController
                     filterable: $request->request->getBoolean('filterable'),
                     listed: $request->request->getBoolean('listed'),
                     title: $request->request->getBoolean('title'),
-                    options: self::optionsFrom($request),
+                    options: $this->optionsFrom($request, (string) $request->request->get('type')),
                 );
 
                 $this->addFlash('success', $this->translator->trans('flash.field_added', ['%field%' => $field->getLabel()]));
@@ -167,7 +194,7 @@ final class FieldController extends AbstractController
                     listed: $request->request->getBoolean('listed'),
                     title: $request->request->getBoolean('title'),
                     position: $request->request->getInt('position', $target->getPosition()),
-                    options: self::optionsFrom($request),
+                    options: $this->optionsFrom($request, $target->getType()),
                     // Blank means "however wide this kind of field usually is"
                     // (XIV-43), which is a real answer and not a missing one.
                     width: self::widthFrom($request),
@@ -265,9 +292,16 @@ final class FieldController extends AbstractController
      * really is emptied — a form that could only ever add a setting would be the
      * opposite bug.
      *
-     * @return array<string, int|null>
+     * The autocomplete setting joins them for the types that offer it (XIV-36),
+     * and is named on exactly the same terms: the select always sends a value,
+     * blank means "decide from the count", and blank therefore clears rather
+     * than leaves alone. A type that does not offer it is not named at all, so a
+     * text field's save says nothing about autocomplete and could not clear one
+     * even if something had put it there.
+     *
+     * @return array<string, int|string|null>
      */
-    private static function optionsFrom(Request $request): array
+    private function optionsFrom(Request $request, string $type): array
     {
         $options = [];
 
@@ -276,7 +310,48 @@ final class FieldController extends AbstractController
             $options[$option] = $value === '' ? null : (int) $value;
         }
 
+        if ($this->offersAutocomplete($type)) {
+            // Through the enum rather than trusted: the control offers three
+            // answers and anything else is a hand-edited form, which should read
+            // as "no opinion" rather than land a word in the definitions that
+            // nothing knows how to interpret.
+            $chosen = Autocomplete::tryFrom(trim((string) $request->request->get(self::AUTOCOMPLETE, '')));
+            $options[self::AUTOCOMPLETE] = $chosen === null || $chosen === Autocomplete::Auto
+                ? null
+                : $chosen->value;
+        }
+
         return $options;
+    }
+
+    /**
+     * The field types whose fields may be autocompleted.
+     *
+     * @return list<string>
+     */
+    private function autocompletable(): array
+    {
+        $keys = [];
+
+        foreach ($this->fieldTypes->all() as $key => $type) {
+            if ($type instanceof Autocompletes) {
+                $keys[] = (string) $key;
+            }
+        }
+
+        return $keys;
+    }
+
+    /**
+     * Whether a type key names one of them.
+     *
+     * An unknown key is a no rather than an exception: `add` already answers for
+     * a tampered type select with a message, and this runs while building the
+     * arguments for that same call.
+     */
+    private function offersAutocomplete(string $type): bool
+    {
+        return \in_array($type, $this->autocompletable(), true);
     }
 
     /** A shape of *this* module, so an id from a form cannot reach another one. */
