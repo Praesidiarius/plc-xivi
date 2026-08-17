@@ -15,6 +15,7 @@ namespace App\ControlPlane\View;
 
 use App\ControlPlane\Entity\Tenant;
 use App\ControlPlane\Entity\TenantStatus;
+use App\ControlPlane\Entity\TenantUsage;
 
 /**
  * One customer as the tenant list draws them, and — far more importantly —
@@ -47,10 +48,20 @@ use App\ControlPlane\Entity\TenantStatus;
  * **It is also the boundary marker for the page's other property.** Everything on
  * this object comes out of the control-plane database, because everything on the
  * `Tenant` row does. A field that could not be filled in from a control-plane row
- * — how many users a customer has, when anybody last signed in, how many records
- * are in there — is a field that cannot go on this object, and that refusal is
- * the point rather than a limitation. See {@see \App\ControlPlane\Controller\TenantListController}
- * for the argument, and [XIV-59] for where those figures are supposed to come from.
+ * is a field that cannot go on this object, and that refusal is the point rather
+ * than a limitation. See {@see \App\ControlPlane\Controller\TenantListController}
+ * for the argument.
+ *
+ * **XIV-59 added usage without weakening that**, which is the only way it could
+ * have been added. How many users a customer has, when anybody last signed in and
+ * how many records are in there are facts about that customer's own database —
+ * but they are not read here and they are not read on this request. A console
+ * command collects them one tenant at a time and writes them into the control
+ * plane, and what arrives on this object is a `tenant_usage` row: a control-plane
+ * row like every other value here, carrying the moment it was collected so that
+ * nobody reads a figure from March as a figure from this morning. Null when
+ * nobody has collected that customer yet, which is a different statement from
+ * zero and from failed — see {@see TenantUsageSummary}.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
@@ -70,6 +81,8 @@ final readonly class TenantSummary
         public array $modules,
         public \DateTimeImmutable $createdAt,
         public ?\DateTimeImmutable $provisionedAt,
+        /** What the last collection found, or null if there has never been one (XIV-59). */
+        public ?TenantUsageSummary $usage,
     ) {
     }
 
@@ -80,8 +93,14 @@ final readonly class TenantSummary
      * Private constructor so it stays that way: an object of this type cannot be
      * built from anything but a registry row, so nobody can assemble a "summary"
      * somewhere else that quietly carries an extra field along.
+     *
+     * The usage row is *passed in* rather than reached through the tenant, and
+     * that is deliberate (XIV-59): `Tenant` has no association to it, so there is
+     * no property here that could quietly load a second table per row, and the
+     * caller has to have fetched every collection in one query before it gets
+     * here. See {@see \App\ControlPlane\Repository\TenantUsageRepository::byTenantId()}.
      */
-    public static function of(Tenant $tenant): self
+    public static function of(Tenant $tenant, ?TenantUsage $usage = null): self
     {
         $hostnames = [];
 
@@ -108,6 +127,7 @@ final readonly class TenantSummary
             $tenant->getEnabledModules(),
             $tenant->getCreatedAt(),
             $tenant->getProvisionedAt(),
+            $usage === null ? null : TenantUsageSummary::of($usage),
         );
     }
 

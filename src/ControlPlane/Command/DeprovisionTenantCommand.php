@@ -13,19 +13,16 @@ declare(strict_types=1);
 
 namespace App\ControlPlane\Command;
 
-use App\ControlPlane\Entity\Tenant;
 use App\ControlPlane\Provisioning\TenantProvisioner;
 use App\ControlPlane\Repository\TenantRepository;
+use App\ControlPlane\Usage\RecordCounter;
 use App\Tenancy\Dbal\TenantDsnParser;
-use App\Tenancy\TenantSwitcher;
 use Symfony\Component\Console\Attribute\Argument;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Attribute\Option;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Xivi\Core\Metadata\MetadataRepository;
-use Xivi\Core\Record\RecordRepository;
 
 /**
  * Removes a customer: the control-plane row, the database and the role.
@@ -44,6 +41,15 @@ use Xivi\Core\Record\RecordRepository;
  * to it. Everything below is about making it hard to do by accident rather than
  * hard to do.
  *
+ * **The record count in the confirmation is no longer counted here** (XIV-59).
+ * "Switch into the tenant, read its own metadata, count each shape" is now
+ * {@see RecordCounter}, because the usage collector asks the identical question
+ * of every customer on a schedule and two copies of it would have drifted at the
+ * first change to any of the three steps. Nothing about what this command prints
+ * has changed; the docblock that used to live on the private method — including
+ * why it is allowed to throw, and why the connection it opens must be shut before
+ * `DROP DATABASE` runs — moved with the code.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[AsCommand(
@@ -56,9 +62,7 @@ final readonly class DeprovisionTenantCommand
         private TenantRepository $tenants,
         private TenantProvisioner $provisioner,
         private TenantDsnParser $dsnParser,
-        private TenantSwitcher $switcher,
-        private MetadataRepository $metadata,
-        private RecordRepository $records,
+        private RecordCounter $records,
     ) {
     }
 
@@ -89,7 +93,7 @@ final readonly class DeprovisionTenantCommand
         $unreadable = null;
 
         try {
-            $records = $this->countRecords($tenant);
+            $records = $this->records->countFor($tenant);
         } catch (\Throwable $e) {
             $records = null;
             $unreadable = $e->getMessage();
@@ -155,37 +159,6 @@ final readonly class DeprovisionTenantCommand
         $io->newLine();
 
         return Command::SUCCESS;
-    }
-
-    /**
-     * How much is in there, in the terms the person deciding thinks in.
-     *
-     * Allowed to throw, and the caller is allowed to carry on: half the reason to
-     * run this command is a tenant whose provisioning died before the database
-     * existed, and refusing to remove a row because its database cannot be opened
-     * would leave the registry holding exactly the wreckage nothing else can
-     * clear. `deprovision()` drops with `IF EXISTS` for the same reason.
-     *
-     * The connection this opens is closed again by `runFor`, which is what keeps
-     * it from being the connection that blocks the `DROP DATABASE` two steps
-     * later — the failure `deprovision()`'s own `switcher->clear()` is guarding
-     * against, met here from the other side.
-     *
-     * @return array<string, int> module key => live records
-     */
-    private function countRecords(Tenant $tenant): array
-    {
-        /** @var array<string, int> $counts */
-        $counts = $this->switcher->runFor($tenant, function (): array {
-            $counts = [];
-            foreach ($this->metadata->all() as $module) {
-                $counts[$module->getKey()] = $this->records->countAll($module);
-            }
-
-            return $counts;
-        });
-
-        return $counts;
     }
 
     /** @param array<string, int> $counts */

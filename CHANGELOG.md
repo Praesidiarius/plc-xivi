@@ -70,6 +70,23 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **What each customer is using, on the tenant list** ([XIV-59]). Every row now
+  shows how many users that customer has, when anybody last signed in and how
+  many records are in there — enough to tell somebody who is using Xivi from
+  somebody who provisioned in March and never came back. The figures say when
+  they were collected, and a customer whose database could not be read says
+  *that* rather than showing zeroes (§8.11).
+- **Schedule `tenant:usage:collect` in your deployment's cron** ([XIV-59]).
+  Nothing collects those figures for you: until the command has run, every row
+  reads *not collected yet*, which is honest and is not useful. Nightly is a
+  sensible cadence — the page states the age of what it shows, so any cadence
+  tells the truth. The command walks tenants one at a time, records a failure
+  against the one customer it could not reach, carries on with the rest, and
+  exits non-zero so cron mails you about it.
+- **Run the control-plane migration on deploy** ([XIV-59]) —
+  `doctrine:migrations:migrate --em=control` — which adds the `tenant_usage`
+  table. No tenant migration and no backfill: an empty table is exactly "nobody
+  has been collected yet".
 - **Every tenant on one page** ([XIV-58]). Signing in to the control plane now
   lands on the registry itself — name and slug, status, plan, primary domain,
   when the row was created and when it was provisioned, which modules are enabled

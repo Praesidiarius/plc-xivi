@@ -67,6 +67,24 @@ control_plane:
     created: Created
     provisioned: Provisioned
     modules: Modules
+    # What a customer is actually using (XIV-59). The figures are collected by
+    # `tenant:usage:collect` and read here out of the control plane, so every one
+    # of these labels is about a *collection* as much as about a customer — hence
+    # a word for when it happened beside every number.
+    usage: Usage
+    # Nobody has looked yet, which is neither zero nor a fault: a customer
+    # provisioned this morning is in this state until the collector next runs.
+    usage_never: Not collected yet
+    # It was looked at and the database did not answer. Deliberately not phrased
+    # as a fact about the customer — nothing is known about them right now, which
+    # is a statement about us rather than about them.
+    usage_failed: Could not be read
+    usage_tried: 'tried %time%'
+    usage_collected: 'collected %time%'
+    last_sign_in: 'last sign-in %time%'
+    # A successful collection that found nobody had ever signed in. The customer
+    # who provisioned in March and never came back reads exactly like this.
+    never_signed_in: nobody has signed in
     # The four registry statuses, spelled out rather than printed from the enum.
     # `provisioning` is a word an operator reads as a stage; the others are words
     # a customer's account manager would use, and both audiences read this page.

@@ -51,6 +51,13 @@ control_plane:
     created: Angelegt
     provisioned: Bereitgestellt
     modules: Module
+    usage: Nutzung
+    usage_never: Noch nicht erhoben
+    usage_failed: Konnte nicht gelesen werden
+    usage_tried: 'versucht %time%'
+    usage_collected: 'erhoben %time%'
+    last_sign_in: 'letzte Anmeldung %time%'
+    never_signed_in: noch nie angemeldet
     status_provisioning: Wird bereitgestellt
     status_trial: Test
     status_active: Aktiv

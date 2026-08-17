@@ -430,6 +430,7 @@ and §6.4 of the brief argues why that is a rule rather than a nicety.
 | `tenant:list` | Shows the registry |
 | `tenant:inspect [slug] [module]` | **Dev only.** Tenants with their schema state and installed modules; with a slug, that tenant's real field definitions. `--modules` for the catalogue, `--json` for what the MCP tools return |
 | `tenant:migrate [--slug=]` | Applies tenant migrations to every tenant; run it on every deploy |
+| `tenant:usage:collect [--slug=]` | Counts each tenant's users, last sign-in and records into the control plane, one tenant at a time; put it in cron — see below |
 | `tenant:permissions:grant-all <slug>` | Grants every action on every installed module to one tenant's non-admin users; the upgrade path for an installation that predates permissions, and the way back into a locked-out one |
 | `tenant:rotate-secrets` | Re-encrypts stored passwords with the active key |
 | `control:operator:create <email>` | Creates somebody who can sign in to the control plane; asks for the password, or takes `--password` for a scripted run |
@@ -499,6 +500,24 @@ bin/compose exec php bin/console control:operator:create you@example.com
 
 The reasoning, and why an operator is not a promoted user of some tenant, is in
 §8.9 of the brief.
+
+### Keeping the usage figures fresh
+
+The tenant list shows what each customer uses — users, last sign-in, records — and
+**nothing collects those figures for you**. Until the command has run, every row
+reads *not collected yet*, which is honest and is not useful:
+
+```cron
+17 3 * * *  cd /srv/xivi && bin/console tenant:usage:collect
+```
+
+There is no worker process here and no message consumer, so this is a cron entry
+rather than a queue — the same constraint that makes mail synchronous (§8.7). The
+cadence is yours: the page states how old what it shows is, so hourly and weekly
+both tell the truth about themselves. A tenant whose database cannot be reached is
+recorded as *could not be read* and the run carries on with the rest, then exits
+non-zero so that cron mails somebody. The reasoning, and why the page does not
+fetch this itself, is §8.11 of the brief.
 
 ### Before deploying anywhere real
 
