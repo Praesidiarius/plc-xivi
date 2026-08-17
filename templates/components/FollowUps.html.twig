@@ -257,7 +257,15 @@
 									{% endif %}
 								</div>
 
-								{{ notes.thread(this, followUp, module, record, mayCreate) }}
+								{#
+									`false`, and that is the fix for XIV-85. This used to pass
+									`mayCreate` like the active list does, so the archive drew a
+									note box and edit and delete links on items that are history.
+									An archived follow-up takes no changes at all — the manager
+									refuses every one of them — and the only control here is the
+									reopen button above.
+								#}
+								{{ notes.thread(this, followUp, module, record, false) }}
 							</div>
 						</div>
 					{% endfor %}
@@ -274,8 +282,14 @@
 	the component knows which notes are the reader's — and a macro is the shape
 	that takes arguments without pretending to be a template of its own.
 #}
-{% macro thread(component, followUp, module, record, mayCreate) %}
-	{% if followUp.notes|length or mayCreate %}
+{#
+	`mayWrite` rather than `mayCreate` since XIV-85, and the rename is the point:
+	it governs the add box *and* the edit and delete links, because an archived
+	thread takes none of the three. Authorship still decides which notes are
+	yours — this decides whether the thread accepts anything at all.
+#}
+{% macro thread(component, followUp, module, record, mayWrite) %}
+	{% if followUp.notes|length or mayWrite %}
 		<ul class="list-unstyled mb-0 mt-3 ps-3 border-start">
 			{% for note in followUp.notes %}
 				<li class="{{ loop.first ? '' : 'mt-2' }}">
@@ -308,7 +322,7 @@
 								administrators included (§5.18). The manager enforces it; this
 								only declines to draw a button that would be refused.
 							#}
-							{% if component.isMine(note) %}
+							{% if mayWrite and component.isMine(note) %}
 								<button type="button" class="btn btn-link btn-sm p-0 align-baseline"
 								        data-action="live#action"
 								        data-live-action-param="startEditing"
@@ -330,7 +344,7 @@
 				not say anything about it has a feature with its mouth taped shut
 				(§5.18).
 			#}
-			{% if mayCreate %}
+			{% if mayWrite %}
 				<li class="mt-2">
 					<form method="post" action="{{ path('follow_up_note_add', {module: module.key, id: record.id, followUp: followUp.id}) }}">
 						<input type="hidden" name="_token" value="{{ csrf_token('note-follow-up-' ~ followUp.id) }}">

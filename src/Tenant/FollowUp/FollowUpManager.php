@@ -140,6 +140,7 @@ final readonly class FollowUpManager
         $record = $this->record($module, $followUp->getRecordId());
 
         $this->assertMay($actor, $module, $record, ModuleAction::FollowUpCreate);
+        $this->assertNotDone($followUp);
 
         if ($assignee === null) {
             $followUp->unassign();
@@ -166,6 +167,7 @@ final readonly class FollowUpManager
         $record = $this->record($module, $followUp->getRecordId());
 
         $this->assertMay($actor, $module, $record, ModuleAction::FollowUpCreate);
+        $this->assertNotDone($followUp);
 
         $note = $this->write($followUp, $actor, $body);
         $this->entityManager->flush();
@@ -192,6 +194,7 @@ final readonly class FollowUpManager
     public function editNote(User $actor, FollowUpNote $note, string $body): void
     {
         $this->assertOwnNote($actor, $note);
+        $this->assertNotDone($note->getFollowUp());
 
         $body = trim($body);
 
@@ -217,6 +220,7 @@ final readonly class FollowUpManager
     public function deleteNote(User $actor, FollowUpNote $note): void
     {
         $this->assertOwnNote($actor, $note);
+        $this->assertNotDone($note->getFollowUp());
 
         $followUp = $note->getFollowUp();
         $followUp->removeNote($note);
@@ -234,6 +238,9 @@ final readonly class FollowUpManager
     public function markDone(User $actor, FollowUp $followUp): void
     {
         $this->assertMayComplete($actor, $followUp);
+        // Not idempotent, deliberately: a second stamp would overwrite the moment
+        // this was actually settled, which is the one fact the archive is for.
+        $this->assertNotDone($followUp);
 
         $followUp->markDone(new \DateTimeImmutable());
         $followUp->touch();
@@ -387,6 +394,31 @@ final readonly class FollowUpManager
     {
         if (!$note->isAuthoredBy($actor->getId())) {
             throw FollowUpRefused::notYourNote();
+        }
+    }
+
+    /**
+     * An archived follow-up is history, and history does not change (XIV-85).
+     *
+     * `done_at` is the whole rule: while it is set, the only thing anybody may do
+     * is {@see reopen()}, which is why that method is the one place this is not
+     * called. Adding a note, rewriting one, removing one and reassigning all
+     * refuse here, and so does marking done something already done — a second
+     * stamp would overwrite the moment it actually happened, which is the one
+     * fact the archive exists to keep.
+     *
+     * **Checked here rather than only in the panel**, for the same reason note
+     * authorship is (§5.18). The screen not drawing a note box is a courtesy to
+     * whoever is looking at it; the rule has to survive a page that was open
+     * across somebody else pressing Done, an import, and a console command, none
+     * of which have looked at a template.
+     *
+     * @throws FollowUpRefused
+     */
+    private function assertNotDone(FollowUp $followUp): void
+    {
+        if ($followUp->isDone()) {
+            throw FollowUpRefused::alreadyDone();
         }
     }
 
