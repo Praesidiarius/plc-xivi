@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Support;
 
-use App\ControlPlane\Entity\Tenant;
+use App\Registry\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Xivi\Contact\ContactModule;

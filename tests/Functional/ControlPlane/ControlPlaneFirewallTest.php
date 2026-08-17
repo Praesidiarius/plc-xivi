@@ -13,12 +13,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\ControlPlane;
 
-use App\ControlPlane\Security\ControlPlaneHost;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Bundle\SecurityBundle\Security\FirewallConfig;
 use Symfony\Bundle\SecurityBundle\Security\FirewallMap;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Yaml\Yaml;
+use Xivi\ControlPlane\Security\ControlPlaneHost;
 
 /**
  * **The ordering invariant, with a test behind it instead of a warning** (XIV-57).

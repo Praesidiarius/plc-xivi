@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 namespace App\Store;
 
-use App\ControlPlane\Module\ModuleCatalog;
+use App\Registry\Catalog\ModuleCatalog;
 use App\Tenant\FollowUp\ModuleFollowUps;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Xivi\Core\Entity\ModuleDefinition;

@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 namespace App\Twig;
 
-use App\ControlPlane\Entity\Tenant;
+use App\Registry\Entity\Tenant;
 use App\Tenancy\TenantContext;
 use App\Tenant\Repository\TenantProfileRepository;
 use App\Tenant\Security\PermissionArea;

@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 namespace App\Tenancy\EventListener;
 
-use App\ControlPlane\Repository\TenantRepository;
+use App\Registry\Repository\TenantRepository;
 use App\Tenancy\TenantSwitcher;
 use Symfony\Component\Console\ConsoleEvents;
 use Symfony\Component\Console\Event\ConsoleCommandEvent;

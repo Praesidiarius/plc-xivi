@@ -13,9 +13,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Tenancy;
 
-use App\ControlPlane\Entity\Tenant;
-use App\ControlPlane\Provisioning\TenantProvisioner;
-use App\ControlPlane\Repository\TenantRepository;
+use App\Registry\Entity\Tenant;
+use App\Registry\Repository\TenantRepository;
 use App\Tenancy\EventListener\TenantSessionGuard;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Entity\User;
@@ -26,6 +25,7 @@ use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
+use Xivi\ControlPlane\Provisioning\TenantProvisioner;
 
 /**
  * Signing in, and the ways it must not work across tenants.

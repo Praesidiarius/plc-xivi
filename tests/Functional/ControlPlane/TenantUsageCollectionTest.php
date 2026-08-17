@@ -13,11 +13,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\ControlPlane;
 
-use App\ControlPlane\Entity\Tenant;
-use App\ControlPlane\Entity\TenantUsage;
-use App\ControlPlane\Provisioning\TenantProvisioner;
-use App\ControlPlane\Repository\TenantRepository;
-use App\ControlPlane\Repository\TenantUsageRepository;
+use App\Registry\Entity\Tenant;
+use App\Registry\Repository\TenantRepository;
 use App\Tenancy\Exception\NoTenantResolvedException;
 use App\Tenancy\TenantContext;
 use App\Tenancy\TenantSwitcher;
@@ -33,6 +30,9 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Xivi\Contact\ContactModule;
+use Xivi\ControlPlane\Entity\TenantUsage;
+use Xivi\ControlPlane\Provisioning\TenantProvisioner;
+use Xivi\ControlPlane\Repository\TenantUsageRepository;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;

@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 namespace App\Tenancy\Dbal;
 
-use App\ControlPlane\Entity\Tenant;
+use App\Registry\Entity\Tenant;
 use App\Tenancy\Exception\TenantCredentialMissingException;
 use App\Tenancy\Security\TenantSecretCipher;
 use App\Tenancy\TenantContext;

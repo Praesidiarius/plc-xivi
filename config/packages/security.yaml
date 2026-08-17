@@ -24,7 +24,7 @@ security:
         # the wrong idea to leave lying next to the provider above.
         operators:
             entity:
-                class: App\ControlPlane\Entity\Operator
+                class: Xivi\ControlPlane\Entity\Operator
                 property: email
 
     firewalls:
@@ -55,12 +55,12 @@ security:
         #
         # `request_matcher` rather than `host:`, because `host:` is a regular
         # expression and a hostname is full of dots that would each match any
-        # character. App\ControlPlane\Security\ControlPlaneHost compares
+        # character. Xivi\ControlPlane\Security\ControlPlaneHost compares
         # normalised strings, through the same normalisation tenancy uses to
         # decide that this host resolves no tenant.
         control_plane:
             lazy: true
-            request_matcher: App\ControlPlane\Security\ControlPlaneHost
+            request_matcher: Xivi\ControlPlane\Security\ControlPlaneHost
             provider: operators
             entry_point: form_login
 

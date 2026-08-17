@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "93d28f0f88d63fab28deb554046728c7",
+    "content-hash": "1a76db9bc26f459640d0217a8aa47ba0",
     "packages": [
         {
             "name": "anourvalar/office",
@@ -8221,6 +8221,38 @@
                 "MIT"
             ],
             "description": "Contact module: the thin module that keeps the engine honest",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "xivi/control-plane",
+            "version": "1.0.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/control-plane",
+                "reference": "fb1c605d4b1a24fe49772da0ea63f18ec570cb6c"
+            },
+            "require": {
+                "doctrine/dbal": "^4.4",
+                "doctrine/orm": "^3.6",
+                "php": ">=8.4",
+                "symfony/console": "8.1.*",
+                "symfony/framework-bundle": "8.1.*",
+                "symfony/security-bundle": "8.1.*",
+                "twig/twig": "^3.21",
+                "xivi/core": "^1.0"
+            },
+            "type": "symfony-bundle",
+            "autoload": {
+                "psr-4": {
+                    "Xivi\\ControlPlane\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "The administration surface: operators, provisioning, the tenant list and usage",
             "transport-options": {
                 "relative": true
             }

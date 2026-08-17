@@ -13,16 +13,16 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Tenancy;
 
-use App\ControlPlane\Entity\Tenant;
-use App\ControlPlane\Entity\TenantStatus;
-use App\ControlPlane\Provisioning\TenantProvisioner;
-use App\ControlPlane\Repository\TenantRepository;
+use App\Registry\Entity\Tenant;
+use App\Registry\Entity\TenantStatus;
+use App\Registry\Repository\TenantRepository;
 use App\Tenancy\Exception\NoTenantResolvedException;
 use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use Doctrine\DBAL\Connection;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
+use Xivi\ControlPlane\Provisioning\TenantProvisioner;
 
 /**
  * The tenant resolution layer end to end: two customers, two databases, one

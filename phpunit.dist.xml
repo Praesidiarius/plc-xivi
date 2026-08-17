@@ -62,6 +62,11 @@
             <!-- The engine lives here, so leaving it out would have measured the
                  application's wiring and called it the project's coverage. One
                  line per module, since PHPUnit does not glob these. -->
+            <!-- The administration surface, which was measured as part of src/
+                 until it became a package (XIV-60). Leaving it out would have
+                 dropped provisioning, the operator firewall and the tenant list
+                 out of the coverage figure without dropping a single test. -->
+            <directory>packages/control-plane/src</directory>
             <directory>packages/core/src</directory>
             <directory>packages/contact/src</directory>
             <directory>packages/article/src</directory>

@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 namespace App\Tenancy\Exception;
 
-use App\ControlPlane\Entity\Tenant;
+use App\Registry\Entity\Tenant;
 
 /**
  * The tenant row carries no encrypted database password. Predates per-tenant

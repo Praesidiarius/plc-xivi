@@ -55,8 +55,21 @@ repos was that cross-module imports were physically impossible. That is recovere
 - modules may depend on core, never on each other directly
 - core may never depend on any module
 - cross-module communication goes through events and interfaces only
+- the administration surface may depend on the application; the application may never
+  depend on it (§3.1)
 
 Boundaries are a CI check, not a distribution decision.
+
+**And the check has to be checked** (XIV-60). Every layer in `deptrac.yaml` was collected by
+`type: directory` with a pattern anchored as `^src/…`, and deptrac matches those against the
+file's *absolute* path — `/app/src/…` in the container CI runs in. So no file was ever in
+any layer, and `composer deptrac` had been reporting no violations for the same reason an
+empty configuration would. It was found by planting a deliberately illegal import and
+watching nothing happen. The collectors are `classLike` on the namespace now, which is the
+same statement in the language the layers were always about, and turning the check on for
+the first time found zero real violations across seven layers — the good outcome, and not
+the one to have assumed. **Plant a violation whenever a layer is added here.** A boundary
+check is the one kind of test that passes just as convincingly when it is not running.
 
 **If external distribution is ever needed**, use the `symfony/symfony` model: monorepo
 with automated read-only subtree splits. Add it later; do not pay for it now.
@@ -79,6 +92,87 @@ offered, so an order in a tenant with no articles has no "article line" kind and
 three kinds behave as normal. Both hard would have been simpler and would have made
 "required" mean "including the things you can work without", which is how a requirement
 list stops being read.
+
+### 3.1 The administration surface is a package; the registry is not (XIV-60)
+
+`packages/control-plane` is the fourth kind of thing in this repository, after core, the
+modules and the application, and it is the first one that sits **above** the application
+rather than beneath it. What follows is what it is allowed to depend on, what may depend on
+it, and — because the answer is not the one the ticket started with — why the boundary
+falls where it does.
+
+**The obvious split does not exist.** "Move the control plane out of the instance that
+serves customers" is unsatisfiable as stated, and finding that out was most of the work.
+`TenantResolver` reads the control-plane database to turn a `Host` header into a customer;
+`TenantConnectionParameters` reads the same row to get the DSN and decrypt the password it
+connects with. Every tenant request begins in the control-plane database. An instance
+without it cannot answer the first question it is asked.
+
+**So the thing that is separable is not the control plane; it is the administration
+surface.** Two halves, in one database, with opposite audiences:
+
+- **The registry** — `App\Registry`, in `src/`. The `tenant` row and its domains, the
+  encrypted credential, the status, and the module catalogue the store reads. It is what a
+  *customer's* request needs in order to be served at all, it is read on every request, and
+  it stays in the application. It writes nothing: provisioning is the only thing that
+  creates a tenant, and provisioning is not in here.
+- **The surface** — `Xivi\ControlPlane`, in `packages/control-plane`. Provisioning,
+  deprovisioning, tenant migrations, secret rotation, the module catalogue's *write* side,
+  operator identity and its firewall (§8.9), the tenant list (§8.10), usage collection
+  (§8.11), and the introspector §6.4 exposes. Nothing here is on the path of a customer's
+  request; everything here is on the path of somebody entitled to see every customer at
+  once.
+
+**The rule, and it runs the opposite way from the modules'.**
+
+- The control plane **may** depend on the application: on `App\Registry`, on `App\Tenancy`
+  and on `App\Tenant`. Provisioning a customer means creating a database, connecting to it
+  *as* that customer, running the tenant migrations and installing modules into it, so it
+  necessarily drives tenancy and the tenant application's own user and permission services.
+  It may also depend on core, because counting a tenant's records means reading their
+  metadata.
+- The application **may not** depend on the control plane. Not "should not": there is no
+  `use Xivi\ControlPlane\…` under `src/`, deptrac fails the build on one, and the intent is
+  that an instance serving customers can be built with no administration surface compiled
+  into it at all.
+- A module may not depend on it either, and it may not depend on a module. It reaches
+  modules the way everything else does — by key, through the registry and the engine.
+
+That is the same shape `packages/xivi-mate` has (§6.4): a package above the application
+rather than beside the modules. The ruleset in `deptrac.yaml` is what says which of the two
+a given package is, and it is the only place that can say it — Composer cannot express
+"depends on the application", because the application is a project rather than a package.
+
+**What resisted.** Three commands and two screens had to move out of `src/` with the rest,
+because they were administration wearing the application's directory: `tenant:reset` and
+its progress object, and the two Twig templates the operator pages render. Three things
+deliberately did not move, and each is a coupling the deployment half will have to answer
+rather than a tidiness problem:
+
+- `app.control_plane_host` is a parameter in the application's `config/services.yaml`,
+  read by a class in the package. It is a *deployment's* fact, so a bundle default would be
+  answering a question about where it is installed.
+- `security.yaml` names `Xivi\ControlPlane\Security\ControlPlaneHost` as the control-plane
+  firewall's request matcher and `Xivi\ControlPlane\Entity\Operator` as its provider. The
+  application's security configuration therefore does not compile without the package
+  present. Removing the package from a build is consequently not yet a matter of dropping a
+  Composer requirement.
+- The operator screens extend the tenant application's `base.html.twig` and read their
+  strings from its `messages` domain. That is the allowed direction, and it does mean the
+  surface is not renderable on its own.
+
+**One suite, one stack.** `bin/ci` runs a single PHPUnit suite over both halves and the dev
+stack is still one `bin/compose up`; `tests/Functional/ControlPlane/` was not moved into the
+package and is not going to be, because the invariant those tests assert — that the
+control-plane firewall matches on host and is ordered above `main` (§8.9) — is a property of
+the *assembled application*, and a test living inside the package could not see it.
+
+**The migrations did not move and must not.** `migrations/control/` stays where it is under
+`DoctrineMigrations\ControlPlane`, which is the namespace recorded in the
+`doctrine_migration_versions` table; the tables did not move either, so the split is
+invisible to the schema. What changed is that the `control` entity manager now has two
+mappings over one database — `App\Registry\Entity` and `Xivi\ControlPlane\Entity` — which
+is the split stated in the one place Doctrine reads.
 
 ---
 
@@ -2866,7 +2960,7 @@ shape for it.
 
 #### The introspector, and the two front doors on it
 
-One service, `App\ControlPlane\Introspection\TenantInspector`, answers three
+One service, `Xivi\ControlPlane\Introspection\TenantInspector`, answers three
 questions as plain arrays: which tenants exist and whether each one's schema is
 current; what one tenant's installed modules actually look like; and what the
 module catalogue holds. It reads through the application's own services —
@@ -4027,7 +4121,7 @@ why a migration failed is by definition not about one customer, so there is no
 tenant database that is the right place to keep them.
 
 So: **an operator is a row in the control-plane database** — its own entity
-(`App\ControlPlane\Entity\Operator`), its own provider, its own firewall, its own
+(`Xivi\ControlPlane\Entity\Operator`), its own provider, its own firewall, its own
 host. Nothing about a tenant user changes.
 
 #### Two alternatives, rejected
@@ -4073,7 +4167,7 @@ ordering fails the build rather than shipping.
 key is a regular expression, and a hostname written into one is a pattern in which
 every dot matches any character — `control.example.com` also accepts
 `controlXexample.com`, a name somebody else can own.
-`App\ControlPlane\Security\ControlPlaneHost` compares normalised strings instead,
+`Xivi\ControlPlane\Security\ControlPlaneHost` compares normalised strings instead,
 through `TenantResolver::normalize()`, which is the same function tenancy uses to
 decide that a host is served without a tenant. One normalisation, so the firewall
 matches exactly the host on which no tenant resolves.
@@ -4210,7 +4304,7 @@ somebody pastes into a chat. Every one of those is a mistake that reads as
 harmless while it is being made, so "be careful in the template" is not a
 control.
 
-**So the entity never reaches the template.** `App\ControlPlane\View\TenantSummary`
+**So the entity never reaches the template.** `Xivi\ControlPlane\View\TenantSummary`
 is a readonly object of seven scalars and two arrays, with a private constructor
 and one static factory — the single place in the codebase that reads a `Tenant`
 for this page, and it does not read those two columns. Dump it, encode it, hand it
@@ -4355,7 +4449,7 @@ operator, which is the opposite of a tool for operators.
 **The counting is shared with `tenant:deprovision`, not copied.** That command has
 asked the same question since XIV-72 — it prints how much is in there before it
 destroys it — so "switch to the tenant, read its own metadata, count each shape"
-is now `App\ControlPlane\Usage\RecordCounter` and both callers use it. Two copies
+is now `Xivi\ControlPlane\Usage\RecordCounter` and both callers use it. Two copies
 would have drifted at the first change to any of the three steps.
 
 #### Where the figures live: their own table, not columns on `tenant`

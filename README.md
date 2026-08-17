@@ -609,15 +609,22 @@ provisioning databases rather than executing PHP.
 ## Layout
 
 ```
-src/               the application: tenancy, control plane, security, controllers
-packages/core      the engine — metadata, field types, record storage
-packages/contact   the first module built on it
+src/                     the application: tenancy, the tenant registry, security, controllers
+packages/core            the engine — metadata, field types, record storage
+packages/contact         the first module built on it
+packages/control-plane   the administration surface: provisioning, operators, the tenant list
 ```
 
 Modules are Symfony bundles wired as Composer path repositories. A module may
 depend on core, never on another module, and core may depend on neither the
 modules nor the application — enforced by `deptrac.yaml` in CI rather than by
 separate repositories (§3).
+
+The control plane is the same kind of package pointed the other way: it may depend
+on the application, and the application may never depend on it. The half of the
+control-plane database a *customer's* request needs — which tenant owns this
+hostname, and the credential to reach their database — is `App\Registry` and stays
+in `src/`, because an instance serving customers cannot boot without it (§3.1).
 
 Individual pieces, if you want them on their own:
 

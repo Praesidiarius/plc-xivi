@@ -13,8 +13,8 @@ declare(strict_types=1);
 
 namespace App\Tenancy;
 
-use App\ControlPlane\Entity\Tenant;
-use App\ControlPlane\Repository\TenantRepository;
+use App\Registry\Entity\Tenant;
+use App\Registry\Repository\TenantRepository;
 use App\Tenancy\Exception\UnknownTenantHostException;
 
 /**

@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Engine;
 
-use App\ControlPlane\Entity\Tenant;
+use App\Registry\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tests\Support\SharesATenant;
 use OpenSpout\Common\Entity\Row;

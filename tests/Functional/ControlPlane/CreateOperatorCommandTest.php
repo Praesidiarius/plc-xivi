@@ -13,14 +13,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\ControlPlane;
 
-use App\ControlPlane\Entity\Operator;
-use App\ControlPlane\Repository\OperatorRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Xivi\ControlPlane\Entity\Operator;
+use Xivi\ControlPlane\Repository\OperatorRepository;
 
 /**
  * The only way an operator comes into existence (XIV-57).

@@ -13,10 +13,10 @@ declare(strict_types=1);
 
 namespace Xivi\Mate\Capability;
 
-use App\ControlPlane\Introspection\TenantInspector;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\AI\Mate\Encoding\ResponseEncoder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Xivi\ControlPlane\Introspection\TenantInspector;
 use Xivi\Mate\Bridge\ApplicationBridge;
 
 /**

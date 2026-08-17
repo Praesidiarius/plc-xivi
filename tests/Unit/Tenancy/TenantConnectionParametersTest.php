@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Tenancy;
 
-use App\ControlPlane\Entity\Tenant;
+use App\Registry\Entity\Tenant;
 use App\Tenancy\Dbal\TenantConnectionParameters;
 use App\Tenancy\Dbal\TenantDsnParser;
 use App\Tenancy\Exception\NoTenantResolvedException;

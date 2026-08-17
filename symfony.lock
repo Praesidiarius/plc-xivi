@@ -379,6 +379,9 @@
     "xivi/contact": {
         "version": "dev-main"
     },
+    "xivi/control-plane": {
+        "version": "1.0.0"
+    },
     "xivi/core": {
         "version": "dev-main"
     },

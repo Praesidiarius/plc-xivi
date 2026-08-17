@@ -13,10 +13,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Tenant;
 
-use App\ControlPlane\Entity\Module;
-use App\ControlPlane\Entity\ModuleState;
-use App\ControlPlane\Entity\Tenant;
-use App\ControlPlane\Module\ModuleCatalog;
+use App\Registry\Catalog\ModuleCatalog;
+use App\Registry\Entity\Module;
+use App\Registry\Entity\ModuleState;
+use App\Registry\Entity\Tenant;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Entity\PermissionGrant;
 use App\Tenant\Entity\PermissionGroup;
