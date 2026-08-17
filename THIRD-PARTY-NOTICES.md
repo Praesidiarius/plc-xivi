@@ -27,6 +27,12 @@ the list with:
 
     composer licenses --no-dev
 
+**Checked on each addition, and the last one was `symfony/rate-limiter`**
+(XIV-64): MIT, Copyright (c) 2016-present Fabien Potencier, first-party, and it
+brings nothing with it that was not already installed — `symfony/options-resolver`
+and the cache contracts arrive with the framework. No new entry below is needed,
+which is what the check is for: it establishes that, rather than assuming it.
+
 The exceptions, all permissive and all compatible with MIT:
 
 - **BSD-3-Clause** — `twig/twig`, and `league/commonmark` with the `league/config`

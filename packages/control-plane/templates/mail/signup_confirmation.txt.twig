@@ -1,0 +1,20 @@
+{#
+	The plain-text half of a signup confirmation (XIV-64).
+
+	Written by hand rather than derived from the HTML one, for the reason the
+	invitation's text part gives: a text part made by stripping tags out of a
+	table layout is a text part nobody would want to read.
+
+	The URL is on its own line and nothing else is, because that is what makes a
+	mail client turn it into something clickable — and this message has exactly
+	one job.
+#}
+{{ 'signup.mail.greeting'|trans({'%company%': company}) }}
+
+{{ 'signup.mail.body'|trans({'%slug%': slug}) }}
+
+{{ url }}
+
+{{ 'signup.mail.expiry'|trans({'%hours%': hours}) }}
+
+{{ 'signup.mail.unexpected'|trans }}

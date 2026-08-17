@@ -686,3 +686,35 @@ flash:
     user_deactivated: '%email% kann sich nicht mehr anmelden.'
     upload_broken: 'Diese Datei ist nicht unversehrt angekommen (%reason%).'
     no_file: Wähle eine Tabelle zum Importieren.
+
+# Selbstregistrierung (XIV-64): die Bestätigungs-E-Mail und die Seite, auf der
+# ihr Link landet. Beides gehört jemandem, der noch keine Kundin und kein Kunde
+# ist — deshalb steht es hier und nirgends Mandantenförmigem: Es gibt keinen
+# Mandanten, der eine Einstellung, eine E-Mail-Vorlage oder eine Sprache halten
+# könnte.
+#
+# Verfasst in der Sprache, in der die Person das Formular gelesen hat; die
+# aufrufende Website schickt sie mit. Ein anderes Signal gibt es nicht: Diese
+# Person hat auf dieser Installation kein Konto und keine Sitzung.
+signup:
+    mail:
+        subject: Bestätige deine Xivi-Installation
+        greeting: 'Hallo %company%,'
+        body: >-
+            Jemand hat mit dieser Adresse eine Xivi-Installation namens %slug% angefragt.
+            Folge dem Link unten, um zu bestätigen, dass du das warst — vorher wird nichts
+            angelegt.
+        button: Adresse bestätigen
+        expiry: 'Der Link funktioniert nach %hours% Stunden nicht mehr; eine erneute Anfrage schickt einen neuen.'
+        unexpected: >-
+            Wenn du damit nicht gerechnet hast, ist nichts zu tun und es wurde nichts
+            angelegt. Du kannst die Nachricht ignorieren.
+    confirmation:
+        title: Bestätigung der Anmeldung
+        confirmed: 'Danke — %company% ist bestätigt.'
+        already: '%company% war bereits bestätigt. Mehr ist nicht nötig.'
+        expired: Dieser Link ist abgelaufen.
+        slug_taken: 'Der Name %slug% wurde vergeben, während dieser Link wartete.'
+        unknown: Dieser Link gehört zu keiner Anmeldung, auf die wir noch warten.
+        next: 'Wir richten %slug% ein und melden uns, sobald es bereit ist.'
+        sign_up_again: Eine erneute Anmeldung mit derselben Adresse startet eine neue.

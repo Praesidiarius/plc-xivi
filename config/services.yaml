@@ -34,17 +34,58 @@ parameters:
     # checkout can sign in to the control plane without configuring anything.
     app.control_plane_host: '%env(CONTROL_PLANE_HOST)%'
 
+    # **Where the public signup endpoint is served, and whether it exists at all**
+    # (XIV-64).
+    #
+    # One variable does both jobs, which is deliberate rather than economical:
+    # empty means no route is registered — not a route that answers 404, but a
+    # routing table with nothing in it (Xivi\ControlPlane\Routing\SignupRouteLoader)
+    # — and a hostname means the endpoint is served there and nowhere else. A
+    # separate on/off flag beside a hostname would be two facts that can
+    # disagree, and the disagreement everybody eventually has is "enabled, but
+    # nobody said where".
+    #
+    # It must **not** be the control-plane host. That one answers to people who
+    # can see every customer and §8.9 asks for it not to be guessable; this one
+    # is configured into a third party's marketing site, which is the opposite
+    # kind of secret. The route loader refuses to build a routing table when the
+    # two are equal.
+    #
+    # Like %app.control_plane_host%, it lands in app.system_hosts below, so the
+    # host that serves signup is by construction one that resolves no tenant —
+    # which it has to be, because a signup is about a customer who does not exist
+    # yet. `.localhost` by default in dev and test for the reason the control
+    # plane uses one: browsers resolve those to the loopback with no hosts file.
+    app.signup_host: '%env(SIGNUP_HOST)%'
+
+    # **Which plans self-service may ask for** (XIV-64). `Tenant::$plan` has
+    # existed since the registry did and defaults to `standard`; billing is out
+    # of scope and writing the intake as though one plan is the only one would
+    # have built in the assumption that has to be undone first. The first entry
+    # is what a request that names no plan gets, so a deployment says which is
+    # ordinary by putting it first. An unknown plan is refused at the endpoint
+    # rather than stored.
+    app.signup_plans: '%env(csv:XIVI_SIGNUP_PLANS)%'
+
     # Hosts served without a tenant: dev tooling (profiler), health checks, the
-    # container-internal name — and the control plane, whose entire subject
-    # matter is the set of tenants and which must therefore be about none of them
-    # (§4, §8.9). Every other host must resolve to a tenant or the request is
-    # rejected.
+    # container-internal name, the control plane — whose entire subject matter is
+    # the set of tenants and which must therefore be about none of them (§4,
+    # §8.9) — and the public signup endpoint, which is about a customer who does
+    # not exist yet (§8.12). Every other host must resolve to a tenant or the
+    # request is rejected.
+    #
+    # The last entry is the empty string when signup is switched off. That is
+    # harmless and worth knowing rather than tidying: no request has an empty
+    # `Host`, so an empty entry matches nothing, and the alternative — a
+    # conditional list — would be a second place for "is signup on" to be
+    # answered.
     app.system_hosts:
         - 'localhost'
         - '127.0.0.1'
         - '[::1]'
         - 'php'
         - '%app.control_plane_host%'
+        - '%app.signup_host%'
 
     # **Paths that belong to no host and to nobody's data**: compiled assets, the
     # importmap, the profiler and the debug toolbar. Served identically whichever
