@@ -181,6 +181,21 @@ lands in `Unreleased` here.
   now means history: the only thing offered on an archived follow-up is reopening
   it, and the write path refuses the rest whatever the page happens to be showing.
 
+### Measured
+
+- **How long a collection can get before its record page breaks, measured**
+  ([XIV-68]). `tests/Measurement/CollectionCeilingTest.php` builds an order of a
+  given number of lines and records what the read view and the edit form cost —
+  time, bytes, queries and memory. Nothing in the product changed; §5.1 of the
+  brief now carries the table and what it says. Run it with
+  `bin/compose exec -e APP_DEBUG=0 php vendor/bin/phpunit tests/Measurement/CollectionCeilingTest.php`;
+  it is in no test suite, so `bin/ci` does not pay for it.
+- **Act on this if you have long documents.** The edit form of an order or an
+  invoice needs more memory than a PHP request is allowed somewhere around
+  **250 lines**, and above that it answers 500 rather than a page. The read view
+  goes about forty times further. Neither has a limit yet — which of XIV-68's
+  three bounds to build is its remaining half, and is deliberately still open.
+
 ### Upgrade notes
 
 - **Run `bin/console tenant:migrate` after merging** ([XIV-80], [XIV-83]).
@@ -199,6 +214,7 @@ lands in `Unreleased` here.
 
 [XIV-25]: https://xivi.youtrack.cloud/issue/XIV-25
 [XIV-54]: https://xivi.youtrack.cloud/issue/XIV-54
+[XIV-68]: https://xivi.youtrack.cloud/issue/XIV-68
 [XIV-80]: https://xivi.youtrack.cloud/issue/XIV-80
 [XIV-81]: https://xivi.youtrack.cloud/issue/XIV-81
 [XIV-82]: https://xivi.youtrack.cloud/issue/XIV-82
