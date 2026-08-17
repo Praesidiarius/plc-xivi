@@ -7,19 +7,51 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
-    # Hosts served without a tenant: dev tooling (profiler), health checks and
-    # the container-internal name. Every other host must resolve to a tenant or
-    # the request is rejected (docs/architecture.md §4).
     # What a tenant's database and role are named after the prefix, so that
     # parallel test workers cannot claim each other's cluster objects (XIV-9).
     # Production never overrides this.
     app.tenant_object_prefix: 'tenant_'
 
+    # **Where the control plane is served** (XIV-57), and the only place that
+    # hostname is written down.
+    #
+    # A deployment sets `CONTROL_PLANE_HOST` and nothing else: it lands in
+    # `app.system_hosts` immediately below, so the host that serves the control
+    # plane is by construction a host that resolves no tenant, and the two cannot
+    # be set out of step with each other. It is also read by
+    # App\ControlPlane\Security\ControlPlaneHost, which is the firewall's request
+    # matcher and the request listener's rule — three readers, one fact.
+    #
+    # It must not be a hostname any tenant owns, and provisioning refuses to make
+    # it one (TenantProvisioner). The default is a `.localhost` name because
+    # every browser resolves those to the loopback with no hosts file, so a fresh
+    # checkout can sign in to the control plane without configuring anything.
+    app.control_plane_host: '%env(CONTROL_PLANE_HOST)%'
+
+    # Hosts served without a tenant: dev tooling (profiler), health checks, the
+    # container-internal name — and the control plane, whose entire subject
+    # matter is the set of tenants and which must therefore be about none of them
+    # (§4, §8.9). Every other host must resolve to a tenant or the request is
+    # rejected.
     app.system_hosts:
         - 'localhost'
         - '127.0.0.1'
         - '[::1]'
         - 'php'
+        - '%app.control_plane_host%'
+
+    # **Paths that belong to no host and to nobody's data**: compiled assets, the
+    # importmap, the profiler and the debug toolbar. Served identically whichever
+    # hostname drew the page, because none of them is a customer's information or
+    # the platform's.
+    #
+    # A parameter rather than a literal because it now has two readers that must
+    # agree (XIV-57): it is the `dev` firewall's pattern in security.yaml, and it
+    # is what App\ControlPlane\EventListener\ControlPlaneRequestListener stands
+    # aside for when it refuses tenant paths on the control-plane host. Two copies
+    # would drift, and the way you would find out is a control-plane page with no
+    # stylesheet.
+    app.shared_paths: '^/(_profiler|_wdt|assets|build)/'
 
     # Hosts a non-production environment may still build an SMTP transport to,
     # because they accept mail and deliver none (XIV-37, and see

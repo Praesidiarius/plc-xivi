@@ -53,6 +53,19 @@ login:
     submit: Sign in
     invitation_failed: Ask an administrator to send you a new invitation — each link works once and for 24 hours.
 
+# The platform's own pages, which no customer ever sees (XIV-57). Translated like
+# everything else and not left in English: an operator is a person with a
+# language, and a section that opts out of the catalogue is the one that quietly
+# stops being translated everywhere else too.
+control_plane:
+    title: Control plane
+    # The placeholder [XIV-58] replaces. Written to say what it is rather than to
+    # apologise: somebody who signs in and finds an empty page should learn that
+    # the page is empty on purpose and what will be here, not wonder whether
+    # something failed to load.
+    placeholder_heading: Nothing to show yet
+    placeholder_body: Signing in works. The tenant list is the first thing that will appear here.
+
 dashboard:
     # A widget's heading (XIV-81). The module tiles have none — a grid of labelled
     # cards under the company name describes itself — so this is the only one so

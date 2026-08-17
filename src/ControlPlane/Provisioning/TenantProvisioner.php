@@ -77,6 +77,15 @@ final readonly class TenantProvisioner
         /** @see OBJECT_PREFIX */
         #[Autowire('%app.tenant_object_prefix%')]
         private string $objectPrefix = self::OBJECT_PREFIX,
+        /**
+         * The hostnames this installation serves without a tenant (XIV-57): the
+         * profiler's, the container's internal name, and — the one that matters
+         * — the control plane's.
+         *
+         * @var list<string>
+         */
+        #[Autowire('%app.system_hosts%')]
+        private array $systemHosts = [],
     ) {
     }
 
@@ -109,6 +118,18 @@ final readonly class TenantProvisioner
         foreach ($hostnames as $hostname) {
             if ($this->tenants->hostnameIsTaken($hostname)) {
                 throw ProvisioningFailed::hostnameTaken($hostname);
+            }
+
+            // **A tenant cannot be put on a host that serves no tenant**
+            // (XIV-57). `TenantRequestListener` checks `app.system_hosts` before
+            // it asks the registry anything, so a row created here would simply
+            // never be reached — and for the control plane's own hostname the
+            // silence would be worse than useless: the customer would get the
+            // platform's sign-in page instead of their own, and nobody would find
+            // out from a log. Refused at the moment somebody types it, with the
+            // reason, rather than discovered later.
+            if (\in_array($hostname, array_map(TenantResolver::normalize(...), $this->systemHosts), true)) {
+                throw ProvisioningFailed::hostnameIsReserved($hostname);
             }
         }
 

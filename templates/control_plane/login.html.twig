@@ -1,0 +1,73 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'control_plane.title'|trans }}{% endblock %}
+
+{#
+	The same empty page as a tenant's sign-in (XIV-79): one centred card, and none
+	of the frame that belongs to an application the reader has not been admitted
+	to. The version still shows, inside the card, for the reason it shows there —
+	it is the first question about any bug report and this is the page "I cannot
+	sign in" is written from.
+#}
+{% block footer %}{% endblock %}
+
+{% block body %}
+	<main class="signin-shell">
+		<div class="card shadow-sm" style="width: 22rem;">
+			<div class="card-body p-4 text-center">
+				{#
+					**No tenant mark here, and that is not an omission** (XIV-49,
+					XIV-57). A customer's sign-in page draws the customer's own logo
+					because the installation should read as their product; this page
+					is not any customer's, and there is no tenant resolved on this
+					host to have one — the control-plane hostname is a system host
+					precisely so that nothing here can be about one customer.
+
+					`_brand_mark.html.twig` would fall through to Xivi's own mark,
+					which a deployment supplies and a clean checkout has not got, so
+					including it would draw nothing most of the time and something
+					indistinguishable from the tenant page the rest of it. The
+					heading says what this is instead, in words, which is the one
+					thing a reader standing here needs to know.
+				#}
+				<h1 class="h5 mb-1">{{ 'control_plane.title'|trans }}</h1>
+				{#
+					Which installation's control plane, under the name of the thing
+					itself. The hostname rather than a label somebody configured: on
+					a page with one card and no navigation it is the only line that
+					distinguishes this deployment from another, and it is the line a
+					stale bookmark gets wrong.
+				#}
+				<p class="text-body-secondary small mb-4">{{ app.request.host }}</p>
+
+				{% if error %}
+					{# Symfony's own `security` domain again (XIV-8): "Invalid
+					   credentials." is the framework's sentence, not ours. #}
+					<div class="alert alert-danger py-2 small" role="alert">
+						{{ error.messageKey|trans(error.messageData, 'security') }}
+					</div>
+				{% endif %}
+
+				<form method="post" action="{{ path('control_plane_login') }}">
+					<div class="mb-3 text-start">
+						<label for="email" class="form-label">{{ 'common.email'|trans }}</label>
+						<input type="email" id="email" name="email" value="{{ last_email }}"
+						       class="form-control" autocomplete="username" required autofocus>
+					</div>
+
+					<div class="mb-4 text-start">
+						<label for="password" class="form-label">{{ 'common.password'|trans }}</label>
+						<input type="password" id="password" name="password"
+						       class="form-control" autocomplete="current-password" required>
+					</div>
+
+					<input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+					<button type="submit" class="btn btn-primary w-100">{{ 'login.submit'|trans }}</button>
+				</form>
+
+				<p class="text-body-secondary small mb-0 mt-4">Xivi {{ app_version }}</p>
+			</div>
+		</div>
+	</main>
+{% endblock %}

@@ -70,6 +70,26 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **Somebody can sign in to the control plane** ([XIV-57]). Operators are rows in
+  the control-plane database with their own entity, provider and firewall — never
+  promoted users of a designated tenant, which would make one customer's database
+  the key to every other customer's (§8.9). Signing in lands on a placeholder;
+  the tenant list is [XIV-58].
+- **The control plane is served on a host of its own, and only there** ([XIV-57]).
+  A control-plane URL answers 404 on every customer's hostname, and the tenant
+  application answers 404 on the control plane's. A request there resolves no
+  tenant at all, and operator sessions and customer sessions are not
+  interchangeable.
+- **Set `CONTROL_PLANE_HOST` before deploying, and create the first operator**
+  ([XIV-57]). It defaults to `control.localhost`, which is a development value.
+  The variable is written into `app.system_hosts` for you, so there is one thing
+  to set rather than two; then run `control:operator:create <email>` — there is no
+  sign-up, and the control plane refuses everybody until it has been run. See the
+  README under *Configuration*.
+- **`tenant:provision` now refuses a hostname served without a tenant** ([XIV-57]),
+  the control plane's above all. Such a row would never have been reached, and
+  that customer's users would have been shown the platform's sign-in page instead
+  of their own.
 - **A customer's own logo, on their pages and their sign-in page** ([XIV-49]).
   Uploaded on the company profile beside the company name, kept in the tenant's
   own database like a document template is, and drawn in the top bar and on the
@@ -326,6 +346,8 @@ lands in `Unreleased` here.
 [XIV-36]: https://xivi.youtrack.cloud/issue/XIV-36
 [XIV-49]: https://xivi.youtrack.cloud/issue/XIV-49
 [XIV-54]: https://xivi.youtrack.cloud/issue/XIV-54
+[XIV-57]: https://xivi.youtrack.cloud/issue/XIV-57
+[XIV-58]: https://xivi.youtrack.cloud/issue/XIV-58
 [XIV-68]: https://xivi.youtrack.cloud/issue/XIV-68
 [XIV-80]: https://xivi.youtrack.cloud/issue/XIV-80
 [XIV-81]: https://xivi.youtrack.cloud/issue/XIV-81
