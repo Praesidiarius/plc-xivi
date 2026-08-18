@@ -109,7 +109,8 @@ final readonly class CheckDeploymentSecretsCommand
         $error->writeln(
             'Refusing to start. This check runs only at APP_ENV=prod — development, the test'
             . "\nsuite and bin/ci run on these placeholders on purpose, and are unaffected."
-            . "\n\nSee README.md, \"Before deploying anywhere real\", and docs/architecture.md §4.2.",
+            . "\n\nSee https://praesidiarius.github.io/plc-xivi-docs/running/configuration/"
+            . "\n(\"Before deploying anywhere real\"), and docs/architecture.md §4.2.",
         );
 
         return Command::FAILURE;

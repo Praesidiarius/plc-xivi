@@ -2,7 +2,9 @@
 
 Orientation for a coding agent. Short on purpose — this is what gets got wrong
 without being told, not documentation. The long version of *why* anything here is
-the way it is lives in [`docs/architecture.md`](docs/architecture.md).
+the way it is lives in [`docs/architecture.md`](docs/architecture.md), and the
+long version of *how to work here* — the stack, the suite, the layout, the
+tooling — is [`DEVELOPING.md`](DEVELOPING.md).
 
 ## Run everything through `bin/compose`, never `docker compose`
 

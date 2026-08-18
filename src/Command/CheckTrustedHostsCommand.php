@@ -104,8 +104,8 @@ final readonly class CheckTrustedHostsCommand
             ));
             $io->writeln(
                 '  That is the default and is correct for development. On a real deployment, set it '
-                . "to the domains your customers are served under\n  (see README, \"Which hostnames "
-                . 'this installation answers to").',
+                . "to the domains your customers are served under\n"
+                . '  (see https://praesidiarius.github.io/plc-xivi-docs/running/hostnames/).',
             );
 
             return Command::SUCCESS;
@@ -197,7 +197,7 @@ final readonly class CheckTrustedHostsCommand
             "A request to one of those names fails with HTTP 400 and nothing in the body to explain it.\n"
             . "Either add the domain it sits under to %s, or move the tenant to a hostname\n"
             . "under one that is already listed (bin/console tenant:list shows what each one has).\n\n"
-            . 'See README, "Which hostnames this installation answers to", and docs/architecture.md §4.3.',
+            . 'See https://praesidiarius.github.io/plc-xivi-docs/running/hostnames/ and docs/architecture.md §4.3.',
             TrustedHosts::VARIABLE,
         ));
 

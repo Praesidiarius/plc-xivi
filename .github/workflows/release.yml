@@ -81,25 +81,12 @@ jobs:
             exit 1
           fi
 
-          # And the README, which says the version in prose a few lines in.
-          #
-          # This is a third gate for the same reason as the other two: the
-          # failure is silent. Nobody rereads the top of the README when cutting
-          # a release, so it drifts, and the first page anybody looks at then
-          # advertises a version that shipped weeks ago. 17.0.3 went out saying
-          # 17.0.2 and it took a human noticing.
-          #
-          # Matched loosely — the sentence around it is free to be rewritten, and
-          # a gate that also polices the prose would be a gate people route
-          # around. All this asks is that the number somewhere in that line is
-          # the one being tagged.
-          documented=$(grep -oP 'The version is `\K[^`]+' README.md || true)
-
-          if [ "$documented" != "$version" ]; then
-            echo "::error::Tag says $version, README.md says ${documented:-nothing matching \`The version is \`...\`\`}."
-            echo "::error::Update the version line near the top of README.md — see 'Cutting a release' in CHANGELOG.md."
-            exit 1
-          fi
+          # There was a third gate here, over a hand-written version line in the
+          # README — added because 17.0.3 shipped saying 17.0.2 and it took a
+          # human noticing. **The line is gone rather than guarded** (XIV-112).
+          # A second copy of a number can only agree with the first or be wrong,
+          # and deleting the copy removes the failure mode outright; a check that
+          # exists to police a duplicate is a duplicate with extra steps.
 
       # The file is written to be read inside the repository, and a release body
       # is not inside it: the `# Xivi 17.0.2` heading would repeat the title

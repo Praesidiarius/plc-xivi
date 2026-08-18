@@ -19,7 +19,7 @@ namespace App\Twig;
  * **Generated, never fetched**, and that is a decision rather than a shortcut.
  * Gravatar would have been nearly free and would have sent every signed-in
  * user's email hash to a third party on every page load, under a product whose
- * README promises the customer's browser makes no CDN calls — the same argument
+ * documentation promises the customer's browser makes no CDN calls — the same argument
  * `assets/app.js` makes about scripts, applied to a picture. There is nothing to
  * opt out of here because there is nothing to send.
  *

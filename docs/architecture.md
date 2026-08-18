@@ -6837,7 +6837,7 @@ tenancy listener checks that list before it consults the registry, clears the
 tenant connection and leaves it deliberately unusable. Reusing it rather than
 inventing a parallel rule is what stops the two from ever disagreeing, and it means
 the deployment step is one variable rather than two things to keep in step (see
-README, *Configuration*).
+*Running an installation → Hostnames* on the documentation site).
 
 Provisioning refuses to route a tenant to any host on that list. Without the
 refusal the mistake is silent in the worst way available: the row is created, the
@@ -8765,7 +8765,7 @@ teaching it to drop the image would cost everybody who uses `down` to free a por
 a full rebuild on the next `up`. Worse, the name is derived from the directory,
 so once the worktree is gone nothing can work out what to delete. So the image
 name is printed by `bin/compose` with no arguments — read it before you remove
-the directory — and the README says to `docker image rm` it. An accepted cost
+the directory — and `DEVELOPING.md` says to `docker image rm` it. An accepted cost
 that is written down beats an automatic one that surprises people.
 
 **And a hundred buckets is not many once worktrees are the normal case**
@@ -9182,7 +9182,7 @@ a design decision:
 - **Initials in a circle**, on a hue derived from the email address. No storage,
   no upload, no dependency, and it works for every user the moment it ships. This
   is what was built.
-- **Gravatar**, which is nearly free and was refused. The README promises a
+- **Gravatar**, which is nearly free and was refused. The documentation promises a
   customer's browser makes no CDN calls; this would send every signed-in user's
   email hash to a third party on every page load, telling them who is at work
   today. That is the same argument `assets/app.js` makes about scripts, and it is
