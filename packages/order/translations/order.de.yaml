@@ -45,3 +45,8 @@ transition:
     confirm: Bestätigen
     deliver: Als geliefert markieren
     cancel: Stornieren
+
+# Warum ein Schritt nicht angeboten wird (XIV-110). Der Satz sagt, was zu tun ist,
+# nicht bloss, was nicht geht.
+guard:
+    needs_a_line: Ein Auftrag braucht mindestens eine Position, bevor er bestätigt werden kann.

@@ -365,9 +365,20 @@ final class ModuleController extends AbstractController
             // Null for a module that simply is (XIV-14); the page then draws no
             // status at all rather than an empty one.
             'lifecycle' => $lifecycle,
+            // **Every move this record's state allows, refused ones included**
+            // (XIV-110). Not the enabled ones: a guard's refusal is a sentence
+            // the module wrote for whoever is looking at this page, and dropping
+            // the button without it would leave that sentence reachable only by
+            // retyping the URL it is the answer to. The page draws a button or
+            // the reason there is none, which is the shape the send card above
+            // already has for a recipient it cannot resolve (XIV-39).
+            //
+            // Asked only when they may move the record at all, so the guards —
+            // which may read the record's rows — are not evaluated to decide the
+            // contents of a card nobody is shown.
             'transitions' => $lifecycle === null || !$this->isGranted(ModuleAction::Transition->value, $module)
                 ? []
-                : $lifecycle->enabledFor($record),
+                : $lifecycle->offeredFor($record),
         ]);
     }
 

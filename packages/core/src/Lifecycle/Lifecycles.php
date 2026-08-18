@@ -39,8 +39,16 @@ final class Lifecycles
     /** @var array<string, RecordLifecycle|null> */
     private array $built = [];
 
-    public function __construct(private readonly ModuleRegistry $modules)
-    {
+    public function __construct(
+        private readonly ModuleRegistry $modules,
+        /**
+         * How a guard reaches a record's rows (XIV-110). Held here rather than
+         * asked for at the point of use so that every lifecycle this builds has
+         * one, and reads nothing until a guard actually calls it — a module with
+         * no guards never touches the metadata repository through this.
+         */
+        private readonly CollectionRows $rows,
+    ) {
     }
 
     /** Null for a module with no lifecycle, which is most of them. */
@@ -92,6 +100,12 @@ final class Lifecycles
             // that (§6). What happens when a record moves is decided by whoever
             // saves it, in the open.
             new StateMachine($definition, new RecordMarkingStore($lifecycle), name: $moduleKey),
+            // Both of these are here for guards (XIV-110), and neither costs a
+            // module that has none: the key is what says whose catalogue a
+            // refusal is written in, and the rows are not read until something
+            // asks for them.
+            $moduleKey,
+            $this->rows,
         );
     }
 }
