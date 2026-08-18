@@ -27,11 +27,26 @@ the list with:
 
     composer licenses --no-dev
 
-**Checked on each addition, and the last one was `symfony/rate-limiter`**
-(XIV-64): MIT, Copyright (c) 2016-present Fabien Potencier, first-party, and it
-brings nothing with it that was not already installed — `symfony/options-resolver`
-and the cache contracts arrive with the framework. No new entry below is needed,
+**Checked on each addition, and the last one was `symfony/http-client`**
+(XIV-126): MIT, Copyright (c) 2004-present Fabien Potencier, first-party. It was
+**already installed and already in production** — `symfony/asset-mapper` requires
+it — and adding it to `composer.json` only makes a dependency that was real
+explicit, so that removing the asset mapper one day cannot silently take the
+cron-monitoring pings with it. Nothing new arrives with it:
+`symfony/http-client-contracts` and the PSR interfaces were already there.
+
+The addition before that was `symfony/rate-limiter` (XIV-64): MIT, Copyright (c)
+2016-present Fabien Potencier, first-party, and it too brought nothing with it
+that was not already installed — `symfony/options-resolver` and the cache
+contracts arrive with the framework. No new entry below is needed for either,
 which is what the check is for: it establishes that, rather than assuming it.
+
+**Healthchecks is named in `.env` and in §4.5 and is not a dependency of
+anything** (XIV-126). It is BSD-3-Clause and self-hostable, and Xivi neither
+bundles it, requires it, nor speaks to it unless an operator configures a URL —
+what ships here is a plain HTTP `GET` to whatever address they supply. It is
+listed in this file for findability rather than because its licence reaches this
+repository.
 
 The exceptions, all permissive and all compatible with MIT:
 

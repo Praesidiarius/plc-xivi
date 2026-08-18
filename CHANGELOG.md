@@ -126,6 +126,27 @@ lands in `Unreleased` here.
   from. Exit 3 if the list is unusable or would refuse an address you asked
   about. **Getting this wrong locks the operator out with no customer-facing
   symptom**, which is the whole reason the command exists.
+- **Scheduled jobs can tell an external monitor that they ran** ([XIV-126]) —
+  optional, off by default, and an installation that sets nothing behaves exactly
+  as before. Set `XIVI_MONITOR_PINGS` to `command=<ping url>` pairs and each
+  watched command pings `<url>/start` when it begins and `<url>/<exit code>` when
+  it ends, so the *service* raises the alarm when a job stops running. The ping
+  carries the fact and the exit code and nothing else — no tenant, no customer,
+  no counts, no version. Healthchecks is the recommendation because you can
+  self-host it (BSD-3-Clause); Better Stack's heartbeat URLs work unchanged. The
+  reasoning, the comparison of four services, and why an in-house checker is
+  rejected for good are `docs/architecture.md` §4.5.
+- **`bin/console deploy:crontab`** ([XIV-126]) — prints the cron entries this
+  build needs, with what goes stale without each one and whether anything is
+  watching it. Output is a crontab, comments and all, so it can be redirected
+  rather than retyped. **Action:** run it on your installation. It exits 3 if
+  some jobs are watched and others are not, which is the state that looks like
+  being covered and is not.
+- **`tenant:purchase:collect` was missing from every list of cron entries**
+  ([XIV-126]) — it shipped with [XIV-102] and reached no documentation page and
+  no crontab, so a customer's request to buy a module never reached the operator
+  screen on an installation that followed the instructions. **Action:** if you
+  set your crontab up before today, add it.
 
 ### Changed
 
@@ -134,8 +155,9 @@ lands in `Unreleased` here.
   Quickstart that fits on a screen, and links. Nothing was rewritten and nothing
   was dropped: the deployment half is now *Running an installation* on the
   [documentation site](https://praesidiarius.github.io/plc-xivi-docs/running/) —
-  configuration, hostnames, deploying, the two cron entries, self-service signup
-  and the command reference, in the order somebody deploying meets them — and the
+  configuration, hostnames, deploying, the cron entries, monitoring, self-service
+  signup and the command reference, in the order somebody deploying meets them —
+  and the
   feature inventory is
   [What exists today](https://praesidiarius.github.io/plc-xivi-docs/what-exists/).
 - **`DEVELOPING.md` is new**, and is where the developer half went: `bin/compose`
@@ -157,8 +179,10 @@ lands in `Unreleased` here.
   *is*, rather than why it was built that way.
 
 [XIV-18]: https://xivi.youtrack.cloud/issue/XIV-18
+[XIV-102]: https://xivi.youtrack.cloud/issue/XIV-102
 [XIV-118]: https://xivi.youtrack.cloud/issue/XIV-118
 [XIV-124]: https://xivi.youtrack.cloud/issue/XIV-124
+[XIV-126]: https://xivi.youtrack.cloud/issue/XIV-126
 
 ## Releases
 
