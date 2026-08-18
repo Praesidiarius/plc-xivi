@@ -45,12 +45,24 @@ use Xivi\ControlPlane\Repository\OperatorRepository;
  * really is a distinction to draw — a read-only operator, say — that is the
  * moment to add it, with the case in hand.
  *
- * **No `active` flag, unlike the tenant user.** A deactivated tenant user is a
- * colleague who left a company that keeps their records; there is no
- * corresponding state here, because nothing in the control plane belongs to an
- * operator personally and revoking one is therefore deleting the row. A boolean
- * with no screen to set it from and no command to write it would be a promise
- * nothing keeps.
+ * **There is an `active` flag after all, and XIV-57 was right to refuse it at the
+ * time** (XIV-92, §8.9). The refusal rested on one sentence — a boolean with no
+ * screen to set it from and no command to write it is a promise nothing keeps —
+ * and that sentence was true of a ticket whose only lifecycle verb was *create*.
+ * It stopped being true the moment revocation was asked for at all, because the
+ * question then is not *should this column exist* but *what does revoking do*,
+ * and the two available answers are this column and `DELETE`. §8.9 argues the
+ * choice out; the short version is that deletion is the one lifecycle step that
+ * cannot be undone by the person who has just realised they typed the wrong
+ * address, and that revoking an operator is done in a hurry by construction —
+ * somebody has left, or a credential has leaked.
+ *
+ * The flag is deliberately written **before** anything attributes anything to an
+ * operator rather than after. Once a `signup_request` or a provisioning record
+ * carries "which operator did this", a deletable operator forces a choice
+ * between an audit trail that erases itself exactly when somebody is revoked and
+ * a foreign key that refuses the revocation — and both of those are discovered
+ * with the migration already in production.
  *
  * **No `__serialize()` here, unlike the tenant user, and that is a real
  * difference rather than an omission.** That class lists its properties by hand
@@ -109,6 +121,31 @@ class Operator implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\Column]
     private string $password = '';
+
+    /**
+     * Whether this operator may still sign in (XIV-92).
+     *
+     * **Two mechanisms read it, and neither covers the other's case** — the same
+     * pair `User::active` needed on the tenant side, for the same framework
+     * reason. {@see \Xivi\ControlPlane\Security\ActiveOperatorChecker} refuses
+     * the sign-in, and {@see \Xivi\ControlPlane\EventListener\RevokedOperatorListener}
+     * ends a session that already exists, because Symfony's `ContextListener`
+     * compares identifier, password and roles when it restores a session and
+     * never consults a user checker. Without the listener, revoking somebody
+     * would take effect whenever their session happened to expire, which for the
+     * one case this exists for — a person who has just left — is the wrong answer
+     * for as long as that lasts.
+     *
+     * Not part of `getRoles()`, deliberately, even though returning an empty
+     * array for a revoked operator would make `ContextListener` discard the token
+     * on its own and save a class. It would do it by making a *role* mean
+     * "revoked", which is a second meaning for a string that `access_control`
+     * already reads, and it would break the sign-in refusal's message — Symfony
+     * would report a plain access denial where the honest answer is that the
+     * account was withdrawn.
+     */
+    #[ORM\Column]
+    private bool $active = true;
 
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
@@ -175,6 +212,22 @@ class Operator implements UserInterface, PasswordAuthenticatedUserInterface
     public function setPassword(string $hashedPassword): void
     {
         $this->password = $hashedPassword;
+    }
+
+    public function isActive(): bool
+    {
+        return $this->active;
+    }
+
+    /**
+     * Set through {@see \Xivi\ControlPlane\Security\OperatorManager} and nowhere
+     * else, which is where the last-active-operator refusal lives. A setter that
+     * anything may call is one that will eventually be called by something that
+     * has not made that check.
+     */
+    public function setActive(bool $active): void
+    {
+        $this->active = $active;
     }
 
     public function getCreatedAt(): \DateTimeImmutable

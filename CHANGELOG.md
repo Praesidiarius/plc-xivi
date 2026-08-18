@@ -101,6 +101,33 @@ lands in `Unreleased` here.
   and the page draws that as *not collected yet* until the next run. Filling it in
   from `enabled_modules` would have manufactured perfect agreement for every
   existing customer, which is the assumption the column exists to stop.
+- **An operator can be revoked, restored, listed and given a new password, all
+  from the console** ([XIV-92], §8.9). `control:operator:create` made one and
+  nothing else touched it, so withdrawing the identity with the most reach in the
+  installation meant `psql`. Four commands now: `control:operator:list`,
+  `control:operator:revoke`, `control:operator:restore` and
+  `control:operator:password`.
+- **Revoking deactivates rather than deletes**, so the account stays in the list,
+  marked, and comes back with `control:operator:restore`. **This adds
+  `operator.active`** — run `bin/console doctrine:migrations:migrate --em=control`
+  on deploy. Everybody who exists today stays able to sign in.
+- **A revoked operator cannot sign in, and a session they already had ends on
+  their next request.** The second needed its own listener: Symfony compares
+  identifier, password and roles when it restores a session, and never `active`
+  (§8.9).
+- **The last operator who can still sign in cannot be revoked.** There is no
+  sign-up, no invitation and no password reset on the control plane, so create
+  the successor first. The refusal counts active operators rather than rows, so
+  it cannot be walked past by revoking two accounts in turn.
+- **Changing an operator's password signs out every session that account had**,
+  which Symfony does on its own; it is now tested for, because it was inherited
+  rather than written.
+- **`control:operator:create` on an address that already has an operator is still
+  an error** and now says which command to use instead — a different sentence for
+  a live account and for a revoked one. Making create double as a password change
+  would make a typo'd address indistinguishable from a rotation, and would undo a
+  revocation without mentioning one (§8.9).
+
 - **`[tenant.logo]` in a document template draws the customer's logo**
   ([XIV-89]). Put it anywhere in the .docx — including the header, which is where
   a letterhead wants it — and the generated document carries the picture, in the
@@ -194,4 +221,5 @@ lands in `Unreleased` here.
 [XIV-90]: https://xivi.youtrack.cloud/issue/XIV-90
 [XIV-94]: https://xivi.youtrack.cloud/issue/XIV-94
 [XIV-89]: https://xivi.youtrack.cloud/issue/XIV-89
+[XIV-92]: https://xivi.youtrack.cloud/issue/XIV-92
 [XIV-95]: https://xivi.youtrack.cloud/issue/XIV-95

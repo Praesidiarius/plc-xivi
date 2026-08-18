@@ -40,6 +40,21 @@
 				#}
 				<p class="text-body-secondary small mb-4">{{ app.request.host }}</p>
 
+				{#
+					**Flashes are rendered here, and the tenant sign-in page does
+					not render them** (XIV-92). Not an inconsistency worth fixing
+					in both directions: the only thing that ever puts a flash in
+					front of this page is `RevokedOperatorListener`, which lands
+					somebody here mid-session with no authentication error to show
+					— so without this the page would be indistinguishable from an
+					ordinary session timeout, and a revoked operator would go
+					looking for the password reset the control plane does not
+					have. `_flashes.html.twig` is the application's own partial;
+					the sentence in it is already translated, because a flash
+					carries finished text rather than a key here (XIV-8).
+				#}
+				{% include '_flashes.html.twig' %}
+
 				{% if error %}
 					{# Symfony's own `security` domain again (XIV-8): "Invalid
 					   credentials." is the framework's sentence, not ours. #}

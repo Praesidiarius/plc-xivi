@@ -19,7 +19,6 @@ use Symfony\Component\Console\Attribute\Option;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Xivi\ControlPlane\Entity\Operator;
 use Xivi\ControlPlane\Security\ControlPlaneHost;
 use Xivi\ControlPlane\Security\OperatorAlreadyExists;
 use Xivi\ControlPlane\Security\OperatorCreator;
@@ -42,7 +41,26 @@ use Xivi\ControlPlane\Security\OperatorCreator;
  * `--password` exists for the test suite and for anything scripting this. An
  * unattended run without it is refused rather than silently generating
  * something, because a value nobody typed and nobody read is a credential nobody
- * owns.
+ * owns. Both halves of that now live in {@see AsksForAnOperatorPassword},
+ * shared with `control:operator:password`.
+ *
+ * **An address that already has an operator is an error, and stays one**
+ * (XIV-92). Making this command double as a password change is the convenient
+ * reading — one verb, no second command to remember — and it was rejected once
+ * `control:operator:password` existed to do the job properly. Two reasons, and
+ * the second is the one that decides it:
+ *
+ *   * A typo in an address would then be indistinguishable from a rotation. Type
+ *     `alice@exmaple.com` when the account is `alice@example.com` and an
+ *     overloaded `create` reports success either way — in the one case having
+ *     changed a password, in the other having minted a *second* identity with
+ *     the reach of the first, at an address nobody owns. A refusal is what turns
+ *     that into a sentence on the terminal.
+ *   * It would silently reinstate a revoked account. `create` on an address that
+ *     was revoked yesterday would write a working password onto a row whose
+ *     whole point is that it no longer works, which is a revocation undone by a
+ *     command that never mentions revocation. So the refusal says which of the
+ *     two situations it is, and names the command for each.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
@@ -52,6 +70,8 @@ use Xivi\ControlPlane\Security\OperatorCreator;
 )]
 final readonly class CreateOperatorCommand
 {
+    use AsksForAnOperatorPassword;
+
     public function __construct(
         private OperatorCreator $operators,
         private ControlPlaneHost $controlPlane,
@@ -69,22 +89,10 @@ final readonly class CreateOperatorCommand
         #[\SensitiveParameter]
         ?string $password = null,
     ): int {
+        $password = $this->resolvePassword($io, $input, $password);
+
         if ($password === null) {
-            if (!$input->isInteractive()) {
-                $io->error(
-                    'No password given and nothing to ask. Pass --password for an unattended run; '
-                    . 'nothing is generated here, because a control-plane password nobody typed is '
-                    . 'one nobody owns.',
-                );
-
-                return Command::FAILURE;
-            }
-
-            $password = $this->askForPassword($io);
-
-            if ($password === null) {
-                return Command::FAILURE;
-            }
+            return Command::FAILURE;
         }
 
         try {
@@ -108,31 +116,5 @@ final readonly class CreateOperatorCommand
         $io->newLine();
 
         return Command::SUCCESS;
-    }
-
-    /**
-     * Twice, hidden, and compared — the shape every password prompt has, for the
-     * reason every password prompt has it: a typo in something the terminal does
-     * not echo is otherwise discovered at the sign-in page with no way to tell it
-     * from a forgotten password.
-     *
-     * Returns null when the two do not agree, and the caller fails; asking again
-     * in a loop would be friendlier and would also make a scripted mistake
-     * impossible to notice.
-     */
-    private function askForPassword(SymfonyStyle $io): ?string
-    {
-        $password = (string) $io->askHidden(sprintf(
-            'Password (at least %d characters)',
-            Operator::MINIMUM_PASSWORD_LENGTH,
-        ));
-
-        if ((string) $io->askHidden('Again') !== $password) {
-            $io->error('The two passwords do not match.');
-
-            return null;
-        }
-
-        return $password;
     }
 }

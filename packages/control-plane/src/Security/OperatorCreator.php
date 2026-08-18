@@ -75,8 +75,18 @@ final readonly class OperatorCreator
         // Checked here as well as by the unique index, because the index reports
         // a driver exception and the person typing the command wants a sentence.
         // The index is what actually holds the rule; this is what explains it.
-        if ($this->operators->findOneByEmail($email) !== null) {
-            throw OperatorAlreadyExists::withEmail($email);
+        //
+        // **A revoked account gets its own sentence** (XIV-92). Creating is not
+        // a way to change a password and it is emphatically not a way to undo a
+        // revocation — see `CreateOperatorCommand` for the argument — so the two
+        // cases are distinguished here rather than left to the reader, and each
+        // refusal names the command that does what the person was trying to do.
+        $existing = $this->operators->findOneByEmail($email);
+
+        if ($existing !== null) {
+            throw $existing->isActive()
+                ? OperatorAlreadyExists::withEmail($email)
+                : OperatorAlreadyExists::revoked($email);
         }
 
         $operator = new Operator($email, $name === '' ? $email : $name);

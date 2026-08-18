@@ -44,6 +44,7 @@ login:
 
 control_plane:
     title: Steuerungsebene
+    revoked: Dieses Betreiberkonto wurde entzogen.
     tenants: Mandanten
     status: Status
     plan: Tarif
