@@ -67,6 +67,29 @@ control_plane:
     created: Created
     provisioned: Provisioned
     modules: Modules
+    # What a customer actually has installed, and where that disagrees with the
+    # registry (XIV-95). The installed half is read from the customer's own
+    # metadata by `tenant:usage:collect`, so it is as old as the last collection
+    # and these lines have to say which of the three states it is in — exactly as
+    # the usage figures beside them do.
+    #
+    # Nothing here is phrased as a fault. §6.1 makes a module installed by hand a
+    # legitimate state and the customer's own definitions the truth once
+    # installed, so the vocabulary is "differs", "not recorded", "not installed" —
+    # facts an operator reads and judges, rather than an accusation they have to
+    # dismiss.
+    modules_never: 'Installed modules not collected yet — this is the registry.'
+    modules_failed: 'Installed modules could not be read — this is the registry.'
+    modules_collected: 'installed as of %time%'
+    # The tenant has it and `enabled_modules` does not list it: somebody ran
+    # `tenant:module:install` and nothing wrote it down. "Not recorded" rather
+    # than "unknown", because the control plane is the thing that failed to
+    # record it and the customer is fine.
+    module_unrecorded: not recorded
+    # And the other direction: the registry lists it and the customer's database
+    # has not got it. Named from the customer's side, because that is whose
+    # experience it is — their users see a module that is not there.
+    module_not_installed: not installed
     # What a customer is actually using (XIV-59). The figures are collected by
     # `tenant:usage:collect` and read here out of the control plane, so every one
     # of these labels is about a *collection* as much as about a customer — hence

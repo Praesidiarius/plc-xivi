@@ -4703,6 +4703,14 @@ has.** §6.1 makes those two able to differ, and reconciling them means reading
 each tenant's own metadata, which is a tenant connection this page does not open.
 The column is `tenant.enabled_modules` and nothing else.
 
+**[XIV-95] answered that without weakening it**, and the shape of the answer is
+the point: the reconciliation happens where a tenant connection is already open —
+in [XIV-59]'s collector, which was reading the customer's installed modules
+already to know which shapes to count — and the page reads the result out of the
+control plane like every other value here. The column now shows what the customer
+*has*, names where that disagrees with what the registry says in both directions,
+and carries the age of the collection it came from. See §8.11.
+
 **No lifecycle actions.** Provision, suspend, migrate, rotate and deprovision all
 have working commands, several of them with refusals and confirmations that a
 button would have to reproduce (§4.1 is an essay about one of them). A page that
@@ -4836,6 +4844,110 @@ title, a "show me what they have" link — needs a different justification from
 this one and does not have it. A customer's data belongs to the customer; a
 platform that can read it whenever it likes has made *isolation* a claim about
 intent rather than about architecture, which is the thing §4 exists to avoid.
+
+#### What a tenant actually has installed, and where that disagrees (XIV-95)
+
+§8.10 drew the modules column from `tenant.enabled_modules` and said out loud
+that this is *what the control plane believes* rather than what the customer has.
+§6.1 is why those are different sentences: once a module is installed the
+customer's own definitions are the truth, installing does not retro-fit, and
+`tenant:module:install` writes a tenant's metadata without touching the registry
+row. So the column was honest and incomplete, and completing it meant reading
+each customer's own metadata — a tenant connection that page does not open.
+
+**The collector was already reading it.** `RecordCounter` walks
+`MetadataRepository::all()` inside `TenantSwitcher::runFor()` to know which
+shapes to count, so the real installed list was being read once per collection
+and thrown away. It is now written to `tenant_usage.installed_modules` beside the
+figures, under the same `collected_at`, and the page reads the control plane as
+it always did. XIV-58's proof that the list opens no tenant connection passes
+unchanged, which is the same test that would have gone red had this been built
+the obvious way.
+
+#### The disagreement is the useful part, and it is not stored
+
+Three ways the two lists drift, all real: a module installed from a console that
+provisioning never recorded; a module in `enabled_modules` whose tables a run
+that died part-way never created (§4.1); and a module whose definitions the
+customer has since diverged, which §6.1 makes their prerogative. An operator
+looking at a customer that behaves oddly wants that answer without opening
+`psql`.
+
+**The comparison is made when the page is drawn, not when the collection runs.**
+Storing the difference would have been one array instead of two and no work at
+render time, and it would be a comparison between a database read last night and
+a registry column anybody can change this morning: an operator who enables a
+module at ten would go on being told at eleven that the registry does not know
+about it, and one who disables a module would be told everything agrees. Half of
+this comparison is genuinely current and half genuinely is not. So the row stores
+only the half that was *observed*, and the page says how old it is.
+
+The corollary is that a failed collection drops the installed list exactly as it
+drops the figures. Keeping the last known list beside a failure would put an
+observation from the previous run under a timestamp describing this one — and
+this cell would then draw a module the tenant may no longer have as a
+disagreement with the registry. **Drift invented by a stale row is the one thing
+this cell must never report**, because a real one is meant to send somebody
+looking.
+
+For the same reason the installed list is read from the metadata rather than
+taken from the keys of `records_by_module`, which happen to be the same strings
+today. `array_keys()` would make *what a customer has installed* a by-product of
+how counting is implemented: the first time the counter learns to skip a shape,
+that module vanishes from the installed list and the page reports a difference
+that does not exist. It costs nothing to ask separately — `MetadataCache` (XIV-53)
+answers the second call from memory inside the same switch.
+
+#### A difference is information, not a fault
+
+**Nothing about drift is drawn as an error**, and that is a decision rather than a
+styling choice. A module installed by hand is a legitimate state that somebody
+chose; §6.1 says a customer's definitions win once installed. A page that told an
+operator off for it would be a page they learn to stop reading — the same failure
+§8.10 describes for a banner permanently saying "0 customers need attention".
+
+So the cell names the two directions and stops. *not recorded* for a module the
+tenant has that the registry does not list — the control plane is the thing that
+failed to write it down, and the customer is fine. *not installed* for the other
+way, named from the customer's side because that is whose experience it is: their
+users see a module that is not there. There is no severity, no alarm colour and
+nothing offering to fix it. **Reconciling the two lists is a different feature
+with a much higher bar**: writing the registry from a tenant's metadata means
+deciding which side is authoritative, and §6.1's answer to that question is "the
+tenant, and the registry is an arrangement" — which is not obviously what an
+operator pressing a button would expect.
+
+#### Where the per-module counts went, and why the row still fits
+
+XIV-59 stored `records_by_module` and showed it in a `title` tooltip. A tooltip is
+invisible on a touch screen and to a screen reader, so the answer to *of what* was
+reaching a mouse and nobody else — and this ticket was drawing per-module
+information into the same table anyway. Deciding it twice would have produced two
+answers. So the counts moved out of the tooltip and onto the module names they
+belong to: one module per line, its count spelled out in words beside it, and the
+disagreement in the same line when there is one.
+
+That is much more text than a row of badges, which raises the question the ticket
+asked. **Six modules is the most any customer in this repository can have today
+and nothing stops there being more**, so the cell shows the first five and folds
+the rest into a `<details>` — a control that a keyboard reaches and a screen
+reader announces, which is exactly what the tooltip it replaces was not. The
+ordering is what makes the folding safe: modules the two sources disagree about
+sort first, alphabetically within that, so what folds away is only ever something
+both sides already agree on. Same argument as §8.10's row ordering, one cell down.
+
+**Rejected: truncating with an ellipsis.** It hides the end of whichever line is
+longest, and the end of the line is where the disagreement is named — replacing a
+hover with a different thing you cannot read.
+
+#### The line is unchanged
+
+Names and counts, never contents. Which modules a customer has and how many
+records are in each is *how much*; what is in them is *what*. Reading a module's
+definitions to learn its key is on the permitted side of that line — a
+`ModuleDefinition` in hand is the whole shape, fields and collections and their
+fields, and exactly one string of it leaves the collector. A field label would not
+be, and a record certainly is not.
 
 ### 8.12 A public surface that provisions nothing (XIV-64)
 

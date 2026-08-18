@@ -51,6 +51,11 @@ control_plane:
     created: Angelegt
     provisioned: Bereitgestellt
     modules: Module
+    modules_never: 'Installierte Module noch nicht erhoben — dies ist die Registrierung.'
+    modules_failed: 'Installierte Module konnten nicht gelesen werden — dies ist die Registrierung.'
+    modules_collected: 'installiert laut Erhebung %time%'
+    module_unrecorded: nicht vermerkt
+    module_not_installed: nicht installiert
     usage: Nutzung
     usage_never: Noch nicht erhoben
     usage_failed: Konnte nicht gelesen werden

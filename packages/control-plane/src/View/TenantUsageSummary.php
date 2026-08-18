@@ -35,17 +35,38 @@ use Xivi\ControlPlane\Entity\TenantUsage;
  * {@see TenantUsage} for why absence is the honest representation of "never
  * looked".
  *
+ * **[XIV-95] added the installed module list to this object rather than beside
+ * it**, and that placement is the argument. What a customer has installed is a
+ * fact about their database read at a moment, exactly like the record count next
+ * to it: put it on {@see TenantSummary} and the template gains a list with no
+ * timestamp attached, which is the shape of every stale figure this design spent
+ * a ticket avoiding. Here it is unreachable without also having `collectedAt`
+ * and `failed` in hand, so a template cannot draw the list without being able to
+ * say how old it is.
+ *
+ * **The breakdown by module used to be a string for a `title` attribute**, built
+ * here by a `recordBreakdown()` method that is gone. A tooltip is invisible on a
+ * touch screen and to a screen reader, and it was the only place the per-module
+ * counts appeared — so the answer to "of what" was available to a mouse and to
+ * nobody else. The counts are drawn as text now, one module per line, next to the
+ * names they belong to; see the modules cell in `tenants.html.twig` and
+ * {@see ModuleReconciliation}.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class TenantUsageSummary
 {
-    /** @param array<string, int> $recordsByModule */
+    /**
+     * @param list<string>       $installedModules
+     * @param array<string, int> $recordsByModule
+     */
     private function __construct(
         public \DateTimeImmutable $collectedAt,
         public bool $failed,
         public ?int $userCount,
         public ?\DateTimeImmutable $lastLoginAt,
         public ?int $recordCount,
+        public array $installedModules,
         public array $recordsByModule,
     ) {
     }
@@ -58,25 +79,8 @@ final readonly class TenantUsageSummary
             $usage->getUserCount(),
             $usage->getLastLoginAt(),
             $usage->getRecordCount(),
+            $usage->getInstalledModules(),
             $usage->getRecordsByModule(),
         );
-    }
-
-    /**
-     * The breakdown as one line of text, for the cell's tooltip.
-     *
-     * Module keys and integers, which is all the row holds — the count says how
-     * much and never what, and that boundary is argued in §8.11 rather than left
-     * to be inferred from the fact that nothing here happens to select a record.
-     */
-    public function recordBreakdown(): string
-    {
-        $parts = [];
-
-        foreach ($this->recordsByModule as $module => $count) {
-            $parts[] = sprintf('%s %d', $module, $count);
-        }
-
-        return implode(', ', $parts);
     }
 }

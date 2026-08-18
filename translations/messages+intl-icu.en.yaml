@@ -93,6 +93,23 @@ control_plane:
     # never as a zero.
     usage_users: '{count, plural, =0 {no users} one {# user} other {# users}}'
     usage_records: '{count, plural, =0 {no records} one {# record} other {# records}}'
+    # The modules cell's headline, when the registry and the customer's own
+    # database do not describe the same set (XIV-95). Drawn only when the number
+    # is not zero — for the same reason `not_serving` above is: a line that is
+    # always there saying "0 differ" is furniture, and furniture is what the eye
+    # learns to skip.
+    #
+    # "differ from the registry" and nothing stronger. §6.1 makes the two lists
+    # able to disagree by design, and one of the ways they get there — a module
+    # installed from the console — is an operator doing their job. The list under
+    # this line names which modules and in which direction; this line only says
+    # there is something to read.
+    modules_differ: '{count, plural, one {# module differs from the registry} other {# modules differ from the registry}}'
+    # The tail of a long list, folded into a disclosure so that a customer with a
+    # dozen modules does not make the row unreadable. Phrased as a count of what
+    # is hidden rather than as "show all", because the number is the part worth
+    # knowing before deciding to open it.
+    modules_more: '{count, plural, one {# more module} other {# more modules}}'
 
 flash:
     password_too_short: '{count, plural, one {Use at least # character.} other {Use at least # characters.}}'

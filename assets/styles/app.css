@@ -232,3 +232,30 @@
 .follow-up-priority {
 	border-left: 4px solid var(--follow-up-tone, var(--bs-border-color)) !important;
 }
+
+/*
+ * The modules cell on the tenant list, kept to a column rather than a paragraph
+ * (XIV-95).
+ *
+ * The cell now holds a list — one module per line, with its record count and, if
+ * the registry and the customer's database disagree about it, a short phrase
+ * saying so. That is much more text than the row of badges it replaced, and a
+ * table cell with no width of its own will happily take as much of the table as
+ * its longest line asks for: the eight columns beside it would be squeezed into
+ * the remainder, and the two dates — which are fixed-width and non-negotiable —
+ * would wrap.
+ *
+ * `min-width` as well as `max-width` because both failures are real. Without the
+ * maximum a customer with a long module name stretches the column; without the
+ * minimum a customer with one short one lets it collapse to the width of
+ * `contact`, and the rows then no longer line up with each other, which is the
+ * thing that makes a table readable at a glance in the first place.
+ *
+ * A width rather than `text-overflow: ellipsis`, deliberately. Truncation would
+ * hide exactly the phrase that says two sources disagree, and hiding it behind a
+ * hover is what this ticket removed from the cell next door.
+ */
+.module-cell {
+	min-width: 12rem;
+	max-width: 18rem;
+}

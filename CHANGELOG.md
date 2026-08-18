@@ -80,6 +80,27 @@ lands in `Unreleased` here.
   line to type next, instead of a DBAL driver exception ([XIV-94]).
 ### Added
 
+- **The tenant list shows the modules a customer actually has installed, and
+  names where that disagrees with the registry** ([XIV-95]). The list is read
+  from the customer's own metadata by `tenant:usage:collect` — the page still
+  opens no tenant connection — so it is as old as the last collection and says
+  so, in the same three states as the figures beside it: not collected yet, could
+  not be read, or installed as of a time. A difference is drawn in both
+  directions (*not recorded* for a module the customer has that
+  `enabled_modules` does not list, *not installed* for the other way) and
+  deliberately **not** as a fault: §6.1 makes a module installed from a console a
+  legitimate state, and nothing here offers to reconcile the two
+  ([§8.11](docs/architecture.md#what-a-tenant-actually-has-installed-and-where-that-disagrees-xiv-95)).
+- **Per-module record counts are now readable text instead of a tooltip.** They
+  were a `title` on the usage cell, which a touch screen and a screen reader both
+  simply do not have; they are drawn beside the module names they belong to. A
+  customer with more than five modules folds the tail into a disclosure, and the
+  modules the two sources disagree about always sort ahead of it.
+- **`tenant_usage` gains an `installed_modules` column, and nothing is backfilled**
+  — a row collected before this change has genuinely never had its modules read,
+  and the page draws that as *not collected yet* until the next run. Filling it in
+  from `enabled_modules` would have manufactured perfect agreement for every
+  existing customer, which is the assumption the column exists to stop.
 - **`[tenant.logo]` in a document template draws the customer's logo**
   ([XIV-89]). Put it anywhere in the .docx — including the header, which is where
   a letterhead wants it — and the generated document carries the picture, in the
@@ -173,3 +194,4 @@ lands in `Unreleased` here.
 [XIV-90]: https://xivi.youtrack.cloud/issue/XIV-90
 [XIV-94]: https://xivi.youtrack.cloud/issue/XIV-94
 [XIV-89]: https://xivi.youtrack.cloud/issue/XIV-89
+[XIV-95]: https://xivi.youtrack.cloud/issue/XIV-95
