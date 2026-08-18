@@ -22,6 +22,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Xivi\Article\ArticleModule;
 use Xivi\Contact\ContactModule;
 use Xivi\Core\Metadata\MetadataRepository;
@@ -57,6 +58,14 @@ use Xivi\Order\OrderModule;
  * bin/compose exec -e APP_DEBUG=0 -e XIV68_ROWS=100,400 -e XIV68_ARTICLES=250 php \
  *     vendor/bin/phpunit tests/Measurement/CollectionCeilingTest.php
  * ```
+ *
+ * **It grew a second question in XIV-90**, and the two are worth keeping apart.
+ * {@see self::testHowLongADocumentCanGet()} measures the pages that *draw* a long
+ * collection; {@see self::testWhatAnOverLongSubmissionCosts()} measures the
+ * request that *sends* one, which is a different cost with a different shape and
+ * was where the cap could still be turned into a 500. They share the tenant, the
+ * catalogue and the measuring loop and nothing else, and each runs on its own
+ * with `--filter`.
  *
  * **`APP_DEBUG=0` is part of the command, not a flourish.** The test environment
  * boots debug by default, and debug is not a constant overhead here: Twig's
@@ -242,14 +251,223 @@ final class CollectionCeilingTest extends WebTestCase
             $order = $this->anOrderOf($rows);
             $saving = (hrtime(true) - $built) / 1e6;
 
-            $this->report($rows, 'read', $this->measure('/m/order/' . $order));
-            $this->report($rows, 'edit', $this->measure('/m/order/' . $order . '/edit'));
+            $this->report($rows, 'read', $this->measure(self::get('/m/order/' . $order)));
+            $this->report($rows, 'edit', $this->measure(self::get('/m/order/' . $order . '/edit')));
             $this->say(sprintf("| %5d | %-9s | %9.0f | %11s | %8s | %9s | %6s |\n", $rows, '(saving)', $saving, '', '', '', ''));
 
             ++$measured;
         }
 
         self::assertGreaterThan(0, $measured, 'something was measured');
+    }
+
+    /**
+     * What a submission costs on its way in, at the cap and one past it
+     * (XIV-90).
+     *
+     * **The other half of the same question.** The table above measures the pages
+     * that *draw* a long collection; this measures the request that *sends* one.
+     * They are not the same cost and were not the same problem: the cap was
+     * enforced in `RecordWriter::save()`, which a form submission only reaches
+     * after the values have been built into a form — one row form per submitted
+     * row, and the Live Component builds the whole thing twice per action, the
+     * real form plus the throwaway one that transforms view values back into
+     * model values (XIV-32). So four hundred and one rows cost roughly twice what
+     * four hundred cost, against a 256M allowance that four hundred already uses
+     * 55% of, and the refusal could not be rendered because rendering it was what
+     * ran out of memory.
+     *
+     * **What the two rows should say now.** `submit` at the cap is a save that
+     * happens: two forms of four hundred rows, then a write, then a redirect.
+     * `submit` at the cap plus one is a save that is refused before a form
+     * exists, so it draws the record as it stands — nothing, for a new one. The
+     * claim being held down is the comparison rather than either figure: **cap
+     * plus one must not cost more than the cap does.** A limit whose refusal is
+     * dearer than the thing it refuses is not a limit.
+     *
+     * ```
+     * bin/compose exec -e APP_DEBUG=0 php vendor/bin/phpunit \
+     *     --filter testWhatAnOverLongSubmissionCosts tests/Measurement/CollectionCeilingTest.php
+     * bin/compose exec -e APP_DEBUG=0 -e XIV90_ROWS=100,400,401 php vendor/bin/phpunit \
+     *     --filter testWhatAnOverLongSubmissionCosts tests/Measurement/CollectionCeilingTest.php
+     * ```
+     *
+     * **The sizes go past the cap here and nowhere else**, which is the point:
+     * nothing builds a fixture, so nothing is written that the cap forbids. The
+     * over-long rows exist only in a request body, which is exactly the thing
+     * being measured.
+     */
+    public function testWhatAnOverLongSubmissionCosts(): void
+    {
+        $this->say(sprintf(
+            "\nXIV-90 — what an over-long submission costs, measured on %s\ncap: %d rows per collection\n%s\n",
+            date('Y-m-d H:i:s'),
+            CollectionLimit::MAX_ROWS,
+            str_repeat('=', 96),
+        ));
+
+        $this->buildCatalogue();
+        $this->warmUp();
+
+        $this->say(sprintf(
+            "| %5s | %-9s | %9s | %11s | %8s | %9s | %6s |\n",
+            'rows',
+            'view',
+            'time (ms)',
+            'bytes',
+            'queries',
+            'peak (MB)',
+            'status',
+        ));
+        $this->say('|' . str_repeat('-', 7) . '|' . str_repeat('-', 11) . '|' . str_repeat('-', 11)
+            . '|' . str_repeat('-', 13) . '|' . str_repeat('-', 10) . '|' . str_repeat('-', 11)
+            . '|' . str_repeat('-', 8) . "|\n");
+
+        $measured = 0;
+
+        foreach (self::submittedRowCounts() as $rows) {
+            // Freshly for each size: a save that succeeds redirects, and the
+            // props of a form that has been submitted are not the props of the
+            // form the browser is holding. Reading them again per row count also
+            // keeps each measured request independent of the one before it.
+            $this->report($rows, 'submit', $this->measure($this->aSaveOf($this->propsOfANewOrderForm(), $rows)));
+
+            ++$measured;
+        }
+
+        self::assertGreaterThan(0, $measured, 'something was measured');
+    }
+
+    /**
+     * The signed props a browser would be holding, read off the page that mounts
+     * the component.
+     *
+     * Off the page rather than made here, because they are signed: the checksum
+     * is what stops a client editing a prop it was not given, and reproducing it
+     * by hand would be measuring a request the application would refuse. The one
+     * thing a client may send freely is the `updated` half — which is where the
+     * over-long rows go, and which is the whole reason this is worth measuring.
+     *
+     * @return array<string, mixed>
+     */
+    private function propsOfANewOrderForm(): array
+    {
+        $request = self::get('/m/order/new');
+
+        foreach ($this->client->getCookieJar()->all() as $cookie) {
+            $request->cookies->set($cookie->getName(), $cookie->getValue());
+        }
+
+        $kernel = self::$kernel;
+        \assert($kernel instanceof HttpKernelInterface);
+
+        $page = (string) $kernel->handle($request)->getContent();
+
+        self::assertSame(1, preg_match('/data-live-props-value="([^"]*)"/', $page, $found), 'the page mounts the record form');
+
+        /** @var array<string, mixed> $props */
+        $props = json_decode(html_entity_decode($found[1], \ENT_QUOTES), true, flags: \JSON_THROW_ON_ERROR);
+
+        return $props;
+    }
+
+    /**
+     * One save of an order of N lines, as the browser posts it.
+     *
+     * **One multipart field holding JSON**, which is the shape XIV-68 established
+     * incidentally while ruling out `max_input_vars` as the binding constraint,
+     * and the shape XIV-90's check reads the count out of. The whole model goes
+     * in `updated` at once — the shape a Live Component *action* sends; an
+     * ordinary form post spreads the same values over one dotted path per
+     * control, and `tests/Functional/Engine/CollectionLimitTest.php` holds down
+     * that both are counted the same. Only one of them needs measuring, because
+     * what costs is the rows and not their encoding.
+     *
+     * @param array<string, mixed> $props
+     */
+    private function aSaveOf(array $props, int $rows): Request
+    {
+        $name = \is_string($props['formName'] ?? null) ? $props['formName'] : 'module_record';
+        $lines = [];
+
+        for ($i = 0; $i < $rows; ++$i) {
+            $article = $this->articles[$i % \count($this->articles)];
+
+            $lines[] = ['id' => '', 'position' => '', 'fields' => [
+                OrderModule::KIND => OrderModule::ARTICLE_LINE,
+                'article' => (string) $article,
+                'description' => sprintf('Article %04d', ($i % \count($this->articles)) + 1),
+                OrderModule::QUANTITY => (string) (1 + $i % 7),
+                OrderModule::UNIT_PRICE => number_format(5 + (($i % \count($this->articles)) % 400) * 1.35, 2, '.', ''),
+                OrderModule::TAX_RATE => '8.1',
+            ]];
+        }
+
+        // **Over what the form is already holding, not instead of it.** The model
+        // the browser sends back is the model it was given with the edits applied,
+        // and one of the things it was given is the form's `_token` — CSRF here is
+        // stateless (config/packages/csrf.yaml) and the field carries a
+        // placeholder, so a payload that replaced the model wholesale dropped it
+        // and every measured request came back as "the CSRF token is invalid"
+        // instead of as a number.
+        /** @var array<string, mixed> $held */
+        $held = \is_array($props[$name] ?? null) ? $props[$name] : [];
+
+        $payload = json_encode([
+            'props' => $props,
+            'updated' => [$name => [
+                ...$held,
+                'fields' => [
+                    'contact' => (string) $this->customer,
+                    'ordered_on' => '2026-08-16',
+                    'status' => OrderModule::DRAFT,
+                ],
+                'collections' => [OrderModule::LINES => $lines],
+            ]],
+            'args' => [],
+        ], flags: \JSON_THROW_ON_ERROR);
+
+        $request = Request::create(
+            sprintf('https://%s%s', self::HOST, self::service(UrlGeneratorInterface::class)->generate(
+                'ux_live_component',
+                ['_live_component' => 'RecordForm', '_live_action' => 'save'],
+            )),
+            'POST',
+            ['data' => $payload],
+        );
+
+        // What FrankenPHP sees, put back by hand. The test kernel does not insist
+        // on the first two — `framework.test` turns that check off — and a
+        // measurement that quietly took a different route through the subscriber
+        // than the product does would be the wrong number told confidently.
+        $request->headers->set('X-Requested-With', 'XMLHttpRequest');
+        $request->headers->set('Accept', 'application/vnd.live-component+html');
+
+        // **The third is not decoration: without it nothing is measured at all.**
+        // CSRF protection here is stateless and same-origin (config/packages/
+        // csrf.yaml), so a post is accepted when its `Origin` or `Referer` names
+        // the origin it was sent to. `KernelBrowser` sets `Referer` from its own
+        // history, which is why every other test in this repository never has to
+        // think about it; a request built by hand has no history, and the whole
+        // 400-row submission was being refused for the token rather than measured.
+        $request->headers->set('Origin', sprintf('https://%s', self::HOST));
+
+        return $request;
+    }
+
+    /**
+     * The submission sizes, which straddle the cap rather than stopping at it.
+     *
+     * @return list<int>
+     */
+    private static function submittedRowCounts(): array
+    {
+        $given = (string) ($_SERVER['XIV90_ROWS'] ?? CollectionLimit::MAX_ROWS . ',' . (CollectionLimit::MAX_ROWS + 1));
+
+        return array_values(array_filter(
+            array_map(static fn (string $part): int => (int) trim($part), explode(',', $given)),
+            static fn (int $rows): bool => $rows > 0,
+        ));
     }
 
     /**
@@ -266,8 +484,14 @@ final class CollectionCeilingTest extends WebTestCase
     {
         $order = $this->anOrderOf(3);
 
-        $this->measure('/m/order/' . $order);
-        $this->measure('/m/order/' . $order . '/edit');
+        $this->measure(self::get('/m/order/' . $order));
+        $this->measure(self::get('/m/order/' . $order . '/edit'));
+    }
+
+    /** A signed-out GET at this tenant; the cookies go on in {@see self::measure()}. */
+    private static function get(string $path): Request
+    {
+        return Request::create(sprintf('https://%s%s', self::HOST, $path));
     }
 
     /**
@@ -275,11 +499,9 @@ final class CollectionCeilingTest extends WebTestCase
      *
      * @return array{ms: float, bytes: int, queries: int, peak: int, status: int}
      */
-    private function measure(string $path): array
+    private function measure(Request $request): array
     {
         $counter = self::service(CountsQueries::class);
-
-        $request = Request::create(sprintf('https://%s%s', self::HOST, $path));
 
         foreach ($this->client->getCookieJar()->all() as $cookie) {
             $request->cookies->set($cookie->getName(), $cookie->getValue());

@@ -16,13 +16,17 @@ namespace App\Twig\Components;
 use App\Record\RecordSubmission;
 use App\Tenant\Entity\User;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Translation\TranslatableMessage;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\UX\LiveComponent\Attribute\AsLiveComponent;
 use Symfony\UX\LiveComponent\Attribute\LiveAction;
 use Symfony\UX\LiveComponent\Attribute\LiveArg;
 use Symfony\UX\LiveComponent\Attribute\LiveProp;
+use Symfony\UX\LiveComponent\Attribute\PostHydrate;
+use Symfony\UX\LiveComponent\Attribute\PreReRender;
 use Symfony\UX\LiveComponent\ComponentWithFormTrait;
 use Symfony\UX\LiveComponent\DefaultActionTrait;
 use Xivi\Core\Entity\ModuleDefinition;
@@ -31,9 +35,11 @@ use Xivi\Core\Lifecycle\Lifecycles;
 use Xivi\Core\Metadata\AvailableVariants;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Permission\ModuleAction;
+use Xivi\Core\Record\CollectionLimit;
 use Xivi\Core\Record\DerivedValues;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordRepository;
+use Xivi\Core\Record\SubmittedRows;
 
 /**
  * The record form, owned end to end by a Live Component — the third XIV-29
@@ -93,6 +99,18 @@ final class RecordForm extends AbstractController
     #[LiveProp]
     public array $seeded = [];
 
+    /**
+     * Why this submission was refused before a form was built, if it was
+     * (XIV-90).
+     *
+     * **Not a prop, deliberately.** It is a fact about the request that has just
+     * arrived rather than about the component's state, and it is re-established
+     * from the values on every request that carries them — so a client cannot
+     * clear it by leaving it out, and nothing has to be kept in step with it
+     * across a round trip.
+     */
+    private ?TranslatableMessage $refusal = null;
+
     public function __construct(
         private readonly MetadataRepository $metadata,
         private readonly RecordRepository $records,
@@ -102,6 +120,100 @@ final class RecordForm extends AbstractController
         private readonly Lifecycles $lifecycles,
         private readonly TranslatorInterface $translator,
     ) {
+    }
+
+    /**
+     * How long the submitted collections are, before anything builds a form out
+     * of them (XIV-90).
+     *
+     * **This is the earliest moment the number exists and the last one before it
+     * gets expensive.** The library has just finished putting the request's
+     * values onto `$this->formValues` — a plain array of strings, whichever of
+     * the two post shapes they arrived in ({@see SubmittedRows::in()} names both)
+     * — and nothing has yet built a form out of them. The form is lazy: the trait
+     * instantiates it on the first `getFormView()`, which is a render or an
+     * action away. Counting here therefore costs a `count()` per collection and
+     * an over-long submission never reaches the four hundred and one row forms
+     * that would have been built to discover the same number.
+     *
+     * **The refusal is `CollectionLimit`'s, word for word.** A reader cannot tell
+     * which layer caught them and must not be able to: the writer's guard is
+     * still there, still independent, and still the thing that makes the limit
+     * true for the importer and for anything else holding `RecordWriter`. This is
+     * a cheap check in front of an expensive path, and the sentence, the limit
+     * and the count all come from the same place they always did.
+     *
+     * **Not a `#[LiveAction]`,** so it cannot be reached by name from a request;
+     * it is a lifecycle hook the library calls, which is why it is public.
+     */
+    #[PostHydrate]
+    public function countRowsBeforeBuildingTheForm(): void
+    {
+        $definition = $this->definition();
+        $counted = SubmittedRows::in($definition, $this->formValues);
+
+        if (!$counted->readable) {
+            // A different answer from "too long", and kept different on purpose:
+            // there is no count to name here, so naming one would be inventing
+            // it. See SubmittedRows::UNREADABLE.
+            $this->refusal = new TranslatableMessage(SubmittedRows::UNREADABLE, [], 'xivi');
+
+            return;
+        }
+
+        $key = $counted->overTheCap();
+
+        if ($key === null) {
+            return;
+        }
+
+        // The label rather than the key, because the sentence is read by whoever
+        // named the collection — the same choice, for the same reason, that
+        // `RecordWriter::guardCollectionSizes()` makes.
+        $this->refusal = CollectionLimit::refusal(
+            $definition->getCollection($key)?->getLabel() ?? $key,
+            $counted->counts[$key],
+        );
+    }
+
+    /**
+     * Draw the refusal instead of the submission it refused (XIV-90).
+     *
+     * **Ahead of the trait's own re-render hook**, which is what the priority is
+     * for: `ComponentWithFormTrait::submitFormOnRender()` submits
+     * `$this->formValues` into the form unless something has already submitted
+     * it, and submitting the very values this request refused is the expensive
+     * act being avoided. Turning its flag off is the whole of the saving.
+     *
+     * So the form is built from the *stored* record instead — which cannot be
+     * over the cap, because the writer has never let one be written — and the
+     * refusal goes on the form itself, where `form_errors()` draws it. The page
+     * that comes back shows the document as it stands and says why what was sent
+     * was not applied to it.
+     *
+     * **The submitted values are left exactly as they arrived.** They go back out
+     * in the component's props untouched, so nothing is lost and nothing is
+     * quietly rewritten: a client that sends the same over-long payload again
+     * gets the same refusal again. Emptying or truncating them here would be the
+     * far worse bug — the next save would then write the shortened list over the
+     * record, which is the document-that-lies §5.1 refuses at length.
+     *
+     * **The view is dropped after the error is added** for the reason
+     * {@see self::save()} gives: a view built before an error renders without it.
+     * Here nothing has built one yet, and the line is kept anyway because the
+     * ordering it depends on is one method call away from changing.
+     */
+    #[PreReRender(priority: 100)]
+    public function drawTheRefusalRatherThanTheRows(): void
+    {
+        if ($this->refusal === null) {
+            return;
+        }
+
+        $this->shouldAutoSubmitForm = false;
+
+        $this->getForm()->addError(new FormError($this->refusal->trans($this->translator)));
+        $this->formView = null;
     }
 
     /**
@@ -130,6 +242,16 @@ final class RecordForm extends AbstractController
 
         if (!$record->isNew() && $lifecycle !== null && $lifecycle->isLocked($record)) {
             throw $this->createAccessDeniedException();
+        }
+
+        // **Already refused, before any of this could get expensive** (XIV-90).
+        // After the permission and lifecycle checks rather than before them, so
+        // that who may write what is still decided first and one refusal never
+        // stands in for another. Returning null re-renders, and the re-render
+        // hook above is what puts the sentence on the page — the same route a
+        // validation failure takes, so the reader meets one kind of page.
+        if ($this->refusal !== null) {
+            return null;
         }
 
         $this->submitForm();
@@ -262,6 +384,13 @@ final class RecordForm extends AbstractController
     /**
      * The figures, worked out from what is in the form right now (XIV-32).
      *
+     * **Nothing is worked out from a submission that was refused** (XIV-90). The
+     * preview below transforms the submitted values through a throwaway form, and
+     * a throwaway form of four hundred and one rows costs precisely what the real
+     * one costs — so the second half of "twice 140 MB" is this method, and
+     * refusing here is half of the saving. There is nothing to show anyway: the
+     * totals of a document that will not be saved are not figures anybody wants.
+     *
      * **Why this goes into the form's initial data rather than into the
      * submitted values.** A derived field is `disabled` (XIV-16), and a disabled
      * field ignores what is submitted and keeps the data the form was built
@@ -289,7 +418,7 @@ final class RecordForm extends AbstractController
         // Empty on the first render, when the form is being built to *produce*
         // these values rather than from them — and the stored figures are
         // already the right ones to show.
-        if ($this->formValues === []) {
+        if ($this->formValues === [] || $this->refusal !== null) {
             return $initial;
         }
 

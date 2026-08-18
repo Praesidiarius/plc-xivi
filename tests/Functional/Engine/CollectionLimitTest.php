@@ -38,6 +38,7 @@ use Xivi\Core\Record\CollectionTooLong;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordRepository;
 use Xivi\Core\Record\RecordWriter;
+use Xivi\Core\Record\SubmittedRows;
 
 /**
  * A collection is capped, and the cap is refused rather than truncated (XIV-68).
@@ -53,6 +54,15 @@ use Xivi\Core\Record\RecordWriter;
  * the writer — which is why the check lives there — but each of the first two
  * asks first, because what a person should meet is a sentence on the page they
  * are looking at rather than an exception.
+ *
+ * **The form asks before the form exists** (XIV-90). Asking after it was built
+ * meant building four hundred and one row forms to discover that four hundred and
+ * one is too many, twice over, which is how a readable limit turns into the 500 it
+ * was written to prevent. So the rows are counted from the submitted values —
+ * {@see SubmittedRows} — and the tests below hold down that the refusal is the
+ * same sentence from the same {@see CollectionLimit} whichever layer produced it,
+ * that not one row form is built to reach it, and that a submission nobody could
+ * count is refused as itself rather than as a long one.
  *
  * **What is deliberately not tested here is the read view**, because it
  * deliberately has no bound: 18 queries flat and about 15 KB a row means it
@@ -161,6 +171,104 @@ final class CollectionLimitTest extends WebTestCase
     }
 
     /**
+     * And it refuses without drawing a row form per submitted row (XIV-90).
+     *
+     * **The point of the whole ticket, in one assertion.** The refusal used to
+     * arrive after the submission had been built as four hundred and one row
+     * forms — twice, because the Live Component builds the form and a throwaway
+     * one beside it — which is about 2 × 140 MB against the 256M a request is
+     * allowed. A limit that can only be reported by first doing the thing it
+     * forbids is not a limit.
+     *
+     * The page that comes back is the record as it stands, which for a new record
+     * is a form with no rows on it at all. That is what is asserted here: not
+     * "this was fast", which would be a timing test and therefore a flaky one,
+     * but that not one row was drawn.
+     */
+    public function testTheRefusedFormDrawsNoneOfTheSubmittedRows(): void
+    {
+        $response = $this->saveRecord(
+            JobModule::KEY,
+            ['title' => 'Far too long', 'status' => JobModule::DRAFT],
+            ['lines' => $this->formRows(CollectionLimit::MAX_ROWS + 1)],
+        );
+
+        $body = (string) $response->getContent();
+
+        self::assertStringContainsString((string) CollectionLimit::MAX_ROWS, strip_tags($body), 'the refusal is on the page');
+        self::assertSame(
+            0,
+            substr_count($body, 'row-of-collection'),
+            'and not one of the submitted rows was built as a form to discover that',
+        );
+    }
+
+    /**
+     * The other shape a record form is posted in reaches the same refusal
+     * (XIV-90).
+     *
+     * A Live Component action sends the whole model at once; an ordinary form
+     * post sends one entry per control, keyed by the path its `name` makes. They
+     * are decoded by different code inside the library, so "the check reads the
+     * values after both have been applied" is a claim worth holding down rather
+     * than assuming — see {@see SavesRecords::postRecordForm()} for what each
+     * looks like on the wire.
+     */
+    public function testAnOrdinaryFormPostIsCountedTheSameWay(): void
+    {
+        $response = $this->postRecordForm(JobModule::KEY, [
+            'fields' => ['title' => 'Far too long', 'status' => JobModule::DRAFT],
+            'collections' => ['lines' => $this->formRows(CollectionLimit::MAX_ROWS + 1)],
+        ]);
+
+        $shown = strip_tags((string) $response->getContent());
+
+        self::assertNull($response->headers->get('Location'), 'the save was refused rather than redirecting');
+        self::assertStringContainsString((string) CollectionLimit::MAX_ROWS, $shown, 'the page names the limit');
+        self::assertStringContainsString((string) (CollectionLimit::MAX_ROWS + 1), $shown, 'and what was sent');
+        self::assertSame([], $this->allJobs(), 'and no record was created');
+    }
+
+    /**
+     * A submission that cannot be counted is refused as itself, not as a long one
+     * (XIV-90).
+     *
+     * Nothing a browser sends can put a string where a collection's rows belong,
+     * so what arrives that way was written by hand. It is still refused — a
+     * submission nobody can read is not one anybody should write — but with a
+     * sentence of its own, because the alternative is a message naming a limit
+     * and a count where the count was invented. The two sentences are asserted
+     * against each other rather than merely for their own presence: "refused
+     * distinguishably" is the claim, and it fails the moment one collapses into
+     * the other.
+     */
+    public function testASubmissionThatCannotBeCountedIsRefusedAsItself(): void
+    {
+        $response = $this->saveRecord(
+            JobModule::KEY,
+            ['title' => 'Unreadable', 'status' => JobModule::DRAFT],
+            // Not rows: a value standing where the rows belong.
+            ['lines' => 'not rows at all'], // @phpstan-ignore argument.type
+        );
+
+        $shown = strip_tags((string) $response->getContent());
+        $translator = self::service(TranslatorInterface::class);
+
+        self::assertNull($response->headers->get('Location'), 'the save was refused rather than redirecting');
+        self::assertStringContainsString(
+            $translator->trans(SubmittedRows::UNREADABLE, [], 'xivi', 'en'),
+            $shown,
+            'it says the values could not be read',
+        );
+        self::assertStringNotContainsString(
+            (string) CollectionLimit::MAX_ROWS,
+            $shown,
+            'and names no limit, because there was no count to hold against one',
+        );
+        self::assertSame([], $this->allJobs(), 'and no record was created');
+    }
+
+    /**
      * The importer answers with a problem against the sheet (XIV-26).
      *
      * An import writes in bulk with nobody clicking, so this is the path a cap
@@ -213,13 +321,20 @@ final class CollectionLimitTest extends WebTestCase
     /**
      * The same rows, shaped the way the record form submits them.
      *
-     * **Comment lines rather than item lines**, which is not cosmetic: a form of
-     * four hundred rows really is built before it can be refused — the values
-     * arrive through the form, so there is no counting them without it — and in
-     * the test environment, with the profiler collecting a node per template, an
-     * item row's four controls put this class at the suite's memory ceiling. A
-     * comment row carries two (§5.5: a row's fields follow from its kind) and
-     * exercises exactly the same path for half the weight.
+     * **Comment lines rather than item lines**, which used to be the difference
+     * between this class running and this class exhausting the suite's 512M. An
+     * over-long form was built before it could be refused — the values arrived
+     * through the form, so there was no counting them without it — and in the test
+     * environment, with the profiler collecting a node per template, an item row's
+     * four controls put this class at the ceiling. A comment row carries two
+     * (§5.5: a row's fields follow from its kind) and exercised the same path for
+     * half the weight.
+     *
+     * **XIV-90 removed the reason and the numbers say so**: the whole class peaked
+     * at 350 MB before it and at 80 MB after, with three more tests in it. The
+     * comment rows stay because there is no argument for making a test heavier
+     * than it needs to be, and this note stays because the next person to wonder
+     * why should find the answer rather than the workaround.
      *
      * @return list<array<string, mixed>>
      */

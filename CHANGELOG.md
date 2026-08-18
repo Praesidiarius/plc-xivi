@@ -105,6 +105,18 @@ lands in `Unreleased` here.
   disconnects the sessions on that database first, as a deliberate step rather
   than a flag: §4.1 refuses to make `suspended` a prerequisite, and a live tenant
   is by definition one with sessions open ([XIV-94]).
+- **A record form now counts its rows before it builds them** ([XIV-90]). The
+  400-row cap on a collection was enforced after the submission had been built
+  into one form per row — twice over, since the live form builds a throwaway copy
+  beside the real one — so a hand-crafted 401-row post needed 273 MB of the 256 MB
+  a request is allowed and answered a 500 instead of the refusal. The rows are now
+  counted from the submitted values, before any form exists: 1.9 MB and 31 ms
+  against 273 MB and 6.3 s. Same limit, same sentence, same numbers as before —
+  `RecordWriter` still refuses independently, which is what keeps the cap true for
+  the importer and everything else. A submission whose values cannot be counted at
+  all is refused with a message of its own rather than one naming a made-up count.
+  See [§5.1](docs/architecture.md#counting-the-rows-before-the-form-is-built-xiv-90),
+  which also has the figures and one thing left open.
 
 ### Measured
 
@@ -136,4 +148,5 @@ lands in `Unreleased` here.
 | [17.0.0](docs/changelog/17.0.0.md) | 2026-08-14 | The first numbered version: the engine, tenancy, and everything built before versioning began |
 
 [XIV-86]: https://xivi.youtrack.cloud/issue/XIV-86
+[XIV-90]: https://xivi.youtrack.cloud/issue/XIV-90
 [XIV-94]: https://xivi.youtrack.cloud/issue/XIV-94

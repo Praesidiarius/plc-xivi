@@ -928,6 +928,85 @@ an N-line order is N list items — alarming at 10 000 and unremarkable at 400.
 holding more than it still reads, and nothing can have produced one, because the
 genuine ceiling was below the cap until the memory limit moved.
 
+#### Counting the rows before the form is built (XIV-90)
+
+**A cap you can only enforce by first doing the thing it forbids is not a cap.**
+`RecordWriter::save()` is the right place for it and remains the place: it is the
+one door the form, the importer and everything future go through. But the form
+path reaches that door *through the form* — the values arrive as a submission,
+and a submission of four hundred and one rows had to be built as four hundred and
+one row forms before anything could count them. The Live Component builds the
+whole thing more than once per action besides: the real form, plus the throwaway
+one `RecordForm::asSubmitted()` uses to turn view values back into model values
+(XIV-32).
+
+Measured on this branch by `testWhatAnOverLongSubmissionCosts()`, an order of
+article lines posted to the component's `save` action, `APP_DEBUG=0`, per
+request:
+
+| submitted rows | peak MB | ms | status | |
+| ---: | ---: | ---: | ---: | --- |
+| 400 | 250.2 | 4 383 | 204 | saved |
+| **401, before** | **273.3** | 6 282 | 200 | refused, *after* building it |
+| 401, after | **1.9** | 31 | 200 | refused before building it |
+
+**273 MB against the 256M a request is allowed** — so the refusal could not be
+rendered, and what a hand-crafted over-long post actually produced was the
+"Allowed memory size exhausted" out of the middle of Twig that the cap exists to
+remove. The fix takes it to 1.9 MB and 31 ms.
+
+**Two things in that table are worth reading beyond this ticket.** The first is
+that 400 rows *submitted* costs 250 MB where 400 rows *drawn* costs 140 — the
+submission pays for the form twice and the write once, and it sits at 98% of the
+allowance rather than the 55% the render sits at. The headroom the cap was chosen
+with is real for the page and thin for the post. The second is that the "before"
+figure is 273 and not the 280 a doubling predicts, because the throwaway form and
+the real one overlap rather than stack cleanly; the shape of the argument is
+unchanged and the arithmetic in the ticket was close enough to act on.
+
+**Where the count comes from.** `Core\Record\SubmittedRows` reads the submitted
+values while they are still the plain array the browser sent — no `FormView`
+anywhere — and hands the number to the same `CollectionLimit` the writer asks. It
+is a second caller, not a second rule: same number, same sentence, same
+placeholders, so a reader cannot tell which layer caught them and does not need
+to. **The writer's guard did not move and must not**, which is what keeps the
+limit true for the importer, the demo generator and whatever calls it next; the
+test proving the writer refuses on its own passes untouched.
+
+**Both post shapes are counted, and they are not the same shape.** A Live
+Component action replaces the whole model at once —
+`updated: {"module_record": {"collections": {"lines": [...]}}}` — while an
+ordinary form post sends one entry per control, keyed by the path its `name`
+attribute makes, because the component puts `data-model` on the `<form>` element:
+`updated: {"module_record.collections.lines.0.fields.text": "…"}`. On top of
+either sits whatever the signed `props` already held, which is where the rows of a
+record being edited come from. The library reconciles all three onto the
+component's raw values before any form exists, so the count is taken there — one
+reading rather than a second parser that would eventually disagree with the first.
+
+**The refused page draws the record as it stands**, not the submission. There is
+nothing else it honestly can draw: the submission is the thing that will not fit,
+and truncating it to four hundred would be the document-that-lies this section
+already refuses. The submitted values themselves are left exactly as they arrived
+and go back out in the component's props untouched — emptying them would be the
+far worse bug, because the next save would then write the shortened list over the
+record.
+
+**A submission that cannot be counted is refused as itself.** Nothing a browser
+sends can put a string where a collection's rows belong, so what arrives that way
+was written by hand and there is no honest number to name in a refusal. It gets a
+sentence of its own — `record.submission_unreadable`, which names no limit and no
+count — because a message saying "this holds at most 400 rows and this one has 0"
+would be a number somebody invented.
+
+**What is still open.** Reaching the cap through the interface takes four hundred
+"add row" round trips, and the four hundred and first is not refused: the button
+appends and the re-render then costs what a 401-row submission costs. Nobody
+arrives there by accident and this ticket did not close it, because refusing an
+add needs a sentence of its own — "nothing was saved" is the wrong thing to say
+about a row that was never added — and that is a decision rather than a line of
+code.
+
 ### 5.2 History is per module, and per action
 
 Every change to a record is recorded: who, when, and what changed.

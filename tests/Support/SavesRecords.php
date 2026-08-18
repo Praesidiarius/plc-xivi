@@ -125,6 +125,58 @@ trait SavesRecords
     }
 
     /**
+     * The same save, in the other shape a record form is posted in (XIV-90).
+     *
+     * **A Live Component action and an ordinary form post do not present the rows
+     * identically**, and both reach this component. {@see self::saveRecord()}
+     * writes the whole model in one go, which is what an action does and what the
+     * "add row" button produces:
+     *
+     *     updated: {"module_record": {"collections": {"lines": [...]}}}
+     *
+     * A form post is one entry per control instead, keyed by the path its `name`
+     * attribute makes — the component puts `data-model` on the `<form>` element
+     * (XIV-32), so every named input is its own model:
+     *
+     *     updated: {"module_record.collections.lines.0.fields.text": "…"}
+     *
+     * They merge onto the same values in the end, and a check that reads those
+     * values sees no difference. That is worth a test rather than an assumption,
+     * because the two are decoded by different code inside the library and only
+     * one of them is what the harness normally sends.
+     *
+     * @param array<string, mixed> $values the whole `module_record` model — `fields`
+     *                                     and `collections`, nested; the harness
+     *                                     flattens it to the dotted paths a browser
+     *                                     would send
+     */
+    protected function postRecordForm(string $module, array $values, ?int $recordId = null, ?string $as = null): Response
+    {
+        $this->client->setServerParameter('HTTP_HOST', static::HOST);
+
+        $switcher = self::liveService(TenantSwitcher::class);
+        $user = $this->signingUser($as);
+
+        $props = ['module' => $module];
+
+        if ($recordId !== null) {
+            $props['recordId'] = $recordId;
+        }
+
+        $response = $switcher->runFor($this->tenant, fn (): Response => $this
+            ->createLiveComponent('RecordForm', $props, $this->client)
+            ->actingAs($user)
+            ->submitForm(['module_record' => $values], 'save')
+            ->response());
+
+        // See saveRecord(): the harness turns exception catching off on the
+        // shared client and nothing else turns it back on.
+        $this->client->catchExceptions(true);
+
+        return $response;
+    }
+
+    /**
      * The record form itself, ready to be acted on.
      *
      * For the tests that are about the form rather than about saving — that a
