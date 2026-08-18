@@ -286,6 +286,70 @@ field:
             Numbers already given out never change. This decides what the next one looks like
             and where it comes from, and nothing at all about the documents anybody is
             already holding.
+        # Taking numbering up on a field that has none (XIV-91). These sentences
+        # carry more weight than any others on the page: what is being agreed to
+        # writes numbers into records that already exist, once, and the only
+        # honest place to say so is before it happens. Every figure in them is
+        # counted rather than described — "this may affect existing data" is the
+        # sentence people click past.
+        start_title: Number this field
+        start_link: Number it
+        review: See what this would do
+        on_blank: >-
+            <strong>%count% records have nothing in this field.</strong> They are given numbers
+            now, oldest first, so that the number says when the record was made rather than
+            when somebody last happened to open it.
+        on_none_blank: >-
+            Every record already has something in this field, so nothing is written to any of
+            them. Numbering starts with the next record created.
+        on_held: >-
+            <strong>%count% records already hold a value</strong> and keep exactly what they
+            have. Anything among them that looks like a number this pattern would produce is
+            found first, and the counter starts above the highest of them.
+        on_derived: >-
+            Once this field is numbered, the engine fills it and nobody types into it — which
+            is what stops somebody entering a number the counter is about to give out.
+        start_confirm_title: 'Start numbering “%field%”?'
+        start_pattern: 'The pattern will be <code>%pattern%</code>.'
+        start_writes: >-
+            <strong>%count% records that have no number will be given one</strong>, in the order
+            they were created.
+        start_writes_none: >-
+            No record is written to: every one of them already holds a value in this field, and
+            none of those is changed.
+        start_range: 'They run from <code>%first%</code> to <code>%last%</code>.'
+        start_irreversible: >-
+            This cannot be undone. A number that has been on a record is a number somebody may
+            have read out over the phone, so nothing here takes one back.
+        start_found: >-
+            %count% records already carry a number this pattern could have produced. They are
+            left as they are, and the counter starts at %from% so that none of them can be given
+            out a second time.
+        start_unrecognised: >-
+            %count% more hold something this pattern could never produce — a reference typed in
+            some other shape. Those cannot collide with anything and are left alone.
+        start_next: 'The next record created after this will be <code>%next%</code>.'
+        start_note: >-
+            The counter can be moved forward afterwards, on this field's numbering page, if your
+            old system got further than the numbers already in here.
+        start_agree: 'Yes, write numbers into %count% existing records. I understand this cannot be undone.'
+        start_agree_none: 'Yes, number this field from now on.'
+        start_do: Start numbering
+        # And stopping (XIV-91). Nothing is destroyed, which is exactly the part
+        # that would be assumed wrongly in both directions — so all three
+        # sentences say what does *not* happen.
+        stop_link: Stop numbering this field
+        stop_title: 'Stop numbering “%field%”?'
+        stop_keeps: >-
+            <strong>The numbers stay.</strong> All %count% records keep exactly what they carry —
+            they are on documents customers are holding, and nothing here reaches them.
+        stop_typeable: >-
+            The field becomes an ordinary text box again: it appears in the form, anybody may
+            type in it, and nothing checks what they type. New records get nothing in it unless
+            somebody fills it in.
+        stop_counter: >-
+            The counter is kept where it is, so switching numbering back on later carries on from
+            there rather than starting again over numbers that are already out.
 
 import:
     file: Spreadsheet
@@ -735,6 +799,12 @@ flash:
     # first thought of anybody who has just changed a numbering pattern is what
     # it did to the numbers already out there, and the answer is nothing.
     numbering_saved: 'Saved the numbering for "%field%". Numbers already given out are unchanged.'
+    # Turning numbering on and off (XIV-91). The first names the count that was
+    # actually written rather than the one the confirmation offered — a record
+    # created between the two pages is one more record numbered, and what
+    # somebody reads afterwards should be about what happened.
+    numbering_started: 'Numbered "%field%". %count% existing records were given a number, oldest first.'
+    numbering_stopped: '"%field%" is no longer numbered. The numbers on records are unchanged, and the field can be typed in again.'
     module_installed: 'Installed "%module%". Nobody can see it until somebody is granted permission on it.'
     group_created: 'Created "%group%". Now say what it may do.'
     group_saved: 'Saved "%group%".'

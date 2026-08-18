@@ -162,6 +162,16 @@ services:
         arguments:
             $entityManager: '@doctrine.orm.tenant_entity_manager'
 
+    # Turning numbering on is four writes that are only correct together — the
+    # counter's floor, the pattern, the derived flag and the backfill — so it
+    # opens the transaction they share (XIV-91). The customer's connection, for
+    # the same reason as everything else here, and specifically the *same* one
+    # the tenant entity manager uses: MetadataEditor's flush has to join this
+    # transaction rather than run beside it.
+    Xivi\Core\Metadata\NumberingChange:
+        arguments:
+            $connection: '@doctrine.dbal.tenant_connection'
+
     Xivi\Core\Module\ModuleInstaller:
         arguments:
             $entityManager: '@doctrine.orm.tenant_entity_manager'

@@ -123,6 +123,13 @@ module:
 numbering:
     counter_back: 'This counter is at %at%, so the next number it gives out is %at%. %wanted% is at or below a number already on a record, and a counter only moves forward.'
     counter_back_in: 'The counter for %period% is at %at%, so the next number it gives out is %at%. %wanted% is at or below a number already on a record, and a counter only moves forward.'
+    # The second way to hand two documents the same number (XIV-91), and the one
+    # the counter cannot see: a number typed into the field by hand before it was
+    # numbered was never in any counter. So the records are read as well, and the
+    # sentence names the highest number found there — which is usually the thing
+    # somebody was trying to type in the first place.
+    counter_in_use: 'A record already carries %number%, so setting the counter to %wanted% would give that number out a second time. Numbers typed in before this field was numbered are not in the counter, so they are looked for in the records instead. The lowest this counter can be set to is %free%.'
+    counter_in_use_in: 'A record already carries %number%, so setting the counter for %period% to %wanted% would give that number out a second time. Numbers typed in before this field was numbered are not in the counter, so they are looked for in the records instead. The lowest this counter can be set to is %free%.'
 
 metadata:
     pattern_numbers_nothing: 'A numbering pattern has to say where the counter goes: it needs {number} in it, as in ORD-{year}-{number:4}. "%pattern%" would leave this field numbering nothing.'

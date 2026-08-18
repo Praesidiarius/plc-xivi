@@ -382,6 +382,167 @@ final readonly class RecordRepository
     }
 
     /**
+     * How many live records have *no* value for this field (XIV-91).
+     *
+     * The mirror of {@see countWithValue()} and not derivable from it, because
+     * "all the records" is a third query and a soft-deleted row is in neither
+     * answer. What it measures is the scale of a backfill: turning numbering on
+     * writes a number into exactly these rows, and the confirmation page has to
+     * be able to say how many that is before anybody agrees to it.
+     *
+     * The same emptiness the rest of this class means by empty — null or the
+     * empty string — so what this counts and what
+     * {@see \Xivi\Core\Numbering\NumberBackfill} then fills cannot disagree.
+     */
+    public function countWithoutValue(ShapeDefinition $shape, FieldDefinition $field): int
+    {
+        return (int) $this->connection->fetchOne(
+            sprintf(
+                "SELECT COUNT(*) FROM %s WHERE deleted_at IS NULL AND (data->>:field IS NULL OR data->>:field = '')",
+                $this->table($shape),
+            ),
+            ['field' => $field->getKey()],
+        );
+    }
+
+    /**
+     * The live records with no value for this field, oldest first (XIV-91).
+     *
+     * **The order is the feature.** A number records when a document was made
+     * (§5.10), so a backfill that walked the table in whatever order Postgres
+     * felt like returning rows would put yesterday's contact ahead of the one
+     * from 2019 and produce a numbering that means nothing. `created_at` is what
+     * "when it was made" is stored in; the id breaks ties, and does it the same
+     * way, since ids come out of an ascending identity column.
+     *
+     * Ids rather than records: the caller wants to write one key into each row
+     * and hydrating the whole payload of every one of them to do it would be
+     * work thrown away.
+     *
+     * @return list<int>
+     */
+    public function idsWithoutValue(ShapeDefinition $shape, FieldDefinition $field): array
+    {
+        $ids = $this->connection->fetchFirstColumn(
+            sprintf(
+                "SELECT id FROM %s WHERE deleted_at IS NULL AND (data->>:field IS NULL OR data->>:field = '')
+                 ORDER BY created_at ASC, id ASC",
+                $this->table($shape),
+            ),
+            ['field' => $field->getKey()],
+        );
+
+        return array_map(intval(...), $ids);
+    }
+
+    /**
+     * The values in one field that begin with a given text (XIV-91).
+     *
+     * Read by the numbering survey, which is looking for numbers a person typed
+     * in before the field was numbered — so that the counter can be moved above
+     * them instead of eventually rendering one of them onto a second record.
+     *
+     * The prefix is a *narrowing* and never the test. It is the literal text
+     * ahead of the counter in the pattern ({@see
+     * \Xivi\Core\Numbering\NumberFormat::literalPrefix()}), which throws away
+     * everything that could not possibly be one of ours before it crosses to
+     * PHP; deciding whether a value really is one is the pattern's own
+     * arithmetic, on what comes back. An empty prefix therefore means "every
+     * non-empty value", which is the correct answer for a pattern that starts
+     * with its counter and not a degenerate case to guard against.
+     *
+     * Grouped, with the number of records behind each value, rather than one row
+     * per record. Two things want that: the scan is looking for the *set* of
+     * numbers in use and a repeated value adds nothing to it, and the page wants
+     * to say how many **records** carry a recognisable number — which grouping
+     * alone would have lost, since two contacts sharing a hand-typed reference
+     * are two records the counter has to stay clear of and one value.
+     *
+     * `GROUP BY 1` rather than by repeating the expression, and that is a real
+     * constraint rather than brevity: a named parameter used twice becomes two
+     * *positional* parameters by the time Postgres sees it, so `data->>:field`
+     * in the select list and `data->>:field` in the group-by are `$1` and `$2`
+     * and are not recognised as the same expression at all. The ordinal names
+     * the output column, which is unambiguous.
+     *
+     * @return array<string, int> the value => how many live records hold it
+     */
+    public function valueCountsStartingWith(ShapeDefinition $shape, FieldDefinition $field, string $prefix): array
+    {
+        $rows = $this->connection->fetchAllKeyValue(
+            sprintf(
+                "SELECT data->>:field AS value, COUNT(*) AS held FROM %s
+                 WHERE deleted_at IS NULL AND data->>:field IS NOT NULL AND data->>:field <> ''
+                   AND data->>:field LIKE :prefix
+                 GROUP BY 1",
+                $this->table($shape),
+            ),
+            // Escaped, because a customer's pattern is a customer's text: a
+            // prefix containing `%` or `_` would otherwise quietly turn into a
+            // wildcard and match rows the pattern could never produce. Backslash
+            // is Postgres's default LIKE escape and has to go first.
+            ['field' => $field->getKey(), 'prefix' => str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $prefix) . '%'],
+        );
+
+        return array_map(intval(...), $rows);
+    }
+
+    /**
+     * Write one field's value into a set of records, and touch nothing else
+     * (XIV-91).
+     *
+     * **@internal to {@see \Xivi\Core\Numbering\NumberBackfill}**, on the same
+     * terms as the write methods above are internal to RecordWriter, and for
+     * once the reasoning runs the other way — so it is worth writing down rather
+     * than looking like an oversight.
+     *
+     * Every other write goes through RecordWriter because a record changed by a
+     * person is a history entry, and a history with invisible gaps is worse than
+     * none (§5.2). A backfill is not that. It is **one** administrative act
+     * against a column, not several hundred edits to several hundred records,
+     * and putting it through RecordWriter would have three consequences nobody
+     * wants: a transaction and a history entry per record, every deriver on the
+     * module re-run against records nobody touched, and — the one that actually
+     * decides it — `updated_at` bumped to today on the whole table. A number is
+     * supposed to record when a document was made; stamping every document as
+     * changed today in the act of giving it one is precisely the confusion §5.10
+     * is trying to prevent.
+     *
+     * So it writes the one key and leaves `updated_at` alone. What replaces the
+     * history entry is the confirmation page, which names the scale before it
+     * happens rather than describing it afterwards, three hundred times.
+     *
+     * A statement per row inside the caller's transaction. One statement over an
+     * array of pairs would be fewer round trips and a `VALUES` list built out of
+     * a loop anyway; at the size this runs at — the rows of one module that have
+     * no number yet — the loop is the one somebody reading it can check.
+     *
+     * @param array<int, string> $values record id => the value it is given
+     *
+     * @return int how many rows were written
+     */
+    public function setValues(ShapeDefinition $shape, FieldDefinition $field, array $values): int
+    {
+        $statement = $this->connection->prepare(sprintf(
+            'UPDATE %s SET data = jsonb_set(data, ARRAY[:field], to_jsonb(:value::text))
+             WHERE id = :id AND deleted_at IS NULL',
+            $this->table($shape),
+        ));
+
+        $written = 0;
+
+        foreach ($values as $id => $value) {
+            $statement->bindValue('field', $field->getKey());
+            $statement->bindValue('value', $value);
+            $statement->bindValue('id', $id, ParameterType::INTEGER);
+
+            $written += (int) $statement->executeStatement();
+        }
+
+        return $written;
+    }
+
+    /**
      * How many live records hold a value for this field.
      *
      * What the metadata editor puts in front of somebody about to remove a field

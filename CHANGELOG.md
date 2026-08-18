@@ -88,6 +88,40 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **A text field that is not numbered can be given a numbering pattern, from the
+  metadata editor** ([XIV-91], [§5.10](docs/architecture.md#making-a-field-numbered-and-stopping-xiv-91)).
+  [XIV-27] made a numbered field's pattern the customer's and stopped there,
+  because turning numbering *on* is a question about records rather than about
+  definitions. The link is now on any of a module's own text fields that nothing
+  else fills in.
+- **Records that already exist are given numbers, oldest first, once.** The
+  alternative — numbering only new records — leaves permanent blanks in a field
+  the module may use as the record's title, and letting `AssignsNumbers` catch up
+  on its own would number the oldest record 0001 for the accident of somebody
+  opening it first.
+- **The backfill is confirmed before it runs, and names its scale.** A page in
+  front of it says the pattern, how many records will be written to, what the
+  first and last of them will be called, and that it cannot be undone; the tick
+  arrives unticked and the server requires it. Nothing here writes a history
+  entry per record and nothing bumps `updated_at` — a number records when a
+  document was made, and stamping every document as changed today while giving it
+  one would say the opposite.
+- **A number somebody typed in by hand can no longer be handed out by the
+  counter.** The column is read for values the pattern could have produced and
+  the counter starts above the highest of them — including when the counter is
+  wound forward by hand, which is now refused against the records as well as
+  against the counter. [XIV-27]'s in-statement guard is unchanged and still the
+  one that makes the promise; this narrows what reaches it. Values the pattern
+  could never produce (`Referenz 12`) cannot collide and are left alone.
+- **A numbered field becomes derived**, so the engine fills it and nobody types
+  into it. That is what keeps the duplicate closed after the change rather than
+  only at the moment of it. A field something else already derives — an order's
+  total, an invoice's due date — is not offered numbering.
+- **Numbering can be turned off**, from a page that says what that means: the
+  numbers on records stay, the field becomes an ordinary text box anybody may
+  type in, and the counter is kept where it is so switching numbering back on
+  carries on rather than walking back over numbers already given out. An emptied
+  pattern is still refused rather than read as "off".
 - **The tenant list shows the modules a customer actually has installed, and
   names where that disagrees with the registry** ([XIV-95]). The list is read
   from the customer's own metadata by `tenant:usage:collect` — the page still
@@ -345,6 +379,8 @@ lands in `Unreleased` here.
 [XIV-95]: https://xivi.youtrack.cloud/issue/XIV-95
 [XIV-98]: https://xivi.youtrack.cloud/issue/XIV-98
 [XIV-61]: https://xivi.youtrack.cloud/issue/XIV-61
+[XIV-91]: https://xivi.youtrack.cloud/issue/XIV-91
+[XIV-27]: https://xivi.youtrack.cloud/issue/XIV-27
 [XIV-1]: https://xivi.youtrack.cloud/issue/XIV-1
 [XIV-58]: https://xivi.youtrack.cloud/issue/XIV-58
 [XIV-64]: https://xivi.youtrack.cloud/issue/XIV-64

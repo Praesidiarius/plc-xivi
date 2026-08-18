@@ -34,9 +34,9 @@ use Xivi\Core\Metadata\MetadataChangeRefused;
 use Xivi\Core\Metadata\MetadataEditor;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Metadata\ModuleNotInstalled;
+use Xivi\Core\Metadata\NumberingChange;
 use Xivi\Core\Numbering\AssignsNumbers;
 use Xivi\Core\Numbering\CounterRefused;
-use Xivi\Core\Numbering\NumberAllocator;
 use Xivi\Core\Numbering\NumberFormat;
 
 /**
@@ -113,7 +113,7 @@ final class FieldController extends AbstractController
         private readonly MetadataEditor $editor,
         private readonly FieldTypeRegistry $fieldTypes,
         private readonly TranslatorInterface $translator,
-        private readonly NumberAllocator $counters,
+        private readonly NumberingChange $numbering,
     ) {
     }
 
@@ -137,6 +137,10 @@ final class FieldController extends AbstractController
             // answer: the link to the numbering page appears on those, and the
             // page itself refuses everything else on the same test.
             'numbered' => $this->numberedIn($definition),
+            // And which could be, which is XIV-91's whole addition to this page:
+            // the link now appears on a plain text field too, and says something
+            // different when it does.
+            'numberable' => $this->numberableIn($definition),
         ]);
     }
 
@@ -154,21 +158,186 @@ final class FieldController extends AbstractController
      * and it needs to re-render as somebody types, which is what
      * {@see \App\Twig\Components\FieldNumbering} is for.
      *
-     * Reachable only for a field that is numbered already, and that is this
-     * ticket's scope valve rather than an oversight: making an ordinary text
-     * field numbered is a question about the records it already holds, and §5.10
-     * says at length why that is a different feature.
+     * **Reachable for a field that is not numbered yet too** (XIV-91), which is
+     * the one thing XIV-27 deliberately withheld. The same page, because it is
+     * the same subject: a pattern, the number it produces and the counter it
+     * comes from. What is added when the field has no numbering is the part that
+     * is about *records* rather than about the pattern — how many of them have
+     * nothing in this field and would be given a number, and how many already
+     * hold something and would keep it.
+     *
+     * **Here rather than as a checkbox in the field table**, and that is a
+     * decision rather than a place things happened to fit. The row in that table
+     * is a control per column and every one of them is instantaneous and
+     * reversible: tick "listed", untick it, nothing happened. Numbering is
+     * neither. It writes into records that already exist, once, and it has to
+     * say how many before it does — which is a paragraph and a confirmation, not
+     * a checkbox, and putting it in the row would make the most consequential
+     * change on the page look like the cheapest one.
+     *
+     * The two counts are handed to the component as props rather than read by
+     * it. They do not depend on the pattern somebody is typing, so reading them
+     * per keystroke would be two table scans for an answer that cannot have
+     * changed; the scan that *does* depend on the pattern is deferred to the
+     * confirmation, which is the one request that can afford it.
      */
     #[Route('/{field}/numbering', name: 'field_numbering', requirements: ['field' => Requirement::POSITIVE_INT], methods: ['GET'])]
     public function numbering(string $module, int $field): Response
     {
         $definition = $this->definition($module);
-        $target = $this->numberedField($definition, $field);
+        $target = $this->numberingField($definition, $field);
 
         return $this->render('field/numbering.html.twig', [
             'module' => $definition,
             'field' => $target,
+            'numbered' => NumberFormat::of($target) !== null,
+            'blank' => $this->editor->recordsMissing($target),
+            'held' => $this->editor->recordsHolding($target),
         ]);
+    }
+
+    /**
+     * What turning numbering on would do, before it is done (XIV-91).
+     *
+     * A page of its own between typing a pattern and living with it, and it
+     * exists for one reason: the backfill writes numbers into records that
+     * already exist, in creation order, once, with no undo. §4.1 sets the tone
+     * for that — name what is about to happen, name how much of it there is, and
+     * default to no — and it is the tone rather than the mechanism that is being
+     * copied here.
+     *
+     * It says four things a customer cannot work out for themselves: how many
+     * records get a number, what the first and last of them will be called, how
+     * many keep a value they already have, and that a number typed in before now
+     * has been found and the counter moved above it. All four come from the same
+     * computation the real run uses ({@see NumberingChange::plan()}), so the page
+     * is not a description of the operation but the operation asked not to
+     * commit.
+     *
+     * A POST because it carries the pattern that was typed into the live control
+     * on the page before, and because a GET that scanned a customer's whole
+     * records table would be a link somebody could put in a crawler.
+     */
+    #[Route('/{field}/numbering/start', name: 'field_numbering_start', requirements: ['field' => Requirement::POSITIVE_INT], methods: ['POST'])]
+    public function confirmNumbering(string $module, int $field, Request $request): Response
+    {
+        $definition = $this->definition($module);
+        $target = $this->numberableField($definition, $field);
+        $pattern = trim((string) $request->request->get(NumberFormat::OPTION));
+        $format = NumberFormat::parse($pattern);
+
+        if (!$this->isCsrfTokenValid('edit-fields', (string) $request->request->get('_token')) || $format === null) {
+            // A pattern that numbers nothing is refused rather than confirmed,
+            // with the sentence the write path would have used — the page it
+            // came from disables the button for exactly this, so arriving here
+            // means the form was posted around it.
+            $this->addFlash('warning', MetadataChangeRefused::patternNumbersNothing($pattern)
+                ->translatable()
+                ->trans($this->translator));
+
+            return $this->redirectToRoute('field_numbering', ['module' => $module, 'field' => $field]);
+        }
+
+        return $this->render('field/numbering_start.html.twig', [
+            'module' => $definition,
+            'field' => $target,
+            'pattern' => $pattern,
+            'plan' => $this->numbering->plan($definition, $target, $format, new \DateTimeImmutable()),
+        ]);
+    }
+
+    /**
+     * And doing it, once somebody has said the word (XIV-91).
+     *
+     * The confirmation checkbox is required here rather than only in the
+     * template. A required attribute is a courtesy to somebody using the page
+     * and nothing at all to a form posted around it, and what is on the other
+     * side of this call is a write into every record of a module that cannot be
+     * taken back — so the rule is on the server, where it holds for every caller
+     * rather than for the ones who arrived through the front door.
+     *
+     * Everything else is {@see NumberingChange::start()}'s, in one transaction:
+     * a refusal, a browser closing or a backfill too large to finish leaves the
+     * field exactly as unnumbered as it was.
+     */
+    #[Route('/{field}/numbering/on', name: 'field_numbering_on', requirements: ['field' => Requirement::POSITIVE_INT], methods: ['POST'])]
+    public function startNumbering(string $module, int $field, Request $request): Response
+    {
+        $definition = $this->definition($module);
+
+        if ($this->isCsrfTokenValid('edit-fields', (string) $request->request->get('_token'))
+            && $request->request->getBoolean('confirm')
+        ) {
+            $target = $this->numberableField($definition, $field);
+            $pattern = trim((string) $request->request->get(NumberFormat::OPTION));
+            $format = NumberFormat::parse($pattern);
+
+            try {
+                if ($format === null) {
+                    throw MetadataChangeRefused::patternNumbersNothing($pattern);
+                }
+
+                $done = $this->numbering->start($definition, $target, $format, new \DateTimeImmutable());
+
+                // The figures come back from the run rather than from the page
+                // that was agreed to: a record added between the two is one more
+                // record numbered, and the sentence somebody reads afterwards
+                // should be about what happened.
+                $this->addFlash('success', $this->translator->trans('flash.numbering_started', [
+                    '%field%' => $target->getLabel(),
+                    '%count%' => $done->writes(),
+                ]));
+            } catch (MetadataChangeRefused|CounterRefused $e) {
+                $this->addFlash('warning', $e->translatable()->trans($this->translator));
+
+                return $this->redirectToRoute('field_numbering', ['module' => $module, 'field' => $field]);
+            }
+        }
+
+        return $this->redirectToRoute('field_index', ['module' => $module]);
+    }
+
+    /**
+     * What turning numbering off means, said before it happens (XIV-91).
+     *
+     * Nothing is destroyed by this and it is still confirmed, because "nothing
+     * is destroyed" is precisely the part that would be assumed wrongly in
+     * either direction. Somebody switching numbering off may well expect the
+     * numbers to go with it — they do not, they are on documents customers are
+     * holding — and may not expect the field to become an ordinary text box that
+     * anybody can type a duplicate into, which it does.
+     *
+     * A GET confirmation like the one in front of removing a field, because
+     * there is nothing to carry: the only input is the decision.
+     */
+    #[Route('/{field}/numbering/off', name: 'field_numbering_confirm_off', requirements: ['field' => Requirement::POSITIVE_INT], methods: ['GET'])]
+    public function confirmStopNumbering(string $module, int $field): Response
+    {
+        $definition = $this->definition($module);
+        $target = $this->numberedField($definition, $field);
+
+        return $this->render('field/numbering_stop.html.twig', [
+            'module' => $definition,
+            'field' => $target,
+            'numbered' => $this->editor->recordsHolding($target),
+        ]);
+    }
+
+    #[Route('/{field}/numbering/off', name: 'field_numbering_off', requirements: ['field' => Requirement::POSITIVE_INT], methods: ['POST'])]
+    public function stopNumbering(string $module, int $field, Request $request): Response
+    {
+        $definition = $this->definition($module);
+
+        if ($this->isCsrfTokenValid('edit-fields', (string) $request->request->get('_token'))) {
+            $target = $this->numberedField($definition, $field);
+            $this->numbering->stop($target);
+
+            $this->addFlash('success', $this->translator->trans('flash.numbering_stopped', [
+                '%field%' => $target->getLabel(),
+            ]));
+        }
+
+        return $this->redirectToRoute('field_index', ['module' => $module]);
     }
 
     /**
@@ -246,6 +415,12 @@ final class FieldController extends AbstractController
      * visible: adding `{year}` moves to a counter of its own, and somebody
      * setting 1043 while adding it means 1043 in the new numbering.
      *
+     * Through {@see NumberingChange::windForward()} rather than straight at the
+     * allocator (XIV-91): a field that used to be typed into by hand can carry a
+     * number no counter ever gave out, and the counter's own guard compares
+     * against the counter. Both checks happen, the second one is still the
+     * atomic statement, and neither is this controller's to make.
+     *
      * @throws CounterRefused
      */
     private function restartCounter(
@@ -269,12 +444,7 @@ final class FieldController extends AbstractController
             return;
         }
 
-        $this->counters->restartAt(
-            $module->getKey(),
-            $field->getKey(),
-            $format->period(new \DateTimeImmutable()),
-            (int) $next,
-        );
+        $this->numbering->windForward($module, $field, $format, (int) $next, new \DateTimeImmutable());
     }
 
     /**
@@ -529,30 +699,74 @@ final class FieldController extends AbstractController
     /**
      * The ids of the fields whose numbering a customer may edit (XIV-27).
      *
-     * Three things at once, and each of them is a real narrowing:
-     *
-     *  * **the module's own shape, not a collection's.** {@see AssignsNumbers}
-     *    walks a module's fields and nothing else, so a numbered field on an
-     *    order *line* would be a page promising a number that no save would ever
-     *    assign.
-     *  * **a type that declares {@see Numbers}**, which is the capability half.
-     *  * **a pattern that is already a sequence.** Whether a field is numbered
-     *    is not a fact about its type, and turning numbering on is the follow-up
-     *    §5.10 argues for rather than a control this page draws.
+     * The two narrowings in {@see idsOf()}, plus the one that makes this list
+     * what it is: **a pattern that is already a sequence.** Whether a field is
+     * numbered is not a fact about its type, and since XIV-91 it is not the same
+     * question as whether it *could* be — see {@see numberableIn()} for the other
+     * half, which is everything this excludes.
      *
      * @return list<int>
      */
     private function numberedIn(ModuleDefinition $module): array
     {
+        return $this->idsOf($module, fn (FieldDefinition $field): bool => NumberFormat::of($field) !== null);
+    }
+
+    /**
+     * The ids of the fields a customer could *start* numbering (XIV-91).
+     *
+     * The same two narrowings as above — the module's own shape, a type that
+     * declares {@see Numbers} — minus the third, plus one that is new and is the
+     * ticket's answer to what a derived field means here:
+     *
+     *  * **not numbered already**, which is the whole difference. That field has
+     *    a pattern to edit rather than numbering to take up.
+     *  * **not derived.** A derived field is the engine's ({@see
+     *    FieldDefinition::isDerived()}): an order's total, an invoice's due date,
+     *    a value computed on every save by something that owns it. Numbering one
+     *    would mean two derivers with an opinion about the same column, and the
+     *    one that ran second would win by accident. Numbering *makes* a field
+     *    derived, which is the same statement read forwards — so what this list
+     *    excludes is a field that already belongs to somebody.
+     *
+     * System-ness is deliberately **not** a narrowing. A module's own text field
+     * is still the customer's data in the customer's copy of the module (§6.1),
+     * and refusing to number `contact.reference` because a blueprint created it
+     * would be inventing a rule §5.4 does not have — the rule it does have is
+     * about *removing* a module's field, which orphans values, and this creates
+     * none.
+     *
+     * @return list<int>
+     */
+    private function numberableIn(ModuleDefinition $module): array
+    {
+        return $this->idsOf(
+            $module,
+            static fn (FieldDefinition $field): bool => NumberFormat::of($field) === null && !$field->isDerived(),
+        );
+    }
+
+    /**
+     * The module's own numbering-capable fields that also satisfy something else.
+     *
+     * The two narrowings both lists share, in one place: {@see AssignsNumbers}
+     * walks a module's fields and nothing else, so a numbered field on an order
+     * *line* would be a page promising a number no save would ever assign; and a
+     * type has to declare {@see Numbers} before any of this is offered on it.
+     *
+     * @param callable(FieldDefinition): bool $and
+     *
+     * @return list<int>
+     */
+    private function idsOf(ModuleDefinition $module, callable $and): array
+    {
         $ids = [];
 
         foreach ($module->getFields() as $field) {
-            if ($this->offers(NumberFormat::OPTION, $field->getType()) && NumberFormat::of($field) !== null) {
-                $id = $field->getId();
+            $id = $field->getId();
 
-                if ($id !== null) {
-                    $ids[] = $id;
-                }
+            if ($id !== null && $this->offers(NumberFormat::OPTION, $field->getType()) && $and($field)) {
+                $ids[] = $id;
             }
         }
 
@@ -560,12 +774,12 @@ final class FieldController extends AbstractController
     }
 
     /**
-     * One of them, by id, or a 404.
+     * A field whose numbering may be *edited*, by id, or a 404.
      *
-     * Both numbering routes go through this, so the link the list draws and the
-     * page it leads to cannot disagree — and a hand-typed URL naming an ordinary
-     * text field is not found rather than being an accidental way to reach the
-     * feature the scope valve deferred.
+     * Narrower than {@see numberingField()} on purpose: saving a pattern and
+     * winding a counter forward are changes to numbering that already exists, so
+     * a URL naming an ordinary text field is not found rather than being a way
+     * to switch numbering on without passing the confirmation.
      */
     private function numberedField(ModuleDefinition $module, int $id): FieldDefinition
     {
@@ -575,6 +789,59 @@ final class FieldController extends AbstractController
             throw $this->createNotFoundException(
                 sprintf('Field %d of "%s" is not numbered, so it has no numbering to edit.', $id, $module->getKey()),
             );
+        }
+
+        return $field;
+    }
+
+    /**
+     * A field numbering may be *taken up* on, by id, or a 404 (XIV-91).
+     *
+     * The mirror of {@see numberedField()}, and both are narrow for the same
+     * reason: the two halves of this page do different things and only one of
+     * them writes into records. A field that is numbered already must not reach
+     * the confirmation — it would offer to backfill a column the engine has been
+     * filling all along — and a field that is not must not reach the save, which
+     * would be a way to switch numbering on without passing the confirmation at
+     * all.
+     */
+    private function numberableField(ModuleDefinition $module, int $id): FieldDefinition
+    {
+        $field = $this->field($module, $id);
+
+        if (!\in_array($id, $this->numberableIn($module), true)) {
+            throw $this->createNotFoundException(sprintf(
+                'Field %d of "%s" is numbered already, or is not something that can be: numbering is offered on '
+                . "a module's own text fields that nothing else fills in.",
+                $id,
+                $module->getKey(),
+            ));
+        }
+
+        return $field;
+    }
+
+    /**
+     * A field the numbering *page* is about: numbered, or able to be (XIV-91).
+     *
+     * Every route that reaches that page goes through this, so the link the
+     * field list draws and the page it leads to cannot disagree about who is
+     * allowed there — and a hand-typed URL naming a date field, a collection's
+     * field or an order's total is still not found.
+     */
+    private function numberingField(ModuleDefinition $module, int $id): FieldDefinition
+    {
+        $field = $this->field($module, $id);
+
+        if (!\in_array($id, $this->numberedIn($module), true)
+            && !\in_array($id, $this->numberableIn($module), true)
+        ) {
+            throw $this->createNotFoundException(sprintf(
+                'Field %d of "%s" is not numbered and cannot be: numbering is offered on a module\'s own text '
+                . 'fields that nothing else fills in.',
+                $id,
+                $module->getKey(),
+            ));
         }
 
         return $field;

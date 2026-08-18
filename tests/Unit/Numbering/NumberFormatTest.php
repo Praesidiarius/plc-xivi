@@ -109,6 +109,62 @@ final class NumberFormatTest extends TestCase
         self::assertFalse(NumberFormat::parse('ORD-{number:6}')?->resetsAnnually());
     }
 
+    /**
+     * Reading a number back out of a value somebody typed (XIV-91).
+     *
+     * {@see NumberFormat::render()} run backwards, and the reason it exists is
+     * the one duplicate the counter's own guard structurally cannot see: a text
+     * field being made numbered may already hold `RE-2026-0007`, which no
+     * counter ever gave out. Recognising it is what lets the counter be floored
+     * above it.
+     *
+     * The negative cases are the load-bearing ones. Everything this does *not*
+     * recognise is by construction something the pattern could never render, so
+     * the counter cannot duplicate it and nothing needs to be done about it —
+     * which is the whole answer to "and then what about `Referenz 12`?".
+     */
+    public function testAValueCanBeRecognisedAsSomethingThisPatternWouldProduce(): void
+    {
+        $annual = $this->format('RE-{year}-{number:4}');
+        self::assertNotNull($annual);
+        $on = new \DateTimeImmutable('2026-03-01');
+
+        self::assertSame(7, $annual->counterIn('RE-2026-0007', $on), 'padding is not part of the value');
+        self::assertSame(1043, $annual->counterIn('RE-2026-1043', $on), 'nor is a number wider than the padding');
+        self::assertNull($annual->counterIn('RE-2025-0007', $on), "last year's counter is a different counter");
+        self::assertNull($annual->counterIn('Referenz 12', $on), 'something a person wrote');
+        self::assertNull($annual->counterIn('RE-2026-draft', $on), 'the literals line up and the hole is not digits');
+        self::assertNull($annual->counterIn('XRE-2026-0007', $on), 'and it is anchored at both ends');
+        self::assertNull(
+            $annual->counterIn('RE-2026-99999999999999999999', $on),
+            'more digits than an int can hold is refused rather than truncated',
+        );
+
+        // A counter that never restarts reads the same way, minus the year.
+        $forever = $this->format('{number:6}');
+        self::assertNotNull($forever);
+        self::assertSame(42, $forever->counterIn('000042', $on));
+        self::assertNull($forever->counterIn('42a', $on));
+    }
+
+    /**
+     * The text every number of a pattern begins with, which is only ever a
+     * narrowing (XIV-91).
+     *
+     * It exists so that a scan of a column somebody has been typing into for
+     * three years throws away the rows that cannot be an answer before they
+     * reach PHP. It is never the test — `counterIn()` above is — and the empty
+     * string for a pattern that starts with its counter is the honest answer
+     * rather than a case to guard against.
+     */
+    public function testThePrefixNarrowsTheScanAndDecidesNothing(): void
+    {
+        $on = new \DateTimeImmutable('2026-03-01');
+
+        self::assertSame('RE-2026-', $this->format('RE-{year}-{number:4}')?->literalPrefix($on));
+        self::assertSame('', $this->format('{number:6}')?->literalPrefix($on), 'nothing to narrow by');
+    }
+
     // -- helpers ------------------------------------------------------------
 
     private function render(string $pattern, int $value, string $on): string

@@ -27,6 +27,7 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\UX\LiveComponent\Test\TestLiveComponent;
 use Xivi\Contact\ContactModule;
 use Xivi\Core\Entity\FieldDefinition;
+use Xivi\Core\Metadata\MetadataEditor;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
@@ -307,24 +308,199 @@ final class FieldNumberingTest extends WebTestCase
     }
 
     /**
-     * A field that is not numbered has no numbering, and this is the scope valve
-     * (§5.10).
+     * A field nothing could number has no numbering page (XIV-91).
      *
-     * Making an ordinary text field numbered is a question about the records it
-     * already holds — what happens to the ones with no number, and to the values
-     * somebody typed by hand that a fresh counter knows nothing about — so it is
-     * a separate feature rather than a control this page quietly grew. The link
-     * is absent and the URL is not found; neither is an accident.
+     * The narrowing survives XIV-91 and is now the whole of it: a `text` field on
+     * a module's own shape may be numbered, and a date cannot — `ORD-2026-0001`
+     * is a string in every part of itself, including the leading zeros that make
+     * it sort. The link is absent and the URL is not found; neither is an
+     * accident, and a hand-typed URL is not a way round the type list.
      */
-    public function testAFieldThatIsNotNumberedHasNoNumberingPage(): void
+    public function testAFieldThatCannotBeNumberedHasNoNumberingPage(): void
     {
-        $name = $this->fieldId('first_name', ContactModule::KEY);
+        $birthday = $this->fieldId('birthday', ContactModule::KEY);
 
         $fields = $this->client->request('GET', $this->url('/m/contact/fields'));
-        self::assertCount(0, $fields->filter('a[href$="/' . $name . '/numbering"]'), 'no link on a plain text field');
+        self::assertCount(0, $fields->filter('a[href$="/' . $birthday . '/numbering"]'), 'no link on a date');
 
-        $this->client->request('GET', $this->url('/m/contact/fields/' . $name . '/numbering'));
+        $this->client->request('GET', $this->url('/m/contact/fields/' . $birthday . '/numbering'));
         self::assertResponseStatusCodeSame(404);
+    }
+
+    /**
+     * The thing XIV-27 deliberately did not do: number a field that has none
+     * (XIV-91).
+     *
+     * The link is on a plain text field now, the page opens on an empty pattern,
+     * and what the page adds is the part that is about *records* rather than
+     * about a pattern — how many of them are waiting for a number.
+     */
+    public function testAPlainTextFieldIsOfferedNumbering(): void
+    {
+        $reference = $this->aReferenceField();
+        $this->aContact('Acme AG');
+        $this->aContact('Bertha GmbH');
+
+        $fields = $this->client->request('GET', $this->url('/m/contact/fields'));
+        self::assertCount(
+            1,
+            $fields->filter('a[href$="/' . $reference . '/numbering"]'),
+            'the link is on a text field with no numbering',
+        );
+
+        $page = $this->client->request('GET', $this->url('/m/contact/fields/' . $reference . '/numbering'));
+
+        self::assertSame('', $page->filter('input[name="sequence"]')->attr('value'));
+        self::assertStringContainsString('2 records have nothing in this field', $page->filter('main')->text());
+    }
+
+    /**
+     * The backfill, which is the decision this ticket had to make (§5.10).
+     *
+     * Records that already exist are numbered **in creation order, once**, and
+     * the alternative is the failure it prevents: `AssignsNumbers` fills an empty
+     * field on any save, so leaving them alone would number the oldest contact
+     * 0001 for the accident of somebody opening it first. The second assertion is
+     * the one that proves it — the contact created first carries 0001 without
+     * ever having been saved again.
+     */
+    public function testExistingRecordsAreNumberedInCreationOrder(): void
+    {
+        $reference = $this->aReferenceField();
+        $oldest = $this->aContact('Oldest AG');
+        $newest = $this->aContact('Newest AG');
+
+        $this->numberTheField($reference, 'RE-{number:4}');
+
+        self::assertSame('RE-0001', $this->referenceOf($oldest), 'the one that was here first');
+        self::assertSame('RE-0002', $this->referenceOf($newest));
+        self::assertSame('RE-0003', $this->referenceOf($this->aContact('Newer still AG')), 'and on from there');
+    }
+
+    /**
+     * What the page says before it does it, and that it will not do it by
+     * accident (XIV-91).
+     *
+     * §4.1's tone: name what is about to happen, name how much of it there is,
+     * and default to no. The count and the first and last numbers are on the
+     * confirmation, the checkbox arrives unticked, and the controller requires it
+     * — a `required` attribute is a courtesy to somebody using the page and
+     * nothing at all to a form posted around it.
+     */
+    public function testTheConfirmationNamesItsScaleAndWillNotProceedWithoutIt(): void
+    {
+        $reference = $this->aReferenceField();
+        $this->aContact('Acme AG');
+        $this->aContact('Bertha GmbH');
+        $this->aContact('Cerberus AG');
+
+        $confirmation = $this->proposeNumbering($reference, 'RE-{number:4}')->filter('main')->text();
+
+        self::assertStringContainsString('3 records that have no number will be given one', $confirmation);
+        self::assertStringContainsString('RE-0001', $confirmation, 'the first');
+        self::assertStringContainsString('RE-0003', $confirmation, 'and the last');
+        self::assertStringContainsString('cannot be undone', $confirmation);
+
+        // The same form, submitted without ticking the box.
+        $form = $this->client->getCrawler()->filter('form[action$="/numbering/on"]')->form();
+        $this->client->submit($form);
+
+        self::assertNull(
+            $this->fieldOf('reference', ContactModule::KEY)->getOption(NumberFormat::OPTION),
+            'nothing was turned on',
+        );
+    }
+
+    /**
+     * The duplicate XIV-27's guard structurally cannot see (§5.10).
+     *
+     * A text field being made numbered may already hold `RE-0007`, typed by a
+     * person, and a counter starting at 1 knows nothing about it — the guard
+     * reads the counter and the collision is in the column. So the column is
+     * read: the values this pattern could have produced are recognised, the
+     * counter is floored above the highest of them, and the value somebody typed
+     * is left exactly where it is.
+     *
+     * The reference that is not in this pattern's shape is the other half of the
+     * answer, and it is answered by construction: a number rendered from
+     * `RE-{number:4}` can never come out looking like `Referenz 12`, so it cannot
+     * be duplicated and nothing is done about it.
+     */
+    public function testAValueAlreadyInTheColumnIsNeverHandedOutByTheCounter(): void
+    {
+        $reference = $this->aReferenceField();
+        $typed = $this->aContact('Migrated AG', 'RE-0007');
+        $freeform = $this->aContact('Freeform AG', 'Referenz 12');
+        $blank = $this->aContact('Blank AG');
+
+        $this->numberTheField($reference, 'RE-{number:4}');
+
+        self::assertSame('RE-0007', $this->referenceOf($typed), 'what somebody typed is not overwritten');
+        self::assertSame('Referenz 12', $this->referenceOf($freeform), 'nor what does not look like a number');
+        self::assertSame('RE-0008', $this->referenceOf($blank), 'and the counter starts above the highest found');
+        self::assertSame('RE-0009', $this->referenceOf($this->aContact('Next AG')));
+    }
+
+    /**
+     * And the counter cannot be *set* onto one either.
+     *
+     * XIV-27's wind-forward is guarded against numbers the counter gave out, in
+     * one statement, and that guard is untouched. This is the second check beside
+     * it, against the column, for the numbers no counter ever gave out.
+     */
+    public function testTheCounterCannotBeSetOntoANumberARecordAlreadyCarries(): void
+    {
+        $reference = $this->aReferenceField();
+        $this->aContact('Migrated AG', 'RE-0500');
+        $this->numberTheField($reference, 'RE-{number:4}');
+
+        $this->saveNumbering($reference, 'RE-{number:4}', '400');
+        $refusal = $this->flash();
+
+        self::assertStringContainsString('RE-0500', $refusal, 'the number that is in the way, as it reads');
+        self::assertStringContainsString('501', $refusal, 'and the lowest one that is free');
+        self::assertSame('RE-0501', $this->referenceOf($this->aContact('Next AG')), 'the counter did not move');
+    }
+
+    /**
+     * Turning it off, and saying what that means out loud (XIV-91).
+     *
+     * Three things are true at once and none of them is guessable: the numbers on
+     * records stay, because they are on documents customers are holding; the
+     * field becomes an ordinary text box that anybody may type in; and the
+     * counter is kept, so switching it back on carries on rather than walking
+     * back over numbers that are already out.
+     */
+    public function testNumberingCanBeTurnedOffAndSaysWhatThatMeans(): void
+    {
+        $reference = $this->aReferenceField();
+        $numbered = $this->aContact('Acme AG');
+        $this->numberTheField($reference, 'RE-{number:4}');
+        self::assertSame('RE-0001', $this->referenceOf($numbered));
+
+        $page = $this->client->request(
+            'GET',
+            $this->url(sprintf('/m/contact/fields/%d/numbering/off', $reference)),
+        );
+        $warning = $page->filter('main')->text();
+
+        self::assertStringContainsString('The numbers stay', $warning);
+        self::assertStringContainsString('ordinary text box', $warning);
+        self::assertStringContainsString('counter is kept', $warning);
+
+        $this->client->submit($page->filter('form[action$="/numbering/off"]')->form());
+        self::assertResponseRedirects();
+
+        self::assertNull(
+            $this->fieldOf('reference', ContactModule::KEY)->getOption(NumberFormat::OPTION),
+            'no longer numbered',
+        );
+        self::assertFalse($this->fieldOf('reference', ContactModule::KEY)->isDerived(), 'and typeable again');
+        self::assertSame('RE-0001', $this->referenceOf($numbered), 'the number on the record is untouched');
+
+        // Back on, and the counter is where it was left rather than at one.
+        $this->numberTheField($reference, 'RE-{number:4}');
+        self::assertSame('RE-0002', $this->referenceOf($this->aContact('Second AG')));
     }
 
     /**
@@ -358,6 +534,95 @@ final class FieldNumberingTest extends WebTestCase
     }
 
     // -- helpers ------------------------------------------------------------
+
+    /**
+     * A plain text field on the contact module, added the way a customer adds
+     * one (XIV-91).
+     *
+     * A field of their own rather than one of the module's, because that is the
+     * case the ticket is about: somebody has been typing references into a text
+     * box for three years and now wants them numbered. It also keeps every test
+     * here off `first_name`, which the shared tenant's other classes read.
+     */
+    private function aReferenceField(): int
+    {
+        return $this->inTenant(function (): int {
+            $contact = self::service(MetadataRepository::class)->get(ContactModule::KEY);
+            $field = $contact->getField('reference')
+                ?? self::service(MetadataEditor::class)->addField(
+                    shape: $contact,
+                    key: 'reference',
+                    label: 'Reference',
+                    type: 'text',
+                );
+
+            return (int) $field->getId();
+        });
+    }
+
+    /** A company, optionally carrying a reference somebody typed in by hand. */
+    private function aContact(string $name, ?string $reference = null): int
+    {
+        $fields = ['kind' => 'company', 'company_name' => $name];
+
+        if ($reference !== null) {
+            $fields['reference'] = $reference;
+        }
+
+        return $this->savedId($this->saveRecord(ContactModule::KEY, $fields, variant: 'company'));
+    }
+
+    private function referenceOf(int $contact): string
+    {
+        return $this->inTenant(function () use ($contact): string {
+            $module = self::service(MetadataRepository::class)->get(ContactModule::KEY);
+            $record = self::service(RecordRepository::class)->find($module, $contact);
+            self::assertInstanceOf(Record::class, $record);
+
+            return (string) $record->get('reference');
+        });
+    }
+
+    /**
+     * Type a pattern into the numbering page and ask what it would do.
+     *
+     * Through the form rather than by posting the route, so a control that
+     * stopped being drawn fails here: the page for a field with no numbering has
+     * to send somebody to a confirmation and not to a save.
+     */
+    private function proposeNumbering(int $field, string $pattern): Crawler
+    {
+        $page = $this->client->request('GET', $this->url(sprintf('/m/contact/fields/%d/numbering', $field)));
+        $form = $page->filter('form[action$="/numbering/start"]')->form();
+        $form[NumberFormat::OPTION] = $pattern;
+
+        return $this->client->submit($form);
+    }
+
+    /** And agree to it, which is the tick the controller requires. */
+    private function numberTheField(int $field, string $pattern): void
+    {
+        $confirmation = $this->proposeNumbering($field, $pattern);
+        $form = $confirmation->filter('form[action$="/numbering/on"]')->form();
+        // The checkbox arrives unticked, which is what "defaults to no" means:
+        // ticking it is a step a test has to take, exactly as a person does.
+        $form->setValues(['confirm' => '1']);
+
+        $this->client->submit($form);
+        self::assertResponseRedirects();
+    }
+
+    /** Saving the numbering of a contact field that already has some. */
+    private function saveNumbering(int $field, string $pattern, string $next = ''): void
+    {
+        $page = $this->client->request('GET', $this->url(sprintf('/m/contact/fields/%d/numbering', $field)));
+        $form = $page->filter('form[action$="/numbering"]')->form();
+        $form[NumberFormat::OPTION] = $pattern;
+        $form['next_value'] = $next;
+
+        $this->client->submit($form);
+        self::assertResponseRedirects();
+    }
 
     /** The numbering component, mounted as its page mounts it. */
     private function numbering(): TestLiveComponent

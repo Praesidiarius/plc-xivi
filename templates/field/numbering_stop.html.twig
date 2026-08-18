@@ -1,0 +1,42 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'field.numbering.stop_title'|trans({'%field%': field.label}) }}{% endblock %}
+
+{#
+	Turning numbering off (XIV-91).
+
+	Nothing is destroyed here and it is confirmed anyway, because "nothing is
+	destroyed" is exactly what would be assumed wrongly — in both directions.
+	Somebody switching numbering off may well expect the numbers to go with it;
+	they do not, and they must not, because they are on documents customers are
+	holding. And nobody expects the field to become an ordinary text box that
+	anyone can type a duplicate into, which is precisely what it becomes.
+
+	XIV-27 refused an emptied pattern rather than reading it as "off" for want of
+	this page. The refusal stays — blanking a text box is not this conversation.
+#}
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<h1 class="h3 mb-3">{{ 'field.numbering.stop_title'|trans({'%field%': field.label}) }}</h1>
+
+		<div class="card">
+			<div class="card-body">
+				<p>{{ 'field.numbering.stop_keeps'|trans({'%count%': numbered})|raw }}</p>
+				<p>{{ 'field.numbering.stop_typeable'|trans }}</p>
+				<p class="mb-0">{{ 'field.numbering.stop_counter'|trans }}</p>
+			</div>
+		</div>
+
+		<div class="d-flex align-items-center gap-2 mt-3">
+			<a class="btn btn-link" href="{{ path('field_numbering', {module: module.key, field: field.id}) }}">{{ 'common.cancel'|trans }}</a>
+			<form method="post" action="{{ path('field_numbering_off', {module: module.key, field: field.id}) }}">
+				<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
+				<button class="btn btn-danger" type="submit">{{ 'field.numbering.stop_do'|trans }}</button>
+			</form>
+		</div>
+	</main>
+{% endblock %}

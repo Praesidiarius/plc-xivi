@@ -133,14 +133,22 @@
 												Numbering is a page rather than a cell (XIV-27): what is
 												decided there is a pattern, the number it produces and the
 												counter it comes from, and the number has to be shown as it
-												is typed. The link appears only where the field is numbered
-												*already* — making an ordinary text field numbered is a
-												question about the records it already holds, and §5.10 says
-												why that is a different feature.
+												is typed.
+
+												Since XIV-91 the link is on a text field that is *not*
+												numbered too, and says something different when it is:
+												numbering one is a question about the records it already
+												holds, and that page is where the question gets asked and
+												answered. Deliberately not a checkbox in this row — every
+												other control here is instantaneous and reversible, and this
+												one writes numbers into records that already exist.
 											#}
 											{% if field.id in numbered %}
 												<a class="btn btn-sm btn-outline-secondary"
 												   href="{{ path('field_numbering', {module: module.key, field: field.id}) }}">{{ 'field.numbering.title'|trans }}</a>
+											{% elseif field.id in numberable %}
+												<a class="btn btn-sm btn-outline-secondary"
+												   href="{{ path('field_numbering', {module: module.key, field: field.id}) }}">{{ 'field.numbering.start_link'|trans }}</a>
 											{% endif %}
 											{% if field.system %}
 												{# Came with the module; removing it is §7.2's other half. #}

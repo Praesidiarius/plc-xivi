@@ -104,12 +104,13 @@ final class MetadataChangeRefused extends \RuntimeException
      * no way of telling silence from success, and would find out when their
      * first invoice came out blank.
      *
-     * An emptied box lands here too, and that is deliberate rather than
-     * incidental. Turning numbering *off* on a field that has it is not a
-     * shorter version of changing the pattern — every record already carries a
-     * number that nothing would maintain — so it is the same follow-up question
-     * as turning it on (§5.10), and until that is answered the honest response
-     * to an empty pattern is this sentence.
+     * An emptied box lands here too, and still does after XIV-91. Turning
+     * numbering *off* is a real thing now, and it is deliberately **not** this:
+     * it is a page of its own that says what happens to the numbers already on
+     * records before it happens ({@see MetadataEditor::setNumbering()} with
+     * null). Blanking a text box is not that conversation, and reading it as
+     * "off" would make the most consequential change here the one that takes the
+     * least typing.
      */
     public static function patternNumbersNothing(string $pattern): self
     {

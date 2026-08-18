@@ -65,19 +65,86 @@ final readonly class NumberAllocator
      */
     public function next(string $shape, string $field, string $period): int
     {
-        // Two on insert and minus one on the way out, so that the first number a
-        // counter ever gives is 1 and the column always holds what the *next*
-        // caller will get. Writing it the other way round needs a second
-        // statement to initialise the row.
+        return $this->reserve($shape, $field, $period, 1);
+    }
+
+    /**
+     * A run of consecutive numbers, taken in one statement (XIV-91).
+     *
+     * {@see next()} generalised, and it is written this way round rather than
+     * the other so that there is still exactly **one** statement in this class
+     * that moves a counter forward. A backfill needing two hundred numbers could
+     * have called `next()` two hundred times and been correct; it would also
+     * have taken two hundred round trips and two hundred chances for a reader to
+     * wonder whether the loop was atomic. `count` in the arithmetic answers that
+     * once.
+     *
+     * The addition is inside the statement, which is the whole design (see the
+     * class comment): the row lock is taken by the update and the value returned
+     * is the one this caller may use. `next_value - :count` is the first number
+     * of the block, and the caller owns every number from there up to
+     * `first + count - 1` — nobody else can be handed one of them, because the
+     * counter moved past them before this statement returned.
+     *
+     * Two on insert for a block of one, so the first number a counter ever gives
+     * is 1 and the column always holds what the *next* caller will get. Writing
+     * it the other way round needs a second statement to initialise the row.
+     *
+     * @param int $count how many consecutive numbers the caller needs
+     *
+     * @return int the first of them
+     */
+    public function reserve(string $shape, string $field, string $period, int $count): int
+    {
+        if ($count < 1) {
+            throw new \InvalidArgumentException(sprintf('A run of %d numbers is not a run of numbers.', $count));
+        }
+
         return (int) $this->connection->fetchOne(
             <<<'SQL'
                 INSERT INTO number_sequence (shape_key, field_key, period, next_value)
-                VALUES (:shape, :field, :period, 2)
+                VALUES (:shape, :field, :period, 1 + :count)
                 ON CONFLICT (shape_key, field_key, period)
-                DO UPDATE SET next_value = number_sequence.next_value + 1
-                RETURNING next_value - 1
+                DO UPDATE SET next_value = number_sequence.next_value + :count
+                RETURNING next_value - :count
                 SQL,
-            ['shape' => $shape, 'field' => $field, 'period' => $period],
+            ['shape' => $shape, 'field' => $field, 'period' => $period, 'count' => $count],
+        );
+    }
+
+    /**
+     * Raise a counter to at least this, and leave it alone if it is already
+     * there (XIV-91).
+     *
+     * The sibling of {@see restartAt()} and deliberately not a variant of it.
+     * `restartAt()` is a customer typing a number, so being at or below what has
+     * been given out is a mistake somebody has to be told about; this is the
+     * engine noticing that a column already holds `RE-0007` and moving the
+     * counter out of its way, where "the counter is already past it" is not a
+     * problem at all but the ordinary case.
+     *
+     * `GREATEST` rather than a `WHERE`, and that is the point: this statement
+     * has no failure. A counter cannot be moved backwards by it whatever it is
+     * handed, so there is no refusal to report, no rows-came-back to interpret,
+     * and nothing a caller can get wrong by ignoring the return value there
+     * isn't one of. Same atomicity as everything else here — the maximum is
+     * taken by the database, inside the statement that holds the row lock, so a
+     * save allocating a number at the same moment either happened first (and is
+     * therefore included in what the column scan saw, or ahead of it anyway) or
+     * waits.
+     *
+     * @param int $floor the lowest number this counter may still give out
+     */
+    public function atLeast(string $shape, string $field, string $period, int $floor): void
+    {
+        $this->connection->executeStatement(
+            <<<'SQL'
+                INSERT INTO number_sequence (shape_key, field_key, period, next_value)
+                VALUES (:shape, :field, :period, :floor)
+                ON CONFLICT (shape_key, field_key, period)
+                DO UPDATE SET next_value = GREATEST(number_sequence.next_value, :floor)
+                SQL,
+            ['shape' => $shape, 'field' => $field, 'period' => $period, 'floor' => max($floor, self::FIRST)],
         );
     }
 
@@ -133,8 +200,13 @@ final readonly class NumberAllocator
      *
      * Note what this deliberately cannot see: values a person typed into the
      * field by hand before it was numbered. The counter knows what the counter
-     * gave out and nothing else, which is one of the reasons making an already
-     * populated field numbered is a separate question (§5.10).
+     * gave out and nothing else. That is not a gap any more but it is still not
+     * this method's job — XIV-91 reads the column and refuses the same number a
+     * second way, in {@see \Xivi\Core\Metadata\NumberingChange::windForward()},
+     * **before** calling this and never instead of it. The two live side by
+     * side on purpose: a column scan is a read and can be raced, this is a
+     * statement and cannot, and dropping either would leave a duplicate nobody
+     * catches.
      *
      * @param int $next the number the counter should give out next
      *
