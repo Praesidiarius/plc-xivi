@@ -163,6 +163,16 @@ final class TenantUsageCollectionTest extends KernelTestCase
         self::assertSame(3, $usage->getRecordCount(), 'three live contacts');
         self::assertSame([ContactModule::KEY => 3], $usage->getRecordsByModule());
 
+        // **And what the customer's own database says it has installed** (XIV-95),
+        // which is the list the tenant list reconciles against `enabled_modules`.
+        // This fixture is itself the drift the ticket is about: the module was
+        // installed by calling `ModuleInstaller` inside the tenant, exactly as
+        // `tenant:module:install` does, and nothing wrote it into the registry
+        // row. So the two lists disagree here, and the collector reports what it
+        // saw rather than what the control plane expected.
+        self::assertSame([ContactModule::KEY], $usage->getInstalledModules());
+        self::assertSame([], $this->tenantRow()->getEnabledModules(), 'which the registry does not know about');
+
         // The most recent sign-in across the tenant's users, to the minute the
         // fixture recorded it.
         self::assertNotNull($usage->getLastLoginAt());
@@ -220,6 +230,7 @@ final class TenantUsageCollectionTest extends KernelTestCase
         self::assertTrue($broken->hasFailed(), 'the customer that could not be read is recorded as such');
         self::assertNull($broken->getUserCount(), 'and not as a customer with nobody in it');
         self::assertNull($broken->getRecordCount());
+        self::assertSame([], $broken->getInstalledModules(), 'nor as a customer with no modules (XIV-95)');
         self::assertNotNull($broken->getFailure(), 'the class of what went wrong is kept');
 
         // The one the run had every opportunity to abandon. Its slug sorts before
@@ -303,6 +314,15 @@ final class TenantUsageCollectionTest extends KernelTestCase
         $tester->execute($slug === null ? [] : ['--slug' => $slug]);
 
         return $tester;
+    }
+
+    /** The registry row for the customer this class provisions, read back fresh. */
+    private function tenantRow(): Tenant
+    {
+        $tenant = self::service(TenantRepository::class)->findOneBySlug(self::SLUG);
+        \assert($tenant instanceof Tenant);
+
+        return $tenant;
     }
 
     private function usageFor(string $slug): TenantUsage

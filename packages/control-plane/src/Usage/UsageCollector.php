@@ -19,6 +19,8 @@ use App\Tenant\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Xivi\ControlPlane\Entity\TenantUsage;
 use Xivi\ControlPlane\Repository\TenantUsageRepository;
+use Xivi\Core\Entity\ModuleDefinition;
+use Xivi\Core\Metadata\MetadataRepository;
 
 /**
  * Goes and looks at one customer's database, and writes down how much is in it
@@ -47,11 +49,18 @@ use Xivi\ControlPlane\Repository\TenantUsageRepository;
  *
  * ## One tenant at a time, and the connection is shut before the next one opens
  *
- * `RecordCounter::countFor()` is not used, on purpose: this class needs three
- * figures out of the same database and taking them through three switches would
- * open and close it three times. So it opens the switch itself, asks everything
+ * `RecordCounter::countFor()` is not used, on purpose: this class needs four
+ * answers out of the same database and taking them through four switches would
+ * open and close it four times. So it opens the switch itself, asks everything
  * inside it, and lets `runFor` close it on the way out — which it does
  * unconditionally, including when the callback throws.
+ *
+ * **[XIV-95] made that four rather than three by keeping something already
+ * read.** The counter walks the customer's own metadata to know which shapes to
+ * count, so the list of modules a customer actually has was being read once per
+ * collection and thrown away. It is now written down beside the figures, which is
+ * what lets the tenant list say what a customer *has* rather than only what the
+ * control plane arranged for them (§6.1) — without the page opening anything.
  *
  * **That closing is load-bearing rather than tidy.** There is exactly one tenant
  * connection object in the process, and `TenantSwitcher` closes it on every
@@ -90,6 +99,7 @@ final readonly class UsageCollector
     public function __construct(
         private TenantSwitcher $switcher,
         private RecordCounter $records,
+        private MetadataRepository $metadata,
         private UserRepository $users,
         private TenantUsageRepository $usages,
         private EntityManagerInterface $controlPlane,
@@ -115,22 +125,28 @@ final readonly class UsageCollector
         $usage = $this->usages->findOneForTenant($tenant) ?? new TenantUsage($tenant);
 
         try {
-            /** @var array{users: int, lastLoginAt: ?\DateTimeImmutable, records: array<string, int>} $figures */
+            /** @var array{users: int, lastLoginAt: ?\DateTimeImmutable, modules: list<string>, records: array<string, int>} $figures */
             $figures = $this->switcher->runFor($tenant, function (): array {
-                // One switch, three figures, in the order that costs least to
+                // One switch, four answers, in the order that costs least to
                 // explain: the users first because the table is always there, the
-                // records after because how many tables that is depends on what
-                // this customer installed (§6.1).
+                // modules and their records after because how many tables that is
+                // depends on what this customer installed (§6.1).
                 $people = $this->users->countAndLastSignIn();
 
                 return [
                     'users' => $people['users'],
                     'lastLoginAt' => $people['lastLoginAt'],
+                    'modules' => $this->installedModules(),
                     'records' => $this->records->countInCurrentTenant(),
                 ];
             });
 
-            $usage->record($figures['users'], $figures['lastLoginAt'], $figures['records']);
+            $usage->record(
+                $figures['users'],
+                $figures['lastLoginAt'],
+                $figures['modules'],
+                $figures['records'],
+            );
             $outcome = new CollectionOutcome($usage);
         } catch (\Throwable $e) {
             // `\Throwable` rather than a driver exception list, deliberately. What
@@ -149,5 +165,43 @@ final readonly class UsageCollector
         $this->controlPlane->flush();
 
         return $outcome;
+    }
+
+    /**
+     * The modules the current customer's own database says it has (XIV-95).
+     *
+     * **Read from the metadata rather than taken from the counts beside it**, and
+     * that is the decision in this method rather than the two lines of code. The
+     * keys of `countInCurrentTenant()` happen to be exactly this list today,
+     * because the counter walks the same `all()` — so `array_keys()` would work,
+     * cost nothing, and be wrong in the way that matters. It would make *what a
+     * customer has installed* a by-product of how counting is implemented: the
+     * first time the counter learns to skip a shape — a module with no records
+     * table, a shape the engine cannot read, a count the engine decides not to
+     * make — that module would silently vanish from the installed list, and the
+     * page would report a disagreement with the registry that does not exist.
+     * Drift invented by our own implementation is the one failure the modules cell
+     * cannot afford, because a real one is meant to send an operator looking.
+     *
+     * It costs nothing to ask separately. `MetadataRepository::all()` is served
+     * from {@see \Xivi\Core\Metadata\MetadataCache} for as long as the tenant does
+     * not move (XIV-53), and this call and the counter's are inside the same
+     * switch — so the second one is an array lookup rather than a query.
+     *
+     * **Names, and nothing under them.** A `ModuleDefinition` in hand is a whole
+     * shape — its fields, its collections, their fields, all fetch-joined — and
+     * exactly one string of it leaves this method. §8.11 draws the line at *how
+     * much* rather than *what*, and reading a module's definitions to learn its
+     * name is on the permitted side of it; a field label would not be, and a
+     * record certainly is not.
+     *
+     * @return list<string>
+     */
+    private function installedModules(): array
+    {
+        return array_map(
+            static fn (ModuleDefinition $module): string => $module->getKey(),
+            $this->metadata->all(),
+        );
     }
 }

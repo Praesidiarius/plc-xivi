@@ -305,6 +305,15 @@ final class TenantUsageTest extends WebTestCase
             $tenant->markProvisioned();
             $tenant->setEncryptedDatabasePassword('XIV59CIPHERTEXT');
 
+            // The registry's own module list, set so that it agrees with what the
+            // collections below say each customer has installed. This class is
+            // about the *figures* and nothing else, and since [XIV-95] the modules
+            // cell reports where those two lists differ — so leaving the registry
+            // side empty here would have every row of these fixtures reporting a
+            // disagreement that has nothing to do with what is being tested.
+            // Drift has its own fixtures, in {@see TenantInstalledModulesTest}.
+            $tenant->setEnabledModules($slug === self::BUSY ? ['contact', 'invoice'] : ['contact']);
+
             $entityManager->persist($tenant);
             $tenants[$slug] = $tenant;
         }
@@ -313,10 +322,15 @@ final class TenantUsageTest extends WebTestCase
         // point of this class: these are control-plane rows, and what put them
         // there is not what this test is about.
         $busy = new TenantUsage($tenants[self::BUSY]);
-        $busy->record(12, new \DateTimeImmutable('2026-08-14 09:30'), ['contact' => 200, 'invoice' => 10]);
+        $busy->record(
+            12,
+            new \DateTimeImmutable('2026-08-14 09:30'),
+            ['contact', 'invoice'],
+            ['contact' => 200, 'invoice' => 10],
+        );
 
         $quiet = new TenantUsage($tenants[self::QUIET]);
-        $quiet->record(0, null, ['contact' => 0]);
+        $quiet->record(0, null, ['contact'], ['contact' => 0]);
 
         $unreadable = new TenantUsage($tenants[self::UNREADABLE]);
         $unreadable->recordFailure(self::FAILURE_CLASS);

@@ -63,6 +63,15 @@ use Xivi\ControlPlane\Entity\TenantUsage;
  * nobody has collected that customer yet, which is a different statement from
  * zero and from failed — see {@see TenantUsageSummary}.
  *
+ * **XIV-95 is the same move again, for a column that was already there.** The
+ * modules cell drew `enabled_modules` and said so, because §6.1 lets what a
+ * customer *has* differ from what the control plane arranged and finding out
+ * which means reading their metadata. The collector was already reading it — it
+ * is how it knows which shapes to count — so this object now carries both lists
+ * and {@see reconciledModules()} puts them beside each other. Still nothing
+ * fetched here, still nothing on this object that did not come out of the
+ * control-plane database.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class TenantSummary
@@ -129,6 +138,58 @@ final readonly class TenantSummary
             $tenant->getProvisionedAt(),
             $usage === null ? null : TenantUsageSummary::of($usage),
         );
+    }
+
+    /**
+     * The two answers to "which modules has this customer got", side by side
+     * (XIV-95).
+     *
+     * `$modules` above is `tenant.enabled_modules`: what the control plane
+     * arranged, current, and — until this method existed — the only thing the page
+     * could say, because reconciling it with the customer's own metadata means a
+     * tenant connection the page does not open (§8.10). The other half arrives on
+     * the usage row, read by `tenant:usage:collect` inside the one switch it
+     * already makes, and is therefore as old as that collection.
+     *
+     * **Empty when there is nothing collected to compare against**, which covers
+     * both a customer nobody has looked at and a collection that failed. That is
+     * not a convenience: a comparison against an absent list would report every
+     * enabled module as missing from the customer's database, which is a
+     * confident statement made out of not knowing. The template branches on the
+     * three states and draws the registry's own list, labelled as such, for the
+     * two where this returns nothing.
+     *
+     * @return list<ModuleReconciliation>
+     */
+    public function reconciledModules(): array
+    {
+        if ($this->usage === null || $this->usage->failed) {
+            return [];
+        }
+
+        return ModuleReconciliation::of(
+            $this->modules,
+            $this->usage->installedModules,
+            $this->usage->recordsByModule,
+        );
+    }
+
+    /**
+     * How many modules the two sources disagree about, in either direction.
+     *
+     * Drawn as one sentence above the list, so that a cell whose long tail is
+     * behind a disclosure control still says out loud that there is something in
+     * it. Counted here rather than in Twig because a `filter` with a closure in a
+     * template is where presentation quietly becomes logic, and because the page
+     * asks for this number twice — once to decide whether to draw the sentence at
+     * all, once to put in it.
+     */
+    public function moduleDifferences(): int
+    {
+        return \count(array_filter(
+            $this->reconciledModules(),
+            static fn (ModuleReconciliation $module): bool => !$module->agrees(),
+        ));
     }
 
     /**

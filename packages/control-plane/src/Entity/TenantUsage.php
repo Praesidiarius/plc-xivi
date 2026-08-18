@@ -53,6 +53,13 @@ use Xivi\ControlPlane\Repository\TenantUsageRepository;
  * sent: *nothing happened* and *we do not know* are different answers, and a
  * screen that renders them alike is one that gets acted on wrongly.
  *
+ * **[XIV-95] added a fourth value and did not add a fourth state.** The list of
+ * modules a customer actually has installed is read in the same switch, written
+ * by the same call and dropped by the same failure as the figures, so it is as
+ * old as they are and says so in the same three sentences. It could not have been
+ * anywhere else: a list of installed modules with no collection time beside it is
+ * a claim about a customer's database made by a page that never opened one.
+ *
  * ## The failure is stored as a class name, and deliberately not as a message
  *
  * A driver error carries the connection in it: `could not translate host name
@@ -118,6 +125,40 @@ class TenantUsage
     private ?array $recordsByModule = null;
 
     /**
+     * The modules this customer's own database says are installed (XIV-95).
+     *
+     * **Not the same list as `tenant.enabled_modules`, and the difference is the
+     * point.** The registry column is what the control plane believes it arranged
+     * for a customer; this is what their database actually has, read from their
+     * own metadata inside the collector's one switch. §6.1 lets those two differ
+     * and names three ways they do: a module installed straight from the console
+     * that provisioning never wrote down, a module the registry lists whose tables
+     * a half-finished provisioning run never created (§4.1), and a module whose
+     * definitions the customer has since diverged — because installing does not
+     * retro-fit and their copy is the truth from the moment it exists.
+     *
+     * **A difference is information rather than a fault**, which is why nothing
+     * here records one. The row stores an observation and a time; whether that
+     * observation agrees with the registry is a comparison the page makes, against
+     * the registry *as it is when the page is drawn*. Storing the comparison
+     * instead would freeze half of it: an operator who installs a module this
+     * afternoon would go on being told about a disagreement that no longer exists,
+     * or — worse — be told there is none because last night's run said so.
+     *
+     * Still names and never contents (§8.11). A module key is what this build
+     * already prints in `tenant:list`, `bin/console list tenant` and the store; it
+     * says a customer has invoicing, not what they have invoiced.
+     *
+     * Sorted on the way in so that two collections of the same customer produce
+     * the same array, which keeps a diff of this column meaningful and stops the
+     * page reordering itself between runs for no reason a reader could name.
+     *
+     * @var list<string>|null
+     */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $installedModules = null;
+
+    /**
      * The class of whatever went wrong, or null when nothing did.
      *
      * See the class docblock: the class rather than the message, because the
@@ -144,13 +185,26 @@ class TenantUsage
      * and leaving the old failure beside fresh figures would say something that
      * is no longer true.
      *
+     * @param list<string>       $installedModules what the tenant's own metadata says it has (XIV-95)
      * @param array<string, int> $recordsByModule
      */
-    public function record(int $userCount, ?\DateTimeImmutable $lastLoginAt, array $recordsByModule): void
-    {
+    public function record(
+        int $userCount,
+        ?\DateTimeImmutable $lastLoginAt,
+        array $installedModules,
+        array $recordsByModule,
+    ): void {
         $this->collectedAt = new \DateTimeImmutable();
         $this->userCount = $userCount;
         $this->lastLoginAt = $lastLoginAt;
+
+        // Sorted here rather than at every call site, because "the same customer
+        // collected twice produces the same array" is a property of the stored row
+        // and not of whoever happened to build the list. `sort` reindexes, which is
+        // what keeps this a JSON array rather than an object with numeric keys.
+        sort($installedModules);
+        $this->installedModules = $installedModules;
+
         $this->recordsByModule = $recordsByModule;
         $this->recordCount = array_sum($recordsByModule);
         $this->failure = null;
@@ -175,6 +229,17 @@ class TenantUsage
         $this->lastLoginAt = null;
         $this->recordCount = null;
         $this->recordsByModule = null;
+
+        // The installed list goes with the figures, and for the same reason
+        // (XIV-95). A database that did not answer has not told us it has no
+        // modules — keeping the previous list beside a failure would put a fact
+        // from the last successful run under a timestamp describing this failed
+        // one, and the page draws a module the tenant does not have as a
+        // disagreement with the registry. That is a difference invented by a
+        // stale row rather than observed, which is the one thing the modules cell
+        // must never report.
+        $this->installedModules = null;
+
         $this->failure = $exceptionClass;
     }
 
@@ -222,5 +287,23 @@ class TenantUsage
     public function getRecordsByModule(): array
     {
         return $this->recordsByModule ?? [];
+    }
+
+    /**
+     * What this customer's own database said it had installed (XIV-95).
+     *
+     * Empty for a collection that failed, which the caller can only read as *we
+     * do not know* because {@see hasFailed()} says so in the same breath. There is
+     * deliberately no way to get an empty list out of a successful collection and
+     * an empty list out of a failed one and tell them apart from this method
+     * alone — a tenant with genuinely nothing installed is a real and reachable
+     * state, so the two are distinguished by the failure flag rather than by a
+     * shape somebody has to remember.
+     *
+     * @return list<string>
+     */
+    public function getInstalledModules(): array
+    {
+        return $this->installedModules ?? [];
     }
 }

@@ -23,7 +23,46 @@
 	leak. Read `Xivi\ControlPlane\View\TenantSummary` before adding a variable to
 	this page, and `TenantListTest` for the assertion that keeps it true.
 #}
+{#
+	One module of one customer, as the modules cell draws it (XIV-95).
+
+	A macro rather than a copied block, because the cell renders the same line in
+	two places — the first few, and the tail behind the disclosure — and the whole
+	value of the tail is that it is not a different thing from the head.
+
+	**Everything that could be a colour is also a word.** The disagreement is
+	spelled out in the same line as the module key, in the same size as the count
+	beside it, because roughly one reader in twelve cannot tell two badge shades
+	apart and because a screenshot pasted into a chat carries no hover. The count
+	is text for the same reason: XIV-59 put it in a `title`, which a touch screen
+	and a screen reader both simply do not have.
+
+	No count is drawn for a module the customer has not got installed — there is
+	nothing to count, and a zero there would be a finding about a customer rather
+	than an absence of one (§8.11).
+#}
+{% macro line(module) %}
+	<li class="d-flex flex-wrap align-items-baseline gap-1">
+		<span class="badge text-bg-light font-monospace">{{ module.key }}</span>
+		{% if module.records is not null %}
+			<span>{{ 'control_plane.usage_records'|trans({'%count%': module.records}) }}</span>
+		{% endif %}
+		{% if module.installedOnly %}
+			<span class="text-body-secondary fst-italic">{{ 'control_plane.module_unrecorded'|trans }}</span>
+		{% elseif module.enabledOnly %}
+			<span class="text-body-secondary fst-italic">{{ 'control_plane.module_not_installed'|trans }}</span>
+		{% endif %}
+	</li>
+{% endmacro %}
+
 {% block body %}
+	{#
+		Imported inside the block rather than at the top of the file: a top-level
+		import in a template that `extends` another is not in scope inside the
+		blocks, which is a Twig rule that costs an afternoon the first time.
+	#}
+	{% import _self as modules %}
+
 	<main class="container page-shell py-4">
 		<div class="d-flex align-items-center justify-content-between mb-4">
 			<h1 class="h4 mb-0">{{ 'control_plane.title'|trans }}</h1>
@@ -148,20 +187,123 @@
 										<span class="text-body-secondary">&mdash;</span>
 									{% endif %}
 								</td>
-								<td>
+								<td class="module-cell">
 									{#
-										The keys the registry row records, not the modules the
-										customer's own database has installed. Those two can differ —
-										§6.1 — and reconciling them means reading each tenant's
-										metadata, which is a tenant connection this page does not
-										open. What is shown is therefore labelled by what it is: what
-										the control plane believes.
+										**What this customer actually has, and where that disagrees
+										with the registry** (XIV-95).
+
+										XIV-58 drew `tenant.enabled_modules` alone and said so, because
+										the other list — the one in the customer's own database — needs
+										a tenant connection this page still does not open. It is read
+										by `tenant:usage:collect` instead, in the same switch it
+										already makes to count records, and arrives here as a
+										control-plane row like everything else on this page.
+
+										So the same three states as the usage cell, for the same
+										reason: an installed-module list with no collection time
+										beside it would be a claim about a customer's database made
+										by a page that never opened one.
+
+										  * *not collected yet* and *could not be read* — the registry
+										    list is drawn, labelled as the registry's, and the cell
+										    says the other half is not known. Not shown as agreement,
+										    which is what drawing it unlabelled would have implied.
+										  * *collected* — every module either source knows about,
+										    with its record count, and the disagreements named.
+
+										**A disagreement is information, not a fault.** A module
+										installed from the console is something an operator did on
+										purpose, and §6.1 makes a customer's own definitions the truth
+										once installed. So there is no warning colour, no icon that
+										means "wrong" and nothing offering to fix it: the cell reports
+										two facts and names the difference between them, and the
+										reader decides whether it matters.
 									#}
-									{% for module in tenant.modules %}
-										<span class="badge text-bg-light font-monospace">{{ module }}</span>
+									{% if tenant.usage is null or tenant.usage.failed %}
+										{#
+											Only one of the two lists is known here, so only one is
+											drawn — and it is named, because an unlabelled list of
+											module keys in this cell now reads as *what the customer
+											has*, which is the one thing it is not.
+										#}
+										{% for module in tenant.modules %}
+											<span class="badge text-bg-light font-monospace">{{ module }}</span>
+										{% else %}
+											<span class="text-body-secondary">&mdash;</span>
+										{% endfor %}
+										<div class="small text-body-secondary mt-1">
+											{% if tenant.usage is null %}
+												{{- 'control_plane.modules_never'|trans -}}
+											{% else %}
+												{{- 'control_plane.modules_failed'|trans -}}
+											{% endif %}
+										</div>
 									{% else %}
-										<span class="text-body-secondary">&mdash;</span>
-									{% endfor %}
+										{% set reconciled = tenant.reconciledModules %}
+										{% set differences = tenant.moduleDifferences %}
+
+										{% if differences > 0 %}
+											{#
+												Said out loud above the list, because the list itself is
+												truncated for a customer with many modules and the one
+												thing that must not end up behind a disclosure control
+												is that there is something to disclose. Plain secondary
+												text and an information icon: this is a finding, and
+												nothing on this page should read as an accusation.
+											#}
+											<div class="small text-body-secondary mb-1">
+												<i class="bi bi-info-circle" aria-hidden="true"></i>
+												{{ 'control_plane.modules_differ'|trans({'%count%': differences}) }}
+											</div>
+										{% endif %}
+
+										{#
+											A list rather than a row of badges with a `title` on it.
+											XIV-59 put the per-module counts in a tooltip, which is
+											invisible on a touch screen and to a screen reader — so the
+											answer to *of what* was available to a mouse and to nobody
+											else. One module per line, its count in words beside it, and
+											a disagreement spelled out in the same line.
+										#}
+										<ul class="list-unstyled mb-0 small">
+											{% for module in reconciled|slice(0, 5) %}
+												{{ modules.line(module) }}
+											{% else %}
+												<li><span class="text-body-secondary">&mdash;</span></li>
+											{% endfor %}
+										</ul>
+
+										{#
+											**Six is the most any customer in this repository can have
+											today, and a customer could have more.** A cell that grows
+											without limit makes the row it is in unreadable and pushes
+											every other column off the screen, so the tail folds into a
+											disclosure — a real control, reachable by keyboard and
+											announced by a screen reader, which is exactly what the
+											tooltip this replaces was not.
+
+											Five is the threshold rather than ten because the point is
+											a row that stays a row. The ordering above puts every
+											disagreement first, so what folds away is only ever modules
+											both sources agree about.
+										#}
+										{% if reconciled|length > 5 %}
+											<details class="small">
+												<summary class="text-body-secondary">
+													{{- 'control_plane.modules_more'|trans({'%count%': reconciled|length - 5}) -}}
+												</summary>
+												<ul class="list-unstyled mb-0">
+													{% for module in reconciled|slice(5) %}
+														{{ modules.line(module) }}
+													{% endfor %}
+												</ul>
+											</details>
+										{% endif %}
+
+										<div class="small text-body-secondary mt-1">
+											{{- 'control_plane.modules_collected'|trans({'%time%': tenant.usage.collectedAt|date('Y-m-d H:i')}) -}}
+										</div>
+									{% endif %}
 								</td>
 								<td>
 									{#
@@ -198,12 +340,16 @@
 										</div>
 									{% else %}
 										{#
-											The breakdown by module goes in the title rather than the cell:
-											it is the answer to "of what", which is worth one hover and is
-											not worth a column per module on a table that already has
-											eight.
+											The totals only. **The breakdown by module used to hang off a
+											`title` here** and no longer does (XIV-95): a tooltip is
+											invisible on a touch screen and to a screen reader, so the
+											answer to *of what* was reaching a mouse and nobody else. It
+											is drawn as text in the modules cell instead, beside the
+											names it is about — which is where somebody looking for it
+											would go first, and means the per-module figures and the
+											per-module names are decided once rather than twice.
 										#}
-										<div{% if tenant.usage.recordsByModule is not empty %} title="{{ tenant.usage.recordBreakdown }}"{% endif %}>
+										<div>
 											{{ 'control_plane.usage_users'|trans({'%count%': tenant.usage.userCount}) }}
 											&middot;
 											{{ 'control_plane.usage_records'|trans({'%count%': tenant.usage.recordCount}) }}
