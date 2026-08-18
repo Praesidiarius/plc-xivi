@@ -1489,35 +1489,140 @@ reflex attached to the one that reports them.
 contact's addresses or an invoice's lines, and a table row carrying a collection
 marker is what grows.*
 
-**A marker that resolves to an image is a change to this pipeline, not a key in a
-list — so it is XIV-89 and not XIV-49.** The decision is written here because the
-reasoning belongs next to the pipeline it is about.
+#### A marker that draws a picture (XIV-89)
 
-Every marker above resolves to **text**. `DocumentMarkers::dataFor()` returns
-`array<string, string>` and `DocumentGenerator::fill()` hands that straight to
-`anourvalar/office`, whose `DocumentService` runs on a `ZipDriver`: it opens the
-.docx as a zip and replaces strings inside the XML parts. There is no image path
-in that library at all — it has a driver for the spreadsheet side and nothing
-equivalent for a Word drawing. So `[tenant.logo]` is not another entry in
-`InstanceContext::markers()`; it is DrawingML written by hand, which means a media
-part in the package, a relationship with an `rId` that cannot collide with the
-ones the customer's own template already uses, a `[Content_Types].xml` override, an
-extent in EMU and therefore a decision about how large a logo is on a page, and —
-the part that actually inverts the design — **replacing the marker's run with an
-element instead of substituting its text**, in a file where the marker may be split
-across several runs, which is the exact case this library was chosen to handle.
-`RepeatingBlocks` walks the same file first (XIV-17) and `TemplateReview` (XIV-25)
-would call the key unfillable until it learned about a marker that is not text.
+**`[tenant.logo]` is a change to this pipeline rather than a key in a list**,
+which is why it was split out of XIV-49 and given a ticket of its own. Everything
+above resolves to **text**: `DocumentMarkers::dataFor()` returns
+`array<string, string>`, `DocumentGenerator` hands that to `anourvalar/office`,
+and that library's `ZipDriver` opens the .docx and replaces strings inside the XML
+parts. There is no image path in it at all — a driver for the spreadsheet side and
+nothing equivalent for a Word drawing — so this is DrawingML written by hand, and
+the marker's run is **replaced by an element instead of having its text
+substituted**, which is the opposite of the one operation the whole feature is
+built out of.
 
-That is enough to be its own ticket, and the alternative was worse in a way this
-project has an opinion about: half of XIV-49 shipped properly and a second ticket
-somebody can read beats both halves rushed. What did ship is the logo itself — the
-upload, the storage, the bar and the sign-in page (§8.6).
+**Four things in the package have to agree, and they are per *part*.** The bytes
+go in as `word/media/…`; that part is reachable only through a relationship in the
+rels of whichever part draws it; `[Content_Types].xml` has to say what a `.png` in
+this package is, or Word calls the file corrupt; and the drawing carries an extent
+in EMU. A letterhead puts its mark in `header1.xml`, and a header keeps its own
+relationships — so all of it happens once per part that mentions the marker, and
+the media bytes are the only thing shared between them. `DocumentImages` is the
+class; the seam it reads through is a second method on `DocumentContext`, so core
+still never learns what a tenant or a logo is.
 
-One constraint carries over and is easy to lose: **documents are generated without
-a browser.** Whatever draws the image reads the bytes out of `TenantProfile`
-directly, never over HTTP and never through the public route §8.6 added, which
-exists for a page and not for the engine.
+**The `rId` is taken from the part rather than counted.** Every `Id` in the rels
+is collected, the highest `rIdN` decides where to start, and the candidate is
+checked against the collected set anyway — because a relationship id is an xsd:ID
+and nothing requires it to be `rId` plus a number, so a template that has been
+through a converter or somebody's script may well carry `rIdImage1`. This matters
+more than it looks: **a collision does not crash.** The package still opens and one
+relationship answers for two uses, so the customer's own header image comes out as
+the logo, or the logo comes out as their embedded font. A document that is wrong
+and opens is worse than one that does not open.
+
+**Where the drawing goes, and the split marker.** `<w:drawing>` is run content — a
+sibling of `<w:t>` inside a `<w:r>` — so the substitution closes the text, emits
+the drawing and opens a fresh one: `…</w:t><w:drawing/><w:t>…`. That is valid
+because a run may hold text, then a drawing, then text again, and it is also
+exactly right for the case that makes this hard. Word cuts a placeholder somebody
+typed in one go across several runs, so the span being replaced routinely contains
+`</w:t></w:r><w:r><w:t>` in the middle of it; consuming that span and emitting the
+three fragments removes one `</w:r>` and one `<w:r>` together, so the markup stays
+balanced and the two runs become one. The tail text inherits the first run's
+formatting rather than its own, which is the one thing this loses and is a fair
+trade against reconstructing run properties from a span that may have crossed
+three of them. A span that crosses a *paragraph* is refused instead: a `[` at the
+end of one paragraph finding a `]` at the start of the next is two brackets facing
+each other, and welding the paragraphs together to draw between them is a worse
+answer than leaving the words alone.
+
+**The tolerant pattern moved to `TemplateTokens`**, beside the scan XIV-25 put
+there. `RepeatingBlocks` had it privately and the library has its own copy inside
+itself; a third would have earned the same paragraph XIV-25 wrote about three
+scanners disagreeing about what a marker is. Two callers in this repository now
+share one.
+
+**How big: natural size at 96 dpi, scaled down to fit 40 × 20 mm, never scaled
+up.** Three decisions rather than one. *Natural size* is the only starting point
+that does not require guessing, and it is what makes a small mark come out small
+instead of blown up. *The box* is what stops the common case being absurd — logos
+are exported at two or three times their intended size as a matter of course, so a
+1200-pixel-wide PNG is a 40 mm wordmark at 3× and not a request for a banner
+317 mm across. A4 leaves about 160 mm between ordinary margins, so 40 mm is a
+quarter of the text width: enough to read as the company's mark, small enough that
+dropping it into a paragraph does not rearrange the page; the 20 mm ceiling is what
+keeps a *square* logo from becoming a 40 mm block. *Never scaled up* because
+enlarging a bitmap to fill a box is how a crisp mark acquires soft edges and the
+customer has no way of knowing we did it — the same argument §8.6 makes for not
+re-encoding the upload. The aspect ratio is preserved throughout, so the box is a
+bound and not a shape. A PNG's own `pHYs` chunk is deliberately ignored: most
+exports carry none and the ones that do carry whatever the design tool felt like.
+
+**This does not want a second upload**, which the ticket asked about and §8.6 left
+open. Fitting rather than stretching already gives a wide wordmark and a square
+crest a sensible answer from one file, and §8.6's case for a second field was
+about wanting a *different picture* in a different place rather than the same one
+at a different size. If 40 × 20 turns out to be wrong for somebody, the next thing
+to add is a size on the profile — one number, beside the picture they already
+uploaded — and not a second picture, which would be a second thing to keep in step
+for the sake of a measurement.
+
+**The format is decided by decoding the bytes, and the list is PNG and JPEG.** The
+seam hands over raw bytes and nothing else, so the question is asked of the thing
+being embedded rather than answered by a label somebody chose — the same call
+`LogoFormat` makes about an upload and the .docx check makes about a template. The
+list is §8.6's and the reason it is that list is a licence rather than a
+preference: the only credible SVG sanitizer in PHP is GPL-2.0-or-later and this
+project is MIT. Both of these are formats Word embeds natively, so nothing is
+converted and nothing is re-encoded on the way through. **No dependency was added
+for any of this** — `ZipArchive`, `getimagesizefromstring` and `preg_*` are all
+core PHP.
+
+**An installation with no logo generates a document with nothing there**, and that
+costs no code. The marker stays in the vocabulary whether or not anybody has
+uploaded one — a marker that appeared and disappeared with the data behind it
+would mean a template written this week naming something the review calls unknown
+next week — so `dataFor()` still offers it as the empty string. The image pass
+runs *before* the library and simply finds nothing to do, and the ordinary
+blanking finishes the job. Blank beats brackets, unchanged. The same ordering is
+why the image pass runs *after* `RepeatingBlocks` (§5.11): a mark inside a
+repeating row is one marker before expansion and several afterwards, and each copy
+needs a drawing id of its own.
+
+**`TemplateReview` needed nothing.** It compares the tokens in the file against
+`DocumentMarkers::keysFor()`, which is built from `general()`, which is where the
+marker is declared — so the review stopped calling it unfillable by virtue of the
+marker existing. That is the payoff for XIV-25's rule that the reference list, the
+substitution and the report all read one vocabulary.
+
+**The reference list says which marker draws a picture**, which the ticket raised
+and is worth the one word it costs. `[tenant.logo]` beside `[tenant.name]`, under
+one heading, in the same brackets, with a label that reads like the name of a file,
+is a token that gets pasted into the middle of a sentence — and what comes back is
+a picture wedged into a line of prose, which reads as the engine misbehaving. So a
+marker carries a *kind* and the row carries a badge. A kind rather than a boolean
+because the next one is plausibly a barcode. **The email templates page filters it
+out entirely** rather than badging it: an email has no `<w:drawing>`, and what a
+picture in one would be — a fetched URL or a CID attachment — is a design question
+about email rather than a line missing (§5.13). Until that is answered the marker
+comes out blank in an email, and advertising something that comes out blank is
+what that page already refuses to do with collection markers.
+
+**Documents are generated without a browser**, and this is the constraint that was
+easiest to lose. XIV-49 added a public route serving these bytes and reaching for
+it here would have worked in development and failed wherever the application
+cannot address itself. `InstanceContext::images()` reads the column, and the test
+that proves it generates a document with no request in flight at all.
+
+**The PDF is proved, not assumed.** Gotenberg is what turns this into what the
+recipient sees, and this feature has already been bitten once by Word and
+LibreOffice agreeing that a file is valid and disagreeing about what to draw
+(`showingPlcHdr`, above). So the suite converts both the body case and the
+letterhead case and searches the PDF for an image XObject — and generates the same
+document with no logo and asserts the PDF has none, because without that half the
+test passes on a converter that puts an image in every PDF it makes.
 
 *Emails are §5.13, and are deliberately not this. They are written in the
 application rather than uploaded, and the reason is worth reading next to the
@@ -3897,7 +4002,16 @@ favicon was considered and left as Xivi's: a wordmark makes a poor sixteen-pixel
 square, and the tab is the one place the reader is choosing between applications
 rather than reading inside one.
 
-**The document half is XIV-89**, split out deliberately — see §5.7.
+**The document half landed as XIV-89** and is written up in §5.7, where the
+reasoning belongs, because it turned out to be a change to the .docx pipeline
+rather than an addition to the marker list. Two things decided there report back
+here. The mark is drawn at its natural size at 96 dpi, capped to fit 40 × 20 mm
+and never enlarged — and **that still does not want a second upload**: fitting
+rather than stretching gives a wide wordmark and a square crest a sensible answer
+from the one file, so the case for a second field remains what it was above,
+about wanting a different *picture* rather than the same one at a different size.
+And the engine reads these bytes out of `TenantProfile` directly: the route this
+section adds is for a page, and a document is generated without a browser.
 
 ### 8.7 Who a tenant's mail comes from (XIV-37)
 

@@ -60,6 +60,15 @@ use Xivi\Core\Permission\ModuleAction;
  * real want and a later ticket. Offering the tokens here would be advertising
  * something that comes out blank.
  *
+ * **The image marker is absent for the same reason** (XIV-89). `[tenant.logo]`
+ * becomes a `<w:drawing>` in a .docx, which is an operation on Word's XML and
+ * has no counterpart in a Markdown body: putting a picture in an email means a
+ * `<img>` and therefore a URL a recipient's mail client will fetch — or a CID
+ * attachment — and choosing between those is a design question about email
+ * rather than a line of code missing here. Until it is answered the marker does
+ * in an email what every unfilled marker does, which is come out blank, and a
+ * list is not the place to offer that.
+ *
  * **Hand-rolled POSTs rather than a FormType**, like DocumentController,
  * FieldController and the rest of the administrative screens. The Symfony way
  * would be the form component and this is the exception the house rule allows:
@@ -226,7 +235,15 @@ final class EmailTemplateController extends AbstractController
             // first time they add a field. The very same lists the document page
             // draws, from the very same class (XIV-38).
             'markers' => $this->markersPerVariant($definition),
-            'general' => $this->markers->general(),
+            // Minus the ones that draw rather than write — see the class
+            // docblock. Filtered here rather than by a second method on
+            // `DocumentMarkers`, because the reason is a fact about emails and
+            // not about the vocabulary: the marker is real, the engine knows it,
+            // and this one page cannot honour it.
+            'general' => array_values(array_filter(
+                $this->markers->general(),
+                static fn (DocumentMarker $marker): bool => !$marker->isImage(),
+            )),
             'maxLine' => self::MAX_LINE,
         ]);
     }

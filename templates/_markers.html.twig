@@ -17,7 +17,34 @@
 			<dt class="col-6 fw-normal">
 				<code>{{ marker.token }}</code>
 			</dt>
-			<dd class="col-6 text-body-secondary">{{ marker.label }}</dd>
+			<dd class="col-6 text-body-secondary">
+				{{ marker.label }}
+
+				{#
+					A marker that draws a picture says so, and this one word is the
+					whole answer to a question XIV-89 asked out loud (§5.7).
+
+					A list offering `[tenant.logo]` next to `[tenant.name]` with
+					nothing to tell them apart is a list that gets one of them
+					pasted into the middle of a sentence — they are the same seven
+					characters in the same brackets under the same heading — and
+					what comes back is a picture wedged into a line of prose,
+					which reads as the engine misbehaving rather than as the
+					document saying what it was told to say. The label alone does
+					not carry it: "This company's logo" is exactly what somebody
+					would expect to substitute the *name* of a logo file.
+
+					A badge rather than a sentence because it belongs to the row
+					rather than to the section, and the reader is scanning tokens
+					rather than reading paragraphs by the time they reach here.
+				#}
+				{% if marker.isImage %}
+					<span class="badge text-bg-secondary-subtle text-secondary-emphasis fw-normal marker-image">
+						<i class="bi bi-image" aria-hidden="true"></i>
+						{{ 'document.marker_draws_a_picture'|trans }}
+					</span>
+				{% endif %}
+			</dd>
 		{% endfor %}
 	</dl>
 {% endmacro %}

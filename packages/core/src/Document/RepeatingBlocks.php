@@ -179,17 +179,15 @@ final readonly class RepeatingBlocks
      * cannot be a string replace. The pattern allows tags between every
      * character and then checks that the text between them really was the
      * marker, which is how the library does the same job (§5.7).
+     *
+     * The pattern itself moved to {@see TemplateTokens::spanning()} when XIV-89
+     * needed the same tolerance to place an image; nothing this method decides
+     * changed, exactly as XIV-25's extraction of the scan changed nothing.
      */
     private static function substitute(string $xml, string $token, string $value): string
     {
-        $pattern = '';
-
-        foreach (mb_str_split($token) as $character) {
-            $pattern .= preg_quote($character, '#') . '(<[^\[]*)?';
-        }
-
         return (string) preg_replace_callback(
-            '#' . $pattern . '#Uu',
+            TemplateTokens::spanning($token),
             static fn (array $match): string => strip_tags($match[0]) === $token
                 ? htmlspecialchars($value, \ENT_XML1 | \ENT_QUOTES, 'UTF-8')
                 : $match[0],

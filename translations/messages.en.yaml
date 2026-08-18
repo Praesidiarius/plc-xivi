@@ -455,8 +455,10 @@ document:
     none_for_record: No template applies to this record yet.
     marker:
         tenant_name: This company
+        tenant_logo: This company's logo
         user_name: Who is generating it
         user_email: Their email
+    marker_draws_a_picture: picture
     general: General
     general_help: Available in every template, whatever it is about.
     for_variant: 'For %variant%'
