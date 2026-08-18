@@ -14,8 +14,10 @@ declare(strict_types=1);
 namespace Xivi\Core\Record;
 
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Xivi\Core\Entity\CollectionDefinition;
+use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Event\RecordChanged;
@@ -66,11 +68,37 @@ final readonly class RecordWriter
      *
      * @throws CollectionTooLong when a collection is handed more rows than
      *                           {@see CollectionLimit::MAX_ROWS} (XIV-68)
+     * @throws DuplicateValue    when a unique field's index refuses the write —
+     *                           the race the validator cannot see (XIV-109)
      */
     public function save(ModuleDefinition $module, Record $record, array $children = [], ?RecordAction $as = null): Record
     {
         $this->guardCollectionSizes($module, $children);
 
+        try {
+            return $this->write($module, $record, $children, $as);
+        } catch (UniqueConstraintViolationException $clash) {
+            // **The one refusal this engine's own indexes make** (XIV-109).
+            // Uniqueness is enforced by an index rather than only by a query
+            // ({@see UniqueIndex}), so the loser of a race arrives here instead
+            // of getting a validation message — and a validation message is what
+            // it has to leave as. The transaction is already rolled back by the
+            // time this runs, so nothing half-written survives; what is left is
+            // to work out which field it was about and say so.
+            throw DuplicateValue::of($module, $this->fieldBehind($module, $clash), $clash);
+        }
+    }
+
+    /**
+     * The save itself, with nothing between it and the transaction.
+     *
+     * Split out only so that {@see self::save()} can put one `try` around the
+     * whole of it without indenting the argument this method is made of.
+     *
+     * @param array<string, list<array{id: int|null, data: array<string, mixed>}>> $children
+     */
+    private function write(ModuleDefinition $module, Record $record, array $children, ?RecordAction $as): Record
+    {
         return $this->connection->transactional(function () use ($module, $record, $children, $as): Record {
             $isNew = $record->isNew();
 
@@ -186,6 +214,54 @@ final readonly class RecordWriter
             // which has the better message for it.
             CollectionLimit::guard($module->getCollection($key)?->getLabel() ?? $key, \count($rows));
         }
+    }
+
+    /**
+     * Which field's index refused the write (XIV-109).
+     *
+     * **By name, matched rather than parsed.** Postgres puts the offending
+     * index's name in the error text — `duplicate key value violates unique
+     * constraint "uniq_contact_email"` — and every reflex says to pull it out
+     * with a regular expression over that sentence. That sentence is
+     * *translated*: it is whatever the server's `lc_messages` says, which is a
+     * setting of somebody else's database, and a check that works on a
+     * development cluster and quietly stops naming fields on a customer's is the
+     * worst of both. So the direction is reversed. The names of the indexes this
+     * engine would have created are computed from the definitions
+     * ({@see UniqueIndex::nameFor()}, a pure function), and the error text is
+     * searched for each of them. An identifier is an identifier in every
+     * language.
+     *
+     * The message searched is the whole chain's, because DBAL wraps the driver's
+     * exception and the constraint name is in the innermost one; `getMessage()`
+     * on the wrapper already carries it, and the loop over `getPrevious()` is
+     * there so that this does not depend on that staying true across a DBAL
+     * release.
+     *
+     * Null when nothing matches, which is not an error: a tenant database may
+     * carry a unique index this engine did not put there, and
+     * {@see DuplicateValue} has a sentence for the case rather than a fallback
+     * that pretends to know.
+     */
+    private function fieldBehind(ModuleDefinition $module, \Throwable $clash): ?FieldDefinition
+    {
+        $reported = '';
+
+        for ($error = $clash; $error !== null; $error = $error->getPrevious()) {
+            $reported .= "\n" . $error->getMessage();
+        }
+
+        foreach ($module->getFields() as $field) {
+            if (!$field->isUnique()) {
+                continue;
+            }
+
+            if (str_contains($reported, UniqueIndex::nameFor($module->getTableName(), $field->getKey()))) {
+                return $field;
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -623,6 +623,64 @@ final readonly class RecordRepository
         return $violations;
     }
 
+    /**
+     * The values more than one live record holds, and how many hold each
+     * (XIV-109).
+     *
+     * The sibling of {@see self::countViolating()} and deliberately not a
+     * replacement for it: that answers "how many records would this rule
+     * invalidate", which is the number a refusal is measured in, and this
+     * answers "which values are the problem", which is what somebody has to go
+     * and fix. A count on its own sends a customer scrolling a list of six
+     * hundred contacts looking for the two that share a phone number.
+     *
+     * **Capped, and the cap is a decision.** A column that is duplicated in a
+     * thousand distinct ways is a column that was never meant to be unique, and
+     * printing all of it into a flash message would be a refusal nobody can
+     * read. The first few, ordered by how many records share each, put the worst
+     * offenders in front of the reader; the count beside them says how much is
+     * not shown.
+     *
+     * Same WHERE clause as the index it exists to protect
+     * ({@see UniqueIndex}) — live rows, non-empty values — because a report of
+     * duplicates that counted rows the index ignores would name values that are
+     * not in anybody's way.
+     *
+     * @return array<string, int> value => how many live records hold it, worst first
+     */
+    public function duplicateValues(ShapeDefinition $shape, FieldDefinition $field, int $limit = 5): array
+    {
+        $rows = $this->connection->fetchAllAssociative(
+            // Grouped over a subquery rather than over the expression itself,
+            // and that is not a stylistic choice: a named parameter used more
+            // than once is rewritten into several positional ones, so
+            // `GROUP BY data->>$3` is a different expression from
+            // `SELECT data->>$1` as far as Postgres is concerned, and it says so.
+            // Naming the value once, inside, leaves one thing to group by.
+            sprintf(
+                'SELECT held_value, COUNT(*) AS held FROM (
+                     SELECT data->>:field AS held_value FROM %s
+                     WHERE deleted_at IS NULL AND data->>:field IS NOT NULL
+                 ) AS values_held
+                 GROUP BY held_value
+                 HAVING COUNT(*) > 1
+                 ORDER BY COUNT(*) DESC, held_value ASC
+                 LIMIT :limit',
+                $this->table($shape),
+            ),
+            ['field' => $field->getKey(), 'limit' => max($limit, 1)],
+            ['limit' => ParameterType::INTEGER],
+        );
+
+        $duplicates = [];
+
+        foreach ($rows as $row) {
+            $duplicates[(string) $row['held_value']] = (int) $row['held'];
+        }
+
+        return $duplicates;
+    }
+
     /** Backs the unique-field constraint; `exceptId` is the record being edited. */
     public function existsWithValue(ShapeDefinition $shape, FieldDefinition $field, mixed $value, ?int $exceptId = null): bool
     {

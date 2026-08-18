@@ -100,6 +100,14 @@ final class OrderModule implements ModuleProvider
                     key: self::NUMBER,
                     label: 'field.number',
                     type: 'text',
+                    // **Unique, and the database says so** (XIV-109). Two
+                    // documents carrying one number is one of the two fatal
+                    // failures §5.10 names, and until XIV-109 the promise was
+                    // kept by a counter alone — good arithmetic, and not a
+                    // constraint. The flag builds an expression index over the
+                    // column, so the promise is enforced by the thing that is
+                    // holding the row rather than by the code that asked first.
+                    unique: true,
                     filterable: true,
                     title: true,
                     position: 5,

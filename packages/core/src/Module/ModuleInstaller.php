@@ -25,6 +25,7 @@ use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
 use Xivi\Core\Metadata\MetadataCache;
 use Xivi\Core\Metadata\MetadataRepository;
+use Xivi\Core\Record\UniqueIndex;
 
 /**
  * Installs a module into one tenant's database: its tables, and its definitions.
@@ -48,6 +49,8 @@ final readonly class ModuleInstaller
         private FieldTypeRegistry $fieldTypes,
         private TranslatorInterface $translator,
         private MetadataCache $cache,
+        // What makes a blueprint's `unique` true rather than checked (XIV-109).
+        private UniqueIndex $uniqueIndexes,
     ) {
     }
 
@@ -107,6 +110,21 @@ final readonly class ModuleInstaller
 
         $this->entityManager->persist($module);
         $this->entityManager->flush();
+
+        // The indexes behind whatever the blueprint marked unique (XIV-109).
+        //
+        // **After the flush rather than beside the table creation**, because an
+        // index is a fact about a definition and the definitions are what has
+        // just been written; building it from the blueprint instead would mean
+        // two readings of "which fields are unique here" that a preset could
+        // make disagree. It costs nothing on a table this installer created a
+        // moment ago and which therefore has no rows in it — the build is the
+        // one case where `CREATE UNIQUE INDEX` cannot block anybody or find a
+        // duplicate.
+        foreach ($module->getFields() as $field) {
+            $this->uniqueIndexes->follow($module, $field);
+        }
+
         // A module's definitions are new or gone (XIV-53); anything holding the
         // previous answer is now wrong.
         $this->cache->clear();
@@ -361,6 +379,22 @@ final readonly class ModuleInstaller
 
         $this->entityManager->persist($definition);
         $this->entityManager->flush();
+
+        // And the index behind the flag, exactly as install() does (XIV-109).
+        //
+        // Reconciled at merge rather than written by either branch: XIV-70 built
+        // this method and XIV-109 made `unique` a real index, and neither could
+        // see the other. Without this line an upgrade would be the one way into
+        // the engine that sets the flag and leaves nothing enforcing it — and it
+        // would do so for precisely the fields a blueprint marked unique on
+        // purpose, which is the worst possible set to leave unguarded.
+        //
+        // It cannot meet a duplicate here: the caller has already counted
+        // violations and switched the rule off where the records could not keep
+        // it. If that ever stops being true, `create()` throws and this whole
+        // adoption rolls back, which is the right answer anyway.
+        $this->uniqueIndexes->follow($shape, $definition);
+
         // The shape somebody is about to be shown has just changed (XIV-53).
         $this->cache->clear();
 

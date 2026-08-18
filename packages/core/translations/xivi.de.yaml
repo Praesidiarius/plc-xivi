@@ -54,6 +54,12 @@ record:
     # und ohne Zahl — eine erfundene Zahl wäre schlechter als die schlichte
     # Auskunft, dass sich das nicht lesen ließ.
     submission_unreadable: 'Dieses Formular hat Werte in einer Form gesendet, die es nicht hat; deshalb wurde nichts gespeichert. Lade die Seite neu und versuche es noch einmal.'
+    # Der eindeutige Index, der ein Speichern ablehnt (XIV-109). Er sagt, was
+    # passiert ist, und nicht nur, dass etwas schiefging: das Formular war
+    # geprüft und in Ordnung und hörte genau während des Schreibens auf, es zu
+    # sein.
+    duplicate_value: 'Ein anderer Datensatz hat diesen Wert (%field%) gerade eben bekommen, während dieser gespeichert wurde. Deshalb wurde hier nichts gespeichert. Ändere ihn und versuche es noch einmal.'
+    duplicate_value_unknown: 'Ein anderer Datensatz hat einen dieser Werte gerade eben bekommen, während dieser gespeichert wurde. Deshalb wurde hier nichts gespeichert. Prüfe die Felder, die eindeutig sein müssen, und versuche es noch einmal.'
 
 history:
     period:
@@ -123,6 +129,10 @@ metadata:
     key_taken: '„%shape%“ hat bereits ein Feld namens „%key%“.'
     system_field: 'Das Feld „%key%“ kam mit dem Modul und kann nicht entfernt werden. Selbst hinzugefügte Felder schon.'
     module_not_installed: 'Hier ist kein Modul namens „%module%“ installiert.'
+    # Warum ein Feld nicht eindeutig gemacht werden kann, mit den Werten, die
+    # dafür sorgen (XIV-109). Kein Plural nötig: geteilt wird ein Wert erst ab
+    # zwei Datensätzen.
+    values_are_shared: '%count% Datensätze teilen sich bereits einen Wert in „%key%“, deshalb kann es nicht eindeutig werden. Auf mehr als einem Datensatz: %values%. Bring diese Datensätze zuerst in Ordnung, oder lass „%key%“ wie es ist.'
 
 query:
     unknown_field: 'Auf „%shape%“ gibt es nichts namens „%path%“, wonach sich filtern oder sortieren ließe.'

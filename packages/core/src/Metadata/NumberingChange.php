@@ -44,7 +44,7 @@ use Xivi\Core\Numbering\NumberFormat;
  * counter before the pattern. The backfill goes last, because it draws from the
  * counter and must draw from the floored one.
  *
- * ### The duplicate this closes, and the one it does not
+ * ### The duplicate this closes, and the sliver that used to be left
  *
  * A counter starting at 1 knows nothing about `RE-2026-0007` sitting in the
  * column, and XIV-27's guard cannot help: it compares against the counter and
@@ -54,12 +54,21 @@ use Xivi\Core\Numbering\NumberFormat;
  * this runs, and `derived` closes it going forward, because from here on nothing
  * writes that field but the engine.
  *
- * What it does **not** close is the sliver between the scan and the commit: the
- * field is not derived yet while this transaction runs, so a save landing in
- * another connection at that moment could still put a hand-typed value in. It is
- * a read-committed window of milliseconds on an administrator-only action, and
- * it is written down here rather than papered over — the honest fix is a unique
- * index on the column, which is §7.2's territory and not this ticket's.
+ * What it did **not** close, for one release, was the sliver between the scan
+ * and the commit: the field is not derived yet while this transaction runs, so a
+ * save landing on another connection at that moment could still put a hand-typed
+ * value in beside the freshly-applied floor. It was administrator-only and
+ * milliseconds long, and it was written down here rather than papered over,
+ * because the honest fix was a unique index on the column and that was §7.2's
+ * territory rather than XIV-91's.
+ *
+ * **XIV-109 built it, and this is now five writes rather than four.** The field
+ * is marked unique first, which builds that index — and the build takes a table
+ * lock that no other connection can insert past until this commits. The scan is
+ * therefore not a read that can be raced any more; it is a read of a table
+ * nobody may write to. See {@see self::start()} for the argument in full, and
+ * §5.10 for why a numbered field being a unique field is a statement about
+ * document numbers rather than a trick to get a lock.
  *
  * ### Where a Doctrine flush fits in a DBAL transaction
  *
@@ -117,11 +126,15 @@ final readonly class NumberingChange
     }
 
     /**
-     * Turn numbering on: floor the counter, save the pattern, number what is
-     * here.
+     * Turn numbering on: promise the numbers are unique, floor the counter, save
+     * the pattern, number what is here.
      *
      * @return NumberingPlan what was actually done, recomputed inside the
      *                       transaction rather than repeated back from the page
+     *
+     * @throws MetadataChangeRefused when the column already holds the same value
+     *                               on two records, so no promise of unique
+     *                               numbers could be kept over it (XIV-109)
      */
     public function start(
         ModuleDefinition $module,
@@ -130,11 +143,46 @@ final readonly class NumberingChange
         \DateTimeImmutable $on,
     ): NumberingPlan {
         return $this->connection->transactional(function () use ($module, $field, $format, $on): NumberingPlan {
+            // **Uniqueness first, and it is what closes the window this method
+            // used to leave open** (XIV-109).
+            //
+            // A numbered field *is* a unique field. §5.10 opens by saying that
+            // two documents carrying the same number is one of the two fatal
+            // failures of this feature, and until now that promise was kept by
+            // arithmetic alone — a counter that only moves forward, and a scan
+            // of what somebody had typed in by hand. Both are good and neither
+            // is an index, so the promise was true of everything either of them
+            // could see.
+            //
+            // What neither could see was the sliver this method itself creates.
+            // The scan below reads the column; the field does not become
+            // `derived` until this transaction commits; and in between, on
+            // another connection, a save could put a hand-typed value in beside
+            // the freshly-applied floor. It was written down in §5.10 as
+            // administrator-only and milliseconds long, and it was real.
+            //
+            // Marking the field unique builds the index — and a
+            // `CREATE UNIQUE INDEX` takes a `SHARE` lock on the table, held
+            // until this transaction commits, which conflicts with every INSERT
+            // and UPDATE. So from this line onward nothing else can write a row
+            // of this module at all. The scan that follows is no longer a read
+            // that can be raced; it is a read of a table nobody can change. The
+            // window does not get smaller, it stops existing.
+            //
+            // It is also the step that can *refuse* — a column already holding
+            // the same reference twice cannot be made to promise unique numbers
+            // — so it goes first for the reason the floor used to: a refusal
+            // must leave the definition exactly as it was.
+            $this->editor->makeUnique($field);
+
             $plan = $this->plan($module, $field, $format, $on);
 
             // Monotone, so it cannot undo a save that took a number while the
             // scan above was running: worst case the floor is below where the
-            // counter already is and does nothing at all.
+            // counter already is and does nothing at all. Kept exactly as it was
+            // (XIV-91), and not weakened by the index above: the two answer
+            // different questions, and a lock that has stopped being taken for
+            // some future reason must not silently take a counter with it.
             $this->counters->atLeast($module->getKey(), $field->getKey(), $plan->period, $plan->found->floor());
 
             $this->editor->setNumbering($field, $format->pattern);
@@ -158,6 +206,16 @@ final readonly class NumberingChange
      * numbering back on next month started at 1 and walked straight back through
      * numbers already printed. Keeping it makes off-then-on carry on where it
      * left off. A counter nobody draws from costs one row.
+     *
+     * **Uniqueness stays too, and that is XIV-109's half of the same argument.**
+     * The field becomes typeable again, which is exactly the moment its index
+     * starts earning its keep: the numbers on those records are on documents
+     * customers are holding, and the first thing an ordinary text box invites is
+     * somebody typing one of them a second time. Dropping the index here would
+     * relax a promise nobody asked to have relaxed, in the act of changing
+     * something else — and the customer can untick the box themselves if they
+     * really mean it, which is the difference between a decision and a side
+     * effect.
      *
      * There is no transaction here because there is one write.
      */

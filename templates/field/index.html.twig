@@ -186,6 +186,20 @@
 						</table>
 					</div>
 
+					{#
+						What "unique" means, said where it is ticked (XIV-109). It used to
+						be a validator that queried the table and let the save proceed,
+						which two people pressing Save at the same moment could walk
+						straight through; it is a unique index now, so the answer comes
+						from the database at the moment of the write. The two parts worth
+						saying out loud are the ones somebody would otherwise discover by
+						being surprised: an empty field is not a duplicate of another empty
+						field, and a field whose records already share a value is refused
+						rather than applied — with the values named, so there is something
+						to go and search for.
+					#}
+					<p class="text-body-secondary small mt-2 mb-0">{{ 'field.rule_unique_note'|trans }}</p>
+
 					<form method="post" action="{{ path('field_add', {module: module.key}) }}" class="border-top mt-3 pt-3">
 						<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
 						<input type="hidden" name="shape" value="{{ shape.id }}">
