@@ -1,0 +1,247 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'control_plane.modules'|trans }}{% endblock %}
+
+{#
+	**What this deployment charges for each module** (XIV-101).
+
+	Two facts per row, from two different places, and the page is largely about
+	not letting a reader confuse them:
+
+	  * *the state* — how far along the module is, platform-wide, decided by
+	    whoever builds Xivi (§6.2). A fact about the code.
+	  * *the price* — what **this** installation charges its customers for it. A
+	    fact about a business, which is why it is a control-plane row and not a
+	    field on a blueprint: a price in `packages/invoice/` would be a price every
+	    deployment inherits and none of them chose.
+
+	Either one saying no takes the module out of the store, and the two say no for
+	entirely different reasons — so both are drawn, in words, in their own column,
+	and the *combination* is drawn again as its own column rather than left for the
+	reader to work out.
+
+	**Nothing here comes from a tenant.** Every value is a `module` row of the
+	control-plane database crossed with the blueprints this build compiled in, so
+	this page opens no tenant connection at all — the same property the tenant list
+	next door is built around (§8.10), and `ModulePriceTest` asserts it the same
+	way.
+
+	**Amounts are drawn as they are stored**, a plain decimal string with the
+	currency code beside it, and deliberately not through a locale-aware currency
+	formatter. On a customer's screen a formatted price is right; here the value
+	being read sits three centimetres from the input that edits it, and a reader
+	who sees `1'234.50` above a box containing `1234.50` has to work out which of
+	the two the database holds. One form, on the page where somebody is typing.
+#}
+{% block body %}
+	<main class="container page-shell py-4">
+		{{ include('@XiviControlPlane/_nav.html.twig', {current: 'control_plane_modules'}) }}
+
+		{{ include('_flashes.html.twig') }}
+
+		{#
+			**The line an operator is meant to read before anything else.**
+
+			A published module nobody has priced is invisible in every customer's
+			store, and the reason for that is on this page and nowhere else — the
+			customer sees an absence, not a message. So it is said at the top, with
+			the module keys in it, and only when there is something to say: a banner
+			permanently reading "0 modules need a price" is furniture, and furniture
+			is what the eye learns to skip (XIV-58 made the same argument for the
+			same shape one page over).
+
+			Warning rather than danger. Nothing is broken and nobody is being charged
+			wrongly; a decision has not been made yet, which is exactly what
+			`unpriced` means and is a state a deployment may sit in on purpose while
+			it works out what to charge.
+		#}
+		{% if unpriced is not empty %}
+			<div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+				<i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+				<div>
+					<strong>{{ 'control_plane.modules_unpriced'|trans({'%count%': unpriced|length}) }}</strong>
+					<div class="small font-monospace">
+						{{- unpriced|map(m => m.key)|join(', ') -}}
+					</div>
+					<div class="small">{{ 'control_plane.modules_unpriced_hint'|trans }}</div>
+				</div>
+			</div>
+		{% endif %}
+
+		{#
+			**And the other thing that is nobody's mistake and still needs saying.**
+
+			An installation that has never set `PRICE_CURRENCY` prices in nothing,
+			so every figure on this page is a bare number. §8.6 refuses to guess a
+			currency for a customer because a guessed one is wrong quietly; the same
+			holds for a price list, and the honest consequence is that the page has
+			to name the variable. It is an environment variable rather than a field
+			on this page on purpose — see `App\Registry\Pricing\PriceCurrency`, which
+			is also where the argument for why *prices* are emphatically not
+			environment variables lives.
+		#}
+		{% if currency is null %}
+			<div class="alert alert-info d-flex align-items-start gap-2" role="alert">
+				<i class="bi bi-info-circle" aria-hidden="true"></i>
+				<div>
+					{{ 'control_plane.price_currency_unset'|trans }}
+					<code>PRICE_CURRENCY</code>
+				</div>
+			</div>
+		{% endif %}
+
+		{% if modules is empty %}
+			<div class="card">
+				<div class="card-body">
+					<h2 class="h6">{{ 'control_plane.no_modules'|trans }}</h2>
+					<p class="text-body-secondary mb-0">{{ 'control_plane.no_modules_hint'|trans }}</p>
+				</div>
+			</div>
+		{% else %}
+			<div class="table-responsive">
+				<table class="table align-middle">
+					<thead>
+						<tr>
+							<th scope="col">{{ 'common.module'|trans }}</th>
+							<th scope="col">{{ 'control_plane.module_state'|trans }}</th>
+							<th scope="col">{{ 'control_plane.module_price'|trans }}</th>
+							<th scope="col">{{ 'control_plane.module_in_store'|trans }}</th>
+							<th scope="col">{{ 'control_plane.module_set_price'|trans }}</th>
+						</tr>
+					</thead>
+					<tbody>
+						{% for module in modules %}
+							<tr>
+								<td>
+									<div>{{ module.name }}</div>
+									<div class="small text-body-secondary font-monospace">{{ module.key }}</div>
+									{#
+										A decision that outlived its code (§6.2). Worth showing rather
+										than hiding: a row naming a module this deploy no longer ships
+										is a deploy accident, and this list is where somebody notices.
+										Its price is still readable and still editable — the row is
+										the platform's memory of a decision, and a build that has lost
+										the module has not unmade it.
+									#}
+									{% if not module.inBuild %}
+										<div class="small text-body-secondary fst-italic">
+											{{ 'control_plane.module_not_in_build'|trans }}
+										</div>
+									{% endif %}
+								</td>
+								<td>
+									{# Colour and the word, never colour alone — the tenant list's rule. #}
+									<span class="badge text-bg-{{ module.state.isOfferedInStore ? 'success' : 'secondary' }}">
+										{{ ('control_plane.module_state_' ~ module.state.value)|trans }}
+									</span>
+								</td>
+								<td>
+									{#
+										**Four states, drawn as four different things**, because the
+										entire point of the ticket is that they do not collapse into
+										two. In particular *unpriced* is not a blank cell and not a
+										zero: it is a sentence saying nobody has decided, in italics,
+										which is the one reading that cannot be mistaken for "free".
+									#}
+									{% if module.pricing.value == 'priced' %}
+										<span class="font-monospace">{{ module.amount }}</span>
+										{% if currency %}<span class="text-body-secondary">{{ currency }}</span>{% endif %}
+									{% elseif module.pricing.value == 'free' %}
+										<span class="badge text-bg-light">{{ 'control_plane.pricing_free'|trans }}</span>
+									{% elseif module.pricing.value == 'not_for_sale' %}
+										<span class="badge text-bg-secondary">{{ 'control_plane.pricing_not_for_sale'|trans }}</span>
+									{% else %}
+										<span class="text-body-secondary fst-italic">{{ 'control_plane.pricing_unpriced'|trans }}</span>
+									{% endif %}
+									{% if module.decidedAt %}
+										<div class="small text-body-secondary">
+											{{- 'control_plane.module_decided'|trans({'%time%': module.decidedAt|date('Y-m-d H:i')}) -}}
+										</div>
+									{% endif %}
+								</td>
+								<td>
+									{#
+										The two columns to the left, combined — stated rather than left
+										to the reader, because the combination has three ways of being
+										no and a reader working it out from two badges will get it
+										right until the day they are in a hurry.
+									#}
+									{% if module.offeredInStore %}
+										<span class="badge text-bg-success">{{ 'control_plane.module_offered'|trans }}</span>
+									{% else %}
+										<span class="badge text-bg-secondary">{{ 'control_plane.module_withheld'|trans }}</span>
+									{% endif %}
+								</td>
+								<td>
+									{#
+										**Radios rather than a select**, which is §6.3's argument
+										borrowed for a smaller decision: four options, one of which
+										("not for sale") is the one a select would hide behind a
+										click, and the whole ticket is about those four being visible
+										as four. It is reversible, unlike the preset choice §6.3 was
+										arguing about, so nothing here needs a warning above it.
+
+										The amount box is always present rather than revealed by the
+										radio, because revealing it needs scripting and this page has
+										none: a form that works without JavaScript is what the signup
+										page (§8.13) settled for the same reason. It is ignored unless
+										"priced" is chosen, and the server is what ignores it — the
+										browser is a courtesy here and the controller is the check.
+									#}
+									<form method="post"
+									      action="{{ path('control_plane_module_price', {key: module.key}) }}"
+									      class="d-flex flex-wrap align-items-center gap-2">
+										<input type="hidden" name="_token" value="{{ csrf_token('module-price') }}">
+
+										<fieldset class="border-0 p-0 m-0">
+											<legend class="visually-hidden">
+												{{ 'control_plane.module_set_price'|trans }} — {{ module.name }}
+											</legend>
+											{% for choice in ['unpriced', 'free', 'priced', 'not_for_sale'] %}
+												<div class="form-check form-check-inline me-2">
+													<input class="form-check-input" type="radio"
+													       name="pricing" value="{{ choice }}"
+													       id="pricing-{{ module.key }}-{{ choice }}"
+													       {{ module.pricing.value == choice ? 'checked' : '' }}>
+													<label class="form-check-label small"
+													       for="pricing-{{ module.key }}-{{ choice }}">
+														{{ ('control_plane.pricing_' ~ choice)|trans }}
+													</label>
+												</div>
+											{% endfor %}
+										</fieldset>
+
+										<div class="input-group input-group-sm" style="width: 11rem;">
+											<label class="visually-hidden" for="amount-{{ module.key }}">
+												{{ 'control_plane.module_amount'|trans }}
+											</label>
+											{#
+												`inputmode="decimal"` and no `type="number"`: the value is
+												a decimal string all the way to a NUMERIC column (§5.9),
+												and a number input hands back whatever the browser's
+												locale made of it. `step` and spinners on a price are the
+												wrong affordance anyway.
+											#}
+											<input class="form-control" type="text" inputmode="decimal"
+											       name="amount" id="amount-{{ module.key }}"
+											       value="{{ module.amount }}"
+											       autocomplete="off" spellcheck="false"
+											       placeholder="0.00">
+											{% if currency %}
+												<span class="input-group-text">{{ currency }}</span>
+											{% endif %}
+										</div>
+
+										<button type="submit" class="btn btn-sm btn-primary">
+											{{ 'common.save'|trans }}
+										</button>
+									</form>
+								</td>
+							</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+			</div>
+		{% endif %}
+	</main>
+{% endblock %}

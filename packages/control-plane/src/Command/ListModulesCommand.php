@@ -15,6 +15,8 @@ namespace Xivi\ControlPlane\Command;
 
 use App\Registry\Catalog\CatalogEntry;
 use App\Registry\Catalog\ModuleCatalog;
+use App\Registry\Pricing\ModulePricing;
+use App\Registry\Pricing\PriceCurrency;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Style\SymfonyStyle;
@@ -34,6 +36,7 @@ final readonly class ListModulesCommand
     public function __construct(
         private ModuleCatalog $catalog,
         private TranslatorInterface $translator,
+        private PriceCurrency $currency,
     ) {
     }
 
@@ -48,17 +51,36 @@ final readonly class ListModulesCommand
         }
 
         $io->table(
-            ['Key', 'Name', 'State', 'In this build', 'Decided'],
+            ['Key', 'Name', 'State', 'Price', 'In this build', 'In the store', 'Decided'],
             array_map(fn (CatalogEntry $e): array => [
                 $e->key,
                 $this->name($e),
                 $e->state->value,
+                $this->price($e),
                 $e->isInBuild() ? 'yes' : 'no',
+                // Printed rather than left to be worked out from the two columns
+                // to the left, because since XIV-101 there are three ways of
+                // being no and the interesting one — published but unpriced — is
+                // the one a reader is least likely to derive.
+                $e->isOfferedInStore() ? 'yes' : 'no',
                 // "never" rather than a blank: the default state is a decision
                 // nobody has made yet, and that is the interesting part.
                 $e->decision?->getUpdatedAt()->format('Y-m-d H:i') ?? 'never',
             ], $entries),
         );
+
+        $unpriced = array_filter(
+            $entries,
+            static fn (CatalogEntry $e): bool => $e->state->isOfferedInStore() && !$e->price->pricing->isDecided(),
+        );
+
+        if ($unpriced !== []) {
+            $io->warning(sprintf(
+                'Published and unpriced, so not offered in the store: %s. A module with no price is '
+                . 'not a free module — set one with `module:price`, or say `free` if that is the answer.',
+                implode(', ', array_map(static fn (CatalogEntry $e): string => $e->key, $unpriced)),
+            ));
+        }
 
         $orphans = array_filter($entries, static fn (CatalogEntry $e): bool => !$e->isInBuild());
 
@@ -71,6 +93,36 @@ final readonly class ListModulesCommand
         }
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * What this deployment charges, in one cell (XIV-101).
+     *
+     * The undecided case gets a word of its own rather than a blank or a dash,
+     * because a blank in a price column reads as free to anybody scanning — which
+     * is the confusion the four cases exist to prevent, and a table is where it
+     * would happen first.
+     *
+     * The amount is the stored decimal string with the currency code after it,
+     * not a locale-formatted figure: a console reader wants what is in the row,
+     * and grouping separators in a column somebody may be about to grep is a
+     * courtesy nobody asked for.
+     */
+    private function price(CatalogEntry $entry): string
+    {
+        $price = $entry->price;
+
+        if (!$price->costsMoney()) {
+            return match ($price->pricing) {
+                ModulePricing::Free => 'free',
+                ModulePricing::NotForSale => 'not for sale',
+                default => 'not priced yet',
+            };
+        }
+
+        $code = $this->currency->code();
+
+        return $code === null ? (string) $price->amount : sprintf('%s %s', $price->amount, $code);
     }
 
     /**

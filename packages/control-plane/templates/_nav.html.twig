@@ -1,0 +1,44 @@
+{#
+	The control plane's own header (XIV-101).
+
+	**This is the "second page" XIV-58 said to wait for.** That page's template
+	said, in as many words, that its header was small because there was one page
+	to navigate between and that a nav belonged to the moment there was a second.
+	This is that moment, so the header moved out of `tenants.html.twig` into a
+	partial rather than being copied into `modules.html.twig` — two headers with
+	one sign-out link between them is how a sign-out link ends up on one page and
+	not the other.
+
+	**Still not `_topbar.html.twig`.** That bar is the tenant application's
+	navigation — a customer's modules, their company name, their account menu —
+	and every one of those needs a resolved tenant, which this host deliberately
+	has not got (§8.9). Two links and a sign-out is the whole of what an operator
+	can navigate to, and it is drawn here rather than borrowed.
+
+	`current` is the route name of the page including this, so the active item can
+	be marked without the partial guessing from `app.request`.
+#}
+<div class="d-flex align-items-center justify-content-between mb-4">
+	<div class="d-flex align-items-baseline gap-3">
+		<h1 class="h4 mb-0">{{ 'control_plane.title'|trans }}</h1>
+		{#
+			`aria-current` as well as the colour, because "which page am I on" is
+			exactly the question a colour alone answers only for people who can see
+			it. Same rule the status badges on the tenant list follow.
+		#}
+		<nav class="nav nav-pills small" aria-label="{{ 'control_plane.title'|trans }}">
+			<a class="nav-link py-1 {{ current == 'control_plane_home' ? 'active' : '' }}"
+			   {{ current == 'control_plane_home' ? 'aria-current="page"' : '' }}
+			   href="{{ path('control_plane_home') }}">{{ 'control_plane.tenants'|trans }}</a>
+			<a class="nav-link py-1 {{ current == 'control_plane_modules' ? 'active' : '' }}"
+			   {{ current == 'control_plane_modules' ? 'aria-current="page"' : '' }}
+			   href="{{ path('control_plane_modules') }}">{{ 'control_plane.modules'|trans }}</a>
+		</nav>
+	</div>
+	<div class="d-flex align-items-center gap-3">
+		<span class="text-body-secondary small">{{ app.user.name }}</span>
+		<a class="btn btn-sm btn-outline-secondary" href="{{ path('control_plane_logout') }}">
+			{{ 'nav.sign_out'|trans }}
+		</a>
+	</div>
+</div>

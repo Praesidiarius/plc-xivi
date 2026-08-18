@@ -357,6 +357,28 @@ lands in `Unreleased` here.
   command that makes a real one. **Development, the test suite and `bin/ci` are
   unaffected** — the check does nothing outside `APP_ENV=prod`, because those
   three run on the placeholders on purpose.
+- **A module can have a price, and the operator sets it** ([XIV-101],
+  [§6.5](docs/architecture.md#65-a-module-can-have-a-price-and-the-operator-sets-it-xiv-101)).
+  It is a control-plane row beside the module's state, never a field on a
+  blueprint: what a module costs is a fact about the company deploying Xivi, and a
+  price in `packages/invoice/` would be one every deployment inherited and none of
+  them chose. Set on a new operator screen at `/control/modules`, or with
+  `module:price`; the control plane now has a second page and a nav between them.
+- **Free, priced and not-for-sale are three answers, and "nobody has said" is a
+  fourth.** A module with no price is **not** a free module and is not offered in
+  the store — collapsing the two is how a module ships at zero on the day somebody
+  adds a column. `module:list` names any module in that state, `module:state` says
+  it at the moment somebody publishes one, and the screen says it at the top.
+- **The store now needs both halves to say yes**: published *and* for sale.
+  Withdrawing a module from the price list takes it out of the store and
+  **uninstalls nothing** — §6.2's rule about state, inherited rather than
+  restated, and proved against a real tenant in
+  `tests/Functional/ControlPlane/ModulePriceTest.php`.
+- **One-off, not recurring**, and deliberately: recurring implies renewals,
+  billing periods and dunning, none of which exist here. `Tenant::$plan` is not
+  involved and still nothing reads it (§6.5 says what was rejected and why).
+- **Payment is not in this**, and neither is what a customer sees in the store.
+  That is [XIV-102], which this exists for.
 
 ### Fixed
 
@@ -497,6 +519,22 @@ lands in `Unreleased` here.
 
 ### Upgrade notes
 
+- **Price the modules you have published, or nobody is offered them**
+  ([XIV-101], §6.5). One control-plane migration adds `pricing` and
+  `price_amount` to `module`. **Rows that already exist backfill to `free`**,
+  which is what every module in this repository is today (§6.3), so an
+  installation with customers browsing the store sees no change. Rows written
+  *after* the migration default to `unpriced` instead, and an unpriced module is
+  not offered — so the next module somebody publishes needs `module:price` (or the
+  screen) before anybody can install it. `module:list` and `module:state` both say
+  so when it applies.
+- **`PRICE_CURRENCY` is new and empty by default.** It is the ISO 4217 code this
+  deployment's price list is in — one answer for the whole installation, not the
+  currency on a tenant's profile (§8.6), which is about that customer's own
+  documents. Left empty, prices render as bare numbers and the operator screen
+  names the variable. It is an environment variable and the prices are emphatically
+  not: a deployment picks its selling currency once, and changing it invalidates
+  every figure on the list at the same moment.
 - **The customer-facing deployment needs its own database user, and it is easier
   to arrange now than later** ([XIV-96], §4.4). Run
   `bin/console deploy:registry-grants <role>` and apply the SQL it prints: the
@@ -558,6 +596,7 @@ lands in `Unreleased` here.
 [XIV-107]: https://xivi.youtrack.cloud/issue/XIV-107
 [XIV-109]: https://xivi.youtrack.cloud/issue/XIV-109
 [XIV-93]: https://xivi.youtrack.cloud/issue/XIV-93
+[XIV-101]: https://xivi.youtrack.cloud/issue/XIV-101
 [XIV-88]: https://xivi.youtrack.cloud/issue/XIV-88
 [XIV-66]: https://xivi.youtrack.cloud/issue/XIV-66
 [XIV-96]: https://xivi.youtrack.cloud/issue/XIV-96

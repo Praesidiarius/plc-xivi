@@ -110,6 +110,20 @@ control_plane:
     # is hidden rather than as "show all", because the number is the part worth
     # knowing before deciding to open it.
     modules_more: '{count, plural, one {# more module} other {# more modules}}'
+    # The pricing screen's headline (XIV-101), and the one line an operator is
+    # meant to read before anything else on it.
+    #
+    # No `=0` case, for the reason `not_serving` above has none: it is drawn only
+    # when the number is not zero, and a banner permanently reading "0 modules are
+    # published with no price" is furniture the eye learns to skip — which is the
+    # exact failure this line exists to prevent, since the consequence it reports
+    # is otherwise invisible. The customer sees an absence in their store; nothing
+    # on their screen says why.
+    #
+    # "with no price" rather than "free" or "misconfigured": the module is not
+    # free, and nothing is broken. Nobody has decided yet, which is a state a
+    # deployment may sit in on purpose.
+    modules_unpriced: '{count, plural, one {# published module has no price, so nobody is offered it.} other {# published modules have no price, so nobody is offered them.}}'
 
 # Taking what a module grew (XIV-70). Every one of these counts something the
 # customer cannot see for themselves — how many records are in scope, how many

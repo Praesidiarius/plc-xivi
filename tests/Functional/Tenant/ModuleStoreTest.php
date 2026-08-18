@@ -17,6 +17,7 @@ use App\Registry\Catalog\ModuleCatalog;
 use App\Registry\Entity\Module;
 use App\Registry\Entity\ModuleState;
 use App\Registry\Entity\Tenant;
+use App\Registry\Pricing\ModulePrice;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Entity\PermissionGrant;
 use App\Tenant\Entity\PermissionGroup;
@@ -611,12 +612,25 @@ final class ModuleStoreTest extends WebTestCase
         });
     }
 
+    /**
+     * Published *and* priced, because since [XIV-101] the store needs both.
+     *
+     * `free` rather than an amount, which is what every module in this
+     * repository is (§6.3) and therefore what this test class is about. The
+     * second call is not decoration: a published module nobody has priced is
+     * deliberately **not** offered, because "free" and "nobody has said yet" are
+     * different facts and treating the second as the first is how a module ships
+     * at zero the day somebody adds a column. Deleting this line does not make
+     * these tests test the same thing more loosely — it makes them fail, which is
+     * the point.
+     */
     private function publish(string ...$modules): void
     {
         $catalog = self::service(ModuleCatalog::class);
 
         foreach ($modules as $module) {
             $catalog->moveTo($module, ModuleState::Published);
+            $catalog->priceAt($module, ModulePrice::free());
         }
     }
 

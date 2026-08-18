@@ -17,6 +17,7 @@ use App\Registry\Catalog\CatalogEntry;
 use App\Registry\Catalog\ModuleCatalog;
 use App\Registry\Entity\Module;
 use App\Registry\Entity\ModuleState;
+use App\Registry\Pricing\ModulePrice;
 use App\Registry\Repository\ModuleRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
@@ -89,9 +90,18 @@ final class ModuleStateTest extends KernelTestCase
         self::assertArrayNotHasKey(self::MODULE, $this->catalog->offeredInStore());
     }
 
+    /**
+     * Publishing is half the answer, and [XIV-101] is the other half.
+     *
+     * A module is offered when the platform says it is finished **and** this
+     * deployment says it is for sale. So the `priceAt()` call below is not
+     * scaffolding: remove it and this test fails, because a published module
+     * nobody has priced is deliberately withheld.
+     */
     public function testPublishingOffersItToEveryTenant(): void
     {
         $this->catalog->moveTo(self::MODULE, ModuleState::Published);
+        $this->catalog->priceAt(self::MODULE, ModulePrice::free());
 
         self::assertSame(ModuleState::Published, $this->catalog->state(self::MODULE));
         self::assertArrayHasKey(self::MODULE, $this->catalog->offeredInStore());
@@ -101,6 +111,7 @@ final class ModuleStateTest extends KernelTestCase
     public function testItCanBeTakenBackOutOfTheStore(): void
     {
         $this->catalog->moveTo(self::MODULE, ModuleState::Published);
+        $this->catalog->priceAt(self::MODULE, ModulePrice::free());
         $this->catalog->moveTo(self::MODULE, ModuleState::Development);
 
         self::assertArrayNotHasKey(self::MODULE, $this->catalog->offeredInStore());
@@ -121,7 +132,14 @@ final class ModuleStateTest extends KernelTestCase
      */
     public function testADecisionThatOutlivedItsCodeIsListedButNotOffered(): void
     {
-        $this->entityManager->persist(new Module(self::GHOST, ModuleState::Published));
+        $ghost = new Module(self::GHOST, ModuleState::Published);
+        // Priced as well, so that the assertion below is about the module having
+        // left the build rather than about it being unpriced — three separate
+        // things can withhold a module now, and a test that does not say which
+        // one it means passes for the wrong reason.
+        $ghost->setPrice(ModulePrice::free());
+
+        $this->entityManager->persist($ghost);
         $this->entityManager->flush();
 
         $entries = $this->catalog->entries();

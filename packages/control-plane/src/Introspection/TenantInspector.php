@@ -155,7 +155,17 @@ final readonly class TenantInspector
                 $row = [
                     'key' => $entry->key,
                     'state' => $entry->state->value,
-                    'offered_in_store' => $entry->state->isOfferedInStore(),
+                    // What this deployment charges (XIV-101). `unpriced` is not
+                    // free and must not be reported as a zero: a null amount is
+                    // "nobody has said", and a tool that answered 0 here would be
+                    // making the exact claim the four cases exist to prevent.
+                    'pricing' => $entry->price->pricing->value,
+                    'price_amount' => $entry->price->amount,
+                    // The whole rule, off the entry — state *and* price *and* in
+                    // this build. It used to ask the state alone, which stopped
+                    // being the answer the moment a price could withhold a module
+                    // on its own.
+                    'offered_in_store' => $entry->isOfferedInStore(),
                     'in_this_build' => $entry->isInBuild(),
                     // "never" as null rather than as a date nobody set: the
                     // default state is a decision nobody has made yet, and that

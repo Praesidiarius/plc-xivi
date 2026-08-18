@@ -126,6 +126,65 @@ control_plane:
     # answer is one command and the person reading is the person who runs it.
     no_tenants: No customers yet
     no_tenants_hint: 'Provision the first one with'
+    # The module pricing screen (XIV-101). What this deployment charges for each
+    # module, which is a fact about *this company's business* and not about the
+    # code — hence a control-plane row an operator edits, rather than a field on a
+    # blueprint that every deployment would inherit.
+    module_state: State
+    module_price: Price
+    module_in_store: In the store
+    module_set_price: Set the price
+    module_amount: Amount
+    # The two module states, spelled out rather than printed from the enum, for
+    # the same reason the tenant statuses above are.
+    module_state_development: In development
+    module_state_published: Published
+    # **The four pricing decisions, and the first of them is the one this whole
+    # section exists for.** "Not priced yet" is deliberately a sentence rather
+    # than a dash or a blank: a price column with an empty cell in it reads as
+    # free to anybody scanning, and free is a decision somebody made while this is
+    # the absence of one.
+    pricing_unpriced: Not priced yet
+    pricing_free: Free
+    pricing_priced: Priced
+    # A finished module this deployment has decided not to sell — which is a
+    # different statement from "in development", and phrased from the seller's
+    # side because it is the seller's decision. The code is fine; the price list
+    # does not have it on it.
+    pricing_not_for_sale: Not for sale
+    # The two columns to the left, combined. "Withheld" rather than "hidden",
+    # because there are three separate reasons it can be no and every one of them
+    # is somebody's decision rather than an accident.
+    module_offered: Offered
+    module_withheld: Withheld
+    # A decision that outlived its code: the row names a module this deploy does
+    # not ship. Worth showing rather than hiding — it is a deploy accident, and
+    # this list is where somebody would notice (§6.2).
+    module_not_in_build: not in this build
+    module_decided: 'decided %time%'
+    # There is a build and it ships no modules at all, which happens only to a
+    # checkout somebody is taking apart. No hint about what to type: the answer is
+    # a release rather than a command.
+    no_modules: No modules in this build
+    no_modules_hint: Nothing ships a module here, so there is nothing to price.
+    # Nobody has told this installation what it sells in, so every figure on the
+    # page is a bare number. §8.6's rule one level up: a guessed currency is wrong
+    # quietly, so it is asked for rather than assumed.
+    price_currency_unset: 'This installation has not said what it prices in. Set'
+    # Said under the banner that names the published-and-unpriced modules, because
+    # the count alone leaves somebody wondering whether it is a fault. It is not.
+    modules_unpriced_hint: >-
+        A module with no price is not a free module, so the store does not offer it. Say what it
+        costs, or say that it is free — both are decisions, and neither is the absence of one.
+    module_price_saved: 'The price of “%module%” was saved. Nothing was installed or uninstalled.'
+    # The CSRF token did not check out, which for a page an operator leaves open
+    # all day is overwhelmingly a stale tab rather than an attack. Phrased as the
+    # former, because telling somebody they have been attacked when they have left
+    # a tab open for a week is how a warning stops being read.
+    module_price_stale: That page had been open a while. Nothing was changed — try again.
+    # Unreachable from the form, which offers four radios. A hand-made post is a
+    # thing, and "the price silently did not change" is the worst possible answer.
+    module_price_unknown_pricing: That is not one of the four ways a module can be priced.
 
 dashboard:
     # A widget's heading (XIV-81). The module tiles have none — a grid of labelled

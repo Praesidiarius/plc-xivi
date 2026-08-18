@@ -1067,10 +1067,16 @@ genuinely awkward to retrofit once there are customers, which is the argument fo
 settling it here rather than leaving it as a note.
 
 Nothing on a customer's request path writes to that database, and that was
-checked rather than assumed: `App\Registry` reads, `ModuleCatalog::moveTo()` is
-the one writer in `src/` and its only callers are `control:*` commands, and
-`TenantSecretRotator` is driven from `tenant:rotate-secrets`. Both callers are in
-the package and therefore absent from the image.
+checked rather than assumed: `App\Registry` reads, and the writers in `src/` are
+`ModuleCatalog::moveTo()` and — since [XIV-101] — `ModuleCatalog::priceAt()`,
+whose only callers are the `module:*` commands and the operator pricing screen;
+`TenantSecretRotator` is driven from `tenant:rotate-secrets`. Every one of those
+callers is in the package and therefore absent from the image.
+
+**That a writer is present in the image and unreachable is not the guarantee
+being relied on**, and §6.5 says so at length where the split runs through one
+feature. The grant is. A method that cannot be called today is one refactor from
+being called; a role with no `UPDATE` is a refusal the database makes.
 
 **`bin/console deploy:registry-grants` prints the SQL**, and it prints rather
 than executes for a reason: a running instance that could grant privileges to
@@ -4192,6 +4198,14 @@ case the state exists to describe, so `tenant:module:install` names the state an
 proceeds. Nor does taking a module out of the store uninstall it anywhere — a
 state says what may be installed from here, never what is removed.
 
+*Updated by §6.5 ([XIV-101]).* The row carries a second decision now — what this
+deployment charges — and it gates the store alongside the state rather than
+through it: a module is offered when the platform says it is finished **and** this
+deployment says it is for sale, and either saying no is enough. The two are
+deliberately separate axes; "published and not for sale" is a real and useful
+combination. The sentence above about uninstalling is the one that transfers word
+for word, and §6.5 leans on it rather than restating it.
+
 ### 6.3 The store, and installing without a shell (XIV-6)
 
 A customer who signs up lands in an empty installation. Until the store, the only
@@ -4246,6 +4260,14 @@ somebody can change without a deploy.
 Not in it, on purpose: payment, since every module is free in this iteration and
 the state enum already anticipates more states; and uninstalling, which means
 deciding what happens to the records and is a larger question than installing one.
+
+*Half-corrected by §6.5 ([XIV-101]).* "Every module is free in this iteration" was
+true when it was written and is why the migration that added the price column
+backfills every existing row to `free` — that is recording a fact rather than
+inventing one. What has changed is that free is now a *decision* somebody made
+rather than the absence of one, and a module nobody has priced is withheld from
+the store instead of given away. Payment itself is still not in this: [XIV-102]
+is what a customer sees and what they pay with.
 
 ### 6.4 Asking an installation what it is (XIV-76)
 
@@ -4337,6 +4359,253 @@ Provisioning, installing a module, migrating and creating users are deliberately
 **not** tools. `bin/console list tenant` already prints them with their
 descriptions, and wrapping a command that describes itself buys ergonomics while
 doubling the surface to keep in step.
+
+### 6.5 A module can have a price, and the operator sets it (XIV-101)
+
+Modules were free, and §6.3 said so in as many words while leaving payment out of
+the store on purpose. This is the first half of undoing that: **the price
+existing, being set, and being readable.** Payment itself, and what a customer
+sees in the store, are [XIV-102] and depend on this.
+
+The governing sentence is that **what a module costs is not the code's business**.
+The company deploying Xivi decides what its customers pay, and the whole of the
+design below follows from taking that seriously rather than from anything about
+money.
+
+#### Where it lives, and why not on the blueprint
+
+**On the control-plane `module` row, beside `state`.** Not on `ModuleBlueprint`,
+and this is [XIV-7]'s argument reused rather than a new one (§6.2).
+
+A blueprint is *code*. It ships identically to every deployment, so a price in
+`packages/invoice/` would be a price every installation inherits and none of them
+chose — and the deployments differ on exactly this point: one sells the invoice
+module, the next bundles it into a contract it negotiates per customer, a third
+runs this for one company and sells nothing at all. `App\Registry\Entity\Module`
+already carries `key` and `state` for that reason, and `ModuleCatalog` is already
+the seam where the build's half and the control plane's half meet.
+
+**No `packages/*` blueprint names a price, and none may.** There is nothing to
+enforce that with a test, because there is nothing in `ModuleBlueprint` to put one
+in — the absence is the enforcement, and the day somebody adds a `price:`
+parameter to that constructor is the day this section is what they should be made
+to read.
+
+#### Three decisions and one absence, and the absence is the load-bearing part
+
+`ModulePricing` has four cases where the ticket asked for three, and the fourth
+is what makes the three mean anything.
+
+| | what it says | offered in the store |
+| --- | --- | --- |
+| `unpriced` | nobody has decided | no |
+| `free` | it costs nothing | yes |
+| `priced` | it costs this much | yes |
+| `not_for_sale` | this deployment does not sell it | no |
+
+**A null price is not free.** Collapsing "free" and "no price set yet" is how a
+module ships at zero on the day somebody adds the column, and nothing anywhere
+says it happened. So `unpriced` is a value in the column rather than an absence of
+one — it has to be, because unlike `state`, the price cannot borrow "no row at
+all" as its default: the row is frequently already there for the other decision.
+A module somebody publishes and does not price is therefore explicitly undecided,
+and is **withheld from the store** until somebody says which of the other three it
+is.
+
+That last part is a behaviour change and the visible cost of the ticket: before
+this, publishing was sufficient. It is deliberate, it is said at every point where
+somebody could be surprised by it — `module:list`, `module:state` at the moment of
+publishing, and a banner at the top of the operator screen — and the alternative
+is the failure this whole section exists to prevent.
+
+**`not_for_sale` is not `development` in different words.** `development` is a
+statement about the *module*: it is not finished, platform-wide, for everybody.
+`not_for_sale` is a statement about *this company's price list* for a module that
+is finished. A deployment that bundles the invoice module into a negotiated
+contract, or has retired it, needs to say so without telling every reader that the
+code is unfinished. The two axes are independent and either saying no is enough;
+folding them into one enum would have produced a four-value list in which
+"published and not for sale" had no spelling.
+
+**A not-for-sale module is not listed at all**, rather than listed and unbuyable.
+The open question the ticket left, decided: the store is a place to obtain
+modules, so a row nobody can act on is an advertisement for something the
+deployment has decided not to sell, and the reader's only available response to it
+is to ask why. A deployment that genuinely wants to tease something is asking for
+a "coming soon" list with a date on it, which is a different feature and would be
+badly served by this one pretending to be it.
+
+**Zero is refused as a price.** `priced 0.00` is `free` spelled in a way nothing
+can distinguish from a form somebody submitted before finishing, so `ModulePrice`
+throws on it — and rounds before it judges, so `0.004` is refused as the `0.00` it
+was about to be stored as. Three states only stay distinguishable if the boundary
+between two of them cannot be reached by typing a number.
+
+#### One-off, not recurring — and what was rejected
+
+**Decided: a one-off price.** One number, per module, and no period.
+
+Recurring was the serious alternative and it changes the data model rather than a
+field. `Tenant::$plan` exists and defaults to `standard`, which looks like
+subscription thinking already in the air — and it was checked rather than trusted:
+**nothing consumes it.** It is displayed by `tenant:list`, by the tenant list page
+and by the introspector, it is written once at provisioning from a signup, and no
+code anywhere reads it to decide anything. It is a label.
+
+So "recurring" here would not be a `period` column added to a working billing
+system. It would be a `period` column with **no** billing system behind it, and
+the things it implies do not exist and are each their own ticket: a billing period
+and where its boundaries fall, renewal, proration when somebody installs
+mid-period, a grace period, dunning, what happens to an installed module when a
+renewal fails — and that last one collides head-on with §6.2's rule that nothing
+here uninstalls anything. Shipping the column and none of that is worse than
+shipping neither, because it looks like the feature: a screen that offers "per
+month" is a screen that promises somebody will be charged monthly.
+
+**A one-off price is the smaller honest thing**, and it is not a dead end. When
+recurring is genuinely wanted, `ModulePricing` grows a case the same way
+`ModuleState` was designed to, and by then there will be a purchase record for a
+period to hang off — which is where it belongs, since a period is a term of a
+transaction rather than a property of a module. Rejected along with it: putting
+`plan` to work as a pricing tier, which would have made a per-tenant label into a
+billing input while nothing validated it and while no tenant's plan had ever been
+chosen by anybody deciding about money.
+
+#### The currency is the instance's, and `InstanceCurrency` does not fit
+
+**A price list is an instance fact, not a tenant fact.** The deployment sells in
+one currency; a tenant whose profile says something else does not change what the
+deployment charges.
+
+`Xivi\Core\Money\InstanceCurrency` is named for the instance and looks like the
+answer. It is not, and reusing it fails twice in opposite directions — neither
+failure being about the name:
+
+- Its one implementation is `App\Tenant\Settings\ProfileCurrency`, which reads the
+  **tenant profile** (§8.6) — the currency a customer writes their *own* invoices
+  in. Rendering this deployment's price list through it would relabel francs as
+  euros for a customer whose profile says EUR: the same digits, a different claim,
+  agreed to by nobody at either end.
+- A control-plane request resolves no tenant by construction (§8.9), so
+  `ProfileCurrency` correctly returns null there, for ever. The one page on which
+  somebody decides what a module costs would be the one page unable to say what it
+  costs it *in*.
+
+So this is **not a second currency concept**: same ISO 4217 code, same
+`Money\Amount`, same two decimal places, and `App\Registry\Pricing\PriceCurrency`
+deliberately does **not** implement `InstanceCurrency`, so that it cannot be
+autowired into a field type by somebody who reads the interface name and stops
+there. What differs is whose fact it is.
+
+**It is a deployment parameter, `PRICE_CURRENCY` → `app.price_currency`**, and
+that needs defending because the ticket is emphatic that a *price* must not live
+in `.env`. It must not, and the argument does not transfer. A price changes, which
+is the reason this ticket exists; a deployment's selling currency is picked once
+at installation, and changing it does not adjust a price — it invalidates every
+figure on the list at the same moment, since 49.00 CHF and 49.00 EUR are not the
+same offer. That is a re-pricing exercise with a person in it, and making it need
+a deploy is the correct amount of friction. It is also §4.4's shape for
+`app.control_plane_host`: a fact about where and how this software is installed,
+set in the environment, therefore identical in both images with nothing to keep in
+step.
+
+Rejected: a single editable row in the control plane — a table, a row, a column, a
+screen and a migration for a value that changes roughly never. The note worth
+leaving is what would change the answer: the day a deployment sells into two
+markets in two currencies, this is wrong and a per-price-list currency is right.
+That has exchange rates behind it, exactly as `CurrencyFieldType` says about
+per-record currencies, and it is a feature rather than a field option.
+
+**Empty is a real answer and is the default.** §8.6 refuses to guess a currency
+for a customer because a guessed one is wrong quietly and surfaces on the first
+priced thing they print; the same holds one level up. Unset, prices are bare
+numbers and the operator screen names the variable.
+
+#### The money is §5.9's money
+
+A decimal string at two places, `NUMERIC(12, 2)` in the column, arithmetic through
+`Money\Amount` on `brick/math`, scale taken from `Amount::SCALE` so this and an
+invoice line round from one constant under one rule. Nothing on the path from the
+request parameter to the column is ever a float. A system that got money right in
+every customer's documents and then priced its own modules in `float` would be an
+embarrassing exception, and the exception would be written by whoever found a
+`float $price` easier to add than to read this paragraph.
+
+#### Changing a price touches nothing anybody already has
+
+**This is [XIV-67]'s argument about payment terms, and it transfers exactly.**
+What was agreed is a fact about the transaction rather than a live lookup, so
+raising a module's price must not retroactively change what an existing customer
+is deemed to owe, and must not uninstall anything.
+
+Structurally that is already true and stays true by construction: a customer's
+modules live in *their own* database, are put there by `ModuleInstaller`, and are
+read back out of their own metadata (§6.1, §6.3). Nothing on that path consults
+the control plane's price column, and `ModuleCatalog::priceAt()` writes two columns
+of one control-plane row and reaches nothing else. §6.2 already settled the same
+point for state — a decision here says what may be obtained from now on, never
+what is removed — and the price inherits it rather than restating it.
+
+**Proved rather than asserted.** `tests/Functional/ControlPlane/ModulePriceTest.php`
+provisions a real tenant, really installs a module into it, really writes a record
+through `RecordWriter`, and photographs everything observable about the result —
+the module definition, its table, every field with its label and requiredness, the
+record count and the records' data. It then walks the price through free, priced,
+a **rise**, and a withdrawal from sale altogether, and compares the photograph. A
+test asserting "the price setter does not call the installer" would have passed for
+any number of ways of doing the wrong thing indirectly.
+
+The forward-looking half is a rule for [XIV-102] rather than code here: when a
+purchase is recorded, the price goes onto that record as a **copy**, exactly as an
+invoice stores its own due date (§5.16) and its own totals (§5.9). Nothing about a
+sale is ever recomputed from this row afterwards.
+
+#### Reading and setting land on opposite sides of the [XIV-96] split
+
+The tension is real and is resolved rather than noticed.
+
+`App\Registry` stays in `src/` and is compiled into the customer-facing image,
+because it is what a customer's own request needs in order to be served at all
+(§3.1). That includes the two new columns, `ModulePrice`, `PriceCurrency` and
+`ModuleCatalog` — **reading a price is a customer-facing concern**, since [XIV-102]
+will draw it in that customer's store.
+
+The operator screen that *sets* one is `Xivi\ControlPlane\Controller\ModulePricingController`,
+in the package, and is therefore absent from that image: §4.4's builder stage
+refuses to finish if the namespace survives anywhere under `/app`. Nothing in
+`src/` or `config/` names it, which is what
+`tests/Unit/Deployment/ControlPlaneIsOptionalAtBuildTimeTest.php` checks.
+
+**And the guarantee underneath is the grant, not the routing.** §4.4 gives the
+customer-facing instance's role `SELECT` on the registry tables and nothing else,
+so `UPDATE module SET price_amount = …` from the process facing the internet is
+refused by PostgreSQL whatever a controller there does. `ModuleCatalog::priceAt()`
+therefore joins `moveTo()` on the short list of **writers that live in `src/` and
+are only ever called from the package** — §4.4 names that list and it now has two
+entries. Splitting the writer out into the package was weighed and rejected: it
+would put half of one entity's invariants in `src/` and half in a bundle, so
+`ModulePrice`'s rules would be enforced by whichever half a future caller happened
+to go through.
+
+The screen keeps [XIV-58]'s boundary as well: every value on it is a `module` row
+crossed with the blueprints this build compiled in, so it opens no tenant
+connection, and the test asserts that the same way `TenantListTest` does.
+
+**It is also the second page on that surface**, which XIV-58's template said to
+wait for before adding a nav. So the header moved into a partial both pages
+include, rather than being copied.
+
+#### Readable through one seam
+
+`ModuleCatalog::price()` mirrors `state()`; `CatalogEntry` carries a
+`ModulePrice`; `CatalogEntry::isOfferedInStore()` holds the whole rule — in the
+build, published, and for sale — so the store, the operator screen and the
+introspector ask one question rather than three each composing their own. There is
+no second service reading the `module` table, and there must not be.
+
+`module:price` exists beside the screen for the reason §6.3 gives about
+`tenant:module:install`: a page is not a reason to take a command away, and a
+headless deployment has no browser pointed at the control plane.
 
 ---
 

@@ -82,6 +82,30 @@ parameters:
     # rather than stored.
     app.signup_plans: '%env(csv:XIVI_SIGNUP_PLANS)%'
 
+    # **The currency this deployment's module price list is in** (XIV-101).
+    #
+    # Not the tenant's. §8.6 gives each customer a currency and that one is about
+    # *their* documents — what they invoice their own customers in. This is what
+    # the company running Xivi charges for a module, so it is one answer for the
+    # whole installation and a tenant whose profile says EUR does not change it.
+    # `App\Registry\Pricing\PriceCurrency` has the argument at length, including
+    # why it deliberately does not implement `Xivi\Core\Money\InstanceCurrency`.
+    #
+    # **A deployment fact in the environment, which the price itself is not.**
+    # [XIV-101] is emphatic that a price must not live in `.env` — a price nobody
+    # can change without a deploy is the thing the ticket exists to avoid — and
+    # that argument does not reach the currency: a deployment picks it once, and
+    # changing it invalidates every figure on the list at the same moment, so it
+    # is a re-pricing with a person in it rather than an edit between two
+    # customers. Same shape as `app.control_plane_host` above (§4.4), and it is
+    # read identically by both images because a parameter is in both.
+    #
+    # Empty by default and empty is a real answer: §8.6 refuses to guess a
+    # currency for a customer because a guessed one is wrong quietly, and the same
+    # holds for a price list. Unset, prices are bare numbers and the operator
+    # screen says which variable to set.
+    app.price_currency: '%env(PRICE_CURRENCY)%'
+
     # Hosts served without a tenant: dev tooling (profiler), health checks, the
     # container-internal name, the control plane — whose entire subject matter is
     # the set of tenants and which must therefore be about none of them (§4,
