@@ -351,6 +351,53 @@ field:
             The counter is kept where it is, so switching numbering back on later carries on from
             there rather than starting again over numbers that are already out.
 
+# Taking what a module grew after it was installed (XIV-70, docs/architecture.md
+# §7.2.1). The sentences here do an unusual amount of work: what is being offered
+# is a change to the shape of every record in a module, and the thing a customer
+# most needs told is not what happens but what does *not* — their own edits are
+# not about to be overwritten, nothing is removed, and no field changes type.
+upgrade:
+    title: What this module has gained
+    subtitle: '%module% — parts of the module your copy does not have.'
+    back_to_fields: Back to the fields
+    nothing: 'Your copy of %module% has everything the module declares. There is nothing to take.'
+    nothing_outstanding: 'Your copy of %module% has everything the module declares, apart from what you dismissed below.'
+    intro: >-
+        A module can grow between releases, and installing never reaches back into an
+        installation that already exists — from the day you installed it, your
+        definitions are the truth. So none of this has happened to you. It is offered,
+        and you decide item by item.
+    keeps_yours: >-
+        Only new things are added. A field you have already is never offered again,
+        whatever you have since renamed, narrowed or reordered it to, and nothing you
+        already have is changed. No field is removed and no field changes type.
+    what: What
+    where: Goes on
+    derived: filled in by the engine
+    dismiss: Not this one
+    review: See what this would do
+    review_note: Nothing is written until you have read the next page.
+    dismissed_title: Dismissed
+    dismissed_help: >-
+        You have said no to these, so they are not offered again. Removing a field
+        counts as saying no to it — that is how a field you deleted on purpose stops
+        coming back. Offering one again puts it back on the list above.
+    restore: Offer it again
+    banner_link: See what they are
+    review_title: 'Add these to %module%?'
+    review_adds: 'This adds the following to your copy of <strong>%module%</strong>:'
+    review_keeps: 'What this does not do:'
+    review_keeps_fields: >-
+        Nothing you already have is touched — not a label, not a width, not a rule,
+        not the order they are in.
+    review_keeps_values: >-
+        No value is written into any record. A field the engine fills in arrives empty
+        and is filled the next time each record is saved.
+    review_keeps_removal: >-
+        No field is removed and no field changes type. Both are separate questions, and
+        this is the answer to neither.
+    review_do: Add them
+
 import:
     file: Spreadsheet
     file_help: 'An export of this module is exactly the shape it expects, with one sheet per shape: %sheets%.'
@@ -614,7 +661,7 @@ permission:
         browse: Browse the store
         browse_help: See which modules this installation could have.
         install: Install modules
-        install_help: Add a module to this installation. It cannot be removed again, and the set of fields chosen cannot be changed later.
+        install_help: Add a module to this installation. It cannot be removed again, and what is installed is written into your own database as it stands.
 
 store:
     title: Store
@@ -634,11 +681,16 @@ store:
     install: Install
     install_title: 'Install %module%'
     choose_preset: Choose what to start with
-    preset_permanent: This choice cannot be changed later.
+    # Not "this cannot be changed" any more (XIV-70). It never could be *changed*
+    # — nothing is taken away, ever — but the smaller set can be grown into the
+    # larger one afterwards, and a screen that says otherwise is now simply
+    # wrong. The promise worth keeping is the one about rewriting: what is
+    # installed here is yours from this moment.
+    preset_permanent: Nothing rewrites this afterwards.
     preset_permanent_help: >-
         Installing writes these fields into your database, and nothing rewrites them afterwards — that is
-        what lets you rename and rearrange them freely. You can always add more fields yourself, but the
-        other set is not something you can switch to.
+        what lets you rename and rearrange them freely. Fields the other set has can be taken later, one
+        at a time, from the module's own settings; nothing ever takes away what you install now.
     confirm_install: Install this module
     follow_ups: Follow-ups on this module's records
     follow_ups_help: >-
@@ -805,6 +857,12 @@ flash:
     # somebody reads afterwards should be about what happened.
     numbering_started: 'Numbered "%field%". %count% existing records were given a number, oldest first.'
     numbering_stopped: '"%field%" is no longer numbered. The numbers on records are unchanged, and the field can be typed in again.'
+    # Taking what a module grew (XIV-70). The dismissal says where the decision
+    # went, because "not this one" is only safe to click if it is visibly
+    # reversible.
+    upgrade_dismissed: '"%addition%" will not be offered again. It is in the dismissed list if you change your mind.'
+    upgrade_restored: '"%addition%" is on offer again.'
+    upgrade_nothing_chosen: Nothing was ticked, so there is nothing to add.
     module_installed: 'Installed "%module%". Nobody can see it until somebody is granted permission on it.'
     group_created: 'Created "%group%". Now say what it may do.'
     group_saved: 'Saved "%group%".'

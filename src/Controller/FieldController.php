@@ -35,6 +35,7 @@ use Xivi\Core\Metadata\MetadataEditor;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Metadata\ModuleNotInstalled;
 use Xivi\Core\Metadata\NumberingChange;
+use Xivi\Core\Module\ModuleUpgrade;
 use Xivi\Core\Numbering\AssignsNumbers;
 use Xivi\Core\Numbering\CounterRefused;
 use Xivi\Core\Numbering\NumberFormat;
@@ -114,6 +115,7 @@ final class FieldController extends AbstractController
         private readonly FieldTypeRegistry $fieldTypes,
         private readonly TranslatorInterface $translator,
         private readonly NumberingChange $numbering,
+        private readonly ModuleUpgrade $upgrade,
     ) {
     }
 
@@ -141,6 +143,13 @@ final class FieldController extends AbstractController
             // the link now appears on a plain text field too, and says something
             // different when it does.
             'numberable' => $this->numberableIn($definition),
+            // How many things this module's blueprint has grown that this
+            // customer has not got (XIV-70). A count and not the list, because
+            // this page is not where the offer is read — it is where somebody
+            // who came to change their fields finds out there is something to
+            // read. The offer itself, with the argument for each one and the
+            // dismissed ones beside it, is ModuleUpgradeController's.
+            'additions' => \count($this->upgrade->available($definition)),
         ]);
     }
 

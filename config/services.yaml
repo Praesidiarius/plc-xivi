@@ -177,6 +177,15 @@ services:
             $entityManager: '@doctrine.orm.tenant_entity_manager'
             $connection: '@doctrine.dbal.tenant_connection'
 
+    # Taking what a module grew after it was installed (XIV-70). Adding a
+    # collection is a table *and* a definition, and either without the other is a
+    # shape nothing can read, so it opens the transaction they share — on the
+    # same connection the tenant entity manager holds, or the installer's flushes
+    # would run beside that transaction rather than inside it.
+    Xivi\Core\Module\ModuleUpgrade:
+        arguments:
+            $connection: '@doctrine.dbal.tenant_connection'
+
     Xivi\Core\Record\RecordRepository:
         arguments:
             $connection: '@doctrine.dbal.tenant_connection'
@@ -405,6 +414,13 @@ when@test:
         # something to be tested against without inventing product behaviour in
         # a module customers actually have (XIV-14).
         App\Tests\Support\Module\JobModule: ~
+
+        # And one whose blueprint has *grown*, so that taking what a module
+        # gained after it was installed can be tested against a shape nobody is
+        # going to change for a product reason (XIV-70). The modules that really
+        # grew — Contact's `payment_terms`, its addresses collection — are
+        # precisely the ones a test must not assert the current shape of.
+        App\Tests\Support\Module\GrownModule: ~
 
         # Private services with no caller are removed when the container is
         # compiled, and nothing in the application validates a record yet — the

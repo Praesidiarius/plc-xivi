@@ -569,6 +569,28 @@ final readonly class RecordRepository
      */
     public function countViolating(ShapeDefinition $shape, FieldDefinition $field, bool $required, bool $unique): int
     {
+        return $this->countViolatingKey($shape, $field->getKey(), $required, $unique);
+    }
+
+    /**
+     * The same question about a field that does not exist yet (XIV-70).
+     *
+     * The upgrade asks it before adding a field a blueprint declares, and there
+     * is nothing to hand it a definition for: the point of the question is
+     * whether the definition can be created carrying its blueprint's rules, or
+     * has to arrive with them switched off because the records that already
+     * exist could not satisfy them.
+     *
+     * A key rather than a definition is enough because a key is all the query
+     * ever used — the value lives under it in the JSONB payload — and it is the
+     * honest signature for the case that makes this necessary: **values can
+     * outlive their definition**. §5.4's removal takes the row and leaves what is
+     * stored, so a key with no field can still have duplicates in it, and
+     * assuming a new field is empty everywhere is exactly the assumption that
+     * would be wrong on the one installation where it mattered.
+     */
+    public function countViolatingKey(ShapeDefinition $shape, string $key, bool $required, bool $unique): int
+    {
         $table = $this->table($shape);
         $violations = 0;
 
@@ -578,7 +600,7 @@ final readonly class RecordRepository
                     "SELECT COUNT(*) FROM %s WHERE deleted_at IS NULL AND (data->>:field IS NULL OR data->>:field = '')",
                     $table,
                 ),
-                ['field' => $field->getKey()],
+                ['field' => $key],
             );
         }
 
@@ -594,7 +616,7 @@ final readonly class RecordRepository
                      ) AS duplicates",
                     $table,
                 ),
-                ['field' => $field->getKey()],
+                ['field' => $key],
             );
         }
 

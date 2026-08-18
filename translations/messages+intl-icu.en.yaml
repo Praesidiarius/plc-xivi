@@ -111,6 +111,21 @@ control_plane:
     # knowing before deciding to open it.
     modules_more: '{count, plural, one {# more module} other {# more modules}}'
 
+# Taking what a module grew (XIV-70). Every one of these counts something the
+# customer cannot see for themselves — how many records are in scope, how many
+# tables appear — which is exactly the part of the confirmation that decides
+# whether somebody does this now or on a quiet afternoon.
+upgrade:
+    a_collection: '{count, plural, one {a collection, # field} other {a collection, # fields}}'
+    banner: '{count, plural, one {Your copy of {module} is missing # thing this module now declares.} other {Your copy of {module} is missing # things this module now declares.}}'
+    review_records: '{count, plural, one {<strong>The # record</strong> in {module} gains these fields, empty. Nothing is written into it — the fields simply exist from now on.} other {<strong>All # records</strong> in {module} gain these fields, empty. Nothing is written into any of them — the fields simply exist from now on.}}'
+    review_rows: '{count, plural, one {# row inside those records gains the new fields, empty as well.} other {# rows inside those records gain the new fields, empty as well.}}'
+    review_tables: '{count, plural, one {<strong>One table is created</strong> in your database for the new collection. It starts empty.} other {<strong># tables are created</strong> in your database, one per new collection. They start empty.}}'
+    review_derived: '{count, plural, one {# of these is filled in by the engine rather than typed, so it arrives empty on records that already exist and is filled the next time each one is saved:} other {# of these are filled in by the engine rather than typed, so they arrive empty on records that already exist and are filled the next time each one is saved:}}'
+    review_relaxed: '{count, plural, one {# of these is required in the module and arrives optional here, because records that already exist could not satisfy it. Make it required in the field editor once they are filled in:} other {# of these are required in the module and arrive optional here, because records that already exist could not satisfy them. Make them required in the field editor once they are filled in:}}'
+    review_agree: '{count, plural, one {Yes, add it to {module}.} other {Yes, add all # of them to {module}.}}'
+
 flash:
+    upgrade_taken: '{count, plural, one {Added # thing to {module}. It is in the field list now, and is yours to rename and reorder like any other.} other {Added # things to {module}. They are in the field list now, and are yours to rename and reorder like any other.}}'
     password_too_short: '{count, plural, one {Use at least # character.} other {Use at least # characters.}}'
     imported: 'Imported. {module}: {added, plural, other {# added}}, {updated, plural, other {# updated}}.'

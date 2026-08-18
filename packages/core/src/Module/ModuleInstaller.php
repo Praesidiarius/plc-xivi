@@ -314,28 +314,151 @@ final readonly class ModuleInstaller
         return $this->translator->trans($key, [], $domain, $locale);
     }
 
+    /**
+     * A field a customer's module has gained since they installed it (XIV-70).
+     *
+     * The performing half of {@see ModuleUpgrade}, which decides *what* and
+     * leaves *how* here — where turning a blueprint into definitions already
+     * lives, so that there is one description of what a module's own field is
+     * and not a second one written next to the screen that offers it.
+     *
+     * **Appended rather than slotted in at the blueprint's position.** The
+     * blueprint says `payment_terms` sits at 70, and a customer who has
+     * rearranged their form has an order of their own that 70 lands in the
+     * middle of. Nothing existing is moved either way — positions are per row —
+     * but a new field appearing between two the customer deliberately put next
+     * to each other is the blueprint having an opinion about their layout, which
+     * is the thing §6.1 says it stops having at install. Appending is what the
+     * editor's own "add field" does, it is visible, and it is one number in a box
+     * to change if they disagree. Additions are offered in blueprint order and
+     * appended in that order, so several taken at once still arrive in the order
+     * their author wrote them.
+     *
+     * **`system: true`**, because this *is* one of the module's own fields — it
+     * arrived late, not from the customer — so removing it is refused on exactly
+     * the same terms as every other one (§5.4).
+     *
+     * The rules come from the caller rather than from the blueprint, and that is
+     * the one place this diverges from installing: a `required` field cannot be
+     * switched on over records that already exist without leaving somebody a
+     * module they cannot save. {@see ModuleUpgrade} counts first and passes what
+     * the records can actually keep.
+     */
+    public function adoptField(
+        ShapeDefinition $shape,
+        FieldBlueprint $field,
+        string $domain,
+        ?string $locale,
+        bool $required,
+        bool $unique,
+    ): FieldDefinition {
+        // Before anything is written, as install() does with the whole blueprint
+        // at once: a type this build does not have would otherwise be found by
+        // the first person to open the record form.
+        $this->fieldTypes->get($field->type);
+
+        $definition = $this->define($shape, $field, $domain, $locale, $shape->nextPosition(), $required, $unique);
+
+        $this->entityManager->persist($definition);
+        $this->entityManager->flush();
+        // The shape somebody is about to be shown has just changed (XIV-53).
+        $this->cache->clear();
+
+        return $definition;
+    }
+
+    /**
+     * A whole collection a customer's module has gained (XIV-70).
+     *
+     * The reason this could never be a metadata-editor operation and had to wait
+     * for an installer: a collection is a **table**, and creating tables is the
+     * one thing only this class does (§6.1 says as much when it explains why a
+     * preset may leave out a field and never a collection).
+     *
+     * Unlike a field, the position is the blueprint's. There is no customer
+     * decision to overrule — the editor draws no control for where a collection
+     * sits — so honouring what the module's author said costs nothing, whereas
+     * appending would invent an ordering nobody asked for.
+     *
+     * No table is dropped and nothing is adopted: {@see createRecordTable()}
+     * refuses a name that already exists rather than taking over a table this
+     * installer did not create.
+     */
+    public function adoptCollection(
+        ModuleDefinition $module,
+        CollectionBlueprint $collection,
+        string $domain,
+        ?string $locale,
+    ): CollectionDefinition {
+        foreach ($collection->fields as $field) {
+            $this->fieldTypes->get($field->type);
+        }
+
+        $this->createRecordTable($collection->table, parentTable: $module->getTableName());
+
+        $definition = new CollectionDefinition(
+            parent: $module,
+            key: $collection->key,
+            label: $this->label($collection->label, $domain, $locale),
+            tableName: $collection->table,
+            position: $collection->position,
+            variantField: $collection->variantField,
+        );
+        $this->defineFields($definition, $collection->fields, $domain, $locale);
+
+        $this->entityManager->persist($definition);
+        $this->entityManager->flush();
+        $this->cache->clear();
+
+        return $definition;
+    }
+
     /** @param list<FieldBlueprint> $fields */
     private function defineFields(ShapeDefinition $shape, array $fields, string $domain, ?string $locale): void
     {
         foreach ($fields as $field) {
-            $definition = new FieldDefinition(
-                shape: $shape,
-                key: $field->key,
-                label: $this->label($field->label, $domain, $locale),
-                type: $field->type,
-                required: $field->required,
-                unique: $field->unique,
-                filterable: $field->filterable,
-                listed: $field->listed,
-                title: $field->title,
-                position: $field->position,
-                system: true,
-                derived: $field->derived,
-                width: $field->width,
-            );
-            $definition->setOptions($this->translatedOptions($field->options, $domain, $locale));
-            $definition->setVariants($field->variants);
+            $this->define($shape, $field, $domain, $locale, $field->position, $field->required, $field->unique);
         }
+    }
+
+    /**
+     * One field definition, from one blueprint field.
+     *
+     * Shared by installing and by adopting (XIV-70) so that a field a module
+     * gained late is indistinguishable from one it shipped with — same flags,
+     * same translated label, same options, same variants. The three arguments
+     * that are passed rather than read off the blueprint are exactly the three
+     * the two callers disagree about, and every disagreement is argued where the
+     * caller is.
+     */
+    private function define(
+        ShapeDefinition $shape,
+        FieldBlueprint $field,
+        string $domain,
+        ?string $locale,
+        int $position,
+        bool $required,
+        bool $unique,
+    ): FieldDefinition {
+        $definition = new FieldDefinition(
+            shape: $shape,
+            key: $field->key,
+            label: $this->label($field->label, $domain, $locale),
+            type: $field->type,
+            required: $required,
+            unique: $unique,
+            filterable: $field->filterable,
+            listed: $field->listed,
+            title: $field->title,
+            position: $position,
+            system: true,
+            derived: $field->derived,
+            width: $field->width,
+        );
+        $definition->setOptions($this->translatedOptions($field->options, $domain, $locale));
+        $definition->setVariants($field->variants);
+
+        return $definition;
     }
 
     /**
