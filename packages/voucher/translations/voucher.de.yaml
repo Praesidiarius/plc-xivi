@@ -1,0 +1,27 @@
+# Deutsch, per „du“ — dieselbe Anrede wie überall sonst (XIV-8).
+#
+# Wird einmal bei der Installation gelesen und in die Definitionen dieser Kundin
+# geschrieben; danach gehören die Bezeichnungen ihr.
+#
+# `field.code_help` ist die eine Ausnahme: der Feldtyp setzt sie bei jedem
+# Rendern, nicht die Installation, und sie ist der einzige Ort, an dem jemand
+# erfährt, dass ein leeres Feld einen Code erzeugt.
+
+module: Gutscheine
+
+field:
+    code: Code
+    code_help: Lass das Feld leer, dann wird ein Code erzeugt. Tipp einen eigenen ein, wenn du einen willst, den man vorlesen kann — Grossbuchstaben musst du nicht tippen.
+    kind: Art
+    amount: Betrag
+    percentage: Rabatt (%)
+    article: Gratisartikel
+    quantity: Menge
+    valid_from: Gültig ab
+    valid_until: Gültig bis
+    max_redemptions: Erlaubte Einlösungen
+
+kind:
+    absolute: Betrag
+    relative: Rabatt in Prozent
+    free_article: Gratisartikel

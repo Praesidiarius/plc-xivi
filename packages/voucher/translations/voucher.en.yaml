@@ -1,0 +1,31 @@
+# What the Voucher module calls itself, its fields and its three kinds (XIV-8).
+#
+# Read **once, at install time**, and written into that customer's definitions —
+# see contact.en.yaml, which explains at length why this is a seed rather than a
+# lookup table.
+#
+# `field.code_help` is the one key here that is *not* a seed. It is rendered on
+# every draw of the form, because it is set by the field type rather than by the
+# blueprint (Code\VoucherCodeFieldType::formOptions), and it is the only place
+# anybody is told that leaving the box empty produces a code. That makes it the
+# whole discoverability of the generator, so it says what happens rather than
+# what the field is.
+
+module: Vouchers
+
+field:
+    code: Code
+    code_help: Leave this empty and a code is generated for you. Type your own if you want one people can say out loud — capitals are not required.
+    kind: Kind
+    amount: Amount off
+    percentage: Percentage off (%)
+    article: Free article
+    quantity: Quantity
+    valid_from: Valid from
+    valid_until: Valid until
+    max_redemptions: Redemptions allowed
+
+kind:
+    absolute: Amount off
+    relative: Percentage off
+    free_article: Free article

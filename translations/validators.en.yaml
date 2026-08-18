@@ -5,3 +5,8 @@
 # framework ships its own catalogue for every built-in constraint; this file is
 # only the ones this application added.
 'Another record already uses this value.': Another record already uses this value.
+
+# The voucher module's own (XIV-103). It names the character set, shows the
+# example the whole feature exists for, and answers the question a refusal about
+# capitals immediately provokes.
+'A code is made of A-Z, 0-9 and single hyphens, like GIVE-10. Lower case is fine — it is stored in capitals either way.': A code is made of A-Z, 0-9 and single hyphens, like GIVE-10. Lower case is fine — it is stored in capitals either way.

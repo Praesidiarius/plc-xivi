@@ -390,5 +390,8 @@
     },
     "xivi/order": {
         "version": "1.0.0"
+    },
+    "xivi/voucher": {
+        "version": "1.0.0"
     }
 }

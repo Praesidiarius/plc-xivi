@@ -98,6 +98,42 @@ lands in `Unreleased` here.
   `[lines.description,line_total]` picks the columns; the write page lists the
   tokens and says what they produce. It was blank before, and the page offered
   nothing.
+- **A voucher module: codes a tenant hands out, with limits and three kinds of
+  discount** ([XIV-103],
+  [§5.19](docs/architecture.md#519-vouchers-and-a-counter-with-a-rule-in-it-xiv-103)).
+  A voucher is money off a total, a percentage off a total, or a free article —
+  three *kinds* of one module (§5.5), so adding one asks which kind first and
+  offers only that kind's fields. It carries a code, a validity window and a
+  usage limit.
+- **The article module is not required to have vouchers.** Only the free-article
+  kind needs it, so the module `uses` articles rather than requiring them: a
+  customer with no catalogue installs vouchers and is simply not offered that
+  kind ([XIV-23]).
+- **A code is typed or generated.** Type `GIVE-10` and it is yours; leave the box
+  empty and one is generated as the voucher is saved — eight characters as
+  `HK4T-9PQM`, drawn from an alphabet without `0`, `1`, `I`, `L`, `O` or `U`, so
+  it survives being read off a screen and typed by somebody else.
+- **Codes are stored in capitals**, so `give-10` and `GIVE-10` are one voucher
+  and not two. The fold happens once, on the way in, which is what keeps it in
+  step with the unique index behind the field ([XIV-109]) — a duplicate is
+  refused on the field while the form is open, whatever case it was typed in.
+- **Unlimited is an empty box, not a large number.** Once is 1, N times is N, and
+  an unlimited voucher stores nothing at all — there is no sentinel for anything
+  to compare against by accident.
+- **A voucher cannot be redeemed past its limit, even by two checkouts at the
+  same instant.** The count lives in its own table and a redemption is a single
+  guarded `INSERT … ON CONFLICT … WHERE`, so the limit is checked by the
+  statement holding the row rather than by PHP holding a number it read a moment
+  ago. Proved by a test that interleaves two real connections.
+- **Expired is read, never stored.** A voucher outside its dates is out of date
+  the moment the calendar says so; nothing runs, nothing is flagged, and a
+  voucher with no end date never expires ([XIV-67]'s argument about overdue
+  invoices, unchanged).
+- **Upgrading:** the tenant migration adds `voucher_redemption`, empty, to every
+  customer's database whether or not they install the module — the same terms
+  `number_sequence` is there on. Nothing else changes for anybody who does not
+  install it.
+
 - **A dashboard each person picks and arranges, over a default the installation
   sets** ([XIV-66],
   [§8.3.1](docs/architecture.md#whose-dashboard-it-is-and-a-seam-a-module-can-reach-xiv-66)).
@@ -667,3 +703,6 @@ lands in `Unreleased` here.
 [XIV-66]: https://xivi.youtrack.cloud/issue/XIV-66
 [XIV-96]: https://xivi.youtrack.cloud/issue/XIV-96
 [XIV-62]: https://xivi.youtrack.cloud/issue/XIV-62
+[XIV-103]: https://xivi.youtrack.cloud/issue/XIV-103
+[XIV-23]: https://xivi.youtrack.cloud/issue/XIV-23
+[XIV-67]: https://xivi.youtrack.cloud/issue/XIV-67

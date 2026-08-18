@@ -1,0 +1,19 @@
+{
+    "name": "xivi/voucher",
+    "description": "Voucher module: codes a customer hands out, with limits and three kinds of discount",
+    "type": "symfony-bundle",
+    "version": "1.0.0",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.4",
+        "doctrine/dbal": "^4.2",
+        "symfony/framework-bundle": "8.1.*",
+        "xivi/core": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Xivi\\Voucher\\": "src/"
+        }
+    },
+    "minimum-stability": "stable"
+}

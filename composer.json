@@ -45,7 +45,8 @@
         "xivi/control-plane": "^1.0",
         "xivi/core": "^1.0",
         "xivi/invoice": "^1.0",
-        "xivi/order": "^1.0"
+        "xivi/order": "^1.0",
+        "xivi/voucher": "^1.0"
     },
     "config": {
         "allow-plugins": {
