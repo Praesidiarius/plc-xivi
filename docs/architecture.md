@@ -442,6 +442,265 @@ after the work had succeeded. It costs about a quarter of a kilobyte per
 statement, which puts the remaining ceiling tens of thousands of records past the
 count that broke it.
 
+### 4.2 What a deploy has to do, and where each part of it runs (XIV-61)
+
+**This section is half of XIV-61 and says which half.** The ticket asks for two
+things: a deploy *definition* — which tool, which host, an image registry, how a
+rollback works — and the things a deploy has to *do*. Only the second is built,
+because the first cannot be verified from here. There is no target host, and a
+Deployer configuration that is green in CI and unproven where it matters is worse
+than none: it reads as done. What follows is the part that is true whichever tool
+eventually wins, and it is the part that was actually missing.
+
+#### There were two sets of migrations and only one of them ever ran
+
+`migrations/control` is the control plane's, one database, and
+`frankenphp/docker-entrypoint.sh` has always applied it on container start.
+`migrations/tenant` is every customer's, one database each, and it is applied by
+`tenant:migrate` — which **nothing invoked anywhere**. Not the entrypoint, not a
+script, not a cron, not a runbook. §4 has said since it was written that every
+schema change lands for every tenant; what it did not say is who makes that
+happen, and the answer was nobody.
+
+The consequence is not subtle. Shipping an entity change meant new code serving
+every customer against the old schema, indefinitely, and the first sign of it
+would be a query failing in production for a customer who had done nothing
+unusual. It is the single most important thing this ticket fixes.
+
+#### The tenant migrations are a one-shot deploy step, not an entrypoint step
+
+`bin/deploy` runs, in this order: the secret check below, the control-plane
+migrations, then `tenant:migrate` across the whole registry. It is meant to be
+run once per release, out of the image being released, before the serving
+containers are replaced.
+
+Putting the tenant loop in the entrypoint beside the control-plane migration is
+the obvious alternative and was rejected for three reasons that compound.
+
+1. **The entrypoint runs on every container start, which is not once per
+   deploy.** An OOM restart, a health-check flap, a node draining, somebody
+   typing `docker compose restart` — each would walk the whole registry. That is
+   not merely wasteful. It makes a routine restart of one container into an
+   operation across every customer's database, taken at whatever moment the
+   restart happened to occur, which is precisely the sort of thing nobody has
+   booked a maintenance window for.
+2. **It would put work proportional to the customer count in the startup path.**
+   The control-plane migration is one database and one transaction, and the
+   container cannot serve a single request without it. The tenant loop is N
+   connections, N metadata reads and N migration runs, with the container not
+   serving for the duration. At fifty customers a restart stops being a restart.
+3. **Concurrent starts would race.** Each tenant database tracks its own
+   versions, so two containers starting together would compute the same plan for
+   the same databases and both begin applying it. `all_or_nothing` protects a run
+   from itself, not from another run. The topology is a single instance today
+   (§4), which makes this the cheapest of the three to dismiss and the most
+   expensive to have dismissed wrongly later.
+
+A one-shot step has none of those properties. Its honest cost is that it has to
+be *called*, and an entrypoint cannot be forgotten while a script can — that cost
+is paid in the deploy definition this ticket still has open, rather than by
+making every container start do something it has no business doing.
+
+**The entrypoint keeps its control-plane migration**, and running it in both
+places is deliberate rather than sloppy: it is idempotent, so the second run
+costs a version query, and what it buys is that a container can never serve
+against a control-plane schema older than itself.
+
+**`bin/deploy` is a file in this repository rather than lines in a runbook** for
+two properties a runbook does not have. It ships inside the image it deploys, so
+the sequence being run is the sequence that release was written against — a
+runbook lives elsewhere and is edited by somebody who is not looking at this
+branch, which is how a deploy comes to run last month's steps against this
+month's migrations. And it cannot be half-run: the ordering matters, because the
+tenant loop reads the registry and a release that adds a control-plane column
+that query needs must move the control plane first. Typed by a person, that
+ordering is a convention; written down, it is a property.
+
+#### The migration window: additive only, and the instance stays up
+
+N tenant databases do not migrate atomically. While `tenant:migrate` walks them,
+some customers are on the new schema and some are on the old one, and **the code
+serving all of them is the same code**. That window is real, it is minutes long
+at fifty customers, and it grows with every sale.
+
+There were two honest answers and one dishonest one. The dishonest one is to
+leave it unstated, which is what this project had been doing — §4 already asked
+for expand/contract, but as a property of migrations rather than as a decision
+about a deploy, so nothing said what it forbade or who checked.
+
+**Rejected: taking the instance down for the duration.** It is the simpler
+guarantee and it would let a migration do anything at all. It was not adopted
+because the length of the outage is a function of how many customers exist:
+every sale makes the downtime worse, which is the wrong direction for a cost to
+move, and the pressure that creates is pressure to skip the window rather than to
+plan it. It also buys less than it looks like it does — the instance would be
+down for a *tenant* migration, which is most of them, so this would not be a rare
+event.
+
+**Decided: the instance stays up, and tenant migrations may only add.** Expand in
+this release; contract in a later one, once every customer is past the first.
+`bin/deploy` runs before the containers are replaced, which is what makes the
+ordering safe in that direction: old code meets a schema that has only gained
+things.
+
+**What that forbids, in a tenant migration's `up()`:**
+
+- `DROP TABLE` and `DROP COLUMN`. Code still running reads and writes those, and
+  Doctrine names every column in its `INSERT`s rather than relying on defaults.
+- `RENAME TO` and `RENAME COLUMN`, on a table or a column. A rename is a drop and
+  an add in one statement and breaks old code exactly as a drop does. Add the new
+  name, write both for a release, drop the old one later.
+- `SET NOT NULL` on an existing column. Code still running does not know it has
+  to write that column, so its inserts start failing the moment the migration
+  lands. Backfill first, constrain in a later release.
+- Narrowing a type or a length, and adding a `UNIQUE` constraint that code still
+  running can violate. Both are destructive across the window and neither is
+  mechanically checked — see below.
+
+`down()` is not constrained by any of this. A rollback is a deliberate act by
+somebody who has decided to go backwards, and forbidding a `down()` from removing
+what its `up()` added would forbid reversibility itself.
+
+**Something checks it**, because this rule had already been written down four
+times — AGENTS.md, `config/migrations/tenant.php`, `TenantMigrator`, §4 — and
+checked zero times, which is the exact shape of the two failures this project has
+already had (`deptrac` green for four months because its layers were empty, and
+`SERIAL` in eleven migrations because nothing but prose objected).
+`tests/Unit/TenantMigrationsAreAdditiveTest.php` reads each tenant migration's
+`up()` with PHP's own lexer, strips the comments — these files argue with
+themselves, and a migration explaining why it is *not* dropping a column must not
+fail on its own docblock — and refuses the four statements above. One migration
+predates the rule and is exempt by name, `Version20260814084512`, the rename that
+turned `module_definition` into `shape_definition` three weeks before this
+installation had a customer to break.
+
+**The check is deliberately blunt and deliberately incomplete.** A type narrowed
+from `varchar(255)` to `varchar(64)`, a `UNIQUE` constraint old code can still
+violate, a data migration that rewrites rows old code will read back: all
+destructive across the window, none visible to a regular expression. The rule is
+the author's to apply; the test catches the cases the rule is most often broken
+by accident in, and saying so here is better than implying a guarantee it does
+not give.
+
+#### "Migrated 49 of 50" is not success
+
+`tenant:migrate` catches per tenant and carries on, which is correct and is not
+changed: one unreachable database must not cost the other forty-nine theirs,
+because stopping at the first failure leaves everybody after it in the registry
+serving new code against the old schema — the situation the command exists to
+end.
+
+What was wrong is what it told its caller afterwards. Measured before this
+ticket, an empty registry exited 1, an unknown `--slug` exited 1, and a run in
+which tenants failed exited 1. A deploy could not tell "there is nothing to do"
+from "one of your customers is on the wrong schema and the new code is already
+serving them", and the safest thing it could do with that was treat a healthy
+installation with no customers as a failed deploy.
+
+There are three codes now, and they are the command's published contract:
+
+| code | meaning |
+| --- | --- |
+| 0 | every tenant asked about is at the latest version |
+| 1 | the run could not happen: an empty registry, or a slug nothing answers to. Nothing changed |
+| 3 | the run happened and at least one tenant is behind. The others were migrated and are fine |
+
+Three rather than two, because Symfony's `Command::INVALID` is 2 and means "you
+typed the command wrong" everywhere else; borrowing it for "a customer's database
+refused a connection" would make the number lie to the first tool that read it
+generically. A deploy stops on anything non-zero either way — what the
+distinction buys is what it can *say* afterwards, and that a partial failure can
+be retried with `--slug` for the tenants that failed rather than by re-running
+the whole registry and hoping. The failure output names them and prints the line
+to type.
+
+#### A container refuses to start on a secret anybody can read
+
+`.env` is committed and public, and it carries working values for everything the
+application needs so that a fresh checkout starts with nothing configured. Two of
+those values are secrets. The production image compiles `.env` into
+`.env.local.php` during the build (`composer dump-env prod`), so a freshly built
+image contains, verbatim:
+
+```php
+'APP_SECRET' => 'dev-only-not-a-real-secret',
+```
+
+A real environment variable still overrides it, so a deployment that supplies
+`APP_SECRET` is fine. **A deployment that forgets is also fine, and that is the
+problem**: there is no error, no warning and no degraded behaviour. Cookies are
+signed, invitation links verify, the instance is healthy. It is simply signing
+them with a value published on the internet, and the way that surfaces is not a
+log line — it is somebody forging one.
+
+`TENANT_SECRET_KEYS` is the same shape with worse consequences. Its dev keyring
+is committed in `.env` a few lines further down and it encrypts every tenant's
+database password and every tenant's outgoing-mail password at rest in the
+control-plane database. §8.9's cipher is honest that it defends against a *copy*
+of that database, which is exactly the defence a public key removes.
+
+**The rule is not a list of bad strings.** `App\Deployment\PlaceholderSecretGuard`
+reads `.env` at the moment of the check and refuses any secret whose live value
+is byte-identical to the value committed there. A list of literals would need
+editing every time `.env` changed, and the day it was not edited is the day the
+check quietly stopped looking at one of them. What still has to be listed is
+*which* variables are secrets, and that list is short and stable — and getting it
+wrong in the safe direction, by forgetting to add a third one day, leaves the two
+that matter checked, where a stale list of values leaves nothing checked at all.
+An unreadable `.env` is a refusal rather than a pass: "cannot tell whether this
+instance is running on a public secret" is not a question to resolve in favour of
+starting.
+
+**Where the check runs, and the three places it deliberately does not:**
+
+- *Not a compiler pass, and not `Kernel::boot()`.* Both would refuse the **image
+  build**, which runs `composer dump-env prod` and then `cache:clear` — booting
+  the production kernel, in the production environment, on the placeholders, as a
+  normal part of building an image. It has to: nobody supplies a customer's
+  `APP_SECRET` to a build, and the same image is what every deployment runs. A
+  check there would make the image unbuildable, which is a fine way to have the
+  check deleted within a day.
+- *Not a `kernel.request` listener.* That is a container that starts, reports
+  healthy, binds its port and then answers everything with a 500. The failure
+  being guarded against is a deployment that looks healthy; a different kind of
+  looking-healthy is no answer.
+- *Not only in `bin/deploy`.* A deploy can be skipped, replayed from an older
+  revision, or walked past by restarting a container by hand, and the container
+  that comes back from any of those is the one serving customers.
+
+So it is `deploy:check-secrets`, run by the entrypoint before the database wait
+and before any migration. `set -e` means a refusal never reaches `frankenphp
+run`, and the failure presents as a container that will not come up — which is
+loud — rather than as a service that is fine. `bin/deploy` runs it too, because
+that is the earliest a deploy can find out, and failing there costs a one-shot
+container rather than whatever the orchestrator does with a service that will not
+start.
+
+**It stands down entirely outside `APP_ENV=prod`.** `bin/ci`, the test suite and
+`bin/compose up` all run on the placeholders on purpose — that is what lets a
+fresh checkout start — so refusing in development would be refusing the ordinary
+case. The environment decides rather than the debug flag, for the same reason
+`NonProductionMailGuard` gives (§8.7): the environment is what the kernel allows,
+while debug is something production can legitimately be run with while somebody
+diagnoses a problem, and an instance being diagnosed is still an instance serving
+customers.
+
+The refusal names the variable, shows enough of the value to recognise it without
+printing the whole thing, says what that secret protects, and prints the command
+that generates a real one.
+
+#### Still open on XIV-61
+
+The deploy definition itself: which tool (Deployer was the candidate), an image
+registry, rollback, and more than one target. None of it is here, and none of it
+should be read into the above — `bin/deploy` is a step *for* a deploy, not a
+deploy. Two things are worth writing down for whoever picks that up. A deploy
+must call `bin/deploy` and must stop on a non-zero exit, because nothing else
+runs the tenant migrations. And rollback is constrained by the window decision
+above rather than free of it: the schema this release expanded is still expanded
+after the code goes back, which is exactly why additive-only is what makes going
+back possible at all.
+
 ---
 
 ## 5. Data model: metadata-driven, not EAV

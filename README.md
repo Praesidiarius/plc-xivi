@@ -429,7 +429,8 @@ and §6.4 of the brief argues why that is a rule rather than a nicety.
 | `tenant:module:install <slug> <module>` | Installs a module for one tenant: its table and field definitions; `--preset` picks which fields, `--locale` which language its labels are seeded in |
 | `tenant:list` | Shows the registry |
 | `tenant:inspect [slug] [module]` | **Dev only.** Tenants with their schema state and installed modules; with a slug, that tenant's real field definitions. `--modules` for the catalogue, `--json` for what the MCP tools return |
-| `tenant:migrate [--slug=]` | Applies tenant migrations to every tenant; run it on every deploy |
+| `tenant:migrate [--slug=]` | Applies tenant migrations to every tenant. Exits **0** when they are all at the latest version, **1** when it could not run at all (empty registry, unknown slug) and **3** when a tenant failed while the others succeeded. `bin/deploy` runs it |
+| `deploy:check-secrets` | Refuses in production on a secret still set to the placeholder committed in `.env`. The container entrypoint runs it on every start; it does nothing outside `APP_ENV=prod` |
 | `tenant:usage:collect [--slug=]` | Counts each tenant's users, last sign-in and records into the control plane, one tenant at a time; put it in cron — see below |
 | `signup:provision [--email=]` | Turns confirmed self-service signups into tenants, one at a time, and invites each first user; put it in cron — see below |
 | `tenant:permissions:grant-all <slug>` | Grants every action on every installed module to one tenant's non-admin users; the upgrade path for an installation that predates permissions, and the way back into a locked-out one |
@@ -457,8 +458,16 @@ bin/compose exec -e TENANT=acme php bin/console doctrine:migrations:diff \
 ```
 
 Migrations are split: `migrations/control` runs once per deploy, `migrations/tenant`
-runs once per tenant. Every schema change lands for every customer, so tenant
-migrations must be expand/contract — never destructive in a single step (§4).
+runs once per tenant. **`bin/deploy` is what runs both**, in that order, once per
+release — see [Deploying](#deploying) below.
+
+Every schema change lands for every customer, and a deploy walks their databases
+one at a time with the instance still serving, so tenant migrations are
+**additive only**: expand in this release, contract in a later one. `up()` may not
+drop a table or a column, rename either, or add `NOT NULL` to an existing column.
+`tests/Unit/TenantMigrationsAreAdditiveTest.php` refuses the ones that do. The
+window this protects, and what it cannot see, is
+[§4.2](docs/architecture.md#42-what-a-deploy-has-to-do-and-where-each-part-of-it-runs-xiv-61).
 
 ## Configuration
 
@@ -614,6 +623,41 @@ php -r 'echo base64_encode(random_bytes(32)), PHP_EOL;'   # a TENANT_SECRET_KEYS
 `TENANT_ADMIN_DSN` should name a role with `CREATEDB` and `CREATEROLE` rather than a
 superuser, and ideally should not be present in the web processes' environment at
 all.
+
+**Two of those are enforced rather than advised.** An instance starting with
+`APP_ENV=prod` on the `APP_SECRET` or the `TENANT_SECRET_KEYS` committed in `.env`
+**refuses to start**, naming the variable and printing the command that generates a
+real one. The check is `deploy:check-secrets`, the entrypoint runs it before
+anything touches a database, and it does nothing at all in development or in the
+test suite — both of which run on those placeholders on purpose.
+
+The failure it exists for is quiet: the image build compiles `.env` into
+`.env.local.php`, a real environment variable overrides it, and a deployment that
+supplies none runs on a published secret while looking perfectly healthy.
+
+### Deploying
+
+There is no deploy tool here yet — which host, which registry and how a rollback
+works are still open on XIV-61. What *is* here is the step a deploy has to run,
+whichever tool eventually does it:
+
+```bash
+# in a one-shot container, from the image being released,
+# with the deployment's environment, before the serving containers are replaced
+bin/deploy
+```
+
+It checks the secrets, migrates the control-plane database, then migrates every
+tenant database, and stops on the first failure. **Nothing else runs the tenant
+migrations** — the entrypoint deliberately does not, because it runs on every
+container start rather than once per deploy, and at fifty customers that turns a
+restart into an outage. The full argument, and the additive-only migration window
+the ordering depends on, is
+[§4.2](docs/architecture.md#42-what-a-deploy-has-to-do-and-where-each-part-of-it-runs-xiv-61).
+
+A non-zero exit means do not switch traffic. **3** in particular means some tenants
+migrated and some did not; the output names them and prints the `--slug` line to
+retry each one.
 
 ### Rotating the encryption key
 

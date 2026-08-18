@@ -1,0 +1,158 @@
+#!/bin/sh
+#
+# The schema half of a deploy: check the secrets, move the control plane, then
+# move every customer (XIV-61, docs/architecture.md §4.2).
+#
+#   docker run --rm --env-file <the deployment's> <the new image> bin/deploy
+#
+# **Run it once per release, out of the image being released**, before the
+# serving containers are replaced. It ships inside that image on purpose — see
+# "Why this is a file in the repository" below — so the step can never be a
+# version behind the migrations it is running.
+#
+# This is not a deploy. XIV-61 also asks for a deploy *definition* — which tool,
+# which host, which registry, how a rollback works — and none of that is here,
+# because none of it can be proved on a machine with no target to deploy to, and
+# a deploy configuration that is green in CI and unproven where it matters reads
+# as done while being worth less than nothing. What is here is the part a deploy
+# has to do whichever tool eventually wins, and it is the part that was missing:
+# **nothing called `tenant:migrate` anywhere.**
+#
+#
+# ## The thing this fixes
+#
+# There are two sets of migrations and only one of them was ever run.
+#
+# `migrations/control` is the control plane's, one database, and the container
+# entrypoint applies it on start. `migrations/tenant` is every customer's, one
+# database each, and it is applied by `tenant:migrate` — which nothing invoked.
+# Not the entrypoint, not a script, not a cron. So shipping an entity change
+# meant new code serving every customer against the old schema, indefinitely, and
+# the first sign of it was a query failing in production.
+#
+#
+# ## Why the tenant migrations are here rather than in the entrypoint
+#
+# Putting them beside the control-plane migration in `frankenphp/docker-entrypoint.sh`
+# is the obvious move and the wrong one, for three reasons that compound. The
+# entrypoint is worth reading for the same argument stated from that end.
+#
+#   1. **The entrypoint runs on every container start, which is not once per
+#      deploy.** A restart after an OOM kill, a health-check flap, a node
+#      draining, somebody typing `docker compose restart` — all of them would
+#      walk the whole registry. That is not merely wasteful: it means a routine
+#      restart of one container becomes an operation over fifty customers'
+#      databases, taken at whatever moment the restart happened, which is
+#      precisely the kind of surprise nobody has budgeted a maintenance window
+#      for.
+#
+#   2. **It is proportional to the customer count, in the startup path.** The
+#      control-plane migration is one database, one transaction, and the
+#      container cannot serve anything without it. The tenant loop is N
+#      connections, N metadata reads and N migration runs, and the container is
+#      not serving while it happens. At fifty customers a restart stops being a
+#      restart and becomes an outage whose length is a business metric.
+#
+#   3. **Concurrent starts would race.** Each tenant database tracks its own
+#      versions, so two containers starting at once would both compute the same
+#      plan for the same fifty databases and both start applying it. Doctrine's
+#      `all_or_nothing` protects one run from itself, not two runs from each
+#      other. The topology is a single instance today (§4), which makes this the
+#      cheapest of the three to dismiss and the most expensive to have dismissed
+#      wrongly later.
+#
+# A one-shot step has none of those properties: it runs once, it is allowed to
+# take as long as there are customers, and it is a single process by
+# construction. The cost is that it has to be *called* — an entrypoint cannot be
+# forgotten and this can — and that cost is paid where it belongs, in the deploy
+# definition XIV-61 still has open, rather than by making every container start
+# do something it has no business doing.
+#
+# The entrypoint keeps its control-plane migration. It is idempotent and a no-op
+# once this script has run, so running it in both places costs a version query
+# and buys the property that a container never serves against a control-plane
+# schema older than itself.
+#
+#
+# ## Why this is a file in the repository rather than lines in a runbook
+#
+# Two properties, neither of which a runbook has.
+#
+# **It ships with the image it deploys.** `bin/` is copied into the production
+# stage, so the sequence being run is the sequence that release was written
+# against. A runbook lives somewhere else and is edited by somebody who is not
+# looking at this branch, which is how a deploy ends up running last month's
+# steps against this month's migrations.
+#
+# **It cannot be half-run.** The ordering below is not decoration: the tenant
+# loop reads the registry, so a release that adds a control-plane column the
+# registry query needs must move the control plane first. Written down as three
+# commands for a person to type, that ordering is a convention. Written here it
+# is a property, and `set -e` means step two failing never reaches step three.
+#
+#
+# ## Additive-only, and what that means for when this runs
+#
+# N tenant databases do not migrate atomically, and the deployment does not stop
+# while they are walked. So during this script the new schema is arriving,
+# customer by customer, underneath the **old** code — and after it, the new code
+# arrives on top of a schema that has already moved.
+#
+# §4.2 of the brief decides that window rather than eliminating it: tenant
+# migrations are **additive only**, expand now and contract in a later release,
+# and `tests/Unit/TenantMigrationsAreAdditiveTest.php` refuses the ones that are
+# not. That is what makes the ordering here safe, and it is why this runs
+# *before* the containers are replaced rather than after: old code against a
+# schema that has only gained things is fine, while new code against a schema
+# that has not moved yet is not.
+
+set -e
+
+cd "$(dirname "$0")/.."
+
+if [ -t 1 ]; then
+	step() { printf '\n\033[1;34m==> %s\033[0m\n' "$1"; }
+else
+	step() { printf '\n==> %s\n' "$1"; }
+fi
+
+# **First, and before anything touches a database.**
+#
+# The check itself is `App\Deployment\PlaceholderSecretGuard`, and the container
+# entrypoint runs it too — that is where the guarantee lives, because a container
+# that refuses to start cannot be bypassed by not running a script. It is
+# repeated here because this is the earliest moment a deploy can find out, and
+# the difference matters: failing now costs a one-shot container, while failing
+# at the entrypoint costs whatever the orchestrator does with a service that will
+# not come up.
+#
+# It stands down entirely outside `APP_ENV=prod`, so running this script against
+# a development stack does not trip over the placeholders development is
+# supposed to have.
+step 'Secrets are not the ones committed in this repository'
+php bin/console deploy:check-secrets
+
+# **The control plane, one database, all or nothing.**
+#
+# Same invocation the entrypoint makes, deliberately: `doctrine_migrations.yaml`
+# binds the bundle to the `control` entity manager, so there is no `--em` to get
+# wrong and no second definition of what "the control-plane migrations" are.
+step 'Control-plane schema'
+php bin/console doctrine:migrations:migrate --no-interaction --all-or-nothing
+
+# **Then every customer, and the exit code is the point.**
+#
+# `tenant:migrate` catches per tenant and carries on, because one unreachable
+# database must not cost the other forty-nine theirs. What it does *not* do any
+# more is report that as success: it exits 3 when a tenant failed, which `set -e`
+# turns into this script exiting 3, which is what stops a deploy from swapping
+# containers over a registry that is only mostly migrated. See the command's own
+# docblock for the three codes and why 3 rather than 2.
+#
+# An empty registry exits 1 and stops the deploy too, which is the right answer
+# for a real deployment — an installation with no customers has either not been
+# provisioned yet or has lost its registry, and both are worth a human looking.
+step 'Every tenant schema'
+php bin/console tenant:migrate
+
+printf '\nSchema is deployed. Replace the serving containers now.\n'
