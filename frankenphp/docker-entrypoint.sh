@@ -98,6 +98,32 @@ if [ "$1" = 'frankenphp' ] || [ "$1" = 'php' ] || [ "$1" = 'bin/console' ]; then
 		if find ./migrations -iname '*.php' -print -quit | grep --quiet .; then
 			php bin/console doctrine:migrations:migrate --no-interaction --all-or-nothing
 		fi
+
+		# **Say which hostnames this instance answers to, on every start**
+		# (XIV-93, docs/architecture.md §4.3).
+		#
+		# `framework.trusted_hosts` refuses a `Host` outside XIVI_TRUSTED_DOMAINS
+		# with a bare 400 — no page, no header named, nothing in the body — and
+		# the person who finds out is the customer whose installation just went
+		# dark. This prints the pattern in force and names every tenant in the
+		# registry that would be refused by it, so that the log of a container
+		# that is serving already contains the answer to the question somebody
+		# will ask about it later.
+		#
+		# **`|| true`, and the reason is the opposite of the secret check's.** A
+		# published secret is a property of the instance, so refusing to start
+		# denies exactly the thing that must not run. A hostname outside the
+		# pattern is a property of *one customer*, who is already dark — and
+		# exiting non-zero here would take every other customer dark to protect
+		# them, on every restart, for as long as the mistake stood. The gate is
+		# `bin/deploy`, which runs this before traffic moves and where stopping
+		# costs a one-shot container.
+		#
+		# It stands down in the sense that matters outside production too: an
+		# installation that sets nothing prints one line saying it answers to
+		# everything, which is what development is and what this application did
+		# before XIV-93.
+		php bin/console deploy:check-hosts || true
 	fi
 
 	echo 'PHP app ready!'

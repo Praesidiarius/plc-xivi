@@ -123,6 +123,36 @@ lands in `Unreleased` here.
 - **The store's install wizard no longer says the field set cannot be changed
   later**, because it now can be grown. What it still says, and what is still
   true, is that nothing rewrites what is installed.
+- **An installation can declare which hostnames it answers to**, with
+  `XIVI_TRUSTED_DOMAINS` — a comma-separated list of domains, not regular
+  expressions; the application writes the anchored patterns and adds
+  `CONTROL_PLANE_HOST`, `SIGNUP_HOST` and the loopback and container names for
+  you, so setting it cannot lock an operator out of their own console
+  ([XIV-93], [§4.3](docs/architecture.md#43-which-hostnames-this-installation-answers-to-xiv-93)).
+  **Empty is the default and means the `Host` header is not checked at all**, so
+  development and the test suite are unchanged.
+- **A too-narrow list is findable rather than only correct.** A hostname outside
+  it gets a bare 400 from the framework, so three things say so instead:
+  `tenant:provision` refuses to create a customer on such a hostname,
+  `deploy:check-hosts` names every tenant that would get one, and a refused
+  request writes an `error` line naming the host, the pattern and the variable.
+- **`bin/deploy` runs `deploy:check-hosts`** between the control-plane and tenant
+  migrations, and stops the deploy (exit 3) when a tenant that is serving today
+  is on a hostname the pattern refuses. The container entrypoint runs it too and
+  **only prints** — one customer's hostname must not stop every container from
+  starting.
+- **Trusted proxies are configurable, with `TRUSTED_PROXIES`.** Empty by default,
+  which is what the shipped topology wants. **Set it if you have a load
+  balancer**: without it, absolute URLs generated while serving — invitation
+  links above all — come out as `http://` behind a TLS terminator.
+  `X-Forwarded-Host` and `X-Forwarded-Prefix` are deliberately never trusted,
+  because tenant routing *is* the `Host` header.
+- **The brief now says the control plane is not isolated by its hostname**
+  ([§8.9](docs/architecture.md#89-an-operator-is-not-a-tenant-user-xiv-57)).
+  Anybody who can set `Host:` to it reaches the sign-in page, and no trusted-host
+  pattern can change that; what keeps a customer out is the firewall, the
+  provider and `ROLE_OPERATOR`. Nothing about the behaviour changed — the
+  guarantee was being read as stronger than it was.
 - **A text field that is not numbered can be given a numbering pattern, from the
   metadata editor** ([XIV-91], [§5.10](docs/architecture.md#making-a-field-numbered-and-stopping-xiv-91)).
   [XIV-27] made a numbered field's pattern the customer's and stopped there,
@@ -456,3 +486,4 @@ lands in `Unreleased` here.
 [XIV-106]: https://xivi.youtrack.cloud/issue/XIV-106
 [XIV-107]: https://xivi.youtrack.cloud/issue/XIV-107
 [XIV-109]: https://xivi.youtrack.cloud/issue/XIV-109
+[XIV-93]: https://xivi.youtrack.cloud/issue/XIV-93

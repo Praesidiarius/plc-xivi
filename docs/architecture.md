@@ -701,6 +701,207 @@ above rather than free of it: the schema this release expanded is still expanded
 after the code goes back, which is exactly why additive-only is what makes going
 back possible at all.
 
+### 4.3 Which hostnames this installation answers to (XIV-93)
+
+`framework.trusted_hosts` was not configured at all and no trusted proxies were
+set, so the `Host` header was taken exactly as sent. This section is what
+replaced that, and it starts with what the gap actually was — because the honest
+answer is narrower than "host header injection", and the part that is *not*
+fixed is the part worth writing down.
+
+#### Tenancy was already blocking most of it
+
+`TenantRequestListener` resolves the host through the registry before routing and
+throws `NotFoundHttpException` for a host no tenant claims. So an arbitrary
+`Host: evil.example` never reached a tenant page; it reached a 404. That is a
+real mitigation, it is why this had not bitten, and it is the reason this ticket
+was reported from inside [XIV-57] rather than worked around at the time.
+
+**The residue is the hosts that deliberately resolve no tenant.**
+`app.system_hosts` bypasses tenant resolution by design, and since [XIV-57] the
+control-plane hostname is one of its entries. So anybody who can set `Host:` to
+the control-plane hostname reaches the control-plane sign-in page, from any
+address that terminates the connection — not only from the name it was meant to
+be served on.
+
+**That is still true after this ticket, and it cannot be otherwise.** The
+control-plane host is by definition one of the hostnames this installation
+answers to, so it is *inside* the trusted-host pattern rather than outside it. A
+pattern cannot distinguish "this request arrived at the right IP with the right
+certificate" from "somebody wrote the right string in a header"; only the
+network in front of the application can, and §4's topology does not have one.
+
+So the sentence to hold on to is: **the control plane is not isolated by its
+hostname.** What isolates it is the three layers §8.9 built — the route does not
+exist on any other host, the credential is answerable only by the control plane's
+own provider, and `access_control` demands `ROLE_OPERATOR` that no tenant
+database can grant. Every one of those still applies to a request that arrived
+with a forged `Host`. What the hostname buys is obscurity and a place to point
+DNS at, and §8.9 now says so in its own words rather than leaving "no tenant
+hostname can reach a control-plane route" to read like something stronger.
+
+#### The half that is fixed: what goes into a generated link
+
+Absolute URLs generated during a web request take their host from the request.
+Invitations ([XIV-1]) go out as Symfony login links — absolute URLs in an email —
+so a request arriving on a host this installation does not serve would put that
+host into a link somebody is invited to click. `config/packages/routing.yaml`
+already sets `default_uri`, and it does **not** cover this: a request context
+wins over it, so `default_uri` is the console's answer and only the console's.
+
+Tenancy's 404 kept that theoretical while every served host resolved a tenant.
+It stopped being theoretical the moment something was served on a host that is
+not tenant-resolved, which is now true of the control plane and of [XIV-64]'s
+public signup endpoint. A trusted-host pattern is what closes it, for every host,
+before routing.
+
+#### Why this is a composed pattern and not a configuration line
+
+`trusted_hosts` is a list of **regular expressions**, and this application's
+hostnames are a wildcard by design: every customer gets their own (§4). So the
+pattern has to admit `*.<deployment domain>` plus the control-plane host plus
+whatever else a deployment serves.
+
+The two ways of getting that wrong are not symmetrical:
+
+- **Too wide is the same as not setting it.** An unanchored `xivi\.app` also
+  matches `xivi.app.evil.example`. That is the status quo with extra steps.
+- **Too narrow takes a paying customer's installation off the air**, and the
+  symptom is an empty 400 — no page, no header named, nothing in the body. The
+  person who finds out is the customer.
+
+A hand-written regular expression puts that asymmetry in the hands of whoever is
+editing an environment file at the time, and both failures are one keystroke
+away. A forgotten backslash makes every dot a wildcard, which is the exact
+mistake §8.9 already declined to make when it refused to host-scope the
+control-plane firewall with Symfony's `host:` key and compared normalised strings
+instead.
+
+**So a deployment names domains and the application writes the expressions.**
+`XIVI_TRUSTED_DOMAINS=xivi.app,1plc.ch` is a fact an operator knows;
+`App\Deployment\TrustedHosts` turns each entry into a pattern anchored at both
+ends that admits the domain and any name under it. It accepts `*.xivi.app`,
+`.xivi.app` and `xivi.app.` as the same thing, because each is what somebody
+writes when they are thinking about DNS, and refuses an entry that is not a
+hostname at all — a URL, a port, a regular expression — rather than compiling it
+into something that matches nothing.
+
+**The system hosts are added rather than asked for.** Every entry of
+`app.system_hosts` is admitted as an exact literal, so the control-plane host,
+the signup host, the loopback and the container's internal name cannot be left
+out by a deployment that only remembered its customer domain. This is the same
+construction §8.9 uses to keep `CONTROL_PLANE_HOST` and `app.system_hosts` in
+step — one fact, composed, rather than two things somebody has to keep equal —
+and it matters most for the control plane, which §8.9 asks to be served on a name
+that is not guessable from the customer-facing domain and which therefore often
+is not *under* it either. An operator who set `XIVI_TRUSTED_DOMAINS` and locked
+themselves out of their own console would be the first casualty of this feature.
+
+#### A deployment that sets nothing is unchanged
+
+`XIVI_TRUSTED_DOMAINS` is empty in `.env`, and empty means no patterns, which
+means `Kernel::preBoot()` never calls `Request::setTrustedHosts()` and the `Host`
+header is not checked at all. A fresh checkout, `bin/ci`, the suite and
+`bin/compose up` behave exactly as they did before this existed — development
+serves `*.localhost` and the suite invents a hostname per test, and a pattern
+maintained for either of those would be a pattern maintained for the case that
+does not matter.
+
+The subtle half is that the system hosts are **not** turned into patterns on
+their own when no domain is configured. A non-empty pattern list switches host
+checking on for everybody, so a list holding only `localhost` and the control
+plane would refuse every tenant this installation has. That is the one way this
+feature could have taken an installation dark by being installed.
+
+#### Trusted proxies are decided here, not deferred
+
+They belong in the same decision because getting one right while leaving the
+other wrong is worse than leaving both: a `X-Forwarded-Host` believed from a
+proxy would hand the choice of host straight back to the caller, which is the
+thing the paragraphs above are about.
+
+**Trusted proxies stay empty by default**, which is both the safe answer and the
+accurate one — §4's topology has FrankenPHP terminating TLS itself, so nothing is
+in front of it and `X-Forwarded-*` arrives only from somebody who made it up. A
+deployment that does put a load balancer in front sets `TRUSTED_PROXIES` to its
+addresses, and CIDR ranges and Symfony's `REMOTE_ADDR` and `private_ranges`
+shorthands all work.
+
+**The header set is decided in the repository rather than by the deployment**,
+and the omissions are the decision:
+
+| Header | Trusted | Why |
+| --- | --- | --- |
+| `x-forwarded-for` | yes | The client's address. Without it, everything this application ever logs or rate-limits by is the balancer |
+| `x-forwarded-proto` | yes | Not optional in front of a TLS-terminating balancer: without it every absolute URL generated during a request — the invitation link above all — comes out as `http://` |
+| `x-forwarded-port` | yes | The other half of the same sentence |
+| `x-forwarded-host` | **no** | Tenant routing *is* the `Host` header. Most proxies append rather than replace, so believing this would let a caller pick the tenant and pick the host in a mailed link. DNS already decided the host; there is no case here where a proxy legitimately renames it |
+| `x-forwarded-prefix` | **no** | Nothing here is served under a path prefix, and trusting it would let a proxy rewrite the paths in those same links |
+
+#### A too-narrow pattern has to be findable, not merely correct
+
+The 400 stays a bare 400 — whoever is on the far end of a refused request is by
+definition not somebody this installation serves, and telling them which domains
+it does serve, and that the answer lives in an environment variable, is telling
+the one audience that should not be told. So the diagnosis goes where the
+operator is, in three places, in the order they occur:
+
+1. **`tenant:provision` refuses a hostname the pattern would refuse.** The only
+   one of the three that prevents the failure rather than reporting it: a
+   customer is never created on an address every request to which is a 400.
+   Beside [XIV-57]'s refusal to route a tenant at a system host, in the same
+   loop, because both fail the same silent way — a row that exists, an address
+   somebody was given, and nothing anywhere saying why it is dead. Self-service
+   provisioning ([XIV-98]) inherits it, since it goes through the same method.
+2. **`deploy:check-hosts` names every tenant the pattern would refuse**, from
+   the registry, and `bin/deploy` runs it between the control-plane migration
+   and the tenant migrations — the earliest moment the registry is readable and
+   still before the serving containers are replaced. Exit 3 stops the deploy, on
+   `tenant:migrate`'s published convention (§4.2) so that a deploy script does
+   not have to learn a second one. A refused hostname belonging to a suspended or
+   half-provisioned tenant is printed and stops nothing: nobody is served on it
+   either way, and a release held up by a customer suspended in March is how a
+   gate comes to be run with `|| true`.
+3. **A refused request explains itself in the log.**
+   `App\Deployment\EventListener\UntrustedHostListener` writes one `error` line naming the host
+   as sent, the variable, what it currently admits, and the command that lists
+   who is affected. It matches on the throwable chain and on whether the raw
+   header is admitted, rather than on the framework's message text, so a reworded
+   Symfony string cannot turn it off quietly.
+
+**The container entrypoint runs `deploy:check-hosts` too and ignores its exit
+code**, which looks like a check nobody enforces and is deliberately the opposite
+of `deploy:check-secrets` next to it. The asymmetry is about blast radius. A
+published secret is a property of the *instance*, so refusing to start denies
+exactly the thing that must not run. A hostname outside the pattern is a property
+of **one customer**, who is already dark — and refusing to start over it would
+take every other customer dark to protect them, on every restart, for as long as
+the mistake stood. So the entrypoint's copy is the diagnostic: it puts the
+pattern, and the names it refuses, into `docker logs` on every start, which is
+where somebody chasing an unexplained 400 is already looking.
+
+#### What is deliberately not here
+
+**Nothing is derived from the registry at runtime.** A pattern computed from the
+tenants' own hostnames would be exactly right and would be recomputed only when
+the kernel boots, so a customer provisioned after the last restart would be dark
+until somebody restarted the containers — the failure this section is about,
+caused by the mechanism meant to prevent it. The registry is consulted by a
+command instead, which is a check rather than a source of truth.
+
+**Caddy's `SERVER_NAME` is not this.** The compose stack already restricts which
+hostnames the web server answers on, and a deployment that names its sites there
+gets a first line of defence for free. It is the web server's, not the
+application's: it does not survive a deployment that puts a catch-all in front,
+it says nothing about what goes into a generated URL, and it is not what
+`Request::getHost()` consults. The two are complementary and neither replaces the
+other.
+
+**There is no `deploy:check-hosts --fix` and no way to widen the pattern from
+inside the application.** Which hostnames an installation answers to is a
+deployment's statement about itself; a running instance that could edit it could
+be made to admit anything.
+
 ---
 
 ## 5. Data model: metadata-driven, not EAV
@@ -5117,6 +5318,34 @@ Provisioning refuses to route a tenant to any host on that list. Without the
 refusal the mistake is silent in the worst way available: the row is created, the
 tenancy listener never consults it, and that customer's users are shown the
 platform's sign-in page instead of their own.
+
+##### The hostname is not one of the boundaries (XIV-93)
+
+Written down here because the paragraphs above read as though it were, and
+because [XIV-93] was reported from inside this ticket rather than worked around.
+
+**Anybody who can set `Host:` to the control-plane hostname reaches the
+control-plane sign-in page**, from any address that terminates the connection,
+not only from the name DNS points at. That was true before this application
+configured `framework.trusted_hosts` and it is still true after: the
+control-plane host is by definition one of the hostnames this installation
+answers to, so it is *inside* the trusted-host pattern rather than outside it, and
+a pattern cannot tell a request that arrived on the right address from one that
+wrote the right string in a header. §4.3 has the full argument, including why
+nothing about the topology in §4 can change it.
+
+It is not a leak, and the reason is the three layers below rather than anything
+about the name. The credential presented there is answerable only by the control
+plane's own provider, no tenant resolves on that host, and `access_control` wants
+a role no customer's database can grant — every one of which applies to a request
+that arrived with a forged `Host` exactly as it applies to one that did not. What
+the hostname buys is obscurity, which is why this section still asks for one that
+is not guessable from the customer-facing domain.
+
+**So "no tenant hostname can reach a control-plane route" is a narrower
+guarantee than it reads.** What holds is that no *route* exists on another host
+and no *tenant credential* is answered here. What does not hold, and never did,
+is that only requests genuinely addressed to the control-plane name arrive at it.
 
 Three layers keep a customer away from a control-plane route, and they are worth
 distinguishing because only the first two are boundaries:
