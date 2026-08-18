@@ -61,6 +61,11 @@ lifecycle:
 # rows" on its own leaves somebody guessing at both numbers.
 record:
     collection_too_long: '%collection% holds at most %limit% rows and this one has %count%, so nothing was saved. Split it across more than one record.'
+    # And the other answer the same check can give (XIV-90): the values were not
+    # shaped like this form's values, so there was nothing to count. It names no
+    # limit and no number on purpose — inventing one would be worse than saying
+    # plainly that this could not be read.
+    submission_unreadable: 'This form sent values in a shape it does not have, so nothing was saved. Reload the page and try again.'
 
 history:
     period:

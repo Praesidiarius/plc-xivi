@@ -49,6 +49,11 @@ lifecycle:
 # Eine Regel über den Datensatz, nicht über einen einzelnen Wert darin (XIV-68).
 record:
     collection_too_long: '%collection% fasst höchstens %limit% Zeilen und hat hier %count%, deshalb wurde nichts gespeichert. Verteile das auf mehrere Datensätze.'
+    # Die andere Antwort derselben Prüfung (XIV-90): Die Werte hatten nicht die
+    # Form dieses Formulars, es gab also nichts zu zählen. Bewusst ohne Grenze
+    # und ohne Zahl — eine erfundene Zahl wäre schlechter als die schlichte
+    # Auskunft, dass sich das nicht lesen ließ.
+    submission_unreadable: 'Dieses Formular hat Werte in einer Form gesendet, die es nicht hat; deshalb wurde nichts gespeichert. Lade die Seite neu und versuche es noch einmal.'
 
 history:
     period:
