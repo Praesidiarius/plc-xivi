@@ -107,6 +107,28 @@ class TenantProfile
     private ?string $timezone = null;
 
     /**
+     * The dashboard anybody who has never chosen one gets (XIV-66).
+     *
+     * The middle link of the chain the region and the zone above already walk,
+     * with the same promise attached: this is what somebody's page looks like
+     * until they say otherwise, and a person who leaves their own column empty
+     * keeps following this if it changes. What it is emphatically *not* is a
+     * restriction — a widget left out of here is still on offer in every
+     * person's picker, because deciding what a colleague may look at is a
+     * permission question and §8.4 already answers it, per module, in a place
+     * where the answer applies to the records as well as to the tile.
+     *
+     * Null means the code's own order: every widget that applies to the reader,
+     * arranged by the priority its tag declares. That is what every installation
+     * had before this column existed, which is the property the bottom of one of
+     * these chains always has (§8.4.2).
+     *
+     * @var list<string>|null
+     */
+    #[ORM\Column(name: 'dashboard_layout', type: 'json', nullable: true)]
+    private ?array $dashboardLayout = null;
+
+    /**
      * How long this installation gives a customer to pay, in whole days
      * (XIV-67).
      *
@@ -299,6 +321,30 @@ class TenantProfile
         $timezone = trim((string) $timezone);
 
         $this->timezone = $timezone === '' ? null : $timezone;
+    }
+
+    /**
+     * The layout everybody who has not chosen one is shown (XIV-66).
+     *
+     * @return list<string>|null
+     */
+    public function getDashboardLayout(): ?array
+    {
+        return $this->dashboardLayout;
+    }
+
+    /**
+     * @param list<string>|null $layout widget keys in the order they should be
+     *                                  drawn, or null for the order the code
+     *                                  declares. An empty list is a real answer
+     *                                  and is kept — an installation may decide
+     *                                  its landing page says nothing, and would
+     *                                  find that hard to express if this
+     *                                  helpfully turned it back into null
+     */
+    public function setDashboardLayout(?array $layout): void
+    {
+        $this->dashboardLayout = $layout === null ? null : array_values(array_unique($layout));
     }
 
     /** @param string|null $currency an ISO 4217 code; the caller checks it is one */

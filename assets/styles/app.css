@@ -259,3 +259,21 @@
 	min-width: 12rem;
 	max-width: 18rem;
 }
+
+/*
+ * The order box beside each widget in the dashboard picker (XIV-66).
+ *
+ * A number input with nothing said about it fills the flex row it sits in, which
+ * on the account page puts a five-character box next to a two-word label and
+ * makes the label the thing that looks squeezed. Fixed and small, because what it
+ * holds is a position in a list of at most a handful of cards — three digits is
+ * already more room than the widget count could justify.
+ *
+ * A class rather than an inline style so that the two screens drawing this
+ * partial cannot end up disagreeing about it, which is the whole reason the
+ * partial is shared.
+ */
+.widget-position {
+	width: 5rem;
+	flex: 0 0 auto;
+}

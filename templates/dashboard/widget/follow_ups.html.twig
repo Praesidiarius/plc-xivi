@@ -7,5 +7,17 @@
 	page a *template* and its data (§8.3.1), and a widget whose whole body is a
 	component is still a widget. What it must not become is a place where anything
 	about follow-ups is decided — that all lives in the component now.
+
+	**`loading="defer"` is XIV-66's only change here**, and it is on this mount
+	rather than on the panel. The card is already a Live Component, so deferring it
+	is one attribute and one round trip; asking the dashboard to defer the *panel*
+	as well would wrap a deferred component inside a deferred component and buy a
+	second round trip for nothing. That is why `FollowUpWidget` sets no `defer`
+	flag — the widgets whose bodies are plain Twig, which is every widget a module
+	can ship, are the ones the dashboard's own mount exists for.
+
+	`loading-template` matches the one the dashboard uses for its deferred panels,
+	so the two kinds of waiting look the same to a reader who cannot be expected to
+	know there are two.
 #}
-<twig:DueFollowUps />
+<twig:DueFollowUps loading="defer" loading-template="dashboard/_loading.html.twig" />

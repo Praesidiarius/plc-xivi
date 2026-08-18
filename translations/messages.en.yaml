@@ -137,6 +137,37 @@ dashboard:
     none_installed_store: No modules installed yet.
     from_store: Add one from the store.
 
+    # What each widget is called where somebody is choosing between them
+    # (XIV-66). A widget's name now lives beside the widget rather than only
+    # above it: the module tiles draw no heading — a grid of labelled cards under
+    # the company name explains itself — and still need a word in a list of
+    # checkboxes. A module names its own card out of its own catalogue instead of
+    # adding a key here, which is the point of the whole ticket; this section
+    # holds the application's own two.
+    widget:
+        modules: Modules
+
+    # The way to the picker, from the page it changes. On the dashboard itself
+    # rather than only among the cards, because somebody who has hidden all of
+    # them still has to be able to get back.
+    customise: Customise
+    loading: Loading…
+
+    picker_title: Your dashboard
+    picker_help: >-
+        Which cards you see, and in what order. The number beside each one is where it sits;
+        equal numbers keep the order they are shown in here.
+    picker_default_help: >-
+        What everybody who has not arranged their own dashboard sees. Nobody is prevented from
+        seeing a card by leaving it out — what a person may look at is a matter of permissions.
+    picker_position: Position
+    picker_reset: Go back to the default
+    picker_empty: There are no cards to arrange yet.
+    picker_following_company: You are following the company's dashboard.
+    picker_following_code: Every card, in the order they are listed here.
+    saved: Your dashboard was saved.
+    reset: Your dashboard follows the company's again.
+
 account:
     region: Region
     region_default: Follow the company's

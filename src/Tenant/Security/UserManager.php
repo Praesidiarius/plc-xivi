@@ -157,6 +157,24 @@ final readonly class UserManager
     }
 
     /**
+     * Which widgets this person keeps on their dashboard, and in what order
+     * (XIV-66).
+     *
+     * The fourth of these and the only one whose null and whose empty answer are
+     * different things: null follows the installation's layout, and an empty list
+     * is a dashboard somebody deliberately cleared. Both arrive here as they were
+     * decided, and nothing on this path helpfully turns one into the other.
+     *
+     * @param list<string>|null $layout widget keys in the order they should be
+     *                                  drawn, or null to follow the installation's
+     */
+    public function setDashboardLayout(User $user, ?array $layout): void
+    {
+        $user->setDashboardLayout($layout);
+        $this->entityManager->flush();
+    }
+
+    /**
      * @param list<string> $roles
      *
      * @throws UserChangeRefused

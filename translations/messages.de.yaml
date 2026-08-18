@@ -78,6 +78,29 @@ dashboard:
     none_installed_store: Noch keine Module installiert.
     from_store: Hole dir eines aus dem Store.
 
+    # Siehe messages.en.yaml — dort steht, warum ein Widget einen Namen braucht,
+    # auch wenn es keine Überschrift zeichnet (XIV-66).
+    widget:
+        modules: Module
+
+    customise: Anpassen
+    loading: Wird geladen …
+
+    picker_title: Dein Dashboard
+    picker_help: >-
+        Welche Karten du siehst und in welcher Reihenfolge. Die Zahl daneben ist der Platz;
+        gleiche Zahlen behalten die hier gezeigte Reihenfolge.
+    picker_default_help: >-
+        Was alle sehen, die ihr Dashboard nicht selbst eingerichtet haben. Wer eine Karte weglässt,
+        nimmt niemandem etwas weg — was jemand sehen darf, ist eine Frage der Berechtigungen.
+    picker_position: Platz
+    picker_reset: Zurück zur Voreinstellung
+    picker_empty: Es gibt noch keine Karten zum Anordnen.
+    picker_following_company: Du folgst dem Dashboard der Firma.
+    picker_following_code: Alle Karten, in der hier gezeigten Reihenfolge.
+    saved: Dein Dashboard wurde gespeichert.
+    reset: Dein Dashboard folgt wieder dem der Firma.
+
 account:
     region: Region
     region_default: Der Firma folgen

@@ -1,0 +1,16 @@
+{#
+	What stands where a deferred widget is going to be (XIV-66).
+
+	A placeholder rather than nothing, because the alternative is a page that
+	visibly grows under the reader's cursor as each card lands — the layout shift
+	that makes a fast page feel broken. This holds roughly the room a card takes
+	and says, in text a screen reader will also read, that something is coming.
+
+	Deliberately not a spinner. A spinner is an animation asserting that waiting is
+	happening; on a dashboard where most cards arrive in a few hundred milliseconds
+	it is a flash of movement that draws the eye to the one place nothing has
+	happened yet.
+#}
+<div class="card" aria-busy="true">
+	<div class="card-body text-body-secondary small">{{ 'dashboard.loading'|trans }}</div>
+</div>

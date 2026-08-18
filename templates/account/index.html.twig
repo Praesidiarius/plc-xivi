@@ -175,5 +175,31 @@
 				</form>
 			</div>
 		</div>
+
+		{#
+			The fourth setting of the same shape (XIV-66), and the first one whose
+			answer is a list rather than a word: which cards this person keeps on
+			their landing page, and in what order.
+
+			On this page rather than on a screen of its own, because it is a
+			preference and this is where a person's preferences are. The `#dashboard`
+			anchor is what the customise link on the dashboard itself points at, so
+			somebody who has hidden every card still lands here.
+		#}
+		<div class="card mt-4" id="dashboard">
+			<div class="card-body">
+				<h2 class="h5 mb-3">{{ 'dashboard.picker_title'|trans }}</h2>
+				<p class="text-body-secondary small">{{ 'dashboard.picker_help'|trans }}</p>
+
+				{{ include('_widget_picker.html.twig', {
+					panels: widgets,
+					chosen: layout,
+					action: 'dashboard',
+					reset: 'dashboard_reset',
+					inherit: 'dashboard.picker_following_company',
+					token: 'account',
+				}, with_context = false) }}
+			</div>
+		</div>
 	</main>
 {% endblock %}

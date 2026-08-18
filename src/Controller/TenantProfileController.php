@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Dashboard\Dashboard;
+use App\Dashboard\SubmittedLayout;
 use App\Tenant\Mail\MailSettingsRefused;
 use App\Tenant\Security\PermissionArea;
 use App\Tenant\Settings\DisplayTimezone;
@@ -57,6 +59,13 @@ final class TenantProfileController extends AbstractController
         // The zone list, and what the chosen region would derive on its own
         // (XIV-83).
         private readonly DisplayTimezone $timezones,
+        // The dashboard anybody who has never chosen one is shown (XIV-66), and
+        // the list of widgets there is to choose from. Whoever may edit this
+        // installation's settings decides it, which is the grant this whole
+        // controller is already behind — a landing page everybody who has not
+        // customised lands on is an installation-wide setting in exactly the way
+        // the currency and the country are.
+        private readonly Dashboard $dashboard,
     ) {
     }
 
@@ -73,6 +82,29 @@ final class TenantProfileController extends AbstractController
     {
         if (!$this->isCsrfTokenValid(self::CSRF, (string) $request->request->get('_token'))) {
             return $this->page($request);
+        }
+
+        // The dashboard default is its own pair of forms on this page (XIV-66),
+        // branched here rather than folded into the sequence below. Two reasons,
+        // and the second is the load-bearing one: it shares none of the fields
+        // that follow, and every one of those is read out of the request with a
+        // `(string)` cast — so a picker posting through the main handler would
+        // blank the company name, the currency and the sender address with the
+        // fields it does not carry. An early return is the whole guard against
+        // that.
+        $layoutAction = (string) $request->request->get('action');
+
+        if ($layoutAction === 'dashboard' || $layoutAction === 'dashboard_reset') {
+            $this->profile->applyDashboardLayout($layoutAction === 'dashboard'
+                ? SubmittedLayout::fromRequest($request, array_keys($this->dashboard->available()))
+                // Null is the code's own order — every applicable widget by tag
+                // priority — which is what this installation had before anybody
+                // arranged anything, and is a different answer from an empty list.
+                : null);
+
+            $this->addFlash('success', $this->translator->trans('flash.profile_saved'));
+
+            return $this->redirectToRoute('tenant_profile');
         }
 
         try {
@@ -233,6 +265,18 @@ final class TenantProfileController extends AbstractController
             'logoAccepts' => LogoFormat::accepted(),
             'logoMaxKib' => LogoFormat::MAX_BYTES / 1024,
             'area' => PermissionArea::Profile->value,
+            // The widgets on offer, resolved against whoever is *looking at this
+            // page* (XIV-66) — which is a real limitation and is said out loud
+            // rather than worked around. A widget only appears here if it would
+            // draw something for this administrator, so somebody with no grant on
+            // invoices cannot put the unpaid-invoices card into the default. The
+            // alternative is a picker listing cards that would be blank for the
+            // person choosing them, resolved against a hypothetical reader who
+            // does not exist; an administrator on this screen normally has the
+            // widest grants in the installation, so the narrow case is rare and
+            // the honest one.
+            'widgets' => $this->dashboard->available(),
+            'layout' => $profile->getDashboardLayout(),
         ]);
     }
 }

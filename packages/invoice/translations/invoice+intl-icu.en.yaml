@@ -1,0 +1,17 @@
+# Strings that count something, in the invoice module's own catalogue (XIV-66).
+#
+# ICU for the reason the application's own file gives: "one" and "other" are not
+# the only two answers every language has, and a ternary in a template bakes
+# English grammar into a file that is meant to be language-neutral.
+#
+# A second file per module rather than a section in `invoice.<locale>.yaml`,
+# because the `+intl-icu` suffix is how Symfony is told which formatter a
+# catalogue wants and it is a property of the whole domain. Symfony merges the two
+# into one `invoice` domain, so nothing at the call site has to know which of them
+# a key came from.
+
+dashboard:
+    # What the card cut off. The cap is the widget's — eight rows is a glance and
+    # not a worklist — and saying how much was left out is what stops a summary
+    # from being one somebody wrongly trusts to be complete.
+    unpaid_more: '{count, plural, one {And # more.} other {And # more.}}'

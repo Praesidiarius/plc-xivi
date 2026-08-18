@@ -52,3 +52,14 @@ transition:
 
 seed:
     action: Invoice what is left
+
+# The module's own dashboard card (XIV-66).
+#
+# In this file rather than in the application's `messages`, which is the half of
+# "a module declares its own widget" that is about words: `WidgetPanel` carries a
+# domain now, so the invoice module names its card out of its own catalogue and
+# the application's file gains nothing when a module ships one.
+dashboard:
+    unpaid: Awaiting payment
+    unpaid_none: Nothing is outstanding.
+    unpaid_overdue: Overdue

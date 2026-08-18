@@ -4602,6 +4602,113 @@ empty.
 
 The URL keeps what it was always for: which page you are on.
 
+#### Whose dashboard it is, and a seam a module can reach (XIV-66)
+
+Everything above stays. What XIV-66 adds is three things that were deliberately
+out of scope while there was one implementation to cut the seam around: **the
+widget interface moved into core**, **a person arranges their own page**, and
+**a panel is fetched separately from the page it is on**.
+
+##### The seam is in `packages/core` now, and only the seam moved
+
+`DashboardWidget` and `WidgetPanel` are `Xivi\Core\Dashboard\`. The obstruction
+was structural rather than aesthetic: deptrac's `App` layer is every class under
+`App\`, a module package may depend on `Core` and nothing else, so an interface in
+the application is an interface `packages/invoice` is forbidden to implement — and
+unpaid invoices is probably the most useful thing this product can put on a
+landing page. Core declares the seam, the application collects and orders what it
+finds, exactly as `ValueDeriver`, `Lifecycle` and `Seed` already work. Core learns
+a tag name and nothing else; it still has no idea what a user, a tenant or a
+module package is.
+
+**A seam in core does not mean everything using it moves.** `ModuleTilesWidget`
+reads the application's own navigation and `FollowUpWidget` reads a table in
+`src/`; both are application concerns and both stayed exactly where they were,
+implementing a core interface from up there. The temptation to move them with it
+is the one worth naming, because "the interface is in core so the implementations
+belong there" is a rule that would have dragged the permission resolver and the
+tenant context down with them.
+
+The module needed two more things to be genuinely self-sufficient, and both are
+one line each rather than a mechanism. `WidgetPanel` carries a **translation
+domain**, so a module names its card out of its own catalogue instead of adding a
+key to the application's file. And `RecordPageUrl` is the sibling of
+`RecordSearchUrl` (§7.6) — core asks where a record's page is and the application
+answers with a route — because "12 unpaid invoices" being twelve *links* is the
+whole difference between a statistic and a to-do list, and twelve links need
+twelve URLs. Without it the module would spell `module_show` in its own Twig
+template, which is the §3 boundary leaking out through the one file deptrac
+cannot read.
+
+##### A layout is the fourth instance of §8.4.2's chain, not a fourth variation
+
+The person, then the installation (§8.6), then nothing — where nothing is every
+widget that applies, in the order the tags declare, which is what every
+installation had before the setting existed. `DashboardLayout` is deliberately
+`FormattingLocale` and `DisplayTimezone` with a different value in it: same two
+collaborators, same `of()` for the whole chain and `fallbackFor()` for the part a
+settings page has to name out loud, same handling of a console command that has no
+tenant. Both columns are `JSON`, nullable, unbackfilled, and the picker sits on the
+two screens the other three already live on — your own on `/account`, the
+installation's on the profile page.
+
+**One thing genuinely differs, and it is why the columns are nullable rather than
+defaulting to a list.** A language, a region and a zone have no empty value; a
+layout does. Null is "has never chosen" and follows the layer below, and `[]` is a
+dashboard somebody deliberately cleared. Folding those together would hand
+somebody back the page they had just emptied and make the checkboxes look broken.
+It is also why going back to the default is a button of its own rather than saving
+with nothing ticked, and why the customise link is beside the page heading rather
+than among the panels: a link that lived among the widgets would vanish with them,
+and the escape §8.4.2's chain owes a person must not be an administrator.
+
+**A default is not a permission.** A widget left out of the installation's layout
+is still on offer in everybody's picker. What a person may *see* is §8.4's
+question, answered per module against records as well as tiles, and a preference
+somebody can edit is not a place to answer it.
+
+**A saved layout is data referring to code, which is the sharp part.** A key can
+name a module the customer has uninstalled, a widget a later deploy renamed, or a
+class somebody deleted. `Dashboard` drops a key nothing answers to — the same
+treatment and the same argument as a stale `reference` (§7.6): the missing thing is
+a runtime fact about one customer, not a broken installation, and failing there
+would mean a module somebody uninstalled taking the landing page down for everybody
+who had ever ticked its box. The key lives on the *panel* rather than on the
+interface, so a widget that returns null produces no key at all and "does not apply
+to you" and "is not on offer to you" are one fact rather than two that can
+disagree. §6.2's rule — a widget for an uninstalled module is not offered — is
+therefore enforced nowhere: it falls out of the widget returning null, which is the
+only place that fact is known.
+
+##### Deferring, and what makes it worth anything
+
+`loading="defer"` is already in `symfony/ux-live-component`, so the mechanism cost
+no dependency. The part that needed designing is that **deferring the rendering
+saves nothing on its own.** `panel()` is asked of every widget on every render — it
+has to be, because the reader's layout is a list of keys and the keys come from the
+panels — so a widget that counted rows in that method would have charged the page
+for a card the reader had hidden, and a deferred one would have charged it twice.
+
+So `panel()` is cheap by contract and the panel's data is a **promise** the
+renderer resolves only for a panel it is actually drawing. That is XIV-84's line —
+the dashboard decides whether a card exists, the card decides what is in it —
+restated one level down. Measured on a tenant with the invoice card on it: the
+landing page costs the same number of tenant queries with the card as without it,
+and the two queries behind it happen on the request that fetches the card.
+
+**The mount is the dashboard's rather than each widget's**, which is the other
+half of the module story: `loading="defer"` is an attribute on a Live Component,
+and `symfony/ux-live-component` is not a dependency of `packages/invoice`. One
+generic `DashboardPanel` component takes a widget key, so a module ships a class
+and a plain Twig template with no front-end dependency of any kind. A widget whose
+body is *already* a component — the follow-up card — defers on its own mount
+instead, because wrapping a deferred component in a deferred component buys a
+second round trip for nothing.
+
+**A widget declaring what it costs** stays a question rather than a requirement.
+`defer` is a widget saying "this touches the database", which is as much as
+anything currently acts on; a number would be a number nothing reads.
+
 ### 8.4 Authorization: grants, resolved per person
 
 Waiting was the right call. The record-level half turned out to be a query

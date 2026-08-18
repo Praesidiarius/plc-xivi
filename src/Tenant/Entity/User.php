@@ -201,6 +201,38 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 64, nullable: true)]
     private ?string $timezone = null;
 
+    /**
+     * Which widgets this person keeps on their dashboard, and in what order
+     * (XIV-66).
+     *
+     * **The fourth setting of the shape the three above have**, and the one whose
+     * value is a list rather than a word. Null is "has never chosen" and follows
+     * the installation's own layout (§8.6), which in turn follows "every widget
+     * that applies, in the order the code declares" — the same two-facts-two-values
+     * argument the language and the zone are stored under, and the reason there is
+     * a way back to the default that is not an administrator.
+     *
+     * **An empty array is a real answer and is not null.** Somebody who has ticked
+     * nothing has said they want an empty dashboard, which is a preference and not
+     * an absence; collapsing it into null would silently give them everybody
+     * else's page back and make the checkbox they cleared appear not to have
+     * worked. It is also the reason the customise link sits on the dashboard
+     * itself rather than only inside the panels — a page with nothing on it still
+     * has to offer the way back.
+     *
+     * **The keys in here name code, which is the sharp part.** A layout saved
+     * today can name a widget that a later deploy renamed, a module that has since
+     * been uninstalled, or a class somebody deleted. None of those is a broken
+     * installation — it is a runtime fact about this customer, exactly as a stale
+     * `reference` is (§7.6) — so `Dashboard` drops a key nothing answers to rather
+     * than resolving it. That is why this is a plain list of strings with no
+     * foreign key and nothing to migrate when a widget goes away.
+     *
+     * @var list<string>|null
+     */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $dashboardLayout = null;
+
     public function __construct(
         /** The login, and therefore also the security identifier. */
         #[ORM\Column(length: 180)]
@@ -424,6 +456,28 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->timezone = $timezone === '' ? null : $timezone;
     }
 
+    /**
+     * The widgets this person kept, or null if they never said (XIV-66).
+     *
+     * @return list<string>|null
+     */
+    public function getDashboardLayout(): ?array
+    {
+        return $this->dashboardLayout;
+    }
+
+    /**
+     * @param list<string>|null $layout widget keys in the order they should be
+     *                                  drawn, or null to go back to following the
+     *                                  installation's. An empty list is kept as an
+     *                                  empty list — see the property for why that
+     *                                  is not the same as null
+     */
+    public function setDashboardLayout(?array $layout): void
+    {
+        $this->dashboardLayout = $layout === null ? null : array_values(array_unique($layout));
+    }
+
     public function getLastLoginAt(): ?\DateTimeImmutable
     {
         return $this->lastLoginAt;
@@ -489,6 +543,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             'locale' => $this->locale,
             'region' => $this->region,
             'timezone' => $this->timezone,
+            'dashboardLayout' => $this->dashboardLayout,
         ];
     }
 
@@ -526,6 +581,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         // (XIV-83): being signed out is a strange price for a column about
         // reading clocks.
         $this->timezone = ($data['timezone'] ?? null) === null ? null : (string) $data['timezone'];
+
+        // Absent rather than null once more (XIV-66), and here the distinction
+        // has teeth of its own: null and an empty list mean different things in
+        // this column, so a token minted before it existed has to land on null —
+        // "never chose" — rather than on the empty layout that would hand
+        // somebody a blank dashboard across a deploy.
+        /** @var list<string>|null $layout */
+        $layout = ($data['dashboardLayout'] ?? null) === null
+            ? null
+            : array_values(array_map(strval(...), (array) $data['dashboardLayout']));
+        $this->dashboardLayout = $layout;
 
         // Empty rather than absent: a typed property left uninitialised throws on
         // read, and this object is live until the provider replaces it.
