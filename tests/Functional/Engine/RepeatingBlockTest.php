@@ -25,6 +25,7 @@ use Symfony\Component\DomCrawler\Form;
 use Xivi\Article\ArticleModule;
 use Xivi\Contact\ContactModule;
 use Xivi\Core\Document\DocumentFormat;
+use Xivi\Core\Field\Units;
 use Xivi\Order\OrderModule;
 
 /**
@@ -179,6 +180,44 @@ final class RepeatingBlockTest extends WebTestCase
 
         self::assertSame(1, substr_count($text, 'Total:'), 'once, however many lines there are');
         self::assertMatchesRegularExpression('/380[.,]00/', $text);
+    }
+
+    /**
+     * **A quantity prints what it is a quantity of** (XIV-118).
+     *
+     * The whole point of the field, said where it is finally read: `2.5` is a
+     * figure the customer has to ask about and `2.5 hours` is one they can
+     * check. It needed nothing here — a unit is a field on the line, so
+     * `[lines.unit]` is a marker like any other and the document prints the
+     * *label* the definitions hold rather than the key the row does.
+     *
+     * A line with no unit is in the same template on purpose. That is every line
+     * written before this field existed, and the cell has to come out empty
+     * rather than printing its own marker back at the reader.
+     */
+    public function testAQuantityPrintsTheUnitItIsCountedIn(): void
+    {
+        $template = $this->upload('Lines', [[
+            '[lines.description]',
+            '[lines.quantity]',
+            '[lines.unit]',
+            '[lines.line_total]',
+        ]]);
+
+        $order = $this->anOrder([
+            [OrderModule::CUSTOM_LINE, [
+                'description' => 'Consulting',
+                'quantity' => '2.5',
+                OrderModule::UNIT => Units::HOUR,
+                'unit_price' => '150.00',
+            ]],
+            [OrderModule::CUSTOM_LINE, ['description' => 'Travel', 'quantity' => '1', 'unit_price' => '80.00']],
+        ]);
+
+        $text = $this->generate($template, $order);
+
+        self::assertMatchesRegularExpression('/2[.,]50\s+hours/u', $text, 'beside the number it belongs to');
+        self::assertStringNotContainsString('[lines.unit]', $text, 'and the other line leaves nothing behind');
     }
 
     /** A reference field prints the record it points at. */

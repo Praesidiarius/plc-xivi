@@ -23,6 +23,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Xivi\Article\ArticleModule;
 use Xivi\Contact\ContactModule;
+use Xivi\Core\Field\Units;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
@@ -203,6 +204,125 @@ final class OrderModuleTest extends WebTestCase
         self::assertSame('Desk lamp', $this->linesOf($order)[0]->get('description'), 'and the rest still inherited');
     }
 
+    /**
+     * **The other half of XIV-118**, which is the half this module already
+     * believed in: the unit is the article's, and the line takes a copy of it.
+     *
+     * Nothing here is a mechanism of its own. `unit` is declared with the same
+     * `InheritedValue` the description and the price above it use, so an order
+     * placed in hours goes on saying hours after the catalogue is re-priced by
+     * the day — and the drift marker that already watches the price watches this
+     * one too, for free.
+     */
+    public function testAnArticleLineTakesTheArticlesUnit(): void
+    {
+        $customer = $this->aCompany('Acme AG');
+        $article = $this->anArticle('Consulting', '180.00', Units::HOUR);
+
+        $order = $this->anOrder($customer, [
+            'article' => (string) $article,
+            'quantity' => '2.5',
+        ]);
+
+        self::assertSame(Units::HOUR, $this->linesOf($order)[0]->get(OrderModule::UNIT));
+    }
+
+    /**
+     * And the page says it beside the number rather than storing it silently.
+     *
+     * The label rather than the stored key, which is the whole reason the line's
+     * field is a `choice` of the same seven values and not a text box: an
+     * inherited `hour` renders as "hours" only because this shape has heard of
+     * that value too.
+     */
+    public function testTheOrderPageShowsTheUnitBesideTheQuantity(): void
+    {
+        $customer = $this->aCompany('Acme AG');
+        $article = $this->anArticle('Consulting', '180.00', Units::HOUR);
+
+        $order = $this->anOrder($customer, [
+            'article' => (string) $article,
+            'quantity' => '2.5',
+        ]);
+
+        $cells = $this->lineCellsOf($order);
+
+        self::assertMatchesRegularExpression('/^2[.,]50$/u', $cells['Quantity']);
+        self::assertSame('hours', $cells['Unit'], 'the label, in the next column along');
+    }
+
+    /**
+     * **The acceptance criterion that is about everything already in a
+     * database.** Every article that existed before XIV-118 has no unit, and an
+     * order line for one has to read exactly as it read the day before: a
+     * quantity, and nothing after it.
+     *
+     * Asserted on the rendered row rather than on the stored value, because the
+     * stored value being empty was never in doubt. What could have broken is the
+     * page — it has a column it did not have yesterday, and an empty choice that
+     * printed its own key, or the first option of the list, would be a unit this
+     * customer never chose appearing on a document they have already sent.
+     */
+    public function testAnArticleWithNoUnitLeavesTheLineReadingAsItDidBefore(): void
+    {
+        $customer = $this->aCompany('Acme AG');
+        $article = $this->anArticle('Desk lamp', '19.90');
+
+        $order = $this->anOrder($customer, [
+            'article' => (string) $article,
+            'quantity' => '3',
+        ]);
+
+        self::assertNull($this->linesOf($order)[0]->get(OrderModule::UNIT), 'nothing to inherit');
+
+        $cells = $this->lineCellsOf($order);
+
+        self::assertSame('Desk lamp', $cells['Description'], 'the line is drawn');
+        self::assertMatchesRegularExpression('/^3[.,]00$/u', $cells['Quantity'], 'and the number is untouched');
+        self::assertSame(
+            '—',
+            $cells['Unit'],
+            'the column is empty, which is what every other unanswered field looks like',
+        );
+    }
+
+    /**
+     * A custom line has no article, and it shows a unit somebody types.
+     *
+     * The decision rather than the accident: a custom line carries a quantity
+     * exactly as an article line does, so leaving the unit off it would recreate
+     * "2.5 of nothing" on the one kind of line where every other value is being
+     * typed anyway.
+     */
+    public function testACustomLineTakesAUnitSomebodyTypes(): void
+    {
+        $order = $this->anOrder(
+            $this->aCompany('Acme AG'),
+            [
+                'description' => 'Saturday call-out',
+                'quantity' => '4',
+                OrderModule::UNIT => Units::HOUR,
+                'unit_price' => '95.00',
+            ],
+            OrderModule::CUSTOM_LINE,
+        );
+
+        self::assertSame(Units::HOUR, $this->linesOf($order)[0]->get(OrderModule::UNIT));
+        self::assertSame('hours', $this->lineCellsOf($order)['Unit'], 'and it reaches the page like any other');
+    }
+
+    /** A comment line has no quantity, so there is nothing for a unit to qualify. */
+    public function testACommentLineIsNotOfferedAUnit(): void
+    {
+        $html = self::liveService(TenantSwitcher::class)->runFor($this->tenant, fn (): string => $this
+            ->recordForm(OrderModule::KEY)
+            ->call('addRow', ['collection' => OrderModule::LINES, 'kind' => OrderModule::COMMENT_LINE])
+            ->render()
+            ->toString());
+
+        self::assertStringNotContainsString('[fields][unit]', $html);
+    }
+
     /** A comment line carries words and nothing else. */
     public function testACommentLineHasNoPrice(): void
     {
@@ -345,9 +465,43 @@ final class OrderModuleTest extends WebTestCase
         ));
     }
 
-    private function anArticle(string $title, string $price): int
+    /** An article, and a unit on it only when the test is about one (XIV-118). */
+    private function anArticle(string $title, string $price, ?string $unit = null): int
     {
-        return $this->savedId($this->saveRecord(ArticleModule::KEY, ['title' => $title, 'price' => $price]));
+        $values = ['title' => $title, 'price' => $price];
+
+        if ($unit !== null) {
+            $values['unit'] = $unit;
+        }
+
+        return $this->savedId($this->saveRecord(ArticleModule::KEY, $values));
+    }
+
+    /**
+     * The first line on an order's page, as column heading => what is in the
+     * cell (XIV-118).
+     *
+     * By heading rather than by index on purpose: the assertions using it are
+     * about a unit landing *next to* a quantity, and an index would keep passing
+     * if the two swapped places. The headings are the customer's own labels,
+     * which is also the thing being asserted — a page reading the definitions
+     * rather than a template that knows what an order line is.
+     *
+     * @return array<string, string>
+     */
+    private function lineCellsOf(int $order): array
+    {
+        $table = $this->client->request('GET', $this->url('/m/order/' . $order))
+            ->filter('table')
+            ->first();
+
+        $headings = $table->filter('thead th')->each(static fn (Crawler $th): string => trim($th->text()));
+        $cells = $table->filter('tbody tr')->first()->filter('td')
+            ->each(static fn (Crawler $td): string => trim($td->text()));
+
+        self::assertSameSize($headings, $cells, 'a cell per column');
+
+        return array_combine($headings, $cells);
     }
 
     /** @return list<Record> */

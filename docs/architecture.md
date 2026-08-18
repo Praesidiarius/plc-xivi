@@ -1502,8 +1502,10 @@ middle one rather than letting quantities borrow the money type. **How many
 places is the field's own setting** — hours want two, kilos might want three —
 and a scale beyond what the storage promises is clamped rather than refused, so
 forty places means "lots" instead of an error about a number nobody was going to
-type. A *unit* is deliberately absent: it belongs to the article rather than to
-the line, and one that only decorates the number is worse than none.
+type. A *unit* belongs to the article rather than to the line, and §5.20 is where
+it now lives — for four tickets this paragraph said it was "deliberately absent"
+and pointed at an article module that had no unit either, so a line read `2.5` of
+nothing and the sentence described a place that did not exist (XIV-118).
 
 **Thousands are grouped where nothing is typed back** (XIV-47). `display()` has
 always grouped, so a record's page and a printed document read `1.234.500,00` to
@@ -4808,6 +4810,154 @@ a percentage, or an article and a quantity.
 also involve money. A voucher against a module purchase is not this and has not
 been designed into it: these vouchers are the customer's, in the customer's own
 database, about the customer's own sales.
+
+---
+
+### 5.20 A unit belongs to the article (XIV-118)
+
+An order line saying `2.5` is a line the customer has to ring up about. One
+saying `2.5 hours` — or `0.75 kg` — is a line they can check, and for anything
+sold by time or by weight that difference is what makes the price defensible.
+
+§5.1 has said since XIV-22 that a unit belongs to the *article* rather than to
+the line. That was right and it was half a decision: the article module declared
+a title, a description, a price and a VAT rate and no unit at all, so the
+sentence pointed at a place that did not exist. This is the other half.
+
+**The unit is a field on the article, and the line takes a copy.** Ownership and
+rendering are different questions and they get different answers: a desk is sold
+by the piece on every order it will ever appear on, so the fact lives on the
+article — and a line still has to *print* it, which it does through the
+inheritance XIV-18 already built for the title and the price (§5.1). Not a second
+path, and everything that mechanism already does comes with it: an order placed
+in hours still says hours after the catalogue is re-priced by the day, a deleted
+article does not empty the line, and the drift marker on the record page watches
+the unit exactly as it watches the price.
+
+On the **invoice** it arrives by the seed (§5.12) instead, and that is this
+project following itself rather than disagreeing with itself: *nothing* on an
+invoice line is read through the article, because an invoice quotes what was
+agreed on the day. A unit read live from the catalogue would be the one field on
+a sent document that kept moving.
+
+#### Where the list comes from
+
+Three shapes were on the table and §6.1 decides between them.
+
+- **A `choice` field the customer fills in themselves** is the cheapest and gives
+  a new customer nothing at all on their first day, and gives every installation
+  its own spelling of *hour / hours / Std. / h*.
+- **A managed list** — a small table of units, maintained on a screen of its own,
+  referenced by articles — is consistent within a tenant, and it is a screen. For
+  seven words that is a screen to find, learn and keep. Worse, it would be a
+  second half-answer to a question [XIV-127] is asking properly: a list a customer
+  maintains **once** and several fields across several modules point at, with
+  colour, hierarchy and a merge. Units are one instance of that question rather
+  than a special case of it, and a table built here would be a third of that
+  feature, built early and then unbuilt.
+- **A shipped set, seeded like everything else**, which is what §6.1 already
+  describes a blueprint as doing. Seven values — hours, days, pieces, kg, m, m²,
+  litres — written into the customer's own definitions when the module is
+  installed, translated into their language on the way in like every other label,
+  and theirs from that moment.
+
+**The third**, because it is the only one that gives a new customer something
+sensible on day one.
+
+**The honest limit, and it is stated rather than implied: they cannot add
+"pallet" yet.** The metadata editor draws no control for a choice field's
+options (§5.4 draws three settings and deliberately leaves alone what it does not
+draw), so today the shipped seven are the seven. That gap is not units-shaped and
+must not be closed unit-shaped — **every variant field and every lifecycle's
+status field is a `choice` field too**, and their options are load-bearing: an
+editor that let an administrator delete `confirmed` from a table cell would break
+the order lifecycle and every record sitting in that state. Whoever closes it
+decides that first. [XIV-127] is where it is being decided, and the shape it
+proposes — a list *referenced* by a field, leaving an unattached choice field
+exactly as it is — is the one that answers units and regions and everything else
+at once.
+
+#### The values are keys; the labels are the customer's
+
+The **value** is what every record holds and what an inherited copy is compared
+against, so it is a stable ASCII key — `m2`, never `m²`. The **label** is what a
+document prints and what the customer may rename.
+
+That split is why the seven live in one place in core
+(`Xivi\Core\Field\Units`) rather than being written out three times. The
+article's field, the order line's and the invoice line's must agree on the
+*values* or an inherited `hour` renders as the word "hour" on somebody's invoice
+— the line's field is a `choice` of the same list precisely so that it can turn
+the key back into the customer's word. Modules may not depend on each other (§3),
+so core is the only place all three can share, and it is the same shape
+`LineTotals`, `Seed` and `InheritedValue` already take: a declaration core owns
+and modules spread into their own options. The *labels* stay per module, one
+`unit:` block per catalogue, because a module that borrowed another's vocabulary
+would be a module that cannot be installed on its own.
+
+#### Plurals: no, and here is why that is a decision
+
+"1 hour" and "2 hours" are different words, and so are "Stunde" and "Stunden".
+The ICU catalogues in this project handle exactly that — **for sentences the
+engine says**. A unit label is not one of those.
+
+A choice field's labels stop being catalogue keys the moment the module is
+installed: what is stored in the definition is text, in the tenant's language,
+which the customer may rename to anything at all. There is no key left to look a
+plural form up under. A customer's own "Palette" would have none either, so
+pluralising the seven shipped ones would produce a document where some units
+agreed with their number and some did not — which is worse than one where none
+do.
+
+So **a unit is a short, invariant label**, written in the form a line usually
+needs: the plural where the word has one, because a quantity of exactly one is
+the exception on an invoice and `2.5 hour` is a worse error than `1 hours`. Most
+of the list settles the question by itself — `kg`, `m`, `m²` have no plural in
+any language this ships in, and German's "Stück" and "Liter" have none either.
+
+#### The two lines that have no article
+
+**A custom line gets the same field and somebody types into it.** That is a
+decision and not the default: a custom line is priced by hand with nothing to
+inherit from, and it *also* carries a quantity — so leaving the unit off it would
+recreate `2.5` of nothing on the one kind of line where every other value is
+being typed anyway. It is offered the same seven, so a hand-written line and an
+article line read alike on the document.
+
+**Comment and subtotal lines are not offered one**, because they have no quantity
+for a unit to qualify. That falls out of the variants (§5.5) rather than being
+written anywhere.
+
+#### An article that has no unit
+
+Optional, and that is load-bearing rather than lenient. Every article that
+existed before this field did has no unit, and a line for one has to read exactly
+as it read the day before: a quantity, and nothing after it. A required unit
+would have made the field a migration of somebody's catalogue instead of an
+addition to it — and installing still retro-fits nobody (§6.1), so an existing
+customer's articles gain the field only when they take it from the offer §7.2.1
+makes.
+
+That offer has one visible cost and it is the rule working rather than failing.
+The blueprint made room for the unit by narrowing the line's description — the
+form row is a twelfths grid (§5.1) and thirteen twelfths wrap — but an upgrade
+only ever *adds*, and changing the width of a field somebody already has is
+exactly the retro-fit §7.2.1 refuses to do. So a customer who takes the unit onto
+their order lines gets it on a line of its own until they narrow the description
+themselves, which is one number in a box in the field editor. The alternative was
+an upgrade that quietly re-laid-out a form somebody had arranged, which is worse
+than a form that wraps.
+
+The case is also deliberately in the demo data: `null` sits among the samples, so
+a generated tenant contains articles sold as themselves — a yearly maintenance
+fee — beside ones sold by the hour.
+
+#### Deliberately not in this
+
+**Conversion.** Buying by the kilo and selling by the gram needs a factor, a
+direction and a rounding rule per pair of units, and it changes what a price
+*means*. It is a genuinely larger feature and nothing here implies it: a unit is
+a label beside a number.
 
 ---
 

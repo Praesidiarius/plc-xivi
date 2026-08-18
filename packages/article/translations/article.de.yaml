@@ -9,4 +9,22 @@ field:
     title: Titel
     description: Beschreibung
     price: Preis
+    unit: Einheit
     tax_rate: MWST-Satz (%)
+
+# Worin eine Menge gezählt wird (XIV-118). Wird wie jede Bezeichnung oben einmal
+# bei der Installation in die Definitionen dieser Kundin geschrieben und gehört
+# ihr danach — eine Starthilfe, kein Wörterbuch, über das diese Datei weiter
+# bestimmt (§6.1).
+#
+# **Bewusst ohne Pluralformen**; die Begründung steht auf `Xivi\Core\Field\Units`.
+# Deutsch macht es hier ohnehin leicht: „Stück“ und „Liter“ sind in beiden
+# Zahlformen gleich, und kg, m und m² sowieso.
+unit:
+    hour: Stunden
+    day: Tage
+    piece: Stück
+    kilogram: kg
+    metre: m
+    square_metre: m²
+    litre: Liter

@@ -19,6 +19,7 @@ field:
     article: Artikel
     description: Bezeichnung
     quantity: Menge
+    unit: Einheit
     unit_price: Einzelpreis
     line_total: Positionssumme
     tax_rate: MWST-Satz (%)
@@ -28,6 +29,21 @@ field:
     rate: Satz (%)
     taxable_net: Netto
     tax_amount: MWST
+
+# Worin eine Menge gezählt wird (XIV-118). Die Einheit gehört dem Artikel, die
+# Position übernimmt eine Kopie — beide Kataloge führen deshalb dieselben sieben
+# Wörter, denn ein Modul, das den Wortschatz eines anderen ausleiht, liesse sich
+# nicht mehr allein installieren (§3).
+#
+# **Bewusst ohne Pluralformen**; die Begründung steht auf `Xivi\Core\Field\Units`.
+unit:
+    hour: Stunden
+    day: Tage
+    piece: Stück
+    kilogram: kg
+    metre: m
+    square_metre: m²
+    litre: Liter
 
 status:
     draft: Entwurf

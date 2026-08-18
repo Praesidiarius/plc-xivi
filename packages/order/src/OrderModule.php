@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Xivi\Order;
 
 use Xivi\Core\Field\Type\ReferenceFieldType;
+use Xivi\Core\Field\Units;
 use Xivi\Core\Lifecycle\Lifecycle;
 use Xivi\Core\Lifecycle\LifecycleTransition;
 use Xivi\Core\Mail\MailRecipient;
@@ -55,6 +56,7 @@ final class OrderModule implements ModuleProvider
     /** The fields the totals are made of and written to (XIV-16). */
     public const string KIND = 'kind';
     public const string QUANTITY = 'quantity';
+    public const string UNIT = 'unit';
     public const string UNIT_PRICE = 'unit_price';
     public const string TAX_RATE = 'tax_rate';
     public const string LINE_TOTAL = 'line_total';
@@ -256,7 +258,11 @@ final class OrderModule implements ModuleProvider
                         // only field is the one every line has.
                         new FieldBlueprint(
                             key: 'description',
-                            width: 4,
+                            // Three twelfths rather than four since XIV-118: the
+                            // unit took one, and a row that adds up to more than
+                            // twelve wraps — which would put the unit on a line
+                            // of its own, below the number it qualifies.
+                            width: 3,
                             label: 'field.description',
                             type: 'text',
                             required: true,
@@ -269,10 +275,13 @@ final class OrderModule implements ModuleProvider
                             ],
                         ),
                         // Decimal, because two and a half hours is an ordinary
-                        // thing to sell (XIV-22). A unit — hours, kilos, metres —
-                        // is deliberately absent: it belongs to the article
-                        // rather than to this line, and a unit that only
-                        // decorates the number is worse than none.
+                        // thing to sell (XIV-22). **What it is two and a half
+                        // of is the field below**, which for four tickets this
+                        // comment promised and nothing provided: the unit was
+                        // said to belong to the article rather than to the line,
+                        // correctly, and the article had no unit either — so a
+                        // line read `2.5` of nothing and the sentence pointed at
+                        // a place that did not exist (XIV-118).
                         new FieldBlueprint(
                             key: self::QUANTITY,
                             width: 1,
@@ -282,6 +291,55 @@ final class OrderModule implements ModuleProvider
                             variants: [self::ARTICLE_LINE, self::CUSTOM_LINE],
                             position: 30,
                             options: ['min' => 0, 'scale' => 2],
+                        ),
+                        // **What the quantity is counted in** (XIV-118). Beside
+                        // it rather than inside it: a unit is a word and a
+                        // quantity is a number, and one field holding "2.5 h"
+                        // would be a number nothing can sum. The half of that
+                        // old comment which was right is unchanged — the unit is
+                        // **owned** by the article, and this field is a copy
+                        // taken when the line is written, exactly like the
+                        // description and the price above it (§5.1, XIV-18). So
+                        // an order placed in hours still says hours after the
+                        // catalogue is re-priced in days, and the page marks the
+                        // line as drifted when the two disagree, which is the
+                        // whole of what inheritance already does for free.
+                        //
+                        // **A custom line gets the same field, filled in by
+                        // hand.** That is the decision rather than the default:
+                        // a custom line is priced by hand with no article to
+                        // copy from, and it *also* carries a quantity — so
+                        // leaving the unit off it would recreate exactly the
+                        // `2.5` of nothing this ticket exists to remove, on the
+                        // one kind of line where somebody is typing every other
+                        // value anyway. Comment and subtotal lines have no
+                        // quantity, so there is nothing here for them to
+                        // qualify and they are not offered it.
+                        //
+                        // The options are restated rather than read from the
+                        // article's field, because a module may not depend on
+                        // another module (§3) and a definition is per shape.
+                        // What must not drift is the *values*, since an
+                        // inherited `hour` renders as `hour` if this field has
+                        // never heard of it — which is why the list is one
+                        // static call and not seven strings written out again.
+                        new FieldBlueprint(
+                            key: self::UNIT,
+                            width: 1,
+                            label: 'field.unit',
+                            type: 'choice',
+                            variants: [self::ARTICLE_LINE, self::CUSTOM_LINE],
+                            position: 35,
+                            options: [
+                                // The same argument the rate below makes: a
+                                // generated line picks no article, so without a
+                                // weighted list a demo tenant would sell a
+                                // seventh of its office chairs by the square
+                                // metre (§5.17, XIV-73).
+                                'samples' => Units::samples(),
+                                ...Units::shipped(),
+                                ...InheritedValue::from('article', 'unit'),
+                            ],
                         ),
                         // **A negative price is allowed here, and that is where
                         // a discount lives** (XIV-16). Not a percentage on the

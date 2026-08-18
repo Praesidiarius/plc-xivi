@@ -10,4 +10,25 @@ field:
     title: Title
     description: Description
     price: Price
+    unit: Unit
     tax_rate: VAT rate (%)
+
+# What a quantity is counted in (XIV-118). Seeded into the customer's own
+# definitions at install like every label above, and theirs to rename from that
+# moment — so these are a starting point rather than a vocabulary this file keeps
+# a say over (§6.1).
+#
+# **Deliberately not pluralised**, and the argument is on `Xivi\Core\Field\Units`:
+# a label stops being a key the moment it is installed, so there is nothing left
+# for ICU to pluralise against — and a customer's own "pallet" would have nothing
+# either. The plural form where the word has one, because a line for exactly one
+# of something is the exception on an invoice; the SI symbols have no plural in
+# any language this ships in.
+unit:
+    hour: hours
+    day: days
+    piece: pieces
+    kilogram: kg
+    metre: m
+    square_metre: m²
+    litre: litres

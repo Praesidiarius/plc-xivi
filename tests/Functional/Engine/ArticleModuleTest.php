@@ -23,6 +23,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
 use Xivi\Article\ArticleModule;
+use Xivi\Core\Field\Units;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
 
@@ -161,6 +162,56 @@ final class ArticleModuleTest extends WebTestCase
 
         self::assertStringContainsString('Desk lamp', $text);
         self::assertStringNotContainsString('A very distinctive description', $text);
+    }
+
+    /**
+     * **An article says what its price is a price of** (XIV-118).
+     *
+     * A closed list of seven, shipped rather than invented per customer and
+     * seeded into their definitions like every other option (§6.1) — which is
+     * why this asserts against the *definitions* by reading the rendered select
+     * rather than against {@see Units} directly. What is on the page is what the
+     * tenant has, and after XIV-127 those two are allowed to differ.
+     */
+    public function testAnArticleIsSoldInAUnit(): void
+    {
+        $crawler = $this->client->request('GET', $this->url('/m/article/new'));
+        $options = $crawler
+            ->filter(sprintf('select[name="%s"] option', self::field('unit')))
+            ->each(static fn ($node): string => trim((string) $node->attr('value')));
+
+        self::assertSame(
+            ['', ...array_keys(Units::shipped()['choices'])],
+            $options,
+            'the seven, and an empty one first because an article need not have a unit',
+        );
+    }
+
+    /** And it prints the customer's word for it, not the key the record holds. */
+    public function testTheUnitIsShownAsItsLabel(): void
+    {
+        $this->submit(['title' => 'Consulting', 'price' => '180.00', 'unit' => Units::HOUR]);
+
+        $page = $this->client->request('GET', $this->url('/m/article/' . $this->savedId($this->saved ?? new Response())));
+
+        self::assertStringContainsString('hours', $page->filter('dl')->text());
+    }
+
+    /**
+     * **An article with no unit is an ordinary article**, which is the whole of
+     * why the field is optional: a yearly maintenance fee is sold as itself, and
+     * so is every article that existed before this field did.
+     */
+    public function testAnArticleWithoutAUnitSaves(): void
+    {
+        $this->submit(['title' => 'Wartung Jahrespauschale', 'price' => '900.00']);
+
+        self::assertNotNull($this->saved?->headers->get('Location'), 'it saved');
+
+        $page = $this->client->request('GET', $this->url('/m/article/' . $this->savedId($this->saved ?? new Response())));
+
+        self::assertSelectorTextContains('h1', 'Wartung Jahrespauschale');
+        self::assertStringNotContainsString('hours', $page->filter('dl')->text());
     }
 
     /** A negative price is a refund, which is a different thing with a name of its own. */

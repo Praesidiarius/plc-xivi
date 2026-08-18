@@ -74,6 +74,32 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **An article is sold in a unit, and a line says so** ([XIV-118]) — hours, days,
+  pieces, kg, m, m² or litres, shipped as a starting set and seeded into your own
+  definitions at install like every other label (§6.1). An order line and an
+  invoice line show it beside the quantity, on the record page and in a generated
+  document, so `2.5` reads `2.5 hours`. The unit is the *article's*: an order line
+  takes a copy of it the way it already takes the title and the price ([XIV-18]),
+  which means an order placed in hours goes on saying hours after the catalogue
+  changes, and the page marks the line as drifted when the two disagree. A custom
+  line has no article and gets the same list to pick from by hand; a comment or
+  subtotal line has no quantity and is not offered one. **Nothing changes for an
+  article that has no unit** — its lines read exactly as they did — and the field
+  is optional for that reason. §5.20 has the whole argument, including why units
+  are not pluralised and what still has to happen before you can add "pallet".
+- **On upgrade:** an existing installation does not gain the field until somebody
+  takes it. It appears in *what your module has grown* on each of Articles, Orders
+  and Invoices (§7.2.1) and is added by choosing it there — three separate offers,
+  because they are three modules. Taking it on Articles alone gets you a unit
+  nothing prints. Nothing already stored changes, and no document you have sent
+  reads differently.
+- **Action after taking it on Orders or Invoices:** the line's form row is a
+  twelfths grid and the blueprint made room by narrowing the description, which an
+  upgrade deliberately does not do to a field you already have (§7.2.1 only ever
+  adds). So the row adds up to thirteen and the unit wraps to a line of its own
+  below the number. Narrow *Description* by one in the field editor — 4 to 3 on an
+  order line, 3 to 2 on an invoice line — and it sits beside the quantity. A new
+  installation is already laid out that way.
 - **Xivi has documentation, and it is published**
   ([XIV-112](https://xivi.youtrack.cloud/issue/XIV-112)) —
   <https://praesidiarius.github.io/plc-xivi-docs/>. Installing Xivi, running an
@@ -110,6 +136,9 @@ lands in `Unreleased` here.
   throughout the issue tracker, and it has to travel with the commit that changes
   the behaviour it describes. The site is the other half — what an installation
   *is*, rather than why it was built that way.
+
+[XIV-18]: https://xivi.youtrack.cloud/issue/XIV-18
+[XIV-118]: https://xivi.youtrack.cloud/issue/XIV-118
 
 ## Releases
 

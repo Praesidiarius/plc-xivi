@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Xivi\Article;
 
+use Xivi\Core\Field\Units;
 use Xivi\Core\Module\FieldBlueprint;
 use Xivi\Core\Module\ModuleBlueprint;
 use Xivi\Core\Module\ModuleProvider;
@@ -20,7 +21,7 @@ use Xivi\Core\Module\ModuleProvider;
 /**
  * The article module: the things a customer sells (XIV-11).
  *
- * Three fields and a declaration, which is the whole module — no entity, no
+ * A handful of fields and a declaration, which is the whole module — no entity, no
  * repository, no form class, no controller, and nothing added to the engine to
  * make room for it beyond the two field types it needed. Contact showed the
  * engine could describe a module; this one shows it was not quietly built around
@@ -103,6 +104,42 @@ final class ArticleModule implements ModuleProvider
                     // with a different name; the field refuses one rather than
                     // letting a typo become a credit.
                     options: ['min' => 0],
+                ),
+                // **What the price is a price *of*** (XIV-118). An hour, a
+                // kilo, a metre — the thing an order line's `2.5` is two and a
+                // half of. It lives here rather than on the line because it is a
+                // fact about the article: a desk is sold by the piece on every
+                // order it ever appears on, and a line that carried its own unit
+                // would let one order sell it by the metre. The line still shows
+                // it, by taking a copy the same way it takes the title and the
+                // price (§5.1's inherited values) — ownership here, rendering
+                // there, and no second mechanism between them.
+                //
+                // **Optional, and that is load-bearing rather than lenient.**
+                // Every article that existed before this field did has no unit,
+                // and an order line for one has to read exactly as it read
+                // yesterday: a number and nothing after it. A required unit
+                // would have made this field a migration of somebody's
+                // catalogue instead of an addition to it.
+                //
+                // The options are the seven {@see Units} ships, seeded into this
+                // customer's definitions at install and theirs from then on
+                // (§6.1). Why a shipped set rather than a table the customer
+                // maintains — and what is still missing before they can add
+                // "pallet" — is argued at length on that class.
+                new FieldBlueprint(
+                    key: 'unit',
+                    label: 'field.unit',
+                    type: 'choice',
+                    // "Everything we sell by the hour" is a question a price
+                    // list gets asked, and it is one query rather than a read of
+                    // every article.
+                    filterable: true,
+                    position: 35,
+                    options: [
+                        ...Units::shipped(),
+                        'samples' => Units::samples(),
+                    ],
                 ),
                 // What VAT it is sold at, as a percentage (XIV-16). A number
                 // rather than a choice of 8.1, 2.6 and 3.8, because those are
