@@ -964,6 +964,24 @@ figure is 273 and not the 280 a doubling predicts, because the throwaway form an
 the real one overlap rather than stack cleanly; the shape of the argument is
 unchanged and the arithmetic in the ticket was close enough to act on.
 
+**The 98% is accepted, deliberately, and this is the record of that** (decided
+2026-08-18). Four hundred stays the cap and 256M stays the limit, knowing that a
+save at exactly the supported size uses almost all of its allowance. The argument
+is that the number is not the risk it looks like: a real order is well under a
+hundred lines, so the case sitting at 98% is a document nobody writes, reached
+deliberately by somebody adding four hundred rows. The failure if it is wrong is
+also the mild one — a save refuses with a sentence, which is what XIV-90 built,
+rather than the half-rendered exhaustion the cap was introduced to remove.
+
+What is *not* accepted is being surprised by it later. Two things follow. **The
+per-row constant on the post path is about 0.62 MB, not the 0.35 the render pays**
+— roughly double, because the submission builds the form twice and writes once —
+so anything that grows a row grows the post path twice as fast, and it is that
+figure a future change has to be held against. And **the next move, if this ever
+does bite, is the limit rather than the cap**: four hundred rows is a promise made
+to customers, while `memory_limit` is a line in an ini file, and the two are not
+equally expensive to change.
+
 **Where the count comes from.** `Core\Record\SubmittedRows` reads the submitted
 values while they are still the plain array the browser sent — no `FormView`
 anywhere — and hands the number to the same `CollectionLimit` the writer asks. It
