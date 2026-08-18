@@ -61,3 +61,32 @@ vendor/
 # The credential reaches the build through a BuildKit secret mount instead, which
 # exists only while `composer install` runs.
 auth.json
+
+# **The agents' worktrees, and every other directory that is somebody's machine**
+# (XIV-96, and the same lesson `auth.json` above taught).
+#
+# `.claude/worktrees/` holds a full checkout per agent — thirty-three of them at
+# the time this line was written, 5.7 GB — and `COPY --link --exclude=frankenphp/
+# . ./` copies the context wholesale. So the customer-facing image, whose entire
+# point is not containing the administration surface, contained thirty-three
+# copies of it, nested one directory deeper than the verification looked. The
+# image was 7.3 GB. Neither `git status` nor `bin/ci` could see it, because the
+# worktrees are gitignored and the agent that wrote the check had none.
+#
+# **A pattern was tried here first and is not available.** `**/.*/` reads as
+# "every hidden directory" and would have needed nothing remembered, which is
+# what the `.env.*` note above argues for — but `.dockerignore` has no
+# directory-only form, so it excluded `.env` as well and the build died in
+# `composer dump-env prod`. Hence a list, and hence the whole-of-`/app` check in
+# the Dockerfile: the list is what keeps the image small, and that check is what
+# catches the entry this list does not have yet.
+.claude/
+.agents/
+.idea/
+.deptrac.cache/
+.php-cs-fixer.cache/
+.phpunit.cache/
+
+# Coverage reports: somebody's last run rather than this build's. 67 MB at the
+# time of writing.
+coverage/

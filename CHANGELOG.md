@@ -360,6 +360,15 @@ lands in `Unreleased` here.
 
 ### Fixed
 
+- **The production images no longer contain the working copies of every agent
+  that has ever run against this checkout** ([XIV-96]). `.claude/` was not in
+  `.dockerignore`, so `COPY … . ./` pulled in thirty-three complete checkouts of
+  the repository — including thirty-three copies of the administration surface,
+  inside the image built specifically not to contain it. **7.3 GB down to
+  462 MB.** `.gitignore` is not `.dockerignore`, for the second time; the
+  customer-facing build now also refuses to finish if a copy of the package is
+  anywhere under `/app`, rather than only at the three paths it used to check.
+
 - **A field marked unique is now enforced by a unique index rather than by a
   query, so two saves arriving together can no longer both write the same value**
   ([XIV-109], [§7.2](docs/architecture.md#7-open-design-questions)). It was a

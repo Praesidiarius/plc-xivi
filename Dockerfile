@@ -280,7 +280,31 @@ RUN <<-'EOF'
 		echo 'The compiled container still names Xivi\ControlPlane.' >&2
 		exit 1
 	fi
-	echo 'No Xivi\ControlPlane in sources, autoloader or compiled container.'
+	# **And then: is a copy of it anywhere under /app at all?**
+	#
+	# The three checks above all passed on an image that contained thirty-three
+	# complete copies of the package, under
+	# `.claude/worktrees/<agent>/packages/control-plane`. The build context is not
+	# the working tree, `.gitignore` is not `.dockerignore`, and a checkout nested
+	# one directory deeper matches none of the paths named above. The image was
+	# 7.3 GB. `.dockerignore` now excludes those directories, which is the fix;
+	# this is what would have caught it, and what will catch the next copy that
+	# arrives somewhere nobody has thought of yet.
+	#
+	# **A path and not the namespace string**, which was tried first and is wrong:
+	# plenty of files here legitimately *name* `Xivi\ControlPlane` without being
+	# it — the three guarded seams §4.4 lists, `composer.lock`, and comments in
+	# `deptrac.yaml`, `bin/ci` and half a dozen classes explaining why the package
+	# is absent. A check that fires on a comment is a check somebody deletes. What
+	# must not be here is the *code*, and the code lives in a directory whose name
+	# says so.
+	found=$(find . -ipath '*control-plane*' -print | head -20)
+	if [ -n "$found" ]; then
+		echo 'A copy of the control-plane package is somewhere in the customer-facing build:' >&2
+		echo "$found" >&2
+		exit 1
+	fi
+	echo 'No control-plane package anywhere under /app, and nothing loadable naming it.'
 EOF
 
 
