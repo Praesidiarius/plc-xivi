@@ -431,6 +431,7 @@ and §6.4 of the brief argues why that is a rule rather than a nicety.
 | `tenant:inspect [slug] [module]` | **Dev only.** Tenants with their schema state and installed modules; with a slug, that tenant's real field definitions. `--modules` for the catalogue, `--json` for what the MCP tools return |
 | `tenant:migrate [--slug=]` | Applies tenant migrations to every tenant; run it on every deploy |
 | `tenant:usage:collect [--slug=]` | Counts each tenant's users, last sign-in and records into the control plane, one tenant at a time; put it in cron — see below |
+| `signup:provision [--email=]` | Turns confirmed self-service signups into tenants, one at a time, and invites each first user; put it in cron — see below |
 | `tenant:permissions:grant-all <slug>` | Grants every action on every installed module to one tenant's non-admin users; the upgrade path for an installation that predates permissions, and the way back into a locked-out one |
 | `tenant:rotate-secrets` | Re-encrypts stored passwords with the active key |
 | `control:operator:create <email>` | Creates somebody who can sign in to the control plane; asks for the password, or takes `--password` for a scripted run |
@@ -555,6 +556,38 @@ both tell the truth about themselves. A tenant whose database cannot be reached 
 recorded as *could not be read* and the run carries on with the rest, then exits
 non-zero so that cron mails somebody. The reasoning, and why the page does not
 fetch this itself, is §8.11 of the brief.
+
+### Turning self-service signups into customers
+
+Signup records a request and **provisions nothing** — the endpoint is anonymous
+and the thing that creates a customer holds `TENANT_ADMIN_DSN`, so the two are
+deliberately kept apart (§8.12). Nothing happens to a confirmed signup until this
+runs:
+
+```cron
+*/5 * * * *  cd /srv/xivi && bin/console signup:provision
+```
+
+Only needed on a deployment that has set `SIGNUP_HOST`. The cadence is yours and
+is a customer-facing latency rather than a housekeeping one: somebody who has
+just confirmed their address is waiting for the mail this sends, so every five
+minutes is a better default here than the nightly one above. It is a cron entry
+rather than a queue for the same reason everything else here is — there is no
+worker process and no message consumer in this deployment (§8.7).
+
+Each run creates a role, a database, a schema and a first administrator, then
+mails that person an invitation link; **no password is generated or printed**
+(§8.8). A signup that fails is recorded against its own row, the run carries on
+with the rest, and it exits non-zero so that cron mails somebody. Running it
+again is safe: a tenant left half-made by a run that died is cleared and rebuilt,
+and one that is already standing is finished rather than duplicated. A
+half-provisioned customer also appears at the top of the tenant list, named in
+its banner, so the failure is visible to somebody who never reads a cron mail
+(§8.10). The whole design is §8.14 of the brief.
+
+**It is the privileged half of the feature.** When the public and internal
+deployments are separated it belongs on the internal one; today it needs
+`TENANT_ADMIN_DSN` in whatever environment the cron runs in.
 
 ### Before deploying anywhere real
 

@@ -18,6 +18,7 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\FrameworkBundle\Routing\AttributeRouteControllerLoader;
 use Symfony\Component\Config\Loader\LoaderResolver;
 use Symfony\Component\Routing\Route;
+use Xivi\ControlPlane\Provisioning\SelfServiceTenantHostname;
 use Xivi\ControlPlane\Routing\SignupRouteLoader;
 use Xivi\ControlPlane\Security\ControlPlaneHost;
 use Xivi\ControlPlane\Signup\SignupApiKey;
@@ -232,7 +233,11 @@ final class SignupRouteLoaderTest extends TestCase
             // claim. Handing it the same host object the loader has means the
             // "page cannot outlive the endpoint" rule is exercised rather than
             // assumed.
-            new SignupPage($signupHost, $page),
+            // The hostname decider takes the same host object for the same
+            // reason: [XIV-98] made `tenantDomain()` delegate to it, so handing
+            // in the real one keeps the page's answer the answer a tenant will
+            // actually be routed at.
+            new SignupPage($signupHost, new SelfServiceTenantHostname($signupHost), $page),
         );
 
         // The framework's own subclass, which is what the application uses: it

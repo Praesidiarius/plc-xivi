@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Xivi\ControlPlane\Signup;
 
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Xivi\ControlPlane\Provisioning\SelfServiceTenantHostname;
 use Xivi\ControlPlane\Routing\SignupRouteLoader;
 
 /**
@@ -98,6 +99,14 @@ final readonly class SignupPage
     public function __construct(
         private SignupHost $host,
         /**
+         * Where a self-service customer ends up, which is [XIV-98]'s decision
+         * rather than this page's.
+         *
+         * See {@see tenantDomain()} for why the page borrows it instead of
+         * computing the same thing beside it.
+         */
+        private SelfServiceTenantHostname $hostnames,
+        /**
          * `SIGNUP_PAGE`, defaulting to on.
          *
          * A boolean beside a hostname rather than a second hostname, which is the
@@ -136,29 +145,28 @@ final readonly class SignupPage
      * The domain a customer's own address will sit under, for the form to show
      * beside the name box.
      *
-     * The signup host without its first label: a deployment serving signup at
-     * `signup.xivi.app` puts its customers at `acme.xivi.app`, and §8.12 relies on
-     * the same relationship in the other direction when it reserves the *first
-     * label* of every system host — `control` under the same domain is what a
-     * control plane at `control.xivi.app` is collided with.
+     * A deployment serving signup at `signup.xivi.app` puts its customers at
+     * `acme.xivi.app`, and §8.12 relies on the same relationship in the other
+     * direction when it reserves the *first label* of every system host —
+     * `control` under the same domain is what a control plane at
+     * `control.xivi.app` is collided with.
      *
-     * **It is a display hint and the code says so out loud**, because it is the
-     * one thing on this page that is not yet a fact. `TenantProvisioner` never
-     * derives a hostname from a slug; hostnames are an explicit parameter, so what
-     * a confirmed signup is finally routed at is [XIV-98]'s to decide. This is the
-     * convention that decision will follow and the best answer available before it
-     * has run — and it is shown because "you will be called acme" without saying
-     * where is not showing somebody their address at all.
+     * **It was a display hint and it is now a fact** (XIV-98). This docblock
+     * used to say that `TenantProvisioner` never derives a hostname from a slug,
+     * that hostnames are an explicit parameter, and that what a confirmed signup
+     * is finally routed at was [XIV-98]'s to decide. It has been decided, in
+     * {@see SelfServiceTenantHostname}, and this method now asks that class
+     * rather than computing an answer beside it.
      *
-     * A single-label host — `localhost`, a container name — has no parent to take,
-     * and keeps itself: `acme.localhost` is exactly right in development and is
-     * what a fresh checkout sees.
+     * The delegation is the point rather than tidiness. What is drawn here is a
+     * promise made to somebody before they have submitted anything, and what
+     * that class returns is the hostname a tenant is actually routed at weeks
+     * later. Two implementations of one sentence is two places for it to change,
+     * and the way anybody would discover they had drifted is a customer typing
+     * the address they were shown and reaching nothing at all.
      */
     public function tenantDomain(): string
     {
-        $host = $this->host->normalisedHost();
-        $parent = strstr($host, '.');
-
-        return $parent === false || $parent === '.' ? $host : substr($parent, 1);
+        return $this->hostnames->domain();
     }
 }

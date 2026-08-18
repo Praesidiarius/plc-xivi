@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Xivi\ControlPlane\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
+use Xivi\ControlPlane\Provisioning\SignupProvisioningStage;
 use Xivi\ControlPlane\Repository\SignupRequestRepository;
 
 /**
@@ -148,6 +149,52 @@ class SignupRequest
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $confirmedAt = null;
 
+    /**
+     * How many times [XIV-98] has tried to make a tenant out of this row.
+     *
+     * Zero for everything that has not been tried, which is every row in the
+     * ordinary life of this table: a signup confirmed at ten past two is
+     * provisioned by the next cron run and the row is deleted, so a non-zero
+     * count here is by itself the statement that something went wrong.
+     *
+     * **Counted rather than merely flagged**, because the number is the only
+     * thing that distinguishes a transient failure from a permanent one when
+     * nobody was reading the cron mail. One attempt is a mail server that was
+     * busy; two hundred is a name an operator took by hand and has to give back.
+     * The run's report prints it beside the address for exactly that reason.
+     *
+     * It is not a budget. There is no maximum and nothing gives up — see
+     * {@see \Xivi\ControlPlane\Command\ProvisionSignupsCommand} for the
+     * argument, which is that every failure a retry could fix is one an operator
+     * fixes elsewhere, and a run that had disarmed itself in the meantime would
+     * make the repair a two-step job whose second step nobody remembers.
+     */
+    #[ORM\Column(name: 'provisioning_attempts', options: ['default' => 0])]
+    private int $provisioningAttempts = 0;
+
+    /**
+     * When the last attempt failed, and NULL when none has.
+     *
+     * Cleared by nothing, because a row that succeeds is removed rather than
+     * updated (§8.12: this table holds *live* signups only). So this column has
+     * exactly two states over a row's life — never failed, or failed at this
+     * moment — and the second one is never stale relative to
+     * {@see $provisioningAttempts}: they are written together or not at all.
+     */
+    #[ORM\Column(name: 'provisioning_failed_at', nullable: true)]
+    private ?\DateTimeImmutable $provisioningFailedAt = null;
+
+    /**
+     * Which step it stopped at.
+     *
+     * Deliberately a stage rather than the exception's message — see
+     * {@see SignupProvisioningStage} for the argument, which is [XIV-59]'s
+     * argument about what may and may not be written onto a row that something
+     * might one day draw on a page.
+     */
+    #[ORM\Column(name: 'provisioning_stage', enumType: SignupProvisioningStage::class, length: 16, nullable: true)]
+    private ?SignupProvisioningStage $provisioningStage = null;
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -280,6 +327,46 @@ class SignupRequest
     {
         return $this->status === SignupStatus::Pending
             && $this->confirmationExpiresAt <= ($now ?? new \DateTimeImmutable());
+    }
+
+    /**
+     * Another attempt at provisioning has failed.
+     *
+     * **The row survives and stays confirmed**, which is the whole shape of the
+     * retry: the address answered, the name is still held by the unique index on
+     * `reserved_slug`, and the next run picks the row up again with no state to
+     * re-enter. A `failed` status would have been the reflex and it is wrong for
+     * the reason §8.12 gave for refusing a `provisioned` one — a state here is a
+     * second copy of a fact the registry already holds, free to disagree with
+     * it. What actually exists after a failure is either a tenant in
+     * `provisioning` or no tenant at all, and both of those are questions the
+     * registry answers.
+     *
+     * The caller flushes. This writes three fields that are only ever true
+     * together, so they are set in one place rather than by three setters a
+     * caller could use two of.
+     */
+    public function recordProvisioningFailure(SignupProvisioningStage $stage): void
+    {
+        ++$this->provisioningAttempts;
+        $this->provisioningFailedAt = new \DateTimeImmutable();
+        $this->provisioningStage = $stage;
+        $this->touch();
+    }
+
+    public function getProvisioningAttempts(): int
+    {
+        return $this->provisioningAttempts;
+    }
+
+    public function getProvisioningFailedAt(): ?\DateTimeImmutable
+    {
+        return $this->provisioningFailedAt;
+    }
+
+    public function getProvisioningStage(): ?SignupProvisioningStage
+    {
+        return $this->provisioningStage;
     }
 
     public function getId(): ?int

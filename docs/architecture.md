@@ -4417,8 +4417,19 @@ that link cannot get wrong.
 **That sentence needs one correction now XIV-64 has landed** (§8.12), because it
 predicted the wrong ticket. Signup does not provision, so nothing here is invoked
 by it: the first user is created when [XIV-98] turns a confirmed signup into a
-tenant, and that is where the request-context problem is still waiting. The
-signup's own confirmation mail is deliberately none of this mechanism — there is
+tenant, and that is where the request-context problem is still waiting.
+
+**[XIV-98] has landed and answered it** (§8.14): the router's request context is
+pointed at the tenant's own hostname for the duration of the send and restored
+afterwards, because that loop runs over many customers in one process and a
+leaked context would sign the next person's link for the previous person's
+domain. The port is left as `DEFAULT_URI` put it, on the argument that the host
+is the part only the tenant can supply and the port is a property of the
+installation. The same ticket found a second thing this paragraph did not
+predict: off a cron there is no locale either, and the answer is the language the
+visitor was reading the signup form in.
+
+The signup's own confirmation mail is deliberately none of this mechanism — there is
 no tenant, therefore no user to sign a link for — and it builds its absolute URL
 from configuration rather than from a request for the same reason this paragraph
 warns about.
@@ -5111,6 +5122,12 @@ Whatever mapping [XIV-98] chooses from a signup slug to a provisioning slug has 
 be checked here as well, or two customers can be promised names that collide once
 translated.
 
+**That has landed and §8.14 records it.** The mapping is hyphen to underscore,
+the intake now asks the registry about the translated name *and* about the
+hostname it would take, and the names that have no translation at all — one
+character, a leading digit, anything past fifty-six — are refused here with
+`invalid_slug` rather than accepted and failed in a cron run.
+
 **The name is derived from the company name, shown before submission, and
 editable** — and the derivation is part of the contract rather than the form's
 business. Two implementations of a transliteration rule disagree on the first
@@ -5503,6 +5520,280 @@ catalogue is product text — renaming *Invoice* is a change a customer sees.
 Giving the page its own translation domain was worth doing for that reason alone.
 It is also the right shape independently: the person who edits marketing copy
 should not be editing the file that names the engine's fields.
+
+### 8.14 Turning a confirmed signup into a customer (XIV-98)
+
+§8.12 built a public surface that provisions nothing and said, in as many words,
+that acting on what it records is a separate ticket which *"runs where an
+operator can see it"*. This is that ticket. It is the privileged half — the one
+that legitimately holds `TENANT_ADMIN_DSN` — and everything below follows from
+that being true of one console command rather than of an HTTP endpoint.
+
+#### A command and cron, and the constraint is the runtime rather than the feature
+
+The obvious shape is a message dispatched when somebody clicks their confirmation
+link and consumed by a worker. **There is no worker.** This deployment is
+FrankenPHP in classic mode with no worker block on purpose (§9.2), so nothing
+runs between requests and a queue with nothing draining it is strictly worse than
+no queue: the customer's installation is simply never made, and the failure is
+silence.
+
+That is the third feature to reach the same answer from the same place — [XIV-37]
+made sending mail synchronous, [XIV-59] made usage collection a cron entry — and
+the reason to write it down a third time is that it is **not three decisions**.
+The constraint is a property of the runtime, so it produces this answer for
+anything that would otherwise want a consumer, and it stops producing it the day
+somebody introduces one for a reason of its own. On that day, moving this onto it
+is a small change. Inventing one for a job that takes seconds is not.
+
+The cost is latency, and here it is customer-facing rather than housekeeping:
+somebody who confirms at ten past two waits for the next run. So the recommended
+cadence differs from [XIV-59]'s — every few minutes rather than nightly — and
+nothing in the command assumes either.
+
+**One failure must not cost the others**, which is [XIV-59]'s rule and is
+inherited rather than restated: the provisioner returns an outcome instead of
+throwing, the failure is written onto that signup's row, the loop moves to the
+next person, and the run exits non-zero so that cron mails somebody. Two things
+about it are deliberately *un*like `tenant:usage:collect`. An empty queue is a
+**success** here — no confirmed signups is the ordinary state of a healthy
+installation on most nights, and a cron entry that mails somebody nightly for
+being idle is one whose mail nobody reads within a fortnight. And nothing is ever
+given up on: there is no attempt limit and no dead-letter state, because every
+failure a retry could fix is one an operator fixes *elsewhere* — a full disk, a
+mail server, a grant on the provisioning role — and a run that had disarmed
+itself in the meantime would make the repair a two-step job whose second step
+nobody remembers.
+
+#### The hard part: which steps are idempotent, established rather than assumed
+
+Provisioning is a registry row, a Postgres role, a database, a schema and then an
+administrator, and it can stop at any of them. `TenantStatus::Provisioning`
+exists for exactly that state. What a retry may do was read out of the code
+rather than hoped for, and the answer is uncomfortable enough to be worth stating
+plainly:
+
+**`provision()` is not re-runnable, at either end.** Called again for a slug the
+registry already holds it throws `slugTaken` before it does anything at all, and
+with that row removed by hand it would throw `databaseExists`; PostgreSQL has no
+`CREATE ROLE IF NOT EXISTS`, so the role would raise `42710` on its own. The
+generated role password is fresh on every call and stored encrypted on the row,
+so a hypothetical resume would also have to `ALTER ROLE … PASSWORD` to make the
+stored DSN true again. Exactly **one** step inside it repeats safely: the
+migration, because Doctrine records executed versions in the tenant's own
+`doctrine_migration_versions` and steps over them.
+
+**So a half-made tenant is cleaned up rather than finished**, and the cleanup is
+`deprovision()` — which §4.1's [XIV-94] subsection made re-runnable in precisely
+the way this needs. Both drops are `IF EXISTS`, sessions are terminated before
+the drop, and the registry row is removed **last**, so a cleanup that itself
+fails leaves a row pointing at whatever survived rather than an orphan nothing
+knows about; the same run repeats over what has already gone and finishes it.
+
+Destroying rather than resuming costs nothing, and that is an argument rather
+than a shrug. A tenant still in `provisioning` has never served a request —
+`TenantStatus::servesRequests()` says so and `TenantRequestListener` enforces it
+— and its first user is created *after* `provision()` returns. There is no
+session, no record and nobody holding a credential. It is an empty database with
+a company's name on it.
+
+**The three steps after it are idempotent as they stand**, which is why a tenant
+that is already serving is finished rather than torn down. Creating the first
+user is guarded by a lookup on the address and `UserManager::add()` refuses a
+duplicate anyway. Sending an invitation twice is §8.8's own documented behaviour
+rather than something tolerated here — the seed rotates, the previous link dies,
+and there is never more than one live invitation per person. Removing the signup
+row is a `DELETE` of a row that has already gone.
+
+#### Telling our own wreckage from somebody else's customer
+
+The resume path is the dangerous one, because *"a tenant with this slug exists"*
+is not the sentence *"a previous run of mine made it"*. An operator's own
+`acme_ag`, provisioned by hand a year ago, matches on the slug — and walking into
+it to create an administrator and mail a stranger a link into somebody else's
+installation is the worst thing this feature could do.
+
+**So identity is the hostname, not the slug.** A tenant made here is routed at
+the address below and holds it as its primary domain, written in the same flush
+as the registry row, so even the earliest wreckage carries it. A tenant that does
+not hold that hostname is somebody else's, whatever it is called, and is neither
+resumed nor torn down: the signup fails at `preflight` and a person decides which
+of the two names has to move. That refusal repeats in every run for ever, which
+is the right amount of pressure for something only a person can settle.
+
+#### A stuck signup is visible where somebody already looks
+
+[XIV-58] sorts a non-serving tenant to the top of the tenant list and names it in
+the banner, and `provisioning` is the state it ranks first. That page is the
+answer to "where does a half-made customer show up", and it needed nothing added
+to it — what this ticket had to make sure of is that a failure *reaches* a state
+it can draw, rather than sitting only in the intake table where nobody looks.
+
+It does, because `provision()` persists its registry row before it touches the
+cluster. Every failure from that point on leaves a row in `provisioning`. The
+failures that leave **nothing** are the pre-flight ones — a name or a hostname
+that is no longer available — and those are precisely what the intake checks
+below exist to make unreachable. What survives them is the genuine race, and it
+is reported in the run's output and counted on the signup row rather than drawn
+anywhere. That is the honest limit of this criterion: a customer whose name an
+operator took by hand between confirming and the next cron run is visible to
+whoever reads the cron mail and to nobody else.
+
+**What is recorded on the signup row is a stage, not a message.** [XIV-59]
+settled the same question one table along: a driver exception names hosts, ports
+and roles, which is right in front of somebody who already holds the DSN and
+wrong on a row something might later draw on a page. `TenantUsage` stores "could
+not be read" and prints the driver's words; this stores `preflight`, `tenant`,
+`first_user`, `invitation` or `cleanup` and prints the driver's words. A stage
+also answers the only question the stored value has to: whether trying again,
+unaided, could ever work.
+
+There is still **no third `SignupStatus`**, for §8.12's reason unchanged — a
+status here would be a second copy of a fact `tenant.slug` already holds, free to
+disagree with it. A failed signup is the same confirmed row it was a minute
+earlier, still holding its name, with a counter and a stage beside it.
+
+#### The slug trap, and how the collision is prevented rather than made unlikely
+
+§8.12 kept two slug rules apart on purpose and handed the consequence here:
+
+    TenantProvisioner::SLUG_PATTERN  /^[a-z][a-z0-9_]{1,55}$/     an identifier
+    SelfServiceSlug::PATTERN         /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/   a label
+
+**The translation is hyphen to underscore, and nothing else.** It was chosen over
+dropping the separator or appending a hash because it is the only rule a human
+can perform in their head: an operator reading `acme-bau.xivi.app` in a support
+ticket types `psql tenant_acme_bau` without looking anything up.
+
+**It cannot make two customers collide, and that is a proof rather than a hope.**
+A self-service slug is drawn from `[a-z0-9-]` and contains no underscore, so the
+map is the identity on `[a-z0-9]` and sends the one remaining character to one
+that never occurred in the input. It is a bijection onto its image. Two distinct
+signup slugs therefore never translate to one provisioning slug, and the intake's
+existing rule — one confirmed signup per reserved name — carries over intact with
+no second uniqueness check.
+
+**What does not carry over is the check against the registry, and that is the
+sharp edge.** `tenant.slug` holds *provisioning* slugs. No self-service slug can
+ever equal `acme_bau`, so the intake's `findOneBySlug()` looks it up, finds
+nothing, and says `acme-bau` is free — and provisioning then refuses, days later,
+after somebody has confirmed an address and been told the name is theirs. So the
+intake now asks the registry about the **translated** name as well, at the moment
+the name is asked for, and about the **hostname** it would take for the same
+reason one noun along: `provision()` derives no hostname from a slug, so an
+operator may perfectly well have routed `acme.xivi.app` at a tenant called
+something else. Both refusals are `slug_taken`, which is §8.12's rule about one
+word covering several situations, applied unchanged.
+
+**The map is also partial**, and the gaps are where the two rules disagree about
+something other than separators. A DNS label may be one character and an
+identifier may not; a label may start with a digit and an identifier may not; a
+label may run to 63 characters and an identifier to 56. Those names are refused
+at the intake with `invalid_slug` rather than accepted and failed later.
+
+The two halves of that are treated differently on purpose. A **derived** name is
+a suggestion this system made, so `SelfServiceSlug::derive()` now cuts to 56
+rather than 63 — a suggestion it cannot honour is its own mistake to fix. A name
+somebody **typed** is refused, because silently shortening what a customer asked
+to be called is worse than telling them it is too long. The residual cost is
+real and is stated rather than engineered around: a company whose name begins
+with a digit cannot have that name as a slug, and is asked for another. Every
+scheme that would have rescued it — prefixing a letter, appending a digit — makes
+the translation non-injective, and losing the collision proof to save `3m` is the
+wrong trade.
+
+#### What hostname a self-service tenant gets
+
+**The signup slug as a label under the signup host's parent domain.** A
+deployment serving signup at `signup.xivi.app` puts its customers at
+`acme.xivi.app`; a single-label host — `localhost`, a container name — has no
+parent to take and keeps itself, so a fresh checkout gets `acme.localhost`.
+
+This was already the convention §8.13's form displayed beside the name box, where
+`SignupPage::tenantDomain()` called itself *"a display hint"* and said the real
+answer was this ticket's. It is now a fact, in
+`Provisioning\SelfServiceTenantHostname`, and **the page delegates to it**. That
+direction is the load-bearing part: two implementations of "the domain a customer
+sits under" is two implementations of a promise, and the way anybody would
+discover they had drifted is a customer typing the address they were shown and
+reaching nothing.
+
+It also explains, retrospectively, why §8.12 reserves the **first label** of every
+system host rather than the whole string. A control plane at `control.xivi.app`
+is collided with by a signup for `control` precisely because that signup would be
+routed at `control.xivi.app`. That paragraph was written against this convention;
+it becomes correct rather than merely well-aimed now the convention is code.
+
+#### The first user gets a link, and no password exists anywhere
+
+`tenant:provision --admin-email` prints a generated password because an operator
+is watching a terminal. **Nobody is watching this**, and §8.5's own note said the
+printing goes away once there was a mailer. So the first administrator is created
+with `createWithoutPassword()` — the hash stays empty, which nothing can
+authenticate against from either direction — and §8.8's signed login link is what
+admits them. A generated password nobody ever reads is a live credential sitting
+on the account for as long as the account does.
+
+Note this is a **different** token from §8.12's confirmation token, and the two
+are not interchangeable: that one proved an address existed before there was a
+tenant, and this one signs somebody into a tenant that now does. §8.12 explains
+at length why the framework's login link could not be used for the first job.
+
+§8.8 predicted two problems with sending one off a cron and left them here, and
+both are real:
+
+**There is no request, so there is no hostname to be absolute against.**
+`DEFAULT_URI` is `http://localhost` in this repository, and a link generated
+against it is a link to nowhere. The router's request context is therefore
+pointed at the tenant's own hostname for the duration of the send, over `https`,
+exactly as §8.12's confirmation link is built from configuration rather than from
+a header — and restored in a `finally`, because the run is a loop in one process
+and a leaked context would sign the next person's link for the previous person's
+domain. That is a link that *works*, and admits somebody to the wrong
+installation. The **port** is deliberately left as configuration put it: the host
+is the part only the tenant can supply, while the port is a property of the
+installation, which is what `DEFAULT_URI` states.
+
+**There is no request, so there is no locale either.** An invitation is
+ordinarily written in the language of whoever pressed the button; nobody pressed
+anything. The best answer available is the language the visitor was reading the
+signup form in, which the row has carried since §8.12 recorded it for the
+confirmation mail — so it is switched to for the send, and it is also what the
+new account's own locale is set to.
+
+The mail itself needed no exception carved for it. §8.8 refused one and was
+right: a freshly provisioned tenant has configured no SMTP server, so §8.7's
+instance fallback applies of its own accord and the message goes out under
+`no-reply@` at the customer's own new hostname. "Works on day one" and "the first
+user of a self-service signup" meet exactly where §8.8 said they would.
+
+#### The customer is not told when it fails, and that is the honest gap
+
+The run's non-zero exit, the addresses in the cron mail, the attempt counter on
+the row and the banner on the tenant list are all addressed to the **operator**,
+who is the only party who can act. Nothing is mailed to the person waiting.
+
+That is deliberate for the ordinary case — nearly every failure here is
+transient, the next run fixes it, and "we could not set up your installation"
+followed twenty minutes later by "here is your login" is worse than twenty
+minutes of quiet — and it is a genuine gap for the case that never resolves. A
+signup stuck at `preflight` waits for ever while a person is expected to notice.
+The counter is what makes that legible: one attempt is a bad afternoon, two
+hundred is a name somebody has to give back. A mail after N attempts is the
+obvious next move and is not built here, because it needs a decision about what
+it may honestly say, and that decision is worth more than the twenty lines it
+would take.
+
+#### Privilege
+
+This half holds `CREATE DATABASE` and `CREATE ROLE` and must run only on the
+non-public side. Today that is a console command in one deployment, which is a
+code boundary and not yet a privilege boundary — §8.12's own honest limit,
+unchanged. When [XIV-96] separates the deployments, `signup:provision` and
+`Provisioning\SignupProvisioner` belong in the internal image and
+`TENANT_ADMIN_DSN` belongs only in its environment. Note also §4.1's finding that
+the provisioning role needs more than `CREATEDB CREATEROLE` on Postgres 16 and
+later; a deployment narrowing it has that work to do first.
 
 ---
 

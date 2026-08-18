@@ -16,6 +16,7 @@ namespace Xivi\ControlPlane\Signup;
 use App\Tenancy\TenantResolver;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\String\Slugger\AsciiSlugger;
+use Xivi\ControlPlane\Provisioning\ProvisioningSlug;
 use Xivi\ControlPlane\Provisioning\TenantProvisioner;
 
 /**
@@ -87,6 +88,26 @@ final readonly class SelfServiceSlug
 
     /** The longest a DNS label may be, and also `tenant.slug`'s column width. */
     public const int MAX_LENGTH = 63;
+
+    /**
+     * The longest name {@see derive()} will hand back (XIV-98).
+     *
+     * Fifty-six rather than sixty-three, and the seven characters are not
+     * arbitrary: they are where the DNS rule and the provisioning rule stop
+     * agreeing about length. A name of sixty characters is a perfectly good
+     * hostname label and has no legal translation into a PostgreSQL identifier
+     * (see {@see ProvisioningSlug}), so a company whose name is long enough
+     * would have been derived a suggestion that could never become a tenant.
+     *
+     * Cutting here rather than refusing there is the kinder half of the same
+     * decision. A *derived* name is a suggestion this system made, and a
+     * suggestion it cannot honour is its own mistake to fix; a name somebody
+     * **typed** is refused instead, because silently shortening what a customer
+     * asked to be called is worse than telling them it is too long. The two
+     * paths meet again at the intake, which refuses anything unprovisionable
+     * whichever way it arrived.
+     */
+    public const int MAX_DERIVED_LENGTH = ProvisioningSlug::MAX_LENGTH;
 
     /**
      * Names a platform needs to keep for itself.
@@ -233,11 +254,11 @@ final readonly class SelfServiceSlug
         $slug = preg_replace('/[^a-z0-9]+/', '-', $slug) ?? '';
         $slug = trim($slug, '-');
 
-        if (\strlen($slug) > self::MAX_LENGTH) {
+        if (\strlen($slug) > self::MAX_DERIVED_LENGTH) {
             // Cut, then trim again: a cut that lands on a hyphen would leave a
             // trailing one, which is the one thing the pattern forbids at the
             // end.
-            $slug = rtrim(substr($slug, 0, self::MAX_LENGTH), '-');
+            $slug = rtrim(substr($slug, 0, self::MAX_DERIVED_LENGTH), '-');
         }
 
         return $slug;
@@ -247,6 +268,28 @@ final readonly class SelfServiceSlug
     public function isValid(string $slug): bool
     {
         return self::matchesPattern($slug);
+    }
+
+    /**
+     * Whether this name can also become a tenant (XIV-98).
+     *
+     * A second question rather than a stricter {@see isValid()}, and kept
+     * separate for the reason the class docblock gives for keeping the two
+     * patterns apart: this one is about a DNS label and that one is about a
+     * PostgreSQL identifier, and collapsing them would be the unification this
+     * file exists to prevent. `isReserved()` sits beside it as a third
+     * independent question about the same string.
+     *
+     * The three ways the rules disagree about more than separators are in
+     * {@see ProvisioningSlug} — a one-character label, a leading digit, and
+     * anything over {@see ProvisioningSlug::MAX_LENGTH}. All three are refused
+     * at the intake with `invalid_slug`, which is the point: the alternative is
+     * a name that passes every check a customer can see and then fails,
+     * permanently, in a cron run nobody is watching.
+     */
+    public function isProvisionable(string $slug): bool
+    {
+        return ProvisioningSlug::isProvisionable($slug);
     }
 
     /**
