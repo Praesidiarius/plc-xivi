@@ -43,6 +43,7 @@ final readonly class DocumentGenerator
     public function __construct(
         private DocumentMarkers $markers,
         private RepeatingBlocks $blocks,
+        private DocumentImages $images,
         private PdfConverter $converter,
         private EventDispatcherInterface $events,
     ) {
@@ -149,6 +150,25 @@ final readonly class DocumentGenerator
             // round would mean copying rows that have already lost the markers
             // saying which row they were.
             $this->blocks->expand($source, $module, $record);
+
+            // Then the pictures, and the order against both neighbours is a
+            // decision (XIV-89).
+            //
+            // **After the rows are multiplied**, because a mark inside a
+            // repeating block is one marker before expansion and several
+            // afterwards, and each of the copies needs a drawing id of its own —
+            // placing first would leave the row carrying one id and Word
+            // complaining about a document that uses it n times.
+            //
+            // **Before the library**, because the library is the flat text
+            // substitution: it would replace `[tenant.logo]` with the empty
+            // string {@see DocumentMarkers::dataFor()} offers for it, and there
+            // would be nothing left to draw over. That ordering is also what
+            // makes an installation with no logo come out blank rather than
+            // bracketed, without a branch anywhere saying so — the image pass
+            // finds nothing to do and the blanking that was always there
+            // finishes the job.
+            $this->images->place($source);
 
             (new DocumentService())
                 ->generate($source, $data)

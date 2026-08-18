@@ -78,6 +78,28 @@ lands in `Unreleased` here.
 - **A removal that stops part-way prints what is standing**: the database, the
   role and the control-plane row, each said to be gone or still there, with the
   line to type next, instead of a DBAL driver exception ([XIV-94]).
+### Added
+
+- **`[tenant.logo]` in a document template draws the customer's logo**
+  ([XIV-89]). Put it anywhere in the .docx — including the header, which is where
+  a letterhead wants it — and the generated document carries the picture, in the
+  Word file and in the PDF alike. It works when Word has split the marker across
+  several runs, as every other marker does, and the relationship it adds to the
+  package cannot collide with one the template already uses (§5.7).
+- **The mark is drawn at its natural size at 96 dpi, capped to fit 40 × 20 mm and
+  never enlarged.** A logo exported at 3× comes out the right size rather than
+  filling the page, and a small one is not blown up into a blur. Still one
+  upload — the same picture that appears in the bar — and if that box turns out
+  to be wrong the next thing added is a size on the profile, not a second file
+  (§5.7, §8.6).
+- **An installation that has uploaded no logo generates a document with nothing
+  there** — not the brackets, not an empty picture. The same rule every unfilled
+  marker already followed.
+- **The placeholder list says which marker draws a picture**, so `[tenant.logo]`
+  is not pasted into the middle of a sentence by somebody who read it as text.
+  The email templates page does not offer it at all: an email has no answer yet
+  for what a picture in one would be, and offering something that comes out blank
+  is what that page already declines to do (§5.7, §5.13).
 
 ### Fixed
 
@@ -137,3 +159,4 @@ lands in `Unreleased` here.
 
 [XIV-86]: https://xivi.youtrack.cloud/issue/XIV-86
 [XIV-94]: https://xivi.youtrack.cloud/issue/XIV-94
+[XIV-89]: https://xivi.youtrack.cloud/issue/XIV-89

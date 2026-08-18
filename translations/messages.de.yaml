@@ -422,8 +422,10 @@ document:
     none_for_record: Für diesen Datensatz passt noch keine Vorlage.
     marker:
         tenant_name: Diese Firma
+        tenant_logo: Das Logo dieser Firma
         user_name: Wer es erzeugt
         user_email: Deren E-Mail
+    marker_draws_a_picture: Bild
     general: Allgemein
     general_help: In jeder Vorlage verfügbar, worum es auch geht.
     for_variant: 'Für %variant%'

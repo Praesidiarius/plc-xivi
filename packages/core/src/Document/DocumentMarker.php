@@ -33,6 +33,16 @@ final readonly class DocumentMarker
         public string $label,
         /** What it fills in for the record being looked at, when one is at hand. */
         public ?string $example = null,
+        /**
+         * Whether this one writes words or draws a picture (XIV-89).
+         *
+         * Text unless somebody says otherwise, because everything was text until
+         * `[tenant.logo]` and almost everything still is. An image marker carries
+         * no {@see self::$example}: what it is worth is bytes rather than a
+         * string, and they are fetched separately by whatever is actually
+         * drawing — see {@see DocumentContext::images()}.
+         */
+        public DocumentMarkerKind $kind = DocumentMarkerKind::Text,
     ) {
     }
 
@@ -40,5 +50,17 @@ final readonly class DocumentMarker
     public function token(): string
     {
         return sprintf('[%s]', $this->key);
+    }
+
+    /**
+     * Whether this marker draws rather than writes (XIV-89).
+     *
+     * A method rather than letting callers compare the enum themselves, because
+     * the two callers that care are Twig templates and Twig cannot name a PHP
+     * enum case without help.
+     */
+    public function isImage(): bool
+    {
+        return $this->kind === DocumentMarkerKind::Image;
     }
 }

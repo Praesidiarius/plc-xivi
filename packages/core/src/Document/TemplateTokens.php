@@ -134,6 +134,45 @@ final class TemplateTokens
     }
 
     /**
+     * The pattern that finds one particular token however Word cut it up
+     * (XIV-89).
+     *
+     * The counterpart to the scanning above and the second half of the same
+     * problem: that one asks "what tokens are in here", this one asks "where is
+     * *this* token", and both have to survive `[tenant.` sitting in one run with
+     * `logo]` in the next. Between every character it allows a stretch of markup
+     * containing no `[`, which is what lets a match run across the
+     * `</w:t></w:r><w:r><w:t>` Word wedged into the middle of a word; the match
+     * is then only the token if `strip_tags` of it reads as the token, which is
+     * what the callers check and is why this returns a pattern rather than
+     * performing the match itself.
+     *
+     * **It lives here for the reason the scan does.** `RepeatingBlocks` had it
+     * privately, `anourvalar/office` has its own copy inside the library, and
+     * XIV-89 needed a third — at which point the class docblock's argument about
+     * three scanners disagreeing applies word for word to three patterns. Two
+     * callers in this repository now share one, and the day the tolerance has to
+     * change there is one place to change it.
+     *
+     * The `U` modifier makes the markup runs lazy, so a match stops at the first
+     * `]` that completes the token rather than at the last one in the file, and
+     * `u` is there because a marker may be typed in any script the customer
+     * writes in.
+     *
+     * @param string $token the marker, brackets and all
+     */
+    public static function spanning(string $token): string
+    {
+        $pattern = '';
+
+        foreach (mb_str_split($token) as $character) {
+            $pattern .= preg_quote($character, '#') . '(<[^\[]*)?';
+        }
+
+        return '#' . $pattern . '#Uu';
+    }
+
+    /**
      * Every `[token]` in one piece of Word XML, in reading order, without
      * repeats.
      *
