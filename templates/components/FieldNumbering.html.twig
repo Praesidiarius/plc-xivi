@@ -14,9 +14,19 @@
 	Nothing here writes anything — the save is a route on FieldController, where
 	the ROLE_ADMIN guard is visible to a test that reads routes (see the component
 	class, and RecordForm for the case that goes the other way).
+
+	**Two states, one control** (XIV-91). A field that is already numbered posts
+	straight to the save, because everything it changes is reversible by typing
+	something else. A field that is not posts to a *confirmation*, because turning
+	numbering on writes numbers into records that already exist and cannot be
+	undone — so the button on this card stops being "Save" and becomes "see what
+	this would do", and the writing happens on the page after somebody has read
+	the answer.
 #}
 <div{{ attributes.defaults({class: 'card'}) }}>
-	<form method="post" action="{{ path('field_numbering_save', {module: this.module, field: this.fieldId}) }}">
+	<form method="post" action="{{ this.numbered
+		? path('field_numbering_save', {module: this.module, field: this.fieldId})
+		: path('field_numbering_start', {module: this.module, field: this.fieldId}) }}">
 		<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
 
 		<div class="card-body">
@@ -70,6 +80,45 @@
 				</div>
 			{% endif %}
 
+			{#
+				What this would do to the records that are already here (XIV-91), and
+				it is the part of the page that is about data rather than about a
+				pattern. Shown only where numbering is being taken up, because that is
+				the only moment it is a question: once a field is numbered every new
+				record gets its number on the way in and there is nothing to catch up.
+
+				Three sentences, and each of them answers something somebody would
+				otherwise find out afterwards — that the empty rows get numbers now
+				rather than one at a time as people happen to open them, that the rows
+				with something in them keep it, and that a number they typed in
+				themselves will not be handed out again. The figures behind the first
+				two are counted; the third is checked against the column on the next
+				page, where the pattern has stopped changing.
+			#}
+			{% if not this.numbered %}
+				<div class="alert alert-warning mt-3 mb-0" role="alert">
+					<p class="mb-1">
+						{% if this.blank == 0 %}
+							{{ 'field.numbering.on_none_blank'|trans }}
+						{% else %}
+							{{ 'field.numbering.on_blank'|trans({'%count%': this.blank})|raw }}
+						{% endif %}
+					</p>
+					{% if this.held > 0 %}
+						<p class="mb-1">{{ 'field.numbering.on_held'|trans({'%count%': this.held})|raw }}</p>
+					{% endif %}
+					<p class="mb-0 small">{{ 'field.numbering.on_derived'|trans }}</p>
+				</div>
+			{% endif %}
+
+			{#
+				The counter box belongs to a numbering that exists. Where one is being
+				taken up there is nothing to wind forward *from* — and the migration
+				case it was built for is already answered better here, by reading the
+				numbers the customer typed in themselves and starting above the highest
+				of them. Once numbering is on, this page comes back with the control.
+			#}
+			{% if this.numbered %}
 			<hr>
 
 			<div class="row g-3 align-items-start">
@@ -97,16 +146,26 @@
 					{% endif %}
 				</div>
 			</div>
+			{% endif %}
 
-			<p class="text-body-secondary small mt-3 mb-0">{{ 'field.numbering.nothing_renumbered'|trans }}</p>
+			{# A promise about numbers that have been given out, so it is only true
+			   where some have. On a field taking numbering up the honest version of
+			   this paragraph is the warning above it, which says the opposite. #}
+			{% if this.numbered %}
+				<p class="text-body-secondary small mt-3 mb-0">{{ 'field.numbering.nothing_renumbered'|trans }}</p>
+			{% endif %}
 		</div>
 
 		<div class="card-footer d-flex gap-2">
 			{# Disabled on a pattern the editor would refuse anyway: the refusal is on
 			   the write path and this is only the door being shut where the reason is
-			   already on screen a few centimetres above. #}
+			   already on screen a few centimetres above.
+
+			   The word on it is the difference between the two states: one saves, the
+			   other asks to be shown what would happen. A button labelled "Save" in
+			   front of a backfill would be the whole problem in one word. #}
 			<button class="btn btn-primary" type="submit" {{ this.preview is null ? 'disabled' : '' }}>
-				{{ 'common.save'|trans }}
+				{{ (this.numbered ? 'common.save' : 'field.numbering.review')|trans }}
 			</button>
 			<a class="btn btn-link" href="{{ path('field_index', {module: this.module}) }}">
 				{{ 'common.cancel'|trans }}

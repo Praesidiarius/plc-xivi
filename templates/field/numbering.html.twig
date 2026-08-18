@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}{{ 'field.numbering.title'|trans }} — {{ field.label }}{% endblock %}
+{% block title %}{{ (numbered ? 'field.numbering.title' : 'field.numbering.start_title')|trans }} — {{ field.label }}{% endblock %}
 
 {% block body %}
 	{{ include('_topbar.html.twig') }}
@@ -10,7 +10,7 @@
 
 		<div class="d-flex align-items-center justify-content-between mb-3">
 			<div>
-				<h1 class="h3 mb-0">{{ 'field.numbering.title'|trans }} — {{ field.label }}</h1>
+				<h1 class="h3 mb-0">{{ (numbered ? 'field.numbering.title' : 'field.numbering.start_title')|trans }} — {{ field.label }}</h1>
 				{#
 					The field's key, because this page is about one column of one
 					module and the label is the part that can be changed twice a year.
@@ -32,7 +32,36 @@
 			component reads for itself, so what it shows after a keystroke and what it
 			shows on arrival come from the same code.
 		#}
+		{#
+			The two counts are read here and handed down (XIV-91). They say nothing
+			about the pattern — how many records have nothing in this field is true
+			whatever somebody types — so reading them per keystroke would be two
+			table scans per character for an answer that cannot have changed.
+
+			A field that is already numbered gets them too and ignores them: they
+			describe what turning numbering *on* would do, and that decision has
+			been made there.
+
+			The default on `sequence` matters now that this page also serves a field
+			with no numbering: the option is absent there, and the prop is a string
+			that is empty rather than one that is missing.
+		#}
 		<twig:FieldNumbering module="{{ module.key }}" fieldId="{{ field.id }}"
-		                     pattern="{{ field.getOption('sequence') }}" />
+		                     pattern="{{ field.getOption('sequence', '') }}"
+		                     blank="{{ blank }}" held="{{ held }}" />
+
+		{#
+			Turning it off, and it is a link to a confirmation rather than a button
+			here (§5.4's Remove is the same shape). What it does is not obvious in
+			either direction — the numbers stay, the field becomes typeable — so the
+			page that says so is the control, and this is the way to it.
+		#}
+		{% if numbered %}
+			<p class="mt-3 mb-0">
+				<a class="link-secondary small" href="{{ path('field_numbering_confirm_off', {module: module.key, field: field.id}) }}">
+					{{ 'field.numbering.stop_link'|trans }}
+				</a>
+			</p>
+		{% endif %}
 	</main>
 {% endblock %}

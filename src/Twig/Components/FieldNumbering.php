@@ -106,6 +106,27 @@ final class FieldNumbering extends AbstractController
     #[LiveProp(writable: true)]
     public string $nextValue = '';
 
+    /**
+     * How many records have nothing in this field, and how many already hold
+     * something (XIV-91).
+     *
+     * Props rather than reads, and that is a measurement decision rather than a
+     * stylistic one. Neither figure depends on the pattern somebody is typing —
+     * emptiness is emptiness whatever the counter is going to look like — so
+     * asking the database for them again on every keystroke would be two table
+     * scans per character for an answer that cannot have changed. The page reads
+     * them once and hands them down.
+     *
+     * Signed rather than secret, like every prop, and nothing here rests on
+     * them: they are two sentences on a page. The confirmation recomputes, and
+     * the backfill numbers whatever is actually there.
+     */
+    #[LiveProp]
+    public int $blank = 0;
+
+    #[LiveProp]
+    public int $held = 0;
+
     public function __construct(
         private readonly MetadataRepository $metadata,
         private readonly NumberAllocator $counters,
@@ -129,6 +150,21 @@ final class FieldNumbering extends AbstractController
     public function getSaved(): ?NumberFormat
     {
         return NumberFormat::of($this->getField());
+    }
+
+    /**
+     * Whether this field is numbered *now* (XIV-91).
+     *
+     * The page is two pages wearing one coat, and this is the seam. For a field
+     * that is already numbered it edits a pattern, and every sentence on it is
+     * about a difference from what is stored. For a field that is not, there is
+     * nothing stored to differ from: the whole of it is a proposal, and the
+     * parts that talk about counters switching and numbers already given out
+     * would be answering questions nobody asked.
+     */
+    public function isNumbered(): bool
+    {
+        return $this->getSaved() !== null;
     }
 
     /** What is in the box, if it is usable at all. Null is the state the page explains. */
@@ -155,12 +191,18 @@ final class FieldNumbering extends AbstractController
      * compares periods rather than patterns, so changing a prefix — which
      * changes what numbers look like and not where they come from — says
      * nothing.
+     *
+     * A field that is not numbered yet is not changing counters, it is choosing
+     * one (XIV-91). Without that guard the notice would fire on arrival at every
+     * new numbering — "this draws from a different counter than the one in use"
+     * when none is in use — which is the kind of sentence that teaches somebody
+     * to stop reading the notices.
      */
     public function isChangingCounter(): bool
     {
         $period = $this->getPeriod();
 
-        return $period !== null && $period !== $this->getSaved()?->period($this->now());
+        return $this->isNumbered() && $period !== null && $period !== $this->getSaved()?->period($this->now());
     }
 
     /**

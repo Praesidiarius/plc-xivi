@@ -110,6 +110,11 @@ module:
 numbering:
     counter_back: 'Dieser Zähler steht auf %at%, die nächste Nummer ist also %at%. %wanted% liegt auf oder unter einer bereits vergebenen Nummer, und ein Zähler läuft nur vorwärts.'
     counter_back_in: 'Der Zähler für %period% steht auf %at%, die nächste Nummer ist also %at%. %wanted% liegt auf oder unter einer bereits vergebenen Nummer, und ein Zähler läuft nur vorwärts.'
+    # Der zweite Weg zu zwei gleichen Belegnummern (XIV-91) — und der, den der
+    # Zähler nicht sehen kann: Eine vor der Nummerierung von Hand eingetippte
+    # Nummer stand in keinem Zähler. Also werden auch die Datensätze gelesen.
+    counter_in_use: 'Ein Datensatz trägt bereits %number%. Den Zähler auf %wanted% zu setzen würde diese Nummer ein zweites Mal vergeben. Vor der Nummerierung eingetippte Nummern stehen in keinem Zähler, deshalb wird in den Datensätzen danach gesucht. Der niedrigste mögliche Wert ist %free%.'
+    counter_in_use_in: 'Ein Datensatz trägt bereits %number%. Den Zähler für %period% auf %wanted% zu setzen würde diese Nummer ein zweites Mal vergeben. Vor der Nummerierung eingetippte Nummern stehen in keinem Zähler, deshalb wird in den Datensätzen danach gesucht. Der niedrigste mögliche Wert ist %free%.'
 
 metadata:
     pattern_numbers_nothing: 'Ein Nummernmuster muss sagen, wo der Zähler steht: es braucht {number}, etwa AUF-{year}-{number:4}. Mit „%pattern%“ würde dieses Feld gar nichts nummerieren.'

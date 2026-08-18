@@ -164,6 +164,54 @@ final readonly class MetadataEditor
     }
 
     /**
+     * Whether a field is numbered at all, which is a different change from what
+     * its numbers look like (XIV-91).
+     *
+     * {@see updateField()} is where a pattern is *edited*; this is where one
+     * arrives or leaves. Its own method because it writes a second thing —
+     * `derived` — and because that second thing is the point rather than
+     * bookkeeping.
+     *
+     * **A numbered field is the engine's to fill and nobody's to type.** That is
+     * what `derived` means (XIV-20): the form draws it and refuses to accept a
+     * value for it, imports skip it, and the demo generator leaves it alone. A
+     * field that were numbered *and* typeable would be a field where a person
+     * can put `RE-2026-0007` into a record by hand at any moment, next to a
+     * counter that has no way of hearing about it — which is exactly the
+     * duplicate XIV-91 spent a column scan closing, reopened one save later and
+     * permanently. So the two flags move together, and numbering is not a
+     * setting that can be on while the field is still an ordinary text box.
+     *
+     * Turning it off puts the field back the way it was: typeable, and no longer
+     * filled by anything. The numbers already on records stay — nothing here
+     * reaches them, the same promise §5.10 has always made — and so does the
+     * counter, which is what makes turning numbering back on later carry on
+     * rather than start again over numbers that are already out there.
+     *
+     * The flag is cleared rather than left, and that is safe only because of
+     * what may reach here: the editor offers this on a field that is numbered,
+     * and offers numbering on a field that is *not* derived, so a field derived
+     * by a module's own deriver — an order's total, an invoice's due date —
+     * never becomes numbered and is never un-derived by this.
+     *
+     * @param ?string $pattern the numbering pattern, or null to stop numbering
+     *
+     * @throws MetadataChangeRefused when the pattern would number nothing
+     */
+    public function setNumbering(FieldDefinition $field, ?string $pattern): void
+    {
+        $change = [NumberFormat::OPTION => $pattern];
+
+        self::assertNumbersSomething($change);
+
+        $field->setOptions(self::withOptions($field->getOptions(), $change));
+        $field->setDerived($pattern !== null);
+
+        $this->entityManager->flush();
+        $this->cache->clear();
+    }
+
+    /**
      * The options a field ends up with after a change to some of them (XIV-26).
      *
      * **What is not named is not touched**, and that is the whole point. Options
@@ -286,6 +334,19 @@ final readonly class MetadataEditor
     public function recordsHolding(FieldDefinition $field): int
     {
         return $this->records->countWithValue($field->getShape(), $field);
+    }
+
+    /**
+     * And how many do not, which is what a backfill would write to (XIV-91).
+     *
+     * Beside its opposite because they answer the same page: "143 records have
+     * nothing in this field and would be given a number; 12 already hold one and
+     * keep it" is one sentence made of two counts, and splitting them across two
+     * services would be splitting a sentence.
+     */
+    public function recordsMissing(FieldDefinition $field): int
+    {
+        return $this->records->countWithoutValue($field->getShape(), $field);
     }
 
     /** @throws MetadataChangeRefused */

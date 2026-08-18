@@ -1618,9 +1618,11 @@ page of its own, because what a customer is deciding there is a pattern, the
 number that pattern will produce and the counter it will come out of — and the
 last two have to be shown *as it is typed*, before anything is saved. §5.10 has
 the argument, including why the pattern syntax stayed a template rather than
-becoming an expression language, and why turning numbering on for a field that
-has none is a separate question about records rather than a control this page
-quietly grew.
+becoming an expression language. Since XIV-91 that page also *starts* numbering,
+which stayed off the table until the questions it asks about records had answers
+— and is still not a control in this table, because everything else here is
+instantaneous and reversible and that one writes numbers into records that
+already exist.
 
 **A field can say it names the record.** Something has to decide what a record is
 *called* — the heading on its page today, and whatever names it in a link or a
@@ -2326,32 +2328,106 @@ declared list of option to capability** — which is the shape §5.4 has been
 describing since it was written, arrived at from two examples rather than
 invented from one.
 
-**What this deliberately does not do: make an unnumbered field numbered.** The
-control appears on fields that are numbered already, and the reason is not
-squeamishness about scope — it is that turning numbering *on* is a question about
-records, not about definitions, and it has three answers this ticket could only
-have guessed at:
+#### Making a field numbered, and stopping (XIV-91)
 
-- **The rows that have no number.** `AssignsNumbers` fills the field whenever it
-  is empty, on any save, which is what makes "assigned once and never changes"
-  work. Switch a populated field to numbered and the existing records get their
-  numbers *in the order somebody happens to edit them* — so the oldest contact
-  becomes 0001 by being opened, and a number that is supposed to record when a
-  document was made records when it was last touched instead. Fixing that means
-  choosing between a backfill (writing numbers into hundreds of records as a side
-  effect of a metadata screen) and numbering only on creation (leaving permanent
-  blanks in a field the module may use as the record's title, §5.4).
-- **The values somebody already typed.** A text field being made numbered may
-  hold hand-written references, and a counter starting at 1 knows nothing about
-  them. That is a duplicate the guard above cannot see, because the guard reads
-  the counter and the collision is in the column.
-- **The reverse is the same question.** Un-numbering a field leaves every record
-  carrying a number that nothing maintains, which is why an emptied pattern is
-  refused rather than treated as "off".
+For two releases the numbering page appeared only on a field that was numbered
+already, and the reason was never squeamishness about scope: turning numbering
+*on* is a question about **records**, not about definitions, and it had three
+answers a ticket about patterns could only have guessed at. Here they are,
+answered.
 
-Each of those is a decision about customer data, and the honest place for them is
-a ticket that is about them rather than a checkbox added to a page about
-patterns. XIV-91 holds the question.
+**The rows that have no number: a backfill, in creation order, once.** This is
+the decision, and it is §5.10's own rule rather than a preference.
+`AssignsNumbers` fills an empty field on *any* save, which is what makes
+"assigned once and never changes" work for a record that has one. Left alone,
+switching a populated field to numbered would hand out numbers **in the order
+somebody happens to open the records** — the oldest contact becomes 0001 by being
+edited on a Tuesday, and a number that is supposed to record when a document was
+made records when it was last touched. So the rows with nothing in them are
+numbered on the spot, oldest first, in one transaction.
+
+The alternative was numbering **only on creation**, and it loses twice. It leaves
+every existing record permanently blank in a field the module may be using as the
+record's title (§5.4) — a list ordered by the thing the record is called, with
+three hundred blanks at the top of it — and it is not even a change to this
+feature: "only on creation" means altering how `AssignsNumbers` behaves for every
+already-numbered field in every tenant, to fix a case none of them are in. A
+ticket about turning numbering on for one field is the wrong place to change what
+happens to every field that already has it.
+
+The backfill is irreversible and is therefore **stated before it happens**, on a
+confirmation page in §4.1's tone: it names the pattern, how many records will be
+written to, what the first and last of them will be called, and that it cannot be
+undone; the tick arrives unticked and the controller requires it, because a
+`required` attribute is a courtesy to somebody using the page and nothing at all
+to a form posted around it. It writes the one column and deliberately does **not**
+go through `RecordWriter`: one administrative act is not several hundred edits,
+and putting it through the record writer would bump `updated_at` to today on the
+whole table — stamping every document as changed today in the act of giving it a
+number is precisely the confusion this section is trying to prevent. What
+replaces the history entry is the confirmation, which says it once beforehand
+rather than three hundred times afterwards.
+
+**The values somebody already typed: the column is read, and the guard is not
+touched.** A text field being made numbered may hold `RE-2026-0007` that a person
+typed, and a counter starting at 1 knows nothing about it — the guard above reads
+the counter and the collision is in the column. So `NumberFormat::render()` is run
+**backwards**: a value is one of ours when the pattern's literals line up exactly
+and the holes are digits, which makes recognition and production the same rule
+read in two directions and unable to drift apart. The counter is then floored
+above the highest recognised value, through a statement that takes `GREATEST` and
+therefore has no failure mode at all.
+
+Everything the pattern could not have rendered — `Referenz 12`, last year's
+numbers under a `{year}` pattern — is left exactly where it is, and that is an
+answer rather than an omission: a number this counter hands out can never come out
+looking like `Referenz 12`, so it cannot be duplicated by it. The same check
+guards the wind-forward control, *beside* XIV-27's in-statement refusal and never
+in place of it: a column scan is a read and can be raced, `ON CONFLICT … WHERE`
+cannot be, so the scan narrows and the statement guarantees. Dropping either
+leaves a duplicate nobody catches.
+
+**A numbered field becomes `derived`, and that is what closes it going forward.**
+Otherwise a person could type a number the counter is about to give out, at any
+moment, next to a counter with no way of hearing about it — the duplicate the
+column scan just closed, reopened one save later and permanently. So the two move
+together: numbering is not a setting that can be on while the field is still an
+ordinary text box. The same rule decides what may be numbered — a `text` field on
+a module's own shape that **nothing else already fills in**, because an order's
+total and an invoice's due date belong to a deriver and two derivers with an
+opinion about one column is a race decided by declaration order. System-ness is
+deliberately *not* a bar: a module's own text field is still the customer's data
+in the customer's copy of the module (§6.1), and §5.4's rule is about *removing* a
+module's field, which orphans values, where this creates none.
+
+**Turning it off is a page, not an emptied text box.** Un-numbering leaves every
+record carrying a number nothing maintains, so it says so: the numbers stay,
+because they are on documents customers are holding and nothing in the metadata
+editor may reach them; the field becomes an ordinary text box anybody may type in;
+and **the counter is kept**, which is the decision worth reading — deleting the
+row would be tidier and would mean that switching numbering back on next month
+started at 1 and walked straight back through numbers already printed. A counter
+nobody draws from costs one row. An emptied pattern is still refused rather than
+read as "off" (`MetadataEditor`), because blanking a text box is not that
+conversation and reading it as one would make the most consequential change here
+the one that takes the least typing.
+
+**Where the control lives, and why not in the field table.** On the numbering page
+XIV-27 built, reached from a link that now appears on a plain text field too. The
+field table is a row per field and a control per column, and every one of those
+controls is instantaneous and reversible: tick "listed", untick it, nothing
+happened. This one writes numbers into records that already exist. A checkbox in
+that row would make the most consequential change on the page look like the
+cheapest one.
+
+**What is still open, said plainly.** The scan runs inside the transaction that
+turns numbering on, and the field is not `derived` until that transaction commits
+— so a record saved on another connection in those milliseconds could still slip a
+hand-typed value in beside the counter's floor. It is an administrator-only action
+and the window is small, and it is a window. The honest fix is a unique index on
+the column, which is §7.2's territory: the engine's `unique` flag is enforced by a
+validator that queries the table rather than by an index, and closing this
+properly means closing that.
 
 ---
 

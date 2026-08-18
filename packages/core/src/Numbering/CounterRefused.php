@@ -18,12 +18,14 @@ use Symfony\Component\Translation\TranslatableMessage;
 /**
  * A counter the engine will not move (XIV-27).
  *
- * There is exactly one of these, and it guards the only thing in this feature
- * that can hand two documents the same number: winding a counter *back*.
- * Everything else about numbering is safe by construction — the pattern decides
- * what a number looks like and never which numbers exist, and allocation is one
- * atomic statement — so this is the whole of what a customer can get wrong, and
- * it is worth its own exception rather than being folded into
+ * There were exactly two ways to hand two documents the same number, and both
+ * are here. Winding a counter *back* was the first (XIV-27); setting it onto a
+ * number a record already carries, which no counter ever gave out and no counter
+ * can see, was the second (XIV-91). Everything else about numbering is safe by
+ * construction — the pattern decides what a number looks like and never which
+ * numbers exist, and allocation is one atomic statement — so these two are the
+ * whole of what a customer can get wrong, and they are worth their own exception
+ * rather than being folded into
  * {@see \Xivi\Core\Metadata\MetadataChangeRefused}. A counter is not metadata:
  * it is a fact about what has already been given out, and the person who set it
  * is not necessarily editing a definition at the time.
@@ -71,6 +73,56 @@ final class CounterRefused extends \RuntimeException
             // followed by an empty string is the kind of sentence that ships.
             $period === '' ? 'numbering.counter_back' : 'numbering.counter_back_in',
             ['%period%' => $period, '%at%' => $at, '%wanted%' => $wanted],
+            'xivi',
+        );
+
+        return $refusal;
+    }
+
+    /**
+     * A counter cannot be set onto a number a record is already carrying
+     * (XIV-91).
+     *
+     * The second refusal, and the one {@see NumberAllocator::restartAt()}
+     * structurally cannot make. That guard compares against the counter and is
+     * complete about every number the counter gave out; this compares against
+     * the **column**, and catches the numbers nobody's counter ever gave out —
+     * the ones a person typed into a text field before it was numbered. A
+     * customer arriving from another system types 1043 and means it; if
+     * `RE-2026-1043` is sitting on a record from before the migration, they have
+     * asked for a duplicate without knowing it.
+     *
+     * It is raised *before* `restartAt()` rather than instead of it, and the
+     * difference matters: a scan can be raced and a statement cannot, so this
+     * one narrows what gets as far as the guard and the guard is still what
+     * makes the promise. Two checks, two failure modes, and neither is the
+     * other's fallback.
+     *
+     * The message names the highest number found in the records rather than the
+     * one that was typed, because that is the fact somebody can act on: it tells
+     * them where their old numbering got to, which is usually the thing they
+     * were trying to type in the first place.
+     *
+     * @param string $highest the largest number already in the column, rendered
+     *                        the way it appears on a record rather than as a bare
+     *                        integer — somebody looking for it will be looking for
+     *                        `RE-2026-1043`, not for 1043
+     * @param int    $free    the lowest value the counter may be set to
+     */
+    public static function alreadyOnARecord(string $period, string $highest, int $free, int $wanted): self
+    {
+        $refusal = new self(sprintf(
+            'A record already carries %s, so setting the counter to %d would eventually give that number out a '
+            . 'second time. Numbers typed in before this field was numbered are not in the counter, which is '
+            . 'why they are looked for in the records instead. The lowest this counter can be set to is %d.',
+            $highest,
+            $wanted,
+            $free,
+        ));
+
+        $refusal->translatable = new TranslatableMessage(
+            $period === '' ? 'numbering.counter_in_use' : 'numbering.counter_in_use_in',
+            ['%period%' => $period, '%number%' => $highest, '%free%' => $free, '%wanted%' => $wanted],
             'xivi',
         );
 

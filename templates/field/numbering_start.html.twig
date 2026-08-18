@@ -1,0 +1,114 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'field.numbering.start_title'|trans }} — {{ field.label }}{% endblock %}
+
+{#
+	The page between deciding and living with it (XIV-91).
+
+	§4.1 argues the shape of this for removing a tenant and the tone is what is
+	being copied: name what is about to happen, name how much of it there is, and
+	default to no. Everything below is a figure rather than a warning — how many
+	records get a number, what the first and last of them will be called, what was
+	found already sitting in the column — because "this may affect existing data"
+	is the sentence somebody clicks past.
+
+	Cancel is the plain link on the left and the thing that does it is the button
+	on the right, in danger colours, the same way Remove is laid out.
+#}
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<h1 class="h3 mb-3">{{ 'field.numbering.start_confirm_title'|trans({'%field%': field.label}) }}</h1>
+
+		<div class="card">
+			<div class="card-body">
+				<p>
+					{{ 'field.numbering.start_pattern'|trans({'%pattern%': pattern})|raw }}
+				</p>
+
+				{#
+					The irreversible half, and the number in it is the point. A backfill
+					in creation order is the decision §5.10 records: the alternative
+					leaves permanent blanks in a field the module may be using as the
+					record's title, and doing nothing at all means the oldest record
+					becomes 0001 by being opened on a Tuesday.
+				#}
+				{% if plan.writes > 0 %}
+					<div class="alert alert-danger" role="alert">
+						<p class="mb-1">
+							{{ 'field.numbering.start_writes'|trans({'%count%': plan.writes})|raw }}
+						</p>
+						<p class="mb-1">
+							{{ 'field.numbering.start_range'|trans({'%first%': plan.first, '%last%': plan.last})|raw }}
+						</p>
+						<p class="mb-0">{{ 'field.numbering.start_irreversible'|trans }}</p>
+					</div>
+				{% else %}
+					<p class="text-body-secondary">{{ 'field.numbering.start_writes_none'|trans }}</p>
+				{% endif %}
+
+				{#
+					What was found in the column, which is the duplicate the counter's own
+					guard structurally cannot see: it compares against the counter, and a
+					number somebody typed by hand was never in one.
+				#}
+				{% if plan.found.recognised > 0 %}
+					<p>
+						{{ 'field.numbering.start_found'|trans({
+							'%count%': plan.found.recognised,
+							'%from%': plan.from,
+						})|raw }}
+					</p>
+				{% endif %}
+
+				{% if plan.found.unrecognised > 0 %}
+					<p>
+						{{ 'field.numbering.start_unrecognised'|trans({'%count%': plan.found.unrecognised})|raw }}
+					</p>
+				{% endif %}
+
+				<p class="mb-0">
+					{{ 'field.numbering.start_next'|trans({'%next%': plan.next})|raw }}
+					{% if plan.period == '' %}
+						{{ 'field.numbering.from_forever'|trans }}
+					{% else %}
+						{{ 'field.numbering.from_year'|trans({'%period%': plan.period}) }}
+					{% endif %}
+				</p>
+
+				<p class="text-body-secondary small mt-3 mb-0">{{ 'field.numbering.start_note'|trans }}</p>
+			</div>
+		</div>
+
+		<form method="post" class="mt-3"
+		      action="{{ path('field_numbering_on', {module: module.key, field: field.id}) }}">
+			<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
+			<input type="hidden" name="sequence" value="{{ pattern }}">
+
+			{#
+				A tick before an irreversible write, and the controller requires it too
+				— `required` is a courtesy to somebody using the page and nothing at all
+				to a form posted around it. Unticked on arrival, which is what "defaults
+				to no" means here.
+			#}
+			<div class="form-check mb-3">
+				<input class="form-check-input" type="checkbox" name="confirm" value="1" id="numbering-confirm" required>
+				<label class="form-check-label" for="numbering-confirm">
+					{% if plan.writes > 0 %}
+						{{ 'field.numbering.start_agree'|trans({'%count%': plan.writes}) }}
+					{% else %}
+						{{ 'field.numbering.start_agree_none'|trans }}
+					{% endif %}
+				</label>
+			</div>
+
+			<div class="d-flex align-items-center gap-2">
+				<a class="btn btn-link" href="{{ path('field_numbering', {module: module.key, field: field.id}) }}">{{ 'common.cancel'|trans }}</a>
+				<button class="btn btn-danger" type="submit">{{ 'field.numbering.start_do'|trans }}</button>
+			</div>
+		</form>
+	</main>
+{% endblock %}

@@ -229,6 +229,72 @@ field:
             Bereits vergebene Nummern ändern sich nie. Hier wird nur entschieden, wie die
             nächste aussieht und woher sie kommt — an den Belegen, die jemand in Händen hält,
             ändert das nichts.
+        # Ein Feld nummerieren, das bisher keine Nummerierung hat (XIV-91). Diese
+        # Sätze wiegen schwerer als alle anderen auf der Seite: Was hier zugesagt
+        # wird, schreibt einmalig Nummern in bereits vorhandene Datensätze — und
+        # der einzig ehrliche Zeitpunkt dafür ist vorher. Jede Zahl darin ist
+        # gezählt und nicht umschrieben.
+        start_title: Dieses Feld nummerieren
+        start_link: Nummerieren
+        review: Zeigen, was das bewirkt
+        on_blank: >-
+            <strong>%count% Datensätze haben in diesem Feld nichts stehen.</strong> Sie bekommen
+            jetzt Nummern, die ältesten zuerst — damit die Nummer sagt, wann der Datensatz
+            entstanden ist, und nicht, wann ihn zuletzt jemand geöffnet hat.
+        on_none_blank: >-
+            Jeder Datensatz hat in diesem Feld bereits etwas stehen, es wird also in keinen
+            geschrieben. Die Nummerierung beginnt mit dem nächsten neuen Datensatz.
+        on_held: >-
+            <strong>%count% Datensätze haben bereits einen Wert</strong> und behalten ihn genau
+            so. Was davon aussieht wie eine Nummer, die dieses Muster erzeugen würde, wird
+            zuerst gesucht — der Zähler startet oberhalb der höchsten davon.
+        on_derived: >-
+            Sobald dieses Feld nummeriert ist, füllt es die Engine und niemand tippt mehr hinein
+            — genau das verhindert, dass jemand eine Nummer einträgt, die der Zähler gleich
+            vergeben will.
+        start_confirm_title: '„%field%“ nummerieren?'
+        start_pattern: 'Das Muster wird <code>%pattern%</code> sein.'
+        start_writes: >-
+            <strong>%count% Datensätze ohne Nummer bekommen eine</strong>, in der Reihenfolge
+            ihrer Entstehung.
+        start_range: 'Sie laufen von <code>%first%</code> bis <code>%last%</code>.'
+        start_writes_none: >-
+            Es wird in keinen Datensatz geschrieben: Alle haben in diesem Feld bereits einen
+            Wert, und keiner davon wird geändert.
+        start_irreversible: >-
+            Das lässt sich nicht rückgängig machen. Eine Nummer, die auf einem Datensatz stand,
+            hat jemand womöglich am Telefon vorgelesen — hier wird keine wieder eingezogen.
+        start_found: >-
+            %count% Datensätze tragen bereits eine Nummer, die dieses Muster erzeugt haben
+            könnte. Sie bleiben, wie sie sind, und der Zähler startet bei %from%, damit keine
+            davon ein zweites Mal vergeben wird.
+        start_unrecognised: >-
+            %count% weitere enthalten etwas, das dieses Muster nie erzeugen könnte — eine
+            Referenz in anderer Form. Damit kann nichts kollidieren, sie bleiben unberührt.
+        start_next: 'Der nächste neu angelegte Datensatz heißt <code>%next%</code>.'
+        start_note: >-
+            Der Zähler lässt sich danach auf der Nummerierungsseite dieses Feldes vorstellen,
+            falls das alte System weiter gekommen ist als die Nummern, die hier schon stehen.
+        start_agree: 'Ja, in %count% vorhandene Datensätze Nummern schreiben. Mir ist klar, dass das nicht rückgängig zu machen ist.'
+        start_agree_none: 'Ja, dieses Feld ab jetzt nummerieren.'
+        start_do: Nummerierung starten
+        # Und wieder abschalten (XIV-91). Es wird nichts gelöscht — und genau das
+        # würde in beide Richtungen falsch angenommen, deshalb sagen alle drei
+        # Sätze, was *nicht* passiert.
+        stop_link: Nummerierung dieses Feldes beenden
+        stop_title: 'Nummerierung von „%field%“ beenden?'
+        stop_keeps: >-
+            <strong>Die Nummern bleiben.</strong> Alle %count% Datensätze behalten genau das, was
+            sie tragen — sie stehen auf Belegen, die Kunden in Händen halten, und hier greift
+            nichts danach.
+        stop_typeable: >-
+            Das Feld wird wieder ein gewöhnliches Textfeld: Es erscheint im Formular, jeder darf
+            hineinschreiben, und niemand prüft, was dort steht. Neue Datensätze bleiben darin
+            leer, sofern es niemand ausfüllt.
+        stop_counter: >-
+            Der Zähler bleibt stehen, wo er ist. Wird die Nummerierung später wieder
+            eingeschaltet, läuft sie dort weiter, statt erneut über bereits vergebene Nummern zu
+            laufen.
 
 import:
     file: Tabelle
@@ -678,6 +744,12 @@ flash:
     # Nummernmuster geändert hat, denkt zuerst an die bereits vergebenen Nummern
     # — und die Antwort lautet, dass sich daran nichts ändert.
     numbering_saved: 'Nummerierung für „%field%“ gespeichert. Bereits vergebene Nummern bleiben unverändert.'
+    # Nummerierung ein- und ausschalten (XIV-91). Der erste Satz nennt die
+    # tatsächlich geschriebene Anzahl, nicht die von der Rückfrage angebotene:
+    # Ein zwischendurch angelegter Datensatz ist einer mehr, und was jemand
+    # hinterher liest, soll von dem handeln, was passiert ist.
+    numbering_started: '„%field%“ wird jetzt nummeriert. %count% vorhandene Datensätze haben eine Nummer bekommen, die ältesten zuerst.'
+    numbering_stopped: '„%field%“ wird nicht mehr nummeriert. Die Nummern auf den Datensätzen bleiben unverändert, und das Feld lässt sich wieder ausfüllen.'
     module_installed: '„%module%“ installiert. Niemand sieht es, bis jemand eine Berechtigung darauf bekommt.'
     group_created: '„%group%“ erstellt. Sage jetzt, was sie darf.'
     group_saved: '„%group%“ gespeichert.'

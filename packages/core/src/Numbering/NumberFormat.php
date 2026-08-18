@@ -137,6 +137,106 @@ final readonly class NumberFormat
         return str_contains($this->pattern, self::YEAR);
     }
 
+    /**
+     * The literal text every number of this pattern begins with, on a given day
+     * (XIV-91).
+     *
+     * Only useful for one thing, and it is worth saying which: narrowing the
+     * scan of a column somebody has been typing into by hand. Turning numbering
+     * on for a populated field means finding out whether the counter is about to
+     * hand out a number a record already carries, and that question is answered
+     * against the *column* rather than against the counter — so something has to
+     * read the column. `ORD-2026-%` in a `LIKE` throws away the rows that cannot
+     * possibly be an answer before they reach PHP, which on a text field a
+     * customer has been filling in for three years is most of them.
+     *
+     * It is a narrowing and never the test. What decides whether a value is one
+     * of ours is {@see counterIn()}, on the values that survive this — a prefix
+     * cannot tell `ORD-2026-0007` from `ORD-2026-draft`, and it is not asked to.
+     *
+     * The empty string for a pattern that starts with its counter, which is the
+     * honest answer: `{number:6}` narrows nothing, because every value in the
+     * column might be one of its numbers.
+     */
+    public function literalPrefix(\DateTimeImmutable $on): string
+    {
+        $literal = str_replace(self::YEAR, $on->format('Y'), $this->pattern);
+        $parts = preg_split(self::COUNTER, $literal, 2);
+
+        return \is_array($parts) ? $parts[0] : '';
+    }
+
+    /**
+     * The counter value a piece of text would have come out of, or null (XIV-91).
+     *
+     * {@see render()} read backwards, and the reason it exists is the one
+     * duplicate this feature could otherwise not see. A text field being made
+     * numbered may already hold `RE-2026-0007`, typed by a person; a counter
+     * starting at 1 knows nothing about it and would eventually render exactly
+     * that string onto a second record. The counter's own guard cannot help —
+     * it compares against the counter, and the collision is in the column — so
+     * the column is read, every value that *this pattern could have produced* is
+     * recognised, and the counter is floored above the highest of them.
+     *
+     * **Recognition is the pattern's own arithmetic, not a heuristic.** A value
+     * is one of ours when the literals line up exactly and the holes are digits;
+     * anything else — `Referenz 12`, `RE-2026-draft`, last year's
+     * `RE-2025-0007` under a `{year}` pattern — is not something this pattern
+     * will ever render, so it cannot be duplicated by the counter and is left
+     * alone. That is the whole answer to "and then what about `Referenz 12`?":
+     * nothing, by construction, because the numbers we hand out never look like
+     * it.
+     *
+     * The day matters for the same reason it matters everywhere else here: under
+     * a `{year}` pattern each year is a counter of its own, so only the values
+     * belonging to *this* year's counter can be duplicated by it.
+     *
+     * Digits beyond what an int can hold are refused rather than truncated. A
+     * value like `RE-99999999999999999999` is not a number this counter will
+     * reach, and silently rounding it to PHP_INT_MAX would floor the counter at
+     * a number nobody asked for.
+     */
+    public function counterIn(string $value, \DateTimeImmutable $on): ?int
+    {
+        $literal = str_replace(self::YEAR, $on->format('Y'), $this->pattern);
+        $around = preg_split(self::COUNTER, $literal);
+
+        if (!\is_array($around)) {
+            return null;
+        }
+
+        $expression = '/^' . implode('(\d+)', array_map(
+            static fn (string $part): string => preg_quote($part, '/'),
+            $around,
+        )) . '$/';
+
+        if (preg_match($expression, $value, $matches) !== 1) {
+            return null;
+        }
+
+        $found = null;
+
+        // A pattern may name `{number}` twice, and render() writes the same
+        // value into both holes. So a text with two different numbers in it was
+        // not produced here, however well the literals line up.
+        foreach (\array_slice($matches, 1) as $digits) {
+            $trimmed = ltrim($digits, '0');
+            $trimmed = $trimmed === '' ? '0' : $trimmed;
+
+            if ((string) (int) $trimmed !== $trimmed) {
+                return null;
+            }
+
+            if ($found !== null && (int) $trimmed !== $found) {
+                return null;
+            }
+
+            $found = (int) $trimmed;
+        }
+
+        return $found;
+    }
+
     /** What the number looks like once it is the record's. */
     public function render(int $value, \DateTimeImmutable $on): string
     {
