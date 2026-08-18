@@ -19,7 +19,7 @@ use App\Tenant\Security\UserCreator;
 use App\Tests\Support\SavesRecords;
 use App\Tests\Support\SharesATenant;
 use Doctrine\DBAL\Connection;
-use DoctrineMigrations\Tenant\Version20260818150001;
+use DoctrineMigrations\Tenant\Version20260818150002;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -342,7 +342,7 @@ final class UniqueValueRefusalTest extends WebTestCase
     {
         $this->inTenant(function (): void {
             $connection = $this->tenantConnection();
-            $migration = new Version20260818150001($connection, new NullLogger());
+            $migration = new Version20260818150002($connection, new NullLogger());
             $migration->up($connection->createSchemaManager()->introspectSchema());
 
             foreach ($migration->getSql() as $query) {

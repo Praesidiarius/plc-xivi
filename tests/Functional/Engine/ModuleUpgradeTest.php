@@ -32,6 +32,7 @@ use Xivi\Core\Module\FieldBlueprint;
 use Xivi\Core\Module\ModuleBlueprint;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
+use Xivi\Core\Record\UniqueIndex;
 
 /**
  * A customer taking what their module grew after they installed it (XIV-70,
@@ -212,6 +213,38 @@ final class ModuleUpgradeTest extends WebTestCase
         $parts = $module->getCollection(GrownModule::COLLECTION);
         self::assertNotNull($parts);
         self::assertSame(['label', 'amount'], $parts->getFieldKeys());
+    }
+
+    /**
+     * A unique field taken through the upgrade gets the index behind the flag.
+     *
+     * **This test exists because of the merge, not because of either branch.**
+     * [XIV-70] built the upgrade and [XIV-109] made `unique` a real index, and
+     * the two were written in parallel worktrees that could not see each other.
+     * Each was green alone. Together, `adoptField()` set the flag and built
+     * nothing, which would have made the upgrade the one way into this engine
+     * that promises uniqueness and leaves the old read-then-write race in place
+     * — for precisely the fields a blueprint marked unique on purpose.
+     *
+     * Asserted against `pg_indexes` rather than by racing two saves, because the
+     * race is already proved in `UniqueValueRaceTest` and what is in doubt here
+     * is only whether this path reaches it.
+     */
+    public function testAUniqueFieldTakenThroughTheUpgradeIsIndexed(): void
+    {
+        $this->takeEverything();
+
+        $definition = $this->inTenant(fn (): FieldDefinition => $this->field('serial'));
+        self::assertTrue($definition->isUnique(), 'the blueprint marks it unique and the records can keep it');
+
+        $module = $this->inTenant(fn (): ModuleDefinition => $this->module());
+        $name = UniqueIndex::nameFor($module->getTableName(), 'serial');
+
+        $definitionSql = $this->inTenant(fn (): mixed => self::service(Connection::class, 'doctrine.dbal.tenant_connection')
+            ->fetchOne('SELECT indexdef FROM pg_indexes WHERE indexname = :name', ['name' => $name]));
+
+        self::assertIsString($definitionSql, sprintf('no index %s — the flag is on and nothing enforces it', $name));
+        self::assertStringContainsString('UNIQUE', $definitionSql);
     }
 
     /**
