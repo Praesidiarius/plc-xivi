@@ -439,6 +439,18 @@ lands in `Unreleased` here.
   found two further obstacles for a non-superuser provisioning role, neither
   addressed here — see §4.1 ([XIV-94]).
 
+### Decided
+
+- **Symfony's ExpressionLanguage is not adopted**, and the brief now says where
+  it would and would not fit so the question is not re-derived ([XIV-88],
+  [§5.8](docs/architecture.md#58-lifecycles-xiv-14)). Nothing changes for anybody
+  using Xivi; what changes is that **record-level permissions (§8.4) and filters
+  (§5.3) are explicitly closed to it** — a rule evaluated in PHP over a loaded
+  record cannot be the `WHERE` clause both of those are made of — and that a
+  condition on a lifecycle transition, which is the one place that does fit, is
+  recorded as wanting a typed predicate rather than an expression, because a
+  lifecycle is declared by a module in code.
+
 ### Upgrade notes
 
 - **Self-service signup needs a cron entry, and does nothing without one**
@@ -487,3 +499,4 @@ lands in `Unreleased` here.
 [XIV-107]: https://xivi.youtrack.cloud/issue/XIV-107
 [XIV-109]: https://xivi.youtrack.cloud/issue/XIV-109
 [XIV-93]: https://xivi.youtrack.cloud/issue/XIV-93
+[XIV-88]: https://xivi.youtrack.cloud/issue/XIV-88
