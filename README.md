@@ -18,12 +18,23 @@ the engine honest.
 > module and per action, what each of them may do. What is missing is templates
 > deciding which modules a customer is given, and a second module.
 
+**📖 [Documentation](https://praesidiarius.github.io/plc-xivi-docs/)** — installing
+Xivi, running an installation, and what a record, a module and a tenant actually
+are. That is the place to start if you want to *use* this rather than change it.
+Its source is [plc-xivi-docs](https://github.com/Praesidiarius/plc-xivi-docs).
+
 The design is written down first and the code follows it. Read
 **[docs/architecture.md](docs/architecture.md)** before anything else; it explains
 the decisions this repository is an implementation of, and the code comments cite
-its section numbers. What has actually been built, and when, is in
-**[CHANGELOG.md](CHANGELOG.md)** — which holds what has not shipped yet, and
-indexes the released versions under [docs/changelog/](docs/changelog/).
+its section numbers. **It stays here rather than in the documentation site on
+purpose** — it is the record of *why* each decision was made, cited by section
+number throughout the issue tracker, and it has to travel with the commit that
+changes the behaviour it describes. The site is the other half: what an
+installation *is*, for somebody deploying or evaluating one.
+
+What has actually been built, and when, is in **[CHANGELOG.md](CHANGELOG.md)** —
+which holds what has not shipped yet, and indexes the released versions under
+[docs/changelog/](docs/changelog/).
 
 The version is `17.0.6`, shown in the footer of every page. The leading **17 is a
 generation, not a semver major** — it says which Xivi this is and changes only when

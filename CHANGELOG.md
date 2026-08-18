@@ -68,7 +68,20 @@ lands in `Unreleased` here.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **Xivi has documentation, and it is published**
+  ([XIV-112](https://xivi.youtrack.cloud/issue/XIV-112)) —
+  <https://praesidiarius.github.io/plc-xivi-docs/>. Installing Xivi, running an
+  installation, and what a record, a module and a tenant actually are, for the two
+  people who meet Xivi from outside the code: whoever deploys it and whoever uses
+  it. Source in [plc-xivi-docs](https://github.com/Praesidiarius/plc-xivi-docs),
+  built on every push and gated on having no broken links.
+- **`docs/architecture.md` stays here**, and the README now says why: it is the
+  record of *why* each decision was made, it is cited by section number
+  throughout the issue tracker, and it has to travel with the commit that changes
+  the behaviour it describes. The site is the other half — what an installation
+  *is*, rather than why it was built that way.
 
 ## Releases
 
