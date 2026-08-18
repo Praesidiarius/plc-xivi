@@ -32,6 +32,7 @@ use Symfony\Component\DomCrawler\Crawler;
 use Symfony\UX\LiveComponent\Test\TestLiveComponent;
 use Xivi\Article\ArticleModule;
 use Xivi\Contact\ContactModule;
+use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
 use Xivi\Core\Permission\ModuleAction;
@@ -250,6 +251,43 @@ final class UnpaidInvoicesWidgetTest extends WebTestCase
         self::assertStringNotContainsString('And 1 more', $card, 'the count is scoped with the list');
     }
 
+    /**
+     * The count under the list is the reader's count, not everybody's.
+     *
+     * **Added at merge, because the assertion that was here could not fail.**
+     * `testAReaderScopedToTheirOwnRecordsSeesTheirOwn` ends with
+     * `assertStringNotContainsString('And 1 more')`, and that reader owns
+     * nothing — so the card says "Nothing is outstanding" and the number is
+     * never reached. Swapping the widget's scoped `countBy()` for an
+     * unrestricted one left all seven tests green, which means the most
+     * important promise on this card was implemented and unguarded.
+     *
+     * The case that bites needs a reader who owns *some*: one of theirs on the
+     * page, two of somebody else's not, and a total that must say one rather
+     * than three. "And 2 more" is a number about records this reader cannot
+     * open, on the first page they see after signing in, which is precisely
+     * what §8.4 and [XIV-52] forbid.
+     */
+    public function testTheCountBelowTheListIsTheReadersOwnAndNotEverybodys(): void
+    {
+        $mine = $this->sentInvoice('2026-08-01');
+        $this->sentInvoice('2026-08-02');
+        $this->sentInvoice('2026-08-03');
+
+        $number = $this->numberOf($mine);
+        $this->giveOwnershipOf($mine, self::SCOPED);
+
+        $this->signIn(self::SCOPED);
+        $card = $this->card();
+
+        self::assertStringContainsString($number, $card, 'their own invoice is on the card');
+        self::assertStringNotContainsString(
+            'more',
+            $card,
+            'the other two are neither listed nor counted — a number about records they may not open',
+        );
+    }
+
     // -- loading ------------------------------------------------------------
 
     /**
@@ -417,6 +455,32 @@ final class UnpaidInvoicesWidgetTest extends WebTestCase
         $this->transition($invoice, 'pay');
 
         return $invoice;
+    }
+
+    /**
+     * Move a record to another owner, in the column the access predicate reads.
+     *
+     * Written directly rather than through a form because there is no screen
+     * that reassigns ownership, and inventing one for a test would be inventing
+     * the feature. `owner_id` is what `RecordAccess::ownedBy()` compiles
+     * against, so this is the same fact the predicate will ask about.
+     */
+    private function giveOwnershipOf(int $invoice, string $email): void
+    {
+        $this->inTenant(function () use ($invoice, $email): void {
+            $owner = $this->user($email)->getId();
+
+            // The table name is the customer's, not a literal: a module's table
+            // is whatever their own definition says (§5), so asking the
+            // definition is the only way this stays true for a tenant who
+            // renamed something.
+            $module = self::service(MetadataRepository::class)->get(InvoiceModule::KEY);
+
+            $this->entityManager()->getConnection()->executeStatement(
+                sprintf('UPDATE %s SET owner_id = :owner WHERE id = :id', $module->getTableName()),
+                ['owner' => $owner, 'id' => $invoice],
+            );
+        });
     }
 
     private function transition(int $invoice, string $name): void
