@@ -1005,16 +1005,108 @@ registrations. The application says nothing about any of it.
   `^/control` still demands `ROLE_OPERATOR` carries one refusal it will never
   need, on paths it has no routes for.
 
-**Three seams remain and each guards on `class_exists()`**, which is a question
-about what is *in this build* rather than about what somebody configured — and a
-classmap-authoritative autoloader cannot answer it "yes" for a file that has been
-removed. They are `config/bundles.php`, `config/packages/security_firewalls.php`
-and `config/routes/signup.php`.
-`tests/Unit/Deployment/ControlPlaneIsOptionalAtBuildTimeTest.php` holds that
-list: any other application configuration file naming the namespace outside a
-comment fails the build, and a seam that stops guarding fails it too. deptrac
+**Three seams remain and each asks whether the class is *in this build***, which
+is a question about what was compiled rather than about what somebody configured
+— and a classmap-authoritative autoloader cannot answer it "yes" for a file that
+has been removed. They are `config/bundles.php`,
+`config/packages/security_firewalls.php` and `config/routes/signup.php`. Two of
+them ask it with a literal `class_exists()`; the bundle seam asks it from
+`App\Kernel` instead, for the reason [XIV-111] found and the next subsection
+gives. `tests/Unit/Deployment/ControlPlaneIsOptionalAtBuildTimeTest.php` holds
+the list: any other application configuration file naming the namespace outside
+a comment fails the build, and a seam that stops guarding fails it too. deptrac
 has said the same thing about `src/` since [XIV-60] and cannot say it about
 YAML, which is exactly where all four of the real obstacles were.
+
+#### One of the three seams was in a generated file (XIV-111)
+
+`config/bundles.php` carried the guard as an `if (class_exists(…))` appended
+after the array. Then `composer update xivi/voucher` ([XIV-103]) ran a Flex
+auto-recipe and the conditional was gone. It was caught in a diff and reverted,
+and nothing was ever broken — but the near miss is the whole of this ticket,
+because the failure it was one merge away from is not a broken test. It is
+`--target frankenphp_public` ceasing to be a thing this repository can produce,
+discovered at the next release.
+
+**Flex is not misbehaving.** It regenerates `bundles.php` from its own template
+rather than editing it in place, so a hand-written conditional there is
+collateral by design. Adding a package is not an operation that promises to
+leave `config/bundles.php` alone, and treating it as one is the mistake.
+
+**The guard was also a general rule dressed as a special case.** *Do not
+instantiate a bundle whose class is not in this image* has nothing to do with
+the control plane, and nothing about it belongs in a generated file. So it moved:
+
+- `config/bundles.php` is now a plain declarative array. It names
+  `Xivi\ControlPlane\XiviControlPlaneBundle` unconditionally — **exactly the
+  line Flex would write anyway**.
+- `App\Kernel` does the skipping, from the explicit list in
+  `config/optional_bundles.php`.
+
+The property that makes this the right answer rather than a tidier one: **a Flex
+rewrite of `config/bundles.php` stops being a hazard**, because the file it
+produces is the file we want. That is strictly better than detecting the
+rewrite, which was the other option and which would have needed somebody to
+react to an alarm instead of needing nothing to happen at all. `src/Kernel.php`
+is not regenerated when a package is added.
+
+**Overriding `registerBundles()` without reimplementing it.**
+`MicroKernelTrait::registerBundles()` is a generator that reads the bundle
+definition, applies the per-environment filter and yields `new $class()`.
+Wrapping it is useless — the instantiation happens *inside* the generator, so a
+filter over what it yields runs after the fatal, and a generator that has thrown
+cannot be resumed. Copying its four lines would mean owning Symfony's
+environment-matching semantics for ever. The seam that avoids both is
+`getBundlesDefinition()`, the private method the trait reads the array from,
+which `MicroKernelTrait` already aliases to `doGetBundlesDefinition` for exactly
+this kind of decoration; a method declared on the class takes precedence over
+the one a trait imports. So the kernel removes entries from the array and
+Symfony still does the reading, the `#[RequiredBundle]` resolution and the
+environment matching. It filters the `.kernel.bundles_definition` container
+parameter for free, which is built from the same method — and that matters,
+because the `frankenphp_public` stage refuses to finish if anything under
+`var/cache/` still names `Xivi\ControlPlane`.
+
+**The list is explicit and short, because the risk this introduces is silence.**
+A bundle skipped for being absent from the image looks exactly like a bundle
+skipped because somebody's `composer install` did not finish. "Skip anything
+missing" would turn a half-installed checkout into an application that boots,
+serves and is quietly missing a module — and would pass every test here while
+doing it. So anything *not* on the list that goes missing still fatals, loudly,
+exactly as before, and
+`tests/Unit/Deployment/OnlyOptionalBundlesAreSkippedTest.php` plants both halves
+side by side.
+
+**The list lives in `config/` rather than as a constant on the kernel**, and
+that was decided by measurement rather than taste. `deptrac.yaml` says the
+application may not depend on `Xivi\ControlPlane`; a
+`XiviControlPlaneBundle::class` written into `src/Kernel.php` is collected as a
+dependency and reports *"App\Kernel must not depend on
+Xivi\ControlPlane\XiviControlPlaneBundle"*. Spelling it as a quoted string
+would have slipped past the collector, and that is the reason not to — a
+boundary evaded with a string is a boundary that has stopped being checked.
+`config/` is where the application is already allowed to name the package, it is
+the directory `ControlPlaneIsOptionalAtBuildTimeTest` reads, and it puts the
+declaration beside the `bundles.php` whose reader is looking for it. **The
+kernel holds the rule; the configuration holds the datum.**
+
+**An absent optional bundle complains outside `prod`, which inverts [XIV-61].**
+`PlaceholderSecretGuard` stands down outside production because the risk it
+covers is production-only. This is the mirror image: the *legitimate* absence is
+production-only, since `frankenphp_public` is the only build that removes a
+package, so a `dev` or `test` checkout missing one is a broken install rather
+than a deployment choice. It is an `E_USER_WARNING` naming the command that
+fixes it, not an exception — the application genuinely works without the
+administration surface, and `phpunit.dist.xml` sets `failOnWarning`, so in the
+test environment it is effectively fatal anyway.
+
+**What is still a Flex hazard, said plainly.** `importmap.php` is regenerated
+the same way and is guarded by nothing. The stakes are much lower — a stylesheet
+that comes back, not a deployment guarantee — so the answer is proportionate: no
+mechanism, and the set of files that are *generated and hand-edited* is written
+down in `AGENTS.md` where somebody adding a package will meet it, `importmap.php`
+and `assets/controllers.json` included. What no longer depends on a recipe
+behaving is the customer-facing image.
 
 **[XIV-57]'s ordering invariant survives the move and is asserted the same way.**
 `ControlPlaneFirewallTest` used to read the declared order out of
@@ -1132,9 +1224,10 @@ partway through — and "it cannot work" is not a good enough reason to let a
 deploy start.
 
 Each of these tests the *package's presence on disk* rather than an environment
-variable, and that is the same choice `config/bundles.php` makes: a flag says
-what somebody configured, a directory says what is in the image, and two builds
-cannot disagree with a directory.
+variable, and that is the same choice the bundle seam makes — in `App\Kernel`
+since [XIV-111], in `config/bundles.php` before it: a flag says what somebody
+configured, a directory says what is in the image, and two builds cannot
+disagree with a directory.
 
 #### What the customer-facing image does still contain, said plainly
 
@@ -1153,6 +1246,13 @@ container, so what follows is the complete remainder:
 - **`composer.lock`**, which names `xivi/control-plane` because both images are
   built from one lock file. That is the property that stops the two builds from
   drifting and it is worth more than the tidiness of a second manifest.
+- **`config/bundles.php` and `config/optional_bundles.php`**, which name the
+  bundle class — the first unconditionally, the second to say it may be absent
+  (§4.4, [XIV-111]). Two lines of PHP naming a class that is not there, read by a
+  kernel that skips it. Nothing is loadable and nothing compiled from them
+  mentions it: the `.kernel.bundles_definition` parameter is filtered by the same
+  method that does the skipping, which is why this image's `var/cache/` still
+  passes the grep that refuses the build.
 - **`packages/xivi-mate/`**, whose source mentions the namespace in two files.
   That is a development dependency, is not installed into `vendor/` by
   `composer install --no-dev`, and is in the internal image for the same reason —

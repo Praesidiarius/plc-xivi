@@ -30,6 +30,19 @@ parameters:
         -
             message: '#Method App\\Kernel::getAllowedEnvs\(\) is unused#'
             path: src/Kernel.php
+        # Same shape, one layer stranger (XIV-111). MicroKernelTrait flattens
+        # Symfony's KernelTrait into App\Kernel, and the calls to this method are
+        # inside those flattened bodies — `registerBundles()` and
+        # `getKernelParameters()`. PHP resolves them to the class's own
+        # declaration, which is the whole mechanism the override relies on;
+        # PHPStan analyses a trait in the trait's file and does not see the
+        # class that overrode one of its private methods. So the call sites are
+        # real and this is the analyser's blind spot rather than dead code —
+        # tests/Unit/Deployment/OnlyOptionalBundlesAreSkippedTest.php proves the
+        # method runs, and fails if it stops being called.
+        -
+            message: '#Method App\\Kernel::getBundlesDefinition\(\) is unused#'
+            path: src/Kernel.php
         # Part of the Flex skeleton's bootstrap; kept as shipped.
         -
             message: '#Call to function method_exists\(\) with .*Dotenv.*bootEnv.* will always evaluate to true#'

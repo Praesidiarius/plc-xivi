@@ -70,6 +70,21 @@ lands in `Unreleased` here.
 
 ### Changed
 
+- **The guard that keeps the administration surface optional is no longer in a
+  file Symfony Flex regenerates** ([XIV-111],
+  [§4.4](docs/architecture.md#one-of-the-three-seams-was-in-a-generated-file-xiv-111)).
+  `config/bundles.php` is a plain declarative array now, naming the control-plane
+  bundle unconditionally; `App\Kernel` skips a bundle whose class is not in the
+  image, from the explicit list in `config/optional_bundles.php`. Anything *not*
+  on that list which goes missing still fatals. Nothing changes for a running
+  installation — the customer-facing image contains exactly what it did — but a
+  `composer require` can no longer delete the thing that makes it buildable, which
+  is what it did in [XIV-103] and what a diff caught.
+- **Read `git diff` after every `composer require` and `composer update`.**
+  `AGENTS.md` now lists the files that are *generated and hand-edited* —
+  `config/bundles.php`, `importmap.php` and `assets/controllers.json` are
+  rewritten wholesale by recipes, and only the first of the three has anything
+  checking it ([XIV-111]).
 - **A tenant removal now empties the cluster before it touches the registry**,
   where it used to delete the control-plane row first. A failure part-way
   therefore leaves a row pointing at nothing — visible to `tenant:list`, and
@@ -704,5 +719,6 @@ lands in `Unreleased` here.
 [XIV-96]: https://xivi.youtrack.cloud/issue/XIV-96
 [XIV-62]: https://xivi.youtrack.cloud/issue/XIV-62
 [XIV-103]: https://xivi.youtrack.cloud/issue/XIV-103
+[XIV-111]: https://xivi.youtrack.cloud/issue/XIV-111
 [XIV-23]: https://xivi.youtrack.cloud/issue/XIV-23
 [XIV-67]: https://xivi.youtrack.cloud/issue/XIV-67

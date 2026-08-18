@@ -1,6 +1,23 @@
 <?php
 
-$bundles = [
+/*
+ * **This file is generated. If this comment is not here, a Symfony Flex recipe
+ * rewrote the file and nothing is wrong** (XIV-111, docs/architecture.md §4.4).
+ *
+ * Flex regenerates `bundles.php` from its own template whenever a package is
+ * added or removed, so anything hand-written in it is collateral by design.
+ * That is why there is no logic below: every line is a declaration, and a
+ * regeneration that produced exactly this array would leave the repository
+ * working.
+ *
+ * One of the bundles below is **not in every image** — `packages/control-plane`
+ * is removed from the customer-facing build — and the rule that lets this file
+ * name it unconditionally lives in `config/optional_bundles.php` and
+ * `App\Kernel`. Read that file before touching this one; it is where the
+ * reasoning went when [XIV-111] took it out of here.
+ */
+
+return [
     Symfony\Bundle\FrameworkBundle\FrameworkBundle::class => ['all' => true],
     Doctrine\Bundle\DoctrineBundle\DoctrineBundle::class => ['all' => true],
     Doctrine\Bundle\MigrationsBundle\DoctrineMigrationsBundle::class => ['all' => true],
@@ -22,41 +39,5 @@ $bundles = [
     Symfony\UX\StimulusBundle\StimulusBundle::class => ['all' => true],
     Symfony\UX\LiveComponent\LiveComponentBundle::class => ['all' => true],
     Symfony\UX\Autocomplete\AutocompleteBundle::class => ['all' => true],
+    Xivi\ControlPlane\XiviControlPlaneBundle::class => ['all' => true],
 ];
-
-/*
- * **The administration surface, if this build has one** (XIV-96,
- * docs/architecture.md §4.4).
- *
- * Every other line in this file is unconditional because every other bundle is
- * in every image. This one is the seam the customer-facing build is cut along:
- * `Dockerfile`'s `frankenphp_public` target removes `packages/control-plane`
- * outright, so in that image the class below does not exist and
- * `Kernel::registerBundles()` would fatal on `new $class()` before anything
- * else got a chance to fail.
- *
- * **A `class_exists()` rather than a `%env()%` or an `if` on the environment**,
- * and the difference is the whole point of the ticket. A flag would mean the
- * administration code is present and switched off, which is one misconfiguration
- * away from being served; this asks whether it is *in the image*, and the answer
- * in a public build is no because the files are gone. [XIV-56] is the live
- * precedent for why that distinction is worth a build: something shipped inside
- * the production image that was never meant to be there, and no amount of
- * configuration would have kept it out.
- *
- * The autoloader is classmap-authoritative in a production build, so this is one
- * array lookup and no filesystem access — and it cannot answer "yes" for a class
- * whose file is not there, which is exactly the question being asked.
- *
- * It is appended rather than kept in its old position between core and the
- * modules. Bundle order decides which bundle's `prepend()` runs first and which
- * one's templates win an override, and this package neither overrides anything
- * nor prepends anything another bundle also prepends — see
- * XiviControlPlaneBundle::prependExtension(), which contributes the firewalls and
- * the entity mapping the application used to declare on its behalf.
- */
-if (class_exists(Xivi\ControlPlane\XiviControlPlaneBundle::class)) {
-    $bundles[Xivi\ControlPlane\XiviControlPlaneBundle::class] = ['all' => true];
-}
-
-return $bundles;
