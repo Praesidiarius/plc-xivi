@@ -77,7 +77,7 @@ final class ProvisioningFailed extends \RuntimeException
             . 'to it would be refused with an empty HTTP 400 before reaching this application. '
             . 'XIVI_TRUSTED_DOMAINS names %s and every name under them. Either give the tenant a '
             . 'hostname under one of those, or add this one\'s domain to that variable and restart '
-            . '(see README, "Which hostnames this installation answers to").',
+            . '(see https://praesidiarius.github.io/plc-xivi-docs/running/hostnames/).',
             $hostname,
             implode(', ', $domains),
         ));

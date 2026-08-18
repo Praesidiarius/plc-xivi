@@ -55,13 +55,17 @@ first**. An entry is not the place a design decision lives.
    with it. Sections drop one level: `###` becomes `##`.
 2. Add a line to the [release index](#releases) below.
 3. Bump [`src/Version.php`](src/Version.php).
-4. Update the version line near the top of [`README.md`](README.md) — the one
-   reading ``The version is `17.0.3` ``. It is the first thing anybody reads and
-   it drifts silently; 17.0.3 shipped saying 17.0.2.
-5. Tag the merge commit `v<version>` and push the tag. That is what publishes:
+4. Tag the merge commit `v<version>` and push the tag. That is what publishes:
    `.github/workflows/release.yml` posts the file from step 1 as the GitHub
-   release, and fails if the file is missing or the tag disagrees with steps 3
-   or 4.
+   release, and fails if the file is missing or the tag disagrees with step 3.
+
+There used to be a fifth step — updating a hand-written version line near the top
+of `README.md` — and a gate in the release workflow to catch the times it was
+forgotten, because 17.0.3 shipped saying 17.0.2. **The line is gone instead**
+(XIV-112). `Version::CURRENT` was always the number the application actually
+serves; a second copy of it in prose could only ever agree or be wrong, and the
+cheapest way to stop it being wrong was to stop writing it twice. The README
+links here rather than restating anything.
 
 `bin/ci` gates on this file having changed, which keeps working: new work always
 lands in `Unreleased` here.
@@ -77,6 +81,30 @@ lands in `Unreleased` here.
   people who meet Xivi from outside the code: whoever deploys it and whoever uses
   it. Source in [plc-xivi-docs](https://github.com/Praesidiarius/plc-xivi-docs),
   built on every push and gated on having no broken links.
+
+### Changed
+
+- **`README.md` is 84 lines instead of 962**
+  ([XIV-112](https://xivi.youtrack.cloud/issue/XIV-112)) — what Xivi is, a
+  Quickstart that fits on a screen, and links. Nothing was rewritten and nothing
+  was dropped: the deployment half is now *Running an installation* on the
+  [documentation site](https://praesidiarius.github.io/plc-xivi-docs/running/) —
+  configuration, hostnames, deploying, the two cron entries, self-service signup
+  and the command reference, in the order somebody deploying meets them — and the
+  feature inventory is
+  [What exists today](https://praesidiarius.github.io/plc-xivi-docs/what-exists/).
+- **`DEVELOPING.md` is new**, and is where the developer half went: `bin/compose`
+  and why it exists, dev tenants, Adminer, Mailpit, Symfony AI Mate, `bin/ci`,
+  worktree stacks and the package layout. It stays in the repository because it
+  has to travel with the commit that changes it.
+- **The README no longer carries a hand-written version, and the release
+  checklist lost the step that maintained it.** `Version::CURRENT` is the number,
+  the release workflow still gates on *that*, and the third gate over the README
+  line is gone with the line. **Action on your next release:** *Cutting a
+  release* is four steps now, not five.
+- **`deploy:check-hosts`, `deploy:check-secrets` and a refused provisioning now
+  point at the documentation site** instead of at a README section that has
+  moved.
 - **`docs/architecture.md` stays here**, and the README now says why: it is the
   record of *why* each decision was made, it is cited by section number
   throughout the issue tracker, and it has to travel with the commit that changes
