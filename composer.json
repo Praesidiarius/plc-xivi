@@ -26,6 +26,7 @@
         "symfony/form": "8.1.*",
         "symfony/framework-bundle": "8.1.*",
         "symfony/html-sanitizer": "8.1.*",
+        "symfony/http-client": "8.1.*",
         "symfony/intl": "8.1.*",
         "symfony/mailer": "8.1.*",
         "symfony/mime": "8.1.*",

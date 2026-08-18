@@ -1291,6 +1291,279 @@ stops compiling without the package. The unit test above catches most of that in
 a second by reading the configuration; only the build compiles a container with
 the package genuinely gone.
 
+### 4.5 Nothing noticed when a scheduled job stopped (XIV-126)
+
+Three commands have to be on a schedule for this installation to behave the way
+its screens claim: `signup:provision`, `tenant:purchase:collect` and
+`tenant:usage:collect`. They are cron entries rather than workers because §8.7
+settled that a long time ago and for the whole runtime — FrankenPHP in classic
+mode with no worker block on purpose, so nothing in this deployment runs between
+requests and a queue with nothing draining it is worse than a slow request.
+
+**Every screen built on those jobs is honest about staleness, and that is not
+monitoring.** A usage figure carries the moment it was taken; a customer nobody
+has collected yet reads *not collected yet* rather than a zero (§8.11); [XIV-102]
+refuses to draw a stale purchase request as current. All of that tells whoever
+looks. **Nothing makes anybody look.**
+
+[XIV-108] is the sharpest illustration and was filed as something else. A
+customer who confirmed a signup and then heard nothing is *precisely* what a
+stopped `signup:provision` produces — the intake row is fine, the confirmation
+was recorded, the mail is not late, it is not coming. That was written up as a
+messaging problem, and half of it is this.
+
+It had already happened in the smallest possible way, too. `tenant:purchase:collect`
+shipped with [XIV-102] and reached **no** list of cron entries: not the
+documentation site's page, which said "the two cron entries an installation
+needs", and therefore not anybody's crontab. A job nobody scheduled cannot be
+observed to have stopped, because it never started, and there is no state
+anywhere that differs from a healthy installation nobody has asked to buy
+anything from.
+
+#### Rejected: an internal checker, which is what v1 had
+
+The previous generation of this product had a `BatchChecker`. Every job wrote a
+`<name>_lastrun` setting, and a daily task read them all and mailed the
+administrator about any that had not run in twenty-four hours. It is the obvious
+design, it needs no third party, and **it is rejected here permanently** so that
+it is not proposed again.
+
+The flaw is the shape rather than the implementation, and no amount of care
+inside it helps. **The checker is itself a scheduled job**, so the failure it
+exists to catch — cron stopped, the container is not being restarted, the machine
+is off, the deploy dropped the crontab — is the failure that stops *it*. A dead
+man's switch that dies with the patient reports nothing, and reports it silently:
+the mailbox that would have received the warning simply stays empty, which is
+what it looks like when everything is fine.
+
+Two lesser objections, worth recording because they survive even if somebody
+thinks they can solve the first. It would need a place to write `lastrun`, and
+the only database every job can reach is the control plane, so a monitoring
+concern would acquire a schema. And it would mail from this installation's own
+transport — the one whose failure is one of the things being monitored (§8.7).
+
+#### The shape that works: the job pings, the service alerts
+
+An external monitor inverts the dependency. The job makes an HTTP request when it
+runs; the **service** raises an alarm when a request does not arrive. Nothing on
+this machine has to survive for the alarm to go off, because *the alarm is the
+absence of us* — which is the one signal a stopped cron, a full disk, a dead
+container, a botched deploy and an unplugged server all produce identically.
+
+That is the entire architectural argument, and it is why this is a small
+integration rather than a subsystem.
+
+#### The four candidates
+
+| | Self-hostable | Licence | Protocol | Cost |
+| --- | --- | --- | --- | --- |
+| **Healthchecks** | **Yes** — Django, Postgres, official image | **BSD-3-Clause** | `GET <url>`, `<url>/start`, `<url>/fail`, **`<url>/<0–255>`** | Self-hosted free; hosted free to 20 checks, $20/mo to 100 |
+| **Better Stack** | No | Proprietary | `GET <url>`, `<url>/start`, `<url>/fail`, `<url>/<exit code>` | 10 heartbeats free, then about $17/mo per 10 |
+| **Oh Dear** | No | Proprietary | `GET <url>`, `<url>/started`, `<url>/failed`; the exit code is a POST field | From $17/mo, priced per *site* rather than per check |
+| **Cronitor** | No | Proprietary | `GET …/p/<key>/<monitor>?state=run\|complete\|fail&status_code=N` | Free tier, then per monitor |
+
+Read the protocol column rather than the price column. **Healthchecks and Better
+Stack speak the same thing byte for byte**; Oh Dear spells the same three ideas
+with different words and puts the exit code somewhere a `GET` cannot carry it;
+Cronitor is a different shape entirely, query parameters rather than path
+segments.
+
+**Recommended and implemented against: Healthchecks**, for three reasons in this
+order.
+
+1. **It can be run by the person it is monitoring.** [XIV-115] refused to make a
+   paid third-party service a requirement for storage, and the same instinct is
+   stronger here, not weaker: an installation whose ability to know its own cron
+   is alive depends on somebody else's billing relationship has swapped one
+   silent failure for another. A container beside this one is a perfectly good
+   deployment of it, and the hosted service remains available for whoever would
+   rather not.
+2. **BSD-3-Clause**, which is the licence class this project already accepts —
+   `twig/twig` and `league/commonmark` are on the same terms — so self-hosting it
+   raises no question this repository has not already answered.
+3. **It records the exit status as a number.** `/ping/<uuid>/<0–255>` is read as
+   success at 0 and failure otherwise, *and the number is kept and shown*. That
+   is the one property that makes §4.2's three exit codes survive the trip, and
+   the next part of this section is entirely about why that matters.
+
+**What is implemented is the protocol, not the vendor.** Nothing in the code
+names Healthchecks: `XIVI_MONITOR_PINGS` takes whatever URL a service issued, and
+Better Stack's heartbeats work unchanged. Oh Dear and Cronitor will receive the
+success ping and nothing else useful, and the honest thing is to say so here
+rather than to build an abstraction over four dialects — a configurable suffix
+vocabulary would be a knob with two correct settings, both undocumented, and the
+project's taste is to decide instead.
+
+#### The exit code is the payload
+
+`tenant:migrate` publishes three codes on purpose (§4.2): **0** every tenant is
+current, **1** the run could not happen at all, **3** the run happened and at
+least one tenant is behind while the rest are fine. A monitor told only "it
+failed" flattens 1 and 3 into each other — a deploy that did nothing, and a
+deploy that left four customers on last week's schema while the new code serves
+them. Those wake different people and require different actions.
+
+So the outcome is reported as `<url>/<exit code>` rather than as `<url>/fail`.
+The monitor treats 3 as a failure, which is right, **and shows *3***, which is
+what somebody woken by it needs before they open a terminal. The collectors
+publish 0 and 1 today and read identically.
+
+And there is a fourth state, which is the whole point of the arrangement:
+**nothing at all**. A job that was never scheduled, whose cron died, whose
+container was replaced without its crontab, or whose machine is off sends
+nothing, and the service raises that after its grace period. Silence is the
+alert — the property the rejected checker could never have.
+
+The start ping is sent as well, and buys two things the completion ping cannot.
+It gives the run a *duration*, so "the collection now takes eleven minutes" is
+visible before it becomes "the collection did not finish"; and it separates a job
+that started and was killed — an OOM, a machine that went away — from one that
+never started at all, because the first leaves a start with no end and the second
+leaves nothing.
+
+#### What a ping contains, and what it deliberately does not
+
+The fact that it happened, and a number. A `GET`, no body, no query string.
+
+**No tenant slug, no customer name, no email address, no counts, no hostname, no
+version.** A ping URL goes to a third party, possibly a hosted one, and §8.11's
+line — *counts, not contents* — is drawn a great deal further back here:
+`tenant:usage:collect` holds every customer's slug and every one of their figures
+by the time it terminates, and *"the job ran"* is the entire payload. The
+`User-Agent` is the bare word `Xivi`, so that an operator reading the request log
+of their **own** self-hosted instance can tell what pinged it; a version there
+would turn every ping into a report of which release this installation is behind
+on, sent to whoever runs the monitor.
+
+What cannot be hidden is the source address, because a monitor by construction
+receives a request from you. An installation for which that matters self-hosts,
+which is the first reason Healthchecks is the recommendation.
+
+The reverse direction is worth stating too: **a ping URL is a bearer token in URL
+form.** Anybody holding one can report that the job succeeded, which is exactly
+how somebody would silence this. So `deploy:crontab` prints *watched* and never
+prints the address, because a crontab is world-readable on most machines.
+
+#### Optional, and off by default
+
+`XIVI_MONITOR_PINGS` is empty in the committed `.env`, and empty means **no pings
+and no behaviour change of any kind** — the shape [XIV-93]'s trusted domains and
+[XIV-61]'s secret guard already have. `App\Monitoring\JobMonitor` returns on an
+array lookup before it constructs a URL, so an installation that configures
+nothing never touches the HTTP client, never opens a socket and never pays a
+timeout. That is asserted rather than claimed: `JobMonitorTest` checks that *no
+request is made at all*.
+
+A **failed ping never fails the job.** It is logged at warning and changes
+nothing — not the exit code, not the output. Swallowing an error is usually wrong
+in this codebase, and §8.7 is emphatic that a failed mail send is never
+swallowed; the difference is that the consequence of a lost ping is *a monitor
+reporting a missing ping*, so the failure announces itself at the far end. The
+opposite policy is the harmful one: a monitoring feature that can turn a
+five-second network problem at a third party into a failed deploy is a monitoring
+feature somebody removes.
+
+A **malformed entry is refused rather than skipped**, at the first console
+command run after it is set. A skipped entry is a job nobody is watching on an
+installation whose operator believes they configured watching, which is this
+section's own failure mode wearing a defensive `continue`. Refused: no `=`, an
+empty half, a scheme that is not HTTP, a duplicate command, and a URL with a
+query string or a fragment — the last because the outcome is reported by
+appending a path segment, and appending one to `…?key=abc` addresses something
+nobody meant.
+
+#### One place, and a list that is in the build
+
+The pings are sent by **one console event listener**,
+`App\Monitoring\EventListener\JobMonitorSubscriber`, on `ConsoleEvents::COMMAND`
+and `ConsoleEvents::TERMINATE`. Three lines at the top and bottom of each command
+was the obvious alternative and is wrong for the reason this whole ticket
+exists: **the fourth scheduled command would not have them, and nothing would say
+so.** Watching the ninth command is adding an entry to `XIVI_MONITOR_PINGS`;
+nothing is edited and nothing is remembered.
+
+`TERMINATE` rather than the value a command returns, because it fires for every
+ending a command has — a returned code, an uncaught throwable, a command an
+earlier listener disabled — and the one ending it does *not* fire for is the
+process being killed outright, which is exactly the case that should produce a
+start with no end. The listener reads `getExitCode()` and never writes it: §4.2's
+codes are a published contract and a monitoring listener is not a party to it.
+
+The map may name any command, not only the three. `tenant:migrate` is not a cron
+entry — `bin/deploy` runs it once per release — and a deploy that quietly stopped
+being run is the same class of silence, so restricting the map would have refused
+that for a tidiness nobody asked for.
+
+**What jobs exist is a property of the build, not of the deployment.**
+`App\Monitoring\ScheduledJobs` is that list, in code, with each entry carrying its
+suggested cadence and the sentence that says *what is wrong with this
+installation while it is not running*. A deployment decides how often and whether
+to watch; it does not get to decide that `signup:provision` is optional. Same
+argument §4.2 makes for `bin/deploy` being a file in this repository: the sequence
+a release needs ships with that release and can never be a version behind.
+
+`deploy:crontab` prints it — the cron lines, and beside each one whether anything
+is watching it. Everything on stdout is a crontab, comments included, so it can
+be redirected into `/etc/cron.d/xivi` rather than retyped. It exits **0** when
+every job this image has is watched *or* when none is (monitoring switched off is
+a choice, and a check that fails on a fresh installation is a check that ends up
+being run with `|| true`), and **3** for the inconsistent state — some watched and
+some not, or a watched name that is not a command here. Three rather than two for
+`tenant:migrate`'s reason. The customer-facing image prints an empty crontab and
+says why, because all three of today's jobs are control-plane commands and §4.4
+compiles them out; the list holds command *names* rather than class names
+precisely so that it costs that image nothing.
+
+#### Rejected: symfony/scheduler
+
+Asked and answered by §8.7 rather than by a preference. `symfony/scheduler`
+dispatches through Messenger and needs a consumer process — `messenger:consume` —
+which is the thing this runtime does not have. It would move the schedule into
+the repository, which is genuinely attractive, and pay for it by making *the
+worker* the single point whose stopping nobody notices. That is the internal
+checker again with more moving parts. When there is a supervised consumer for a
+reason of its own, moving all of this onto it is a small change and this section
+should be revisited.
+
+#### Uptime checks and status pages are out of scope, and that is decided
+
+Every service above also does uptime checks, and three of them do status pages.
+It is one purchase, one integration and an obvious adjacency, which is exactly
+why it is worth refusing deliberately rather than drifting into.
+
+**Uptime checking needs nothing from this repository.** It is an HTTP GET against
+a hostname, configured entirely at the monitoring service, and Xivi could not
+make it better by knowing about it. An operator who wants it switches it on
+there. Nothing here is required and nothing here is in the way.
+
+**A status page is a different product decision and a much larger one.** Xivi has
+no way to tell customers it is down — [XIV-120] is announcements, which are
+authored in advance by an operator for a working installation, and an incident is
+the opposite of that on both counts. Doing it properly asks who publishes, in
+which language (§8.4.2 gives every user their own), whether one customer's
+outage is every customer's business given that §4 is a database each, and where
+the page is served from — because a status page hosted inside the thing it
+reports on is the internal checker one more time. None of that is settled by
+buying a monitoring subscription, and a monitoring ticket is not where it should
+be settled by accident.
+
+#### What this still does not do
+
+Said plainly, because a monitoring section that overstates itself is worse than
+none.
+
+**A job can still stop without anybody finding out, in exactly one way: nobody
+configured a check for it.** `XIVI_MONITOR_PINGS` empty is a supported state and
+the shipped default, and an installation left that way is no better off than it
+was — it is only easier to fix. What has changed is that the gap is now *visible*
+rather than invisible: `deploy:crontab` says how many of the jobs are watched,
+names the ones that are not, and exits 3 when the answer is "some" — which is the
+state an operator who set this up once and later shipped a fourth job lands in,
+and the state that otherwise looks exactly like being covered.
+
+Nothing here schedules anything either. The crontab is still an operator's file
+on an operator's machine, and this repository can print it, not install it.
+
 ---
 
 ## 5. Data model: metadata-driven, not EAV

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "fcb07416afaac2945699f00e66848723",
+    "content-hash": "4168fbe1e00af9b0aed6a01b64a6c0e2",
     "packages": [
         {
             "name": "anourvalar/office",

@@ -106,6 +106,25 @@ parameters:
     # screen says which variable to set.
     app.price_currency: '%env(PRICE_CURRENCY)%'
 
+    # **Where each watched scheduled job pings when it runs** (XIV-126, §4.5),
+    # as `command=url` pairs.
+    #
+    # Empty is the shipped default and means **no pings and no behaviour change
+    # at all** — the same shape as XIVI_TRUSTED_DOMAINS above and [XIV-61]'s
+    # secret guard, and for the same reason: monitoring is somebody else's
+    # service, Xivi does not require one, and an installation that configures
+    # nothing has to behave exactly as it did before this existed.
+    #
+    # Read in exactly one place, App\Monitoring\PingTargets, which refuses a
+    # malformed entry rather than skipping it — a skipped entry is a job nobody
+    # is watching on an installation whose operator believes they configured
+    # watching, which is the failure §4.5 exists to remove.
+    #
+    # A `csv:` list rather than JSON for the same reason app.signup_plans is one:
+    # this is a line somebody edits in a deployment's environment, and a shape
+    # that survives being typed by hand beats one that survives being generated.
+    app.monitor_pings: '%env(csv:XIVI_MONITOR_PINGS)%'
+
     # Hosts served without a tenant: dev tooling (profiler), health checks, the
     # container-internal name, the control plane — whose entire subject matter is
     # the set of tenants and which must therefore be about none of them (§4,
