@@ -29,6 +29,28 @@
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<title>{{ subject }}</title>
+		{#
+			The one <style> block on the page, and it contradicts nothing said
+			above: it decorates rather than lays out (XIV-62).
+
+			A collection written into a message becomes a Markdown table, and
+			CommonMark emits a bare <table> for one — no borders, no padding, and
+			every cell touching the next. Inline styles are not available for it:
+			the markup comes out of the parser and the sanitizer, and reaching in
+			to add attributes afterwards would mean this application editing HTML
+			it has just decided to trust, which is exactly the operation the
+			sanitizer exists to be the last word on.
+
+			So it is a <style> block, and the argument against those does not
+			apply: a client that drops it shows a plain table, which is legible,
+			rather than a broken frame. The frame stays inline for the reason it
+			always was — losing *that* is not degradation but collapse.
+		#}
+		<style>
+			.xivi-content table { border-collapse: collapse; width: 100%; }
+			.xivi-content th, .xivi-content td { padding: 6px 10px; text-align: left; border-bottom: 1px solid #dee2e6; }
+			.xivi-content th { font-size: 13px; text-transform: uppercase; letter-spacing: 0.02em; color: #6c757d; }
+		</style>
 	</head>
 	<body style="margin: 0; padding: 0; background-color: #f4f5f7; color: #212529; font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.6;">
 		<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f4f5f7;">
@@ -36,7 +58,14 @@
 				<td align="center" style="padding: 24px 12px;">
 					<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 600px; background-color: #ffffff; border-radius: 8px;">
 						<tr>
-							<td style="padding: 32px 32px 8px 32px;">
+							{#
+								The class is what scopes the <style> block above to
+								the customer's own words: the frame around it is
+								tables too, and a rule reaching those would put a
+								border under the footer and padding inside the
+								envelope.
+							#}
+							<td class="xivi-content" style="padding: 32px 32px 8px 32px;">
 								{#
 									The content part, and the only part a customer wrote.
 									Raw because it is already sanitized HTML rather than

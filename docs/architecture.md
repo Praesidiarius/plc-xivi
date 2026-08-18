@@ -2704,14 +2704,19 @@ value, and badly where the output is text whose structure the engine inspects.
   block would leave §5.13's escaping property intact, which is the thing to check
   before anything else: the block's body is still template text, and markers
   inside it are substituted into the Markdown **source** before CommonMark parses
-  it, so record values stay escaped by construction. What stops it is that §5.13
-  deliberately left repeating blocks out because Markdown has no unit to be one —
-  a list item, a table row, a fenced block — and a conditional block asks the
-  identical question with the same three candidate answers. In .docx the unit
-  question already has an answer (`RepeatingBlocks` scans `<w:tr>`, because a
-  table row is the unit Word gives a person), so the two halves would not even
-  agree with each other. Settling that inside a ticket about an evaluator would
-  be answering the small question and inventing an answer to the larger one.
+  it, so record values stay escaped by construction. What stopped it was that
+  §5.13 deliberately left repeating blocks out because Markdown has no unit to be
+  one — a list item, a table row, a fenced block — and a conditional block asks
+  the identical question with the same three candidate answers. **§5.13.1 has
+  since answered the repeating half, and answered it by refusing to have a block
+  at all**: `[lines]` is one marker that renders a table whose shape ships in
+  code. That closes the question for collections and reopens nothing for
+  conditions, because a condition has no equivalent trick — there is no "the
+  whole thing, already laid out" for *maybe show this paragraph*, so a
+  conditional still needs a unit to wrap and still has the same three candidates.
+  What is settled is that a block arriving for conditions would be the first
+  block syntax in an email body rather than the second, which makes it more of a
+  decision than it looked like before, not less.
 
 - **Validation rules (§5.4) — ruled out, by rule 1 arriving from a new
   direction.** A rule cannot be switched on if existing records would fail it:
@@ -3145,6 +3150,14 @@ Markers are found in the row's *text* and replaced tolerantly of markup, because
 Word cuts a placeholder somebody typed in one go across several runs. That is the
 same problem §5.7 describes and the same technique answers it.
 
+**An email does none of this, and §5.13.1 is where that is argued.** There a
+collection is *one* marker — `[lines]` — rendering a whole table whose shape
+ships in code, which is the opposite of everything above. The two are meant to
+disagree: this section's whole argument is that a template exists to decide how
+somebody's invoice looks and the engine must not take that away, and an email has
+no layout worth designing (§5.13) — so in an email there is nothing to take. Read
+side by side without that sentence, the difference looks like an oversight.
+
 ---
 
 ### 5.12 One record made from another (XIV-19)
@@ -3245,14 +3258,14 @@ class, the same keys, the same values rendered through the same field types
 afternoon, and there is no second vocabulary to keep in step with the first. That
 reuse is most of why this feature is small.
 
-**Repeating blocks are deliberately out of scope.** `RepeatingBlocks` (§5.11)
-scans `<w:tr>` elements out of Word's XML: the table row is the unit because it
-is the unit Word gives a person. Markdown has no equivalent, and choosing one —
-a list item? a table row? a fenced block? — is a design question rather than a
-port. A collection marker written into an email comes out blank, which is the
-same "blank beats brackets" call any unfilled marker gets, and the page does not
-offer the tokens. An email that lists an invoice's lines is a real want and gets
-its own ticket once somebody has decided what a repeating block *is* here.
+**Repeating blocks were deliberately out of scope**, and §5.13.1 is the ticket
+that answered the question this one left open. `RepeatingBlocks` (§5.11) scans
+`<w:tr>` elements out of Word's XML: the table row is the unit because it is the
+unit Word gives a person. Markdown has no equivalent, and choosing one — a list
+item? a table row? a fenced block? — was a design question rather than a port. A
+collection marker written into an email came out blank, which is the same "blank
+beats brackets" call any unfilled marker gets, and the page did not offer the
+tokens.
 
 **Markdown, and the two things that follow it.** `league/commonmark`
 (BSD-3-Clause) turns the body into HTML — permissive, which is the bar §5.7 set
@@ -3300,6 +3313,152 @@ presses send — which is XIV-39's third permission, and the sharpest of the thr
 subject, an HTML document and a text alternative, not a `Symfony\…\Mime\Email`:
 building the message would mean core deciding who it is from and who it goes to,
 and it knows neither. Those are the application's facts and XIV-37's subject.
+
+#### 5.13.1 A collection in an email body (XIV-62)
+
+The question §5.13 declined to answer, left open because it was a design
+decision rather than a port. **`[lines]` is one marker that renders the whole
+collection as a table, and the shape it renders into ships in code.**
+
+**Why the document answer does not carry over.** §5.11 got its unit for free: a
+`<w:tr>` is the unit because it is the unit Word gives a person, so the template
+author builds the row they want and gets it that many times. Markdown gives no
+unit at all, so there was nothing to port and every candidate cost something. A
+Markdown table row is the closest thing to the docx model and is text held
+together by punctuation, so a line description containing `|` breaks the
+template rather than the line. A list item is natural Markdown and a poor fit,
+because line items have columns and a list has one. Explicit `[lines]…[/lines]`
+delimiters are unambiguous, multi-line and format-independent — and a template
+language arriving by the side door, in a system whose markers are flat
+substitutions and deliberately nothing else.
+
+**All three exist to let a tenant hand-build the line table, and that is what
+rules them out.** §5.13's argument for Markdown was that *an email has no layout
+worth designing*. It is why there is no .docx here, no rich-text editor and no
+per-tenant wrapper. Handing somebody a repeating construct so that they can lay
+out their own table takes that argument back three paragraphs after making it.
+
+**So this diverges from the document side on purpose, and the divergence is the
+decision rather than an inconsistency to apologise for.** In Word the layout
+*is* the deliverable — a template exists to decide how somebody's invoice looks,
+and an engine that pre-formatted the cells would be taking that away, which is
+exactly what §5.11 refused. In an email it is not, and there is a second reason
+now: XIV-40 attaches the generated document, where the lines are already laid
+out properly. What a message wants beside that attachment is a **summary** — a
+few lines and a total — rather than a second full rendering of it. Anybody
+reading the two sections side by side will see a repeating row on one and a
+single marker on the other; this paragraph is why, because without it that reads
+as an oversight.
+
+**The grammar is the document's own, not a second one.** `collection[:kind].field`
+is what §5.11 already writes; this reads the same production with the field part
+allowed to be absent, or to be a list:
+
+- `[lines]` — every row, in the columns below;
+- `[lines:article]` — only the rows of that kind;
+- `[lines.description,line_total]` — those columns, in that order;
+- `[lines:article.description,line_total]` — both.
+
+Overloading the colon to mean "columns" — `[lines:description,quantity]` — was
+the other candidate and was rejected on exactly this: the colon already means
+"of this kind" one screen away, and `[lines:article]` would then have had two
+readings depending on whether the tenant happened to have a field called
+`article`. Extending an existing production costs a reader nothing; giving a
+separator a second meaning costs them the first one. The happy consequence is
+that **every collection token from the document reference list means something
+here** — `[lines.description]` pasted out of a .docx is a one-column table
+rather than the blank it used to be.
+
+**It expands to Markdown, before CommonMark parses it, and that is the
+load-bearing part.** §5.13 made marker substitution happen on the *source*, with
+`html_input: escape`, so that a record value containing a script tag becomes
+text without anybody remembering to make it so. A `[lines]` that expanded to
+**HTML** would arrive after that decision had been made, hand raw markup to the
+sanitizer as its only defence, and — worse — have no sensible plain-text form,
+so the text alternative §5.13 gets for free would quietly degrade to a table's
+worth of nothing. A pipe table keeps both: values still enter as source and are
+still escaped by the parser, and the text part is still the thing somebody would
+read. `EmailCollectionKindsTest` and `EmailTemplateTest` both prove it with
+markup in a record value.
+
+The price is that a cell containing the table's own punctuation has to be
+escaped, which is one small solvable problem instead of a class of them: the
+backslash first and then the pipe, because escaping a delimiter with a character
+that is itself special and not escaping *that* is the classic way to leave a
+hole. A newline in a cell becomes a space — a pipe table's row *is* a line, and
+the usual answer, a literal `<br>`, is the one thing this must not emit.
+
+Two consequences of the same rule are worth naming. Tables are **not**
+CommonMark — they are GitHub's extension to it — so the converter gained
+`TableExtension`, named rather than taken as part of the GitHub-flavoured bundle
+that would also bring autolinking, strikethrough and task lists nothing asked
+for. And a table is a **block**, so it needs a blank line on each side; the
+source is measured rather than padded blindly, because padding unconditionally
+would leave a stray blank line in the plain-text half every time the marker
+already stood alone, and that half is the one a person reads.
+
+**A collection whose rows are not all the same thing goes into one table**, in
+the collection's own order, with the union of the fields as columns and an empty
+cell where a row's kind carries nothing. §5.11 left this to the template, which
+is not an option once the shape ships in code, so the engine answers. The other
+two candidates are worse for reasons the document side already found:
+
+- **one table per kind** sorts the invoice by kind, and a comment line sits
+  *between* two article lines (XIV-21) — this is precisely what §5.11 rejected
+  when it made consecutive blocks a group;
+- **the default kind alone, the rest named explicitly** sends an order
+  confirmation listing four of six lines, which is the only one of the three
+  that can be *wrong* rather than merely plain.
+
+The union costs an empty cell where a comment line meets the money columns,
+which is what a printed invoice looks like anyway. There is no layout here to
+protect, and that absence is exactly the difference from Word that made §5.11
+push kinds back to the template in the first place.
+
+**Two fields are left out of the default columns, and neither is a guess about
+what matters.** The field that says which kind a row is, because it is the
+discriminator rather than a column — §5.1 has it travelling hidden for the same
+reason, and "Comment, Article, Article" beside rows that already look different
+is noise. And a field another field is copied *from* (XIV-18): an order line's
+description is inherited from the article it names, so a table with both prints
+the same words twice under two headings. Nothing else is capped. A cap would be
+the engine guessing which of somebody's fields matter, and being wrong about it
+drops the total off the end of the table without saying so; naming the columns is
+one line, and the placeholder panel prints a worked example of the form built
+from that collection's own fields.
+
+**The panel offers the tokens and says what they do.** It has to say so: `[lines]`
+sits in a list beside `[first_name]` looking exactly like it, and one of the two
+expands to a whole table — which is the same mistake XIV-89's picture badge
+exists to prevent one row further down the same list. It is deliberately *not*
+the document page's section: there a token names a column, and printing those
+here would be printing a vocabulary that means something else on the page it is
+printed on.
+
+**A collection marker in the subject line comes out blank**, because a table is
+not a subject. It is blanked rather than left as brackets, which is the rule
+every marker the engine knows and cannot fill already gets (§5.7).
+
+**The substitution stopped being a `strtr()`**, and kept the property that was
+`strtr()`'s whole justification. One left-to-right pass that never re-reads what
+it has written is what stops a contact whose name contains `[today]` from having
+it substituted; `preg_replace_callback` keeps that exactly — scanning resumes
+after each replacement — and buys the thing `strtr()` could not do, which is to
+decide per token what kind of marker it is. Collections are asked first, because
+`dataFor()` blanks every `[lines.description]` for the document side's benefit
+and consulting the flat map first would blank the very tokens this exists to
+fill. A token nothing answers is still printed as it was typed, which is XIV-25's
+rule and the thing a change of mechanism could most easily have dropped
+unnoticed.
+
+**The wrapper gained its one `<style>` block**, and it contradicts nothing §5.13
+says. CommonMark emits a bare `<table>` — no borders, no padding, every cell
+touching the next — and inline styles are not available for it: the markup comes
+out of the parser and the sanitizer, and reaching in to add attributes afterwards
+would mean editing HTML the application has just decided to trust. So a block,
+scoped to the customer's own words so it cannot reach the frame, and the argument
+against relying on one does not apply: a client that drops it shows a plain
+table, which is legible, where a dropped *frame* would be collapse.
 
 ### 5.14 Sending one from a record (XIV-39)
 

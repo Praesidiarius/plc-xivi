@@ -214,29 +214,207 @@ final class EmailTemplateTest extends WebTestCase
     }
 
     /**
-     * Repeating blocks are out of scope, and the page does not pretend otherwise.
+     * The collections section, which XIV-38 deliberately did not have (XIV-62).
      *
-     * `RepeatingBlocks` scans Word's `<w:tr>` elements — the table row is the
-     * unit because it is the unit Word gives a person, and Markdown has none.
-     * Offering `[addresses.street]` here would be advertising something that
-     * comes out blank, so it is not offered.
+     * The tokens offered are this page's own — `[addresses]`, the whole table —
+     * and not the document page's `[addresses.street]`, which names a column
+     * there and is a one-column table here. A panel that listed the column form
+     * would be teaching somebody the vocabulary of the other screen.
      */
-    public function testCollectionPlaceholdersAreNotOffered(): void
+    public function testTheCollectionIsOfferedAsOneTokenThatMakesATable(): void
     {
-        $page = $this->client->request('GET', $this->url('/m/contact/email-templates/new'))->filter('main')->text();
+        $panel = $this->client->request('GET', $this->url('/m/contact/email-templates/new'))
+            ->filter('.email-collection-markers')->text();
 
-        self::assertStringNotContainsString('[addresses.street]', $page);
+        self::assertStringContainsString('[addresses]', $panel);
+        self::assertStringNotContainsString('[addresses.street]', $panel, 'a column token belongs to the document page');
     }
 
-    /** And one written by hand anyway comes out blank rather than as brackets. */
-    public function testACollectionPlaceholderWrittenAnywayComesOutBlank(): void
+    /**
+     * And the panel says what it produces, rather than listing it beside the
+     * fields as though it were one of them.
+     *
+     * `[addresses]` sits in a list next to `[first_name]` looking exactly like
+     * it, and one of the two expands to a whole table. Somebody who finds that
+     * out from the email they have just sent found out too late.
+     */
+    public function testThePanelSaysWhatACollectionTokenProduces(): void
+    {
+        $panel = $this->client->request('GET', $this->url('/m/contact/email-templates/new'))
+            ->filter('.email-collection-markers')->text();
+
+        self::assertStringContainsString('whole table', $panel);
+        // The named-column form, as a worked example built from this
+        // collection's own fields rather than as a sentence of grammar.
+        self::assertStringContainsString('[addresses.label,street,postal_code,city,country]', $panel);
+    }
+
+    /** A collection written into the body renders its rows, which is the ticket. */
+    public function testACollectionWrittenIntoTheBodyRendersItsRows(): void
     {
         $rendered = $this->render(
-            $this->write('Letter', 'Hello', 'You live at [addresses.street].'),
+            $this->write('Letter', 'Hello', "Where you are:\n\n[addresses]"),
+            $this->aContactWithAddresses([
+                ['label' => 'Home', 'street' => 'Bahnhofstrasse 1', 'city' => 'Zürich'],
+                ['label' => 'Office', 'street' => 'Seestrasse 2', 'city' => 'Bern'],
+            ]),
+        );
+
+        // Markdown, in the source, which is the whole safety argument — see
+        // testACollectionValueContainingMarkupArrivesAsText.
+        self::assertStringContainsString('| Bahnhofstrasse 1 |', $rendered->text);
+        self::assertStringContainsString('| Seestrasse 2 |', $rendered->text);
+
+        // And a real table by the time it is HTML, which needs CommonMark's
+        // table extension: without it this is a paragraph of pipe characters.
+        self::assertStringContainsString('<table>', $rendered->html);
+        self::assertStringContainsString('<td>Bahnhofstrasse 1</td>', $rendered->html);
+        self::assertStringContainsString('<th>Street</th>', $rendered->html, "the field's own label, as the heading");
+    }
+
+    /**
+     * The sharp part of XIV-62, and the reason the expansion is Markdown rather
+     * than HTML.
+     *
+     * A `[lines]` that produced HTML would arrive *after* `html_input: escape`
+     * had done its work and would hand raw markup to the sanitizer as its only
+     * defence. Producing source keeps §5.13's property instead: the value goes
+     * in as text and CommonMark is what decides it is text.
+     */
+    public function testACollectionValueContainingMarkupArrivesAsText(): void
+    {
+        $rendered = $this->render(
+            $this->write('Letter', 'Hello', "Where you are:\n\n[addresses]"),
+            $this->aContactWithAddresses([['label' => 'Home', 'street' => '<script>alert(1)</script>']]),
+        );
+
+        self::assertStringNotContainsString('<script>', $rendered->html);
+        self::assertStringContainsString('&lt;script&gt;', $rendered->html);
+        self::assertStringContainsString('<td>&lt;script&gt;alert(1)&lt;/script&gt;</td>', $rendered->html);
+    }
+
+    /**
+     * A value containing the table's own punctuation does not break the table.
+     *
+     * The one cost of choosing a pipe table over HTML, and showing that it is
+     * paid is this test's whole job.
+     */
+    public function testAValueContainingAPipeDoesNotBreakTheTable(): void
+    {
+        $rendered = $this->render(
+            $this->write('Letter', 'Hello', "Where you are:\n\n[addresses.street,city]"),
+            $this->aContactWithAddresses([['street' => 'Werkgasse 3 | rear entrance', 'city' => 'Basel']]),
+        );
+
+        self::assertStringContainsString('Werkgasse 3 \| rear entrance', $rendered->text, 'escaped in the source');
+        self::assertStringContainsString('<td>Werkgasse 3 | rear entrance</td>', $rendered->html, 'one cell, pipe and all');
+        self::assertStringContainsString('<td>Basel</td>', $rendered->html, 'and the next column is still the next column');
+    }
+
+    /** Naming the columns keeps the marker flat, with no block syntax to learn. */
+    public function testNamingColumnsPicksThemAndTheirOrder(): void
+    {
+        $rendered = $this->render(
+            $this->write('Letter', 'Hello', "Where you are:\n\n[addresses.city,street]"),
+            $this->aContactWithAddresses([['label' => 'Home', 'street' => 'Bahnhofstrasse 1', 'city' => 'Zürich']]),
+        );
+
+        self::assertStringContainsString('| Zürich | Bahnhofstrasse 1 |', $rendered->text);
+        self::assertStringNotContainsString('Home', $rendered->text, 'a column nobody named is not drawn');
+    }
+
+    /**
+     * The plain-text alternative is still the thing somebody would read.
+     *
+     * §5.13's argument for Markdown was that the source *is* the text part. A
+     * table rendered as HTML would have left that half a stripped-tag mess or
+     * nothing at all; a pipe table is a table a person reads in a terminal.
+     */
+    public function testTheTextAlternativeIsStillReadable(): void
+    {
+        $rendered = $this->render(
+            $this->write('Letter', 'Hello', "Where you are:\n\n[addresses.street,city]\n\nThanks."),
+            $this->aContactWithAddresses([['street' => 'Bahnhofstrasse 1', 'city' => 'Zürich']]),
+        );
+
+        self::assertSame(
+            "Where you are:\n\n| Street | City |\n| --- | --- |\n| Bahnhofstrasse 1 | Zürich |\n\nThanks.",
+            $rendered->text,
+        );
+    }
+
+    /**
+     * A marker sharing its line with a sentence still gets the blank lines a
+     * block needs.
+     *
+     * A pipe table is a block, so without them CommonMark reads it as more of
+     * the paragraph it interrupts and the HTML half silently becomes a line of
+     * pipe characters. The source is measured rather than padded blindly, which
+     * is why the well-spaced case above keeps its exact spacing.
+     */
+    public function testATableInterruptingAParagraphIsStillATable(): void
+    {
+        $rendered = $this->render(
+            $this->write('Letter', 'Hello', "Where you are:\n[addresses.street]\nThanks."),
+            $this->aContactWithAddresses([['street' => 'Bahnhofstrasse 1']]),
+        );
+
+        self::assertStringContainsString('<table>', $rendered->html);
+        self::assertStringContainsString('<td>Bahnhofstrasse 1</td>', $rendered->html);
+        self::assertStringContainsString("Where you are:\n\n| Street |", $rendered->text);
+    }
+
+    /**
+     * An empty collection leaves nothing behind, which is §5.11's call carried
+     * over unchanged.
+     *
+     * Not a header with no rows under it: a heading over an empty space reads as
+     * a defect, and a message that simply does not mention the list is the
+     * sensible email for a record with none.
+     */
+    public function testACollectionWithNoRowsDrawsNothing(): void
+    {
+        $rendered = $this->render(
+            $this->write('Letter', 'Hello', "Where you are:\n\n[addresses]\n\nThanks."),
             $this->aContact(),
         );
 
-        self::assertStringContainsString('You live at .', $rendered->text);
+        self::assertStringNotContainsString('|', $rendered->text);
+        self::assertStringNotContainsString('<table>', $rendered->html);
+        self::assertStringContainsString('Thanks.', $rendered->text);
+    }
+
+    /**
+     * A table is not a subject line, so a collection marker in one is blank.
+     *
+     * Blank rather than left as brackets: `addresses` is a word the engine
+     * knows, and every marker the engine knows and cannot fill is blanked (§5.7).
+     */
+    public function testACollectionMarkerInTheSubjectComesOutBlank(): void
+    {
+        $rendered = $this->render(
+            $this->write('Letter', 'Your addresses [addresses]', 'Hello.'),
+            $this->aContactWithAddresses([['street' => 'Bahnhofstrasse 1']]),
+        );
+
+        self::assertSame('Your addresses', trim($rendered->subject));
+    }
+
+    /**
+     * A token nothing answers is still printed as it was typed (XIV-25).
+     *
+     * The substitution stopped being a `strtr()` for this ticket, and that rule
+     * is the one thing about it a change of mechanism could most easily have
+     * dropped without anything noticing.
+     */
+    public function testATokenNothingAnswersIsStillPrintedAsTyped(): void
+    {
+        $rendered = $this->render(
+            $this->write('Letter', 'Hello', 'Dear [contacŧ],'),
+            $this->aContact(),
+        );
+
+        self::assertStringContainsString('[contacŧ]', $rendered->text);
     }
 
     // -- what comes out ------------------------------------------------------
@@ -499,6 +677,21 @@ final class EmailTemplateTest extends WebTestCase
         self::assertNotNull($template);
 
         return $template;
+    }
+
+    /**
+     * A contact with rows in its collection, for the tables XIV-62 renders.
+     *
+     * @param list<array<string, string>> $addresses
+     */
+    private function aContactWithAddresses(array $addresses): int
+    {
+        return $this->savedId($this->saveRecord(
+            ContactModule::KEY,
+            ['kind' => 'person', 'first_name' => 'Ada', 'last_name' => 'Lovelace'],
+            ['addresses' => array_map(static fn (array $fields): array => self::row($fields), $addresses)],
+            variant: 'person',
+        ));
     }
 
     /** @param array<string, string> $values */

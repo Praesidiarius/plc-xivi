@@ -23,8 +23,10 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Xivi\Core\Document\DocumentMarker;
 use Xivi\Core\Document\DocumentMarkers;
+use Xivi\Core\Entity\CollectionDefinition;
 use Xivi\Core\Entity\EmailTemplate;
 use Xivi\Core\Entity\ModuleDefinition;
+use Xivi\Core\Mail\CollectionTables;
 use Xivi\Core\Mail\EmailTemplateRepository;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Metadata\ModuleNotInstalled;
@@ -52,13 +54,13 @@ use Xivi\Core\Permission\ModuleAction;
  * list to keep in step, so a field added this morning is a marker in an email
  * this afternoon.
  *
- * What is deliberately absent is the collections section the document page
- * carries. Repeating blocks are docx-bound by design — `RepeatingBlocks` scans
- * Word's `<w:tr>` elements, and the table row is the unit because it is the unit
- * Word gives a person. What that would mean in Markdown is an unanswered design
- * question rather than a port, so an email that lists an invoice's lines is a
- * real want and a later ticket. Offering the tokens here would be advertising
- * something that comes out blank.
+ * **The collections section is here now, and it is not the document one**
+ * (XIV-62). The document page offers a token per *column* — `[lines.description]`
+ * — because in Word the marker names a column and the table row around it is
+ * what repeats. Here one token renders the whole table, so what is offered is
+ * `[lines]`, the per-kind `[lines:article]`, and one worked example of the
+ * named-column form. Listing the document's tokens instead would be listing a
+ * vocabulary that means something else on the page it is printed on.
  *
  * **The image marker is absent for the same reason** (XIV-89). `[tenant.logo]`
  * becomes a `<w:drawing>` in a .docx, which is an operation on Word's XML and
@@ -92,6 +94,7 @@ final class EmailTemplateController extends AbstractController
         private readonly MetadataRepository $metadata,
         private readonly EmailTemplateRepository $templates,
         private readonly DocumentMarkers $markers,
+        private readonly CollectionTables $tables,
         private readonly TranslatorInterface $translator,
     ) {
     }
@@ -235,6 +238,11 @@ final class EmailTemplateController extends AbstractController
             // first time they add a field. The very same lists the document page
             // draws, from the very same class (XIV-38).
             'markers' => $this->markersPerVariant($definition),
+            // The rows a message lists rather than states (XIV-62). Its own
+            // section, and not the document page's section with a different
+            // heading: there a marker names a column, and here one marker is the
+            // whole table.
+            'collections' => $this->collectionMarkers($definition),
             // Minus the ones that draw rather than write — see the class
             // docblock. Filtered here rather than by a second method on
             // `DocumentMarkers`, because the reason is a fact about emails and
@@ -273,6 +281,35 @@ final class EmailTemplateController extends AbstractController
         }
 
         return $lists;
+    }
+
+    /**
+     * The collections this module has, with the tokens that render each one
+     * (XIV-62).
+     *
+     * A derived collection is offered like any other, deliberately: an order's
+     * VAT breakdown is a table nobody types into and exactly the sort of thing
+     * somebody wants restated in an email. "Nobody can edit it" is a fact about
+     * the form, not about whether it can be read out.
+     *
+     * @return list<array{collection: CollectionDefinition, markers: list<DocumentMarker>, example: string}>
+     */
+    private function collectionMarkers(ModuleDefinition $definition): array
+    {
+        $sections = [];
+
+        foreach ($definition->getCollections() as $collection) {
+            $sections[] = [
+                'collection' => $collection,
+                'markers' => $this->tables->markersFor($collection),
+                // What `[lines]` would have to be written as to say the same
+                // thing column by column, built by the renderer itself so the
+                // example on the screen cannot drift from what typing it does.
+                'example' => $this->tables->exampleFor($collection),
+            ];
+        }
+
+        return $sections;
     }
 
     /**

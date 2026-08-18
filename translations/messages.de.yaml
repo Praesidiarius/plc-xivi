@@ -671,6 +671,18 @@ email_template:
     placeholders_help: >-
         Schreibe diese samt Klammern in den Betreff oder die Nachricht. Beim Verschicken werden
         sie durch die Werte dieses Datensatzes ersetzt. Was du weglässt, bleibt weg.
+    collection_help: >-
+        Dieser hier ist kein Wert — daraus wird eine ganze Tabelle, eine Zeile pro Eintrag, in
+        der Reihenfolge, in der sie stehen. Setze ihn auf eine eigene Zeile und nicht mitten in
+        einen Satz. Im Betreff bleibt er leer: eine Tabelle ist keine Betreffzeile.
+    collection_columns_help: >-
+        Ohne weitere Angabe kommen alle Spalten. Nenne die, die du willst, in der Reihenfolge,
+        in der du sie willst — schreibe [%example%] — was für eine E-Mail meist das Richtige
+        ist, denn das angehängte Dokument listet ohnehin alles auf.
+    collection_kinds_help: >-
+        Einträge jeder Art landen in derselben Tabelle, in ihrer eigenen Reihenfolge, und eine
+        Spalte, zu der ein Eintrag nichts hat, bleibt leer. Hänge die Art an — [lines:article] —
+        für eine Tabelle nur dieser Art.
     wrapper: Rund um deine Nachricht
     wrapper_help: >-
         Was du hier schreibst, ist die Nachricht. Der Rahmen darum — das Layout und die

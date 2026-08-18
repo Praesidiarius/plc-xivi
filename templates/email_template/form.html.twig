@@ -93,10 +93,12 @@
 					answer comes from this customer's own definitions rather than from
 					documentation that would go stale the first time they add a field.
 
-					No collections section, unlike the document page. Repeating blocks
-					are Word's table row (XIV-17), and what one would be in Markdown is
-					an unanswered design question rather than a port — so those tokens
-					are not offered here, because here they come out blank.
+					A collections section too, since XIV-62 — but not the document page's
+					one. There a marker names a *column* and the table row around it is
+					what repeats; here one marker is the whole table, so the token that
+					belongs on this page is `[lines]` rather than `[lines.description]`.
+					Printing the document's tokens here would be printing a vocabulary
+					that means something else on the page it is printed on.
 				#}
 				<div class="card">
 					<div class="card-body">
@@ -117,6 +119,39 @@
 
 							{{ reference.list(general) }}
 						</section>
+
+						{#
+							The rows a message lists rather than states (XIV-62).
+
+							Their own section, and the prose under the heading is not
+							decoration: `[lines]` sits in a list beside `[first_name]`
+							looking exactly like it, and one of them expands to a whole
+							table. Somebody who pastes it into the middle of a sentence
+							finds that out from the email they have just sent, which is
+							the mistake the picture badge one list up exists to stop.
+						#}
+						{% for section in collections %}
+							<section class="mt-4 email-collection-markers">
+								<h3 class="h6">{{ section.collection.label }}</h3>
+								<p class="text-body-secondary small mb-2">{{ 'email_template.collection_help'|trans }}</p>
+
+								{{ reference.list(section.markers) }}
+
+								{#
+									The named-column form, as one worked example built
+									from this collection's own fields rather than as a
+									sentence of grammar. Nobody reads a grammar; almost
+									everybody can copy a line and delete a word from it.
+								#}
+								<p class="text-body-secondary small mt-2 mb-0">
+									{{ 'email_template.collection_columns_help'|trans({'%example%': section.example}) }}
+								</p>
+
+								{% if section.collection.hasVariants %}
+									<p class="text-body-secondary small mt-2 mb-0">{{ 'email_template.collection_kinds_help'|trans }}</p>
+								{% endif %}
+							</section>
+						{% endfor %}
 					</div>
 				</div>
 

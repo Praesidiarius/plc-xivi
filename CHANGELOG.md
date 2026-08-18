@@ -88,6 +88,16 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **An email can list a record's collection** — an order's lines, a contact's
+  addresses — by writing `[lines]` into the message ([XIV-62],
+  [§5.13.1](docs/architecture.md#5131-a-collection-in-an-email-body-xiv-62)).
+  One marker renders the whole table rather than a repeating row, which is
+  deliberately *not* what a Word template does and is argued in the brief: the
+  attached document is where the lines are laid out, and a message wants a
+  summary beside it. `[lines:article]` narrows it to one kind of row and
+  `[lines.description,line_total]` picks the columns; the write page lists the
+  tokens and says what they produce. It was blank before, and the page offered
+  nothing.
 - **A dashboard each person picks and arranges, over a default the installation
   sets** ([XIV-66],
   [§8.3.1](docs/architecture.md#whose-dashboard-it-is-and-a-seam-a-module-can-reach-xiv-66)).
@@ -635,3 +645,4 @@ lands in `Unreleased` here.
 [XIV-88]: https://xivi.youtrack.cloud/issue/XIV-88
 [XIV-66]: https://xivi.youtrack.cloud/issue/XIV-66
 [XIV-96]: https://xivi.youtrack.cloud/issue/XIV-96
+[XIV-62]: https://xivi.youtrack.cloud/issue/XIV-62
