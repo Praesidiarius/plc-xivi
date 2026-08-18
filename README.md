@@ -431,6 +431,7 @@ and §6.4 of the brief argues why that is a rule rather than a nicety.
 | `tenant:inspect [slug] [module]` | **Dev only.** Tenants with their schema state and installed modules; with a slug, that tenant's real field definitions. `--modules` for the catalogue, `--json` for what the MCP tools return |
 | `tenant:migrate [--slug=]` | Applies tenant migrations to every tenant. Exits **0** when they are all at the latest version, **1** when it could not run at all (empty registry, unknown slug) and **3** when a tenant failed while the others succeeded. `bin/deploy` runs it |
 | `deploy:check-secrets` | Refuses in production on a secret still set to the placeholder committed in `.env`. The container entrypoint runs it on every start; it does nothing outside `APP_ENV=prod` |
+| `deploy:check-hosts` | Prints the hostnames this installation answers to, and names every tenant the pattern would answer with a 400. `bin/deploy` runs it and stops on exit 3; the entrypoint runs it and only prints |
 | `tenant:usage:collect [--slug=]` | Counts each tenant's users, last sign-in and records into the control plane, one tenant at a time; put it in cron — see below |
 | `signup:provision [--email=]` | Turns confirmed self-service signups into tenants, one at a time, and invites each first user; put it in cron — see below |
 | `tenant:permissions:grant-all <slug>` | Grants every action on every installed module to one tenant's non-admin users; the upgrade path for an installation that predates permissions, and the way back into a locked-out one |
@@ -481,10 +482,83 @@ Symfony secrets vault in production.
 | `TENANT_ADMIN_DSN` | Used **only** by provisioning, for `CREATE DATABASE` / `CREATE ROLE` |
 | `TENANT_SECRET_KEYS` | `{"id": "base64 32 bytes"}` — keys that encrypt tenant passwords |
 | `TENANT_SECRET_KEY_ID` | Which of those keys new values are written with |
+| `XIVI_TRUSTED_DOMAINS` | The domains this installation answers to, comma separated. **Empty means the `Host` header is not checked at all** — see below |
+| `TRUSTED_PROXIES` | Addresses of a reverse proxy in front of this application. Empty means `X-Forwarded-*` is ignored — see below |
 | `CONTROL_PLANE_HOST` | The hostname the control plane is served on — see below |
 | `SIGNUP_HOST` | The hostname the public signup endpoint is served on. **Empty means no signup route exists at all** — see below |
 | `XIVI_SIGNUP_SECRET` | The shared secret the calling site presents in `X-Xivi-Signup-Key` |
 | `XIVI_SIGNUP_PLANS` | Which plans self-service may ask for, comma separated, most ordinary first |
+
+### Which hostnames this installation answers to
+
+**Empty is the default and it means the `Host` header is not checked**, which is
+what a fresh checkout and the test suite need and is how this application behaved
+before XIV-93. On a real deployment, set it:
+
+```dotenv
+XIVI_TRUSTED_DOMAINS=xivi.app,1plc.ch
+```
+
+Each entry admits the domain **and every hostname under it**, so `xivi.app`
+covers `xivi.app`, `acme.xivi.app` and `acme.eu.xivi.app`. Names, not patterns —
+this is deliberately not a regular expression, because every dot in a
+hand-written one matches any character and `control.example.com` would then also
+accept `controlXexample.com`, a name somebody else can own. The application
+writes the expressions and anchors them.
+
+**You do not list the control plane, the signup host, the loopback or the
+container name.** Every entry of `app.system_hosts` is added for you, so setting
+this variable cannot lock an operator out of their own console. What you have to
+get right is the domain your **customers** are on — including, if self-service
+signup is switched on, the parent domain of `SIGNUP_HOST`, since that is where a
+provisioned signup is routed (`signup.xivi.app` puts customers at
+`acme.xivi.app`, so `xivi.app` is the entry you want).
+
+**What happens if it is wrong.** A hostname outside the list is answered with an
+empty **400 Bad Request** by the framework, before any of this application runs:
+no page, no header named, nothing in the body. That is the correct response to
+send a stranger and a terrible one to debug, so three things say it out loud
+instead:
+
+- `tenant:provision` **refuses** to create a customer on a hostname this
+  installation would refuse, naming the variable. So the mistake normally fails
+  at a console rather than at a customer's browser.
+- `bin/console deploy:check-hosts` prints what the installation answers to and
+  names every tenant that would get a 400. `bin/deploy` runs it before the
+  serving containers are replaced and stops the deploy (exit 3) if a tenant that
+  is serving today would be refused; the container entrypoint runs it on every
+  start and only prints, because one customer's hostname must not stop every
+  container from coming up.
+- A refused request writes one `error` line naming the host that was sent, what
+  the pattern admits and what to change.
+
+The reasoning, and why the pattern is composed rather than configured, is
+[§4.3](docs/architecture.md#43-which-hostnames-this-installation-answers-to-xiv-93)
+of the brief.
+
+### If there is a load balancer in front
+
+`TRUSTED_PROXIES` is empty by default and that is correct for the shipped
+topology: FrankenPHP terminates TLS itself, so nothing is in front of it and
+`X-Forwarded-*` headers are ignored — which is the safe default, and also the
+reason a deployment that *does* have a proxy sees the proxy's address everywhere
+instead of the client's.
+
+```dotenv
+TRUSTED_PROXIES=10.0.0.0/8          # or private_ranges, or REMOTE_ADDR
+```
+
+Which forwarded headers are then believed is decided in
+`config/packages/framework.yaml` and is not a deployment setting:
+`X-Forwarded-For`, `-Proto` and `-Port` are trusted, `X-Forwarded-Host` and
+`X-Forwarded-Prefix` deliberately are not. Tenant routing *is* the `Host` header,
+and most proxies append forwarded headers rather than replacing them, so
+believing `X-Forwarded-Host` would let a caller pick which customer they are and
+which host appears in a mailed invitation link.
+
+**Set this if you have a proxy.** Without it, absolute URLs generated while
+serving — the invitation links in §8.8's mails above all — come out as `http://`
+behind a TLS-terminating balancer.
 
 ### The control plane needs a hostname of its own
 
@@ -507,6 +581,13 @@ Two consequences worth knowing before you pick a name:
 - **`tenant:provision` refuses to route a customer to it**, along with every other
   entry in `app.system_hosts`. Given what is behind it, prefer a name that is not
   guessable from the customer-facing domain.
+- **The hostname is not a boundary.** Anybody who can set `Host:` to it reaches
+  the sign-in page from any address that terminates the connection, and
+  `XIVI_TRUSTED_DOMAINS` does not change that — the control-plane host is one of
+  the names this installation answers to by construction. What keeps a customer
+  out is the firewall, the provider and `ROLE_OPERATOR`, all of which apply to a
+  forged `Host` exactly as they apply to a real one
+  ([§4.3](docs/architecture.md#43-which-hostnames-this-installation-answers-to-xiv-93)).
 
 Then create the first operator — there is no sign-up, and the control plane refuses
 everybody until this has been run:
@@ -614,7 +695,8 @@ deployments are separated it belongs on the internal one; today it needs
 
 The values committed in `.env` are placeholders and are public. Replace at minimum
 `APP_SECRET`, `TENANT_SECRET_KEYS`, `CONTROL_PLANE_HOST` and the PostgreSQL
-password.
+password, and set `XIVI_TRUSTED_DOMAINS` — until you do, this installation answers
+to any hostname that reaches it, and any of them can end up in an invitation link.
 
 ```bash
 php -r 'echo base64_encode(random_bytes(32)), PHP_EOL;'   # a TENANT_SECRET_KEYS value
@@ -647,7 +729,8 @@ whichever tool eventually does it:
 bin/deploy
 ```
 
-It checks the secrets, migrates the control-plane database, then migrates every
+It checks the secrets, migrates the control-plane database, checks that every
+customer is on a hostname this installation answers to, then migrates every
 tenant database, and stops on the first failure. **Nothing else runs the tenant
 migrations** — the entrypoint deliberately does not, because it runs on every
 container start rather than once per deploy, and at fifty customers that turns a
@@ -657,7 +740,9 @@ the ordering depends on, is
 
 A non-zero exit means do not switch traffic. **3** in particular means some tenants
 migrated and some did not; the output names them and prints the `--slug` line to
-retry each one.
+retry each one. `deploy:check-hosts` uses the same 3 for the same reason — some
+customers are on hostnames this installation would answer with a 400 — and names
+them too.
 
 ### Rotating the encryption key
 

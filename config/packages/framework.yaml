@@ -8,8 +8,72 @@ framework:
     #esi: true
     #fragments: true
 
+    router:
+        # Configure how to generate URLs in non-HTTP contexts, such as CLI commands.
+        # See https://symfony.com/doc/current/routing.html#generating-urls-in-commands
+        #
+        # It covers a console command and it does **not** cover a web request
+        # (XIV-93, §4.3): a request context wins over it, so an absolute URL
+        # generated while serving takes its host from the request. That is why
+        # the trusted-host pattern below is the thing standing between a spoofed
+        # `Host` and the invitation link §8.8 puts in an email.
+        default_uri: '%env(DEFAULT_URI)%'
+
+    # **Which hostnames this installation answers to** (XIV-93, §4.3).
+    #
+    # Not a literal, and not a regular expression a deployment writes: every
+    # customer has their own hostname (§4), so the pattern is a wildcard, and the
+    # two ways of writing one wrong are not symmetrical — too wide is the same as
+    # not setting it, too narrow takes a paying customer's installation off the
+    # air. A deployment therefore names *domains* in XIVI_TRUSTED_DOMAINS and
+    # App\Deployment\TrustedHosts writes the anchored expressions, adding every
+    # entry of `app.system_hosts` — the control plane's hostname above all — so
+    # that they cannot be forgotten out of the list.
+    #
+    # **Empty is the shipped default and means the framework never restricts the
+    # Host header at all**, exactly as before this line existed. Development
+    # serves `*.localhost` and the suite invents a hostname per test; a pattern
+    # maintained for either of those would be maintained for the case that does
+    # not matter.
+    trusted_hosts: '%env(xivi_trusted_hosts:default::XIVI_TRUSTED_DOMAINS)%'
+
+    # **Which addresses may speak for a client, and which of their claims are
+    # believed** (XIV-93, §4.3).
+    #
+    # Empty by default, which is both the safe answer and the accurate one for
+    # the topology §4 describes: FrankenPHP terminates TLS itself, so there is no
+    # proxy in front of it and `X-Forwarded-*` arrives only from somebody who
+    # made it up. A deployment that does put a load balancer in front sets
+    # TRUSTED_PROXIES to its addresses — CIDR ranges are fine, and the literals
+    # `REMOTE_ADDR` and `private_ranges` are Symfony's own shorthands.
+    #
+    # **The header list is decided here rather than left to the deployment**, and
+    # the omission is the decision: `x-forwarded-host` is deliberately absent.
+    # This application's whole tenant routing is the Host header, and a trusted
+    # proxy that forwards a client-supplied X-Forwarded-Host — which is what most
+    # proxies do by default, appending rather than replacing — would hand the
+    # choice of tenant back to the caller and put a host of their choosing into
+    # the invitation links §8.8 generates. There is no case here where the proxy
+    # legitimately renames the host: DNS already decided it. `x-forwarded-prefix`
+    # is absent for the same reason one step along — nothing here is served under
+    # a path prefix, and trusting it would let a proxy rewrite the paths in those
+    # same links.
+    #
+    # The three that remain are the ones a load balancer has to be believed
+    # about. `x-forwarded-proto` in particular is not optional in front of a
+    # TLS-terminating balancer: without it every absolute URL this application
+    # generates during a request — the invitation link in a mail, above all —
+    # comes out as `http://`.
+    trusted_proxies: '%env(TRUSTED_PROXIES)%'
+    trusted_headers: ['x-forwarded-for', 'x-forwarded-proto', 'x-forwarded-port']
+
 when@test:
     framework:
         test: true
         session:
             storage_factory_id: session.storage.factory.mock_file
+
+when@prod:
+    framework:
+        router:
+            strict_requirements: null

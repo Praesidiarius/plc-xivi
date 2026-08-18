@@ -140,6 +140,27 @@ php bin/console deploy:check-secrets
 step 'Control-plane schema'
 php bin/console doctrine:migrations:migrate --no-interaction --all-or-nothing
 
+# **Then: would any of these customers be answered with a 400?**
+#
+# XIV-93 gave this installation a list of hostnames it answers to, composed from
+# XIVI_TRUSTED_DOMAINS and `app.system_hosts`. A pattern that is too narrow does
+# not fail here, at a console, in front of somebody: it fails at the customer's
+# browser, as an empty 400, with the first report arriving from them. This is the
+# earliest moment the question can be asked at all — the registry has just been
+# migrated, so it is readable — and it is before the containers are replaced,
+# which is what makes the answer free.
+#
+# Exit 3 means at least one tenant that is *serving today* is on a hostname the
+# pattern refuses, and `set -e` stops the deploy on it. A refused hostname
+# belonging to a suspended or half-provisioned tenant is printed and does not
+# stop anything: nobody is being served on it either way, and a release held up
+# by a customer suspended in March is how a gate comes to be run with `|| true`.
+#
+# The container entrypoint runs this too and deliberately ignores the code — see
+# the argument there, which is about blast radius rather than about strictness.
+step 'Every customer hostname is one this installation answers to'
+php bin/console deploy:check-hosts
+
 # **Then every customer, and the exit code is the point.**
 #
 # `tenant:migrate` catches per tenant and carries on, because one unreachable

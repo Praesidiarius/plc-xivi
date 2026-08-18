@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Xivi\ControlPlane\Provisioning;
 
+use App\Deployment\TrustedHosts;
 use App\Registry\Entity\Tenant;
 use App\Registry\Entity\TenantStatus;
 use App\Registry\Repository\TenantRepository;
@@ -121,6 +122,15 @@ final readonly class TenantProvisioner
          */
         #[Autowire('%app.system_hosts%')]
         private array $systemHosts = [],
+        /**
+         * The hostnames this deployment answers to at all (XIV-93, §4.3).
+         *
+         * Nullable and defaulting to none so that a caller constructing this by
+         * hand is not obliged to know about a deployment concern; autowiring
+         * supplies it everywhere the application actually runs, and a null one
+         * admits everything, which is what an unconfigured installation does.
+         */
+        private ?TrustedHosts $trustedHosts = null,
     ) {
     }
 
@@ -165,6 +175,23 @@ final readonly class TenantProvisioner
             // reason, rather than discovered later.
             if (\in_array($hostname, array_map(TenantResolver::normalize(...), $this->systemHosts), true)) {
                 throw ProvisioningFailed::hostnameIsReserved($hostname);
+            }
+
+            // **And it cannot be a host the deployment does not answer to at
+            // all** (XIV-93). The check above is about a hostname this
+            // application serves for a different purpose; this one is about a
+            // hostname it does not serve at any purpose, because
+            // `framework.trusted_hosts` refuses it before routing. Both fail the
+            // same way if they are not caught here — a row that exists, a
+            // customer who was given an address, and nothing anywhere saying why
+            // it is dead — so they are refused in the same place, at the moment
+            // somebody types it.
+            //
+            // An unconfigured installation admits everything and this never
+            // fires, which keeps `tenant:provision` in a fresh checkout exactly
+            // as it was.
+            if ($this->trustedHosts !== null && !$this->trustedHosts->admits($hostname)) {
+                throw ProvisioningFailed::hostnameIsNotTrusted($hostname, $this->trustedHosts->domains());
             }
         }
 

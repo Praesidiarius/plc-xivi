@@ -56,6 +56,33 @@ final class ProvisioningFailed extends \RuntimeException
         ));
     }
 
+    /**
+     * A hostname this installation would answer with a bare 400 (XIV-93, §4.3).
+     *
+     * The one refusal here that is about a *deployment* setting rather than
+     * about the registry, and it exists because the alternative is silent in the
+     * expensive direction: the row is created, DNS is pointed, the customer is
+     * told their address, and every request to it is refused by
+     * `framework.trusted_hosts` before a single line of this application runs.
+     * Nothing in that sequence produces a message anybody reads, which is
+     * exactly the shape {@see hostnameIsReserved()} was written against one
+     * ticket earlier.
+     *
+     * @param list<string> $domains what `XIVI_TRUSTED_DOMAINS` currently names
+     */
+    public static function hostnameIsNotTrusted(string $hostname, array $domains): self
+    {
+        return new self(sprintf(
+            'Hostname "%s" is outside the hostnames this installation answers to, so every request '
+            . 'to it would be refused with an empty HTTP 400 before reaching this application. '
+            . 'XIVI_TRUSTED_DOMAINS names %s and every name under them. Either give the tenant a '
+            . 'hostname under one of those, or add this one\'s domain to that variable and restart '
+            . '(see README, "Which hostnames this installation answers to").',
+            $hostname,
+            implode(', ', $domains),
+        ));
+    }
+
     public static function dsnWithoutUser(string $slug): self
     {
         return new self(sprintf(
