@@ -88,6 +88,41 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **A tenant can take what their module grew after they installed it**
+  ([XIV-70], [§7.2.1](docs/architecture.md#721-taking-what-a-module-grew-without-retro-fitting-it-xiv-70)).
+  Installing still does not retro-fit — §6.1 is unchanged and no deploy touches
+  anybody's definitions — but the metadata editor now shows what a module's
+  blueprint has that this copy has not, and an administrator takes it item by
+  item. Fields, and whole collections, which needed the installer because they
+  need a table.
+- **A preset chosen once is no longer a one-way door.** The fields `basic` left
+  out are offered later like any other addition, so a customer who chose the
+  smaller shape can grow into the larger one. Nothing records which preset was
+  used and nothing needs to: the offer is diffed against the blueprint.
+- **Nothing that already exists is touched.** A key the shape already has is
+  never offered, whatever it has since been renamed, narrowed or reordered to,
+  and every write is an insert. A blueprint rule the records could not keep —
+  `required` on a module that already has records — arrives switched off, and
+  the confirmation says which ones and why.
+- **A field somebody deleted is not offered back for ever.** After §5.4's
+  removal a deliberately deleted field and one nobody ever had are
+  indistinguishable, so the decision is recorded when it is made rather than
+  guessed at later: removing a field writes it down, as does dismissing an
+  offer, and both are visible in a "dismissed" list with a way back.
+  **On upgrade, every installation starts with nothing declined**, so the first
+  visit to the screen offers everything — including anything deleted back when
+  there was nowhere to record the decision. Dismissing settles it.
+- **A newly added derived field arrives empty**, on every record that already
+  exists, and is filled by its deriver the next time each one is saved. Nothing
+  here writes a plausible value into a record: derived values are the engine's
+  (§5.9).
+- **Run `tenant:migrate` after merging this.** One nullable column
+  (`shape_definition.declined_additions`) holds what a customer has declined.
+  The entity maps it, so a tenant that has not been migrated cannot read any
+  module's definitions at all.
+- **The store's install wizard no longer says the field set cannot be changed
+  later**, because it now can be grown. What it still says, and what is still
+  true, is that nothing rewrites what is installed.
 - **A text field that is not numbered can be given a numbering pattern, from the
   metadata editor** ([XIV-91], [§5.10](docs/architecture.md#making-a-field-numbered-and-stopping-xiv-91)).
   [XIV-27] made a numbered field's pattern the customer's and stopped there,
@@ -380,6 +415,7 @@ lands in `Unreleased` here.
 [XIV-98]: https://xivi.youtrack.cloud/issue/XIV-98
 [XIV-61]: https://xivi.youtrack.cloud/issue/XIV-61
 [XIV-91]: https://xivi.youtrack.cloud/issue/XIV-91
+[XIV-70]: https://xivi.youtrack.cloud/issue/XIV-70
 [XIV-27]: https://xivi.youtrack.cloud/issue/XIV-27
 [XIV-1]: https://xivi.youtrack.cloud/issue/XIV-1
 [XIV-58]: https://xivi.youtrack.cloud/issue/XIV-58

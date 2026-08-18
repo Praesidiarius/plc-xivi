@@ -1,0 +1,134 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'upgrade.review_title'|trans({'%module%': module.label}) }}{% endblock %}
+
+{#
+	The page between deciding and living with it (XIV-70, in XIV-91's shape).
+
+	Nothing here destroys anything — every write is an insert, and §7.2.1 is
+	explicit that this is the additive-only slice — and it is confirmed anyway.
+	"A table appears in your database and every record in this module gains four
+	fields" is a sentence somebody should read before it is true.
+
+	Every figure is counted rather than described. The list of what does *not*
+	happen is as load-bearing as the list of what does: what somebody is most
+	likely to fear here is that their own edits are about to be overwritten, and
+	the answer is that they cannot be, because a key this shape already has is
+	never offered in the first place.
+#}
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<h1 class="h3 mb-3">{{ 'upgrade.review_title'|trans({'%module%': module.label}) }}</h1>
+
+		<div class="card">
+			<div class="card-body">
+				{#
+					`|e` on the label and `|raw` on the sentence, which is the pair rather
+					than a belt and braces: the catalogue's own `<strong>` has to survive,
+					and a module's label is the customer's word (§5.4) — so it is escaped
+					on the way in rather than trusted on the way out.
+				#}
+				<p>{{ 'upgrade.review_adds'|trans({'%module%': module.label|e})|raw }}</p>
+
+				<ul>
+					{% for addition in plan.additions %}
+						<li>
+							<code>{{ addition.key }}</code> — {{ addition.label }}
+							<span class="text-body-secondary">
+								{% if addition.kind.value == 'collection' %}
+									({{ 'upgrade.a_collection'|trans({'%count%': addition.fields}) }})
+								{% else %}
+									({{ types[addition.type].label|default(addition.type) }}, {{ addition.shape.label }})
+								{% endif %}
+							</span>
+						</li>
+					{% endfor %}
+				</ul>
+
+				{#
+					The scale, which is the only part of this a customer cannot work out
+					from the previous page.
+				#}
+				{% if plan.records > 0 %}
+					<div class="alert alert-warning" role="alert">
+						<p class="mb-0">{{ 'upgrade.review_records'|trans({'%count%': plan.records, '%module%': module.label|e})|raw }}</p>
+					</div>
+				{% endif %}
+
+				{% if plan.rows > 0 %}
+					<p>{{ 'upgrade.review_rows'|trans({'%count%': plan.rows})|raw }}</p>
+				{% endif %}
+
+				{% if plan.tables > 0 %}
+					<p>{{ 'upgrade.review_tables'|trans({'%count%': plan.tables})|raw }}</p>
+				{% endif %}
+
+				{#
+					A field the engine fills arrives empty and stays that way until each
+					record is next saved. Nothing here writes a plausible value: a total
+					or a document number this code invented would look right and be
+					wrong (§5.9, XIV-73).
+				#}
+				{% if plan.derived is not empty %}
+					<p>
+						{{ 'upgrade.review_derived'|trans({'%count%': plan.derived|length})|raw }}
+						<span class="text-body-secondary">
+							{% for addition in plan.derived %}<code>{{ addition.key }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+						</span>
+					</p>
+				{% endif %}
+
+				{#
+					A rule the records that already exist could not keep. Installing it
+					anyway would leave a module nobody can save a record in, which is
+					what §5.4 refuses to do to somebody; refusing the addition over it
+					would mean a tenant with data could never take a required field at
+					all. So it arrives switched off, and says so.
+				#}
+				{% if plan.relaxed is not empty %}
+					<p>
+						{{ 'upgrade.review_relaxed'|trans({'%count%': plan.relaxed|length})|raw }}
+						<span class="text-body-secondary">
+							{% for addition in plan.relaxed %}<code>{{ addition.key }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+						</span>
+					</p>
+				{% endif %}
+
+				<p class="mb-0"><strong>{{ 'upgrade.review_keeps'|trans }}</strong></p>
+				<ul class="text-body-secondary mb-0">
+					<li>{{ 'upgrade.review_keeps_fields'|trans }}</li>
+					<li>{{ 'upgrade.review_keeps_values'|trans }}</li>
+					<li>{{ 'upgrade.review_keeps_removal'|trans }}</li>
+				</ul>
+			</div>
+		</div>
+
+		<form method="post" class="mt-3" action="{{ path('module_upgrade_take', {module: module.key}) }}">
+			<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
+			{% for addition in plan.additions %}
+				<input type="hidden" name="additions[]" value="{{ addition.token }}">
+			{% endfor %}
+
+			{#
+				A tick before a table is created, and the controller requires it too —
+				`required` is a courtesy to somebody using the page and nothing at all
+				to a form posted around it. Unticked on arrival.
+			#}
+			<div class="form-check mb-3">
+				<input class="form-check-input" type="checkbox" name="confirm" value="1" id="upgrade-confirm" required>
+				<label class="form-check-label" for="upgrade-confirm">
+					{{ 'upgrade.review_agree'|trans({'%count%': plan.additions|length, '%module%': module.label}) }}
+				</label>
+			</div>
+
+			<div class="d-flex align-items-center gap-2">
+				<a class="btn btn-link" href="{{ path('module_upgrade', {module: module.key}) }}">{{ 'common.cancel'|trans }}</a>
+				<button class="btn btn-primary" type="submit">{{ 'upgrade.review_do'|trans }}</button>
+			</div>
+		</form>
+	</main>
+{% endblock %}

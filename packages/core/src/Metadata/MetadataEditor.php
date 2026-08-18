@@ -17,6 +17,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Module\AdditionKind;
 use Xivi\Core\Numbering\NumberFormat;
 use Xivi\Core\Record\RecordRepository;
 
@@ -323,9 +324,57 @@ final readonly class MetadataEditor
             throw MetadataChangeRefused::systemField($field->getKey());
         }
 
-        $field->getShape()->removeField($field);
+        $shape = $field->getShape();
+        $shape->removeField($field);
+
+        // And remember that they did not want it (XIV-70).
+        //
+        // **This is the moment the decision is unambiguous, and the only one.**
+        // Once this row is gone, a field somebody deleted on purpose and a field
+        // they never had look identical — the definition is the only difference
+        // between them and it is what is being removed. So the upgrade screen,
+        // which offers what the blueprint has and this shape has not, would
+        // otherwise re-offer this field for ever, asking somebody the same
+        // question they have just answered by hand.
+        //
+        // Recorded whatever the key is, rather than only for keys the blueprint
+        // happens to declare. This class has no blueprint to check against and
+        // should not grow one: it edits definitions and knows nothing about
+        // which build is deployed. Recording a customer's own `nickname` costs a
+        // string and means that a future module declaring a `nickname` does not
+        // reopen a question this customer already closed — which is the right
+        // answer anyway, and the dismissed list on the upgrade screen is where
+        // somebody takes it back.
+        $shape->decline(AdditionKind::Field, $field->getKey());
 
         $this->entityManager->remove($field);
+        $this->entityManager->flush();
+        $this->cache->clear();
+    }
+
+    /**
+     * Remember that a customer does not want something their blueprint offers
+     * (XIV-70).
+     *
+     * Here rather than on the entity's own doorstep for the reason every other
+     * write in this class is here: definitions are read through a cache with a
+     * stated lifetime (XIV-53), and a page still showing an offer somebody has
+     * just dismissed would look like the dismissal had failed. One place that
+     * writes definitions, one place that empties the cache.
+     */
+    public function declineAddition(ShapeDefinition $shape, AdditionKind $kind, string $key): void
+    {
+        $shape->decline($kind, $key);
+
+        $this->entityManager->flush();
+        $this->cache->clear();
+    }
+
+    /** And take it back, which has to be possible or the first answer is a trap. */
+    public function restoreAddition(ShapeDefinition $shape, AdditionKind $kind, string $key): void
+    {
+        $shape->restore($kind, $key);
+
         $this->entityManager->flush();
         $this->cache->clear();
     }

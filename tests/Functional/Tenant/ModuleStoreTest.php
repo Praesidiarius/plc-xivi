@@ -173,19 +173,26 @@ final class ModuleStoreTest extends WebTestCase
     }
 
     /**
-     * The wizard says the choice is permanent, in as many words.
+     * The wizard is honest about what choosing a preset costs, in as many words.
      *
-     * The acceptance criterion, and the whole reason XIV-70 is not a prerequisite:
-     * for this iteration the screen simply has to be honest about it.
+     * It used to say *this choice cannot be changed later*, which was the honest
+     * sentence while [XIV-70] did not exist. It does now (§7.2.1): the fields the
+     * smaller preset leaves out can be taken afterwards, one at a time, so that
+     * sentence would be a screen telling somebody they are making a decision they
+     * are not. What is still true, and is what the promise was always really
+     * about, is that nothing rewrites what is installed here — which is exactly
+     * what makes renaming and rearranging it afterwards safe.
      */
-    public function testTheWizardStatesThatThePresetCannotBeChangedLater(): void
+    public function testTheWizardIsHonestAboutWhatChoosingAPresetCosts(): void
     {
         $this->signIn(self::ADMIN);
 
         $wizard = $this->client->request('GET', $this->url('/store/contact/install'));
+        $page = $wizard->filter('main')->text();
 
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString('cannot be changed later', $wizard->filter('main')->text());
+        self::assertStringContainsString('Nothing rewrites this afterwards', $page);
+        self::assertStringContainsString('can be taken later', $page, 'and the way out is named');
         // Both futures on the screen at once, rather than one behind a click.
         self::assertCount(2, $wizard->filter('input[name="preset"]'));
     }

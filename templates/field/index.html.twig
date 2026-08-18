@@ -19,6 +19,28 @@
 			<a class="btn btn-link" href="{{ path('module_index', {module: module.key}) }}">{{ 'field.back_to'|trans({'%module%': module.label|lower}) }}</a>
 		</div>
 
+		{#
+			What this module has gained since it was installed (XIV-70).
+
+			Here because this is where somebody comes when they want a field they
+			have not got, and until now the only answer to "the new Contact has an
+			addresses collection and mine does not" was to build it by hand — or, for
+			a collection, to be told it cannot be done at all. A count and a link
+			rather than the offer itself: taking one changes the shape of every
+			record in the module, which is a page with a confirmation on the end of
+			it and not a banner.
+
+			Absent when there is nothing to take, which is the ordinary state of a
+			module installed from this build. A permanent notice saying "nothing to
+			do" is a notice people stop reading.
+		#}
+		{% if additions > 0 %}
+			<div class="alert alert-info d-flex align-items-center justify-content-between" role="alert">
+				<span>{{ 'upgrade.banner'|trans({'%count%': additions, '%module%': module.label}) }}</span>
+				<a class="btn btn-sm btn-outline-primary" href="{{ path('module_upgrade', {module: module.key}) }}">{{ 'upgrade.banner_link'|trans }}</a>
+			</div>
+		{% endif %}
+
 		{% for shape in shapes %}
 			<div class="card mb-3">
 				<div class="card-body">

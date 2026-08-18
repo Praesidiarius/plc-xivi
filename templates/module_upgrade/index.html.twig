@@ -1,0 +1,158 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'upgrade.title'|trans }} — {{ module.label }}{% endblock %}
+
+{#
+	What this module has gained since it was installed (XIV-70, §7.2.1).
+
+	The page exists because §6.1 is right and incomplete: a blueprint is a seed,
+	the customer's definitions are the truth afterwards, and until now there was
+	no way at all to say "yes, add the new part". So this is an offer — shown,
+	chosen per item, and never run by a deploy.
+
+	Two lists, and the second one is the design decision. A dismissed addition is
+	remembered so that the first list stops asking, and it is kept visible so the
+	answer can be taken back; a decision nobody can see is not a decision.
+
+	One form around the table, with the dismiss button using `formaction` rather
+	than a form of its own. Forms cannot nest, and the alternative — a second form
+	per row, linked by the `form` attribute the way the field editor does it —
+	would be fifteen empty forms at the bottom of the page to save one attribute.
+#}
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<div class="d-flex align-items-center justify-content-between mb-3">
+			<div>
+				<h1 class="h3 mb-0">{{ 'upgrade.title'|trans }}</h1>
+				<p class="text-body-secondary small mb-0">{{ 'upgrade.subtitle'|trans({'%module%': module.label}) }}</p>
+			</div>
+			<a class="btn btn-link" href="{{ path('field_index', {module: module.key}) }}">{{ 'upgrade.back_to_fields'|trans }}</a>
+		</div>
+
+		{% if available is empty and dismissed is empty %}
+			<div class="card">
+				<div class="card-body">
+					<p class="mb-0">{{ 'upgrade.nothing'|trans({'%module%': module.label}) }}</p>
+				</div>
+			</div>
+		{% endif %}
+
+		{% if available is not empty %}
+			<form method="post" action="{{ path('module_upgrade_review', {module: module.key}) }}">
+				<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
+
+				<div class="card mb-3">
+					<div class="card-body">
+						<p>{{ 'upgrade.intro'|trans }}</p>
+						{# The promise that makes ticking everything a safe thing to do. #}
+						<p class="text-body-secondary small mb-0">{{ 'upgrade.keeps_yours'|trans }}</p>
+
+						<div class="table-responsive mt-3">
+							<table class="table table-sm align-middle mb-0">
+								<thead>
+									<tr>
+										<th scope="col"></th>
+										<th scope="col" class="text-body-secondary small text-uppercase">{{ 'common.name'|trans }}</th>
+										<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.label'|trans }}</th>
+										<th scope="col" class="text-body-secondary small text-uppercase">{{ 'upgrade.what'|trans }}</th>
+										<th scope="col" class="text-body-secondary small text-uppercase">{{ 'upgrade.where'|trans }}</th>
+										<th scope="col"></th>
+									</tr>
+								</thead>
+								<tbody>
+									{% for addition in available %}
+										<tr>
+											{# Ticked on arrival: everything here is additive and reversible in
+											   the editor, so the safe default is the useful one. #}
+											<td>
+												<input class="form-check-input" type="checkbox" name="additions[]"
+												       value="{{ addition.token }}" id="a{{ loop.index }}" checked>
+											</td>
+											<td><label for="a{{ loop.index }}"><code>{{ addition.key }}</code></label></td>
+											<td>
+												{{ addition.label }}
+												{% if addition.derived %}
+													<span class="badge text-bg-light">{{ 'upgrade.derived'|trans }}</span>
+												{% endif %}
+											</td>
+											<td class="text-body-secondary">
+												{% if addition.kind.value == 'collection' %}
+													{{ 'upgrade.a_collection'|trans({'%count%': addition.fields}) }}
+												{% else %}
+													{{ types[addition.type].label|default(addition.type) }}
+												{% endif %}
+											</td>
+											<td class="text-body-secondary">{{ addition.shape.label }}</td>
+											<td class="text-end">
+												{#
+													Same form, different action. What it posts is this button's own
+													name and value, which is why the row needs no form of its own.
+												#}
+												<button class="btn btn-sm btn-outline-secondary" type="submit"
+												        name="addition" value="{{ addition.token }}"
+												        formaction="{{ path('module_upgrade_dismiss', {module: module.key}) }}">{{ 'upgrade.dismiss'|trans }}</button>
+											</td>
+										</tr>
+									{% endfor %}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+
+				<div class="d-flex align-items-center gap-2">
+					<button class="btn btn-primary" type="submit">{{ 'upgrade.review'|trans }}</button>
+					<span class="text-body-secondary small">{{ 'upgrade.review_note'|trans }}</span>
+				</div>
+			</form>
+		{% elseif dismissed is not empty %}
+			<div class="card mb-3">
+				<div class="card-body">
+					<p class="mb-0">{{ 'upgrade.nothing_outstanding'|trans({'%module%': module.label}) }}</p>
+				</div>
+			</div>
+		{% endif %}
+
+		{% if dismissed is not empty %}
+			<div class="card mt-3">
+				<div class="card-body">
+					<h2 class="h5">{{ 'upgrade.dismissed_title'|trans }}</h2>
+					<p class="text-body-secondary small">{{ 'upgrade.dismissed_help'|trans }}</p>
+
+					<form method="post" action="{{ path('module_upgrade_restore', {module: module.key}) }}">
+						<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
+
+						<div class="table-responsive">
+							<table class="table table-sm align-middle mb-0">
+								<tbody>
+									{% for addition in dismissed %}
+										<tr>
+											<td><code>{{ addition.key }}</code></td>
+											<td>{{ addition.label }}</td>
+											<td class="text-body-secondary">
+												{% if addition.kind.value == 'collection' %}
+													{{ 'upgrade.a_collection'|trans({'%count%': addition.fields}) }}
+												{% else %}
+													{{ types[addition.type].label|default(addition.type) }}
+												{% endif %}
+											</td>
+											<td class="text-body-secondary">{{ addition.shape.label }}</td>
+											<td class="text-end">
+												<button class="btn btn-sm btn-outline-secondary" type="submit"
+												        name="addition" value="{{ addition.token }}">{{ 'upgrade.restore'|trans }}</button>
+											</td>
+										</tr>
+									{% endfor %}
+								</tbody>
+							</table>
+						</div>
+					</form>
+				</div>
+			</div>
+		{% endif %}
+	</main>
+{% endblock %}

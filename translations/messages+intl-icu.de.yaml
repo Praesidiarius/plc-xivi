@@ -56,6 +56,21 @@ control_plane:
     modules_differ: '{count, plural, one {# Modul weicht von der Registrierung ab} other {# Module weichen von der Registrierung ab}}'
     modules_more: '{count, plural, one {# weiteres Modul} other {# weitere Module}}'
 
+# Übernehmen, was ein Modul dazubekommen hat (XIV-70). Jeder dieser Sätze zählt
+# etwas, das der Kunde selbst nicht sehen kann — wie viele Datensätze betroffen
+# sind, wie viele Tabellen entstehen — und genau das entscheidet, ob jemand das
+# jetzt macht oder an einem ruhigen Nachmittag.
+upgrade:
+    a_collection: '{count, plural, one {eine Sammlung, # Feld} other {eine Sammlung, # Felder}}'
+    banner: '{count, plural, one {Deiner Kopie von {module} fehlt # Teil, den dieses Modul inzwischen deklariert.} other {Deiner Kopie von {module} fehlen # Teile, die dieses Modul inzwischen deklariert.}}'
+    review_records: '{count, plural, one {<strong>Der # Datensatz</strong> in {module} bekommt diese Felder — leer. Es wird nichts hineingeschrieben, die Felder sind ab jetzt einfach da.} other {<strong>Alle # Datensätze</strong> in {module} bekommen diese Felder — leer. Es wird in keinen davon etwas hineingeschrieben, die Felder sind ab jetzt einfach da.}}'
+    review_rows: '{count, plural, one {# Zeile innerhalb dieser Datensätze bekommt die neuen Felder, ebenfalls leer.} other {# Zeilen innerhalb dieser Datensätze bekommen die neuen Felder, ebenfalls leer.}}'
+    review_tables: '{count, plural, one {<strong>Eine Tabelle wird angelegt</strong> in deiner Datenbank, für die neue Sammlung. Sie beginnt leer.} other {<strong># Tabellen werden angelegt</strong> in deiner Datenbank, eine je neuer Sammlung. Sie beginnen leer.}}'
+    review_derived: '{count, plural, one {# davon wird von der Anwendung ausgefüllt statt eingetippt: es kommt bei vorhandenen Datensätzen leer an und wird beim nächsten Speichern gefüllt:} other {# davon werden von der Anwendung ausgefüllt statt eingetippt: sie kommen bei vorhandenen Datensätzen leer an und werden beim nächsten Speichern gefüllt:}}'
+    review_relaxed: '{count, plural, one {# davon ist im Modul ein Pflichtfeld und kommt hier optional an, weil die vorhandenen Datensätze das nicht erfüllen könnten. Mach es im Feldeditor zur Pflicht, sobald sie ausgefüllt sind:} other {# davon sind im Modul Pflichtfelder und kommen hier optional an, weil die vorhandenen Datensätze das nicht erfüllen könnten. Mach sie im Feldeditor zur Pflicht, sobald sie ausgefüllt sind:}}'
+    review_agree: '{count, plural, one {Ja, das zu {module} hinzufügen.} other {Ja, alle # zu {module} hinzufügen.}}'
+
 flash:
+    upgrade_taken: '{count, plural, one {# Teil zu {module} hinzugefügt. Es steht jetzt in der Feldliste und lässt sich umbenennen und umsortieren wie jedes andere.} other {# Teile zu {module} hinzugefügt. Sie stehen jetzt in der Feldliste und lassen sich umbenennen und umsortieren wie alle anderen.}}'
     password_too_short: '{count, plural, one {Verwende mindestens # Zeichen.} other {Verwende mindestens # Zeichen.}}'
     imported: 'Importiert. {module}: {added, plural, other {# hinzugefügt}}, {updated, plural, other {# geändert}}.'

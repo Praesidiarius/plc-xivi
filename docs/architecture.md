@@ -3472,7 +3472,9 @@ Three sources, and the discipline is knowing which one a given need belongs to:
   reversible. Nothing can add a *collection* back — that needs a table, which only
   the installer creates — so a preset omitting one would be a decision the
   customer could never undo. Every collection a module declares is installed every
-  time, until §7.2's additive upgrade exists.
+  time — and since §7.2.1 a collection the module gained *later* can be taken as
+  well, which is the same rule arrived at from the other side: the installer is
+  still the only thing that makes a table.
 
   Nothing records which preset was used. Storing it would only invite something to
   re-apply it later, and a preset is a seed with no further say.
@@ -3489,6 +3491,20 @@ A preset is a seed, not a type. Once installed, the tenant's definitions are the
 truth and the preset has no further say — which is also why presets do not make
 §7.2 worse: customers are *designed* to diverge from each other, so "we do not
 retro-fit blueprint changes" is the stated model rather than a limitation.
+
+**That rule is unchanged, and §7.2.1 is its one sanctioned exception (XIV-70).**
+Nothing retro-fits: a blueprint that grows still reaches into no installation, a
+release still rewrites nobody's definitions, and a deploy still changes no
+customer's shape. What exists now is the other half of the sentence — an
+*explicit* way to say yes. A customer is shown what their installed module is
+missing relative to the blueprint they could have, including the fields a smaller
+preset left out, and takes it item by item or dismisses it. It only ever adds, and
+a key they already have is never offered — whatever they have since renamed or
+narrowed it to — so the thing this rule exists to protect is protected by
+construction rather than by care. The preset choice is therefore no longer a
+one-way door in the direction that mattered: the smaller preset can be grown into
+the larger, while nothing can take away what was installed. See §7.2.1 for the
+whole of it, including what happens to a field somebody deleted on purpose.
 
 Templates reference presets instead of duplicating them, which is why they need
 nothing new from the engine: a template is a list of installations it already
@@ -3559,6 +3575,14 @@ preset's fields listed in full, radios rather than a select so both futures are 
 the screen at once, and the sentence *this choice cannot be changed later* above
 the choice rather than under it. A friendly dropdown is the worst possible
 presentation of an irreversible decision.
+
+*Updated by §7.2.1 ([XIV-70]).* That upgrade exists now, so the sentence has
+been corrected rather than kept: the fields a smaller preset leaves out can be
+taken afterwards, one at a time, and a screen claiming otherwise would be telling
+somebody they are making a decision they are not. The screen still says the part
+that is still true and was always the load-bearing half — **nothing rewrites what
+is installed here** — and the layout argument above is unchanged, because the
+choice is still worth reading before it is made.
 
 **Requirements are refused with guidance, never chained.** Invoice needs Contact
 and Order; the installer already refuses and names what is missing (XIV-23). The
@@ -3809,6 +3833,146 @@ Not yet decided. Decide deliberately rather than by accident.
 
 *Numbering is stable — code comments cite these by number, so a settled question keeps
 its slot and gains a note rather than being removed.*
+
+### 7.2.1 Taking what a module grew, without retro-fitting it (XIV-70)
+
+The additive-only slice question 2 named, built. **§6.1 is unchanged and is the
+thing this is built on top of**: installing does not retro-fit, a blueprint is a
+seed, and from the moment a module is installed the customer's own definitions
+are the truth. Nothing here reaches into anybody's database on a deploy.
+
+What was missing was never the rule; it was that there was no *explicit* way to
+say yes. Contact gained an `addresses` collection and a `payment_terms` field
+([XIV-67]) after customers already had Contact, and those customers could have
+neither — the collection because only the installer makes a table, the field
+because nothing offered it. A tenant who installed the `basic` preset had no path
+to the extended shape at all. So this is an **offer**: what your copy of a module
+is missing relative to the blueprint, shown, chosen item by item, and taken by
+somebody with the authority to change what a module is.
+
+**Additive only, and the boundary is what makes it safe.** A field the blueprint
+has and the shape has not is offered; a collection the blueprint has and the
+module has not is offered, which means creating its table. That is the whole
+list. Removing a field the blueprint dropped is *not* here — §5.4 decided that
+removal keeps the values, and no module author gets to take a customer's field
+away — and a field **changing type** is not here either, which is the half of
+question 2 that stays open. Above all, nothing that already exists is touched:
+every write is an insert.
+
+**A key the shape already has is never offered**, whatever it now looks like.
+That one test is the whole protection a customised field gets, and it is
+deliberately cruder than comparing a definition against its blueprint: somebody
+whose `phone` is now called "Mobile", four columns wide and no longer required
+has made three decisions, and an upgrade clever enough to notice the difference
+would be tempted to correct them. So a relabelled field, a changed width, a
+relaxed rule and a reordered form all survive by construction rather than by a
+rule somebody has to remember.
+
+**The offer is diffed against the blueprint, never against a preset.** That falls
+out of §6.1 rather than being a shortcut: nothing records which preset a module
+was installed with, deliberately, because storing it would invite something to
+re-apply it. It does not need to be recorded — every preset names a subset of the
+blueprint's own fields, so "what this customer has, versus what the module
+declares" already covers the extended preset's extras without anything
+remembering the word *extended*.
+
+#### What "missing" means, once somebody has edited things
+
+The design question of the ticket, because two absences are indistinguishable. A
+field the customer **deleted on purpose** looks exactly like one they **never
+had**: §5.4's removal takes the definition and leaves nothing behind to tell them
+apart with. Guessing is wrong in a way somebody notices, in both directions —
+read every absence as "never had" and the offer nags them for ever about a
+decision they already made; read it as "deleted" and a field a preset left out is
+invisible to the customer who now wants it.
+
+So **nothing is inferred afterwards; a decision is written down at the moment it
+is made**, which is the only moment it is unambiguous. Two moments qualify, and
+both write to the same place — a `declined_additions` map on the shape's own row:
+
+- **Dismissing an addition** on the upgrade screen. It stops being offered.
+- **Removing a field** in the metadata editor. Deleting something is as clear an
+  answer to "do you want this" as declining it, and the write happens in
+  `MetadataEditor::removeField()` while the intent is still legible.
+
+Dismissals are kept **visible**, in a list of their own with a way back, because
+a decision nobody can see is not a decision but a disappearance — the same
+promise §5.4 makes by leaving the values behind when a field is removed.
+
+Two consequences are stated rather than hidden. A removal records the key
+whatever it is, including a field the blueprint never declared, so a future
+module declaring `nickname` does not reopen a question this customer closed —
+which is the right answer anyway. And an installation that predates this feature
+has **nothing declined**, so the first time an administrator opens the screen
+they are shown everything, including things deleted back when there was nowhere
+to write the decision down. Asking once is a smaller imposition than nagging for
+ever or deciding on somebody's behalf, and a migration cannot know what those
+deletions meant.
+
+**On the shape's row rather than in a table of its own**, for the reason
+`ModuleDefinition::$followUpsEnabled` gives: "what this customer has, and how it
+is set up" is already one question with one answer. It also gets the lifetime
+right for free — uninstalling takes the declines with it, and a fresh install is
+a fresh choice.
+
+#### Per item, and who may do it
+
+**Per addition rather than all or nothing.** Fifteen additions are fifteen
+decisions and a customer is allowed to want four of them; all-or-nothing would be
+simpler and would make declining one field cost somebody the other fourteen. It
+also costs no state: there is no partial condition to describe, because a tenant
+already holds an arbitrary subset of the blueprint — that is what §6.1 says a
+tenant *is* — so taking four of fifteen leaves the installation in exactly the
+kind of state it was already in. Nothing anywhere records that a module is
+"upgraded", and nothing should.
+
+**Administrators, on the metadata editor's authority rather than the store's**
+(§5.4, §8.4.3). The store's install grant is about putting a module the customer
+does not have into the installation; this changes the shape of every record in
+one they already have, which is the sentence §5.4 uses to explain why field
+editing is admin-only. It sits under `/m/{module}` beside the field editor and
+names no module permission, for the same reason that editor does not.
+
+**Never a side effect of a deploy, and not something an operator does to them.**
+There is deliberately no console command. A headless second front door was the
+obvious symmetry with `tenant:module:install` (§6.3) and it is the wrong one
+here: installing is done *for* a customer at their request, whereas this is a
+customer deciding what their own records are, and an operator's shell doing it to
+them is precisely the retro-fit §6.1 refuses, wearing a different hat.
+
+#### Two things the confirmation has to say
+
+The middle screen is [XIV-91]'s shape — name what is about to happen, name how
+much of it there is, default to no, and require the confirmation in the
+controller rather than only as a `required` attribute. Nothing here destroys
+anything and it is confirmed anyway, because "a table appears in your database
+and every record in this module gains four fields" is a sentence somebody should
+read before it is true rather than after.
+
+- **A rule the records could not keep arrives switched off.** A blueprint field
+  can be `required`, and every record that already exists is empty in a field
+  that has just appeared — installing it required would leave a module nobody can
+  save a record in, which is exactly what §5.4 refuses to do to somebody.
+  Refusing the *addition* over it would be worse, since a tenant with data could
+  then never take a required field at all. So it arrives optional, the page says
+  which ones and why, and switching it on afterwards is the editor's existing
+  conversation with its existing count and its existing refusal. It is a **count,
+  not a policy**: `unique` normally survives, because two records with nothing in
+  a field are not duplicates of each other — and it is checked rather than
+  reasoned about, because §5.4 leaves values behind when a field is removed, so a
+  key can carry duplicates without carrying a definition.
+- **A derived field arrives empty.** Nothing here writes a value into a record.
+  A field a `ValueDeriver` owns (§5.9) belongs to the engine, and this code
+  inventing a plausible total, due date or document number would produce records
+  that look right and are wrong (XIV-73). The definition arrives, the record is
+  untouched, and the deriver fills it the next time that record is saved — which
+  the page says in as many words rather than letting somebody discover it.
+
+**What stays open** is what question 2 still has: a field changing type, purging
+the values a removed field left behind, and removing a field the blueprint
+dropped. None of the three is additive, and this slice was chosen precisely
+because everything in it destroys nothing.
+
 
 ---
 

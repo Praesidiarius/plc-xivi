@@ -296,6 +296,54 @@ field:
             eingeschaltet, läuft sie dort weiter, statt erneut über bereits vergebene Nummern zu
             laufen.
 
+# Was ein Modul seit der Installation dazubekommen hat (XIV-70,
+# docs/architecture.md §7.2.1). Die Sätze hier tragen ungewöhnlich viel: angeboten
+# wird eine Änderung an der Form jedes Datensatzes eines Moduls, und das
+# Wichtigste ist nicht, was passiert, sondern was *nicht* — eigene Änderungen
+# werden nicht überschrieben, nichts wird entfernt, kein Feldtyp ändert sich.
+upgrade:
+    title: Was dieses Modul dazubekommen hat
+    subtitle: '%module% — Teile des Moduls, die deine Kopie nicht hat.'
+    back_to_fields: Zurück zu den Feldern
+    nothing: 'Deine Kopie von %module% hat alles, was das Modul deklariert. Es gibt nichts zu übernehmen.'
+    nothing_outstanding: 'Deine Kopie von %module% hat alles, was das Modul deklariert — bis auf das, was du unten abgelehnt hast.'
+    intro: >-
+        Ein Modul kann zwischen zwei Releases wachsen, und eine Installation wird
+        dabei nie nachträglich verändert: ab dem Tag der Installation gelten deine
+        Definitionen. Nichts davon ist dir also passiert. Es wird angeboten, und du
+        entscheidest Stück für Stück.
+    keeps_yours: >-
+        Es wird ausschließlich Neues hinzugefügt. Ein Feld, das du bereits hast, wird
+        nie erneut angeboten — egal, wie du es inzwischen umbenannt, verkleinert oder
+        umsortiert hast — und nichts Vorhandenes wird geändert. Kein Feld wird
+        entfernt, und kein Feldtyp ändert sich.
+    what: Was
+    where: Gehört zu
+    derived: von der Anwendung ausgefüllt
+    dismiss: Das nicht
+    review: Ansehen, was das täte
+    review_note: Es wird nichts geschrieben, bevor du die nächste Seite gelesen hast.
+    dismissed_title: Abgelehnt
+    dismissed_help: >-
+        Dazu hast du Nein gesagt, deshalb wird es nicht wieder angeboten. Ein Feld zu
+        entfernen zählt als Nein — so hört ein absichtlich gelöschtes Feld auf,
+        wiederzukommen. Wieder anbieten stellt es zurück in die Liste oben.
+    restore: Wieder anbieten
+    banner_link: Ansehen
+    review_title: 'Das zu %module% hinzufügen?'
+    review_adds: 'Das fügt deiner Kopie von <strong>%module%</strong> Folgendes hinzu:'
+    review_keeps: 'Was dabei nicht passiert:'
+    review_keeps_fields: >-
+        Nichts Vorhandenes wird angefasst — keine Beschriftung, keine Breite, keine
+        Regel, auch nicht die Reihenfolge.
+    review_keeps_values: >-
+        In keinen Datensatz wird ein Wert geschrieben. Ein Feld, das die Anwendung
+        füllt, kommt leer an und wird beim nächsten Speichern des Datensatzes gefüllt.
+    review_keeps_removal: >-
+        Kein Feld wird entfernt, und kein Feldtyp ändert sich. Beides sind eigene
+        Fragen, und das hier ist die Antwort auf keine davon.
+    review_do: Hinzufügen
+
 import:
     file: Tabelle
     file_help: 'Ein Export dieses Moduls hat genau die erwartete Form, mit einem Blatt pro Form: %sheets%.'
@@ -560,7 +608,7 @@ permission:
         browse: Store ansehen
         browse_help: Sehen, welche Module diese Installation haben könnte.
         install: Module installieren
-        install_help: Ein Modul zu dieser Installation hinzufügen. Es lässt sich nicht wieder entfernen, und der gewählte Feldsatz lässt sich später nicht ändern.
+        install_help: Ein Modul zu dieser Installation hinzufügen. Es lässt sich nicht wieder entfernen, und was installiert wird, wird so, wie es ist, in deine eigene Datenbank geschrieben.
 
 store:
     title: Store
@@ -579,11 +627,17 @@ store:
     install: Installieren
     install_title: '%module% installieren'
     choose_preset: Wähle, womit du anfängst
-    preset_permanent: Diese Wahl lässt sich später nicht ändern.
+    # Nicht mehr „lässt sich nicht ändern“ (XIV-70). Ändern ließ sich die Wahl nie
+    # — es wird nie etwas weggenommen —, aber der kleinere Satz lässt sich
+    # nachträglich zum größeren ausbauen, und ein Satz, der das Gegenteil sagt,
+    # ist jetzt schlicht falsch. Das Versprechen, das bleibt, ist das über das
+    # Überschreiben: Was hier installiert wird, gehört ab sofort dir.
+    preset_permanent: Daran rührt später nichts mehr.
     preset_permanent_help: >-
         Beim Installieren werden diese Felder in deine Datenbank geschrieben, und danach überschreibt sie
-        nichts mehr — genau das erlaubt dir, sie frei umzubenennen und umzusortieren. Weitere Felder kannst
-        du jederzeit selbst anlegen, aber zum anderen Satz wechseln kannst du nicht.
+        nichts mehr — genau das erlaubt dir, sie frei umzubenennen und umzusortieren. Felder des anderen
+        Satzes lassen sich später einzeln in den Einstellungen des Moduls übernehmen; weggenommen wird
+        nie etwas von dem, was du jetzt installierst.
     confirm_install: Dieses Modul installieren
     follow_ups: Wiedervorlagen auf den Datensätzen dieses Moduls
     follow_ups_help: >-
@@ -750,6 +804,12 @@ flash:
     # hinterher liest, soll von dem handeln, was passiert ist.
     numbering_started: '„%field%“ wird jetzt nummeriert. %count% vorhandene Datensätze haben eine Nummer bekommen, die ältesten zuerst.'
     numbering_stopped: '„%field%“ wird nicht mehr nummeriert. Die Nummern auf den Datensätzen bleiben unverändert, und das Feld lässt sich wieder ausfüllen.'
+    # Übernehmen, was ein Modul dazubekommen hat (XIV-70). Die Ablehnung sagt,
+    # wohin die Entscheidung geht — „das nicht“ lässt sich nur guten Gewissens
+    # anklicken, wenn sichtbar ist, wie man es zurücknimmt.
+    upgrade_dismissed: '„%addition%“ wird nicht wieder angeboten. Es steht in der Liste der abgelehnten Teile, falls du es dir anders überlegst.'
+    upgrade_restored: '„%addition%“ wird wieder angeboten.'
+    upgrade_nothing_chosen: Es war nichts angehakt, also gibt es nichts hinzuzufügen.
     module_installed: '„%module%“ installiert. Niemand sieht es, bis jemand eine Berechtigung darauf bekommt.'
     group_created: '„%group%“ erstellt. Sage jetzt, was sie darf.'
     group_saved: '„%group%“ gespeichert.'
