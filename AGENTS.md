@@ -108,6 +108,35 @@ in the brief first.
 - **Licence-check every new dependency** and record the result. Permissive only —
   LGPL has been rejected here before.
 
+## Adding a package edits files you have edited (XIV-111)
+
+`composer require` and `composer update` run **Symfony Flex recipes**, and a
+recipe writes into your working tree. It is not misbehaving when it does; adding
+a package is simply not an operation that promises to leave your configuration
+alone. There are two mechanisms and they are not equally safe.
+
+**Marker blocks are safe.** In `.env`, `.env.dev`, `.env.test`, `.gitignore`,
+`Dockerfile`, `compose.yaml` and `compose.override.yaml`, Flex only touches what
+is between `###> package/name ###` and `###< package/name ###`. Everything
+outside is yours and stays. (Everything in those files here *is* outside, except
+the Panther block in the `Dockerfile`.)
+
+**Whole-file rewrites are not.** These are regenerated from the recipe's own
+template or from a machine-written model of their contents, so a comment, an
+ordering or a hand-trimmed entry in them is collateral by design:
+
+| File | What rewrites it | What that costs |
+| --- | --- | --- |
+| `config/bundles.php` | every add and every remove | **Nothing may live in it but declarations.** It carried the `class_exists()` that keeps the administration surface optional until `composer update xivi/voucher` deleted it (XIV-103); the rule now lives in `App\Kernel` and `config/optional_bundles.php`, and `ControlPlaneIsOptionalAtBuildTimeTest` fails if logic comes back (XIV-111, §4.4). |
+| `importmap.php` | `importmap:require`, and any recipe that ships an asset | Comments and deliberately *omitted* entries. The Tom Select comment in it explains that three of the four stylesheets the recipe offers are unwanted; a regeneration puts them back and says nothing. **Nothing guards this file.** |
+| `assets/controllers.json` | the Stimulus controllers configurator | Hand-set `enabled` and `autoimport` flags, which is the other half of the same Tom Select decision. |
+
+So: **read `git diff` after every `composer require` and `composer update`**, and
+read all of it rather than the part you were expecting. That is how the first two
+rows were caught, and it is still the only thing that catches the second and the
+third — the deployment guarantee is the one that no longer depends on somebody
+noticing.
+
 ## Tools, if you want them
 
 This project ships its own MCP tools — tenants, the module catalogue, a tenant's
