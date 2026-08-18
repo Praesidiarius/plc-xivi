@@ -745,6 +745,16 @@ with a forged `Host`. What the hostname buys is obscurity and a place to point
 DNS at, and §8.9 now says so in its own words rather than leaving "no tenant
 hostname can reach a control-plane route" to read like something stronger.
 
+**And since [XIV-124] there is a fourth layer, which is the one this section
+could not be.** `CONTROL_PLANE_ALLOWED_IPS` refuses a control-plane request from
+an address the deployment has not listed, before anything else looks at it —
+which is the thing a hostname cannot do, because a hostname is a string in a
+header and an address is where the connection came from. It is optional, empty by
+default and enforced on `Request::getClientIp()`, so it inherits this section's
+`TRUSTED_PROXIES` decision rather than acquiring a second copy of it; §8.9 has
+the argument, including why an allow-list built on a raw header would be worse
+than none.
+
 #### The half that is fixed: what goes into a generated link
 
 Absolute URLs generated during a web request take their host from the request.
@@ -6891,6 +6901,154 @@ distinguishing because only the first two are boundaries:
    rule that guards the tenant application refuses them — which is why an operator
    who wanders towards a tenant screen is told no rather than collecting a 500
    from a connection that has no tenant behind it.
+
+##### A fourth layer, and it is the only one in front (XIV-124)
+
+The three above are all checks made **after the request has arrived**, by the
+surface that can see every customer. That is not a criticism of them — they are
+the layers that decide who gets in, and they hold against a forged `Host`
+exactly as they hold against a real one. It is an observation about what was
+missing, which is anything at all in *front*: until this ticket, the operator
+console was a password prompt that the whole internet could attempt, and the
+paragraph above says in as many words that no hostname setting changes that.
+
+**`CONTROL_PLANE_ALLOWED_IPS` is a list of addresses and CIDR ranges, and a
+request to the control-plane host from anywhere else is refused before anything
+else looks at it.** `App\Deployment\ControlPlaneAllowList` holds the policy and
+`Xivi\ControlPlane\EventListener\ControlPlaneAddressListener` applies it at
+`kernel.request` priority 101 — ahead of `TenantRequestListener` (100) and of
+`ControlPlaneRequestListener` (99), so an address that is not on the list cannot
+make this installation consult its registry, resolve a route, touch a session or
+build a firewall listener.
+
+**It is the outermost of four and a replacement for none of them.** As the only
+layer it would be bad design: an address is a claim about a network, and networks
+are borrowed, shared behind one office NAT and spoofable on unfiltered paths. As
+the fourth it is worth having, because it turns "anybody may attempt a password"
+into "anybody on this list may attempt a password". Nothing about the firewall
+ordering changed, `ControlPlaneFirewallTest` is untouched by this ticket, and
+`ControlPlaneAllowListTest` asserts that an admitted address still lands on the
+sign-in page rather than past it.
+
+**Empty is the default and means no restriction**, which is `PlaceholderSecretGuard`'s
+rule (§4.2) and `TrustedHosts`' (§4.3) for their reason: `bin/compose up`, the
+suite and `bin/ci` all run on addresses no operator would ever write down, and
+the listener returns before it reads anything at all when the variable is empty —
+so "an installation that sets nothing behaves exactly as before" is a property of
+the code rather than a claim about it.
+
+###### The address comes from Symfony, and that is the whole of the design
+
+`REMOTE_ADDR` is the *proxy's* address when there is a proxy, so the address this
+is decided on is `Request::getClientIp()` — which consults `X-Forwarded-For` only
+from an address in `TRUSTED_PROXIES` and only because §4.3 decided to believe
+that header. **Nothing here reads a header.**
+
+That is not a smaller version of the same thing. An allow-list built on a header
+anybody can set is **worse than no allow-list at all**, because it admits
+everybody who has read this repository while looking exactly like a restriction
+to whoever configured it. Two tests hold it from both sides and only mean
+anything together: with nothing trusted in front — the shipped topology — a
+forged `X-Forwarded-For` naming an admitted address is ignored and the caller is
+refused on the address their connection came from; with `TRUSTED_PROXIES` naming
+that connection, the very same header *is* believed and the same caller is
+admitted. The first alone would also pass for a listener that never looked at
+forwarded headers, which would be wrong in the other direction: a deployment
+behind a balancer would have to allow-list the balancer, which admits everybody
+behind it.
+
+Ranges are matched with `IpUtils::checkIp()` rather than compared as strings —
+an office is a range and a VPN is a range, IPv4 and IPv6 both work, and `::1` and
+`0:0:0:0:0:0:0:1` are the same address whatever form a network happens to present.
+
+###### A refusal says nothing and the log says everything
+
+An empty **403**, which is the line `UntrustedHostListener` already draws for
+§4.3's 400 rather than a second convention. Whoever is refused is by definition
+not somebody this installation admits, and a body naming the variable — or
+admitting that an allow-list exists — would be telling the one audience that
+should not be told.
+
+A 403 rather than the 404 `ControlPlaneRequestListener` uses beside it, because
+those are different sentences: that listener answers 404 because the path
+genuinely is not there on that host, and here the path is there and the caller is
+not welcome. The distinction is for the operator who has locked *themselves* out,
+who otherwise sees exactly what they would see if the control plane had never
+been deployed. It covers every path on that host, including the assets and
+profiler paths `ControlPlaneRequestListener` deliberately stands aside for: those
+are exempt from *which host serves them*, not from *who may connect*, and one
+answer for every path is also one that draws no map.
+
+The `error` line names the resolved address, the variable, what it admits, and
+any entry that is not an address. **It also names `REMOTE_ADDR` beside the
+resolved address**, which is the part that pays for itself: when the two are
+equal on an installation the operator swears is behind a load balancer,
+`TRUSTED_PROXIES` has not been set and every request in the installation is being
+attributed to the balancer. That presents as "the allow-list refuses my office
+and my office address is correct", and this line answers it in one glance.
+
+###### Where it is enforced, and the one that was not built
+
+**A listener, not the Caddyfile.** The web server is genuinely stronger — a
+request refused there never reaches PHP — and the two are not exclusive, so
+*Running an installation → The control plane* on the documentation site shows the
+Caddy block for an operator who wants both. What shipped is the application's,
+for three reasons about this codebase rather than about web servers. It **travels
+with the code**, where a rule in a separately maintained Caddyfile can be a
+release behind or absent with nothing here able to tell. It is **testable**,
+which the assertion about a forged header above depends on entirely. And it
+**inherits `TRUSTED_PROXIES`**, where Caddy would need to be told separately, in
+its own syntax, which upstream may speak for a client — a second copy of §4.3's
+decision and therefore a second place for it to be wrong.
+
+###### Locking yourself out is the cost, and it is named rather than solved
+
+**An operator who sets this wrong cannot sign in to fix it**, and unlike a
+too-narrow trusted-host pattern there is no customer-facing symptom to notice
+first: every customer keeps working, every dashboard stays green, and the only
+sign is a 403 on a console one person visits — at whatever hour they next need
+it, which by the nature of consoles is an hour when something is already wrong.
+
+Three things reduce it and none of them removes it:
+
+- **`deploy:check-control-plane` reports the list before anything depends on
+  it**, in the shape `deploy:check-hosts` and `deploy:check-secrets` established
+  and on their exit-code convention (0, and 3 for "would refuse"). It reads only
+  the environment, so it answers from the same values the listener will see.
+  `--address=…` asks about one address in particular; without it, the command
+  offers the address `SSH_CONNECTION` says this shell came from, with the caveat
+  attached — that is where the *shell* came from and it equals the browser's
+  address only if both leave by the same route.
+- **An entry that is not an address does not switch the restriction off.** It is
+  dropped, remembered, printed by the command and named in the log, and the list
+  stays in force. The two alternatives are worse: treating an all-invalid list as
+  unconfigured is a restriction that silently stops restricting while its author
+  believes in it, and *throwing* — which is what `TrustedHosts` does — would be a
+  500 for every customer of the installation over one mistyped character in a
+  variable about the operator's own console. §4.3's asymmetry, one step along.
+- **The console is always the way back**, as it is for the last operator above:
+  the variable is a deployment's own, and `deploy:check-control-plane` run on the
+  box says what the running process actually has.
+
+What is *not* claimed is that this is safe to set unattended. **An operator who
+never runs the check can still lock themselves out**, and the honest mitigation
+is that the door back in is a shell rather than a browser. That is the cost of
+the layer, it is accepted rather than engineered away, and it is written down
+here so that nobody has to rediscover it at two in the morning.
+
+###### Deliberately not in this
+
+**No per-operator addresses.** The list is the installation's, not an account's.
+A column on `operator` would be a second place for the answer to live and would
+be consulted only after the credential has been read, which is a layer in the
+wrong place — the point of this one is that it decides before anything else does.
+
+**No allow-list on the tenant application.** Customers are served on the
+internet; that is what the product is.
+
+**No `--fix`, and no way to widen the list from inside the application**, for
+§4.3's reason: a running instance that could edit which addresses may reach its
+own console could be made to admit anything.
 
 #### Sessions
 
