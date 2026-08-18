@@ -24,9 +24,12 @@ use Symfony\Component\HttpFoundation\RequestMatcherInterface;
  *
  * Three things need it and they must not be allowed to disagree:
  *
- *   1. **The firewall.** `security.yaml` names this class as the
- *      `request_matcher` of the `control_plane` firewall, which is what makes
- *      that firewall host-scoped.
+ *   1. **The firewall.** `packages/control-plane/config/firewalls.php` names
+ *      this class as the `request_matcher` of the `control_plane` firewall,
+ *      which is what makes that firewall host-scoped. It was the application's
+ *      `security.yaml` until XIV-96 moved it out here, so that a build without
+ *      the administration surface has no such firewall rather than a firewall
+ *      pointing at a class the image does not contain.
  *   2. **{@see \Xivi\ControlPlane\EventListener\ControlPlaneRequestListener}**,
  *      which refuses a control-plane path on any other host and refuses any
  *      other path on this one.

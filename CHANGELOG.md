@@ -110,6 +110,19 @@ lands in `Unreleased` here.
   chooses otherwise. A saved layout naming a widget that later disappears (an
   uninstalled module, a renamed widget) quietly loses that card rather than
   erroring.
+- **A customer-facing image that does not contain the administration surface**
+  ([XIV-96], [§4.4](docs/architecture.md#44-two-images-what-a-customers-instance-is-built-without-xiv-96)).
+  `docker build --target frankenphp_public` produces the image a customer's
+  hostname is served from: no operator console, no signup intake, no
+  provisioning, no `control:*` commands — absent from the filesystem, the
+  autoloader and the compiled container rather than switched off. The internal
+  image is unchanged and is still `--target frankenphp_prod`. The build itself
+  refuses to finish if any of the three still names the package.
+- **`deploy:registry-grants` prints the SQL** that leaves the customer-facing
+  instance able to read the tenant registry and unable to write it — derived from
+  the mapping, so a release that adds a registry table cannot leave a
+  hand-written grant script behind. It prints rather than runs: the application
+  knows which tables, a database administrator decides whether.
 - **A tenant can take what their module grew after they installed it**
   ([XIV-70], [§7.2.1](docs/architecture.md#721-taking-what-a-module-grew-without-retro-fitting-it-xiv-70)).
   Installing still does not retro-fit — §6.1 is unchanged and no deploy touches
@@ -475,6 +488,21 @@ lands in `Unreleased` here.
 
 ### Upgrade notes
 
+- **The customer-facing deployment needs its own database user, and it is easier
+  to arrange now than later** ([XIV-96], §4.4). Run
+  `bin/console deploy:registry-grants <role>` and apply the SQL it prints: the
+  public instance gets `SELECT` on the registry tables and nothing else, so an
+  `INSERT INTO tenant` from the process facing the internet is not possible
+  whatever the routing says. A deployment that keeps one database user for both
+  instances still works and loses that guarantee.
+- **The customer-facing image does not run the control-plane migrations.** It
+  checks that somebody else has and **refuses to start** if not, so `bin/deploy`
+  — out of the internal image — has to run before the public containers are
+  replaced. That was already the documented order (§4.2); it is now enforced.
+  `bin/deploy` refuses to run out of the public image at all.
+- **Nothing to do for a single-instance deployment.** One image, one database
+  user and one set of containers behaves exactly as before; all of the above is
+  opt-in by building the second target.
 - **Self-service signup needs a cron entry, and does nothing without one**
   ([XIV-98]). A deployment with `SIGNUP_HOST` set must add
   `*/5 * * * * cd /srv/xivi && bin/console signup:provision`; until it does, a
@@ -523,3 +551,4 @@ lands in `Unreleased` here.
 [XIV-93]: https://xivi.youtrack.cloud/issue/XIV-93
 [XIV-88]: https://xivi.youtrack.cloud/issue/XIV-88
 [XIV-66]: https://xivi.youtrack.cloud/issue/XIV-66
+[XIV-96]: https://xivi.youtrack.cloud/issue/XIV-96

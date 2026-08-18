@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
+use Xivi\ControlPlane\Command\InspectTenantCommand;
+use Xivi\ControlPlane\Command\ResetTenantCommand;
+use Xivi\ControlPlane\Introspection\TenantInspector;
 
 /*
  * The administration surface's own services (XIV-60).
@@ -10,12 +13,11 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
  * These were part of the application's `App\` resource until the package existed,
  * and the exclusions below are the ones config/services.yaml already carried —
  * moved rather than rewritten, because each of them was an argument somebody had
- * and the arguments did not change when the files did. What is *not* repeated
- * here is the other half of two of them: the classes excluded from a production
- * build are registered again under `when@dev` and `when@test` in the
- * application's config/services.yaml, where the rest of the development-only
- * wiring lives. Splitting an environment decision across two files would be worse
- * than leaving it in the one file that already makes them.
+ * and the arguments did not change when the files did. The other half of three
+ * of them — the dev-and-test registrations that put the excluded classes back —
+ * was in the application's config/services.yaml until XIV-96 and is at the top
+ * of this file now, for a reason that has nothing to do with tidiness: see the
+ * comment there.
  *
  * Nothing here binds an entity manager or a connection, and that is worth saying
  * because packages/core's own services.php says the opposite. Core is handed a
@@ -28,6 +30,52 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
  */
 
 return static function (ContainerConfigurator $container): void {
+    // **The other half of three of the exclusions below** (XIV-96).
+    //
+    // Each of them keeps something out of a *production* build; each was also
+    // wanted back in development and in the suite, and that half used to be
+    // three lines in the application's `config/services.yaml` under `when@dev`
+    // and `when@test`. XIV-60 left them there on the argument that splitting an
+    // environment decision across two files is worse than keeping it in the one
+    // file that already makes them — which was right until the application had
+    // to be buildable without this package at all.
+    //
+    // It is not a build-target concern. `config/services.yaml` is loaded in
+    // every environment, so a class name it cannot resolve is a container that
+    // cannot compile, and "the application compiles without the administration
+    // surface" would have been true of `prod` and false of `dev` and `test` —
+    // which is the shape of a guarantee nobody can rely on. Here, the question
+    // does not arise: a build without this package does not read this file
+    // either.
+    //
+    // `$container->env()` rather than `when@dev`, because that key is YAML's and
+    // this is PHP; the effect is identical and the values are the ones the
+    // application's own file used.
+    if (\in_array($container->env(), ['dev', 'test'], true)) {
+        $container->services()
+            ->defaults()
+                ->autowire()
+                ->autoconfigure()
+
+            // **Public, and that is the load-bearing word** (XIV-76). Mate's MCP
+            // server is its own process with its own container; a tool reaches
+            // the application by booting the kernel and asking its container for
+            // this service by name, which a private service refuses. Public here
+            // rather than everywhere for the usual reason — a public service is
+            // one the container can never inline or remove — and the blast
+            // radius is exactly the environments where the MCP extension can be
+            // installed at all.
+            //
+            // Redundant in `test`, where `test.service_container` reaches
+            // private services anyway, and kept identical to `dev` so that the
+            // two cannot drift.
+            ->set(TenantInspector::class)
+                ->public()
+
+            ->set(InspectTenantCommand::class)
+            ->set(ResetTenantCommand::class);
+    }
+
     $container->services()
         ->defaults()
             ->autowire()

@@ -17,12 +17,11 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Bundle\SecurityBundle\Security\FirewallConfig;
 use Symfony\Bundle\SecurityBundle\Security\FirewallMap;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Yaml\Yaml;
 use Xivi\ControlPlane\Security\ControlPlaneHost;
 use Xivi\ControlPlane\Signup\SignupHost;
 
 /**
- * Where the public signup endpoint sits in `security.yaml`, and why it sits
+ * Where the public signup endpoint sits among the firewalls, and why it sits
  * there (XIV-64).
  *
  * The sibling of {@see ControlPlaneFirewallTest} and it exists for the same
@@ -115,16 +114,48 @@ final class SignupFirewallTest extends KernelTestCase
      * expression* — `signup.example.com` written into one also accepts
      * `signupXexample.com`, a hostname somebody else can own. Asserted because
      * the failure would be silent: `host:` works perfectly for every name anybody
-     * would think to try.
+     * would think to try, and only ever goes wrong for one somebody registered
+     * on purpose.
+     *
+     * **Asked of the compiled firewall map rather than of a configuration file**
+     * (XIV-96), which is where this question moved to when the signup firewall
+     * moved into the control-plane package. The dotted hostname is spelled with
+     * its dots replaced by an ordinary letter — the substitution an unescaped
+     * pattern cannot distinguish — and the assertion is that such a request
+     * falls through to `main`.
      */
     public function testTheSignupFirewallIsScopedByAMatcherAndNotByARegularExpression(): void
     {
-        $firewall = $this->securityConfig()['firewalls']['signup'];
-        \assert(\is_array($firewall));
+        $host = $this->signupHost()->normalisedHost();
+        $lookalike = str_replace('.', 'x', $host);
 
-        self::assertSame(SignupHost::class, $firewall['request_matcher'] ?? null);
-        self::assertArrayNotHasKey('host', $firewall);
-        self::assertFalse($firewall['security'] ?? true);
+        self::assertNotSame($host, $lookalike, 'The signup hostname has no dots to mistake.');
+
+        $request = Request::create(sprintf('https://%s/api/signup/v1/requests', $lookalike));
+
+        self::assertSame(
+            'main',
+            $this->firewallFor($request)->getName(),
+            'A hostname that only a regular expression would confuse with the signup host reached its firewall.',
+        );
+    }
+
+    /**
+     * And that the firewall it does claim runs no authentication machinery at
+     * all (§8.12).
+     *
+     * `security: false` compiles to a firewall with no authenticators and no
+     * provider, so this asks the compiled configuration for both rather than
+     * reading the word out of a file. A provider appearing here would mean a
+     * request to an anonymous endpoint had something to hand a stray cookie to.
+     */
+    public function testTheSignupFirewallAuthenticatesNobody(): void
+    {
+        $firewall = $this->firewallFor($this->signupRequest());
+
+        self::assertSame('signup', $firewall->getName());
+        self::assertFalse($firewall->isSecurityEnabled());
+        self::assertNull($firewall->getProvider());
     }
 
     /**
@@ -180,37 +211,28 @@ final class SignupFirewallTest extends KernelTestCase
     }
 
     /**
-     * The firewalls in the order the configuration declares them, read out of
-     * `security.yaml` rather than off the compiled map — for the reason
-     * {@see ControlPlaneFirewallTest} gives at length: `FirewallMap` holds its
-     * matchers in a single-use generator, so walking it here would leave every
-     * later `getFirewallConfig()` in this kernel answering null.
+     * The firewalls in the order the configuration declares them, off the
+     * container's own `security.firewalls` parameter — for the reason
+     * {@see ControlPlaneFirewallTest} gives at length, and since XIV-96 for a
+     * second one: no single file holds the whole list any more, because the
+     * administration surface declares its own two in
+     * `packages/control-plane/config/firewalls.php` so that a build without it
+     * has neither.
+     *
+     * Not by walking `FirewallMap`, which holds its matchers in a single-use
+     * generator: consuming it here would leave every later
+     * `getFirewallConfig()` in this kernel answering null.
      *
      * @return list<string>
      */
     private function declaredFirewalls(): array
     {
-        $firewalls = $this->securityConfig()['firewalls'];
+        $firewalls = static::getContainer()->getParameter('security.firewalls');
         \assert(\is_array($firewalls));
 
         /** @var list<string> $names */
-        $names = array_values(array_map(strval(...), array_keys($firewalls)));
+        $names = array_values(array_map(strval(...), $firewalls));
 
         return $names;
-    }
-
-    /** @return array{firewalls: array<string, mixed>} */
-    private function securityConfig(): array
-    {
-        $projectDir = static::getContainer()->getParameter('kernel.project_dir');
-        \assert(\is_string($projectDir));
-
-        $parsed = Yaml::parseFile($projectDir . '/config/packages/security.yaml');
-        \assert(\is_array($parsed) && \is_array($parsed['security']) && \is_array($parsed['security']['firewalls']));
-
-        /** @var array{firewalls: array<string, mixed>} $security */
-        $security = $parsed['security'];
-
-        return $security;
     }
 }

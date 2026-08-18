@@ -151,18 +151,23 @@ rather than a tidiness problem:
 
 - `app.control_plane_host` is a parameter in the application's `config/services.yaml`,
   read by a class in the package. It is a *deployment's* fact, so a bundle default would be
-  answering a question about where it is installed.
+  answering a question about where it is installed. [XIV-96] left it there deliberately and
+  §4.4 says why: it also feeds `app.system_hosts`, which is the application's and which
+  [XIV-93] composes into the trusted-host pattern.
 - `security.yaml` names `Xivi\ControlPlane\Security\ControlPlaneHost` as the control-plane
   firewall's request matcher and `Xivi\ControlPlane\Entity\Operator` as its provider. The
   application's security configuration therefore does not compile without the package
   present. Removing the package from a build is consequently not yet a matter of dropping a
-  Composer requirement.
+  Composer requirement. **[XIV-96] is where that was solved** (§4.4): the firewalls moved
+  into the package and the application splices them in behind a `class_exists()`, and three
+  further obstacles of the same kind — the entity mapping, the signup route loader's type,
+  and three dev-and-test service registrations — turned up behind this one.
 - The operator screens extend the tenant application's `base.html.twig` and read their
   strings from its `messages` domain. That is the allowed direction, and it does mean the
   surface is not renderable on its own.
 
-**One suite, one stack.** `bin/ci` runs a single PHPUnit suite over both halves and the dev
-stack is still one `bin/compose up`; `tests/Functional/ControlPlane/` was not moved into the
+**One suite, one stack, and — since [XIV-96] — two image builds.** `bin/ci` runs a single
+PHPUnit suite over both halves and the dev stack is still one `bin/compose up`; `tests/Functional/ControlPlane/` was not moved into the
 package and is not going to be, because the invariant those tests assert — that the
 control-plane firewall matches on host and is ordered above `main` (§8.9) — is a property of
 the *assembled application*, and a test living inside the package could not see it.
@@ -901,6 +906,261 @@ other.
 inside the application.** Which hostnames an installation answers to is a
 deployment's statement about itself; a running instance that could edit it could
 be made to admit anything.
+
+### 4.4 Two images: what a customer's instance is built without (XIV-96)
+
+This is the deployment half of [XIV-60], lifted out once the package had landed
+and the real shape was visible. §3.1 answered "can the control plane be
+separated" — no, and what is separable is the *administration surface*. This
+answers the question that survived it: **can a customer-facing build omit that
+surface**, and the answer is yes, in an image that does not contain it rather
+than in an instance that does not route it.
+
+#### The topology, and what is reachable from where
+
+Two deployments, one repository, one lock file, one control-plane database.
+
+| | The customer-facing instance | The internal instance |
+| --- | --- | --- |
+| Image | `frankenphp_public` | `frankenphp_prod` |
+| Contains `packages/control-plane` | no | yes |
+| Served on | every customer's hostname | `CONTROL_PLANE_HOST`, and `SIGNUP_HOST` if signup is on |
+| Firewalls | `dev`, `main` | `dev`, `control_plane`, `signup`, `main` |
+| Routes under `/control` | none exist | the operator console |
+| Signup intake and landing page | absent | present, if `SIGNUP_HOST` is set |
+| Tenant databases | reads and writes, per request | reads and writes, while provisioning |
+| Control-plane database | **`SELECT` on the registry tables only** | full |
+| Owns the schema | no. Refuses to start until somebody else has moved it | yes. `bin/deploy` and the entrypoint |
+
+The registry is still read on every customer request and is still `App\Registry`
+in `src/`, unmoved and unmovable (§3.1) — an instance that could not resolve a
+hostname could not serve anybody. What the customer-facing image lacks is the
+half nobody's own request touches.
+
+#### Why two build targets rather than one image with the routes switched off
+
+Three options were weighed and the middle one won.
+
+**One image, two deployments, routes enabled by environment** is the cheapest:
+one build, no drift, nothing new to keep in step. It was rejected on one
+sentence. **"Not routed" and "not present" are different guarantees, and only
+the second survives somebody's mistake** — a copied `.env`, a merge that
+reinstates a listener, a compiler pass that stops being registered, a `host:`
+that stops matching. [XIV-56] is the live precedent rather than a hypothetical:
+`.env.dev` shipped inside the production image because an exclusion list needed a
+line added and did not get one. It was inert on the day and it was still in
+there for weeks.
+
+**Two build targets from one repository** costs a second build in CI and gives
+an image that genuinely does not contain the administration code. Adopted. The
+`Dockerfile` already had multiple targets, and the second build is nearly free
+because it starts from the first's finished builder stage: an autoload dump and
+a cache warm-up, seconds against the internal image's minutes.
+
+**A separate repository** would give real isolation and real drift, plus a
+shared control-plane schema owned by two repositories with no single migration
+history. Not worth it for one operator, and the thing it would isolate is
+already isolated by a package boundary deptrac enforces.
+
+#### The obstacle that mattered: the application's security configuration
+
+Dropping the Composer requirement was **not** sufficient, and finding out why is
+most of what this ticket was. `config/packages/security.yaml` named
+`Xivi\ControlPlane\Security\ControlPlaneHost` as the control-plane firewall's
+request matcher, `ActiveOperatorChecker` as its user checker,
+`Xivi\ControlPlane\Entity\Operator` as its provider's class and
+`Xivi\ControlPlane\Signup\SignupHost` as the signup firewall's matcher. So the
+container did not compile without the package — the build failed before
+anything was served, in the security configuration.
+
+Three more of the same kind were behind it, and each would have failed the build
+on its own: `doctrine.yaml` named the package's entity directory (DoctrineBundle
+checks that a mapping's directory exists while the container is built, so this
+one fails with a message about a path rather than a class); `routes.yaml` named a
+route *type* only the package registers; and `config/services.yaml` registered
+three of its classes under `when@dev` and `when@test`.
+
+**Everything the package can declare, the package declares now**, contributed
+from `XiviControlPlaneBundle::prependExtension()`: the `operators` provider, the
+`Xivi\ControlPlane\Entity` mapping, and its own dev-and-test service
+registrations. The application says nothing about any of it.
+
+**Two things could not move, and both are Symfony's decision rather than ours.**
+
+- `security.firewalls` is declared `disallowNewKeysInSubsequentConfigs()`, so
+  every firewall in the installation has to be named by one configuration
+  source. The application therefore names all four — in
+  `config/packages/security_firewalls.php`, which is PHP precisely because it has
+  a question to ask — and *splices* the administration surface's two between
+  `dev` and `main` by requiring `packages/control-plane/config/firewalls.php`
+  when the package is present. So the application carries the seam and the
+  package carries the surface: a build without it has no operator firewall
+  because the file describing one is not in the image either.
+- `security.access_control` is `cannotBeOverwritten()`, which is the same
+  restriction one notch stricter: a second configuration source contributing to
+  it throws while the container is built. The two `^/control` rules therefore
+  stay in the application's `security.yaml`. What is left behind is two path
+  patterns and a role name — no class, no service, nothing that stops a build —
+  and it is the harmless direction to be wrong in: a customer-facing image where
+  `^/control` still demands `ROLE_OPERATOR` carries one refusal it will never
+  need, on paths it has no routes for.
+
+**Three seams remain and each guards on `class_exists()`**, which is a question
+about what is *in this build* rather than about what somebody configured — and a
+classmap-authoritative autoloader cannot answer it "yes" for a file that has been
+removed. They are `config/bundles.php`, `config/packages/security_firewalls.php`
+and `config/routes/signup.php`.
+`tests/Unit/Deployment/ControlPlaneIsOptionalAtBuildTimeTest.php` holds that
+list: any other application configuration file naming the namespace outside a
+comment fails the build, and a seam that stops guarding fails it too. deptrac
+has said the same thing about `src/` since [XIV-60] and cannot say it about
+YAML, which is exactly where all four of the real obstacles were.
+
+**[XIV-57]'s ordering invariant survives the move and is asserted the same way.**
+`ControlPlaneFirewallTest` used to read the declared order out of
+`security.yaml`; it reads the container's own `security.firewalls` parameter now,
+which is the merged, compiled order and is a better question than the one it was
+asking. The "host-scoped by a matcher, not by `host:`" assertions became
+behavioural at the same time: a request to the hostname an unescaped regular
+expression would also accept must land in `main`.
+
+#### `app.control_plane_host` stays in the application, and so does `app.system_hosts`
+
+[XIV-60] flagged this as the second obstacle and it turned out not to be one.
+The parameter is read by a package class, which looks like the wrong direction
+until you notice what else reads it: `app.system_hosts`, which is what makes a
+control-plane request resolve no tenant (§8.9) **and**, since [XIV-93], what is
+composed into the trusted-host pattern (§4.3). Both of those are the
+application's. Moving the parameter into the package would have made a deployment
+fact into a bundle default — answering a question about where the software is
+installed — and would have split one fact across two files that must agree.
+
+So the customer-facing image carries `CONTROL_PLANE_HOST` and `SIGNUP_HOST` and
+uses neither for a firewall. A public deployment sets them empty; an empty entry
+in `app.system_hosts` matches nothing, because no request has an empty `Host`,
+which is the same property §8.12 already relies on for switched-off signup.
+
+#### The templates are not renderable standalone, and that is still true
+
+[XIV-60]'s third obstacle: the operator screens extend the tenant application's
+`base.html.twig` and read their strings from its `messages` domain. Nothing here
+changes that, and nothing needs to — the direction is the allowed one
+(ControlPlane → App), and the internal image is the whole application plus the
+surface rather than the surface plus a kernel. It is written down again because
+it is the reason the split is by *image* rather than by deployable unit.
+
+#### The strongest isolation is not network topology
+
+Both instances talk to one control-plane database, so "which one is on which
+network" is the weakest boundary available: both are on the network that
+matters. The sharp one is **two database users with different grants**.
+
+**Decided: the customer-facing instance's role holds `SELECT` on the registry
+tables and nothing else.** No `INSERT`, `UPDATE`, `DELETE` or `TRUNCATE`
+anywhere, no DDL, no sequences, and no access at all to `operator`,
+`signup_request` or `tenant_usage`. An `INSERT INTO tenant` arriving from the
+process facing the internet is not a thing that should be possible, whatever the
+routing says and whatever a future bug in a controller does.
+
+It costs nothing to arrange while an installation is being provisioned and is
+genuinely awkward to retrofit once there are customers, which is the argument for
+settling it here rather than leaving it as a note.
+
+Nothing on a customer's request path writes to that database, and that was
+checked rather than assumed: `App\Registry` reads, `ModuleCatalog::moveTo()` is
+the one writer in `src/` and its only callers are `control:*` commands, and
+`TenantSecretRotator` is driven from `tenant:rotate-secrets`. Both callers are in
+the package and therefore absent from the image.
+
+**`bin/console deploy:registry-grants` prints the SQL**, and it prints rather
+than executes for a reason: a running instance that could grant privileges to
+itself could be made to grant itself others, so the application contributes the
+list of tables and a database administrator contributes the decision. The list is
+derived from the `control` entity manager's mapping rather than written out, so a
+release that adds a registry entity cannot leave a hand-maintained script behind
+— which is the failure that would otherwise present as a permission error on a
+table nobody remembered, in production, at a moment nobody chose.
+
+**It is proved against a real database rather than asserted about a string.**
+`tests/Functional/Deployment/RegistryGrantsTest.php` creates the role, runs the
+generated statements, opens a second connection *as that role*, and asks
+PostgreSQL: `SELECT` on `tenant` and `tenant_domain` succeeds, `INSERT`, `UPDATE`
+and `DELETE` on `tenant` are refused, and `operator` is not readable at all. The
+string-matching version of that test would pass for a script that names the wrong
+tables, one that forgets its `REVOKE`, or one that is never run.
+
+#### The schema has exactly one owner
+
+A consequence of the grants, and the one operational change worth knowing.
+
+The container entrypoint has always run the control-plane migrations on start, so
+that a container can never serve against a schema older than itself (§4.2). The
+customer-facing image cannot: its role has no DDL. So it **asks** instead —
+`doctrine:migrations:up-to-date`, which is a `SELECT` on the one administration
+table it is granted — and **refuses to start** if the answer is no.
+
+Fatal rather than advisory, which puts it beside `deploy:check-secrets` rather
+than beside `deploy:check-hosts`, and the asymmetry is the one those two already
+draw: a schema behind the code is a property of the *instance*, so every customer
+it would serve is served by code expecting columns that are not there. It is not
+a race with the deploy, because `bin/deploy` moves the schema before the serving
+containers are replaced; and it does not refuse a rollback, because
+`--fail-on-unregistered` is deliberately not passed and a schema *ahead* of the
+image is exactly what going backwards looks like under §4.2's additive-only rule.
+
+`bin/deploy` itself refuses to run out of the customer-facing image, with a
+message naming the internal one. It would fail anyway, on a permission error,
+partway through — and "it cannot work" is not a good enough reason to let a
+deploy start.
+
+Each of these tests the *package's presence on disk* rather than an environment
+variable, and that is the same choice `config/bundles.php` makes: a flag says
+what somebody configured, a directory says what is in the image, and two builds
+cannot disagree with a directory.
+
+#### What the customer-facing image does still contain, said plainly
+
+"Does not contain the administration surface" is a claim, and a claim is worth
+bounding. The `frankenphp_public_builder` stage refuses to finish if
+`Xivi\ControlPlane` survives in the sources, in the autoloader or in the compiled
+container, so what follows is the complete remainder:
+
+- **`migrations/control/`**, including the migrations that create `operator` and
+  `signup_request`. Those are the application's and must not move (§3.1): the
+  namespace is recorded in `doctrine_migration_versions` and no table moved when
+  the classes did. They are DDL rather than administration logic, the entrypoint
+  does not run them here, and the database user could not.
+- **Two `access_control` rules** mentioning `^/control`, for the reason above.
+- **`composer.lock`**, which names `xivi/control-plane` because both images are
+  built from one lock file. That is the property that stops the two builds from
+  drifting and it is worth more than the tidiness of a second manifest.
+- **`packages/xivi-mate/`**, whose source mentions the namespace in two files.
+  That is a development dependency, is not installed into `vendor/` by
+  `composer install --no-dev`, and is in the internal image for the same reason —
+  the source tree is copied wholesale. It predates this ticket and is not made
+  worse by it, and it is written down here rather than left for somebody to find
+  with a grep.
+
+Everything else — the operator entity and its firewall, provisioning,
+deprovisioning, the tenant list, usage collection, secret rotation, the signup
+intake and its landing page, every `control:*` and most `tenant:*` commands — is
+absent from the filesystem, from the autoloader and from the compiled container.
+The image's `security.firewalls` parameter is `["dev","main"]` and its router has
+no route under `/control` and no signup route at all.
+
+#### One suite, one stack, two builds
+
+`bin/ci` runs a single PHPUnit suite over both halves, exactly as §3.1 said, and
+the dev stack is still one `bin/compose up` against the complete image. What
+changed is that `bin/ci` builds both production targets, in that order, because
+the customer-facing one is assembled from the internal one's builder stage.
+
+The reason the second build is not optional is that the failure it catches is
+invisible to everything else here: one `user_checker:` added to the application's
+`security.yaml` because that is where the other firewall's is, and the container
+stops compiling without the package. The unit test above catches most of that in
+a second by reading the configuration; only the build compiles a container with
+the package genuinely gone.
 
 ---
 

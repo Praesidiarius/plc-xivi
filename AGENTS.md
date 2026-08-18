@@ -185,6 +185,16 @@ depend on the application, and the application may never depend on it — what a
 tenant's own request needs from the control-plane database is `App\Registry`, in
 `src/` (§3.1). `deptrac` enforces all of it in CI.
 
+**That rule covers `config/` too, and deptrac cannot see it** (XIV-96, §4.4).
+`docker build --target frankenphp_public` builds the image customers are served
+from, and it does not contain `packages/control-plane` — so an application
+configuration file naming a class from it is a container that will not compile.
+Every one of the four obstacles this hit was YAML, not PHP. Three seams are
+allowed and each guards on `class_exists()`; anything else fails
+`tests/Unit/Deployment/ControlPlaneIsOptionalAtBuildTimeTest.php`. If a firewall,
+a mapping or a route belongs to the administration surface, declare it in
+`packages/control-plane/config/`.
+
 **Plant a violation when you add a layer to `deptrac.yaml`.** Every layer in it
 collected nothing at all until XIV-60 — the check was green for four months
 because it was empty, not because the code obeyed it.

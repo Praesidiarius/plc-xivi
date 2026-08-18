@@ -196,8 +196,103 @@ RUN <<-'EOF'
 	rm -rf /var/lib/apt/lists/*
 EOF
 
-# Prod FrankenPHP image
-FROM debian:13-slim AS frankenphp_prod
+# Builder for the customer-facing image
+FROM frankenphp_prod_builder AS frankenphp_public_builder
+
+# **The half of XIV-96 that a route cannot give you** (docs/architecture.md §4.4).
+#
+# Everything above this line built one image containing the whole repository,
+# administration surface included. This stage takes the administration surface
+# back out, and the result is `frankenphp_public` at the bottom of this file: the
+# image a customer's hostname is served from, which does not contain
+# `packages/control-plane` at all.
+#
+# **Two build targets rather than one image with the operator routes switched
+# off**, and the argument is short. "Not routed" and "not present" are different
+# guarantees, and only the second survives somebody's mistake — a wrong
+# environment variable, a merge that reinstates a listener, a compiler pass that
+# stops being registered. [XIV-56] is the live precedent for the difference:
+# something shipped inside the production image that was never meant to be
+# there, inert on the day and discovered long afterwards, and no amount of
+# configuration would have kept it out. The cost of this decision is one more
+# build in CI, paid once per run and measured in the build cache rather than in
+# the whole of `composer install`, because this stage starts from the finished
+# one above.
+#
+# **A separate repository was the third option and was rejected.** Real
+# isolation, real drift, and a shared control-plane schema owned by two
+# repositories with no single migration history. Not worth it for one operator.
+#
+# The removal itself is `frankenphp/omit-control-plane.php`, bind-mounted rather
+# than copied so that the script which strips the package is not itself in the
+# image that had it stripped. Read it for why Composer's installed-package record
+# is edited instead of `composer.json` — the short version is that both images
+# are built from **one lock file**, which is what stops the two from drifting,
+# and that is a property worth more than the tidiness of a second manifest.
+#
+# The cache is thrown away and rebuilt because it must be. `composer install`
+# above has already compiled a service container that knows about operator
+# commands, a routing table that includes the signup loader, and a Twig cache
+# holding the operator templates. Serving a customer out of that would be
+# serving them out of the administration surface's compiled remains.
+RUN --mount=type=bind,source=frankenphp/omit-control-plane.php,target=/tmp/omit-control-plane.php <<-EOF
+	php /tmp/omit-control-plane.php
+	rm -rf packages/control-plane vendor/xivi/control-plane
+	composer dump-autoload --classmap-authoritative --no-dev
+	rm -rf var/cache/* var/log/*
+	composer run-script --no-dev post-install-cmd
+	if [ -f importmap.php ]; then
+		php bin/console asset-map:compile
+	fi
+	chmod -R g=u var
+	sync
+EOF
+
+# **Proof, inside the build, that the thing is actually gone.**
+#
+# The acceptance criterion XIV-96 was written with is "verified by looking inside
+# the image rather than by checking that a route 404s", and a check that only
+# ever runs when somebody remembers to run it is a check that stops being run.
+# So the build itself refuses to produce an image that still has any of it.
+#
+# Three questions, because each of them has failed independently somewhere in
+# this ticket's history: the sources, the autoloader's opinion of them, and the
+# compiled container. The last is the one that would otherwise be missed —
+# deleting the files while a stale `var/cache/prod` still holds a service
+# definition naming them produces an image that boots, serves, and fatals the
+# first time that service is instantiated.
+RUN <<-'EOF'
+	if [ -e packages/control-plane ] || [ -e vendor/xivi/control-plane ]; then
+		echo 'The control-plane package is still on disk in the customer-facing build.' >&2
+		exit 1
+	fi
+	# Extended regular expressions, and `\\+` rather than `\\`, because the two
+	# files being searched escape the namespace separator differently: PHP source
+	# writes 'Xivi\\ControlPlane\\…' with the backslash doubled, YAML and the
+	# container's own dumps write it once. One or more backslashes matches both,
+	# and matching only one would have quietly passed on the classmap — which is
+	# the file that decides whether the classes are loadable at all.
+	if grep -rqIE 'Xivi\\+ControlPlane' vendor/composer/; then
+		echo 'The autoloader still knows about Xivi\ControlPlane classes.' >&2
+		exit 1
+	fi
+	if grep -rqIE 'Xivi\\+ControlPlane' var/cache/; then
+		echo 'The compiled container still names Xivi\ControlPlane.' >&2
+		exit 1
+	fi
+	echo 'No Xivi\ControlPlane in sources, autoloader or compiled container.'
+EOF
+
+
+# The runtime both production images are assembled on
+#
+# Split out of `frankenphp_prod` by XIV-96 so that the customer-facing image is
+# the same runtime as the internal one and differs **only** in which `/app` is
+# copied into it. Two nearly identical final stages would have been the other
+# way to write this, and the way they fail is that a `COPY` added to one and not
+# the other is invisible until something is missing from an image nobody boots
+# in CI.
+FROM debian:13-slim AS frankenphp_runtime
 
 SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
 
@@ -231,11 +326,6 @@ RUN <<-EOF
 	find / -perm /6000 -type f -exec chmod a-s {} + 2>/dev/null || true
 EOF
 
-COPY --link --exclude=var --from=frankenphp_prod_builder /app /app
-# Group 0 + g=u for arbitrary-UID runtimes (e.g. OpenShift).
-COPY --chown=www-data:0 --from=frankenphp_prod_builder /app/var /app/var
-RUN chmod g=u /app/var
-
 COPY --link --chmod=755 frankenphp/docker-entrypoint.sh /usr/local/bin/docker-entrypoint
 
 USER www-data
@@ -246,3 +336,62 @@ ENTRYPOINT ["docker-entrypoint"]
 
 HEALTHCHECK --start-period=60s CMD php -r 'exit(false === @file_get_contents("http://localhost:2019/metrics", context: stream_context_create(["http" => ["timeout" => 5]])) ? 1 : 0);'
 CMD [ "frankenphp", "run", "--config", "/etc/frankenphp/Caddyfile" ]
+
+
+# **The internal image: everything, administration surface included** (XIV-96).
+#
+# This is the image `bin/deploy` is run out of, and the one served on the
+# control-plane hostname. It is also the only one of the two that owns the
+# control-plane schema: its entrypoint runs the migrations, because the instance
+# that has the administration surface is the instance that is allowed to write
+# to the administration database (§4.4, and `deploy:registry-grants`).
+#
+# The name is unchanged from before this ticket, deliberately. It is what
+# `bin/ci` builds, what compose refers to and what any existing deployment
+# names, and renaming the complete image to make room for the reduced one would
+# have made every one of those quietly build the wrong thing.
+FROM frankenphp_runtime AS frankenphp_prod
+
+COPY --link --exclude=var --from=frankenphp_prod_builder /app /app
+# Group 0 + g=u for arbitrary-UID runtimes (e.g. OpenShift).
+COPY --chown=www-data:0 --from=frankenphp_prod_builder /app/var /app/var
+USER root
+RUN chmod g=u /app/var
+USER www-data
+
+
+# **The customer-facing image: the same application, without the administration
+# surface** (XIV-96, §4.4).
+#
+# Identical to the stage above in every respect except which builder it takes
+# `/app` from, which is the whole design: one repository, one lock file, one
+# runtime, and a single stage in the middle whose only job is removal. Anything
+# that is true of the internal image's runtime is true of this one by
+# construction rather than by two lists being kept in step.
+#
+# **What it does contain, said plainly**, because "does not contain the
+# administration surface" is a claim and claims are worth bounding:
+#
+#   * `migrations/control/` — including the migrations that create `operator`
+#     and `signup_request`. Those are the application's and must not move
+#     (§3.1): the namespace is recorded in `doctrine_migration_versions` and no
+#     table moved when the classes did. They are DDL rather than administration
+#     logic, and the image cannot run them anyway — the entrypoint does not, and
+#     the database user this instance connects as has no privilege to.
+#   * Two `access_control` rules mentioning `^/control`, in
+#     `config/packages/security.yaml`, which Symfony requires to be declared in
+#     one place. They guard paths this image has no routes for.
+#
+# Everything else — the operator entity and its firewall, provisioning, the
+# tenant list, usage collection, the signup intake and its landing page, every
+# `control:*` command — is absent from the filesystem, from the autoloader and
+# from the compiled container, and the stage that removed it refuses to finish
+# if any of the three still mentions it.
+FROM frankenphp_runtime AS frankenphp_public
+
+COPY --link --exclude=var --from=frankenphp_public_builder /app /app
+# Group 0 + g=u for arbitrary-UID runtimes (e.g. OpenShift).
+COPY --chown=www-data:0 --from=frankenphp_public_builder /app/var /app/var
+USER root
+RUN chmod g=u /app/var
+USER www-data
