@@ -174,6 +174,21 @@ lands in `Unreleased` here.
   The email templates page does not offer it at all: an email has no answer yet
   for what a picture in one would be, and offering something that comes out blank
   is what that page already declines to do (§5.7, §5.13).
+- **`bin/new-migration control|tenant 'what it does'` starts a migration on a
+  version nobody else has** ([XIV-107]). It takes the version from the clock to
+  the second, checks it against both sets, and writes the file — no container
+  needed. Not `doctrine:migrations:generate`, which knows about one of the two
+  sets and would never look at the other (§9.2).
+- **Two migrations can no longer answer to the same version**, caught in `bin/ci`
+  rather than by hand at merge — [XIV-92] and [XIV-95] both chose
+  `Version20260818140000` on 2026-08-18. **A version is unique across
+  `migrations/control` and `migrations/tenant` alike**, which is a decision
+  rather than a constraint: Doctrine records the namespace too, so duplicates
+  across the two would not actually collide. The argument for the stricter rule,
+  and the check, are in `tests/Unit/MigrationVersionsAreUniqueTest.php` (§9.2).
+- **`bin/ci --reclaim` reclaims the test databases and stops**, running nothing
+  else ([XIV-106]). It exists so the suite's own error messages have a command to
+  name.
 
 ### Fixed
 
@@ -226,6 +241,28 @@ lands in `Unreleased` here.
   all is refused with a message of its own rather than one naming a made-up count.
   See [§5.1](docs/architecture.md#counting-the-rows-before-the-form-is-built-xiv-90),
   which also has the figures and one thing left open.
+- **A branch that adds a control migration no longer poisons its own test
+  databases** ([XIV-106]). The suite's control-plane databases (`app_test`,
+  `app_test1…8`) are on the persistent `database` server rather than the tmpfs
+  one, and nothing ever dropped them — so they outlived the branch that migrated
+  them, and renaming or amending a migration while iterating on it left
+  `doctrine_migration_versions` describing a tree that no longer exists. Every
+  later run then died in the PHPUnit bootstrap, before a single test, with a
+  driver exception naming a table and never mentioning a migration. `bin/ci`
+  empties them at the start of every run now, in a step of its own — 0.5s for
+  nine, against 15.4s to drop and recreate them, and the bootstrap migrates from
+  scratch either way (§9.2).
+- **That reclaim cannot take a dev control plane with it.** The pattern is
+  derived from whatever `DATABASE_URL` in the php container names, not from the
+  literal `app_test` — which is a test database here and would be an ordinary dev
+  one in a checkout whose `POSTGRES_DB` is `app_test`. Verified by running that
+  configuration: the suite's `app_test_test` was emptied and the dev `app_test`
+  kept every table. What it deliberately does not cover is written down beside it
+  in `bin/ci`.
+- **A leftover database that gets past it now says so.** A bare `composer test`
+  does not go through `bin/ci` and can still meet one; the bootstrap answers with
+  the database, the server it is on and why, the cause, and `bin/ci --reclaim`,
+  instead of the driver exception alone ([XIV-106]).
 
 ### Measured
 
@@ -277,3 +314,5 @@ lands in `Unreleased` here.
 [XIV-58]: https://xivi.youtrack.cloud/issue/XIV-58
 [XIV-64]: https://xivi.youtrack.cloud/issue/XIV-64
 [XIV-65]: https://xivi.youtrack.cloud/issue/XIV-65
+[XIV-106]: https://xivi.youtrack.cloud/issue/XIV-106
+[XIV-107]: https://xivi.youtrack.cloud/issue/XIV-107

@@ -1,0 +1,231 @@
+#!/usr/bin/env bash
+#
+# Start a migration on a version nobody else has (XIV-107).
+#
+#   bin/new-migration control 'An operator can be revoked'
+#   bin/new-migration tenant  'Follow-ups get a due date'
+#   bin/new-migration tenant                                # description optional
+#
+# Prints the path it wrote. Open it and write the SQL; everything else about the
+# file is already the shape this repository expects.
+#
+# **Why this exists.** Migrations here are hand-written — there is no
+# `doctrine:migrations:diff` in the loop for most of them — so the version is a
+# timestamp somebody types, and a typed timestamp is `…140000`. On 2026-08-18
+# [XIV-92] and [XIV-95] both picked `Version20260818140000` and it was caught by
+# hand at merge. `tests/Unit/MigrationVersionsAreUniqueTest.php` is the half of
+# the answer that fails in CI; this is the half that means nobody has to be
+# caught by it, because a version chosen from the actual clock, to the second,
+# and then checked against every file already here, cannot collide with anything
+# that exists and is vanishingly unlikely to collide with a branch next door.
+#
+# **Why not `doctrine:migrations:generate`.** It is Symfony's own answer and it
+# would be the right one if there were one set of migrations. There are two: it
+# knows about `migrations/control`, because that is what
+# `config/packages/doctrine_migrations.yaml` configures, and it would have to be
+# handed `--configuration=config/migrations/tenant.php` for the other — and in
+# neither case would it look at the *other* set before choosing, which is exactly
+# the check the decision in `MigrationVersionsAreUniqueTest` needs. It also wants
+# the stack up and a booted kernel to write an empty file. So: this, which is a
+# `date` and a heredoc, works with every container stopped, and answers for both
+# sets at once.
+#
+# **The version is UTC**, like Doctrine's own generator, so two authors in two
+# timezones cannot produce versions that sort differently from the order they
+# were written in.
+
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+# The two sets, and everything that differs between them, in one place: the
+# directory, the PHP namespace, and the connection a reader should have in mind.
+# Adding a third set means adding a line here and a name to the case below —
+# which is the point of the table, rather than of three `if`s further down.
+case "${1:-}" in
+	control)
+		set_dir='migrations/control'
+		set_namespace='DoctrineMigrations\ControlPlane'
+		set_note='runs once per deploy, against the control-plane database'
+		;;
+	tenant)
+		set_dir='migrations/tenant'
+		set_namespace='DoctrineMigrations\Tenant'
+		set_note='runs once per customer, against every tenant database — expand/contract only'
+		;;
+	''|-h|--help)
+		sed -n '3,10p' "${BASH_SOURCE[0]}" | cut -c 3-
+		printf '\n  control   %s\n' 'the tenant registry and the administration surface'
+		printf '  tenant    %s\n' "a customer's own database"
+		exit 0
+		;;
+	*)
+		printf 'Unknown migration set: %s\n\n' "$1" >&2
+		printf 'It is `control` or `tenant` — the two directories under migrations/.\n' >&2
+		exit 64
+		;;
+esac
+
+description="${2:-}"
+
+# **A version no file in the repository already claims, in either set.**
+#
+# One numbering space across both directories is a decision rather than a
+# constraint — Doctrine records the version fully qualified, so the same digits
+# in `control` and in `tenant` would not actually collide — and the argument for
+# it is in `tests/Unit/MigrationVersionsAreUniqueTest.php`. What matters here is
+# that this script and that test agree about it, so this looks at both.
+#
+# The loop is not defensive padding. Writing two migrations in the same second is
+# something a script does easily and a person does not, and the second one would
+# otherwise be handed a version the first has just taken — a collision produced by
+# the tool built to prevent them, which is the sort of thing that gets found once
+# and remembered for years.
+#
+# Seconds rather than a random suffix, so the version stays a *timestamp*: it is
+# what orders a migration run, and an author reading `migrations/tenant` should be
+# able to see the order the files were written in.
+#
+# ---
+#
+# **And the clock is not, on its own, enough — which is a consequence of the very
+# habit this script exists to end.** A version people type is a round one, and a
+# round one is rounded *up*: this repository's migrations are stamped 14:00 and
+# 15:00 on days whose real work happened in the morning. Ask the clock at 06:14
+# and you get a version that sorts *before* migrations that already exist, so a
+# file written today claims to predate the one it depends on. Doctrine will still
+# run it — it runs everything unexecuted, in version order — which is the bad
+# outcome rather than the safe one: it runs it *first*, against a schema that
+# does not have the column the earlier-numbered migration was written against.
+#
+# So the starting point is the later of the clock and one second past the newest
+# version already in the tree. On a repository whose versions are honest that is
+# always the clock and this line does nothing. On this one it is what keeps the
+# ordering true while the typed timestamps age out. It does mean a version typed
+# absurdly far into the future drags every later version after it — which is
+# worth knowing, and is still the right trade against files that sort backwards.
+latest=$(
+	{ ls migrations/control migrations/tenant 2>/dev/null || true; } \
+		| sed -n 's/^Version\([0-9]\{14\}\)\.php$/\1/p' \
+		| sort -n \
+		| tail -n 1
+)
+
+now=$(date -u +%s)
+
+if [ -n "$latest" ]; then
+	# `20260818150000` back into something `date` will parse. Splitting by
+	# position rather than with a format string because GNU date has no inverse
+	# of `+%Y%m%d%H%M%S`, and the alternative — asking PHP — would put a running
+	# container between an author and a file name.
+	latest_epoch=$(date -u -d "${latest:0:4}-${latest:4:2}-${latest:6:2} ${latest:8:2}:${latest:10:2}:${latest:12:2}" +%s)
+
+	if [ "$latest_epoch" -ge "$now" ]; then
+		now=$((latest_epoch + 1))
+	fi
+fi
+
+attempt=0
+
+while :; do
+	version=$(date -u -d "@$((now + attempt))" +%Y%m%d%H%M%S)
+
+	# Both sets, by name, without caring whether the directories are readable —
+	# a set with no files yet is not an error, it is a fresh checkout.
+	if [ ! -e "migrations/control/Version${version}.php" ] \
+		&& [ ! -e "migrations/tenant/Version${version}.php" ]; then
+		break
+	fi
+
+	attempt=$((attempt + 1))
+
+	# It cannot take a hundred seconds to find a free one unless something is
+	# badly wrong — a clock that has gone backwards into a range already used,
+	# most likely — and looping for ever while printing nothing is the worst
+	# available way to say so.
+	if [ "$attempt" -gt 100 ]; then
+		printf 'Could not find a free migration version near %s.\n\n' "$(date -u +%Y%m%d%H%M%S)" >&2
+		printf 'Every second for the next hundred is already taken by a file in\n' >&2
+		printf 'migrations/. Check the clock in this container or on this machine.\n' >&2
+		exit 70
+	fi
+done
+
+file="${set_dir}/Version${version}.php"
+
+# Refuse rather than overwrite. Cannot happen — the loop above has just
+# established this name is free — but this script's whole job is writing files
+# into a directory whose contents are irreplaceable history, and "cannot happen"
+# is a poor thing to stake that on.
+if [ -e "$file" ]; then
+	printf 'Refusing to overwrite %s.\n' "$file" >&2
+	exit 73
+fi
+
+# The description ends up inside a single-quoted PHP string, so a description
+# containing an apostrophe — "the customer's own database" — would otherwise
+# produce a file that does not parse. A backslash is PHP's escape there; doubling
+# is SQL's, and writing `''` produces a file that parses into the wrong string
+# rather than one that fails, which is the worse of the two mistakes.
+php_description="${description//\'/\\\'}"
+
+# No licence header, deliberately: `.php-cs-fixer.dist.php` leaves `migrations/`
+# out of its finder on the grounds that Doctrine generates these and would strip
+# one, and a file that the fixer does not check should not be the one file
+# carrying a header by hand.
+#
+# The docblock is a prompt, not prose. This repository's migrations argue with
+# themselves at length and the good ones were written after the SQL was, so the
+# honest thing for a generator to leave behind is the shape and a reminder of
+# what belongs in it — not a paragraph of filler somebody deletes without
+# reading.
+cat > "$file" <<-PHP
+	<?php
+
+	declare(strict_types=1);
+
+	namespace ${set_namespace};
+
+	use Doctrine\DBAL\Schema\Schema;
+	use Doctrine\Migrations\AbstractMigration;
+
+	/**
+	 * ${description:-TODO: one line saying what this changes.}
+	 *
+	 * TODO: and then the why, at length — what was considered and rejected, what
+	 * this costs an installation that already has rows, and what \`down()\` cannot
+	 * put back. A migration is read years later by somebody deciding whether they
+	 * dare reverse it.
+	 */
+	final class Version${version} extends AbstractMigration
+	{
+	    public function getDescription(): string
+	    {
+	        return '${php_description}';
+	    }
+
+	    public function up(Schema \$schema): void
+	    {
+	        // \$this->addSql('ALTER TABLE … ADD … INT NOT NULL');
+	    }
+
+	    public function down(Schema \$schema): void
+	    {
+	    }
+	}
+PHP
+
+printf '%s\n' "$file"
+
+# On stderr, so `bin/new-migration tenant > /dev/null` still shows them and
+# `$(bin/new-migration tenant)` still captures only the path.
+{
+	printf '\n%s\n\n' "$set_note"
+	printf 'Two rules this repository enforces mechanically and one it does not:\n\n'
+	printf '  * `id INT GENERATED BY DEFAULT AS IDENTITY NOT NULL`, never SERIAL —\n'
+	printf '    tests/Unit/MigrationsUseIdentityColumnsTest.php\n'
+	printf '  * the class name matches the file name, and the version is unique across\n'
+	printf '    both sets — tests/Unit/MigrationVersionsAreUniqueTest.php\n'
+	printf '  * a tenant migration is expand/contract: never destructive in one step,\n'
+	printf '    because it runs against every customer (docs/architecture.md §4)\n'
+} >&2

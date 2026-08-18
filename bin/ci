@@ -10,9 +10,16 @@
 #   bin/ci --no-build      skip the production image build (the slow one)
 #   bin/ci --coverage      measure coverage and hold it above the floor
 #   bin/ci --no-changelog  allow a branch that adds no changelog entry
+#   bin/ci --reclaim       reclaim the test databases and stop, running nothing
 #
 # A branch whose entire diff is the landing page's copy needs no entry and no
 # flag; see CONTENT_ONLY_PATHS below for the decision and how narrow it is.
+#
+# `--reclaim` exists so that the suite's own error messages have something to
+# name (XIV-106). The reclaim is not otherwise worth a flag — every ordinary run
+# does it — but a test bootstrap that has just found a half-applied database has
+# to be able to say *type this*, and the alternative was a psql incantation
+# nobody would type correctly from a stack trace.
 #
 # **Two branches at once:** make a git worktree. A different directory gets its
 # own compose project, its own ports, its own tenant databases and its own dev
@@ -64,6 +71,7 @@ fi
 
 build_prod_image=true
 coverage=false
+reclaim_only=false
 
 # A ratchet, sitting just under what the suite currently reaches. Raise it when
 # the number rises; argue it down out loud if it ever has to come down. Not 100:
@@ -78,7 +86,13 @@ for arg in "$@"; do
 		--no-build) build_prod_image=false ;;
 		--coverage) coverage=true ;;
 		--no-changelog) check_changelog=false ;;
-		-h|--help) sed -n '3,23p' "${BASH_SOURCE[0]}" | cut -c 3-; exit 0 ;;
+		# Nothing is checked, so nothing wants a changelog entry either. Saying
+		# so here rather than making the caller type two flags: a mode that
+		# refuses to run because the branch it is cleaning up after has no
+		# changelog entry yet would be absurd, and it is exactly the state a
+		# branch is in when it needs this.
+		--reclaim) reclaim_only=true; check_changelog=false ;;
+		-h|--help) sed -n '3,30p' "${BASH_SOURCE[0]}" | cut -c 3-; exit 0 ;;
 		*) printf 'unknown option: %s\n' "$arg" >&2; exit 64 ;;
 	esac
 done
@@ -271,15 +285,24 @@ docker compose up -d --wait
 # in the middle of a session.
 step 'Test databases from earlier runs'
 
-# The disposable server, named once. Everything below acts on this service and
-# nothing else, which is what keeps it away from `database` — where the dev
-# tenants live, on disk, and where nothing here has any business.
+# The disposable server, named once. This step acts on this service and nothing
+# else — the dev tenants are on `database`, on disk, and nothing here has any
+# business with them. The *next* step does touch `database`, because the suite's
+# control-plane databases turn out to live there (XIV-106); it is deliberately a
+# separate step with a separate pattern and its own safety argument, rather than
+# this one being widened to two servers.
 readonly TEST_DB_SERVICE='database-test'
 
 # What this checkout's suite creates on it, as a regular expression rather than
 # a LIKE pattern, because `_` is a LIKE wildcard and these names are made of
 # them. TEST_RUN is the checkout (XIV-51) and is empty in the main one; the
 # digits are the worker, absent on a serial `composer test`.
+#
+# **What it covers and what it does not.** Every tenant database the suite
+# provisions, on this server, for this checkout — and nothing else on it. It says
+# nothing about the control-plane databases, which are not named `tenant…` and
+# are not even on this server; that is the next step's, and the reason this one
+# looked complete for a fortnight while half the problem was somewhere else.
 readonly TEST_DB_PATTERN="^tenant${TEST_RUN}[0-9]*_"
 
 # Above this, refuse rather than run. A clean run needs 18% and the reclaim has
@@ -370,6 +393,238 @@ if [ "$volume_percent" -ge "$TEST_VOLUME_FULL_PERCENT" ]; then
 	printf 'empties it completely — it is a tmpfs — and if that does not help,\n' >&2
 	printf 'something other than this suite is writing to it.\n' >&2
 	exit 66
+fi
+
+# **The suite's *control-plane* databases, which are not on the test server at
+# all** (XIV-106).
+#
+# The step above reclaims tenant databases on `database-test` and stopped there,
+# and for a fortnight that read as the whole job. It is not. `.env.test` points
+# `DATABASE_URL` at `database-test` like everything else, and it never takes
+# effect: `compose.yaml` sets `DATABASE_URL` in the php container's *environment*,
+# a real environment variable outranks anything Dotenv loads, and so the suite's
+# control plane is on `database` — the persistent, on-disk server — while its
+# tenants are on the tmpfs one. `docs/architecture.md` §9.2 recorded that as a
+# curiosity of XIV-78 and left it alone, because these databases are small and
+# were no part of the disk problem that ticket was about.
+#
+# They are a different problem, and it costs a person an afternoon rather than a
+# volume.
+#
+# **What goes wrong.** `tests/bootstrap.php` creates this database if it is
+# missing and runs the control migrations into it. Nothing ever drops it, so it
+# survives across branches — including the branch that *adds* a control migration
+# and then renames or amends it, which is what iterating on a migration looks
+# like. `doctrine_migration_versions` is then a record of a tree that no longer
+# exists, in one of two shapes:
+#
+#   * a row naming a class the branch has since renamed, so Doctrine reports it
+#     as executed-but-unavailable; or, worse,
+#   * no row for the new name, so Doctrine runs a `CREATE TABLE` against the
+#     table the old name already created.
+#
+# The second one is the expensive one, because it does not present as a migration
+# problem at all. It is a driver exception — `relation "…" already exists` —
+# thrown out of the PHPUnit bootstrap, before a single test has run, on a branch
+# whose actual diff is fine. It cost another run two manual `DROP DATABASE`s
+# before anybody worked out what they were looking at.
+#
+# **So it is reclaimed, on the way in, exactly like the tenant databases.**
+# `tests/bootstrap.php` is already `create --if-not-exists` followed by
+# `migrate`, so an empty database is a state it knows how to be handed; emptying
+# one costs it 200 ms more than finding it ready (613 ms against 468 ms,
+# measured), and buys the property that no run can inherit another branch's idea
+# of what has been applied.
+#
+# **Unconditionally, rather than only when the versions disagree with the files.**
+# The cheap check is tempting and it is not enough. A *renamed* migration leaves
+# a recorded version with no file and would be caught by it; an *amended* one —
+# same version, different SQL, which is the other half of iterating — leaves the
+# version recorded and the migration a no-op, so the check would pass and the
+# suite would run against the schema the old SQL built. That failure is quieter
+# than the one this ticket is about, and a reclaim that has to be reasoned about
+# before it is trusted is not worth having.
+#
+# **The schema is emptied, not the database dropped, and the difference is
+# fifteen seconds a run.** `DROP DATABASE` forces an immediate checkpoint, so on
+# this on-disk server it costs about 1.7s each: nine of them measured at 15.4s,
+# against 1.7s for `DROP SCHEMA public CASCADE` and 0.2s when the whole list goes
+# through one `psql` session. The outcome is identical — `public` is where every
+# table these migrations create lives, `doctrine_migration_versions` included, and
+# `create --if-not-exists` is a no-op on the database that is left standing. Nine
+# empty databases accumulating in `pg_database` is the price, and it is bounded at
+# nine.
+#
+# ---
+#
+# **The care this needs, and it is not the same care as above.** The step above
+# can prove it is pointed at a disposable server by asking it (`SHOW fsync`).
+# This one cannot: `database` is emphatically not disposable — the dev tenants
+# and the dev control plane are on it — so the safety has to come from the
+# *names* instead, and a name is exactly the thing that cannot be trusted here.
+# `app_test` looks like a test database and is one today. It would be a
+# perfectly ordinary **dev** control plane in a checkout whose `POSTGRES_DB` is
+# `app_test`, because `compose.yaml` interpolates that straight into
+# `DATABASE_URL`, and there is nothing in the name to tell the two apart. Both
+# have the same seven tables; that was checked rather than assumed.
+#
+# What does tell them apart is the running configuration, so that is what is
+# asked. The dev control plane is whatever `DATABASE_URL` in the php container
+# names, and the test ones are that name plus the suffix Doctrine appends under
+# `when@test` (`config/packages/doctrine.yaml`: `_test%env(default::TEST_TOKEN)%`).
+# Deriving the pattern from the base name rather than writing `app_test` down
+# makes the dev database structurally unable to match it — `app` is not
+# `app_test<digits>`, and in the awkward checkout `app_test` is not
+# `app_test_test<digits>` either.
+#
+# That is the argument. It is not enough on its own, because an argument is what
+# gets edited later, so the name is *also* excluded by hand in every statement
+# below — `AND datname <> '<the dev one>'`, belt for the derivation and braces
+# for whoever one day replaces it with a literal.
+#
+# **What this deliberately does not cover.**
+#
+#   * Databases belonging to another checkout. Unlike the tenant names, these
+#     carry no `TEST_RUN`: Doctrine's suffix is the worker and nothing else, so
+#     every checkout's control-plane test databases have identical names. That is
+#     harmless only because each checkout has its own `database` container, which
+#     is the same thing `compose.override.yaml` already says about `TEST_RUN`.
+#     Point two checkouts at one server and this step drops the neighbour's.
+#   * Tenant databases on this server. There are none — the suite's tenants are
+#     on `database-test` — and the dev ones (`tenant_acme` and friends) are
+#     somebody's working state and are matched by nothing here.
+#   * A control plane left behind under a *different* base name, from a checkout
+#     that has since changed `POSTGRES_DB`. Nothing knows that name any more, so
+#     nothing can reclaim it; it shows up as a stray database in Adminer and is
+#     dropped by hand.
+step 'Control-plane test databases from earlier runs'
+
+# The persistent server. Named once, for the same reason the other one is.
+readonly CONTROL_DB_SERVICE='database'
+
+# psql on it, with that container's own credentials — the same reasoning as
+# `test_psql` above, and worth not sharing a function with it: these two act on
+# different servers and one of them holds data somebody wants.
+control_psql() {
+	docker compose exec -T "$CONTROL_DB_SERVICE" \
+		sh -c 'exec psql -qXtA -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 "$@"' -- "$@"
+}
+
+# **The dev control plane's name, asked of the container that will serve it.**
+#
+# Not `${POSTGRES_DB:-app}` from out here. Compose interpolates `.env` and the
+# process environment when it builds that variable and this shell reads only the
+# latter, so the two can disagree — the identical trap `test_psql` above avoids
+# by asking the container who its superuser is. The php container's environment
+# is the single thing Symfony will actually read in the dev environment, so it is
+# the single thing worth asking.
+control_dev_db=$(docker compose exec -T php sh -c 'printf %s "${DATABASE_URL:-}"')
+control_dev_db="${control_dev_db%%\?*}"   # drop ?serverVersion=…&charset=…
+control_dev_db="${control_dev_db##*/}"    # and everything up to the last slash
+
+# **And then refuse to guess.** A database name is about to be pasted into a
+# regular expression and into an SQL literal, and this is the one place where
+# being clever about quoting would be worse than being narrow: every name this
+# project has ever used is a bare lowercase identifier, so anything else means
+# the derivation above has misread something and the honest answer is to stop.
+if ! printf '%s' "$control_dev_db" | grep -Eq '^[A-Za-z0-9_]+$'; then
+	printf 'Cannot tell which database is the control plane.\n\n' >&2
+	printf 'DATABASE_URL in the php container gave %s, which is not a plain\n' "${control_dev_db:-<empty>}" >&2
+	printf 'identifier. Refusing to reclaim anything on %s rather than guess at a\n' "$CONTROL_DB_SERVICE" >&2
+	printf 'pattern — the dev control plane and the dev tenants are on that server.\n' >&2
+	exit 66
+fi
+
+# The suffix is Doctrine's, under `when@test`; the digits are paratest's worker
+# and are absent on a serial `composer test`, which is why `app_test` itself is
+# in the set. Anchored at both ends, unlike the tenant pattern above, because
+# these names have nothing after the worker number and a trailing anchor is one
+# more thing an accident would have to get past.
+readonly CONTROL_TEST_DB_PATTERN="^${control_dev_db}_test[0-9]*\$"
+
+# The assertion the paragraph above promised. It cannot fire while the pattern is
+# derived from `$control_dev_db` — that is the point of deriving it — and it is
+# here for the edit that replaces the derivation with a literal, which is the
+# shape this mistake will actually take.
+if printf '%s' "$control_dev_db" | grep -Eq "$CONTROL_TEST_DB_PATTERN"; then
+	printf 'Refusing to reclaim: the pattern %s matches the dev control plane\n' "$CONTROL_TEST_DB_PATTERN" >&2
+	printf 'itself (%s). Whatever changed above, it has stopped being derived from\n' "$control_dev_db" >&2
+	printf 'the database name and has started overlapping it.\n' >&2
+	exit 66
+fi
+
+control_reclaim_started=$(date +%s%N)
+
+printf '    pattern %s, keeping %s\n' "$CONTROL_TEST_DB_PATTERN" "$control_dev_db"
+
+# The list, on the host, because the emptying below is one statement *per*
+# database and SQL has no way to change database mid-script. Every name in it has
+# just been matched by a pattern built out of `[A-Za-z0-9_]`, so there is nothing
+# here that needs quoting when it goes back down in a moment.
+control_test_dbs=$(control_psql -c "
+	SELECT datname
+	  FROM pg_database
+	 WHERE datname ~ '${CONTROL_TEST_DB_PATTERN}' AND datname <> '${control_dev_db}'
+	 ORDER BY datname
+")
+
+if [ -z "$control_test_dbs" ]; then
+	printf '    nothing to reclaim (%sms)\n' "$((($(date +%s%N) - control_reclaim_started) / 1000000))"
+else
+	# **Sessions first, for the reason the tenant reclaim gives at length**, and
+	# with one difference: `DROP SCHEMA` does not need exclusive use of the
+	# database the way `DROP DATABASE` does, so an idle connection left by an
+	# earlier run is harmless here. What is not harmless is one left *in a
+	# transaction* — a killed paratest worker, a Panther server — because that
+	# holds locks on the very tables being dropped, and the reclaim would wait
+	# behind it rather than fail. `lock_timeout` below is the second half of that:
+	# a run that cannot get the lock in five seconds says so instead of hanging,
+	# which is the failure mode this whole ticket exists to stop repeating.
+	control_psql -o /dev/null -c "
+		SELECT pg_terminate_backend(pid)
+		  FROM pg_stat_activity
+		 WHERE datname ~ '${CONTROL_TEST_DB_PATTERN}'
+		   AND datname <> '${control_dev_db}'
+		   AND pid <> pg_backend_pid()
+	"
+
+	# One `psql` session walking the list with `\connect`, rather than one
+	# `docker compose exec` per database. Measured: 0.2s against 1.7s, which is
+	# almost entirely the exec overhead — nine round trips through Docker for
+	# nine statements that each take a couple of milliseconds.
+	#
+	# `client_min_messages` because `DROP SCHEMA … CASCADE` narrates every object
+	# it removes, and seven tables times nine databases is sixty lines of notice
+	# in the middle of a step whose interesting output is one line.
+	control_reclaim_script=''
+	control_reclaimed=0
+
+	for control_test_db in $control_test_dbs; do
+		control_reclaim_script="${control_reclaim_script}\\connect ${control_test_db}
+SET client_min_messages = warning;
+SET lock_timeout = '5s';
+DROP SCHEMA IF EXISTS public CASCADE;
+CREATE SCHEMA public;
+"
+		control_reclaimed=$((control_reclaimed + 1))
+	done
+
+	printf '%s' "$control_reclaim_script" | docker compose exec -T "$CONTROL_DB_SERVICE" \
+		sh -c 'exec psql -qX -o /dev/null -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1'
+
+	control_reclaim_ms=$((($(date +%s%N) - control_reclaim_started) / 1000000))
+
+	if [ "$control_reclaimed" -eq 1 ]; then
+		printf '    emptied 1 database in %sms; the bootstrap migrates it from scratch\n' "$control_reclaim_ms"
+	else
+		printf '    emptied %s databases in %sms; the bootstrap migrates them from scratch\n' \
+			"$control_reclaimed" "$control_reclaim_ms"
+	fi
+fi
+
+if [ "$reclaim_only" = true ]; then
+	pass 'Reclaimed. Nothing else was run.'
+	exit 0
 fi
 
 step 'composer.json is valid and composer.lock matches it'
