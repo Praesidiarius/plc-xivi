@@ -6250,6 +6250,160 @@ database the reclaim dropped, which is why `deprovision()` being `DROP … IF
 EXISTS` on both objects is load-bearing rather than defensive. Moving them onto
 the test server is a separate question and has not been answered here.
 
+**That paragraph was right about the disk and wrong about the cost** (XIV-106).
+Being small and on disk is not the interesting property of those databases. The
+interesting one is that nothing ever drops them, so they outlive the branch that
+migrated them.
+
+That is fine until a branch adds a control migration and then renames or amends
+it, which is what iterating on a migration looks like. `doctrine_migration_versions`
+is then a record of a tree that no longer exists, in one of two shapes: a row
+naming a class that is gone, which Doctrine reports as executed-but-unavailable
+and carries on past; or no row for the new name, in which case Doctrine runs a
+`CREATE TABLE` against a table the old name already created. The second one
+throws a driver exception — `relation "…" already exists`, or `column "active" of
+relation "operator" already exists` — out of the PHPUnit bootstrap, before a
+single test has run, on a branch whose diff is fine. It names a table and never
+mentions a migration, and it cost one run two manual `DROP DATABASE`s before
+anybody worked out what they were looking at.
+
+So `bin/ci` reclaims these too, in a step of its own, and both halves of that
+sentence matter.
+
+**Reclaimed by emptying rather than by dropping, and unconditionally.** Emptying
+first: `DROP DATABASE` forces an immediate checkpoint, and on this on-disk server
+that is about 1.7 seconds each — nine of them measured at 15.4s, which is a
+sixth of the suite's running time added to every run for ever. `DROP SCHEMA
+public CASCADE` is the same outcome, because `public` is where every table these
+migrations create lives, `doctrine_migration_versions` included, and
+`create --if-not-exists` is a no-op on the database left standing. Nine of those
+measured at 1.7s through nine `docker compose exec`s and **0.5s through one
+`psql` session** walking the list with `\connect`. The bootstrap then pays 613 ms
+instead of 468 ms to migrate an empty database rather than find a ready one.
+
+Unconditionally, because the cheap alternative is not enough. Comparing the
+recorded versions against the files would catch a *renamed* migration — a
+recorded version with no file — and would miss an *amended* one, which is the
+other half of iterating: same version, different SQL, version still recorded,
+migration a silent no-op, suite running against the schema the old SQL built.
+That failure is quieter than the one this ticket is about, and a reclaim that has
+to be reasoned about before it is trusted is not worth having.
+
+**A step of its own, because the safety argument is not the same one.** The
+tenant reclaim can *ask* the server whether it is disposable — `SHOW fsync` is
+`off` only on `database-test`, and `compose.override.yaml` sets it there
+precisely because everything on it is throwaway. On `database` that question has
+no useful answer: the dev tenants and the dev control plane are on it, and it is
+supposed to keep its promises. The safety has to come from names instead, and a
+name is exactly what cannot be trusted here — `app_test` is a test database
+today and would be a perfectly ordinary *dev* control plane in a checkout whose
+`POSTGRES_DB` is `app_test`, since `compose.yaml` interpolates that straight into
+`DATABASE_URL`. Both have the same seven tables, which was checked rather than
+assumed.
+
+What separates them is the running configuration, so that is what is asked: the
+dev control plane is whatever `DATABASE_URL` in the *php container* names — not
+`${POSTGRES_DB:-app}` read out here, for the reason the reclaim already asks that
+container who its superuser is — and the pattern is that name plus the suffix
+Doctrine appends under `when@test`. Deriving it rather than writing `app_test`
+down makes the dev database structurally unable to match: `app` is not
+`app_test<digits>`, and in the awkward checkout `app_test` is not
+`app_test_test<digits>` either. That was verified by running it rather than by
+reading it: the stack was brought up with `POSTGRES_DB=app_test`, the suite
+created `app_test_test`, both databases had the same seven tables, and the
+reclaim derived `^app_test_test[0-9]*$` and emptied only the second — dev
+`app_test` still 7 tables, test `app_test_test` down to 0. The dev name is *also*
+excluded by hand in every statement, which is belt for the derivation and braces
+for whoever one day replaces it with a literal.
+
+Three things it deliberately does not cover, all of them written down beside it
+in `bin/ci`. Another checkout's databases — unlike the tenant names these carry
+no `TEST_RUN`, because Doctrine's suffix is the worker and nothing else, so this
+is safe only for as long as each checkout has its own `database` container, which
+is the same caveat `compose.override.yaml` already records for `TEST_RUN`. Dev
+tenants on that server, which nothing here matches. And a control plane left
+under a base name the configuration has since changed away from, which nothing
+knows about any more.
+
+Moving these databases onto `database-test` is *still* not answered here, and it
+is now less pressing rather than more: emptying costs half a second, so the move
+would buy nothing but tidiness — while the thing it would actually change is the
+safety argument above, replacing a derived name with `SHOW fsync`. Worth doing on
+the day something else makes it necessary; not worth doing for this.
+
+**And the failure is made legible for what the reclaim cannot anticipate.** A
+bare `composer test`, or `bin/phpunit` from an editor, does not go through
+`bin/ci` and can still meet a half-applied database. `tests/bootstrap.php` now
+answers with the database name, the server it is on and why it is on that one,
+the driver exception, the sentence *this is usually not a defect in your branch*,
+and `bin/ci --reclaim` — which exists as a flag for no other reason than to give
+that message something to name. A message that says what to type is worth the
+flag; the alternative was a `psql` incantation nobody types correctly out of a
+stack trace.
+
+**One numbering space for migrations, and it is a decision rather than a
+constraint** (XIV-107). On 2026-08-18 [XIV-92] and [XIV-95] both chose
+`Version20260818140000` and it was caught by hand at merge. The cause is not
+carelessness: migrations here are hand-written, so the version is a timestamp
+somebody types, and people type `…140000` far more often than `…143327` — two
+authors on one afternoon are choosing from a handful of round numbers rather than
+from 86,400.
+
+The control-plane and tenant sets are separate Doctrine configurations against
+separate connections and separate databases, and Doctrine stores the version
+fully qualified: `doctrine_migration_versions` holds
+`DoctrineMigrations\ControlPlane\Version20260818140000`, namespace and all. So
+the same digits in both sets is **not** a technical conflict and nothing would
+break. That is precisely why it had to be decided — an answer that is not forced
+is one two people answer differently.
+
+The answer is that **a version is unique across the whole repository**, both
+directories together, and it rests on three things. A version is quoted by its
+digits and never by its namespace in every place a person actually meets one — in
+conversation, in a branch name, at a `psql` prompt reading a half-applied
+`doctrine_migration_versions` — so ambiguity costs most in exactly the situation
+above and saves nothing anywhere. It costs nothing to obey, because timestamps to
+the second are not scarce. And "unique" is a sentence, while "unique within its
+own directory, and a duplicate across directories is fine because the namespace
+disambiguates it" is a paragraph — a rule nobody can state from memory gets
+applied by guess.
+
+`tests/Unit/MigrationVersionsAreUniqueTest.php` enforces it, along with the class
+name matching its file, which is Doctrine's own requirement arriving in
+milliseconds instead of out of a bootstrap and is the obvious way to get a
+renumbering half right. It is the check that fails in `bin/ci` rather than in
+somebody's head at merge time; the same-path collision is a merge conflict git
+surfaces eventually, and the cross-directory one is not.
+
+`bin/new-migration <set> [description]` is the half that means nobody has to be
+caught by it: it takes the version from the clock, to the second, checks it
+against both sets, and writes the file. Not
+`doctrine:migrations:generate` — Symfony's own answer, and the right one if there
+were one set of migrations. There are two, it would have to be handed
+`--configuration=config/migrations/tenant.php` for the other, and in neither case
+would it look at the set it was not pointed at, which is the whole check the
+decision above needs. It also wants the stack up and a booted kernel to write an
+empty file, where this is a `date` and a heredoc and works with every container
+stopped.
+
+One detail in it is a consequence of the habit it ends. Typed timestamps are
+rounded *up*: this repository's migrations are stamped 14:00 and 15:00 on days
+whose work happened in the morning. Ask the clock at 06:14 and the version sorts
+*before* migrations that already exist, and Doctrine — which runs everything
+unexecuted in version order — then runs the new one first, against a schema that
+does not have what the earlier-numbered migration added. So the version is the
+later of the clock and one second past the newest version in the tree. On a
+repository whose versions are honest that line does nothing; here it holds the
+ordering true while the typed ones age out.
+
+**What none of this catches**, and it is worth being explicit because it is the
+quieter of the two shapes: two branches adding a column to the same table with
+*different* timestamps. Those merge cleanly and both run. There is no honest
+static check for it — the question is what the SQL means, not what the files are
+called — and the outcome is caught downstream by
+`SchemaMatchesTheMappingTest` and by `tenant:schema:validate`, which compare the
+schema that resulted against the mapping.
+
 **A mail catcher is visibility, and only that** (XIV-41). Development sends to
 Mailpit, a container that accepts everything and delivers nothing, because the
 mail this application is about to grow — Markdown rendered to HTML, wrapped in a
