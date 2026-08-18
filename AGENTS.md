@@ -76,6 +76,15 @@ in the brief first.
   *is* enforced mechanically now, by
   `tests/Unit/MigrationsUseIdentityColumnsTest.php`; it is written down here
   because a test can only tell you afterwards.
+- **A tenant migration's `up()` may only add.** No `DROP TABLE`, no
+  `DROP COLUMN`, no rename of either, no `SET NOT NULL` on a column that exists.
+  A deploy walks the customer databases one at a time with the instance still
+  serving (`bin/deploy`), so for the length of that walk one build of the code
+  meets both schemas. Expand now, contract a release later. `down()` is exempt —
+  going backwards deliberately is what it is for. Enforced by
+  `tests/Unit/TenantMigrationsAreAdditiveTest.php`, which is blunt on purpose and
+  cannot see a narrowed type or a new `UNIQUE`; those are still yours to catch
+  (XIV-61, §4.2).
 - **Reach for Symfony's own component before hand-rolling one**, and say so out
   loud when you deliberately do not.
 - **Licence-check every new dependency** and record the result. Permissive only —

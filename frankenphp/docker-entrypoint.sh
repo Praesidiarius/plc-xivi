@@ -19,6 +19,35 @@ if [ "$1" = 'frankenphp' ] || [ "$1" = 'php' ] || [ "$1" = 'bin/console' ]; then
 	# Or about an error in project initialization
 	php bin/console -V
 
+	# **Refuse to start on a secret anybody can read out of the repository**
+	# (XIV-61, docs/architecture.md §4.2).
+	#
+	# `.env` is committed and public, and the image build compiles it into
+	# `.env.local.php` with `composer dump-env prod` — so a freshly built image
+	# contains a working `APP_SECRET` and a working `TENANT_SECRET_KEYS`, and a
+	# deployment that forgets to supply its own runs on them **while looking
+	# perfectly healthy**. No error, no warning, no degraded behaviour: cookies
+	# are signed, invitation links verify, tenant passwords decrypt. The way it
+	# surfaces is somebody forging one.
+	#
+	# This is where the guarantee belongs rather than in `bin/deploy`, which runs
+	# it too: a deploy can be skipped, replayed from an older revision or walked
+	# past by restarting a container by hand, and the container that comes back
+	# from any of those is the one serving customers. `set -e` at the top of this
+	# file means a refusal here never reaches `frankenphp run`, so the failure
+	# presents as a container that will not come up — which is loud — rather than
+	# as a service that is fine.
+	#
+	# It runs before the database wait on purpose. Nothing below is worth doing
+	# for an instance that must not serve, and the reason is more readable in a
+	# log that does not have sixty seconds of connection attempts after it.
+	#
+	# **It stands down entirely outside `APP_ENV=prod`.** `bin/ci`, the test suite
+	# and `bin/compose up` all run on those placeholders deliberately — that is
+	# what lets a fresh checkout start with nothing configured — so refusing there
+	# would be refusing the ordinary case.
+	php bin/console deploy:check-secrets
+
 	if grep -q ^DATABASE_URL= .env; then
 		echo 'Waiting for database to be ready...'
 		ATTEMPTS_LEFT_TO_REACH_DATABASE=60
@@ -41,6 +70,31 @@ if [ "$1" = 'frankenphp' ] || [ "$1" = 'php' ] || [ "$1" = 'bin/console' ]; then
 			echo 'The database is now ready and reachable'
 		fi
 
+		# **The control plane's migrations, and deliberately not the tenants'**
+		# (XIV-61, docs/architecture.md §4.2).
+		#
+		# This is one database, one transaction, and the container cannot serve a
+		# single request without it, so running it on every start is both cheap
+		# and the thing that keeps a container from ever serving against a
+		# control-plane schema older than itself. It is idempotent, so a start
+		# after `bin/deploy` has already run costs a version query.
+		#
+		# `bin/console tenant:migrate` is **not** here, and that is the decision
+		# rather than an omission. The tenant set is one database per customer,
+		# and this script runs on every container start — an OOM restart, a
+		# health-check flap, a node draining, somebody typing
+		# `docker compose restart`. Putting the loop here would make every one of
+		# those an operation over fifty customers' databases, taken at a moment
+		# nobody planned, with the container not serving for its duration; and
+		# two containers starting at once would compute the same plan for the
+		# same fifty databases and both begin applying it, which `all_or_nothing`
+		# does not protect against because it protects a run from itself rather
+		# than from another run.
+		#
+		# So the tenant half is a one-shot step a deploy calls: `bin/deploy`,
+		# which ships in this image and runs secrets, control plane and tenants
+		# in that order. Read it for the full argument and for the migration
+		# window the ordering depends on.
 		if find ./migrations -iname '*.php' -print -quit | grep --quiet .; then
 			php bin/console doctrine:migrations:migrate --no-interaction --all-or-nothing
 		fi

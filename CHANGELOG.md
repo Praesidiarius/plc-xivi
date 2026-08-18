@@ -78,6 +78,14 @@ lands in `Unreleased` here.
 - **A removal that stops part-way prints what is standing**: the database, the
   role and the control-plane row, each said to be gone or still there, with the
   line to type next, instead of a DBAL driver exception ([XIV-94]).
+- **`tenant:migrate` exits 3 when a tenant failed**, where it used to exit 1 —
+  which is the same 1 it exits with for an empty registry and an unknown
+  `--slug`, so a deploy could not tell "nothing to do" from "one of your
+  customers is on the wrong schema" ([XIV-61], §4.2). **Anything reading that
+  exit code needs updating**: 0 is all tenants current, 1 is the run could not
+  happen, 3 is some failed and the rest are fine. The failure now names the
+  tenants and prints the `--slug` line to retry each one.
+
 ### Added
 
 - **The tenant list shows the modules a customer actually has installed, and
@@ -174,6 +182,32 @@ lands in `Unreleased` here.
   The email templates page does not offer it at all: an email has no answer yet
   for what a picture in one would be, and offering something that comes out blank
   is what that page already declines to do (§5.7, §5.13).
+
+- **`bin/deploy` migrates the tenant databases, which nothing did before**
+  ([XIV-61], §4.2). One command a deploy runs once per release, out of the image
+  being released: it checks the secrets, migrates the control plane, then
+  migrates every customer, and stops on the first failure. Until now
+  `tenant:migrate` existed and **nothing called it anywhere**, so shipping an
+  entity change left every customer on the old schema with the new code serving
+  them.
+- **The container entrypoint deliberately does not migrate tenants**, and says
+  why: it runs on every container start rather than once per deploy, and at fifty
+  customers that turns a restart into an operation across every customer's
+  database. It still migrates the control plane, which is one database and cheap.
+- **Tenant migrations are additive only, and that is now checked.** `up()` may
+  not drop a table or a column, rename either, or add `NOT NULL` to an existing
+  column, because a deploy walks the customer databases one at a time with the
+  instance still serving. `tests/Unit/TenantMigrationsAreAdditiveTest.php`
+  refuses the ones that do; `down()` is untouched, and the window this protects
+  is §4.2.
+- **An instance starting in production on the `APP_SECRET` or
+  `TENANT_SECRET_KEYS` committed in `.env` refuses to start** ([XIV-61], §4.2).
+  Those values are compiled into the production image by `composer dump-env
+  prod`, so a deployment that supplies neither ran on a published secret while
+  looking perfectly healthy. The refusal names the variable and prints the
+  command that makes a real one. **Development, the test suite and `bin/ci` are
+  unaffected** — the check does nothing outside `APP_ENV=prod`, because those
+  three run on the placeholders on purpose.
 
 ### Fixed
 
@@ -273,6 +307,7 @@ lands in `Unreleased` here.
 [XIV-92]: https://xivi.youtrack.cloud/issue/XIV-92
 [XIV-95]: https://xivi.youtrack.cloud/issue/XIV-95
 [XIV-98]: https://xivi.youtrack.cloud/issue/XIV-98
+[XIV-61]: https://xivi.youtrack.cloud/issue/XIV-61
 [XIV-1]: https://xivi.youtrack.cloud/issue/XIV-1
 [XIV-58]: https://xivi.youtrack.cloud/issue/XIV-58
 [XIV-64]: https://xivi.youtrack.cloud/issue/XIV-64
