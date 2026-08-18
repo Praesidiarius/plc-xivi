@@ -92,15 +92,27 @@
 					Where the record is, and where it may go from here (XIV-14). Only
 					the legal moves are drawn: a button that answers "not from there"
 					is a button that should not have been offered.
+
+					A move the record's state allows but its own condition refuses
+					shows the module's reason instead of the button (XIV-110) — the
+					same three-state shape as the send card above. The button is the
+					courtesy; the enforcement is in the route, which asks the same
+					guard again when the POST arrives, because a URL can be retyped.
 				#}
-				{% for transition in transitions %}
-					<form method="post"
-					      action="{{ path('module_transition', {module: module.key, id: record.id, transition: transition.name}) }}">
-						<input type="hidden" name="_token" value="{{ csrf_token('transition-record-' ~ record.id) }}">
-						<button type="submit" class="btn btn-outline-primary">
-							{{ transition.labelKey|trans({}, module.key) }}
-						</button>
-					</form>
+				{% for offer in transitions %}
+					{% if offer.possible %}
+						<form method="post"
+						      action="{{ path('module_transition', {module: module.key, id: record.id, transition: offer.transition.name}) }}">
+							<input type="hidden" name="_token" value="{{ csrf_token('transition-record-' ~ record.id) }}">
+							<button type="submit" class="btn btn-outline-primary">
+								{{ offer.transition.labelKey|trans({}, module.key) }}
+							</button>
+						</form>
+					{% else %}
+						<p class="text-body-secondary small mb-0 align-self-center">
+							{{ offer.refusal|trans({}, module.key) }}
+						</p>
+					{% endif %}
 				{% endfor %}
 				{#
 					What this record can be made into (XIV-19): an invoice from an

@@ -24,6 +24,7 @@ use Xivi\Core\Module\ModuleProvider;
 use Xivi\Core\Money\LineTotals;
 use Xivi\Core\Numbering\NumberFormat;
 use Xivi\Core\Record\InheritedValue;
+use Xivi\Order\Lifecycle\OrderNeedsALine;
 
 /**
  * What a customer ordered (XIV-18).
@@ -394,7 +395,21 @@ final class OrderModule implements ModuleProvider
                 field: 'status',
                 initial: self::DRAFT,
                 transitions: [
-                    new LifecycleTransition('confirm', [self::DRAFT], self::CONFIRMED, label: 'transition.confirm'),
+                    // **And a condition on it** (XIV-110). Until this existed a
+                    // lifecycle could only refuse the moves the *graph* forbade,
+                    // so an order with nothing on it confirmed cleanly — the
+                    // button was offered, the POST went through, and a document
+                    // with no lines and a total of zero became a confirmed sale.
+                    // The rule cannot be a required field, because it is not true
+                    // of a draft; the field beside it is required precisely
+                    // because "an order names a customer" *is* (§5.8).
+                    new LifecycleTransition(
+                        'confirm',
+                        [self::DRAFT],
+                        self::CONFIRMED,
+                        label: 'transition.confirm',
+                        guard: new OrderNeedsALine(),
+                    ),
                     new LifecycleTransition('deliver', [self::CONFIRMED], self::DELIVERED, label: 'transition.deliver'),
                     // From either: an order is called off before it ships, and
                     // which side of confirmation that happens on is not this

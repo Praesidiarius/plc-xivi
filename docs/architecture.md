@@ -2621,6 +2621,11 @@ trail that called both "updated" would bury the first.
 
 #### A condition on a transition, and why it is not an expression language (XIV-88)
 
+*Written while `LifecycleTransition` still carried no condition. It carries one
+now — XIV-110 built it, in the shape this argument concluded with — and the
+mechanism is the subsection below. This one is kept as it was, because the
+reasoning about what a condition must **not** be is the part that stays true.*
+
 `LifecycleTransition` carries no condition, and there is nowhere else to put one.
 "Confirming an order needs at least one line" cannot be said anywhere today:
 field validation is per field and unconditional, so it can only demand the line
@@ -2750,6 +2755,115 @@ live, an editor page built to XIV-27's standard, and a written decision about
 what an expression may see and what happens when one throws. Until somebody is
 actually blocked, this is the abstraction §1 says has to be earned, and it has
 one hypothetical use case rather than two real ones.
+
+#### The condition itself: a transition that refuses (XIV-110)
+
+The hole the subsection above found on the way is not closed by declining
+anything, and this is what closes it. An order with no lines and a total of zero
+confirmed cleanly — the button was drawn, the POST went through, and a document
+with nothing on it became a confirmed sale. A lifecycle that can only refuse the
+moves the **graph** forbids and never the moves the **record** forbids is doing
+half of what this section claims it does, and §7.1's narrowing rests on the other
+half: *"the engine refusing on a rule the module declared, not a subscriber
+vetoing at runtime"*.
+
+**`TransitionGuard`, declared beside the transition it is about.** One method,
+`refusal()`, returning null when the move may be taken and otherwise a
+translation key saying why not. It is not a service and is constructed inline in
+the blueprint like `LineTotals` and `NumberFormat`, which is what keeps the
+condition in the same place as the declaration it conditions — a tagged service
+would have put the pairing somewhere other than the thing being paired. One guard
+per transition rather than a list: "may this move be taken now" is one question,
+and a module wanting two conditions writes one guard that asks both, which is
+also the only way it gets to choose which of the two sentences comes back. A list
+would need a rule for whose message wins, invented by the engine on behalf of a
+module that knows better.
+
+**The button and the enforcement are the same predicate asked twice, and both
+have to exist.** A transition offered and then refused is worse than one not
+offered, so the record page does not draw a button it knows would fail. But
+hiding a button is not enforcement — a retyped POST is not a button — so
+`RecordLifecycle::apply()` asks the same guard again, against the record as it is
+at that moment, and *that* answer is the one that decides. Both come out of a
+single method, `offeredFor()`, so there is no second evaluation to disagree with
+the first; `enabledFor()` is a filter over its result rather than a second walk.
+The order is deliberate: the state machine answers first and the guard second, so
+a move the record's state already forbids costs nothing to not offer.
+
+**A refused move is shown with its reason rather than silently dropped.** This
+is the part that is not obvious. Hiding the button is right, but a refusal
+nobody reads is a sentence written for a request only somebody retyping a URL
+will ever make — so the page prints the module's reason where the button would
+have been. That is the same three-state shape the send card beside it already
+had for a recipient it cannot resolve (§5.14): a button, a reason instead of one,
+or nothing at all.
+
+**The message is the module's, in the module's own catalogue.** The guard hands
+back a key and the engine puts it together with the module's key as the domain,
+which is the same catalogue and the same domain the transition's *label* is read
+from — so the button and the explanation for its absence are written in one file,
+by one person, in one voice. "Cannot confirm" is something the engine could have
+said on its own and is of no use to anybody; *"an order needs at least one line
+before it can be confirmed"* is the message, and only the module can write it.
+`TransitionRefused` gained a third constructor for it, and the third is a
+different kind from the other two: "not a step this record has" and "not from
+where it is" are facts about the lifecycle that the engine can phrase itself.
+
+**What the predicate is handed, and what that costs.** A `GuardedRecord`: the
+record, and a way to reach its rows. The rows are the reason the class exists —
+"at least one line" is a question about a collection, and a collection is not in
+the record's `data` — and handing a guard a bare record would mean every module's
+guard knowing about the metadata and record repositories. They are **lazy**, so a
+guard that reads only a header field makes no query at all, and **memoised**, so
+a lifecycle with three guarded moves reads a collection once between them. One
+object per ask, one query per collection asked about.
+
+The cost question is the one §5.1 and XIV-54 both point at, and the answer is
+established rather than assumed: **a list page never asks a lifecycle anything.**
+Only the record page does, about the one record it is showing. So the whole bill
+for a guard that reads rows is one query, on a page that is already loading those
+same rows in order to draw them. The record page could therefore have handed the
+rows over instead of paying for them again, and deliberately does not: a second
+way in is a second thing to keep true, and a guard that behaves differently
+depending on whether its caller remembered to prime it is a bug waiting for a
+quiet afternoon. If a list page ever wants transition buttons per row, that is the
+point at which this has to change — the rows would need priming for the page the
+way `RecordPrimer` primes references, and a predicate evaluated inside a `LIMIT`
+is on the wrong side of §8.4's line in any case.
+
+**`RecordWriter` did not change, and that is the boundary.** It still validates
+nothing, so the save a transition makes is still inspected by nobody. Whether the
+engine may refuse a *save* on a module's say-so is XIV-73's question and a much
+larger one — it reaches the form, the importer, the demo generator and every
+caller holding the service — where refusing a *transition* touches one route with
+one button on it. A guard is a condition on a move, not on a write, and the two
+are not the same mechanism wearing different hats: a record may be saved in a
+state a guard would refuse to move it out of, and that is correct, because saving
+a half-finished draft is the ordinary thing to do with one.
+
+**The one place that had to learn a new answer** is demo data. The generator
+walks a record to its sampled destination one legal move at a time (§5.17), and
+one demo order in seven is generated with no lines — which the order module's own
+guard now refuses to confirm. It stops and leaves the record where it is, which
+is the answer it already gave for a destination with no path to it. Writing the
+state anyway would put records in a demo tenant that no person using the
+application could have produced, which is exactly what XIV-73 spent a ticket
+undoing.
+
+**The rule that decides where a guard may go**, learned immediately and worth
+stating: not on the only way out. The order's guard is on `confirm` and
+emphatically not on `cancel`, because an empty order is precisely the kind
+somebody wants to be rid of, and a guard that traps a record in a state it cannot
+leave is worse than the bug it was fixing. It is also not on `deliver`, which is
+unreachable without confirming first and would only be a second copy of the same
+rule.
+
+**And what the guard deliberately does not say.** The survey named "a total of
+zero" alongside "no lines", and only one of them is a mistake. An order can
+legitimately come to nothing — a goodwill replacement, a line discounted in full,
+a sample priced at zero — and refusing those would be the engine having an opinion
+about somebody else's pricing. An order with *no lines at all* cannot be any of
+those things, because there is nothing on it to have been priced.
 
 ---
 

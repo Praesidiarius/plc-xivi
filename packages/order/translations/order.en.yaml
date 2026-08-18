@@ -46,3 +46,14 @@ transition:
     confirm: Confirm
     deliver: Mark delivered
     cancel: Cancel
+
+# Why a step is not offered (XIV-110). Read at the moment somebody looks at the
+# record rather than seeded into their definitions like the labels above: a
+# transition's condition belongs to the module for as long as the module has it,
+# and there is nothing for a customer to rename here.
+#
+# It names what to do rather than what went wrong, which is the whole reason this
+# sentence is the module's and not the engine's — "cannot confirm" is something
+# the engine could have said on its own, and is of no use to anybody.
+guard:
+    needs_a_line: An order needs at least one line before it can be confirmed.

@@ -219,10 +219,79 @@ final class OrderModuleTest extends WebTestCase
         self::assertNull($lines[0]->get('unit_price'));
     }
 
+    /**
+     * The bug XIV-110 was about, in the shape it was found in.
+     *
+     * Before the guard, this exact record confirmed: the button was drawn, the
+     * POST went through, and an order with nothing on it and a total of zero
+     * became a confirmed sale. Nothing else in the engine was ever going to stop
+     * it — field validation is per field and could only have demanded the line of
+     * a *draft* as well, and the writer validates nothing.
+     */
+    public function testAnOrderWithNoLinesIsNotOfferedConfirmation(): void
+    {
+        $order = $this->anOrder($this->aCompany('Acme AG'));
+
+        self::assertSame([], $this->linesOf($order), 'nothing on it');
+        self::assertNotContains('Confirm', $this->transitionsOn($order));
+        self::assertContains(
+            'Cancel',
+            $this->transitionsOn($order),
+            'and the way out is still open, because a guard on the only exit is a trap',
+        );
+    }
+
+    /**
+     * And the page says why, rather than quietly having one fewer button.
+     *
+     * The sentence is the module's own and lives in its catalogue, next to the
+     * label of the button it is standing in for.
+     */
+    public function testTheOrderSaysWhyItCannotBeConfirmed(): void
+    {
+        $order = $this->anOrder($this->aCompany('Acme AG'));
+
+        self::assertStringContainsString(
+            'An order needs at least one line before it can be confirmed',
+            $this->client->request('GET', $this->url('/m/order/' . $order))->filter('main')->text(),
+        );
+    }
+
+    /**
+     * **The enforcement, as opposed to the courtesy.** Hiding a button is a
+     * kindness to whoever is reading the page; a POST is a URL, and a URL can be
+     * retyped. So the same guard is asked again when the request arrives, and it
+     * is that answer which decides.
+     */
+    public function testARetypedPostCannotConfirmAnOrderWithNoLines(): void
+    {
+        $order = $this->anOrder($this->aCompany('Acme AG'));
+
+        $this->transition($order, 'confirm');
+
+        $page = $this->client->followRedirect()->filter('main')->text();
+
+        self::assertStringContainsString('An order needs at least one line', $page, 'and it says why');
+        self::assertStringContainsString('Draft', $page, 'the order did not move');
+        self::assertNotContains('Mark delivered', $this->transitionsOn($order), 'nor did anything follow from it');
+    }
+
+    /** Put a line on it and the same order confirms. */
+    public function testAnOrderWithALineIsConfirmed(): void
+    {
+        $order = $this->anOrderWithALine($this->aCompany('Acme AG'));
+
+        self::assertContains('Confirm', $this->transitionsOn($order));
+
+        $this->transition($order, 'confirm');
+
+        self::assertStringContainsString('Confirmed', $this->client->followRedirect()->filter('main')->text());
+    }
+
     /** An order moves through its lifecycle, and stops. */
     public function testAnOrderIsConfirmedAndDelivered(): void
     {
-        $order = $this->anOrder($this->aCompany('Acme AG'));
+        $order = $this->anOrderWithALine($this->aCompany('Acme AG'));
 
         self::assertSame(['Confirm', 'Cancel'], $this->transitionsOn($order));
 
@@ -251,6 +320,20 @@ final class OrderModuleTest extends WebTestCase
             ],
             $lines === [] ? [] : [OrderModule::LINES => [self::row([OrderModule::KIND => $kind, ...$lines])]],
         ));
+    }
+
+    /**
+     * An order with something on it, which since XIV-110 is what "an order that
+     * can be confirmed" means. A custom line, so that the fixture does not have
+     * to invent an article as well.
+     */
+    private function anOrderWithALine(int $customer): int
+    {
+        return $this->anOrder(
+            $customer,
+            ['description' => 'A day of work', 'quantity' => '1.00', 'unit_price' => '250.00'],
+            OrderModule::CUSTOM_LINE,
+        );
     }
 
     private function aCompany(string $name): int

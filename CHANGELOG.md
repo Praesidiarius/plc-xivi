@@ -417,6 +417,25 @@ lands in `Unreleased` here.
 
 ### Fixed
 
+- **An order with no lines can no longer be confirmed** ([XIV-110],
+  [§5.8](docs/architecture.md#58-lifecycles-xiv-14)). A lifecycle could only
+  refuse the moves its *graph* forbade, so an empty order with a total of zero
+  confirmed cleanly — nothing else in the engine was going to catch it, because
+  field validation is per field and would have demanded the line of a draft too.
+  A module can now declare a condition on a transition, in code, and the engine
+  checks it: the button is not drawn when it would fail, **and a retyped POST is
+  refused as well** — the first is the courtesy, the second is the enforcement.
+- **A step that cannot be taken says why**, in the module's own words and its own
+  catalogue, where the button would have been: "An order needs at least one line
+  before it can be confirmed." A missing button on its own explains nothing.
+- **A generated demo order with no lines now stays a draft** instead of being
+  walked to `confirmed`. One in seven is generated empty, and the guard refuses
+  them the same way it refuses a person — which is the point of walking the
+  lifecycle rather than assigning states (§5.17).
+- **Saving is unchanged.** A guard is a condition on a *move*, not on a write:
+  `RecordWriter` still validates nothing, and a half-finished draft still saves.
+  Refusing a save is [XIV-73]'s question and is still open.
+
 - **The production images no longer contain the working copies of every agent
   that has ever run against this checkout** ([XIV-96]). `.claude/` was not in
   `.dockerignore`, so `COPY … . ./` pulled in thirty-three complete checkouts of
@@ -643,6 +662,8 @@ lands in `Unreleased` here.
 [XIV-101]: https://xivi.youtrack.cloud/issue/XIV-101
 [XIV-102]: https://xivi.youtrack.cloud/issue/XIV-102
 [XIV-88]: https://xivi.youtrack.cloud/issue/XIV-88
+[XIV-110]: https://xivi.youtrack.cloud/issue/XIV-110
+[XIV-73]: https://xivi.youtrack.cloud/issue/XIV-73
 [XIV-66]: https://xivi.youtrack.cloud/issue/XIV-66
 [XIV-96]: https://xivi.youtrack.cloud/issue/XIV-96
 [XIV-62]: https://xivi.youtrack.cloud/issue/XIV-62

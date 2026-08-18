@@ -21,12 +21,13 @@ namespace Xivi\Core\Lifecycle;
  * More than one `from` is ordinary: an invoice can be cancelled from draft and
  * from sent alike.
  *
- * **There is deliberately no condition on it, and the reason is written down
- * rather than merely absent** (XIV-88). "Confirming an order needs at least one
- * line" has no home anywhere in the engine today — field validation is per field
- * and unconditional, so it would demand the line of a draft too, and
- * {@see \Xivi\Core\Record\RecordWriter} validates nothing at all. That hole is
- * real and a guard is worth having. What was rejected is *how*: Symfony's
+ * **It may carry a condition, and it is a predicate rather than an expression**
+ * (XIV-88 argued it, XIV-110 built it). "Confirming an order needs at least one
+ * line" had no home anywhere in the engine — field validation is per field and
+ * unconditional, so it would demand the line of a draft too, and
+ * {@see \Xivi\Core\Record\RecordWriter} validates nothing at all — so a
+ * lifecycle could only refuse the moves the graph forbids and never the moves
+ * the record forbids. What was rejected on the way was *how*: Symfony's
  * ExpressionLanguage was proposed for it, and a guard turns out to be the one
  * candidate in the whole system that passes both of the rules this project has
  * learned — it is a boolean over one record already in hand, and nothing has to
@@ -36,8 +37,9 @@ namespace Xivi\Core\Lifecycle;
  * an IDE, and renaming a field key breaks it in silence. An evaluator earns its
  * keep only where the author cannot ship PHP, which means a customer, and a
  * customer cannot author a lifecycle at all — there is nowhere in the tenant's
- * metadata for a per-transition option to live. So when a condition arrives it
- * belongs here as a predicate, and the argument in full is in §5.8.
+ * metadata for a per-transition option to live. So the condition is
+ * {@see TransitionGuard}, declared right here beside the move it is about, and
+ * the argument in full is in §5.8.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
@@ -53,6 +55,16 @@ final readonly class LifecycleTransition
          * (XIV-8). Null uses `lifecycle.<name>` in that catalogue.
          */
         public ?string $label = null,
+        /**
+         * Whether this record, as it stands, may take the move at all (XIV-110).
+         *
+         * Null is the ordinary case and means "whenever the state allows it",
+         * which is what every transition meant before guards existed. A guard
+         * narrows that and never widens it: it is asked only about moves the
+         * state machine has already said yes to, so a guard cannot make a move
+         * legal from somewhere it was not.
+         */
+        public ?TransitionGuard $guard = null,
     ) {
     }
 

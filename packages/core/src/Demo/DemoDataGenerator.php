@@ -18,6 +18,7 @@ use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Lifecycle\Lifecycles;
 use Xivi\Core\Lifecycle\RecordLifecycle;
+use Xivi\Core\Lifecycle\TransitionRefused;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordAction;
 use Xivi\Core\Record\RecordWriter;
@@ -274,11 +275,28 @@ final readonly class DemoDataGenerator
      * recomputed from rows nobody passed — the same path a lifecycle transition
      * takes from a page, and the reason `DerivesTotals` guards on the key being
      * present at all.
+     *
+     * **A record the lifecycle will not move stays where it is** (XIV-110). The
+     * path is a route through the *graph*, and since guards exist a module may
+     * also refuse a move on the state of the record itself — one demo order in
+     * seven is generated with no lines, and an order with no lines is exactly
+     * what the order module's own guard refuses to confirm. That is the
+     * generator meeting a real rule rather than hitting a problem: a draft it
+     * cannot confirm is a draft, which is the same answer this method already
+     * gave for a destination with no path to it, and it is the honest one. The
+     * alternative — quietly writing the state anyway — would put records in a
+     * demo tenant that no person using the application could have produced,
+     * which is precisely what XIV-73 spent a ticket undoing.
      */
     private function walk(ModuleDefinition $module, RecordLifecycle $lifecycle, Record $record, string $destination): void
     {
         foreach ($lifecycle->lifecycle->pathTo($lifecycle->lifecycle->initial, $destination) as $transition) {
-            $lifecycle->apply($record, $transition->name);
+            try {
+                $lifecycle->apply($record, $transition->name);
+            } catch (TransitionRefused) {
+                return;
+            }
+
             $this->writer->save($module, $record, as: RecordAction::Transitioned);
         }
     }
