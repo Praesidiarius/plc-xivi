@@ -116,6 +116,29 @@ else
 	step() { printf '\n==> %s\n' "$1"; }
 fi
 
+# **Out of the internal image, not the customer-facing one** (XIV-96, §4.4).
+#
+# There are two production images now and only one of them owns the
+# control-plane schema: the one that contains `packages/control-plane`. The
+# customer-facing image connects to that database as a role holding `SELECT` on
+# the registry tables and nothing else, so every step below would fail there —
+# but it would fail *partway*, with a permission error out of Doctrine, after
+# the secret check had passed and possibly after some of the control-plane
+# migration had been attempted. "It cannot work anyway" is not a good enough
+# reason to let it start.
+#
+# The test is the package's presence rather than a flag, for the reason
+# `config/bundles.php` and the container entrypoint both give: a flag says what
+# somebody configured, a directory says what is in the image.
+if [ ! -d packages/control-plane ]; then
+	printf '\nThis is the customer-facing image, which does not contain the administration\n' >&2
+	printf 'surface and whose database user cannot write the registry (XIV-96,\n' >&2
+	printf 'docs/architecture.md section 4.4).\n\n' >&2
+	printf 'A deploy moves the schema, so it has to be run out of the internal image:\n\n' >&2
+	printf '  docker run --rm --env-file <the internal deployment'"'"'s> <the internal image> bin/deploy\n\n' >&2
+	exit 1
+fi
+
 # **First, and before anything touches a database.**
 #
 # The check itself is `App\Deployment\PlaceholderSecretGuard`, and the container

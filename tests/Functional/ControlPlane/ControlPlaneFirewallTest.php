@@ -17,21 +17,27 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Bundle\SecurityBundle\Security\FirewallConfig;
 use Symfony\Bundle\SecurityBundle\Security\FirewallMap;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Yaml\Yaml;
 use Xivi\ControlPlane\Security\ControlPlaneHost;
 
 /**
  * **The ordering invariant, with a test behind it instead of a warning** (XIV-57).
  *
- * `security.yaml` declares three firewalls and Symfony takes the *first* one
+ * This installation declares four firewalls and Symfony takes the *first* one
  * whose matcher accepts a request. `main` has no host restriction, so it accepts
  * everything; the control plane's is host-scoped and is declared above it. Swap
- * the two blocks — a merge resolved carelessly, a tidy-up that sorts them
+ * the two — a merge resolved carelessly, a tidy-up that sorts them
  * alphabetically — and a control-plane sign-in is answered by a firewall whose
  * provider looks people up in `tenant_users`, which is to say in whichever
  * customer's database the hostname happened to resolve to. That is exactly the
  * cross-tenant leak §8.1 and §8.2 are built to make impossible, arriving through
  * a line moved in a configuration file.
+ *
+ * **Since XIV-96 the list is assembled from two files** — the application's
+ * `config/packages/security_firewalls.php` names `dev` and `main` and splices
+ * the administration surface's own between them, from
+ * `packages/control-plane/config/firewalls.php`, when that package is in the
+ * build at all. So this asks the *container* rather than any file, which is what
+ * it should have been doing anyway: the property is about what was compiled.
  *
  * A comment saying "do not reorder these" would be read by whoever moved them
  * and by nobody else. This asks the **compiled firewall map** what actually
@@ -100,17 +106,38 @@ final class ControlPlaneFirewallTest extends KernelTestCase
      * That key is a regular expression, so a hostname written into it is a
      * pattern whose every dot matches any character — `control.example.com` also
      * accepts `controlXexample.com`, which is a hostname somebody else can own.
-     * {@see ControlPlaneHost} compares normalised strings instead. Asserted here
+     * {@see ControlPlaneHost} compares normalised strings instead. Asserted
      * because the failure would be silent: `host:` works perfectly for every
-     * hostname anybody would think to try.
+     * hostname anybody would think to try, and only ever goes wrong for a name
+     * somebody registered on purpose.
+     *
+     * **Asked of the compiled firewall map rather than of the configuration
+     * file** (XIV-96). It used to be read out of `config/packages/security.yaml`,
+     * which stopped being where the answer lives when the administration
+     * surface's firewalls moved into their own package — and the replacement is
+     * better than a relocated file read, because it is the property rather than
+     * its spelling. A request to the hostname a naive regular expression would
+     * also accept is sent, and the assertion is that it lands in `main`. A
+     * `host:` here would put it in `control_plane`.
      */
     public function testTheControlPlaneFirewallIsScopedByAMatcherAndNotByARegularExpression(): void
     {
-        $firewall = $this->securityConfig()['firewalls']['control_plane'];
-        \assert(\is_array($firewall));
+        $host = $this->controlPlaneHost()->normalisedHost();
 
-        self::assertSame(ControlPlaneHost::class, $firewall['request_matcher'] ?? null);
-        self::assertArrayNotHasKey('host', $firewall);
+        // Every dot replaced by a character that is legal in a hostname, which
+        // is exactly what an unescaped regular expression cannot tell apart from
+        // the real thing — and is a name somebody else can register.
+        $lookalike = str_replace('.', 'x', $host);
+
+        self::assertNotSame($host, $lookalike, 'The control-plane hostname has no dots to mistake.');
+
+        $request = Request::create(sprintf('https://%s%s/', $lookalike, ControlPlaneHost::PATH_PREFIX));
+
+        self::assertSame(
+            'main',
+            $this->firewallFor($request)->getName(),
+            'A hostname that only a regular expression would confuse with the control plane\'s reached its firewall.',
+        );
     }
 
     /** A customer's hostname is still `main`'s, which is the other half of the same question. */
@@ -172,11 +199,19 @@ final class ControlPlaneFirewallTest extends KernelTestCase
 
     private function controlPlaneRequest(): Request
     {
-        $container = static::getContainer();
-        $host = $container->get(ControlPlaneHost::class);
+        return Request::create(sprintf(
+            'https://%s%s/',
+            $this->controlPlaneHost()->normalisedHost(),
+            ControlPlaneHost::PATH_PREFIX,
+        ));
+    }
+
+    private function controlPlaneHost(): ControlPlaneHost
+    {
+        $host = static::getContainer()->get(ControlPlaneHost::class);
         \assert($host instanceof ControlPlaneHost);
 
-        return Request::create(sprintf('https://%s%s/', $host->normalisedHost(), ControlPlaneHost::PATH_PREFIX));
+        return $host;
     }
 
     private function firewallFor(Request $request): FirewallConfig
@@ -193,40 +228,34 @@ final class ControlPlaneFirewallTest extends KernelTestCase
     /**
      * The firewalls in the order the configuration declares them.
      *
-     * **Read out of `security.yaml` rather than off the compiled map**, which
-     * looks like the weaker choice and is not. `FirewallMap` holds its matchers
-     * in a lazy generator — it is a single-use iterator, and walking it here to
-     * inspect the order would consume it, so every later call to
-     * `getFirewallConfig()` in this kernel would find an empty map and answer
-     * null. A test that quietly disarms the thing it is testing is worse than no
-     * test, and the two assertions above already ask the compiled map what it
-     * actually does. This one states the invariant where a person edits it.
+     * **Off the container's own `security.firewalls` parameter** (XIV-96), which
+     * SecurityBundle sets to `array_keys($config['firewalls'])` while it builds
+     * them — so this is the merged, compiled declaration order rather than one
+     * file's opinion of it.
+     *
+     * It used to parse `config/packages/security.yaml`, and that stopped working
+     * for a good reason: the control plane's firewalls are declared by
+     * `packages/control-plane/config/firewalls.php` now, so no single file has
+     * the whole list any more. Chasing the answer into two files would have made
+     * the test agree with the configuration by construction; asking the
+     * container makes it agree with what was built.
+     *
+     * Not by walking `FirewallMap`, which is the obvious alternative and is a
+     * trap: it holds its matchers in a lazy generator, and consuming it here
+     * would leave every later `getFirewallConfig()` call in this kernel with an
+     * empty map and a null answer. A test that quietly disarms the thing it is
+     * testing is worse than no test.
      *
      * @return list<string>
      */
     private function declaredFirewalls(): array
     {
-        $firewalls = $this->securityConfig()['firewalls'];
+        $firewalls = static::getContainer()->getParameter('security.firewalls');
         \assert(\is_array($firewalls));
 
         /** @var list<string> $names */
-        $names = array_values(array_map(strval(...), array_keys($firewalls)));
+        $names = array_values(array_map(strval(...), $firewalls));
 
         return $names;
-    }
-
-    /** @return array{firewalls: array<string, mixed>} */
-    private function securityConfig(): array
-    {
-        $projectDir = static::getContainer()->getParameter('kernel.project_dir');
-        \assert(\is_string($projectDir));
-
-        $parsed = Yaml::parseFile($projectDir . '/config/packages/security.yaml');
-        \assert(\is_array($parsed) && \is_array($parsed['security']) && \is_array($parsed['security']['firewalls']));
-
-        /** @var array{firewalls: array<string, mixed>} $security */
-        $security = $parsed['security'];
-
-        return $security;
     }
 }

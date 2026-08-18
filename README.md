@@ -744,6 +744,50 @@ retry each one. `deploy:check-hosts` uses the same 3 for the same reason — som
 customers are on hostnames this installation would answer with a 400 — and names
 them too.
 
+### Two images, and which one goes where
+
+`docker build` has two production targets, and they differ in one thing: whether
+the administration surface is in the image.
+
+```bash
+docker build --target frankenphp_prod   -t xivi-internal .   # everything
+docker build --target frankenphp_public -t xivi-public   .   # no admin surface
+```
+
+`frankenphp_public` is what a **customer's hostname** is served from. It contains
+no operator console, no signup intake, no provisioning and no `control:*`
+commands — not switched off, *absent*: from the filesystem, from the autoloader
+and from the compiled container. Its `security.firewalls` is `["dev","main"]` and
+its router has no route under `/control`. The build refuses to finish if any of
+that is untrue, so you do not have to take this paragraph's word for it:
+
+```bash
+docker run --rm --user root --entrypoint sh xivi-public -c 'ls /app/packages'
+```
+
+`frankenphp_prod` is what the **control-plane hostname** is served from, what
+`bin/deploy` runs out of, and what `bin/compose` builds for development. Nothing
+about it changed.
+
+Both talk to the same control-plane database, so the boundary worth having is not
+the network — it is the database user. Give the public instance one of its own:
+
+```bash
+bin/console deploy:registry-grants xivi_public   # prints the SQL; run it as a DBA
+```
+
+It ends up with `SELECT` on the tenant registry and nothing else — no writes, no
+DDL, and no access at all to the `operator` table. **The customer-facing image
+therefore does not run the control-plane migrations**: it checks that somebody
+else has and refuses to start if not, so `bin/deploy` has to run before the public
+containers are replaced. That was already the right order; it is now enforced.
+
+A single-instance deployment — one image, one database user — keeps working
+exactly as it did. All of the above is opt-in by building the second target. The
+argument for it, and the complete list of what the public image *does* still
+contain, is
+[§4.4](docs/architecture.md#44-two-images-what-a-customers-instance-is-built-without-xiv-96).
+
 ### Rotating the encryption key
 
 Stored secrets record which key wrote them, so both keys are valid during the
@@ -757,7 +801,7 @@ changeover and the job is resumable:
 
 ```bash
 bin/ci                # everything CI runs, in the same containers
-bin/ci --no-build     # skip the production image build, the slow step
+bin/ci --no-build     # skip the two production image builds, the slow step
 bin/ci --coverage     # measure coverage and hold it above the floor
 ```
 

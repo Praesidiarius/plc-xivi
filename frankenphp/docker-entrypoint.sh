@@ -95,8 +95,59 @@ if [ "$1" = 'frankenphp' ] || [ "$1" = 'php' ] || [ "$1" = 'bin/console' ]; then
 		# which ships in this image and runs secrets, control plane and tenants
 		# in that order. Read it for the full argument and for the migration
 		# window the ordering depends on.
+		#
+		# **And only out of the image that has the administration surface**
+		# (XIV-96, §4.4). There are two production images now: the internal one,
+		# which contains `packages/control-plane`, and the customer-facing one,
+		# which does not. They share one control-plane database, and the
+		# customer-facing instance connects to it as a role that holds `SELECT`
+		# on the registry tables and nothing else — no writes, no DDL, so this
+		# command could not succeed there even if it were run (see
+		# `bin/console deploy:registry-grants`).
+		#
+		# The test is the package's presence rather than an environment
+		# variable, and that is the same choice `config/bundles.php` makes one
+		# level up: a flag says what somebody configured, a directory says what
+		# is in the image. The two builds cannot disagree with it, and neither
+		# can a deployment that copies the wrong `.env`.
+		#
+		# So the schema has exactly one owner, which is the property worth
+		# having: `bin/deploy` runs out of the internal image, moves the control
+		# plane and every tenant, and only then are the serving containers
+		# replaced (§4.2).
 		if find ./migrations -iname '*.php' -print -quit | grep --quiet .; then
-			php bin/console doctrine:migrations:migrate --no-interaction --all-or-nothing
+			if [ -d packages/control-plane ]; then
+				php bin/console doctrine:migrations:migrate --no-interaction --all-or-nothing
+			else
+				# **The customer-facing image asks instead of writing, and a
+				# refusal here stops the container.**
+				#
+				# The guarantee the line above buys the internal image is that a
+				# container never serves against a control-plane schema older
+				# than itself. That guarantee is worth just as much over here and
+				# cannot be bought the same way, so it is bought by checking:
+				# `up-to-date` is a `SELECT` on `doctrine_migration_versions`,
+				# which is the one administration table this instance is granted.
+				#
+				# Fatal rather than advisory, which puts it beside
+				# `deploy:check-secrets` rather than beside `deploy:check-hosts`
+				# — and the asymmetry is the same one those two already draw. A
+				# schema behind the code is a property of the *instance*: every
+				# customer this container would serve is served by code expecting
+				# columns that are not there. Refusing to start denies exactly
+				# the thing that must not run, and it is loud, which an
+				# intermittent query failure in production is not.
+				#
+				# It is not a race with the deploy. `bin/deploy` migrates before
+				# the containers are replaced, so by the time this runs the
+				# answer is already yes; and a rollback is fine too, because
+				# `--fail-on-unregistered` is deliberately not passed — a schema
+				# *ahead* of this image is what going backwards looks like and is
+				# explicitly allowed by §4.2's additive-only rule.
+				echo 'No administration surface in this image, so the control-plane schema is not this container'"'"'s to move.'
+				echo 'Checking that somebody else has already moved it...'
+				php bin/console doctrine:migrations:up-to-date
+			fi
 		fi
 
 		# **Say which hostnames this instance answers to, on every start**

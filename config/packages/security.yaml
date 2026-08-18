@@ -17,213 +17,23 @@ security:
                 property: email
                 manager_name: tenant
 
-        # The other half of that sentence (XIV-57, §8.9). `manager_name` is
-        # omitted rather than set to `control`, because the control plane is the
-        # *default* entity manager — naming it would be correct and would also
-        # suggest there is a choice being made here per request, which is exactly
-        # the wrong idea to leave lying next to the provider above.
-        operators:
-            entity:
-                class: Xivi\ControlPlane\Entity\Operator
-                property: email
+        # **The other half of that sentence is not in this file** (XIV-57,
+        # XIV-96). `operators` is declared by packages/control-plane's own
+        # config/security.php and prepended from that package's bundle, so a
+        # build without the administration surface has no operator provider at
+        # all rather than a provider naming an entity class the image does not
+        # contain. `security.providers` merges across configuration sources,
+        # which is what lets this half be contributed the tidy way; the
+        # firewalls could not be, and `security_firewalls.php` says why.
 
-    firewalls:
-        # Assets and dev tooling, on every host. The pattern is a parameter
-        # (XIV-57) because ControlPlaneRequestListener has to stand aside for the
-        # same set — see config/services.yaml.
-        dev:
-            pattern: '%app.shared_paths%'
-            security: false
-
-        # **The control plane, and it must stay above `main`** (XIV-57).
-        #
-        # Symfony takes the first firewall whose matcher accepts the request, and
-        # `main` below has no host restriction of any kind — it matches
-        # everything. So the order of these two blocks is not presentation: put
-        # this one second and every control-plane request falls through to a
-        # firewall whose provider looks people up in `tenant_users`, which is to
-        # say in whichever customer's database the hostname resolved to. An
-        # operator sign-in answered by a customer's `app_user` table is precisely
-        # the cross-tenant leak §7.4 and §8.1 are built to make impossible,
-        # arriving through a line moved in a YAML file rather than through a
-        # design mistake.
-        #
-        # **That is why there is a test for it and not a warning comment.**
-        # ControlPlaneFirewallTest asks the compiled firewall map which firewall
-        # takes a control-plane request and which provider it authenticates
-        # against, so a reordering fails the build instead of shipping.
-        #
-        # `request_matcher` rather than `host:`, because `host:` is a regular
-        # expression and a hostname is full of dots that would each match any
-        # character. Xivi\ControlPlane\Security\ControlPlaneHost compares
-        # normalised strings, through the same normalisation tenancy uses to
-        # decide that this host resolves no tenant.
-        control_plane:
-            lazy: true
-            request_matcher: Xivi\ControlPlane\Security\ControlPlaneHost
-            provider: operators
-            entry_point: form_login
-
-            # Without this, Operator::active is a column nothing reads: a
-            # revoked operator signs in exactly as before (XIV-92, §8.9). The
-            # mirror of `main`'s `App\Tenant\Security\ActiveUserChecker` below,
-            # and a separate class rather than one checker taught about both
-            # entities — the two firewalls are kept apart on purpose, and a
-            # single object holding the rule for both sides of that boundary
-            # would need deptrac to be told the tenant application may reach
-            # into the control-plane package.
-            #
-            # **A checker is only half of it, on both sides.** It is consulted
-            # when somebody signs in and never when a session is restored, so
-            # `Xivi\ControlPlane\EventListener\RevokedOperatorListener` ends a
-            # session that already exists. The comment on `main`'s checker says
-            # the same thing and the reason is the same framework behaviour.
-            user_checker: Xivi\ControlPlane\Security\ActiveOperatorChecker
-
-            # **Said out loud rather than inherited** (XIV-57). Symfony defaults a
-            # firewall's context to its own name, so these two are already
-            # separate and a session minted here is already not a token `main`
-            # would restore. Written down because "already" is doing the work of a
-            # security boundary in that sentence: an operator session and a tenant
-            # session must never be interchangeable, and a property that holds
-            # because nobody has changed a default is one line of somebody else's
-            # release notes away from not holding.
-            context: control_plane
-
-            form_login:
-                login_path: control_plane_login
-                check_path: control_plane_login
-                username_parameter: email
-                password_parameter: password
-                enable_csrf: true
-                default_target_path: control_plane_home
-
-            # No `login_link` here, deliberately. Invitations exist because a
-            # tenant administrator has colleagues to let in and no way to hand
-            # them a password (XIV-1, §8.8); an operator is created at a console
-            # by somebody who already has one, and a mailed link that admits
-            # somebody to every customer's registry is not a convenience worth
-            # inventing before anybody has asked for it.
-            logout:
-                path: control_plane_logout
-                target: control_plane_login
-
-        # **The public signup endpoint, and it has no security at all on purpose**
-        # (XIV-64, §8.12).
-        #
-        # Below the control plane and above `main`, and both halves of that
-        # matter.
-        #
-        # Above `main` because `main` has no host restriction: without this block
-        # a request here would land in a firewall whose provider is
-        # `tenant_users`, looking people up in whichever customer's database the
-        # hostname resolved to — on a host where none resolves. Nothing would come
-        # of it in practice, because this endpoint carries no session and asks for
-        # no user. "Nothing would come of it in practice" is the wrong standard
-        # for a boundary, so the host gets a firewall that runs no authentication
-        # machinery: no provider, no session, nothing to hand a stray cookie to.
-        #
-        # Below `control_plane` because the two hostnames must differ and
-        # SignupRouteLoader refuses to build a routing table when they do not — but
-        # if that refusal is ever removed, this ordering decides which way the
-        # mistake falls. Control plane first means a misconfigured deployment gets
-        # an operator console that still demands a password. The other order means
-        # an operator console with `security: false` in front of it.
-        #
-        # **The endpoint is not unauthenticated.**
-        # Xivi\ControlPlane\Signup\SignupApiKey checks a shared secret in constant
-        # time, in the controller, and refuses when none is configured. A Symfony
-        # authenticator was the alternative: `access_token` wants a token handler
-        # producing a UserBadge and a provider to resolve it against, which means
-        # inventing a user for a caller that is a *deployment* rather than a
-        # person — a great deal more of this file for one hash_equals.
-        #
-        # `request_matcher` rather than `host:` for the reason the block above
-        # gives: that key is a regular expression in which every dot matches any
-        # character. SignupHost compares normalised strings, and matches nothing
-        # at all when signup is switched off.
-        signup:
-            request_matcher: Xivi\ControlPlane\Signup\SignupHost
-            security: false
-
-        main:
-            lazy: true
-            provider: tenant_users
-            entry_point: form_login
-
-            # The other half of the pair above: the default this would have had
-            # anyway, written down so that the separation between an operator's
-            # session and a customer's is a decision in this file rather than a
-            # framework default. Its value is the firewall's own name, so saying
-            # it changes nothing and invalidates nobody's session.
-            context: main
-
-            # Without this, User::active is a column nothing reads: a deactivated
-            # user signs in exactly as before (§8.5).
-            user_checker: App\Tenant\Security\ActiveUserChecker
-
-            form_login:
-                login_path: login
-                check_path: login
-                username_parameter: email
-                password_parameter: password
-                enable_csrf: true
-                default_target_path: dashboard
-
-            # How somebody invited by email gets in the first time (XIV-1).
-            #
-            # This is the framework's own login link rather than an invitation
-            # token table of ours, and the whole argument is in
-            # App\Tenant\Security\UserInvitations. The short version: the link is
-            # an HMAC over `kernel.secret` and the properties below, so nothing
-            # replayable is stored anywhere, and none of the signing, expiry
-            # checking or constant-time comparison is ours to get right.
-            login_link:
-                check_route: invitation_accept
-
-                # The 24 hours XIV-1 asked for, in seconds. Long enough for a
-                # colleague who reads their mail the next morning, short enough
-                # that a forwarded invitation is not a standing key.
-                lifetime: 86400
-
-                # What the signature covers, and therefore what invalidates a
-                # link when it changes.
-                #
-                #   invitationSeed — rotated when the link is used and when a
-                #     second invitation is sent, which is how a stateless link
-                #     becomes single-use and supersedable. It is the load-bearing
-                #     one; see User::$invitationSeed.
-                #   password — an account that has acquired one has finished with
-                #     invitations, so any link still in flight dies with the same
-                #     write. Redundant with the seed on the ordinary path and
-                #     deliberately kept: two independent reasons a spent
-                #     invitation stops working.
-                #   id — pins the link to one row, so it cannot survive the
-                #     address being reused by a different person later.
-                #
-                # `max_uses` is deliberately NOT set. Symfony enforces it with a
-                # cache pool, and a cache is evictable: an eviction would restore
-                # a consumed invitation, silently. The seed does the same job in
-                # the tenant's own database, where it cannot evaporate.
-                signature_properties: ['id', 'password', 'invitationSeed']
-
-                # Straight to the page that asks them to choose a password. They
-                # would be sent there anyway — MustChangePasswordListener holds a
-                # new account there — but arriving directly is one redirect
-                # rather than two, and the saved target path of whatever they were
-                # doing before is not something a fresh invitee has.
-                default_target_path: account
-                always_use_default_target_path: true
-
-                # A refused link lands on the sign-in page, which says what
-                # happened and offers the way forward. A blank 403 would tell
-                # somebody who has never had an account here nothing at all.
-                login_path: login
-                failure_path: login
-
-            logout:
-                path: logout
-                target: login
+    # **The firewalls are not in this file** (XIV-96, §4.4). They are
+    # `config/packages/security_firewalls.php`, and the move was forced rather
+    # than chosen: one of them exists only when the administration surface is
+    # part of the build, `security.firewalls` is
+    # `disallowNewKeysInSubsequentConfigs()` so all of them have to be named by
+    # one configuration source, and YAML cannot ask whether a package is
+    # installed. That file holds the ordering invariant §8.9 is about, with the
+    # argument attached.
 
     access_control:
         # **The control plane, first, because these rules are matched in order
@@ -241,9 +51,25 @@ security:
         # None of this is what keeps a tenant user out, and it must not be
         # mistaken for it. A role is a string in a customer's own database;
         # ControlPlaneRequestListener is what makes these paths not exist on a
-        # customer's hostname at all, and the firewall above is what makes a
-        # credential presented here answerable only by the control plane. This is
-        # the third layer, not the first.
+        # customer's hostname at all, and the control-plane firewall — declared
+        # in the package now — is what makes a credential presented here
+        # answerable only by the control plane. This is the third layer, not the
+        # first.
+        #
+        # **These two lines are the one part of the administration surface's
+        # configuration that could not move with the rest** (XIV-96), and it is a
+        # limitation of Symfony's configuration rather than a decision:
+        # `access_control` is declared `cannotBeOverwritten()`, so a second
+        # configuration source contributing to it throws
+        # ForbiddenOverwriteException while the container is being built. The
+        # whole list has to be written in one place, and the place holding the
+        # tenant application's rules is this one.
+        #
+        # What stays behind is two path patterns and a role name — no class, no
+        # service, nothing that stops a build. It is also the harmless direction
+        # to be wrong in: a customer-facing image in which `^/control` still
+        # demands ROLE_OPERATOR is an image carrying one refusal it will never
+        # need, on paths that are not in it.
         - { path: ^/control/login$, roles: PUBLIC_ACCESS }
         - { path: ^/control, roles: ROLE_OPERATOR }
         - { path: ^/login$, roles: PUBLIC_ACCESS }

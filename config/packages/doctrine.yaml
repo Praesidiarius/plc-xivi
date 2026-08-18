@@ -48,18 +48,24 @@ doctrine:
                         prefix: 'App\Registry\Entity'
                         alias: Registry
 
-                    # The administration surface's own rows — an operator, and what
-                    # a tenant was measured to be using — which nothing on a
-                    # customer's request path reads. `is_bundle: false` even though
-                    # this *is* a bundle now: the path is spelled out for the same
-                    # reason the one above is, and a bundle-relative mapping would
-                    # only be shorter.
-                    ControlPlane:
-                        type: attribute
-                        is_bundle: false
-                        dir: '%kernel.project_dir%/packages/control-plane/src/Entity'
-                        prefix: 'Xivi\ControlPlane\Entity'
-                        alias: ControlPlane
+                    # **The administration surface's own rows are mapped by the
+                    # administration surface** (XIV-96, §4.4). An operator, a
+                    # signup request and what a tenant was measured to be using
+                    # all still land in this database and in these tables —
+                    # nothing about the schema changed — but the mapping that
+                    # declares them is `packages/control-plane/config/doctrine.php`,
+                    # prepended by that package's bundle.
+                    #
+                    # It moved for the same reason the control-plane firewall
+                    # did, and this was the less obvious of the two because it
+                    # reads as data rather than as code: DoctrineBundle checks
+                    # that a mapping's `dir` exists while the container is being
+                    # built, so an application naming
+                    # `packages/control-plane/src/Entity` here **cannot compile**
+                    # in a build that does not have the package. The failure was
+                    # identical to the security configuration's and considerably
+                    # less legible, because the message names a directory rather
+                    # than a class.
 
             tenant:
                 connection: tenant

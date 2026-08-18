@@ -59,6 +59,37 @@ final class XiviControlPlaneBundle extends AbstractBundle
     }
 
     /**
+     * **What the application used to have to say about this package** (XIV-96,
+     * §4.4).
+     *
+     * Two things named control-plane classes and directories from inside the
+     * application's own configuration, and both of them stopped the container
+     * from compiling when the package was absent — which is why "build an image
+     * without the administration surface" was not a matter of dropping a
+     * Composer requirement. They are here now, and the application no longer
+     * mentions either.
+     *
+     *   * `config/security.php` — the `operators` provider and the
+     *     `control_plane` and `signup` firewalls. Read that file for why being
+     *     prepended is what now guarantees XIV-57's ordering invariant rather
+     *     than threatening it.
+     *   * `config/doctrine.php` — the `Xivi\ControlPlane\Entity` mapping on the
+     *     `control` entity manager. DoctrineBundle checks that a mapping's
+     *     directory exists at compile time, so this one failed a build just as
+     *     hard as the security configuration did and rather less legibly.
+     *
+     * **Prepended rather than loaded**, in both cases, because the merge order
+     * is the point: configuration prepended by a bundle is merged ahead of
+     * everything the application loaded, so the firewalls below cannot be
+     * reordered from `security.yaml` and the mapping cannot be shadowed by it.
+     */
+    public function prependExtension(ContainerConfigurator $container, ContainerBuilder $builder): void
+    {
+        $container->import(__DIR__ . '/../config/security.php');
+        $container->import(__DIR__ . '/../config/doctrine.php');
+    }
+
+    /**
      * One compiler pass, and its docblock is the argument for it.
      *
      * Priority 10 rather than the default 0: autoconfiguration adds the tag it

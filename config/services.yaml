@@ -143,6 +143,9 @@ services:
         # into packages/control-plane, so the exclusions that keep them out of a
         # production build moved with them into that package's own
         # config/services.php. The argument for each is written there, unchanged.
+        # Since XIV-96 the *dev and test* registrations that put them back are
+        # over there too, which is the last thing this file had to say about a
+        # package the application must be buildable without.
         exclude:
             - '../src/Command/GenerateDemoDataCommand.php'
             - '../src/Command/ClearDemoDataCommand.php'
@@ -339,19 +342,16 @@ when@dev:
 
         App\Command\GenerateDemoDataCommand: ~
         App\Command\ClearDemoDataCommand: ~
-        Xivi\ControlPlane\Command\ResetTenantCommand: ~
 
-        # **Public, and that is the load-bearing word** (XIV-76). Mate's MCP
-        # server is its own process with its own container; a tool reaches this
-        # application by booting the kernel and asking its container for this
-        # service by name, which a private service refuses. Public here rather
-        # than everywhere for the usual reason — a public service is one the
-        # container can never inline or remove — and the blast radius is exactly
-        # the environments where the MCP extension can be installed at all.
-        Xivi\ControlPlane\Introspection\TenantInspector:
-            public: true
-
-        Xivi\ControlPlane\Command\InspectTenantCommand: ~
+        # The administration surface's own development-only services — the
+        # tenant introspector, `tenant:inspect` and `tenant:reset` — used to be
+        # named here (XIV-60) and are declared by the package itself since
+        # XIV-96, in packages/control-plane/config/services.php. The application
+        # names no class of that package outside the three guarded seams §4.4
+        # lists, because a name it cannot resolve is a container it cannot
+        # compile — and "compiles without the administration surface" has to
+        # hold in every environment or it is a claim about one build rather than
+        # about the application.
 
         App\Demo\FakerSampleValues: ~
         Xivi\Core\Demo\SampleValues: '@App\Demo\FakerSampleValues'
@@ -381,15 +381,9 @@ when@test:
 
         App\Command\GenerateDemoDataCommand: ~
         App\Command\ClearDemoDataCommand: ~
-        Xivi\ControlPlane\Command\ResetTenantCommand: ~
 
-        # Registered here too so the suite can cover it. Public is redundant in
-        # this environment — `test.service_container` reaches private services
-        # anyway — and is kept identical to dev so the two cannot drift.
-        Xivi\ControlPlane\Introspection\TenantInspector:
-            public: true
-
-        Xivi\ControlPlane\Command\InspectTenantCommand: ~
+        # As in `when@dev` above: the control plane's development-only services
+        # are declared by the control plane (XIV-96).
 
         App\Demo\FakerSampleValues: ~
         Xivi\Core\Demo\SampleValues: '@App\Demo\FakerSampleValues'

@@ -7,7 +7,7 @@
 # find out before pushing rather than after.
 #
 #   bin/ci                 everything
-#   bin/ci --no-build      skip the production image build (the slow one)
+#   bin/ci --no-build      skip the two production image builds (the slow part)
 #   bin/ci --coverage      measure coverage and hold it above the floor
 #   bin/ci --no-changelog  allow a branch that adds no changelog entry
 #   bin/ci --reclaim       reclaim the test databases and stop, running nothing
@@ -723,6 +723,11 @@ if [ "$build_prod_image" = true ]; then
 	# installs dev dependencies, so a bundle registered for "all" while its
 	# package sits in require-dev only fails here. That has happened once.
 	#
+	# **Two images since XIV-96**, and both are built here — the internal one
+	# first, because the customer-facing one is assembled from its builder stage
+	# and would rebuild it anyway. See the second `docker build` below for what
+	# the extra one costs and why it is not optional.
+	#
 	# Per-checkout like the dev image (XIV-71), and for a weaker reason: this tag
 	# is written and never read, so two concurrent runs racing on one fixed name
 	# only ever meant the loser's tag pointed at the winner's build. Nothing is
@@ -730,7 +735,7 @@ if [ "$build_prod_image" = true ]; then
 	# command's exit status. But it is the same defect for one expansion, and a
 	# name that is only *nearly* meaningless is a poor thing to leave lying about
 	# for the first person who decides to run something out of that image.
-	step 'Production image builds'
+	step 'Internal image builds (the one with the administration surface)'
 
 	# Composer credentials, if this checkout has any (XIV-99). Passed as a
 	# BuildKit secret so the token is available while `composer install` runs and
@@ -750,6 +755,35 @@ if [ "$build_prod_image" = true ]; then
 	fi
 
 	docker build --target frankenphp_prod -t "${IMAGES_PREFIX}xivi-prod-check" "${build_secret[@]}" .
+
+	# **And the customer-facing one** (XIV-96, docs/architecture.md §4.4).
+	#
+	# There are two production images: the internal one above, which contains
+	# the administration surface, and this one, which does not. Building only
+	# the first would leave the second's *existence* untested — and the way it
+	# breaks is not subtle. One `user_checker:` added to the application's
+	# `security.yaml` because that is where the other firewall's is, and the
+	# container no longer compiles without the package; the branch that did it
+	# passes every other check in this script, and the failure surfaces at the
+	# next release.
+	#
+	# `tests/Unit/Deployment/ControlPlaneIsOptionalAtBuildTimeTest.php` catches
+	# most of that in a second rather than a minute, by reading the
+	# configuration. This catches the rest, because it is the only thing here
+	# that actually compiles a container with the package absent — and the stage
+	# itself asserts that nothing named Xivi\ControlPlane survives in the
+	# sources, the autoloader or the compiled container, so a green build is the
+	# check rather than merely the precondition for one.
+	#
+	# **The cost is small and worth naming.** This stage starts from the
+	# finished builder above, so it repeats no `composer install` and no
+	# dependency download: what it does is one autoload dump and one cache
+	# warm-up, measured at a few seconds against the internal image's minutes.
+	# Two images from one repository was chosen over two repositories partly for
+	# this reason (§4.4) — a second build is cheap, a second migration history
+	# is not.
+	step 'Customer-facing image builds (and has no administration surface in it)'
+	docker build --target frankenphp_public -t "${IMAGES_PREFIX}xivi-public-check" "${build_secret[@]}" .
 fi
 
 pass 'All checks passed.'
