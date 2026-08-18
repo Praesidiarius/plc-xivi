@@ -1,0 +1,117 @@
+{#
+	**The placeholder, and what it is a placeholder for** (XIV-102).
+
+	There is no payment gateway in this system. That is a decision with compliance
+	weight behind it and it is deliberately not this ticket's, which exists so that
+	pricing can land without waiting for one. So this page has to answer a question
+	somebody is standing in front of — *how do I get this module* — without either
+	pretending to take money or turning a self-service product into a phone call.
+
+	The answer is [XIV-64]'s, one layer down: **record what they want, do nothing
+	privileged, and let a person act on it.** That ticket separated "anyone may
+	ask" from "the thing happens" for a public signup form; the same separation is
+	right here, and reusing it means that the day a real gateway arrives it slots
+	in where the operator currently stands rather than replacing a flow built
+	around pretending.
+
+	## What this page is not, item by item
+
+	Every one of these is an absence somebody could mistake for work not yet done,
+	so each is written down as a decision:
+
+	  * **No card fields.** None, of any kind, disabled or otherwise. A form that
+	    looks like checkout and quietly does nothing is worse than a sentence
+	    saying what is actually going on, because it teaches people to type card
+	    numbers into pages that do not take them — a habit worth not creating,
+	    especially in software somebody uses at work every day.
+	  * **No total, no line items, no VAT row.** The price is shown once, as what
+	    the module costs, and nothing on this page adds anything up. A total is the
+	    visual grammar of a page that is about to charge you.
+	  * **No "processing", no spinner, no confirmation number.** The button posts a
+	    row and redirects. There is no transaction to have a state.
+	  * **No promise of when.** "Somebody will be in touch" is what is actually
+	    true; an installation that said "within 24 hours" would be making a
+	    commitment on behalf of a company this code knows nothing about.
+
+	## And what it does say
+
+	What it costs, once. That pressing the button is a *request* and not a payment.
+	That nothing is charged now — said in as many words, because it is the sentence
+	that stops somebody worrying about it afterwards. And that a person will get
+	back to them, which is the honest description of what happens next.
+#}
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'store.buy_title'|trans({'%module%': offer.label}) }}{% endblock %}
+
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<div class="d-flex align-items-center justify-content-between mb-3">
+			<h1 class="h3 mb-0 d-flex align-items-center gap-2">
+				{% if offer.blueprint.icon %}
+					<i class="bi bi-{{ offer.blueprint.icon }} text-body-secondary" aria-hidden="true"></i>
+				{% endif %}
+				{{ 'store.buy_title'|trans({'%module%': offer.label}) }}
+			</h1>
+			<a class="btn btn-link" href="{{ path('store_module', {module: offer.key}) }}">{{ 'common.back'|trans }}</a>
+		</div>
+
+		<div class="row g-4">
+			<div class="col-lg-7">
+				<div class="card">
+					<div class="card-body">
+						{#
+							The figure, large, once, and with nothing beneath it that looks
+							like arithmetic. `_price.html.twig` renders it exactly as it is
+							stored and shows a bare number when this deployment has never set
+							a currency — see that file for why guessing one would be the
+							worse answer.
+						#}
+						<div class="text-body-secondary small">{{ 'store.price'|trans }}</div>
+						<div class="display-6 mb-2">
+							{{ include('store/_price.html.twig', {offer: offer, currency: currency, emphasis: ''}) }}
+						</div>
+						<p class="text-body-secondary mb-0">{{ 'store.price_one_off'|trans }}</p>
+					</div>
+				</div>
+			</div>
+
+			<div class="col-lg-5">
+				{#
+					**The three sentences, in the order somebody needs them**, and above
+					the button rather than beside it. What this does, what it does not do,
+					and what happens next.
+				#}
+				<div class="card h-100">
+					<div class="card-body d-flex flex-column">
+						<h2 class="h6">{{ 'store.buy_what_happens'|trans }}</h2>
+						<ul class="small text-body-secondary">
+							<li>{{ 'store.buy_records_request'|trans }}</li>
+							<li>{{ 'store.buy_no_charge'|trans }}</li>
+							<li>{{ 'store.buy_someone_replies'|trans }}</li>
+						</ul>
+
+						<form method="post" class="mt-auto" action="{{ path('store_buy', {module: offer.key}) }}">
+							<input type="hidden" name="_token" value="{{ csrf_token('buy-module') }}">
+							{#
+								The only input on this page is the CSRF token, and that is the
+								property worth stating out loud rather than merely observing:
+								there is nothing here for anybody to type. A test asserts it,
+								because "we did not add card fields" is the kind of thing a
+								later ticket adds by accident while making the page friendlier.
+							#}
+							<button type="submit" class="btn btn-primary w-100">
+								<i class="bi bi-bag" aria-hidden="true"></i>
+								{{ 'store.buy_confirm'|trans }}
+							</button>
+						</form>
+					</div>
+				</div>
+			</div>
+		</div>
+	</main>
+{% endblock %}

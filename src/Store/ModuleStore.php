@@ -14,6 +14,8 @@ declare(strict_types=1);
 namespace App\Store;
 
 use App\Registry\Catalog\ModuleCatalog;
+use App\Tenant\Entity\ModulePurchaseIntent;
+use App\Tenant\Entity\User;
 use App\Tenant\FollowUp\ModuleFollowUps;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Xivi\Core\Entity\ModuleDefinition;
@@ -48,6 +50,15 @@ use Xivi\Core\Module\ModuleRegistry;
  * added to a future build appears here complete with nothing written in this
  * class about it.
  *
+ * **[XIV-102] added a third source and it is not a third place to read from.**
+ * What a module costs comes through `ModuleCatalog::price()`, which §6.5 made the
+ * one seam onto the `module` row for exactly this reason — the store, the
+ * operator screen and the introspector all ask the catalogue rather than each
+ * composing their own query. What that buys here is the rule below: **this class
+ * will not install a module that costs money.** It writes down that somebody
+ * asked instead ({@see PurchaseRequests}), which is [XIV-64]'s separation between
+ * asking and happening, applied to a customer rather than to a stranger.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class ModuleStore
@@ -59,6 +70,7 @@ final readonly class ModuleStore
         private ModuleInstaller $installer,
         private TranslatorInterface $translator,
         private ModuleFollowUps $followUps,
+        private PurchaseRequests $purchases,
     ) {
     }
 
@@ -69,8 +81,14 @@ final readonly class ModuleStore
      */
     public function offers(): array
     {
+        // The customer's outstanding purchase requests, read once for the page
+        // rather than once per tile (XIV-102). Almost always empty, and a query
+        // per module for an empty answer is the sort of thing that is invisible
+        // at four modules and embarrassing at forty.
+        $requested = $this->purchases->byModule();
+
         return array_values(array_map(
-            fn (ModuleBlueprint $blueprint): StoreOffer => $this->offerFor($blueprint),
+            fn (ModuleBlueprint $blueprint): StoreOffer => $this->offerFor($blueprint, $requested),
             $this->catalog->offeredInStore(),
         ));
     }
@@ -86,7 +104,7 @@ final readonly class ModuleStore
     {
         $blueprint = $this->catalog->offeredInStore()[$key] ?? null;
 
-        return $blueprint === null ? null : $this->offerFor($blueprint);
+        return $blueprint === null ? null : $this->offerFor($blueprint, $this->purchases->byModule());
     }
 
     /**
@@ -118,6 +136,26 @@ final readonly class ModuleStore
     {
         if ($offer->installed) {
             throw StoreInstallRefused::alreadyInstalled($offer->label);
+        }
+
+        // **The paywall, and it is here rather than in a controller** (XIV-102).
+        //
+        // A screen that hides the install button is a screen; this is the check,
+        // which is the same relationship every other refusal in this method has
+        // to the wizard that draws it. It matters more here than for the others,
+        // because the thing on the other side of this `if` is a module somebody
+        // has not paid for — so a retyped POST, a stale open tab from before an
+        // operator set a price, and a future controller that forgets to ask all
+        // arrive at the same sentence.
+        //
+        // It refuses rather than recording a purchase request, and that is
+        // deliberate: an install and a request are different acts with different
+        // outcomes, and a method that quietly did the second when asked for the
+        // first would report success for something that did not happen. The
+        // request has its own entry point ({@see PurchaseRequests::record()}) and
+        // its own page.
+        if ($offer->costsMoney()) {
+            throw StoreInstallRefused::costsMoney($offer->label);
         }
 
         $missing = $offer->missingRequirements();
@@ -152,19 +190,50 @@ final readonly class ModuleStore
         return $definition;
     }
 
-    private function offerFor(ModuleBlueprint $blueprint): StoreOffer
+    /**
+     * @param array<string, ModulePurchaseIntent> $requested this customer's
+     *                                                       outstanding purchase requests, keyed by module
+     */
+    private function offerFor(ModuleBlueprint $blueprint, array $requested): StoreOffer
     {
         return new StoreOffer(
             blueprint: $blueprint,
             label: $this->label($blueprint->label, $blueprint),
             installed: $this->metadata->find($blueprint->key) !== null,
+            // Through the catalogue, which §6.5 made the single seam onto the
+            // `module` row precisely so that this line could not be a second one.
+            price: $this->catalog->price($blueprint->key),
             requirements: $this->requirementsOf($blueprint),
             presets: $this->presetsOf($blueprint),
             collections: array_map(
                 fn (CollectionBlueprint $collection): string => $this->label($collection->label, $blueprint),
                 $blueprint->collections,
             ),
+            requested: $requested[$blueprint->key] ?? null,
         );
+    }
+
+    /**
+     * Writes down that this customer wants a module that costs money, and
+     * installs nothing (XIV-102).
+     *
+     * **A separate method from {@see install()} on purpose**, and the two never
+     * call each other. §8.15 has the argument; the short version is that the
+     * whole ticket is the difference between asking and happening, and one method
+     * with a branch in it is one refactor from erasing that difference. This one
+     * has no `ModuleInstaller` anywhere behind it — {@see PurchaseRequests} takes
+     * a repository, the deployment's currency and an entity manager, which is the
+     * same shape [XIV-64] gave the signup intake and the same thing
+     * `SignupEndpointTest` proves about it.
+     *
+     * The offer is re-checked by the service on its own account, so a stale page
+     * is refused with a sentence rather than stored.
+     *
+     * @throws PurchaseRefused
+     */
+    public function requestPurchase(StoreOffer $offer, ?User $requester): ModulePurchaseIntent
+    {
+        return $this->purchases->record($offer, $requester);
     }
 
     /**

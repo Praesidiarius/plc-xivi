@@ -1,0 +1,48 @@
+{#
+	What a module costs, drawn once so that three screens cannot disagree
+	(XIV-102).
+
+	**Only a priced module renders anything at all.** A free one is silent — not a
+	"Free" badge, not a zero, nothing — and that is a decision rather than an
+	oversight. Almost everything in this store is free and always will be for a
+	deployment that sells nothing, so a badge on every tile would be noise on every
+	tile: the absence of a price is the ordinary case and the ordinary case should
+	look ordinary. It is also what makes this ticket invisible to an installation
+	that has not priced anything, which is the acceptance criterion the whole
+	feature was shaped around.
+
+	The other two states never reach here. `unpriced` and `not_for_sale` are not
+	offered in the store at all (§6.5), so this partial is only ever handed a
+	module that is free or priced.
+
+	**The number is drawn as it is stored**, a decimal string at two places with
+	the ISO 4217 code beside it, and deliberately not through a locale-aware
+	currency formatter. Three reasons, in increasing order of weight:
+
+	  * `NumberFormatter::formatCurrency()` takes a float, and §5.9 is that nothing
+	    on a money path is ever a float. This figure goes onto a purchase request
+	    as an exact copy, so the value shown and the value stored have to be the
+	    same string rather than the same number rounded twice.
+	  * The currency may be unset, in which case there is nothing to format
+	    *with* — see below.
+	  * A customer who asks to buy something at `1'234.50` and later reads
+	    `1234.50` on a request they made has to work out whether those are the same
+	    figure. On a customer's own invoice a formatted amount is right; on a price
+	    somebody is about to commit to, the stored value is.
+
+	**An unset currency shows a bare number, and says nothing about why.** §8.6
+	refuses to guess a currency for a customer because a guessed one is wrong
+	quietly, and the same holds for a price list — so a deployment that has never
+	set `PRICE_CURRENCY` prices in nothing and the figure stands alone. The
+	operator screen names the variable in that situation, because an operator can
+	go and set it; this screen does not, because a customer cannot, and telling
+	them about an environment variable on somebody else's server would be leaking a
+	deployment detail in place of an answer. §6.5 settled the same trade one page
+	over.
+#}
+{% if offer.costsMoney %}
+	<span class="{{ emphasis|default('fw-semibold') }}">
+		<span class="font-monospace">{{ offer.price.amount }}</span>
+		{%- if currency %} <span class="text-body-secondary">{{ currency }}</span>{% endif -%}
+	</span>
+{% endif %}

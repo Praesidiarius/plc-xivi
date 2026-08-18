@@ -37,6 +37,56 @@
 		{% endif %}
 
 		{#
+			**What it costs, said once and plainly** (XIV-102).
+
+			Nothing is drawn at all for a free module, so this page is byte-identical
+			to what it was before the ticket for every module in this build — see
+			`_price.html.twig` for why silence is the right presentation of free.
+
+			For a priced one it says the figure, and then it says what pressing the
+			button will and will not do, *above* the button rather than under it. That
+			ordering is §6.3's rule about the preset warning borrowed for a smaller
+			decision: a sentence somebody needs before they act belongs before the
+			control, not as a caption for something they have already clicked.
+
+			**A module that became priced after it was installed keeps working**, and
+			this page says nothing about it: the "already yours" alert is what a
+			customer in that position sees, no button appears, and there is nothing
+			anywhere that treats "priced and installed" as an anomaly to correct. That
+			is §6.5's rule — a price says what may be obtained from now on, never what
+			is taken away — held on the customer's own screen rather than only in the
+			control plane.
+		#}
+		{% if offer.costsMoney and not offer.installed %}
+			<div class="card mb-4">
+				<div class="card-body d-flex flex-wrap align-items-baseline gap-3">
+					<div>
+						<div class="text-body-secondary small">{{ 'store.price'|trans }}</div>
+						<div class="h4 mb-0">
+							{{ include('store/_price.html.twig', {offer: offer, currency: currency, emphasis: ''}) }}
+						</div>
+					</div>
+					<p class="text-body-secondary small mb-0 flex-grow-1">
+						{{ 'store.price_one_off'|trans }}
+					</p>
+				</div>
+			</div>
+		{% endif %}
+
+		{#
+			They have already asked. Said here as an answer rather than as a status
+			badge, because the question in their head is "why has nothing happened",
+			and the honest reply names both halves: it was written down, and a person
+			has to act on it.
+		#}
+		{% if offer.hasBeenRequested %}
+			<div class="alert alert-info">
+				{{ 'store.requested_on'|trans({'%date%': offer.requested.requestedAt|date('Y-m-d H:i')}) }}
+				{{ 'store.requested_next'|trans }}
+			</div>
+		{% endif %}
+
+		{#
 			What is missing, named, with a link to it — never chain-installed
 			(XIV-23). Each of those modules carries its own permanent preset
 			choice, so installing them on somebody's behalf would make a decision
@@ -119,6 +169,26 @@
 				<a class="btn btn-primary" href="{{ path('store_install', {module: offer.key}) }}">
 					<i class="bi bi-download" aria-hidden="true"></i>
 					{{ 'store.install'|trans }}
+				</a>
+			{#
+				**The paying branch, and it is a different grant** (XIV-102).
+				`can('buy', …)` rather than `can('install', …)`: deciding what this
+				installation consists of and committing the company to a payment are
+				different authorities, and StoreAction::Buy has the argument. Somebody
+				who may install and may not buy sees the price, sees the sentence, and
+				sees no button — which is the honest report of where they stand rather
+				than a control that 403s.
+
+				`ask` rather than `buy` on the label, because the button does not buy
+				anything: it opens a page that explains what will happen and has a
+				second button on it. Two steps for a decision about money is the same
+				care §6.3 takes over a preset, and the intermediate page is where the
+				"nothing is charged" sentence lives.
+			#}
+			{% elseif offer.isBuyable and not offer.hasBeenRequested and can('buy', chrome.store) %}
+				<a class="btn btn-primary" href="{{ path('store_buy', {module: offer.key}) }}">
+					<i class="bi bi-bag" aria-hidden="true"></i>
+					{{ 'store.ask_to_buy'|trans }}
 				</a>
 			{% elseif not offer.installed and offer.missingRequirements is not empty %}
 				{#

@@ -33,6 +33,16 @@
 			<a class="nav-link py-1 {{ current == 'control_plane_modules' ? 'active' : '' }}"
 			   {{ current == 'control_plane_modules' ? 'aria-current="page"' : '' }}
 			   href="{{ path('control_plane_modules') }}">{{ 'control_plane.modules'|trans }}</a>
+			{#
+				The third page (XIV-102), and the one the other two create work for:
+				pricing a module is what makes a customer able to ask for it, and this
+				is where the asking arrives. It sits after modules for that reason
+				rather than alphabetically — the nav reads in the order the operator's
+				own work does.
+			#}
+			<a class="nav-link py-1 {{ current == 'control_plane_purchases' ? 'active' : '' }}"
+			   {{ current == 'control_plane_purchases' ? 'aria-current="page"' : '' }}
+			   href="{{ path('control_plane_purchases') }}">{{ 'control_plane.purchases'|trans }}</a>
 		</nav>
 	</div>
 	<div class="d-flex align-items-center gap-3">

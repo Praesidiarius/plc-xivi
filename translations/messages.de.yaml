@@ -95,6 +95,30 @@ control_plane:
     module_price_saved: 'Der Preis von „%module%“ wurde gespeichert. Es wurde nichts installiert oder deinstalliert.'
     module_price_stale: Diese Seite war eine Weile offen. Es wurde nichts geändert — bitte noch einmal.
     module_price_unknown_pricing: Das ist keine der vier Arten, ein Modul zu bepreisen.
+    # **Anfragen** (XIV-102). Eine Kundschaft hat ein Modul angefragt, das etwas
+    # kostet; der Store hat nichts installiert und die Anfrage in ihre eigene
+    # Datenbank geschrieben; `tenant:purchase:collect` hat sie hierher kopiert.
+    # Jede Zeile ist also ebenso sehr eine Erhebung wie eine Anfrage — daher eine
+    # Zeitangabe neben jeder Zeile.
+    #
+    # Kein Wort hier heißt „Bestellung“, „Verkauf“ oder „Zahlung“. Es ist kein
+    # Geld geflossen und durch dieses System kann keines fließen.
+    purchases: Anfragen
+    purchases_outstanding: '%count% Modulanfrage(n), auf die noch niemand geantwortet hat.'
+    purchases_outstanding_hint: >-
+        Eine Kundschaft hat ein Modul angefragt, das etwas kostet. Installiert wurde nichts und
+        abgebucht wurde nichts — jemand muss entscheiden, sich melden und es installieren.
+    purchases_how: 'Eine Anfrage wird beantwortet, indem das Modul für diesen Tenant installiert wird:'
+    purchase_asked: Angefragt
+    purchase_first_asked: 'zuerst angefragt %time%'
+    purchase_state: Stand
+    purchase_waiting: Wartet
+    purchase_installed: Installiert
+    purchase_collected: 'gelesen %time%'
+    no_purchases: Niemand hat etwas angefragt
+    no_purchases_hint: >-
+        Anfragen erscheinen hier, nachdem `tenant:purchase:collect` gelaufen ist. Ein Modul braucht
+        einen Preis, bevor es jemand anfragen kann — bis jemand einen setzt, ist jedes Modul kostenlos.
 
 dashboard:
     follow_ups: Deine Wiedervorlagen
@@ -665,6 +689,13 @@ permission:
         browse_help: Sehen, welche Module diese Installation haben könnte.
         install: Module installieren
         install_help: Ein Modul zu dieser Installation hinzufügen. Es lässt sich nicht wieder entfernen, und was installiert wird, wird so, wie es ist, in deine eigene Datenbank geschrieben.
+        # Eine eigene Berechtigung und nicht Teil von „installieren“ (XIV-102):
+        # das eine ist die Hoheit darüber, woraus diese Installation besteht, das
+        # andere die über das Geld der Firma. Der Hilfetext sagt ausdrücklich,
+        # dass nichts installiert und nichts bezahlt wird — das ist die
+        # überraschende Hälfte.
+        buy: Module anfragen
+        buy_help: Ein Modul anfragen, das etwas kostet. Dabei wird nichts installiert und nichts bezahlt — die Anfrage wird notiert, und jemand meldet sich.
 
 store:
     title: Store
@@ -701,10 +732,34 @@ store:
         Woche der Rechnung nachgehen. Anders als bei den Feldern oben ist das nicht endgültig — du
         kannst es jederzeit aus- und wieder einschalten.
     collections_always: 'Was du auch wählst, es entsteht außerdem: %collections%. Das sind Listen von Zeilen, die zu einem Datensatz gehören, und sie kommen immer mit.'
+    # **Was ein Modul kostet, und wie man es anfragt** (XIV-102). Für ein
+    # kostenloses Modul wird nichts davon gezeichnet: kein Preis ist der
+    # Normalfall in diesem Store und soll auch normal aussehen.
+    #
+    # Das Vokabular ist bewusst nicht das eines Shops. Kein „Kasse“, kein
+    # „Bestellung“, kein „Warenkorb“, keine „Summe“ — diese Seite nimmt kein Geld
+    # entgegen, und die Wörter darauf dürfen nichts anderes andeuten. „Anfragen“
+    # und „jemand meldet sich“ ist, was tatsächlich passiert.
+    price: Preis
+    price_one_off: Ein einmaliger Preis für dieses Modul. Kein Abonnement, nichts Wiederkehrendes, nichts zu kündigen.
+    ask_to_buy: Anfragen
+    buy_title: '%module% anfragen'
+    buy_what_happens: Was beim Anfragen passiert
+    buy_records_request: Deine Anfrage wird mit dem Preis oben notiert und denjenigen gezeigt, die diese Installation betreiben.
+    buy_no_charge: Es wird nichts abgebucht und es werden keine Zahlungsdaten erfasst. Auf dieser Seite gibt es kein Kartenformular, und es wird auch keines geben.
+    buy_someone_replies: Jemand meldet sich dazu. Installiert ist das Modul erst, wenn diese Person es installiert.
+    buy_confirm: Dieses Modul anfragen
+    requested: Angefragt
+    requested_on: 'Du hast das am %date% angefragt.'
+    requested_next: Abgebucht wurde nichts. Jemand meldet sich, und das Modul erscheint hier, sobald es installiert ist.
     refusal:
         already_installed: '%module% hast du bereits. Es wurde nichts geändert.'
         requirements_missing: '%module% braucht %missing%. Installiere die zuerst.'
         no_such_preset: 'So lässt sich %module% nicht installieren.'
+        # Kein Rüffel. Der normale Weg hierher ist eine Seite, die offen war,
+        # während jemand einen Preis gesetzt hat — daran ist niemand schuld.
+        costs_money: '%module% hat einen Preis. Frage es stattdessen an — dabei wird nichts abgebucht.'
+        not_purchasable: '%module% wird von dieser Installation gerade nicht verkauft. Schau noch einmal auf die Modulseite.'
 
 refusal:
     last_admin: Das ist die einzige aktive Administration. Mache zuerst jemand anderen zur Administration.
@@ -867,6 +922,11 @@ flash:
     upgrade_restored: '„%addition%“ wird wieder angeboten.'
     upgrade_nothing_chosen: Es war nichts angehakt, also gibt es nichts hinzuzufügen.
     module_installed: '„%module%“ installiert. Niemand sieht es, bis jemand eine Berechtigung darauf bekommt.'
+    # Eine Kaufanfrage (XIV-102). Sagt, was passiert ist, statt zu gratulieren:
+    # „angefragt“ und nicht „bestellt“, nichts abgebucht, und als Nächstes kommt
+    # ein Mensch. „Vielen Dank für deinen Einkauf“ wäre genau die Lüge, die diese
+    # Zwischenlösung nicht erzählen soll.
+    purchase_requested: '„%module%“ angefragt. Abgebucht wurde nichts — jemand meldet sich dazu.'
     group_created: '„%group%“ erstellt. Sage jetzt, was sie darf.'
     group_saved: '„%group%“ gespeichert.'
     group_deleted: '„%group%“ gelöscht. Es wurde niemand entfernt, nur was die Gruppe gegeben hat.'

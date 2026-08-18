@@ -1,0 +1,179 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'control_plane.purchases'|trans }}{% endblock %}
+
+{#
+	**Who has asked to buy what** (XIV-102).
+
+	A customer presses a button in their store, the store installs nothing, and the
+	request appears here for a person to act on. That is [XIV-64]'s separation —
+	asking and happening are not the same event — applied to a purchase, and it is
+	deliberately the same shape rather than a new one, so that a real payment
+	gateway later slots in where the operator currently stands.
+
+	**Every row is a *collection*, not a request.** The request itself lives in the
+	customer's own database, because §4.4 grants a customer-facing instance no write
+	privilege anywhere in the control-plane database; `tenant:purchase:collect`
+	copies them across. So each row is as old as the run that found it, and this
+	page says so beside every one rather than looking live. §8.11 settled that rule
+	for the usage figures next door, and the reason is the same: a stale figure
+	presented as current is worse than no figure.
+
+	**There is no button on this page, on purpose.** An operator fulfils a request
+	by installing the module — `tenant:module:install` — and the next collection
+	observes that and marks the row done. A "mark as fulfilled" control would be a
+	second copy of a fact the customer's own database already holds, free to
+	disagree with it, on the one screen somebody opens to find out whether they
+	still owe anybody anything.
+
+	**And there is no name here.** The tenant-side row records who pressed the
+	button; that person's name never leaves their database. §8.11 drew the line at
+	*how much* rather than *what*, and a customer's own people are on the far side
+	of it. An operator knows which company wants which module and reaches them the
+	way they already reach them — which is worth saying out loud rather than
+	leaving somebody to notice a missing column.
+#}
+{% block body %}
+	<main class="container page-shell py-4">
+		{{ include('@XiviControlPlane/_nav.html.twig', {current: 'control_plane_purchases'}) }}
+
+		{{ include('_flashes.html.twig') }}
+
+		{#
+			The line to read before anything else, and only when there is something
+			to read: somebody is waiting. Warning rather than danger — nothing is
+			broken, a person simply has to do something — and absent entirely at zero,
+			because a banner that always says "0 outstanding" is furniture and
+			furniture is what the eye learns to skip.
+		#}
+		{% if outstanding is not empty %}
+			<div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+				<i class="bi bi-hourglass-split" aria-hidden="true"></i>
+				<div>
+					<strong>{{ 'control_plane.purchases_outstanding'|trans({'%count%': outstanding|length}) }}</strong>
+					<div class="small">{{ 'control_plane.purchases_outstanding_hint'|trans }}</div>
+				</div>
+			</div>
+		{% endif %}
+
+		{#
+			The same sentence the pricing screen carries, for the same reason: an
+			installation that has never set PRICE_CURRENCY prices in nothing, so every
+			figure here is a bare number. §8.6 refuses to guess a currency for a
+			customer because a guessed one is wrong quietly, and the honest
+			consequence is naming the variable — to an operator, who can go and set
+			it. The customer's own screen deliberately does not, because they cannot.
+		#}
+		{% if currency is null and requests is not empty %}
+			<div class="alert alert-info d-flex align-items-start gap-2" role="alert">
+				<i class="bi bi-info-circle" aria-hidden="true"></i>
+				<div>
+					{{ 'control_plane.price_currency_unset'|trans }}
+					<code>PRICE_CURRENCY</code>
+				</div>
+			</div>
+		{% endif %}
+
+		{% if requests is empty %}
+			<div class="card">
+				<div class="card-body">
+					<h2 class="h6">{{ 'control_plane.no_purchases'|trans }}</h2>
+					<p class="text-body-secondary mb-0">{{ 'control_plane.no_purchases_hint'|trans }}</p>
+				</div>
+			</div>
+		{% else %}
+			<div class="table-responsive">
+				<table class="table align-middle">
+					<thead>
+						<tr>
+							<th scope="col">{{ 'common.name'|trans }}</th>
+							<th scope="col">{{ 'common.module'|trans }}</th>
+							<th scope="col">{{ 'control_plane.module_price'|trans }}</th>
+							<th scope="col">{{ 'control_plane.purchase_asked'|trans }}</th>
+							<th scope="col">{{ 'control_plane.purchase_state'|trans }}</th>
+						</tr>
+					</thead>
+					<tbody>
+						{% for request in requests %}
+							{#
+								A fulfilled row is dimmed rather than removed. "Did we ever do
+								this one" is a question somebody asks, and a list that answered
+								it by having no row would answer it wrongly. It sorts to the
+								bottom, which the repository does.
+							#}
+							<tr class="{{ request.installed ? 'opacity-75' : '' }}">
+								<td>
+									<div>{{ request.tenantName }}</div>
+									<div class="small text-body-secondary font-monospace">{{ request.tenantSlug }}</div>
+								</td>
+								<td>
+									<div>{{ request.moduleName }}</div>
+									<div class="small text-body-secondary font-monospace">{{ request.moduleKey }}</div>
+								</td>
+								<td>
+									{#
+										**The price as it was when they asked**, not as it is now.
+										[XIV-101] left that as an instruction rather than a
+										suggestion (§6.5): a sale is never recomputed from the
+										module row afterwards, exactly as an invoice keeps its own
+										totals. Raising a module's price this morning changed what
+										the next customer will be quoted and changed nothing here.
+
+										Drawn as it is stored, with the code beside it and no
+										locale formatting, for the pricing screen's reason: the
+										figure a reader compares against a customer's own screen
+										should be the same string on both.
+									#}
+									<span class="font-monospace">{{ request.amount }}</span>
+									{% if request.currency %}<span class="text-body-secondary">{{ request.currency }}</span>{% endif %}
+								</td>
+								<td>
+									<div>{{ request.requestedAt|date('Y-m-d H:i') }}</div>
+									{#
+										When they *first* asked, shown only when it is a different
+										moment — which means they have asked again. That is the
+										number that says how badly this has been left, and it is
+										worth a line of its own rather than being folded into the
+										one above.
+									#}
+									{% if request.firstRequestedAt != request.requestedAt %}
+										<div class="small text-body-secondary">
+											{{- 'control_plane.purchase_first_asked'|trans({'%time%': request.firstRequestedAt|date('Y-m-d H:i')}) -}}
+										</div>
+									{% endif %}
+								</td>
+								<td>
+									{# Colour and the word, never colour alone — the tenant list's rule. #}
+									{% if request.installed %}
+										<span class="badge text-bg-success">{{ 'control_plane.purchase_installed'|trans }}</span>
+									{% else %}
+										<span class="badge text-bg-warning">{{ 'control_plane.purchase_waiting'|trans }}</span>
+									{% endif %}
+									{#
+										The collection time, on every row, because every value to
+										the left of it is only true as of this moment — the
+										customer may have been served by hand ten minutes ago.
+									#}
+									<div class="small text-body-secondary">
+										{{- 'control_plane.purchase_collected'|trans({'%time%': request.collectedAt|date('Y-m-d H:i')}) -}}
+									</div>
+								</td>
+							</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+			</div>
+
+			{#
+				How a request is answered, written on the page rather than assumed.
+				There is no control here that installs anything, and somebody arriving
+				at this screen for the first time is entitled to be told what they are
+				supposed to do instead.
+			#}
+			<p class="text-body-secondary small">
+				{{ 'control_plane.purchases_how'|trans }}
+				<code>bin/console tenant:module:install &lt;tenant&gt; &lt;module&gt;</code>
+			</p>
+		{% endif %}
+	</main>
+{% endblock %}
