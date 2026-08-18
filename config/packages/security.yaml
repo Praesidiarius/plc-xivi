@@ -64,6 +64,22 @@ security:
             provider: operators
             entry_point: form_login
 
+            # Without this, Operator::active is a column nothing reads: a
+            # revoked operator signs in exactly as before (XIV-92, §8.9). The
+            # mirror of `main`'s `App\Tenant\Security\ActiveUserChecker` below,
+            # and a separate class rather than one checker taught about both
+            # entities — the two firewalls are kept apart on purpose, and a
+            # single object holding the rule for both sides of that boundary
+            # would need deptrac to be told the tenant application may reach
+            # into the control-plane package.
+            #
+            # **A checker is only half of it, on both sides.** It is consulted
+            # when somebody signs in and never when a session is restored, so
+            # `Xivi\ControlPlane\EventListener\RevokedOperatorListener` ends a
+            # session that already exists. The comment on `main`'s checker says
+            # the same thing and the reason is the same framework behaviour.
+            user_checker: Xivi\ControlPlane\Security\ActiveOperatorChecker
+
             # **Said out loud rather than inherited** (XIV-57). Symfony defaults a
             # firewall's context to its own name, so these two are already
             # separate and a session minted here is already not a token `main`

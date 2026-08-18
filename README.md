@@ -433,7 +433,11 @@ and §6.4 of the brief argues why that is a rule rather than a nicety.
 | `tenant:usage:collect [--slug=]` | Counts each tenant's users, last sign-in and records into the control plane, one tenant at a time; put it in cron — see below |
 | `tenant:permissions:grant-all <slug>` | Grants every action on every installed module to one tenant's non-admin users; the upgrade path for an installation that predates permissions, and the way back into a locked-out one |
 | `tenant:rotate-secrets` | Re-encrypts stored passwords with the active key |
-| `control:operator:create <email>` | Creates somebody who can sign in to the control plane; asks for the password, or takes `--password` for a scripted run |
+| `control:operator:create <email>` | Creates somebody who can sign in to the control plane; asks for the password, or takes `--password` for a scripted run. Refuses an address that already has an operator |
+| `control:operator:list` | Who can sign in to the control plane, revoked accounts included and marked |
+| `control:operator:revoke <email>` | Withdraws an operator's access, keeping the account. Refuses to revoke the last one who can still sign in |
+| `control:operator:restore <email>` | Gives a revoked operator their access back, with the password they had |
+| `control:operator:password <email>` | Sets a new password, signing out every session that account had; asks for it, or takes `--password` |
 | `doctrine:migrations:migrate --em=control` | Control-plane schema only |
 
 Any console command can be pointed at one tenant's database with the `TENANT`
@@ -500,6 +504,14 @@ everybody until this has been run:
 ```bash
 bin/compose exec php bin/console control:operator:create you@example.com
 ```
+
+Withdrawing one is `control:operator:revoke`, and it deactivates rather than
+deletes — the account stays in `control:operator:list`, marked, and
+`control:operator:restore` puts it back. **The last operator who can still sign
+in cannot be revoked**, because there is no sign-up, no invitation and no
+password reset here to get back in through; create the successor first. A
+password is rotated with `control:operator:password`, which signs out every
+session that account had.
 
 The reasoning, and why an operator is not a promoted user of some tenant, is in
 §8.9 of the brief.

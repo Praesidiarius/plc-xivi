@@ -59,6 +59,12 @@ login:
 # stops being translated everywhere else too.
 control_plane:
     title: Control plane
+    # Shown to an operator whose access was withdrawn while they were signed in
+    # (XIV-92). They are put back on the sign-in page by
+    # RevokedOperatorListener, and without this line that page would look like an
+    # ordinary session timeout — which sends somebody to a password reset that
+    # does not exist here instead of to the colleague who revoked them.
+    revoked: This operator account has been revoked.
     # The tenant list, which replaced XIV-57's placeholder (XIV-58).
     tenants: Tenants
     status: Status

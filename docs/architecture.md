@@ -4540,6 +4540,164 @@ else's release notes away from not holding. `TenantSessionGuard` covers the same
 ground from the other side: a session stamped for a tenant, replayed on a host that
 resolves none, is discarded.
 
+#### An operator can be revoked, and it deactivates rather than deletes (XIV-92)
+
+Everything above builds one account and never touches it again.
+`control:operator:create` made an operator; nothing removed one, disabled one,
+changed a password, or even said who existed. Every one of those was a statement
+typed into `psql`.
+
+§4.1 makes that argument about tenants and it lands harder here. **An operator is
+the identity with the most reach in the installation, and it is the last one that
+should need a database client to withdraw** — because revoking one is, by
+construction, done in a hurry. Somebody has left, or a credential has leaked. That
+is not the moment to be composing SQL against a table whose name is being checked
+while it is typed.
+
+So there are four commands, and they are one ticket rather than four because the
+schema question decides all of their shapes:
+
+| Command | What it does |
+|---|---|
+| `control:operator:list` | Who can sign in, revoked accounts included and marked |
+| `control:operator:revoke <email>` | Withdraws access, keeps the account |
+| `control:operator:restore <email>` | Puts it back, with the password it had |
+| `control:operator:password <email>` | A new password, without asking for the old one |
+
+##### Deactivate or delete: the argument is not inherited from §8.4.1
+
+§8.4.1 settles this for a tenant user in one sentence — *deactivating locks the
+person out, keeps every record attributable, and is reversible* — and **that
+sentence does not carry over on its own.** Its load-bearing half is attribution:
+records carry the id of whoever owns them and history carries the id of whoever
+made each change, so deleting a tenant user leaves records belonging to nobody.
+[XIV-57] looked at exactly that and concluded, correctly for the time, that
+nothing in the control plane attributes anything to an operator, so revoking one
+could be deleting the row.
+
+That is still true today. Nothing in the control-plane schema references
+`operator`. If attribution were the only argument, deletion would win, and the
+`active` flag would be the promise-nothing-keeps that [XIV-57] refused to make.
+
+Three other arguments carry it instead, and none of them is §8.4.1's.
+
+**Deletion is the one lifecycle step nobody can undo, in the one situation where
+people are moving fastest.** The address being revoked is often half-read off a
+chat message during an incident. A wrong `revoke` is a sentence and a
+`control:operator:restore`; a wrong `DELETE` is an account that has to be
+recreated, with a new password, by somebody who now has two problems. That
+asymmetry is the whole of why the reversible verb is the one that ships.
+
+**The flag has to arrive before anything references an operator, not after.**
+[XIV-98] provisions a tenant from a confirmed signup and [XIV-59]'s collection
+surfaces sit next to it; the first column anybody will want on those rows is
+*which operator did this*. The moment one exists, a deletable operator forces a
+choice between `ON DELETE SET NULL` — an audit trail that erases itself exactly
+when somebody is revoked in a hurry — and a foreign key that refuses the
+revocation, which turns revoking back into a `psql` job. Both of those are
+discovered with the schema already in production, and the migration that fixes
+them is run at the worst possible time. Landing the column first costs one
+`ALTER TABLE` today.
+
+**And two answers to "somebody left" in one codebase is a cost by itself.** A
+reader who knows how a tenant user is removed should not have to check whether an
+operator works the other way round.
+
+**What is given up** is that a row created by a typo is now permanent. The answer
+is that `control:operator:list` makes it visible rather than invisible, that the
+row holds a name, an address and a hash and nothing else, and that a second
+irreversible command sitting next to the reversible one is the command somebody
+types by accident. There is deliberately **no** `control:operator:delete`; §8.4.1
+does not offer a delete button either, and shipping one here would make the flag
+optional in the same week it was introduced.
+
+##### What a revoked operator can still reach: nothing, and it took two mechanisms
+
+**`Operator::active` is enforced twice, and neither mechanism covers the other's
+case.** This is the same pair `User::active` needed (§8.4.1) and it is here for
+the same framework reason rather than by imitation:
+
+- **`ActiveOperatorChecker`**, wired as the `control_plane` firewall's
+  `user_checker`, refuses the sign-in. It says the account was *revoked* rather
+  than that the credentials were wrong, because a former operator otherwise goes
+  looking for the password reset this surface does not have.
+- **`RevokedOperatorListener`** ends a session that already exists.
+
+The second is the part that had to be established rather than reasoned about.
+"Symfony refreshes the user from the provider on every request" is true and
+strongly suggests that a revoked account falls out at the next click. It does
+not: `ContextListener::refreshUser()` compares the stored user against the
+reloaded one on **identifier, password and roles**, and `active` is none of the
+three. Run with the listener removed and the checker in place, a revoked
+operator's next request returns 200 and renders the tenant list with their name
+in the topbar — every customer's hostname, plan and usage, for as long as the
+session lasts. That was watched happening; the listener was written against it.
+
+**A password change needed no listener at all**, and the asymmetry is worth
+knowing rather than rediscovering: the hash *is* one of the three things
+`ContextListener` compares, so `control:operator:password` signs every live
+session out on its own. Both behaviours are covered by
+`ControlPlaneRevocationTest`, the second precisely because behaviour nobody wrote
+is behaviour a framework release can take away quietly.
+
+`EquatableInterface` on `Operator` would have done the revocation case in one
+method and was not taken, for the reason §8.4.1 gives on the tenant side: it
+replaces the framework's whole change comparison, so this package would silently
+become responsible for the password case above too.
+
+##### The last operator
+
+**Revoking the last operator who can still sign in is refused, with no `--force`
+past it.** The control plane has no sign-up, no invitation and no password reset,
+so the web has no way back in at all.
+
+The refusal counts **active operators, not rows**, and that distinction is the
+whole of it. A guard written as "refuse when only one operator exists" is
+defeated by revoking two accounts in turn: with two rows present, the first
+revocation passes the count and so does the second, leaving an installation with
+two operator accounts and nobody who can sign in. Counting what is still active
+makes the *second* call the one that is refused — which is the call somebody
+would actually be making. `OperatorManagerTest` states that arrangement outright,
+against a repository nothing else can write to, because the control-plane
+database is shared by every parallel test worker and a test of a count run
+against a table other tests are writing to passes for reasons it did not intend.
+
+The guard is absolute rather than overridable, which is a deliberate departure
+from `tenant:deprovision`'s `--force` (§4.1). That command needs an escape hatch
+because removing a customer unattended is a real operation; there is no
+legitimate shape of "remove the last operator" that this refusal blocks. The
+person leaving has a successor, who is created first; the installation being
+decommissioned loses nothing by leaving a row in a database that is about to be
+dropped. An escape hatch here would exist only to be typed by the person the
+guard is for.
+
+It is worth being honest about what the guard is *not*. It is not protection
+against a catastrophe — whoever could type the revocation can type
+`control:operator:create`, so the console is always a way back. It guards against
+the accident, which is somebody revoking the wrong one of two addresses at speed.
+
+Nothing guards self-revocation, because there is no *self* at a console: these
+commands run with no session and no signed-in operator to compare against. §8.4.1
+refuses an administrator deactivating their own account precisely because that
+click comes from a session; the equivalent here would be a guess about who is
+holding the keyboard.
+
+##### `control:operator:create` on an existing address stays an error
+
+The convenient reading is that creating over an existing address should just set
+a new password — one verb, no second command to remember. It is refused, and
+`control:operator:password` exists so that the refusal costs nothing.
+
+Two reasons, and the second decides it. A **typo'd address becomes
+indistinguishable from a rotation**: type `alice@exmaple.com` for
+`alice@example.com` and an overloaded `create` reports success either way, in one
+case having changed a password and in the other having minted a second identity
+with the reach of the first, at an address nobody owns. And it would **silently
+reinstate a revoked account** — writing a working password onto a row whose whole
+point is that it no longer works, through a command that never mentions
+revocation. So the two situations get different sentences, and each names the
+command that does what the person was trying to do.
+
 #### What is deliberately not built yet
 
 **No permission model.** Every operator has `ROLE_OPERATOR` and nothing else. There
@@ -4547,11 +4705,26 @@ is one kind of operator so far, and a read-only or billing-only operator is a
 distinction to draw when there is a second kind to draw it against — §8.4's
 catalogue exists because modules and verbs were both real by then.
 
-**No `active` flag and no way to revoke one from the console.** Deleting the row is
-the revocation, and there is no `control:operator:delete` yet. That is a gap rather
-than a decision, and it is the same gap §4.1 argues about for tenants: an operator
-who cannot remove an account from the console will remove it in `psql`. It is small
-and it is named here so it is not rediscovered.
+**~~No `active` flag and no way to revoke one from the console.~~ Built** by
+[XIV-92], and the section above is what replaced it. The gap was named here on
+the grounds that an operator who cannot remove an account from the console will
+remove it in `psql`; what shipped is deactivation rather than the
+`control:operator:delete` this paragraph anticipated, plus a password change, a
+listing, and a refusal to revoke the last operator who can still sign in. There
+is deliberately still no delete.
+
+**No screen for any of it.** The four lifecycle commands are console-only, like
+the create they join. An operator page is a small step from §8.10's tenant list
+and is where these belong eventually, which is why every refusal lives in
+`OperatorManager` rather than in a command — the page inherits them instead of
+reimplementing them.
+
+**No record of who revoked whom.** There is no actor to record: a console command
+has no signed-in operator, and inventing one would mean either an `--as` flag
+nobody can be held to or a guess. When there is a screen there is an actor, and
+that is the moment to record one — see the argument above for why the `active`
+column landing *before* anything attributes anything to an operator is what makes
+that cheap to add.
 
 **No invitations and no sign-up.** `control:operator:create` is the only way an
 operator comes into existence. Invitations exist on the tenant side (§8.8) because
@@ -4561,7 +4734,12 @@ admitting its holder to every customer's registry is not a convenience worth
 inventing before anybody has asked for it. The password is **asked for rather than
 generated**, which departs from §8.5 deliberately: a generated password is safe
 there because `must_change_password` holds the account until its owner replaces it,
-and the control plane has no account page to hold anybody on.
+and the control plane has no account page to hold anybody on. **That argument now
+has a command behind it rather than only an absence** ([XIV-92]): asking for the
+password was the right call when there was no way to rotate one at all, and
+`control:operator:password` is that way. It does not change the decision — a
+generated credential is still one two people know — but it removes the corner the
+original reasoning was standing in.
 
 **No page.** Signing in lands on a placeholder that says what it is and what
 replaces it, which is [XIV-58], the tenant list. That is the expected shape of this
