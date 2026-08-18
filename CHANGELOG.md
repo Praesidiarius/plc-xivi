@@ -68,6 +68,17 @@ lands in `Unreleased` here.
 
 ## [Unreleased]
 
+### Changed
+
+- **A tenant removal now empties the cluster before it touches the registry**,
+  where it used to delete the control-plane row first. A failure part-way
+  therefore leaves a row pointing at nothing — visible to `tenant:list`, and
+  repaired by running the same command again — rather than a database and a role
+  that nothing in the system knows about ([XIV-94], §4.1).
+- **A removal that stops part-way prints what is standing**: the database, the
+  role and the control-plane row, each said to be gone or still there, with the
+  line to type next, instead of a DBAL driver exception ([XIV-94]).
+
 ### Fixed
 
 - **Two checkouts landing on the same port offset now say so** ([XIV-86]). The
@@ -88,6 +99,30 @@ lands in `Unreleased` here.
   resolved a collision by hand and must not be refused for it. The check runs on
   the subcommands that create containers and nowhere else, so `bin/compose exec`
   and friends cost what they always did.
+- **`tenant:deprovision` works on a tenant that is still in use.** Postgres
+  refuses `DROP DATABASE` while anything is connected, so removing a customer who
+  was still being served failed with `SQLSTATE[55006]`. The removal now
+  disconnects the sessions on that database first, as a deliberate step rather
+  than a flag: §4.1 refuses to make `suspended` a prerequisite, and a live tenant
+  is by definition one with sessions open ([XIV-94]).
+
+### Measured
+
+- **What it takes to end another role's Postgres session**, on this project's
+  Postgres 18 rather than off a manual page: a role with exactly
+  `CREATEDB CREATEROLE` is refused with `42501` against a tenant role it created
+  itself, because a `CREATEROLE` grant has carried `ADMIN` without `INHERIT` since
+  Postgres 16, and succeeds once granted `pg_signal_backend`. The same experiment
+  found two further obstacles for a non-superuser provisioning role, neither
+  addressed here — see §4.1 ([XIV-94]).
+
+### Upgrade notes
+
+- **Provisioning credentials short of superuser now need `pg_signal_backend`.**
+  Deployments using the default superuser `TENANT_ADMIN_DSN` are unaffected. A
+  narrowed one needs `GRANT pg_signal_backend TO <provisioning role>`, which
+  `tenant:deprovision` now names in the error when it hits the wall — nothing is
+  destroyed in that case ([XIV-94]).
 
 ## Releases
 
@@ -101,3 +136,4 @@ lands in `Unreleased` here.
 | [17.0.0](docs/changelog/17.0.0.md) | 2026-08-14 | The first numbered version: the engine, tenancy, and everything built before versioning began |
 
 [XIV-86]: https://xivi.youtrack.cloud/issue/XIV-86
+[XIV-94]: https://xivi.youtrack.cloud/issue/XIV-94

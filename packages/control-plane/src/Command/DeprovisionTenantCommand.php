@@ -22,6 +22,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Xivi\ControlPlane\Provisioning\TenantProvisioner;
+use Xivi\ControlPlane\Provisioning\TenantRemovalFailed;
 use Xivi\ControlPlane\Usage\RecordCounter;
 
 /**
@@ -49,6 +50,15 @@ use Xivi\ControlPlane\Usage\RecordCounter;
  * has changed; the docblock that used to live on the private method — including
  * why it is allowed to throw, and why the connection it opens must be shut before
  * `DROP DATABASE` runs — moved with the code.
+ *
+ * **A removal that stops part-way now says so** (XIV-94). It used to be able to
+ * fail with a driver exception about SQLSTATE 55006 after the control-plane row
+ * had already gone, which is the one wreckage nothing else in this project can
+ * see. The order was turned around and the failure given words; see
+ * {@see reportPartialRemoval()} for what an operator reads and
+ * `TenantProvisioner::deprovision()` for why the cluster is emptied before the
+ * registry is. Nothing about what this command *asks* changed, deliberately —
+ * §4.1 settled that and the ticket left it alone.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
@@ -148,7 +158,11 @@ final readonly class DeprovisionTenantCommand
             }
         }
 
-        $this->provisioner->deprovision($tenant);
+        try {
+            $this->provisioner->deprovision($tenant);
+        } catch (TenantRemovalFailed $e) {
+            return $this->reportPartialRemoval($io, $e);
+        }
 
         $io->success(sprintf('Tenant "%s" is gone.', $slug));
         $io->text([
@@ -159,6 +173,60 @@ final readonly class DeprovisionTenantCommand
         $io->newLine();
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * A removal that stopped part-way, said as a sentence (XIV-94).
+     *
+     * The bug this replaces is the whole reason the ticket exists: a deprovision
+     * that met an open session surfaced as `SQLSTATE[55006]: Object in use: 7
+     * ERROR: database "…" is being accessed by other users`, thrown out of
+     * `TenantProvisioner.php:194` with a stack trace and no statement at all
+     * about what had and had not happened to the customer. An operator standing
+     * in front of that has two questions — *why* and *what now* — and a driver
+     * exception answers the first one in a dialect and the second one not at all.
+     *
+     * So the three parts here are the three parts of the answer, in the order
+     * they are wanted: what went wrong in one sentence, what exists right now,
+     * and the line to type next. It is deliberately the same shape as
+     * {@see ResetProgress::report()} — that is [XIV-74]'s "say what is gone and
+     * what is standing" applied to the other destructive command, and two
+     * commands that leave wreckage should describe it the same way rather than
+     * each inventing a house style.
+     *
+     * **Caught rather than re-thrown**, which is the opposite of what
+     * `tenant:reset` does with its own failures, and the difference is what the
+     * exception knows. A reset dies of something nobody predicted — an out of
+     * memory, a module that cannot spell its own name — so the trace is the only
+     * description of it there is, and §4.1 keeps it. Everything reaching here has
+     * already been identified by `TenantProvisioner`, down to the SQLSTATE, so
+     * the trace adds a file and a line number to a sentence that already says
+     * more than they do. The driver's own words are still printed, under the
+     * report, for the same reason the unreadable-database note above is printed
+     * where it is: wanted, but not at the top.
+     */
+    private function reportPartialRemoval(SymfonyStyle $io, TenantRemovalFailed $failure): int
+    {
+        $io->error($failure->reason());
+
+        $io->section(sprintf('Where "%s" stands now', $failure->slug));
+        $io->definitionList(...$failure->state());
+
+        $io->text([
+            ' Nothing above is rolled back, and running the removal again is safe from here — both',
+            ' drops pass over what is already gone:',
+            '',
+            sprintf('   <info>%s</info>', $failure->nextStep()),
+        ]);
+        $io->newLine();
+
+        $previous = $failure->getPrevious();
+
+        if ($previous instanceof \Throwable) {
+            $io->text([' <comment>The database said:</comment> ' . $previous->getMessage(), '']);
+        }
+
+        return Command::FAILURE;
     }
 
     /** @param array<string, int> $counts */

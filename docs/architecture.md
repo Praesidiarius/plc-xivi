@@ -269,6 +269,103 @@ while a final export is taken (§4 makes export-on-churn a per-customer operatio
 — but it is practice, not a gate, and the command says so rather than pretending
 to enforce it.
 
+#### Removing a live tenant means disconnecting it (XIV-94)
+
+The argument above has a consequence nobody wrote down until it broke something.
+If `suspended` is not a prerequisite, then the tenant most likely to be removed
+is one that is still serving requests — and a tenant serving requests is, from
+the cluster's side, a database with sessions open to it. Postgres refuses
+`DROP DATABASE` while any session is attached, `IF EXISTS` and all:
+
+```
+SQLSTATE[55006]: Object in use: 7 ERROR:  database "tenant1_test_permissions"
+is being accessed by other users
+DETAIL:  There is 1 other session using the database.
+```
+
+It was reported from the test suite, where deprovisioning happens constantly and
+a connection from a previous test had not closed yet, and it would have been easy
+to file as a test-suite problem. It is not one. The statement that failed is the
+statement a real deprovision runs, `deprovision()` clearing the tenant switcher
+settles only *our own* end of it, and the operator's version of the same failure
+is worse than the suite's — because the control-plane row was removed and flushed
+**before** the drop, so the failure left a database and a role that nothing knows
+about. Every tool in this project starts from the registry: `tenant:list`,
+`tenant:inspect`, the control-plane pages, the deprovision command's own lookup.
+An orphan out there is invisible to all of them, and the row that named it is the
+thing that was just deleted.
+
+**So the order was turned around: database, role, registry row.** The two
+orderings do not fail equally. Dropping first and failing leaves a row pointing
+at nothing, which every one of those tools can show and which running the same
+command again repairs — both drops are `IF EXISTS`, so a second run steps over
+whatever is already gone and finishes by removing the row. Removing the row first
+and failing leaves wreckage that needs `psql` and somebody who happens to
+remember the database name. That is the whole argument; it is not a preference
+about which half is more likely to fail.
+
+**Disconnecting people is written out as a step, not spelled `WITH (FORCE)`.**
+Postgres 13 and later accept `DROP DATABASE … WITH (FORCE)`, which terminates the
+sessions and drops in one word, and it would have been a one-character change.
+What that word does is throw a customer's users out mid-request. That is the
+correct behaviour here — it is the direct consequence of refusing to require
+`suspended` — but it is a decision, and a decision that arrives as a keyword on
+the end of an unrelated statement is one nobody reads. `pg_terminate_backend`
+over `pg_stat_activity` is therefore its own named step with its own argument
+attached, and the drop still carries `WITH (FORCE)` in the belt-and-braces
+arrangement `bin/ci`'s test-database reclaim already uses (§9.2): the statement
+handles every session that exists now, the keyword handles the client that
+reconnects in between. Only one of the two is the reason the drop succeeds.
+
+**Two guards keep it from terminating itself.** `pid <> pg_backend_pid()`
+excludes the connection issuing the statement, which would matter if a
+provisioning DSN were ever pointed at a tenant's own database; `datname = ?` is
+the one that matters in practice, since the admin connection is opened against
+the maintenance database and the control plane's is a third database again.
+`RecordCounter` is the one thing that deliberately opens a *tenant* connection
+just before a deprovision — it counts what is about to be destroyed, for the
+confirmation — and its docblock has always worried about being the session that
+blocks the drop. It closes on the way out, so it is not; and if it ever failed
+to, the terminate would now close it for it. The two concerns agree rather than
+fight.
+
+**Whether the provisioning credentials may do this was measured, not assumed.**
+Terminating another role's backend is not implied by `CREATE DATABASE` and
+`CREATE ROLE`. Postgres allows it to a superuser, to a member of
+`pg_signal_backend`, or to a role that *inherits* the privileges of the connected
+role — and that last clause is a trap, because since Postgres 16 a `CREATEROLE`
+role's grant on the roles it creates carries `ADMIN` without `INHERIT` or `SET`.
+On this project's Postgres 18, a role with exactly `CREATEDB CREATEROLE` was
+observed failing with `42501 permission denied to terminate process` against a
+tenant role it had created itself, and succeeding once granted
+`pg_signal_backend`. Development and test run as the cluster superuser and never
+meet it, which is precisely why it had to be measured rather than inferred from a
+green suite. The privilege error is caught by name and answered with the grant
+that fixes it; `TenantRemovalFailed` carries the sentence.
+
+The same experiment turned up two things about a narrowed provisioning role that
+are **not** fixed here and are worth knowing before anyone tries one in
+production: `CREATE DATABASE … OWNER <tenant role>` fails for it with "must be
+able to SET ROLE", and `DROP DATABASE` fails with "must be owner of database",
+both for the same Postgres 16 change to what `CREATEROLE` confers. A deployment
+that wants provisioning credentials short of superuser needs a `GRANT … WITH SET
+TRUE, INHERIT TRUE` on every tenant role as well, which is a design question for
+the provisioning half rather than the removal half and is left open.
+
+**And the operator is told a sentence.** The failure used to surface as a DBAL
+driver exception with a SQLSTATE in it and no statement at all about what had
+happened to the customer. `tenant:deprovision` now catches the four states a
+removal can stop in, and prints what XIV-74 taught `tenant:reset` to print: what
+went wrong in one sentence, what exists right now — database, role and row, each
+named — and the line to type next, which is the same line, because the order was
+chosen so that it always is. The driver's own words are kept, underneath, in the
+same place the unreadable-database note goes.
+
+**What the ticket deliberately did not touch:** what the command asks before it
+acts. The confirmation, the interactive default of *no*, and the outright refusal
+of an unattended run without `--force` are all settled above and were left alone.
+
+
 `tenant:reset` — deprovision, provision, install modules, generate demo records,
 print the admin password — is the development counterpart and is **excluded from
 the production image** in `config/services.yaml`, beside the demo commands. Note
@@ -3085,7 +3182,10 @@ Not yet decided. Decide deliberately rather than by accident.
    *close* the connection, or a fan-out over fifty customers ends up attached to all
    fifty and blocks the `DROP DATABASE` an operator is running ([XIV-94]). Leaking
    state across tenants and holding resources across tenants turn out to be the same
-   discipline.
+   discipline. *XIV-94 changed the punishment, not the rule:* a removal now
+   terminates whatever is attached, so a leaked connection no longer stops an
+   operator — it gets killed under the collection instead, mid-count, which is a
+   quieter failure and not a better one.
 5. **Authorization model.** Roles, permissions, per-module access, and record-level
    rules. Entangled with §7.3: "only the records I own" is a WHERE clause, not a
    check performed after loading. See §8.4. Collections inherit the answer rather
