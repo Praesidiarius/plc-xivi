@@ -312,8 +312,19 @@ final class TenantDeprovisionCommandTest extends KernelTestCase
             $display = $tester->getDisplay();
 
             self::assertSame(Command::FAILURE, $tester->getStatusCode());
-            self::assertStringContainsString('could not be dropped', $display, 'a sentence, not a stack trace');
-            self::assertStringContainsString('Where "' . self::SLUG . '" stands now', $display);
+
+            // **Whitespace-collapsed before matching**, because the sentence is
+            // rendered inside Symfony's `[ERROR]` block, which wraps to the
+            // terminal width and pads every line out to it. Where the wrap falls
+            // depends on how long the tenant's name is, so asserting the raw
+            // display passes for a short slug and fails for a longer one — which
+            // is a test that reports on the fixture's name rather than on the
+            // behaviour. The claim is that a person is shown a sentence; how the
+            // console chose to fold it is not part of that claim.
+            $sentence = (string) preg_replace('/\\s+/', ' ', $display);
+
+            self::assertStringContainsString('could not be dropped', $sentence, 'a sentence, not a stack trace');
+            self::assertStringContainsString('Where "' . self::SLUG . '" stands now', $sentence);
             self::assertStringContainsString('tenant:deprovision ' . self::SLUG . ' --force', $display);
 
             // The state itself, asked of the cluster and the registry rather than
