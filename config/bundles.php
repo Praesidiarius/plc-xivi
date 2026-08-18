@@ -17,6 +17,7 @@ $bundles = [
     Xivi\Article\XiviArticleBundle::class => ['all' => true],
     Xivi\Order\XiviOrderBundle::class => ['all' => true],
     Xivi\Invoice\XiviInvoiceBundle::class => ['all' => true],
+    Xivi\Voucher\XiviVoucherBundle::class => ['all' => true],
     Symfony\UX\TwigComponent\TwigComponentBundle::class => ['all' => true],
     Symfony\UX\StimulusBundle\StimulusBundle::class => ['all' => true],
     Symfony\UX\LiveComponent\LiveComponentBundle::class => ['all' => true],

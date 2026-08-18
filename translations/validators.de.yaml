@@ -1,2 +1,3 @@
 # Unsere eigenen Constraint-Meldungen (XIV-8), informell wie der Rest.
 'Another record already uses this value.': Diesen Wert verwendet bereits ein anderer Datensatz.
+'A code is made of A-Z, 0-9 and single hyphens, like GIVE-10. Lower case is fine — it is stored in capitals either way.': Ein Code besteht aus A-Z, 0-9 und einzelnen Bindestrichen, etwa GIVE-10. Kleinbuchstaben sind in Ordnung — gespeichert wird er ohnehin in Grossbuchstaben.

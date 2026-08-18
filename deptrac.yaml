@@ -68,6 +68,18 @@ deptrac:
         - type: classLike
           value: '^Xivi\\Invoice\\'
 
+    # The voucher module (XIV-103). Added here at the same time as the package,
+    # and — per the standing instruction three paragraphs up — checked by
+    # planting an illegal `use Xivi\Article\ArticleModule;` in
+    # `VoucherModule.php` and watching `composer deptrac` report it. It did:
+    # "ModuleVoucher must not depend on ModuleArticle". The import was then
+    # removed and the module goes on naming that module by the string key its
+    # blueprint always used.
+    - name: ModuleVoucher
+      collectors:
+        - type: classLike
+          value: '^Xivi\\Voucher\\'
+
     - name: App
       collectors:
         - type: classLike
@@ -141,6 +153,14 @@ deptrac:
     ModuleInvoice:
       - Core
 
+    # Points at an article on one of its three kinds and imports nothing from
+    # that package — `uses: ['article']` is a string, and whether it resolves is
+    # a fact about the customer's installation rather than about the build (§3,
+    # §7.6, XIV-103). It also ships a field type and a counter, and both of those
+    # lean on core alone.
+    ModuleVoucher:
+      - Core
+
     # **ControlPlane is deliberately absent from this list, and that absence is
     # the rule XIV-60 exists to state.** The application serves customers; it must
     # be buildable, bootable and testable with no administration surface compiled
@@ -155,6 +175,7 @@ deptrac:
       - ModuleArticle
       - ModuleOrder
       - ModuleInvoice
+      - ModuleVoucher
 
     # Provisioning a customer means creating a database, connecting to it as that
     # customer, running the tenant migrations and installing modules — so the

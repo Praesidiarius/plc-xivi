@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ecd1b341ecf648c5b779ce683bc3445e",
+    "content-hash": "fcb07416afaac2945699f00e66848723",
     "packages": [
         {
             "name": "anourvalar/office",
@@ -8424,6 +8424,34 @@
                 "MIT"
             ],
             "description": "Order module: what a customer ordered, and from which articles",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "xivi/voucher",
+            "version": "1.0.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/voucher",
+                "reference": "1acd694ea3cf766cb61eef326b715e9ef02f600d"
+            },
+            "require": {
+                "doctrine/dbal": "^4.2",
+                "php": ">=8.4",
+                "symfony/framework-bundle": "8.1.*",
+                "xivi/core": "^1.0"
+            },
+            "type": "symfony-bundle",
+            "autoload": {
+                "psr-4": {
+                    "Xivi\\Voucher\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Voucher module: codes a customer hands out, with limits and three kinds of discount",
             "transport-options": {
                 "relative": true
             }

@@ -279,6 +279,17 @@ services:
         arguments:
             $connection: '@doctrine.dbal.tenant_connection'
 
+    # A voucher's redemption counter (XIV-103), and the first *module* service to
+    # need this binding rather than a core one. The rule is the same one core
+    # states about itself: a module has no opinion about whose database it is
+    # operating on, so `packages/voucher` autowires everything except this
+    # argument and the application says which connection. Autowired, it would get
+    # the control plane's and count one shared set of redemptions for every
+    # customer on the instance — a voucher exhausted by somebody else's orders.
+    Xivi\Voucher\Redemption\VoucherRedemptions:
+        arguments:
+            $connection: '@doctrine.dbal.tenant_connection'
+
     # Both write to the customer's database, so both need its connection rather
     # than the control plane's.
     Xivi\Core\Demo\DemoDataGenerator:

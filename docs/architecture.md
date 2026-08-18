@@ -4383,6 +4383,334 @@ ticket of that shape should put it back rather than weaken the check.
 
 ---
 
+### 5.19 Vouchers, and a counter with a rule in it (XIV-103)
+
+A tenant can create vouchers: a code they hand out, worth one of three things,
+good between two dates and redeemable a bounded number of times. **Applying one
+to an order is [XIV-104]** and is deliberately absent — what is built here is the
+voucher *existing*, being valid, and being redeemable.
+
+Most of it is a blueprint like every module before it. One part of it is not, and
+that part is the reason this section is long: **a usage limit is a counter, and a
+counter that two requests can reach is the one thing a declaration cannot
+express.**
+
+#### The kind is a variant
+
+Money off, a percentage off, or a free article. Three kinds, one shape (§5.5),
+and the deciding fact is the one §5.5 already names — *the fields depend on the
+answer*. An absolute voucher has an amount and no percentage; a free-article
+voucher has neither and carries a link and a quantity instead. They use the field
+types that already exist: `currency`, `decimal` and `reference`, with nothing
+added to the engine for any of them.
+
+Both alternatives lose, and how they lose is worth recording.
+
+**Three modules** would put three entries in the navigation for one idea, and
+would make "which voucher was used on this order" a *polymorphic* reference — an
+id plus a type saying which table it points at. That is the shape §5.2 refused
+once already, and [XIV-104] would have to carry it for ever.
+
+**One shape with a nullable field per kind** would offer every customer an
+amount, a percentage, an article and a quantity on every voucher, with nothing
+anywhere saying that filling two of them in is nonsense. The rule that only one
+applies would live in validation the engine cannot express, and the form would
+ask four questions where one is meant.
+
+§5.5's consequence follows for free and is a feature here rather than a cost:
+adding a voucher **asks which kind first**, because the fields depend on the
+answer and something has to settle it before the form is drawn.
+
+#### It does not require the article module, and nothing had to be built for that
+
+Only one of the three kinds needs an article to point at, and `requires` is per
+module rather than per variant ([XIV-23]). Declaring it would mean a customer who
+wants `GIVE-10` off a total cannot have vouchers at all unless they also keep a
+catalogue — a whole module refused over a kind they were never going to use.
+
+So it is **`uses`**, which is exactly the distinction [XIV-23] drew for the order
+module's article lines: installing succeeds, and the part that depends on the
+missing module is not offered.
+
+**The question that mattered was whether hiding a kind already existed, and it
+did.** `AvailableVariants` has hidden a variant whose *required* reference points
+at an uninstalled module since [XIV-23]; what was untested until now is that it
+does the same for a **module's own** variants rather than only for a collection's
+row kinds — the same class asked about a different shape, which is what §5.5
+meant by describing *shapes* rather than modules. Both the record form and the
+"which kind" chooser already ask it. Nothing had to be built;
+`VoucherWithoutArticlesTest` is the evidence, and it checks the URL as well as
+the page, because a hidden kind reachable by typing is not hidden.
+
+§7.6's other answer — a link into an uninstalled module matches nothing and reads
+as `#id` — stays the right **fallback** and is the wrong primary mechanism. It is
+what should happen to a voucher created while articles existed and read after
+they were removed. Offering somebody a kind whose only meaningful field is a
+picker with nothing in it is a different thing: broken rather than degraded.
+
+#### The code: chosen or generated, and folded in one place
+
+`GIVE-10` is the point. A code people can say out loud beats one that is merely
+unguessable, so the customer may type their own — and a duplicate is refused with
+a message on the field while the form is open.
+
+**Case is decided by folding, not by comparing.** `give-10` and `GIVE-10` are the
+same voucher to a person, and there are two ways to arrange that. The tempting
+one is a case-insensitive comparison wherever a code is looked up. It loses for a
+structural reason: since [XIV-109] a `unique` field is enforced by a **unique
+expression index over `data ->> 'code'`**, which is case-sensitive, because that
+is what Postgres does with text. A case-insensitive rule in PHP and a
+case-sensitive index do not differ in style — they *disagree about what a
+duplicate is*, and the database is the one that is actually true. `give-10` would
+be accepted beside `GIVE-10` and then found by either spelling: two vouchers
+answering to one name, with whichever one the till picked deciding the discount.
+
+So the fold happens **on the way in**, in `VoucherCodeFieldType::toStorage()`.
+That is not a convenient hook but the engine's own normalisation seam:
+`RecordValidator` runs values through it before validating ("values are validated
+in the shape they will be stored in"), `RecordRepository` before writing, and
+`QueryCompiler` before comparing. One method covers the form, the import, the
+validator, the index and every future lookup by code — including the one
+[XIV-104] will make — and nothing downstream has to know case exists.
+
+**A field type rather than an option on `text`.** The interface's own docblock
+says a type owns storage, validation, the form control and the display, and that
+a new one is "one class and no configuration". A `case: upper` option on
+`TextFieldType` would have worked and would have put a voucher's rules in core,
+where the next reader has no way of knowing why a text field grew a case setting.
+The cost is stated rather than hidden: the registry is global, so "Voucher code"
+appears in the metadata editor's type dropdown for every module in every tenant.
+Hiding it would need the engine to learn which module may offer which type — a
+concept it does not have and should not grow for one dropdown entry.
+
+**Two alphabets, because two different things choose the characters.** What a
+customer may type is wide: `A-Z`, `0-9` and single hyphens between groups.
+`GIVE-10` contains `I`, `1` and `0`, so narrowing that set would refuse the one
+code anybody would actually write. What the **generator** may pick is narrow, and
+for a reason that does not apply to a chosen code: nobody chose those characters,
+so nothing is lost by leaving out the ones that get read wrong. It is Crockford's
+set — `0-9A-Z` less `0`, `1`, `I`, `L`, `O` and `U`. The first five are the pair
+and the trio a person dictating and a person typing disagree about; `U` is there
+for a different reason, which is that eight random letters occasionally spell
+something a customer has to apologise for. A mitigation, not a guarantee. The
+line is drawn at a published set rather than a longer bespoke one: `S`/`5`,
+`2`/`Z` and `8`/`B` are also confusable in some fonts and are kept, because every
+character removed costs entropy.
+
+Eight characters in two groups of four — `HK4T-9PQM`, read out in two breaths —
+from `random_int()` rather than `mt_rand()`. **Not a sequence**: document numbers
+are sequential because gaps in the books are questions (§5.10), whereas anybody
+holding `AB-0004` could guess `AB-0005`, and that is somebody else's money.
+
+**Asking for a generated code is leaving the box empty.** A `ValueDeriver` fills
+it, which is §5.10's rule with the field left editable — fill it if it is empty,
+never touch it if it is not — so a code is assigned once and survives every later
+save. It is deliberately not `SafeToPreview`: a generator run at typing speed
+would hand back a different code on every keystroke.
+
+A "generate" button was considered and costs more than it is worth here. It would
+need a capability interface in core, a `LiveAction` on the application's record
+form and a form theme block to render the control — three changes to shared
+surfaces, none of them about vouchers, to replace a rule one sentence of help
+text can state. **What is genuinely lost is that the code is not visible until
+after the save**, which is the same trade §5.10 already makes; the code is the
+record's title, so the next page is headed with it. If a second module ever wants
+a generated value, the capability becomes worth building.
+
+#### Once, N times, unlimited — and unlimited is not a number
+
+One optional integer. "Once" is 1, "N times" is N, and **unlimited is nothing
+stored at all**: `RecordRepository` drops nulls out of the payload, so an
+unlimited voucher does not carry the key.
+
+There is deliberately no sentinel — not 0, not -1, not a very large number. A
+sentinel is a value arithmetic will happily compare against, so
+`redeemed < 999999999` is true for reasons that have nothing to do with anybody
+having asked for an unlimited voucher, and it stops being true on the day a
+promotion outruns whoever picked the constant. Absence cannot be compared by
+accident, and it forces the rule to be written out as `IS NULL` in the one
+statement that matters.
+
+A three-way choice field — once / limited / unlimited — plus a number was the
+alternative and is worse. The shape's variant field is already the discount kind,
+so a second choice could not hide the number the way variants hide fields, and
+somebody could pick "unlimited" with 5 still in the box beside it: two controls
+that can disagree, to say what one empty box says.
+
+The floor is 1. Zero redemptions is not a voucher, it is a voucher somebody
+switched off, and the dates are how that is said.
+
+#### The counter, which is the engineering
+
+**A redemption is an allocation.** Taking the last use of a voucher is the same
+act as taking the next invoice number: a shared counter moves, exactly one caller
+may have each value, and two callers arriving in the same millisecond must not
+both be told yes. §5.10 solved that once and this is the same solution with a
+ceiling on it.
+
+The bug is the textbook one and needs no unusual conditions. Read the count,
+compare it to the limit in PHP, write it back: under READ COMMITTED two checkouts
+both read "4 of 5 used", both find room, and both write 5. A voucher good for five
+orders has been used six times, and the sixth is money given away. Two people
+checking out at once is the entire reproduction.
+
+**Where the count lives: a table of its own, `voucher_redemption`, one row per
+voucher, unique on `voucher_id`.** Not a field on the record, and this is the
+decision worth reading. A record is written by `RecordWriter` as one unit of work
+(§5.2) — the whole `data` document replaced by a single `UPDATE`, with a history
+entry beside it — so two redemptions through that path are two whole-document
+writes and the second overwrites the first's count with a number it read before
+the first happened. The same race, wearing the engine's clothes, and with no
+`WHERE` available to put the limit in because the statement is about a document
+rather than about a counter.
+
+Three more things follow, and all three are reasons rather than consequences:
+
+- **It can carry the guard.** `ON CONFLICT … DO UPDATE … WHERE` needs a conflict
+  target and a column to compare — a row that is *about the count*. A JSONB
+  document has neither.
+- **It is not the customer's field.** A redemption count is engine bookkeeping,
+  like `position` on a collection row (§5.1) and like `number_sequence`. Nobody
+  should be able to rename it, delete it in the metadata editor, type over it in
+  a form or import a spreadsheet that zeroes it — and every one of those is
+  possible for a field, because a field is theirs.
+- **It does not stamp the voucher as edited.** Redeeming is not a change to the
+  voucher. Through the record writer it would bump `updated_at` and write a
+  history entry on every checkout, which is [XIV-91]'s argument about the
+  numbering backfill on a hotter path.
+
+Reusing `number_sequence` itself — shape `voucher`, field `redemptions`, period =
+the record id — was considered and rejected. The table is already in every tenant
+with the right index and the ergonomics are nearly free, but its column is called
+`next_value` and its rows mean "what this counter will give out next". A row
+there meaning "how many times this has been used" would be legible only to
+whoever wrote it, and `period` would be holding a record id in a column
+documented as a year. One table, one meaning.
+
+The table is created by a **tenant migration**, so every customer has it whether
+or not they install the module. An empty two-column table is a cheaper thing to
+own than a new engine concept — "a module may declare a side table" — invented so
+that one module can avoid it; `number_sequence` is in every tenant on the same
+terms. There is no foreign key to `voucher` and there cannot be one: a module's
+record table is created per customer by the installer, so at migration time the
+table it would point at does not exist in most databases and may never exist in
+some. A counter row can therefore outlive the voucher it counted, which is the
+same thing soft deletion already does to everything else.
+
+**The statement, in full:**
+
+```sql
+INSERT INTO voucher_redemption (voucher_id, redeemed_count)
+SELECT CAST(:voucher AS INT), 1
+WHERE CAST(:limit AS INT) IS NULL OR CAST(:limit AS INT) >= 1
+ON CONFLICT (voucher_id)
+DO UPDATE SET redeemed_count = voucher_redemption.redeemed_count + 1
+WHERE CAST(:limit AS INT) IS NULL
+   OR voucher_redemption.redeemed_count < CAST(:limit AS INT)
+RETURNING redeemed_count
+```
+
+The first caller for a voucher inserts the row; every caller after that collides
+with the unique index, is turned into an update, and waits on the lock Postgres
+has already taken. There is no `SELECT FOR UPDATE`, no advisory lock, no retry
+loop and — critically — no window between the check and the write. When the limit
+is reached the `WHERE` fails, no row comes back, and that absence *is* the
+refusal, exactly as it is for [XIV-27]'s counter wind-forward.
+
+**`SELECT … WHERE` in place of `VALUES` is not decoration.** Written with
+`VALUES` the insert branch is unguarded, so a voucher whose limit is zero would
+be refused on every redemption *except the first* — the one with no row to
+conflict with. One statement with one rule beats two rules that agree until they
+meet the edge.
+
+**The limit is passed into the statement rather than compared outside it**, and
+that is not the race it looks like. What is raced is the count; the limit is a
+property of the voucher's own definition, changed only by an administrative edit,
+so reading it off the record and putting it in the `WHERE` is safe against every
+concurrent *redemption*. Two people editing the limit at the same moment is
+last-writer-wins on an administrative act, which is what it is everywhere else in
+this system.
+
+**Inside the caller's transaction**, like `NumberAllocator`: a checkout that
+fails after redeeming gives the redemption back, because the lock and the
+increment both belong to the transaction that failed. Nothing has to remember to
+undo anything. The cost is a row lock held until that transaction ends, so two
+orders redeeming one voucher take turns — for a row touched once per checkout,
+the right way round.
+
+#### Proving it, and what a single-process test cannot prove
+
+`VoucherRedemptionRaceTest` is [XIV-109]'s `UniqueValueRaceTest` reused rather
+than reinvented, because the two tickets are the same bug in two places. It
+carries `#[SkipDatabaseRollback]`, provisions a customer of its own, commits what
+it writes and takes the customer away at the end — a race cannot be tested inside
+DAMA's transaction, because two connections that are the same connection cannot
+conflict and two writes nobody commits cannot be seen. Every statement goes
+through the production class on a connection of its own, so what is under test is
+the application rather than a copy of its SQL.
+
+The interleaving is performed, one statement at a time: both connections read the
+count and **both are told there is room** (a race whose first half does not happen
+is not the race); the first redeems and does not commit; the second redeems and
+**blocks**, proved with `lock_timeout` rather than assumed; the first commits and
+the second is refused. Both endings are checked — the winner commits and the loser
+is refused, and the winner rolls back and the loser is let through, because a
+checkout that never happened must not consume a use.
+
+**What that cannot prove, said plainly.** Every one of those assertions would also
+pass against a version that read the count in PHP, compared it and wrote it back,
+because a single-threaded test cannot get between two statements another process
+is running and that version's window is between two statements of its own. What
+*can* be checked exactly is that there is no second statement for a window to be
+between: DBAL's own logging middleware records what the driver executes, and
+`testARedemptionIsExactlyOneStatement` asserts there is one, carrying both the
+`ON CONFLICT` and the `WHERE`. It was verified the way round that matters — the
+guard was temporarily rewritten as a read, a comparison and an update, and that
+is the only test in the file that noticed.
+
+#### Validity: expiry is a read
+
+`valid_from` and `valid_until`, both optional, and **expired is not a stored
+state**. This is [XIV-67]'s argument about overdue invoices applied without a word
+changed: every state a record has is something a person performs, and *nothing
+performs expiry — the calendar does*. A stored flag would need a job mutating
+customers' records on a schedule with no human act behind it, and there is no
+worker process here; it would also be wrong between midnight and whenever that job
+next ran, which is exactly the window in which somebody redeems the voucher it
+was meant to have closed.
+
+An empty date is not a boundary, in both directions: no `valid_from` means it has
+always been good, no `valid_until` means it never stops. Reading an absent date as
+a passed one would expire every voucher created without filling the field in,
+silently, at the till.
+
+Both ends are inclusive — a voucher good until the 31st is good on the 31st — the
+same rule §5.16 keeps about an invoice falling due today.
+
+`VoucherValidity` expresses it twice from one declaration, as `Overdue` does: a
+question about a record in hand, and query conditions for a list. **There is
+deliberately no `validFilters()`.** "Currently valid" is
+`(from IS NULL OR from <= today) AND (until IS NULL OR until >= today)` — a
+conjunction of two disjunctions — and §7 question 3 records that `OR` between
+conditions is one of the two things the query layer still cannot express. Expired
+and not-yet-started are each a single condition and compile fine, which is why
+those exist and the more useful third does not. Faking it by ANDing
+`until >= today` alone would quietly drop every voucher with no end date, which is
+most of them.
+
+#### Deliberately not in this
+
+**Applying a voucher to anything** ([XIV-104]). The seam between the two tickets
+is one method call, and the shape of the discount is already declared: an amount,
+a percentage, or an article and a quantity.
+
+**Module pricing** ([XIV-101], [XIV-102]) is a different feature that happens to
+also involve money. A voucher against a module purchase is not this and has not
+been designed into it: these vouchers are the customer's, in the customer's own
+database, about the customer's own sales.
+
+---
+
 ## 6. Extensibility
 
 Three composable layers, all "one codebase, no forks":
