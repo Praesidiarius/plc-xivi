@@ -45,8 +45,21 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  */
 final readonly class TenantProvisioner
 {
-    /** Also the tenant's database and role name, so: valid unquoted Postgres identifier. */
-    private const string SLUG_PATTERN = '/^[a-z][a-z0-9_]{1,55}$/';
+    /**
+     * Also the tenant's database and role name, so: valid unquoted Postgres
+     * identifier.
+     *
+     * **Public since XIV-98**, and read from exactly one other place:
+     * {@see ProvisioningSlug}, which translates a self-service slug into one of
+     * these and has to be able to say whether the result would be accepted. It
+     * was private before because nobody else had a question about it; publishing
+     * a constant is a smaller change than publishing a second copy of the same
+     * regular expression, and a second copy is what the alternative was. Reading
+     * it does not reach this service — it is a compile-time constant, so the
+     * code boundary §8.12 built between the public intake and this class is
+     * untouched.
+     */
+    public const string SLUG_PATTERN = '/^[a-z][a-z0-9_]{1,55}$/';
 
     /**
      * `55006 object_in_use` — what a `DROP DATABASE` says when somebody is

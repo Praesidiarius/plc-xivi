@@ -128,6 +128,32 @@ lands in `Unreleased` here.
   would make a typo'd address indistinguishable from a rotation, and would undo a
   revocation without mentioning one (§8.9).
 
+- **`signup:provision` turns confirmed self-service signups into customers**
+  ([XIV-98]). One console command on the deployment's cron, reading the rows
+  [XIV-64]'s endpoint records and deliberately does nothing with: it creates the
+  tenant, its first administrator and an invitation link, then removes the signup
+  row. It is the privileged half of the feature — the half that holds
+  `TENANT_ADMIN_DSN` — and it runs nowhere a request can reach (§8.14).
+- **The first user of a self-service tenant is invited, never given a password.**
+  [XIV-1]'s signed login link, mailed to the address that confirmed, in the
+  language they read the signup form in. Nothing generates a password, because
+  nobody is watching a terminal to read one off (§8.5, §8.8).
+- **A self-service customer is served at `<name>.<signup host's parent domain>`** —
+  `acme.xivi.app` for a deployment serving signup at `signup.xivi.app`. That was
+  the address [XIV-65]'s form already showed beside the name box as a hint; the
+  form and provisioning now compute it with one function, so the promise and the
+  fact cannot drift apart (§8.14).
+- **Running the command again after a partial failure is safe.** A tenant left
+  half-made by a run that died is cleared and rebuilt — `provision()` cannot be
+  resumed, and [XIV-94]'s removal order makes clearing it repeatable — while one
+  that is already standing is finished rather than duplicated. A tenant with that
+  name that this feature did not create is never touched in either direction
+  (§8.14).
+- **One failing signup does not stop the others.** The failure is recorded
+  against its own row with the step it stopped at and how many attempts have been
+  made; the run carries on and exits non-zero so that cron mails somebody. A
+  half-provisioned customer also sorts to the top of the tenant list and is named
+  in its banner ([XIV-58], §8.10).
 - **`[tenant.logo]` in a document template draws the customer's logo**
   ([XIV-89]). Put it anywhere in the .docx — including the header, which is where
   a letterhead wants it — and the generated document carries the picture, in the
@@ -151,6 +177,19 @@ lands in `Unreleased` here.
 
 ### Fixed
 
+- **A self-service name that would collide once translated is now refused when it
+  is asked for** ([XIV-98]). `tenant.slug` holds provisioning slugs — underscores
+  legal, hyphens not — and a signup slug is the mirror image, so an operator's
+  `acme_bau` was invisible to the check made about `acme-bau`. Two customers
+  could therefore be promised names that become one. The intake now asks the
+  registry about the translated name and about the hostname it would take, both
+  answered `slug_taken` (§8.12, §8.14).
+- **A name that could never become a database name is refused too**, with
+  `invalid_slug`: a single character, a leading digit, or anything past 56. All
+  three are legal hostname labels and none can be an unquoted PostgreSQL
+  identifier, so they used to be accepted, confirmed and then refused for ever in
+  a run nobody was watching. A name *derived* from a company name is shortened to
+  fit rather than refused (§8.14).
 - **Two checkouts landing on the same port offset now say so** ([XIV-86]). The
   offset comes from a checksum of the directory name modulo one hundred, so at
   seven parallel worktrees a collision is about one in five and at twelve it is
@@ -200,6 +239,16 @@ lands in `Unreleased` here.
 
 ### Upgrade notes
 
+- **Self-service signup needs a cron entry, and does nothing without one**
+  ([XIV-98]). A deployment with `SIGNUP_HOST` set must add
+  `*/5 * * * * cd /srv/xivi && bin/console signup:provision`; until it does, a
+  confirmed signup sits in the intake table and the person who made it waits for
+  a mail that is never sent. Deployments with signup switched off need nothing.
+  The command needs `TENANT_ADMIN_DSN` in its environment — it is the privileged
+  half of the feature (README, §8.14).
+- **One control-plane migration**, adding three columns to `signup_request` that
+  record what happened the last time a signup failed to provision. Existing rows
+  backfill to "never tried", which is what they are ([XIV-98]).
 - **Provisioning credentials short of superuser now need `pg_signal_backend`.**
   Deployments using the default superuser `TENANT_ADMIN_DSN` are unaffected. A
   narrowed one needs `GRANT pg_signal_backend TO <provisioning role>`, which
@@ -223,3 +272,8 @@ lands in `Unreleased` here.
 [XIV-89]: https://xivi.youtrack.cloud/issue/XIV-89
 [XIV-92]: https://xivi.youtrack.cloud/issue/XIV-92
 [XIV-95]: https://xivi.youtrack.cloud/issue/XIV-95
+[XIV-98]: https://xivi.youtrack.cloud/issue/XIV-98
+[XIV-1]: https://xivi.youtrack.cloud/issue/XIV-1
+[XIV-58]: https://xivi.youtrack.cloud/issue/XIV-58
+[XIV-64]: https://xivi.youtrack.cloud/issue/XIV-64
+[XIV-65]: https://xivi.youtrack.cloud/issue/XIV-65

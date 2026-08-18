@@ -127,6 +127,17 @@ final class SelfServiceSlugTest extends TestCase
             $derived === '' || $this->slugs()->isValid($derived),
             'whatever is derived has to satisfy the rule it will be checked against',
         );
+
+        // **And the other rule it will be checked against** (XIV-98). A derived
+        // name is a suggestion this system made, so a suggestion it could never
+        // provision is its own mistake rather than the customer's — which is why
+        // `derive()` cuts to the *provisioning* length rather than to the label
+        // length. A name somebody typed is refused instead; see
+        // ProvisioningSlugTest for the three ways the two rules disagree.
+        self::assertTrue(
+            $derived === '' || $this->slugs()->isProvisionable($derived),
+            'a name was suggested that [XIV-98] could never turn into a tenant',
+        );
     }
 
     /** @return iterable<string, array{string, string}> */
@@ -140,10 +151,15 @@ final class SelfServiceSlugTest extends TestCase
         // reader expects `ae`, and Symfony's default rules give `a`.
         yield 'German transliteration' => ['Bäckerei Müller', 'baeckerei-mueller'];
         yield 'leading and trailing noise is trimmed' => ['  --Acme--  ', 'acme'];
-        // 63 characters of `ab-` land exactly on a separator, which is the one
-        // thing the pattern forbids at the end — so the cut is trimmed again and
-        // the answer is 62 characters rather than an illegal 63.
-        yield 'a long name is cut to a legal label' => [str_repeat('ab ', 40), str_repeat('ab-', 20) . 'ab'];
+        // Cut to 56 rather than to a label's 63, because 56 is where a
+        // PostgreSQL identifier stops (XIV-98) and a suggestion that cannot
+        // become a database name is one this system would have to refuse a
+        // moment later. The cut lands on `b`, so nothing has to be trimmed off
+        // the end this time — but the trim stays, for the lengths where it does.
+        yield 'a long name is cut to a name that can also become a tenant' => [
+            str_repeat('ab ', 40),
+            str_repeat('ab-', 18) . 'ab',
+        ];
         yield 'nothing usable is an empty answer rather than an invented one' => ['!!! ???', ''];
         // Every other language keeps what it had, which is what makes pinning the
         // transliteration cheap: the locale maps only add expansions on top of the

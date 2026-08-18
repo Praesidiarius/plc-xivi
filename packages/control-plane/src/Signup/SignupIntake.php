@@ -21,6 +21,8 @@ use Symfony\Component\Validator\Constraints\Email;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Xivi\ControlPlane\Entity\SignupRequest;
 use Xivi\ControlPlane\Entity\SignupStatus;
+use Xivi\ControlPlane\Provisioning\ProvisioningSlug;
+use Xivi\ControlPlane\Provisioning\SelfServiceTenantHostname;
 use Xivi\ControlPlane\Provisioning\TenantProvisioner;
 use Xivi\ControlPlane\Repository\SignupRequestRepository;
 
@@ -100,6 +102,19 @@ final readonly class SignupIntake
         private SignupRequestRepository $signups,
         private TenantRepository $tenants,
         private SelfServiceSlug $slugs,
+        /**
+         * Where a name would be served, so that the intake can refuse a
+         * hostname somebody else already owns (XIV-98).
+         *
+         * **Not a provisioner, and this is the constructor argument the class
+         * docblock above is warning about.** It reads one configured hostname
+         * and does string arithmetic on it; it holds no credential, opens no
+         * connection and cannot create anything. `SignupEndpointTest` walks this
+         * graph and asserts that {@see TenantProvisioner} and
+         * `TENANT_ADMIN_DSN` are absent from it, which is the check that keeps
+         * that sentence true rather than merely intended.
+         */
+        private SelfServiceTenantHostname $hostnames,
         private SignupMailer $mailer,
         private ValidatorInterface $validator,
         #[Autowire('%app.signup_plans%')]
@@ -391,12 +406,26 @@ final readonly class SignupIntake
             if ($slug === '') {
                 throw SignupRefused::undeducibleSlug($companyName);
             }
-
-            return $slug;
+        } elseif (!$this->slugs->isValid($slug)) {
+            throw SignupRefused::invalidSlug($slug);
         }
 
-        if (!$this->slugs->isValid($slug)) {
-            throw SignupRefused::invalidSlug($slug);
+        // **Both paths, and that is the point** (XIV-98). A hostname label and a
+        // PostgreSQL identifier disagree about single characters, leading digits
+        // and length as well as about separators, so a name can satisfy every
+        // rule this endpoint had and still be one [XIV-98] can never provision.
+        // Refusing it here is the difference between a customer choosing another
+        // name in the second it takes to read the message and a customer being
+        // told the name is theirs, confirming an address, and then waiting for
+        // an installation that a cron run refuses to build for ever.
+        //
+        // `derive()` already cuts to a length that translates, so the derived
+        // path reaches this only for a name whose first character is a digit or
+        // whose whole transliteration is one character — see
+        // {@see SelfServiceSlug::MAX_DERIVED_LENGTH} for why shortening is done
+        // for a suggestion and refusing is done for a request.
+        if (!$this->slugs->isProvisionable($slug)) {
+            throw SignupRefused::unprovisionableSlug($slug);
         }
 
         return $slug;
@@ -413,6 +442,35 @@ final readonly class SignupIntake
 
         if ($this->tenants->findOneBySlug($slug) !== null) {
             throw SignupRefused::slugBelongsToATenant($slug);
+        }
+
+        // **The same question again about the name this becomes** (XIV-98), and
+        // it is not a duplicate of the line above. `tenant.slug` holds
+        // *provisioning* slugs — underscores legal, hyphens not — and a
+        // self-service slug is the mirror image, so the two sets are disjoint
+        // for every name containing a separator at all. An operator's `acme_bau`
+        // is therefore invisible to `findOneBySlug('acme-bau')`, and without
+        // this line the endpoint would promise `acme-bau` to somebody whose
+        // tenant could never be created. §8.12 flagged exactly this and handed
+        // it here; {@see ProvisioningSlug} carries the proof that the
+        // translation cannot make two *signups* collide, which is why there is
+        // no third query against this table.
+        $tenantSlug = ProvisioningSlug::forSignupSlug($slug);
+
+        if ($tenantSlug !== null && $this->tenants->findOneBySlug($tenantSlug) !== null) {
+            throw SignupRefused::translatedSlugBelongsToATenant($slug, $tenantSlug);
+        }
+
+        // And the hostname, which is the same trap one noun along. `provision()`
+        // takes hostnames as an explicit parameter and derives none from a slug
+        // (§8.12), so an operator is free to have routed `acme.xivi.app` at a
+        // tenant called something else entirely — and [XIV-98] would then be
+        // refused a hostname *after* somebody had confirmed. Asked here, where
+        // the answer is still cheap.
+        $hostname = $this->hostnames->forSignupSlug($slug);
+
+        if ($hostname !== '' && $this->tenants->hostnameIsTaken($hostname)) {
+            throw SignupRefused::hostnameBelongsToATenant($slug, $hostname);
         }
 
         if ($this->signups->slugIsReserved($slug)) {

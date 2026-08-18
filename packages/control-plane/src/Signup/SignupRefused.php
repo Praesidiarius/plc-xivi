@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 namespace Xivi\ControlPlane\Signup;
 
+use Xivi\ControlPlane\Provisioning\TenantProvisioner;
+
 /**
  * A signup the intake will not record, carrying the word the caller is told
  * (XIV-64).
@@ -99,6 +101,62 @@ final class SignupRefused extends \RuntimeException
         return new self(SignupError::InvalidSlug, sprintf(
             'No name could be derived from "%s"; the caller has to supply one.',
             $companyName,
+        ));
+    }
+
+    /**
+     * A legal hostname label with no legal provisioning slug behind it
+     * (XIV-98).
+     *
+     * `invalid_slug` rather than a new error code, deliberately. §8.12 fixed the
+     * error vocabulary as part of a published contract — within v1 codes may be
+     * *added*, so a new one would not break a caller, but it would tell that
+     * caller something about the *inside* of this installation for no benefit:
+     * the useful action is identical to every other `invalid_slug`, which is to
+     * ask for a different name. The internal message names the real reason and
+     * goes to a log, exactly as {@see unauthorized()} does for its three.
+     */
+    public static function unprovisionableSlug(string $slug): self
+    {
+        return new self(SignupError::InvalidSlug, sprintf(
+            '"%s" is a legal hostname label but has no legal provisioning slug (%s).',
+            $slug,
+            TenantProvisioner::SLUG_PATTERN,
+        ));
+    }
+
+    /**
+     * The name a tenant would get once translated is already a tenant's
+     * (XIV-98).
+     *
+     * The trap §8.12 handed [XIV-98] and the sharpest thing in it. `tenant.slug`
+     * holds *provisioning* slugs, so an operator's `acme_bau` can never equal a
+     * self-service `acme-bau` — the check that would have caught it looks up the
+     * wrong string and finds nothing. The intake therefore asks the registry
+     * about the translated form too, and this is what that question refuses
+     * with.
+     *
+     * `slug_taken` like the other three, and §8.12's argument for one word
+     * covering several situations applies unchanged: whatever the endpoint
+     * distinguishes, a caller can enumerate, and the useful action is the same
+     * in every case.
+     */
+    public static function translatedSlugBelongsToATenant(string $slug, string $tenantSlug): self
+    {
+        return new self(SignupError::SlugTaken, sprintf(
+            '"%s" would be provisioned as "%s", and a tenant is already called that.',
+            $slug,
+            $tenantSlug,
+        ));
+    }
+
+    /** The hostname a self-service tenant would be routed at is somebody's already (XIV-98). */
+    public static function hostnameBelongsToATenant(string $slug, string $hostname): self
+    {
+        return new self(SignupError::SlugTaken, sprintf(
+            '"%s" would be served at %s, and a tenant is already routed there.',
+            $slug,
+            $hostname,
         ));
     }
 
