@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Xivi\Invoice;
 
 use Xivi\Core\Field\Type\ReferenceFieldType;
+use Xivi\Core\Field\Units;
 use Xivi\Core\Lifecycle\Lifecycle;
 use Xivi\Core\Lifecycle\LifecycleTransition;
 use Xivi\Core\Mail\MailRecipient;
@@ -67,6 +68,7 @@ final class InvoiceModule implements ModuleProvider
     public const string ARTICLE = 'article';
     public const string DESCRIPTION = 'description';
     public const string QUANTITY = 'quantity';
+    public const string UNIT = 'unit';
     public const string UNIT_PRICE = 'unit_price';
     public const string TAX_RATE = 'tax_rate';
     public const string LINE_TOTAL = 'line_total';
@@ -270,7 +272,16 @@ final class InvoiceModule implements ModuleProvider
                         ),
                         new FieldBlueprint(
                             key: self::DESCRIPTION,
-                            width: 3,
+                            // The narrowest of the three text columns on either
+                            // document, and it has been since before XIV-118:
+                            // the row's budget is twelve twelfths, an order line
+                            // spends none of them on bookkeeping and this one
+                            // spends one on `order_line` above. The unit took
+                            // the second. Past twelve the grid wraps, which
+                            // would drop the unit onto a line below the number
+                            // it belongs to — the one arrangement that is worse
+                            // than a short box.
+                            width: 2,
                             label: 'field.description',
                             type: 'text',
                             required: true,
@@ -286,6 +297,39 @@ final class InvoiceModule implements ModuleProvider
                             variants: [self::ARTICLE_LINE, self::CUSTOM_LINE],
                             position: 30,
                             options: ['min' => 0, 'scale' => 2],
+                        ),
+                        // What the quantity is counted in (XIV-118). The same
+                        // field the order line carries and for the same reason —
+                        // `2.5` is a figure somebody has to ask about and
+                        // `2.5 hours` is one they can check — and on both kinds
+                        // of line that carry a quantity, including the custom
+                        // one somebody types by hand.
+                        //
+                        // **It arrives by the seed, not by inheritance**, and
+                        // that is this module following itself rather than
+                        // disagreeing with the order. Nothing on an invoice line
+                        // is inherited: the description, the price and the rate
+                        // are all copied down from the order line being billed
+                        // (§5.12), because an invoice quotes what was agreed on
+                        // the day rather than what the catalogue says now — and
+                        // an article's unit is exactly as agreed as its price.
+                        // Reading it through the article instead would be the
+                        // one field on the document that followed the catalogue
+                        // after the order was confirmed.
+                        new FieldBlueprint(
+                            key: self::UNIT,
+                            width: 1,
+                            label: 'field.unit',
+                            type: 'choice',
+                            variants: [self::ARTICLE_LINE, self::CUSTOM_LINE],
+                            position: 35,
+                            options: [
+                                // For a *generated* invoice, which is made from
+                                // the definitions rather than from an order and
+                                // so is seeded by nothing (§5.17, XIV-73).
+                                'samples' => Units::samples(),
+                                ...Units::shipped(),
+                            ],
                         ),
                         // No floor, for the same reason the order's has none: a
                         // discount is a line with a negative price (§5.9).
@@ -424,6 +468,7 @@ final class InvoiceModule implements ModuleProvider
                         self::ARTICLE => 'article',
                         self::DESCRIPTION => 'description',
                         self::QUANTITY => 'quantity',
+                        self::UNIT => 'unit',
                         self::UNIT_PRICE => 'unit_price',
                         self::TAX_RATE => 'tax_rate',
                     ],

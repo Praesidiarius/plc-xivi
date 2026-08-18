@@ -20,6 +20,7 @@ field:
     article: Article
     description: Description
     quantity: Quantity
+    unit: Unit
     unit_price: Unit price
     line_total: Line total
     tax_rate: VAT rate (%)
@@ -29,6 +30,21 @@ field:
     rate: Rate (%)
     taxable_net: Net
     tax_amount: VAT
+
+# What a quantity is counted in (XIV-118). The article owns the unit and a line
+# takes a copy of it, so both catalogues carry the same seven words — a module
+# that borrowed another module's vocabulary would be a module that cannot be
+# installed on its own (§3).
+#
+# **Deliberately not pluralised**; the argument is on `Xivi\Core\Field\Units`.
+unit:
+    hour: hours
+    day: days
+    piece: pieces
+    kilogram: kg
+    metre: m
+    square_metre: m²
+    litre: litres
 
 status:
     draft: Draft

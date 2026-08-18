@@ -23,6 +23,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Xivi\Article\ArticleModule;
 use Xivi\Contact\ContactModule;
+use Xivi\Core\Field\Units;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
@@ -123,6 +124,53 @@ final class InvoiceModuleTest extends WebTestCase
         self::assertSame('Consulting', $lines[0]->get(InvoiceModule::DESCRIPTION));
         self::assertSame('150.00', $lines[0]->get(InvoiceModule::UNIT_PRICE));
         self::assertSame($order, (int) $this->invoiceRecord($invoice)->get(InvoiceModule::ORDER));
+    }
+
+    /**
+     * **And what the quantity is counted in comes with it** (XIV-118).
+     *
+     * By the seed rather than by inheritance, which is this module following
+     * itself: nothing on an invoice line is read through the article, because an
+     * invoice quotes what was agreed on the day. So the unit travels the same
+     * road the description, the price and the rate already travel, and the
+     * invoice says `4 hours` because the order did.
+     */
+    public function testTheUnitComesAlongWithTheLine(): void
+    {
+        $order = $this->anOrderWith([
+            [OrderModule::CUSTOM_LINE, [
+                'description' => 'Consulting',
+                'quantity' => '4',
+                OrderModule::UNIT => Units::HOUR,
+                'unit_price' => '150.00',
+            ]],
+        ]);
+
+        $invoice = $this->invoice($order);
+
+        self::assertSame(Units::HOUR, $this->linesOf($invoice)[0]->get(InvoiceModule::UNIT));
+
+        // And the bill reads as a bill rather than as a row of figures: the
+        // label the customer's definitions hold, next to the number.
+        $row = $this->client->request('GET', $this->url('/m/invoice/' . $invoice))
+            ->filter('table tbody tr')
+            ->first()
+            ->text();
+
+        self::assertMatchesRegularExpression('/4[.,]00\s+hours/u', $row);
+    }
+
+    /**
+     * A line ordered without one is invoiced without one, and the document reads
+     * as it did before this field existed.
+     */
+    public function testALineWithNoUnitIsInvoicedWithNone(): void
+    {
+        $order = $this->anOrderWith([
+            [OrderModule::CUSTOM_LINE, ['description' => 'Consulting', 'quantity' => '2', 'unit_price' => '150.00']],
+        ]);
+
+        self::assertNull($this->linesOf($this->invoice($order))[0]->get(InvoiceModule::UNIT));
     }
 
     /** And it stops following the order the moment it exists. */
