@@ -68,7 +68,26 @@ lands in `Unreleased` here.
 
 ## [Unreleased]
 
-*Nothing yet.*
+### Fixed
+
+- **Two checkouts landing on the same port offset now say so** ([XIV-86]). The
+  offset comes from a checksum of the directory name modulo one hundred, so at
+  seven parallel worktrees a collision is about one in five and at twelve it is
+  better than even — and it had already happened. `bin/compose up` and `bin/ci`
+  check whether another compose project is publishing this checkout's ports
+  before starting anything, and refuse with the offset, the checkout holding it,
+  its directory and the six exports that move this one somewhere free. **The
+  reason this is worth refusing over is `DATABASE_PORT`:** it is not one of the
+  ports Docker announces by failing to bind it, it is the address `bin/compose`
+  prints for PhpStorm and `psql`, and on a collision it answers — as the *other*
+  checkout's Postgres, with a full set of that checkout's tenant databases in it
+  (§9.2).
+- A checkout that does not collide is unchanged: the same offset, the same
+  addresses, the same bookmarks. An explicitly exported port is still honoured
+  and is not subject to the new check — somebody exporting these has already
+  resolved a collision by hand and must not be refused for it. The check runs on
+  the subcommands that create containers and nowhere else, so `bin/compose exec`
+  and friends cost what they always did.
 
 ## Releases
 
@@ -80,3 +99,5 @@ lands in `Unreleased` here.
 | [17.0.2](docs/changelog/17.0.2.md) | 2026-08-16 | Four modules, the money and documents they needed, and a front end that changed twice |
 | [17.0.1](docs/changelog/17.0.1.md) | 2026-08-15 | Permissions, localization, and the test suite from 165s to 10s |
 | [17.0.0](docs/changelog/17.0.0.md) | 2026-08-14 | The first numbered version: the engine, tenancy, and everything built before versioning began |
+
+[XIV-86]: https://xivi.youtrack.cloud/issue/XIV-86

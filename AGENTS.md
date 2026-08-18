@@ -39,6 +39,12 @@ so a stale stack is no longer something you have to think about.
 
 **Two branches at once:** make a git worktree. It gets its own stack, ports,
 image and tenant databases, so two suites run at the same time without meeting.
+Two worktrees can still derive the *same* ports — the offset is one of a hundred,
+so at seven of them that is about one chance in five — and `bin/compose up` and
+`bin/ci` now refuse when they do, naming the other checkout and printing the
+exports that move you (XIV-86). They do not move you automatically: an address
+you can bookmark is the point of deriving one. Export what they print and carry
+on.
 
 ## The brief is authoritative
 

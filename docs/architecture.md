@@ -5198,6 +5198,56 @@ name is printed by `bin/compose` with no arguments — read it before you remove
 the directory — and the README says to `docker image rm` it. An accepted cost
 that is written down beats an automatic one that surprises people.
 
+**And a hundred buckets is not many once worktrees are the normal case**
+(XIV-86). XIV-51 gave each checkout its own ports by adding an offset to five
+bands, the offset being `cksum` of the project name modulo one hundred, plus one.
+`cksum` was chosen for being in every POSIX box rather than for spread, and the
+modulus for the bands each owning exactly a hundred numbers — neither decision
+was about how many checkouts there would be. This is the birthday problem, and
+the numbers are unkind: seven checkouts collide about one time in five, twelve
+better than even. Parallel agents in worktrees turned "two branches at once" from
+the exotic case into the ordinary one, and seven live worktrees on this machine
+did in fact put two on offset 52.
+
+**What a collision looks like is the reason it is worth code.** Docker refuses
+the bind on whichever published port `up` reaches first and reports that port and
+nothing else — not which other checkout holds it, not that all five addresses
+belong to that checkout, and not that the number came from a checksum of a
+directory name. But the loud half is the harmless half. `DATABASE_PORT` is the
+address `xivi_stack_summary` prints for PhpStorm's database panel and for `psql`,
+and on a collision that address *answers*: it is the neighbouring checkout's
+Postgres, healthy, holding a full set of that checkout's tenant databases, and
+nothing about the connection suggests otherwise. AGENTS.md's standing warning is
+that a bare `docker compose` in a worktree runs the suite against the main
+checkout's tenants; this is the same hazard through a different door, reached by
+somebody who did the right thing and used `bin/compose`.
+
+**Detect and refuse, rather than detect and step.** Four shapes were weighed.
+Stepping to the next free offset is the convenient one and quietly gives up what
+the offset was for: a checkout's URL would depend on what else happened to be
+running the morning it started, so the address stops being a thing you can
+bookmark — which is the only property the scheme was ever buying. Widening the
+space makes a collision rarer and never impossible, at the cost of restructuring
+bands whose hundred-wide arithmetic is load-bearing, and it is a probabilistic
+answer to something a check can settle. Doing nothing was legitimate while
+worktrees were rare. So: `xivi_assert_ports_free` in `bin/lib/stack-env.sh` takes
+one `docker ps`, matches this checkout's derived ports against what other compose
+projects are publishing, and refuses with the offset, the holding project, its
+directory, and the six exports that move this checkout somewhere free — the
+suggestion computed from the same snapshot, so it costs nothing extra and the
+stepping still happens in a human's shell rather than behind their back.
+
+Two constraints shaped it more than the detection did. It must not tax the common
+case, so it is a function the callers invoke rather than something the fragment
+does while being sourced: `bin/compose` runs it only for the subcommands that
+create containers, which means `exec`, `logs`, `ps` and `down` pay nothing, and
+finding that subcommand means walking past Compose's value-taking global options
+rather than reading `$1`. And an explicit export must win *past* the check as well
+as past the derivation — the `${VAR:-…}` form at the top of that file promises
+that, and a guard that refused an exported port would be retracting the promise at
+exactly the moment somebody was using it to resolve a collision by hand. So the
+fragment records which ports it chose itself, and only those are ever questioned.
+
 **A warm stack believes things about a tree it has not read** (XIV-63). `docker
 compose up -d --wait` on a stack that is already running is a no-op, so `bin/ci`
 inherited whatever the last install and the last kernel boot left behind:
