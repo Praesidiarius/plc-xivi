@@ -107,6 +107,25 @@ lands in `Unreleased` here.
   people who meet Xivi from outside the code: whoever deploys it and whoever uses
   it. Source in [plc-xivi-docs](https://github.com/Praesidiarius/plc-xivi-docs),
   built on every push and gated on having no broken links.
+- **The control plane can be restricted to a list of addresses**
+  ([XIV-124]) — `CONTROL_PLANE_ALLOWED_IPS` takes addresses and CIDR ranges, IPv4
+  and IPv6, and a request to the control-plane host from anywhere else is refused
+  with an empty 403 before anything else looks at it. **Empty is the default and
+  means no restriction**, so an installation that sets nothing is unchanged, and
+  customers are never affected either way. It is a fourth layer in front of the
+  sign-in, the operator-only provider and `ROLE_OPERATOR` rather than a
+  replacement for any of them — worth having because the control-plane *hostname*
+  has never been a boundary (§4.3). The address is resolved through
+  `TRUSTED_PROXIES`, never from a raw header, so **set `TRUSTED_PROXIES` too if
+  there is a load balancer in front** or every request will look like it came
+  from the balancer. Reasoning in `docs/architecture.md` §8.9.
+- **`deploy:check-control-plane` reports what that list admits**
+  ([XIV-124]) — run it **before** you depend on the variable. It names what is
+  admitted, refuses to be quiet about an entry that is not an address, answers
+  `--address=198.51.100.7` directly, and offers the address your SSH session came
+  from. Exit 3 if the list is unusable or would refuse an address you asked
+  about. **Getting this wrong locks the operator out with no customer-facing
+  symptom**, which is the whole reason the command exists.
 
 ### Changed
 
@@ -139,6 +158,7 @@ lands in `Unreleased` here.
 
 [XIV-18]: https://xivi.youtrack.cloud/issue/XIV-18
 [XIV-118]: https://xivi.youtrack.cloud/issue/XIV-118
+[XIV-124]: https://xivi.youtrack.cloud/issue/XIV-124
 
 ## Releases
 
