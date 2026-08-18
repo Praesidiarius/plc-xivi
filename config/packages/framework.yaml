@@ -8,17 +8,6 @@ framework:
     #esi: true
     #fragments: true
 
-    router:
-        # Configure how to generate URLs in non-HTTP contexts, such as CLI commands.
-        # See https://symfony.com/doc/current/routing.html#generating-urls-in-commands
-        #
-        # It covers a console command and it does **not** cover a web request
-        # (XIV-93, §4.3): a request context wins over it, so an absolute URL
-        # generated while serving takes its host from the request. That is why
-        # the trusted-host pattern below is the thing standing between a spoofed
-        # `Host` and the invitation link §8.8 puts in an email.
-        default_uri: '%env(DEFAULT_URI)%'
-
     # **Which hostnames this installation answers to** (XIV-93, §4.3).
     #
     # Not a literal, and not a regular expression a deployment writes: every
@@ -72,8 +61,3 @@ when@test:
         test: true
         session:
             storage_factory_id: session.storage.factory.mock_file
-
-when@prod:
-    framework:
-        router:
-            strict_requirements: null
