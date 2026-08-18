@@ -25,7 +25,7 @@ its section numbers. What has actually been built, and when, is in
 **[CHANGELOG.md](CHANGELOG.md)** — which holds what has not shipped yet, and
 indexes the released versions under [docs/changelog/](docs/changelog/).
 
-The version is `17.0.5`, shown in the footer of every page. The leading **17 is a
+The version is `17.0.6`, shown in the footer of every page. The leading **17 is a
 generation, not a semver major** — it says which Xivi this is and changes only when
 there is a new one, so breaking changes inside a generation do not touch it. The
 rest moves on *release*, not on feature: work accumulates under *Unreleased* and
