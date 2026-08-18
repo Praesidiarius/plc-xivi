@@ -62,10 +62,55 @@ cd "$XIVI_ROOT"
 
 # No arguments is a question rather than a command: which stack is this? `docker
 # compose` would print its own help here, which `bin/compose --help` still gets.
+#
+# The summary is checked too (XIV-86), and it is the one place where the check
+# runs after the output rather than instead of it. This is what somebody reads to
+# find the database address to paste into PhpStorm, and a collision means the
+# address on screen belongs to another checkout — so the addresses are printed,
+# because they are what was asked for, and then contradicted. The exit status
+# goes non-zero so that anything parsing this notices as well.
 if [ "$#" -eq 0 ]; then
 	xivi_stack_summary
+	xivi_assert_ports_free || exit 1
 	exit 0
 fi
+
+# **The port guard, on the subcommands that actually bind** (XIV-86).
+#
+# Only a command that creates or starts containers can collide, and those are a
+# small closed set. Everything else — `exec`, `logs`, `ps`, `down`, `cp`, the
+# ones typed all day — reaches the guard's first line and returns, having spent
+# nothing. That is deliberate: the check costs a `docker ps`, and a check that
+# taxes the common case is a check somebody eventually works around.
+#
+# **Finding the subcommand is not `$1`.** Compose's global options come first and
+# some of them take a value, so `bin/compose --profile tools up -d` has `$1` as
+# `--profile` and `bin/compose -f other.yaml up` has it as `-f`. Scanning for the
+# first bare word without accounting for those would read `tools` as the
+# subcommand and miss the `up` entirely. So the value-taking global options are
+# listed out; anything else beginning with a dash is a flag and is skipped, and
+# the first word left is the answer. The list is Compose's, and if it grows a new
+# value-taking global option the failure is a guard that does not fire — which is
+# the pre-XIV-86 behaviour, not a new way to break.
+xivi_subcommand=''
+xivi_skip_next=false
+for xivi_arg in "$@"; do
+	if [ "$xivi_skip_next" = true ]; then
+		xivi_skip_next=false
+		continue
+	fi
+
+	case "$xivi_arg" in
+		-f|--file|-p|--project-name|--profile|--env-file|--project-directory|--parallel|--progress|--ansi)
+			xivi_skip_next=true ;;
+		-*) ;;
+		*) xivi_subcommand="$xivi_arg"; break ;;
+	esac
+done
+
+case "$xivi_subcommand" in
+	up|start|create|run|restart) xivi_assert_ports_free || exit 1 ;;
+esac
 
 # Named on a terminal only, and on stderr, so it never lands in the output of
 # something being piped or captured. The main checkout stays silent: it is the

@@ -195,6 +195,16 @@ if [ "$check_changelog" = true ]; then
 fi
 
 step 'Starting the stack'
+
+# **Before the `up`, and only here** (XIV-86). The ports are derived from a
+# checksum of the directory name into one of a hundred buckets, and two checkouts
+# can land in the same one; when they do, Docker refuses an arbitrary published
+# port and says nothing about which other checkout took it, while `DATABASE_PORT`
+# quietly names that checkout's Postgres. This is the run's only `up`, so one
+# call covers the whole script, and it costs a `docker ps` — nothing against a
+# suite that spends minutes provisioning databases.
+xivi_assert_ports_free || exit 1
+
 # `docker compose` rather than `bin/compose` from here down, and only because the
 # fragment is already sourced into this process: the variables are exported, so
 # both reach the same stack. The wrapper is for a shell that has not sourced it.

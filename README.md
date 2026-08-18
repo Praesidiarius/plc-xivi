@@ -598,6 +598,25 @@ databases and dev image, so both suites run at the same time without meeting
 letting the two interleave. Reach that worktree's stack by hand with its own
 `bin/compose`.
 
+**If two checkouts want the same ports, you are told which one has them**
+(XIV-86). The offset is a checksum of the directory name into one of a hundred
+buckets, so two directories can land on the same one — at seven worktrees that
+happens about one time in five. `bin/compose up` and `bin/ci` check before
+starting anything and refuse, naming the offset, the checkout holding it and its
+directory, and printing the six exports that move this checkout somewhere free:
+
+```bash
+export HTTP_PORT=8053 HTTPS_PORT=8453 HTTP3_PORT=8453 \
+       DATABASE_PORT=5553 ADMINER_PORT=8153 MAILPIT_PORT=8253
+```
+
+Export them in the shell you run `bin/ci` from and they win over the derived
+values, this check included. Without the check the loud half would be a failed
+bind on port 443's stand-in; the quiet half is that `DATABASE_PORT` would answer
+as the *other* checkout's Postgres, so anything you pointed at the address
+`bin/compose` prints — PhpStorm's database panel, `psql` — would be working on
+that checkout's tenants (brief §9.2).
+
 The dev image is `<checkout>-xivi-php-dev` — `xivi-xiv-99-xivi-php-dev` for the
 worktree above — so a branch that changes the `Dockerfile` or the entrypoint
 cannot alter what another checkout is running. It costs almost nothing: every
