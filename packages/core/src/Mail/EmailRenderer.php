@@ -13,8 +13,11 @@ declare(strict_types=1);
 
 namespace Xivi\Core\Mail;
 
-use League\CommonMark\CommonMarkConverter;
 use League\CommonMark\ConverterInterface;
+use League\CommonMark\Environment\Environment as MarkdownEnvironment;
+use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
+use League\CommonMark\Extension\Table\TableExtension;
+use League\CommonMark\MarkdownConverter;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizerInterface;
 use Twig\Environment;
 use Xivi\Core\Document\DocumentMarkers;
@@ -46,12 +49,18 @@ use Xivi\Core\Record\Record;
  * A **collection** marker is the one thing that comes out different, and it is
  * deliberate. `RepeatingBlocks` scans `<w:tr>` elements out of Word's XML: the
  * table row is the unit because it is the unit Word gives a person, and Markdown
- * has no equivalent. Choosing one — a list item? a table row? a fenced block? —
- * is a design question rather than a port, so it is not answered here (XIV-38).
- * What a collection marker does in the meantime is what any unfilled marker
- * does: it comes out blank, because `dataFor()` already offers every collection
- * key as an empty string. Blank beats brackets, which is the same call the
- * document side made.
+ * has no equivalent — so XIV-38 left the question open rather than porting an
+ * answer that did not fit. XIV-62 answered it, and the answer is
+ * {@see CollectionTables}: **one marker that renders the whole collection as a
+ * pipe table**, rather than a construct a tenant lays a row out inside. Which is
+ * a genuine divergence from the document side and is meant to be — in Word the
+ * layout is the deliverable, and in an email it is not.
+ *
+ * It matters here, in this class, that what a collection expands to is
+ * **Markdown**: an expansion to HTML would arrive on the far side of the
+ * escaping decision below, hand raw markup to the sanitizer as its only defence,
+ * and have no plain-text form worth reading. Expanding to source keeps both
+ * properties for free.
  *
  * ### Substitution happens before the Markdown is parsed, and that matters
  *
@@ -101,10 +110,11 @@ final readonly class EmailRenderer
 
     public function __construct(
         private DocumentMarkers $markers,
+        private CollectionTables $tables,
         private HtmlSanitizerInterface $sanitizer,
         private Environment $twig,
     ) {
-        $this->markdown = new CommonMarkConverter([
+        $environment = new MarkdownEnvironment([
             // See the class docblock: this is the primary half of the answer to
             // "sanitize or disable raw HTML", and the half that makes marker
             // substitution into the source safe rather than merely tidy.
@@ -113,6 +123,19 @@ final readonly class EmailRenderer
             // setting above would not have caught it.
             'allow_unsafe_links' => false,
         ]);
+
+        $environment->addExtension(new CommonMarkCoreExtension());
+        // Tables are not CommonMark — they are GitHub's extension to it, and
+        // without this one a collection would come out as a paragraph of pipe
+        // characters in the HTML half while reading perfectly well in the text
+        // half (XIV-62). Named rather than taken as part of
+        // `GithubFlavoredMarkdownExtension`, which would also bring autolinking,
+        // strikethrough, task lists and a raw-HTML filter nothing here asked
+        // for: the smaller the grammar a tenant writes against, the fewer ways
+        // an email surprises them.
+        $environment->addExtension(new TableExtension());
+
+        $this->markdown = new MarkdownConverter($environment);
     }
 
     /**
@@ -133,8 +156,14 @@ final readonly class EmailRenderer
     ): RenderedEmail {
         $values = $this->markers->dataFor($module, $record);
 
-        $line = self::substitute($subject ?? $template->getSubject(), $values);
-        $text = self::substitute($template->getBody(), $values);
+        // The subject is given no record to draw tables from, and that is the
+        // argument rather than an omission: a subject line is one line of text,
+        // and a table in one is not a thing anybody means. A collection marker
+        // written there is still *recognised* — it comes out blank, which is the
+        // rule every unfilled marker gets and the rule `dataFor()` already
+        // applies to the `[lines.description]` form.
+        $line = $this->substitute($subject ?? $template->getSubject(), $values, $module, null);
+        $text = $this->substitute($template->getBody(), $values, $module, $record);
 
         return new RenderedEmail($line, $this->wrap($text, $line), $text);
     }
@@ -164,24 +193,104 @@ final readonly class EmailRenderer
     }
 
     /**
-     * `[first_name]` becomes what this record's first name is.
+     * `[first_name]` becomes what this record's first name is, and `[lines]`
+     * becomes a table.
      *
-     * `strtr()` rather than a loop of `str_replace()`, and that is not a
-     * micro-optimisation: `strtr()` scans the subject once and never looks at
-     * text it has already written, so a value that happens to contain `[today]`
-     * is left alone. A loop would substitute into its own output.
+     * **One left-to-right pass over the text, and nothing is ever looked at
+     * twice.** That was `strtr()`'s whole justification and it is this method's:
+     * a scan that never re-reads what it has written is what stops a contact
+     * whose company name happens to contain `[today]` from having it
+     * substituted. `preg_replace_callback` keeps that property exactly —
+     * scanning resumes *after* each replacement — and buys the thing `strtr()`
+     * could not do, which is to decide per token what kind of marker it is
+     * rather than looking it up in one flat map (XIV-62).
+     *
+     * Three answers, in this order:
+     *
+     * 1. **a collection**, which renders as a table and is asked first. It has
+     *    to be first: `dataFor()` blanks every `[lines.description]` for the
+     *    document side's benefit, so consulting the map first would blank the
+     *    very tokens this ticket exists to fill in.
+     * 2. **a marker the shape offers**, which is its value — including the empty
+     *    string, because a marker the engine knows and cannot fill is blanked
+     *    rather than left printing its own brackets (§5.7).
+     * 3. **anything else**, left exactly as it was typed. That is XIV-25's rule
+     *    and it is why a Markdown link's `[text]` survives this untouched: a
+     *    token nobody recognises is far more likely to be a typo somebody needs
+     *    to see than a marker somebody meant.
      *
      * @param array<string, string> $values every marker key this shape offers
+     * @param Record|null           $record null where a table cannot be drawn
      */
-    private static function substitute(string $text, array $values): string
+    private function substitute(string $text, array $values, ModuleDefinition $module, ?Record $record): string
     {
-        $tokens = [];
+        return (string) preg_replace_callback(
+            // Deliberately not `.+`: a marker never spans a line, and letting one
+            // do so would let a stray bracket at the top of a message swallow
+            // everything down to the next one.
+            '/\[([^\[\]\r\n]++)\]/',
+            function (array $match) use ($values, $module, $record, $text): string {
+                [$token, $offset] = $match[0];
+                $key = $match[1][0];
 
-        foreach ($values as $key => $value) {
-            $tokens['[' . $key . ']'] = $value;
+                $table = $this->tables->render($module, $record, $key);
+
+                if ($table !== null) {
+                    return $table === '' ? '' : self::spaced($text, $offset, \strlen($token), $table);
+                }
+
+                return $values[$key] ?? $token;
+            },
+            $text,
+            flags: \PREG_OFFSET_CAPTURE,
+        );
+    }
+
+    /**
+     * A table, with whatever blank lines it needs around it and no more.
+     *
+     * A pipe table is a *block*, so it needs a blank line on each side or
+     * CommonMark reads it as more of the paragraph it interrupts — and somebody
+     * writing "Here is what you ordered:" and then `[lines]` on the next line has
+     * written exactly that paragraph. Padding unconditionally would have been one
+     * line of code and would have left a stray blank line in the plain-text half
+     * every time the marker already stood alone, which is the half a person
+     * actually reads.
+     *
+     * So the source is measured instead. The offsets are into the original text
+     * rather than the result, which is the right question: what is being asked is
+     * whether the *author* left a blank line there, not what the expansion of
+     * some earlier marker happened to end with.
+     */
+    private static function spaced(string $text, int $offset, int $length, string $table): string
+    {
+        $before = rtrim(substr($text, 0, $offset), " \t");
+        $after = ltrim(substr($text, $offset + $length), " \t");
+
+        return self::gap($before, true) . rtrim($table, "\n") . self::gap($after, false);
+    }
+
+    /**
+     * How many newlines are missing between the table and the text on one side
+     * of it: none when that side is empty or already ends in a blank line, one
+     * when it ends in a single newline, two otherwise.
+     */
+    private static function gap(string $text, bool $preceding): string
+    {
+        if ($text === '') {
+            return '';
         }
 
-        return strtr($text, $tokens);
+        // The two characters the table is about to touch, read outwards from the
+        // marker: the last two before it, or the first two after it.
+        $touching = $preceding ? substr($text, -2) : substr($text, 0, 2);
+        $nearest = $preceding ? substr($touching, -1) : substr($touching, 0, 1);
+
+        if ($touching === "\n\n") {
+            return '';
+        }
+
+        return $nearest === "\n" ? "\n" : "\n\n";
     }
 
     /**

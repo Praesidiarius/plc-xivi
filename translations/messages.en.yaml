@@ -768,6 +768,18 @@ email_template:
     placeholders_help: >-
         Type these into the subject or the message, brackets included. They are replaced with
         this record's values when the email is sent. Anything you leave out stays out.
+    collection_help: >-
+        This one is not a value — it becomes a whole table, one row per entry, in the order
+        they are in. Put it on a line of its own rather than inside a sentence. In the subject
+        it comes out empty: a table is not a subject line.
+    collection_columns_help: >-
+        Every column is shown unless you say otherwise. Name the ones you want, in the order
+        you want them — write [%example%] — which is usually what an email wants, since the
+        attached document already lists everything.
+    collection_kinds_help: >-
+        Entries of every kind end up in the same table, in their own order, and a column an
+        entry has nothing for is left empty. Add the kind — [lines:article] — for a table of
+        just that kind.
     wrapper: Around your message
     wrapper_help: >-
         What you write here is the message. The frame around it — the layout and the footer
