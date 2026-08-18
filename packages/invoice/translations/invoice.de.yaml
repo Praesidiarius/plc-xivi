@@ -51,3 +51,9 @@ transition:
 
 seed:
     action: Restmenge verrechnen
+
+# Die eigene Dashboard-Karte des Moduls (XIV-66).
+dashboard:
+    unpaid: Offene Rechnungen
+    unpaid_none: Es ist nichts offen.
+    unpaid_overdue: Überfällig

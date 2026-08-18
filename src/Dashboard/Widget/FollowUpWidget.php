@@ -13,12 +13,12 @@ declare(strict_types=1);
 
 namespace App\Dashboard\Widget;
 
-use App\Dashboard\DashboardWidget;
-use App\Dashboard\WidgetPanel;
 use App\Tenancy\TenantContext;
 use App\Tenant\Entity\User;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\AsTaggedItem;
+use Xivi\Core\Dashboard\DashboardWidget;
+use Xivi\Core\Dashboard\WidgetPanel;
 use Xivi\Core\Metadata\MetadataRepository;
 
 /**
@@ -60,13 +60,26 @@ use Xivi\Core\Metadata\MetadataRepository;
  * empty box that says "nothing on your list" is a true sentence.
  *
  * **The check costs no query**: the module definitions come from the metadata
- * repository's per-request cache (XIV-53).
+ * repository's per-request cache (XIV-53). That was a nice property in XIV-81 and
+ * is a requirement since XIV-66, where `panel()` is asked of every widget on every
+ * render — before the reader's layout is applied, because the layout is a list of
+ * keys and the keys come from here — so a widget that counted rows in this method
+ * would charge the page for a card somebody had hidden.
+ *
+ * **It sets no `defer` flag, and that is not an oversight** (XIV-66). Its whole
+ * body is a Live Component already, so deferring is `loading="defer"` on the
+ * mount in its own template — one round trip for the panel's contents. Asking the
+ * dashboard to defer the panel *as well* would wrap a deferred component in a
+ * deferred component and buy a second round trip for nothing.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[AsTaggedItem(priority: 10)]
 final readonly class FollowUpWidget implements DashboardWidget
 {
+    /** What a saved layout writes down when somebody keeps this card. */
+    public const string KEY = 'follow_ups';
+
     public function __construct(
         private Security $security,
         private TenantContext $context,
@@ -94,9 +107,9 @@ final readonly class FollowUpWidget implements DashboardWidget
         // on the other side of the component's endpoint, which is what makes the
         // lens survivable without this widget being asked again.
         return new WidgetPanel(
-            'dashboard/widget/follow_ups.html.twig',
-            [],
-            'dashboard.follow_ups',
+            key: self::KEY,
+            template: 'dashboard/widget/follow_ups.html.twig',
+            nameKey: 'dashboard.follow_ups',
         );
     }
 

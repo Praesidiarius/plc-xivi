@@ -1,0 +1,5 @@
+# Siehe invoice+intl-icu.en.yaml — die Quellsprache erklärt, warum diese
+# Zeichenketten in einer eigenen Datei stehen (XIV-66).
+
+dashboard:
+    unpaid_more: '{count, plural, one {Und # weitere.} other {Und # weitere.}}'

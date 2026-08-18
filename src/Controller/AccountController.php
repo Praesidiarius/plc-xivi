@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Dashboard\Dashboard;
+use App\Dashboard\SubmittedLayout;
 use App\Tenant\Entity\User;
 use App\Tenant\Security\UserChangeRefused;
 use App\Tenant\Security\UserManager;
@@ -53,6 +55,12 @@ final class AccountController extends AbstractController
         // Which zone this person reads moments in, and what they would inherit
         // if they left it alone (XIV-83).
         private readonly DisplayTimezone $timezones,
+        // Which widgets this person keeps on their landing page, and what is on
+        // offer (XIV-66). The fourth setting of the same shape, on the same
+        // screen as the other three: a person's own preferences are one page, and
+        // putting this one somewhere of its own would have made it a feature
+        // rather than a setting.
+        private readonly Dashboard $dashboard,
         #[Autowire('%kernel.enabled_locales%')]
         private readonly array $enabledLocales,
         #[Autowire('%kernel.default_locale%')]
@@ -131,6 +139,16 @@ final class AccountController extends AbstractController
                 $this->timezones->fallbackFor($user),
                 $request->getLocale(),
             ),
+            // Every widget that would draw something for this reader, keyed and
+            // in the order the code declares (XIV-66). The same call the
+            // dashboard itself makes, so the picker cannot offer a card the page
+            // would not draw — which is how "a widget for an uninstalled module
+            // is not offered" is kept true without this screen knowing what a
+            // module is.
+            'widgets' => $this->dashboard->available(),
+            // Null while they have never chosen, which the partial reads as "you
+            // are following the company's".
+            'layout' => $user->getDashboardLayout(),
         ]);
     }
 
@@ -163,6 +181,36 @@ final class AccountController extends AbstractController
                 $this->users->setTimezone($user, $this->timezones->exists($timezone) ? $timezone : null);
 
                 $this->addFlash('success', $this->translator->trans('account.language_saved'));
+
+                return;
+            }
+
+            if ($request->request->get('action') === 'dashboard') {
+                // Only the keys the picker actually drew, so a hand-edited
+                // request cannot put a widget nobody has into somebody's column.
+                // It would degrade harmlessly if it did — `Dashboard` drops a key
+                // nothing answers to — and "cannot happen" is a better property
+                // than "harmless when it happens".
+                $this->users->setDashboardLayout($user, SubmittedLayout::fromRequest(
+                    $request,
+                    array_keys($this->dashboard->available()),
+                ));
+
+                $this->addFlash('success', $this->translator->trans('dashboard.saved'));
+
+                return;
+            }
+
+            if ($request->request->get('action') === 'dashboard_reset') {
+                // The way back, and its own action rather than "save with nothing
+                // ticked", because those are two different answers: null follows
+                // the installation's default and keeps following it if it moves,
+                // while an empty list is a bare dashboard somebody asked for.
+                // This is also the escape a person who hid everything has to have
+                // that is not an administrator.
+                $this->users->setDashboardLayout($user, null);
+
+                $this->addFlash('success', $this->translator->trans('dashboard.reset'));
 
                 return;
             }

@@ -205,5 +205,36 @@
 				{% endif %}
 			</div>
 		</form>
+
+		{#
+			The dashboard everybody who has not chosen their own is shown (XIV-66).
+
+			Its own card and its own forms, because it shares no field with the one
+			above and posting it through that handler would blank every field it
+			does not carry — the controller branches on `action` before the main
+			sequence for exactly that reason.
+
+			Drawn only for somebody who may change it. The read-only case has no
+			half-measure worth offering here: a picker with every box disabled is a
+			control that looks broken, and unlike the currency there is no single
+			value to report in its place.
+		#}
+		{% if editable %}
+			<div class="card mt-4">
+				<div class="card-body">
+					<h2 class="h5 mb-3">{{ 'dashboard.picker_title'|trans }}</h2>
+					<p class="text-body-secondary small">{{ 'dashboard.picker_default_help'|trans }}</p>
+
+					{{ include('_widget_picker.html.twig', {
+						panels: widgets,
+						chosen: layout,
+						action: 'dashboard',
+						reset: 'dashboard_reset',
+						inherit: 'dashboard.picker_following_code',
+						token: 'tenant-profile',
+					}, with_context = false) }}
+				</div>
+			</div>
+		{% endif %}
 	</main>
 {% endblock %}

@@ -228,6 +228,14 @@ services:
     # spell it the same way.
     Xivi\Core\Record\RecordSearchUrl: '@App\Record\RecordSearchUrls'
 
+    # And where one record's own page is (XIV-66). The same seam a third time,
+    # for a caller that is not core itself but a *module*: a dashboard widget
+    # shipped by packages/invoice turns "12 unpaid invoices" into twelve links,
+    # and twelve links need twelve URLs. Without this the module would have to
+    # spell `module_show` in its own Twig template, which is the §3 boundary
+    # leaking out through the one file deptrac cannot read.
+    Xivi\Core\Record\RecordPageUrl: '@App\Record\RecordPageUrls'
+
     Xivi\Core\Record\RecordWriter:
         arguments:
             $connection: '@doctrine.dbal.tenant_connection'

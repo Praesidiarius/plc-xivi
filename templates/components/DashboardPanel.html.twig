@@ -1,0 +1,28 @@
+{#
+	One widget's card, drawn on the request that fetched it (XIV-66).
+
+	This is the whole of the generic mount: the dashboard put a widget key on the
+	page, `loading="defer"` made the browser come back for the contents, and this
+	renders whatever that widget's panel names. Everything about *what* a panel is
+	stays in the widget; everything about *when* it arrives stays here.
+
+	`panel.values` is where the widget's promise is resolved, and this is the only
+	place it is called on this path — which is what makes the deferral save the
+	queries rather than merely move them (see `Xivi\Core\Dashboard\WidgetPanel`).
+
+	`only`, like the inline branch on the dashboard itself: a panel is rendered
+	with exactly what its widget handed over and cannot quietly start depending on
+	a variable that happens to be in scope. The globals every template has —
+	`chrome`, `app` — are unaffected.
+
+	A null panel draws an empty card rather than throwing. A widget can stop
+	applying between the page rendering and this request arriving, and a module
+	somebody uninstalled in another tab is not a reason for a 500.
+#}
+<div{{ attributes }}>
+	{% set panel = this.panel %}
+
+	{% if panel is not null %}
+		{{ include(panel.template, panel.values, with_context = false) }}
+	{% endif %}
+</div>

@@ -88,6 +88,28 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **A dashboard each person picks and arranges, over a default the installation
+  sets** ([XIV-66],
+  [§8.3.1](docs/architecture.md#whose-dashboard-it-is-and-a-seam-a-module-can-reach-xiv-66)).
+  The picker is on `/account`, under the language and timezone settings it shares
+  a shape with; whoever administers the installation sets the default everybody
+  who has not chosen sees, on the profile page. A "Customise" link sits beside the
+  dashboard heading so somebody who has hidden every card can still get back, and
+  "Go back to the default" needs no administrator.
+- **A module can ship a dashboard widget**, which the widget seam moving into
+  `packages/core` is what makes possible. **Invoices ship the first one**:
+  everything sent and not yet paid, most overdue first, as links to the invoices
+  rather than as a count — with an "Overdue" badge worked out from the due date at
+  the moment you look (§5.16).
+- **The dashboard no longer waits for its cards.** The page arrives with its
+  headings and navigation and each card that reads the database is fetched
+  separately, so a slow widget costs its own tile instead of the landing page.
+- **Upgrading:** the tenant migration adds `dashboard_layout` to `app_user` and
+  `tenant_profile`. Both are nullable and nothing is backfilled — every existing
+  user and installation keeps exactly the dashboard they have until somebody
+  chooses otherwise. A saved layout naming a widget that later disappears (an
+  uninstalled module, a renamed widget) quietly loses that card rather than
+  erroring.
 - **A tenant can take what their module grew after they installed it**
   ([XIV-70], [§7.2.1](docs/architecture.md#721-taking-what-a-module-grew-without-retro-fitting-it-xiv-70)).
   Installing still does not retro-fit — §6.1 is unchanged and no deploy touches
@@ -500,3 +522,4 @@ lands in `Unreleased` here.
 [XIV-109]: https://xivi.youtrack.cloud/issue/XIV-109
 [XIV-93]: https://xivi.youtrack.cloud/issue/XIV-93
 [XIV-88]: https://xivi.youtrack.cloud/issue/XIV-88
+[XIV-66]: https://xivi.youtrack.cloud/issue/XIV-66

@@ -1,0 +1,73 @@
+{#
+	The invoice module's own dashboard card (XIV-66) — the first template this
+	repository ships from a module package rather than from `templates/`.
+
+	Reached as `@XiviInvoice/dashboard/unpaid.html.twig`: a bundle's `templates/`
+	directory is a Twig namespace named after the bundle class, which is how
+	`@XiviControlPlane` already works and is why declaring a widget from down here
+	needed no configuration at all.
+
+	**Nothing in this file names an application route or an application
+	translation key.** The addresses arrived built, through `RecordPageUrl`, and
+	every word on the card comes out of `invoice.<locale>.yaml` beside this
+	directory — which together are the whole of what "a module may declare a
+	widget" has to mean if it is going to mean anything.
+
+	`display()`, `record_title()` and `is_overdue()` are core's own Twig functions
+	(`Xivi\Core\Twig`), so this draws a customer's values through the same field
+	types the record page does rather than through a formatting rule of its own.
+
+	The fields are looked up rather than assumed present: once a module is
+	installed the customer's definitions are the truth (§6.1), so somebody who
+	deleted the due-date field gets a card without a due-date column instead of a
+	page that throws.
+#}
+{% if rows is empty %}
+	{#
+		Empty is good news here and is said as such. The widget only exists for a
+		reader who may see invoices at all — otherwise it returns null and this
+		file is never reached — so "nothing outstanding" is a true and useful
+		sentence rather than the shrug an empty box would be.
+	#}
+	<div class="alert alert-secondary mb-0">{{ 'dashboard.unpaid_none'|trans({}, 'invoice') }}</div>
+{% else %}
+	<div class="list-group">
+		{% for record in rows %}
+			<a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center gap-3"
+			   href="{{ urls[record.id] }}">
+				<span class="text-truncate">
+					{{ record_title(module, record.data, record.id) }}
+					{#
+						Late is a read rather than a state (§5.16): the calendar
+						performs it and nothing else does, so it is asked here,
+						of a record already in hand, and stored nowhere.
+					#}
+					{% if is_overdue(module, record) %}
+						<span class="badge text-bg-danger ms-1">{{ 'dashboard.unpaid_overdue'|trans({}, 'invoice') }}</span>
+					{% endif %}
+				</span>
+
+				<span class="text-body-secondary small text-nowrap">
+					{% if dueDate is not null and record.get(dueDate.key) is not empty %}
+						{{ display(dueDate, record.get(dueDate.key)) }}
+					{% endif %}
+
+					{% if total is not null %}
+						<strong class="ms-2">{{ display(total, record.get(total.key)) }}</strong>
+					{% endif %}
+				</span>
+			</a>
+		{% endfor %}
+	</div>
+
+	{#
+		What did not fit, counted rather than hidden. The number comes from the
+		same compiled predicate the rows did, so it can never describe records the
+		reader may not see.
+	#}
+	{% if more > 0 %}
+		<p class="text-body-secondary small mt-2 mb-0">
+			{{ 'dashboard.unpaid_more'|trans({'%count%': more}, 'invoice') }}
+		</p>
+	{% endif %}
+{% endif %}

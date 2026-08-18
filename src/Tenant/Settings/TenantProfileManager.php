@@ -141,6 +141,40 @@ final readonly class TenantProfileManager
     }
 
     /**
+     * The dashboard anybody who has never chosen one is shown (XIV-66).
+     *
+     * **A method of its own for the reason `applyMail()` below is one**, and a
+     * sharper version of it: this shares not one field with the settings form, so
+     * folding it into `apply()` would mean the picker posting a company name, a
+     * currency and a country it does not carry — which is to say blanking them.
+     * The controller branches before it reaches the main handler for the same
+     * reason.
+     *
+     * **Nothing is validated here, and that is the difference from every other
+     * setting on this page.** A currency has to be a currency and a zone has to
+     * be a zone, because storing something else means a formatter failing later.
+     * A layout is a list of widget keys, and a key naming a widget that does not
+     * exist is *already* a state this has to survive — an uninstalled module, a
+     * renamed widget, a deleted class — so `Dashboard` drops what it cannot
+     * resolve and a check here would guard against nothing that is not guarded
+     * anyway. The controller still narrows the submission to the keys the picker
+     * drew, which is the cheap half of the same idea.
+     *
+     * @param list<string>|null $layout widget keys in the order they should be
+     *                                  drawn, or null for the order the code
+     *                                  declares
+     */
+    public function applyDashboardLayout(?array $layout): TenantProfile
+    {
+        $profile = $this->profiles->current();
+        $profile->setDashboardLayout($layout);
+
+        $this->entityManager->flush();
+
+        return $profile;
+    }
+
+    /**
      * Who this customer's mail comes from, and which server it leaves through
      * (XIV-37, §8.7).
      *

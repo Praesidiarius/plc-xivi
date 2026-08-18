@@ -124,17 +124,62 @@ final class FollowUpWidgetTest extends WebTestCase
 
     /**
      * The ordinary case: my work, named, and a way to get to the record.
+     *
+     * Read off the component rather than off the page since XIV-66, because the
+     * card is fetched in a request of its own now — see
+     * {@see self::testTheDashboardDoesNotWaitForTheFollowUpCard()} below, which is
+     * the assertion that the page really does arrive without it. What the reader
+     * ends up looking at is this, one round trip later.
      */
     public function testTheWidgetNamesAndLinksTheRecordAFollowUpIsAbout(): void
     {
         $this->open($this->contact, '-2 days', 'Call them back about the second invoice.');
 
         $this->signIn(self::READER);
+        $markup = $this->dashboard(FollowUpLens::Week);
+
+        self::assertStringContainsString('Call them back about the second invoice.', $markup);
+        self::assertStringContainsString('Ada Lovelace', $markup);
+        self::assertStringContainsString('/m/contact/' . $this->contact, $markup);
+    }
+
+    /**
+     * The landing page arrives without waiting for this card (XIV-66).
+     *
+     * The point of `loading="defer"` is that the slowest widget costs its own
+     * tile rather than the whole dashboard, and the only way to assert that from
+     * outside is what the first response does *not* contain: the follow-up itself
+     * is absent from the page and present one request later, which is the
+     * difference between a card that blocks and a card that does not.
+     *
+     * The module tiles are asserted in the same breath and for the same reason
+     * turned round: they are navigation, they draw inline, and a change that
+     * deferred everything uniformly would be caught here rather than by somebody
+     * noticing the menu flicker.
+     */
+    public function testTheDashboardDoesNotWaitForTheFollowUpCard(): void
+    {
+        $this->open($this->contact, '-2 days', 'Call them back about the second invoice.');
+
+        $this->signIn(self::READER);
         $page = $this->client->request('GET', $this->url('/'))->filter('main')->html();
 
-        self::assertStringContainsString('Call them back about the second invoice.', $page);
-        self::assertStringContainsString('Ada Lovelace', $page);
-        self::assertStringContainsString('/m/contact/' . $this->contact, $page);
+        self::assertStringNotContainsString(
+            'Call them back about the second invoice.',
+            $page,
+            'the follow-up card is fetched separately, so its contents are not in the first response',
+        );
+        // The mount rather than the contents: a `data-live-url-value` on the page
+        // with nothing under it is exactly what a deferred component looks like
+        // before the browser has been back for it. Asserted on the URL attribute
+        // rather than on the `data-action`, which carries a `->` the crawler
+        // re-serialises as an entity — a brittle thing to write a test around.
+        self::assertStringContainsString(
+            'data-live-url-value="/_components/DueFollowUps"',
+            $page,
+            'the card is mounted and its contents are still to come',
+        );
+        self::assertStringContainsString('/m/contact', $page, 'and the module tiles still draw inline');
     }
 
     /**

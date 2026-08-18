@@ -8,19 +8,33 @@
 	<main class="container page-shell">
 		{{ include('_flashes.html.twig') }}
 
-		<h1 class="h3 mb-4">{{ tenant.name }}</h1>
+		<div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-4">
+			<h1 class="h3 mb-0">{{ tenant.name }}</h1>
+
+			{#
+				The way back, and it is here rather than only inside the panels
+				for one reason (XIV-66): a person may untick every box, and an
+				empty layout is a real answer that has to stay recoverable. A
+				link that lived among the widgets would disappear with them and
+				leave "ask an administrator" as the only escape — which is the
+				outcome the three-layer chain exists to prevent.
+			#}
+			<a class="btn btn-sm btn-outline-secondary" href="{{ path('account') }}#dashboard">
+				{{ 'dashboard.customise'|trans }}
+			</a>
+		</div>
 
 		{#
 			The page is its widgets and nothing else (XIV-81). What used to be here
 			— a tile grid and two empty states — is `dashboard/widget/modules.html.twig`
 			now, which is what makes follow-ups *a* widget rather than the one thing
 			that got special treatment. Anything the landing page grows next is a
-			class implementing DashboardWidget and a template of its own; this file
-			does not change again.
+			class implementing DashboardWidget and a template of its own.
 
-			Ordering is the tag priority on each widget, already applied by the time
-			the panels arrive, so there is nothing to sort and nothing here that
-			knows which widget is which.
+			Which panels these are, and in what order, is the reader's own layout
+			over the tenant's default over the priority the tags declare (XIV-66),
+			all of it already applied by the time they arrive. Nothing here sorts,
+			filters or knows which widget is which.
 
 			`only`, so a panel is rendered with exactly what its widget handed over
 			and cannot quietly start depending on a variable that happens to be in
@@ -29,11 +43,32 @@
 		#}
 		{% for panel in panels %}
 			<section class="mb-4">
-				{% if panel.titleKey %}
-					<h2 class="h5 mb-3">{{ panel.titleKey|trans }}</h2>
+				{% if panel.heading %}
+					<h2 class="h5 mb-3">{{ panel.nameKey|trans({}, panel.domain) }}</h2>
 				{% endif %}
 
-				{{ include(panel.template, panel.data, with_context = false) }}
+				{% if panel.defer %}
+					{#
+						Fetched in a request of its own, so a widget that counts
+						rows costs its own tile rather than the whole landing page
+						— the worst possible place for a page whose cost is the
+						sum of its parts, since it is the first thing every user
+						loads after signing in.
+
+						`defer` rather than `lazy`: these cards are above the fold
+						on any screen worth designing for, so waiting for them to
+						scroll into view would be a delay with nothing bought by
+						it. `lazy` is the right answer for the widget that
+						eventually sits at the bottom of a long dashboard.
+					#}
+					<twig:DashboardPanel
+						widget="{{ panel.key }}"
+						loading="defer"
+						loading-template="dashboard/_loading.html.twig"
+					/>
+				{% else %}
+					{{ include(panel.template, panel.values, with_context = false) }}
+				{% endif %}
 			</section>
 		{% endfor %}
 	</main>
