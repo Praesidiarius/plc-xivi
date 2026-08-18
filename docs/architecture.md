@@ -1639,6 +1639,11 @@ build one rather than the list of ANDs that covers the honest 90%; and keyset
 paging, which is the answer when someone is on page 400 and until then costs a
 sort key in every URL. LIMIT/OFFSET is correct, and slower the deeper it goes.
 
+Deliberately **never** built, which is a different word: a filter somebody writes
+as an *expression* rather than as a condition (XIV-88, §5.8). It would have to be
+evaluated in PHP over records that are already loaded, so it could not narrow the
+page it is meant to narrow, and the count beside it least of all.
+
 **One closed disjunction, which is not that `OR`** (XIV-36). A `RecordQuery` may
 carry a `Search`: one string, looked for across a fixed set of the shape's own
 fields, compiled as a single parenthesised group and ANDed with everything else.
@@ -2334,6 +2339,133 @@ without answering it: this is a declared rule, not a subscriber's veto.
 **The timeline gets its own verb for it.** "Somebody sent this invoice" and
 "somebody fixed a typo in it" are different facts about a document, and an audit
 trail that called both "updated" would bury the first.
+
+#### A condition on a transition, and why it is not an expression language (XIV-88)
+
+`LifecycleTransition` carries no condition, and there is nowhere else to put one.
+"Confirming an order needs at least one line" cannot be said anywhere today:
+field validation is per field and unconditional, so it can only demand the line
+of a draft as well, which is not the rule anybody means — the contact half of
+that sentence is already a `required` field precisely because it *is* true of a
+draft — and `RecordWriter` validates nothing, so the save a transition makes is
+one that nothing inspects. The hole is real. This section records that it was
+looked at deliberately rather than left lying, and that the answer proposed for
+it was turned down.
+
+The proposal was Symfony's ExpressionLanguage, raised while XIV-27 was rejecting
+it for the numbering pattern. That rejection was narrow and the question
+underneath is general: **is there anywhere in Xivi that wants a small, safe,
+customer-authored expression?** The answer is **no, today**, and the argument is
+written out here so that the next person to suggest it inherits it instead of
+re-deriving it. The component is an *evaluator*: it parses PHP-like expressions
+over variables that must be declared explicitly, and returns a value. Nothing is
+ambiently in scope, and parsed expressions cache through PSR-6. It is MIT and
+would be an acceptable dependency; it appears in `composer.lock` today only as an
+optional peer of packages we already have, and is not installed.
+
+**Two rules decide most of the candidates, and this project already learned
+both.**
+
+*Not where the answer has to become a `WHERE` clause.* §8.4 is explicit that
+record-level permission is a query problem rather than a security-layer one — "a
+check performed after loading, which is the wrong answer in a way that looks
+right" — and §5.3 says the same of filters, where nothing from a user is
+concatenated and the comparisons are a closed enum. An expression evaluates in
+PHP over a record that has already been loaded, which is the wrong side of the
+`LIMIT`: a list page is twenty-five records **and a separately counted total**,
+and a predicate that can only run over the twenty-five prints a number of records
+somebody may not see directly above the ones they may. **Permissions and filters
+are therefore ruled out here, in as many words**, because §8.4's mistake would be
+arriving through a new door and the sign was only on the old one.
+
+*Not where the engine has to read the thing rather than run it.* That is XIV-27's
+finding and it generalises. `NumberFormat::period()` decides which counter a
+number comes out of by looking for `{year}` in the pattern **text**, and the
+editor turns that into a promise kept before anything is saved. An evaluator can
+only answer by evaluating, and `'ORD-' ~ (annual ? year : '')` has no static
+answer at all. A useful third phrasing of the pair: it fits where the output is a
+value, and badly where the output is text whose structure the engine inspects.
+
+**The candidates, each with its verdict.**
+
+- **Lifecycle guards — passes both rules, and still not this component's job.** A
+  guard is a boolean over one record already in hand, and nothing needs to
+  interrogate one without running it: the record page decides whether to draw a
+  button by evaluating it against the record it is already showing. It is also
+  the only candidate where there is currently *no* way to express the thing at
+  all, which is the strongest argument any of them has. What decides it is asking
+  who writes one. §7.1's narrowing — the paragraph above, about the engine
+  refusing on a rule the module *declared* rather than a subscriber vetoing at
+  runtime — is about a rule **a module** declared, and a module is code. Against
+  code an expression string is strictly worse than a PHP predicate: PHPStan
+  cannot see into it, neither can an IDE, renaming a field key breaks it
+  silently, and it buys nothing a typed callable does not already give. This
+  component earns its keep only where the author *cannot* ship PHP, which means a
+  customer — and a customer cannot author a lifecycle at all. There is nowhere to
+  keep one: options live on `FieldDefinition` and a lifecycle is not a field;
+  this section says a lifecycle is part of what a module *is*, so changing one is
+  a release rather than something a customer configures (§6.1); and XIV-27 set
+  the standard for handing a customer a small language, which is a page that
+  shows it working rather than a text box validated on submit. So: a guard is
+  worth having, and when it arrives it should be a predicate declared beside the
+  transition. Whether a customer may author one is a separate decision, and it is
+  not one to make by accident inside a ticket about an evaluator.
+
+- **Customer-authored derived values (§5.9) — declined on the transaction.** A
+  deriver runs inside the save's transaction, so a customer's own slow or
+  throwing expression fails somebody's save, and the failure would arrive at the
+  point in the code least able to explain itself. The derivers anybody would want
+  to imitate are the money ones, which would put a second implementation of
+  §5.9's rounding rule in a text box — the exact duplication XIV-32 refused when
+  the alternative was JavaScript. It inherits the storage and editor problem
+  above unchanged: a deriver is a service, and services are code.
+
+- **Conditional content in documents and email (§5.7, §5.13) — not blocked by
+  either rule, blocked by a question that came first.** A boolean gate around a
+  block would leave §5.13's escaping property intact, which is the thing to check
+  before anything else: the block's body is still template text, and markers
+  inside it are substituted into the Markdown **source** before CommonMark parses
+  it, so record values stay escaped by construction. What stops it is that §5.13
+  deliberately left repeating blocks out because Markdown has no unit to be one —
+  a list item, a table row, a fenced block — and a conditional block asks the
+  identical question with the same three candidate answers. In .docx the unit
+  question already has an answer (`RepeatingBlocks` scans `<w:tr>`, because a
+  table row is the unit Word gives a person), so the two halves would not even
+  agree with each other. Settling that inside a ticket about an evaluator would
+  be answering the small question and inventing an answer to the larger one.
+
+- **Validation rules (§5.4) — ruled out, by rule 1 arriving from a new
+  direction.** A rule cannot be switched on if existing records would fail it:
+  the editor counts them first and refuses with the number, and since XIV-109 the
+  `unique` half names the shared values too. Counting how many records fail an
+  arbitrary PHP expression means loading every record in the module and
+  evaluating each one — a full read of a customer's table performed in order to
+  draw a form, and one that gets slower for exactly the customers who have most
+  to lose from the rule being wrong. The `unique` half is worse still: that flag
+  now builds a unique expression index on the column, and there is no index for
+  an arbitrary expression.
+
+- **Conditional numbering — XIV-27, unchanged.** Rule 2, and nobody has asked.
+
+**One thing that would be found and misread, so it is said here.**
+symfony/workflow ships guards of its own, configured as expressions, and they are
+the framework's own answer to this — which is normally the end of the argument
+here (§5.7's rule). They are dispatched as `workflow.guard` events, and this
+section builds its state machines with **no event dispatcher** on purpose,
+because the component's events are a second place behaviour could hide. Adopting
+its guards means adopting the seam this section refused. A condition, when there
+is one, is evaluated by `RecordLifecycle` — which is where the refusal already
+lives, and where `TransitionRefused` already carries a message somebody can act
+on.
+
+**What would change the answer.** A customer asking to state a rule of their own
+about their own records and being told no — a guard, most likely, since that is
+the one with no workaround. At that point three things are needed and none of
+them exist: somewhere in the tenant's metadata for a per-transition option to
+live, an editor page built to XIV-27's standard, and a written decision about
+what an expression may see and what happens when one throws. Until somebody is
+actually blocked, this is the abstraction §1 says has to be earned, and it has
+one hypothetical use case rather than two real ones.
 
 ---
 
@@ -3963,6 +4095,13 @@ Not yet decided. Decide deliberately rather than by accident.
    on its rows. `ValueDeriver` has nothing to cancel with, on purpose. So the answer is
    asymmetric and deliberately so — taking part is allowed, refusing is not, and the half
    still open is exactly the half that makes host behaviour depend on what is installed.
+   *Asked from the other side and answered — XIV-88.* Whether the declarative half should
+   become a **customer-authored expression** — Symfony's ExpressionLanguage, proposed after
+   XIV-27 rejected it for the numbering pattern — was examined across every candidate in the
+   system and declined. §5.8 carries the argument and the list; the short version is that a
+   guard on a transition is the one place that passes both of the rules this project has
+   learned, and that a module declaring one writes PHP, against which an expression string is
+   strictly worse.
 2. **Metadata migration.** What happens when a field changes type, or is deleted while
    data exists in it? Needs a real answer before the metadata editor ships.
    *Half settled — see §5.4.* Deleting a field is now decided: the definition goes and
@@ -4570,6 +4709,12 @@ seam as `InstanceCurrency`, one level further out.
 
 Still open: what a grant means for a module the customer has uninstalled, which is
 inert today and deliberately not deleted.
+
+**Not somewhere a customer-authored expression can go**, and that is now written
+down rather than left to be worked out again (XIV-88, §5.8). The third seam above
+is a `WHERE` clause; an expression evaluates in PHP over a record already loaded,
+so a rule written as one would restrict the page and not the total beside it —
+which is this section's opening sentence, arriving through a new door.
 
 ### 8.4.1 Managing users, before managing permissions
 
