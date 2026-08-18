@@ -5,6 +5,13 @@
 	A module already installed is shown rather than hidden, and says so. Hiding it
 	would leave somebody hunting for a module they already have — and "you have
 	this" is the answer to their question, where an empty grid is not.
+
+	**A price appears on a tile only where there is one** (XIV-102). Free is
+	silent — see `_price.html.twig`, which has the argument — so a deployment that
+	has priced nothing sees exactly the grid it saw before this landed. That is the
+	point rather than a happy accident: almost everything here is free, and a
+	"Free" badge on every card would be furniture in the same way a permanently
+	zero banner is on the operator's screen.
 #}
 {% extends 'base.html.twig' %}
 
@@ -33,18 +40,33 @@
 									{% if offer.blueprint.icon %}
 										<i class="bi bi-{{ offer.blueprint.icon }} text-body-secondary" aria-hidden="true"></i>
 									{% endif %}
-									{{ offer.label }}
+									<span class="me-auto">{{ offer.label }}</span>
+									{#
+										The price sits in the heading rather than in the body, so
+										that a reader scanning a grid for "what costs money" scans
+										one column. It renders nothing for a free module, which is
+										why the card looks untouched for every module in this
+										build.
+									#}
+									{{ include('store/_price.html.twig', {offer: offer, currency: currency, emphasis: 'small fw-semibold'}) }}
 								</h2>
 
 								{#
-									Three states, and they are genuinely different answers rather
-									than one answer with a flag. "You have it" needs no button;
-									"it needs Contact first" needs the names of what is missing,
-									because a disabled button with no reason is a dead end.
+									Four states now, and they are genuinely different answers
+									rather than one answer with a flag. "You have it" needs no
+									button; "it needs Contact first" needs the names of what is
+									missing, because a disabled button with no reason is a dead
+									end; and "you have asked for this" is the one XIV-102 added,
+									because somebody who pressed the button yesterday needs to be
+									told that is why nothing has happened.
 								#}
 								{% if offer.installed %}
 									<p class="card-text mb-3">
 										<span class="badge text-bg-success">{{ 'store.installed'|trans }}</span>
+									</p>
+								{% elseif offer.hasBeenRequested %}
+									<p class="card-text mb-3">
+										<span class="badge text-bg-info">{{ 'store.requested'|trans }}</span>
 									</p>
 								{% elseif offer.missingRequirements is not empty %}
 									<p class="card-text text-body-secondary small mb-3">

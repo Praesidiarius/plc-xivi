@@ -75,8 +75,47 @@ enum StoreAction: string implements PermissionVerb
     case Install = 'install';
 
     /**
-     * Never, for either case, and the reason is the same one that makes this a
-     * separate axis: neither verb names a record that already exists.
+     * Asking for a module that costs money (XIV-102).
+     *
+     * **A third case rather than a reuse of `install`, and this is the decision
+     * the ticket asked to be made rather than inherited.** The two are close
+     * enough that folding them together is the obvious move and it is wrong, for
+     * a reason that has nothing to do with software:
+     *
+     * * `install` is *"may decide what this installation consists of"* — the
+     *   sentence the class docblock above already uses for it. That is an
+     *   authority over the shape of the system, and the person who holds it in a
+     *   twelve-person company is whoever set the thing up.
+     * * `buy` is may **commit this company to a payment**. That is an authority
+     *   over its money, and in the same twelve-person company it belongs to
+     *   somebody else entirely — very possibly to somebody who would not know
+     *   what a preset was.
+     *
+     * The two coincide often and are not the same, and the direction of the
+     * mistake decides it: granting `install` to an office manager so they can add
+     * the follow-ups module, and thereby granting them the ability to order a
+     * module the owner has to pay for, is a surprise nobody consented to. The
+     * reverse — a separate grant that mostly gets handed to the same person —
+     * costs one more switch on a screen that already draws every other one.
+     *
+     * **It costs nothing today and cannot break anything today.** Every module in
+     * this repository is free, so nothing is buyable and nobody's existing grants
+     * change meaning; the day a deployment prices something is the day somebody
+     * has to decide who may spend, which is exactly when that decision should be
+     * asked for rather than assumed. And it does **not** imply `install`: a
+     * purchase request installs nothing at all — an operator does that — so the
+     * grant that lets somebody ask genuinely never touches their database.
+     *
+     * The counter-argument, written down because it is not stupid: one grant is
+     * simpler, and a deployment that wants one authority can grant both to the
+     * same group in one screen. True, and it is the reason this is a third case
+     * on an existing axis rather than a third axis.
+     */
+    case Buy = 'buy';
+
+    /**
+     * Never, for any case, and the reason is the same one that makes this a
+     * separate axis: no verb here names a record that already exists.
      */
     public function isScopable(): bool
     {
@@ -99,6 +138,10 @@ enum StoreAction: string implements PermissionVerb
         return match ($this) {
             self::Browse => 'shop',
             self::Install => 'download',
+            // A bag rather than a card or a coin, and that is not decoration: an
+            // icon of a card on a screen that takes no card is the smallest
+            // version of the lie this whole ticket refuses to tell.
+            self::Buy => 'bag',
         };
     }
 

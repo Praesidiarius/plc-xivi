@@ -379,6 +379,31 @@ lands in `Unreleased` here.
   involved and still nothing reads it (§6.5 says what was rejected and why).
 - **Payment is not in this**, and neither is what a customer sees in the store.
   That is [XIV-102], which this exists for.
+- **The store shows what a module costs, and asking to buy one installs nothing**
+  ([XIV-102],
+  [§8.15](docs/architecture.md#815-a-price-a-customer-can-see-and-an-ask-that-installs-nothing-xiv-102)).
+  A priced module shows its price on its tile and on its page; a free one says
+  nothing about money at all, so a deployment that has priced nothing sees exactly
+  the store it saw before. **There is no payment gateway and this page is not one**
+  — it takes no card details, shows no total and claims no charge. Pressing the
+  button records a request, and an operator answers it by installing the module.
+- **Asking to buy needs its own permission**, `buy`, beside `browse` and
+  `install` on the store's permission axis. It is a separate grant on purpose:
+  deciding what this installation consists of and committing the company to a
+  payment are different authorities, and `buy` installs nothing on its own.
+  **Nobody has it after upgrading** — it is handed out on the permission screens,
+  and administrators reach it through the `ROLE_ADMIN` bypass as before.
+- **`tenant:purchase:collect` is new, and an operator sees nothing without it.**
+  A purchase request is written into the customer's own database — the
+  customer-facing instance holds no write privilege on the control-plane database
+  and must not (§4.4) — so this command walks the tenants one at a time and copies
+  what it finds into `/control/purchases`, which is the control plane's third
+  page. **Put it in the deployment's crontab**, more often than
+  `tenant:usage:collect`: a usage figure is a background fact and a purchase
+  request is somebody waiting.
+- **The price on a request is a copy**, frozen when the customer pressed the
+  button. Raising a module's price changes what the next customer is quoted and
+  changes nothing about a request already made (§5.9, §5.16, §6.5).
 
 ### Fixed
 
@@ -519,6 +544,15 @@ lands in `Unreleased` here.
 
 ### Upgrade notes
 
+- **`tenant:purchase:collect` belongs in the crontab** ([XIV-102], §8.15). Two
+  migrations, both additive and neither backfilling anything: one tenant migration
+  creating `module_purchase_intent` in every customer's database, one control
+  migration creating `purchase_intent`. Nothing appears on `/control/purchases`
+  until the command has run, and nothing can appear at all until some module has a
+  price — which no module in this build has. **`deploy:registry-grants` needs
+  re-running only if you have changed the registry**; `purchase_intent` belongs to
+  the administration surface and is deliberately *not* granted to the
+  customer-facing role, which the command now says out loud in its withheld list.
 - **Price the modules you have published, or nobody is offered them**
   ([XIV-101], §6.5). One control-plane migration adds `pricing` and
   `price_amount` to `module`. **Rows that already exist backfill to `free`**,
@@ -597,6 +631,7 @@ lands in `Unreleased` here.
 [XIV-109]: https://xivi.youtrack.cloud/issue/XIV-109
 [XIV-93]: https://xivi.youtrack.cloud/issue/XIV-93
 [XIV-101]: https://xivi.youtrack.cloud/issue/XIV-101
+[XIV-102]: https://xivi.youtrack.cloud/issue/XIV-102
 [XIV-88]: https://xivi.youtrack.cloud/issue/XIV-88
 [XIV-66]: https://xivi.youtrack.cloud/issue/XIV-66
 [XIV-96]: https://xivi.youtrack.cloud/issue/XIV-96

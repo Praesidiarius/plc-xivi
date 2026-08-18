@@ -1078,6 +1078,18 @@ being relied on**, and §6.5 says so at length where the split runs through one
 feature. The grant is. A method that cannot be called today is one refactor from
 being called; a role with no `UPDATE` is a refusal the database makes.
 
+**And the grant has since decided a feature's data model rather than merely
+guarding it** (§8.15, [XIV-102]). A customer asking to buy a module is a write
+made by a customer's own request, so the sentence above leaves exactly one
+database it can go in: theirs. The row lands in the tenant's
+`module_purchase_intent`, an operator sees it because `tenant:purchase:collect`
+copies it into the control plane, and the two shapes that would have avoided the
+cron — widening this grant by one `INSERT`, or giving the public image a secret
+and letting it POST to the internal one over HTTP — were both rejected on this
+paragraph. The second is the one worth naming: re-obtaining over the network a
+privilege the database refuses is a boundary made of care again, which is what
+this whole section is about not doing.
+
 **`bin/console deploy:registry-grants` prints the SQL**, and it prints rather
 than executes for a reason: a running instance that could grant privileges to
 itself could be made to grant itself others, so the application contributes the
@@ -1131,11 +1143,12 @@ bounding. The `frankenphp_public_builder` stage refuses to finish if
 `Xivi\ControlPlane` survives in the sources, in the autoloader or in the compiled
 container, so what follows is the complete remainder:
 
-- **`migrations/control/`**, including the migrations that create `operator` and
-  `signup_request`. Those are the application's and must not move (§3.1): the
-  namespace is recorded in `doctrine_migration_versions` and no table moved when
-  the classes did. They are DDL rather than administration logic, the entrypoint
-  does not run them here, and the database user could not.
+- **`migrations/control/`**, including the migrations that create `operator`,
+  `signup_request` and — since [XIV-102] — `purchase_intent`. Those are the
+  application's and must not move (§3.1): the namespace is recorded in
+  `doctrine_migration_versions` and no table moved when the classes did. They are
+  DDL rather than administration logic, the entrypoint does not run them here, and
+  the database user could not.
 - **Two `access_control` rules** mentioning `^/control`, for the reason above.
 - **`composer.lock`**, which names `xivi/control-plane` because both images are
   built from one lock file. That is the property that stops the two builds from
@@ -4269,6 +4282,15 @@ rather than the absence of one, and a module nobody has priced is withheld from
 the store instead of given away. Payment itself is still not in this: [XIV-102]
 is what a customer sees and what they pay with.
 
+*And finished by §8.15 ([XIV-102]).* What a customer sees is the price, where
+there is one, and nothing at all where there is not — a free module's screens are
+byte-identical to what this section describes, which is the property that made the
+store's existing tests pass unchanged. What they pay with is **nothing**: there is
+no gateway, a priced module cannot be installed from here at all, and the button
+records a request an operator answers. "Uninstalling is not in this" is unchanged
+and is load-bearing for that argument, which is why "install it and mark it
+unpaid" was rejected rather than deferred.
+
 ### 6.4 Asking an installation what it is (XIV-76)
 
 §6.1 has a consequence that only shows up when somebody new arrives: **the
@@ -4558,7 +4580,11 @@ any number of ways of doing the wrong thing indirectly.
 The forward-looking half is a rule for [XIV-102] rather than code here: when a
 purchase is recorded, the price goes onto that record as a **copy**, exactly as an
 invoice stores its own due date (§5.16) and its own totals (§5.9). Nothing about a
-sale is ever recomputed from this row afterwards.
+sale is ever recomputed from this row afterwards. *That has landed and §8.15
+records it*: the copy is on the customer's own purchase-request row, the collector
+that shows it to an operator carries it across untouched and never consults this
+class at all, and raising a price is proved not to move a figure somebody was
+already quoted.
 
 #### Reading and setting land on opposite sides of the [XIV-96] split
 
@@ -4606,6 +4632,13 @@ no second service reading the `module` table, and there must not be.
 `module:price` exists beside the screen for the reason §6.3 gives about
 `tenant:module:install`: a page is not a reason to take a command away, and a
 headless deployment has no browser pointed at the control plane.
+
+*Read by one more thing since §8.15 ([XIV-102]).* `ModuleStore` asks
+`ModuleCatalog::price()` for every offer it draws, which is the fourth reader and
+the first customer-facing one. It is worth noticing that this is exactly what the
+[XIV-96] paragraph above predicted: reading a price is a customer-facing concern,
+so the read side of this feature compiles into the public image and the operator
+screen that writes it does not.
 
 ---
 
@@ -5523,6 +5556,16 @@ installation consists of — permanently, since there is no uninstall — which 
 command whose job is undoing a lock-out has no business granting in passing.
 Administrators reach the store through the `ROLE_ADMIN` bypass; everybody else is
 given it on the permission screens, by somebody who meant to.
+
+*A third verb since §8.15 ([XIV-102]).* `buy` — may ask for a module that costs
+money — and the interesting part is that it is a case rather than a third axis:
+the subject is still `@store`, the scope still does not apply, and the permission
+screens draw it because they iterate the enum. Splitting it from `install` is the
+decision, and §8.15 has the argument: one is authority over what this installation
+consists of and the other is authority over the company's money, and in a small
+company they belong to different people more often than not. It does **not** imply
+`install` — a purchase request installs nothing at all — and the paragraph above
+applies to it word for word, `grant-all` included.
 
 ### 8.4.4 A timezone to read moments in (XIV-83)
 
@@ -6599,6 +6642,14 @@ one-to-one, so every `Tenant` hydrated anywhere would fetch a usage row nobody
 asked for. The page fetches all the collections in one query and matches them by
 slug: two queries against one database.
 
+*This table has a sibling since §8.15 ([XIV-102]).* `purchase_intent` is filled by
+`tenant:purchase:collect` on exactly this pattern, for exactly this reason — a
+customer's request to buy a module is written into their own database because
+§4.4's grant leaves nowhere else for a customer's write to go, so an operator sees
+it the same way they see these figures. Every argument in this section transfers
+and none of it is restated there; what §8.15 adds is why the alternative shapes,
+which look cheaper, are not.
+
 #### A stale figure presented as current is worse than no figure
 
 The page shows the collection time beside the numbers, and it distinguishes three
@@ -7581,6 +7632,323 @@ unchanged. When [XIV-96] separates the deployments, `signup:provision` and
 `TENANT_ADMIN_DSN` belongs only in its environment. Note also §4.1's finding that
 the provisioning role needs more than `CREATEDB CREATEROLE` on Postgres 16 and
 later; a deployment narrowing it has that work to do first.
+
+### 8.15 A price a customer can see, and an ask that installs nothing (XIV-102)
+
+The customer-facing half of §6.5. That section gave a module a price, the ability
+to set one, and a single seam to read it through; this one puts the figure on the
+screen a customer is standing in front of and answers the question the figure
+raises — *so how do I get it?*
+
+**There is no payment gateway, and this ticket exists so that there does not have
+to be one yet.** A gateway is a decision with PCI scope, a merchant agreement, a
+refund policy and a webhook endpoint behind it, and none of those are things a
+pricing feature should have to wait for. So the answer is a placeholder, and the
+whole ticket is about what the placeholder *is*.
+
+#### The question that decides it, and the two answers that were rejected
+
+**Install anyway, and record that it is unpaid.** Rejected, and written down here
+so that nobody re-proposes it as "just for now".
+
+It is the smallest change and it makes the price decorative. A module installed
+on the strength of an unpaid flag is a module the customer has: their definitions
+are in their own database, their records are in their own tables, and §6.2's rule
+that nothing here uninstalls anything means there is no mechanism to take it back
+— by design, and rightly. So the flag is a note in a table that no code enforces,
+and the first customer who notices gets every priced module for nothing. Worse
+than the loss is what it teaches: a price that can be ignored by pressing the
+ordinary button is not a price, and every screen that displays one afterwards is
+making a claim the system does not stand behind. "Just for now" is exactly how
+that becomes permanent — the flag ships, nothing breaks, and the thing that was
+supposed to replace it never has a forcing function.
+
+**Refuse, and say to get in touch.** Honest, and it is the fallback rather than
+the design. It answers the customer's question with a dead end and hands them a
+task — find the address, write the mail, describe which module — while the system
+that knows all three sits there not doing it. A self-service product whose
+self-service stops at the word "price" has a hole where the interesting half is.
+
+**Record a purchase intent that an operator fulfils.** Adopted, and it is the
+shape this codebase already reaches for rather than a new one. §8.12 answers the
+same question one layer up: a public surface records an intent and does nothing
+privileged, and a non-public process acts on it, because *"anyone may ask" and
+"the thing happens" are deliberately not the same event*. Substitute a customer
+for a stranger and installing a module for provisioning a tenant and the sentence
+survives intact.
+
+The forward-looking half is why it is worth more than the other two: **the day a
+gateway lands it slots in where the operator currently stands.** A payment
+confirmation is a thing that answers an outstanding request, which is exactly what
+an operator installing the module is today. Neither of the rejected shapes leaves
+anything for it to slot into — one has already installed the module and the other
+has recorded nothing at all.
+
+#### Where the intent is stored, and why there was only ever one answer
+
+**In the customer's own database**, one row per module, in
+`module_purchase_intent`.
+
+§4.4 decides this rather than a preference. The customer-facing instance's
+database role holds `SELECT` on the registry tables and **nothing else** — no
+`INSERT`, `UPDATE` or `DELETE` anywhere in the control-plane database, on any
+table, present or future, which is precisely the guarantee [XIV-96] was for and
+which `RegistryGrantsTest` proves against a real role on a real connection. A
+feature whose first requirement is a write made by a customer's own request
+therefore has exactly one database available to it.
+
+That constraint turns out to point at the right place anyway, which is worth
+saying so that nobody reads this as a workaround:
+
+- **It is the customer's fact.** They asked; they are the party entitled to see
+  that they asked, on their own screen, when they come back on Thursday wondering
+  why nothing has happened.
+- **It sits beside the thing it is about.** A module is installed into their
+  database; the record of wanting one belongs in the same place, next to §6.1's
+  definitions rather than one boundary away from them.
+- **It cannot leak between tenants**, for the same structural reason nothing else
+  can: one request resolves one tenant and the connection is theirs (§7.4).
+
+**How an operator sees it: `tenant:purchase:collect`, which is [XIV-59]'s
+collector reused rather than reinvented.** The command walks the registry one
+tenant at a time through `TenantSwitcher::runFor()`, reads each customer's
+requests, and writes copies into `purchase_intent` in the control plane; the
+operator's screen reads that table and opens no tenant connection at all. Every
+sentence of §8.11's argument transfers: the fan-out belongs in a process nobody is
+waiting on, the page stays one request against one database, and §7.4's guarantee
+stays a *consequence* of how requests work rather than a rule with an exception in
+it.
+
+**The honest cost, stated rather than buried:** an operator learns about a request
+within one collection interval rather than the instant it is made. That is small
+against what happens next — a person deciding about money and then installing a
+module by hand — and the screen prints the collection time beside every row so
+nobody has to guess how fresh the list is. A deployment that minds runs the
+command more often; unlike the usage collector, this one is about somebody
+waiting, and the command's docblock says so where the crontab line gets written.
+
+#### The shape that was rejected, and it is the tempting one
+
+**Have the store POST to a control-plane HTTP endpoint**, exactly as §8.13's
+landing page posts to §8.12's signup intake. It is genuinely the same pattern,
+it removes the collector and the interval, and it is wrong here.
+
+It would hand the customer-facing image **a credential that lets it write the
+control plane** — a shared secret and a reachable internal host — and thereby
+re-obtain over the network precisely the privilege the database refuses it. §4.4's
+entire argument is that the sharp boundary is the grant rather than the topology,
+because *"not routed" and "not present" are different guarantees and only the
+second survives somebody's mistake*. A secret in the public image's environment is
+a boundary made of care again, and it is the first thing a copied `.env` undoes.
+
+The pattern is not being misapplied by declining it, either: §8.12's contract is
+an HTTP API **because the caller is a third party** — somebody else's website,
+compiled against a published shape. Here the caller and the callee are two images
+built from one repository by one company against one database. Inventing a network
+boundary between them, in the one direction the database has been deliberately
+closed, would be reaching for the mechanism and dropping the reason.
+
+Also rejected, more briefly: **widening the grant** so the public role could
+`INSERT` into one control-plane table. It is one line of SQL and it costs the
+sentence "the role holds no write privilege anywhere", which is the sentence that
+makes the guarantee checkable — a role with one exception has a second one coming.
+
+#### The copy, which §6.5 asked for by name
+
+**The price goes onto the request as a copy**, amount and currency, frozen at the
+moment somebody pressed the button. §6.5 left this as an instruction rather than a
+suggestion, and it is [XIV-67]'s rule about payment terms and §5.9's about invoice
+totals arriving at the same place: what was agreed is a fact about the
+transaction, never a live lookup. An operator who raises a module's price the next
+morning has changed what the *next* customer will be quoted and has changed nothing
+about this one — which is the only reading under which the figure the customer saw
+means anything.
+
+The collector carries the copy across untouched and **never consults
+`ModuleCatalog`**, so the operator's screen cannot drift back to the live figure
+by somebody being helpful.
+
+**Asking again rewrites the row rather than adding one**, which is §8.12's
+`reissue()` for its reason: somebody pressing the button twice is asking again,
+most likely because nobody replied, and an operator's queue full of duplicates is
+a queue that stops being read. The copied price is refreshed with it, because a
+second press is somebody reading today's figure. `created_at` is not, because how
+long this has been outstanding is the number that says how badly it went.
+
+#### There is no status column, on either side
+
+Fulfilment is **observed**, not tracked. The customer either has the module or
+they do not, their own metadata is the truth about that (§6.1), the collector is
+already inside their database, and nothing here uninstalls anything (§6.2) — so
+`installed` on the collected row is read at collection time and a status column
+would be a second copy of a fact the customer's database already holds, free to
+disagree with it. That is §8.14's argument for refusing a `provisioned` status on
+a signup, and it lands the same way.
+
+The visible consequence is that **the operator's screen has no button on it.** An
+operator answers a request by installing the module — `tenant:module:install`,
+which §6.3 kept precisely so that a page is never the only way to do something —
+and the next collection sees it. A "mark as fulfilled" control would be a way to
+make this screen disagree with reality, on the one screen somebody opens to find
+out whether they still owe anybody anything.
+
+#### Who asked does not cross, and the gap that leaves is named
+
+The tenant-side row records the person's id and the name they had at the time —
+`follow_up`'s two-column pattern, so somebody leaving does not take the record of
+a purchase request with them — and **neither value ever leaves that database.**
+§8.11 drew the line at *how much* rather than *what*, and a customer's own people
+are on the far side of it: an operator page that listed names would have made the
+control plane a way to read a customer's staff without their knowing.
+
+So an operator knows **which company wants which module** and does not know whom
+to write to. They reach the customer the way they already reach them, which is the
+arrangement the registry describes. That is a real limitation and it is the right
+side of the line; a contact column here would be a second copy of somebody's
+personal data in a database they cannot see, kept for a conversation that happens
+elsewhere anyway.
+
+#### Buying is its own permission, and that is a decision rather than an omission
+
+**`StoreAction::Buy`, a third case on [XIV-6]'s axis** rather than a reuse of
+`install`.
+
+The two are close enough that folding them together is the obvious move, and the
+reason not to has nothing to do with software. `install` is *"may decide what this
+installation consists of"* — §8.4.3's own words for it — which is authority over
+the shape of the system, and in a twelve-person company it belongs to whoever set
+the thing up. `buy` is may **commit this company to a payment**, which is authority
+over its money, and in the same company it very possibly belongs to somebody who
+would not know what a preset was.
+
+The direction of the mistake decides it. Granting an office manager `install` so
+they can add follow-ups, and thereby granting them the ability to order something
+the owner has to pay for, is a surprise nobody consented to. The reverse — a
+second grant that mostly gets handed to the same person — costs one more switch on
+a screen that already draws every other one.
+
+**It costs nothing today and cannot break anything today**: every module in this
+repository is free, so nothing is buyable, and no existing grant changes meaning.
+The day a deployment prices something is the day somebody has to decide who may
+spend, which is exactly when that decision should be asked for rather than
+assumed. And `buy` does **not** imply `install`, which is the property that makes
+it safe to hand out: a purchase request installs nothing at all.
+
+A third *axis* was not needed and was not added — the subject is still `@store`,
+the scope still does not apply, and the permission screens draw the new verb
+because they iterate the enum. The counter-argument, which is not stupid: one
+grant is simpler, and a deployment that wants one authority grants both to one
+group in one screen. That is why this is a case on an existing axis rather than
+something larger.
+
+**The operator's side has no permission at all**, and the asymmetry is not an
+inconsistency. A tenant has many users with different authority over the company's
+money; this installation has operators, all of whom are the company running Xivi.
+Inventing a "may see purchase requests" grant before there is a second kind of
+operator would be modelling a guess (§8.9) — the same sentence §6.5's pricing
+screen carries.
+
+#### What the placeholder must not be, and each absence is a decision
+
+**It must not look like a payment page.** A form that looks like checkout and
+quietly does nothing is worse than a sentence saying what is actually going on,
+because it teaches people to type card numbers into pages that do not take them —
+a habit worth not creating in software somebody uses at work every day.
+
+So, item by item, and each of these is asserted rather than intended:
+
+- **No card fields.** None, of any kind, disabled or otherwise. The page's only
+  input is the CSRF token, and `ModulePurchaseTest` counts them — bluntly, because
+  that assertion is what goes red when a later ticket makes the page friendlier.
+- **No total, no line items, no VAT row.** The price appears once, as what the
+  module costs. A total is the visual grammar of a page about to charge you.
+- **No "processing", no spinner, no confirmation number.** The button posts a row
+  and redirects; there is no transaction to have a state.
+- **No promise of when.** "Somebody will get in touch" is what is true. An
+  installation that said "within 24 hours" would be making a commitment on behalf
+  of a company this code knows nothing about.
+- **No congratulation.** The flash afterwards says *asked for X, nothing has been
+  charged, somebody will get in touch* — not "thank you for your purchase", which
+  is the exact lie the whole ticket refuses to tell.
+
+What it does say is what it costs, that pressing the button is a request rather
+than a payment, that nothing is charged, and that a person will reply.
+
+#### A free module says nothing, and that is what makes this ticket invisible
+
+**Absence of a price is the ordinary case in this store and it looks ordinary.**
+Not a "Free" badge on every tile, not a zero. Almost everything here is free and
+always will be for a deployment that sells nothing, so a badge everywhere is noise
+everywhere — and worse, a page that says "Free" on every card has taught its
+reader to skip that line, which is the line that matters on the one card that is
+not.
+
+The acceptance criterion that guards it is that **the existing store tests pass
+unchanged**, and they do: `ModuleStoreTest` is untouched by this ticket, because
+`publish()` there already prices every module `free` (§6.5 made that necessary)
+and every screen and every check behaves for a free module exactly as it did
+before.
+
+The other two pricing states never reach the store at all — `unpriced` and
+`not_for_sale` are withheld by `CatalogEntry::isOfferedInStore()` (§6.5) — so the
+presentation only ever has two cases to draw.
+
+**A module priced after installation keeps working**, and the store says nothing
+about it: the customer sees "you already have this", no button appears, and
+nothing anywhere treats "priced and installed" as an anomaly to correct. §6.5
+proves that rule against the control plane with a photograph; `ModulePurchaseTest`
+proves the customer's side of it, including that their fields are exactly as they
+were.
+
+#### Money on the screen, and a currency that may be unset
+
+**Drawn as it is stored** — a decimal string at two places with the ISO 4217 code
+beside it — and deliberately not through a locale-aware currency formatter. Three
+reasons, in increasing order of weight: `NumberFormatter::formatCurrency()` takes
+a float and §5.9 is that nothing on a money path is ever a float; the currency may
+be absent, in which case there is nothing to format *with*; and this figure is
+copied verbatim onto the purchase request, so the value shown and the value stored
+have to be the same string rather than the same number rounded twice. On a
+customer's own invoice a formatted amount is right; on a price they are about to
+commit to, the stored value is.
+
+**An unset currency shows a bare number, and the customer is told nothing about
+why.** §8.6 refuses to guess a currency for a customer because a guessed one is
+wrong quietly, and §6.5 refuses to guess one for a price list; the same refusal
+here means `49.00` stands alone when `PRICE_CURRENCY` is empty, which is the state
+this repository ships in and the state the test suite runs in. The *operator's*
+screens name the variable in that situation because an operator can go and set it;
+the customer's screen does not, because they cannot, and a sentence about somebody
+else's environment file is a deployment detail offered in place of an answer.
+
+#### VAT, named and moved on from
+
+§6.5 settled on a **one-off** price, so tax on that sale is a real question and it
+is not this ticket's. Nothing here computes, displays or stores a tax amount, and
+the figure a customer sees is the figure §6.5 stores with no claim attached about
+whether it includes anything. When a gateway lands, the deployment's own VAT
+position — where it is registered, whether the customer is a business in another
+member state, whether reverse charge applies — arrives with it, and it is a
+feature with a tax adviser in it rather than a column. Recording that it was
+noticed is the whole of what this paragraph is for.
+
+#### What is deliberately not built
+
+No gateway, no invoice to the customer for the purchase, no recurring billing, no
+refunds, no tax handling — all out of scope by the ticket. Beyond those, three
+smaller absences worth naming rather than leaving to be discovered:
+
+- **Nothing withdraws a request.** A customer who changes their mind tells
+  somebody, exactly as they would about the request itself. The collector already
+  removes a collected row whose request has gone, so the machinery is there when a
+  screen for it is wanted.
+- **Nobody is notified.** No mail to the operator when a request arrives, and none
+  to the customer when it is fulfilled — the second being visible anyway, since the
+  module appears. This is §8.14's honest gap in a smaller form, and the same
+  argument applies: a notification needs a decision about what it may honestly say.
+- **The operator cannot decline one on the screen.** They get in touch, which is
+  what the page tells the customer will happen; a declined request is a
+  conversation rather than a state.
 
 ---
 

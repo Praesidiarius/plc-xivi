@@ -71,6 +71,30 @@ final class StoreInstallRefused extends \RuntimeException
         );
     }
 
+    /**
+     * It costs money, so the store will not install it (XIV-102).
+     *
+     * **The one refusal here that is not guidance about a next step the customer
+     * can take on their own**, which is why it names the one they can: ask, and
+     * somebody gets in touch. That is the entire placeholder — there is no
+     * payment gateway in this system, deliberately, and a refusal that hinted at
+     * one would be worse than this sentence.
+     *
+     * Reachable in three ways, only one of which is a hand-typed request: a page
+     * loaded before an operator set a price and submitted after, a form retyped
+     * out of a browser's history, and somebody guessing the URL. The first is
+     * ordinary and is why this is worded as information rather than as an
+     * accusation.
+     */
+    public static function costsMoney(string $label): self
+    {
+        return self::of(
+            sprintf('Module "%s" has a price, so it cannot be installed from the store.', $label),
+            'store.refusal.costs_money',
+            ['%module%' => $label],
+        );
+    }
+
     /** @param list<string> $missing labels, as the customer reads them */
     public static function requirementsMissing(string $label, array $missing): self
     {

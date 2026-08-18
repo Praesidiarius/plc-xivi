@@ -185,6 +185,33 @@ control_plane:
     # Unreachable from the form, which offers four radios. A hand-made post is a
     # thing, and "the price silently did not change" is the worst possible answer.
     module_price_unknown_pricing: That is not one of the four ways a module can be priced.
+    # **Purchase requests** (XIV-102). A customer asked for a module that costs
+    # money; the store installed nothing and wrote the request into their own
+    # database; `tenant:purchase:collect` copied it here. So every word below is
+    # about a *collection* as much as about a request — hence a time beside every
+    # row and a vocabulary that never claims anything is live.
+    #
+    # Nothing here says "order", "sale" or "payment". No money has moved and none
+    # can move through this system, and an operator screen that used the words of
+    # a shop would be the first place that stopped being true.
+    purchases: Requests
+    purchases_outstanding: '%count% module request(s) nobody has answered yet.'
+    purchases_outstanding_hint: >-
+        A customer asked for a module that costs money. Nothing was installed and nothing was charged
+        — somebody has to decide, get in touch, and install it.
+    purchases_how: 'A request is answered by installing the module for that tenant:'
+    purchase_asked: Asked
+    purchase_first_asked: 'first asked %time%'
+    purchase_state: State
+    purchase_waiting: Waiting
+    purchase_installed: Installed
+    # Not "as of", because the reader has to understand that the row could be out
+    # of date rather than merely be told a timestamp.
+    purchase_collected: 'read %time%'
+    no_purchases: Nobody has asked for anything
+    no_purchases_hint: >-
+        Requests appear here after `tenant:purchase:collect` runs. A module has to have a price before
+        anybody can ask for one — every module is free until somebody sets one.
 
 dashboard:
     # A widget's heading (XIV-81). The module tiles have none — a grid of labelled
@@ -759,6 +786,14 @@ permission:
         browse_help: See which modules this installation could have.
         install: Install modules
         install_help: Add a module to this installation. It cannot be removed again, and what is installed is written into your own database as it stands.
+        # A grant of its own rather than part of "install", and the help text is
+        # where a person choosing between them finds out why (XIV-102): one is
+        # authority over what the system consists of, the other is authority over
+        # the company's money, and they belong to the same person only by
+        # coincidence. Says out loud that it installs nothing, because that is the
+        # surprising half.
+        buy: Ask to buy modules
+        buy_help: Request a module that costs money. This installs nothing and pays nothing — it records the request, and somebody gets in touch.
 
 store:
     title: Store
@@ -794,10 +829,37 @@ store:
         A note with a date and somebody's name on it, kept on a record: call them back on Friday,
         chase this invoice next week. Unlike the fields above, this one is not permanent — you can
         turn it off or back on at any time.
+    # **What a module costs, and asking for one** (XIV-102). Nothing here is
+    # rendered for a free module: absence of a price is the ordinary case on this
+    # store and looks ordinary, so a deployment that has priced nothing sees
+    # exactly the screens it saw before.
+    #
+    # The vocabulary is deliberately not a shop's. There is no "checkout", no
+    # "order", no "cart" and no "total" — this page takes no money and the words
+    # on it must not suggest that it does. "Ask", "request" and "get in touch" are
+    # what actually happens.
+    price: Price
+    price_one_off: A one-off price for this module. It is not a subscription and there is nothing recurring to cancel.
+    ask_to_buy: Ask to buy
+    buy_title: 'Ask to buy %module%'
+    buy_what_happens: What happens when you ask
+    buy_records_request: Your request is written down, with the price above, and shown to whoever runs this installation.
+    # The sentence that stops somebody worrying afterwards, and the reason this
+    # page exists rather than a form that looks like a checkout.
+    buy_no_charge: Nothing is charged and no payment details are taken here. There is no card form on this page and never will be.
+    buy_someone_replies: Somebody will get in touch about it. The module is not installed until they install it.
+    buy_confirm: Ask for this module
+    requested: Requested
+    requested_on: 'You asked for this on %date%.'
+    requested_next: Nothing has been charged. Somebody will get in touch, and the module appears here once it is installed.
     refusal:
         already_installed: 'You already have %module%. Nothing was changed.'
         requirements_missing: '%module% needs %missing%. Install those first.'
         no_such_preset: 'That is not one of the ways %module% can be installed.'
+        # Not phrased as a telling-off. The ordinary way to reach it is to have had
+        # the page open while somebody set a price, which is nobody's mistake.
+        costs_money: '%module% has a price. Ask to buy it instead — nothing is charged when you do.'
+        not_purchasable: '%module% is not something this installation is selling right now. Have another look at its page.'
 
 refusal:
     last_admin: This is the only active administrator. Make somebody else an administrator first.
@@ -961,6 +1023,11 @@ flash:
     upgrade_restored: '"%addition%" is on offer again.'
     upgrade_nothing_chosen: Nothing was ticked, so there is nothing to add.
     module_installed: 'Installed "%module%". Nobody can see it until somebody is granted permission on it.'
+    # A purchase request (XIV-102). Says what happened rather than congratulating
+    # anybody: "requested" and not "ordered", nothing charged, and a person is the
+    # next step. A flash reading "Thank you for your purchase" would be the exact
+    # lie the placeholder exists not to tell.
+    purchase_requested: 'Asked for "%module%". Nothing has been charged — somebody will get in touch about it.'
     group_created: 'Created "%group%". Now say what it may do.'
     group_saved: 'Saved "%group%".'
     group_deleted: 'Deleted "%group%". Nobody was removed, only what the group gave them.'

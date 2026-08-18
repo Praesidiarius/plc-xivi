@@ -13,9 +13,12 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Registry\Pricing\PriceCurrency;
 use App\Store\ModuleStore;
+use App\Store\PurchaseRefused;
 use App\Store\StoreInstallRefused;
 use App\Store\StoreOffer;
+use App\Tenant\Entity\User;
 use App\Tenant\Security\StoreAction;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -25,8 +28,9 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
- * The store: three screens that let a customer add a module without anybody
- * running a command against their database (XIV-6).
+ * The store: four screens that let a customer add a module without anybody
+ * running a command against their database — and, for a module that costs money,
+ * ask for one instead (XIV-6, XIV-102).
  *
  * That last clause is the whole feature. A customer who signs up lands in an
  * empty installation, and until this existed the only way to put anything in it
@@ -49,6 +53,15 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * a ModuleAction one. `PermissionCoverageTest` knows about both and still fails
  * the build for a route that names neither.
  *
+ * **The fourth screen takes no payment and never will** (XIV-102). There is no
+ * gateway in this system — that is a decision with compliance weight attached and
+ * it is not this one's — so what {@see buy()} does is write down that somebody
+ * asked and tell them plainly that this is what happened. It carries
+ * {@see StoreAction::Buy}, which is a grant of its own and not `install`'s: the
+ * authority to decide what this installation consists of and the authority to
+ * commit the company to a payment are different authorities, and the enum case
+ * has the argument.
+ *
  * **Hand-rolled POST and CSRF rather than a FormType**, matching
  * {@see ModuleController}, {@see DocumentController}, {@see EmailTemplateController}
  * and {@see PermissionGroupController}. A deliberate departure from the Symfony
@@ -62,9 +75,29 @@ final class ModuleStoreController extends AbstractController
 {
     private const string CSRF = 'install-module';
 
+    /**
+     * A token of its own for the purchase request, unlike the pricing screen
+     * which uses one for the whole page.
+     *
+     * Not symmetry with `CSRF` above for its own sake: the two forms do genuinely
+     * different things and live on different screens, and a shared token would
+     * mean a page that only offers one of them still carrying a token that
+     * validates the other. Cheap, and the property is worth having on the pair of
+     * routes where one installs and one does not.
+     */
+    private const string CSRF_BUY = 'buy-module';
+
     public function __construct(
         private readonly ModuleStore $store,
         private readonly TranslatorInterface $translator,
+        /**
+         * The deployment's own selling currency, and deliberately **not** the
+         * tenant profile's (§6.5). A customer who invoices in EUR is still quoted
+         * whatever this installation sells in; rendering a price list through the
+         * reader's currency would relabel francs as euros, which is the same
+         * digits making a different claim.
+         */
+        private readonly PriceCurrency $currency,
     ) {
     }
 
@@ -75,6 +108,7 @@ final class ModuleStoreController extends AbstractController
     {
         return $this->render('store/index.html.twig', [
             'offers' => $this->store->offers(),
+            'currency' => $this->currency->code(),
         ]);
     }
 
@@ -85,6 +119,7 @@ final class ModuleStoreController extends AbstractController
     {
         return $this->render('store/show.html.twig', [
             'offer' => $this->offer($module),
+            'currency' => $this->currency->code(),
         ]);
     }
 
@@ -142,6 +177,74 @@ final class ModuleStoreController extends AbstractController
     }
 
     /**
+     * The placeholder: what a module costs, what pressing the button does, and
+     * what it emphatically does not do (XIV-102).
+     *
+     * **This page is not a checkout and must never grow into one.** It collects
+     * no card details, shows no total, has no "processing" state and makes no
+     * claim that anything has been charged, and each of those is a deliberate
+     * absence rather than a feature not built yet. A form that looks like payment
+     * and quietly does nothing is worse than a sentence saying what is actually
+     * going on, because it teaches people to type card numbers into a page that
+     * does not take them — which is a habit worth not creating in somebody's
+     * business software.
+     *
+     * What it does is what §8.15 argues for: record an intent, install nothing,
+     * and say so. `POST` writes one row into the customer's own database, and the
+     * redirect lands them back on the module's page, which then says they have
+     * asked.
+     *
+     * GET and POST on one route, as the wizard next door does, and the refusals
+     * are handled identically on both — a page kept open while an operator moves
+     * a module to free, or while a colleague installs it, is an ordinary sequence
+     * and deserves a sentence rather than a 404.
+     */
+    #[Route('/{module}/buy', name: 'store_buy', requirements: ['module' => '[a-z][a-z0-9_]*'], methods: ['GET', 'POST'])]
+    #[IsGranted(StoreAction::Buy->value, subject: 'store')]
+    public function buy(string $module, string $store, Request $request): Response
+    {
+        $offer = $this->offer($module);
+
+        if ($this->submitted($request, self::CSRF_BUY)) {
+            try {
+                // `getUser()` rather than a `#[CurrentUser]` argument, because
+                // null is a state this method has to survive: the firewall makes
+                // it unreachable in practice, and `PurchaseRequests` writes a
+                // dash rather than crashing if that ever stops being true.
+                $user = $this->getUser();
+
+                $this->store->requestPurchase($offer, $user instanceof User ? $user : null);
+
+                $this->addFlash('success', $this->translator->trans(
+                    'flash.purchase_requested',
+                    ['%module%' => $offer->label],
+                ));
+            } catch (PurchaseRefused $refused) {
+                $this->addFlash('warning', $refused->translatable()->trans($this->translator));
+            }
+
+            return $this->redirectToRoute('store_module', ['module' => $module]);
+        }
+
+        // Nothing to ask for: they have it, it does not cost money, or it needs
+        // something they have not got. The module's own page writes all three out
+        // properly, so this sends them there rather than drawing a page whose
+        // only content is a refusal.
+        if (!$offer->isBuyable()) {
+            return $this->redirectToRoute('store_module', ['module' => $module]);
+        }
+
+        return $this->render('store/buy.html.twig', [
+            'offer' => $offer,
+            // The code, never a symbol and never a locale-formatted string — see
+            // the template, which has the argument for why a price list is drawn
+            // the way it is stored. Null when this deployment has never set
+            // PRICE_CURRENCY, which the page handles by showing a bare number.
+            'currency' => $this->currency->code(),
+        ]);
+    }
+
+    /**
      * Which preset the form is asking for, or null for "the module's own
      * default".
      *
@@ -191,9 +294,9 @@ final class ModuleStoreController extends AbstractController
         return $this->store->offer($module) ?? throw $this->createNotFoundException();
     }
 
-    private function submitted(Request $request): bool
+    private function submitted(Request $request, string $token = self::CSRF): bool
     {
         return $request->isMethod('POST')
-            && $this->isCsrfTokenValid(self::CSRF, (string) $request->request->get('_token'));
+            && $this->isCsrfTokenValid($token, (string) $request->request->get('_token'));
     }
 }
