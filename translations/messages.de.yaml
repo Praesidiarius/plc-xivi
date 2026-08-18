@@ -70,6 +70,31 @@ control_plane:
     status_suspended: Gesperrt
     no_tenants: Noch keine Kunden
     no_tenants_hint: 'Lege den ersten an mit'
+    module_state: Status
+    module_price: Preis
+    module_in_store: Im Store
+    module_set_price: Preis festlegen
+    module_amount: Betrag
+    module_state_development: In Entwicklung
+    module_state_published: Veröffentlicht
+    pricing_unpriced: Noch kein Preis
+    pricing_free: Kostenlos
+    pricing_priced: Kostenpflichtig
+    pricing_not_for_sale: Nicht im Verkauf
+    module_offered: Angeboten
+    module_withheld: Zurückgehalten
+    module_not_in_build: nicht in diesem Build
+    module_decided: 'entschieden %time%'
+    no_modules: Keine Module in diesem Build
+    no_modules_hint: Hier liefert nichts ein Modul aus, also gibt es nichts zu bepreisen.
+    price_currency_unset: 'Diese Installation hat nicht gesagt, in welcher Währung sie verkauft. Setze'
+    modules_unpriced_hint: >-
+        Ein Modul ohne Preis ist kein kostenloses Modul, also bietet der Store es nicht an. Sag,
+        was es kostet, oder sag, dass es kostenlos ist — beides sind Entscheidungen, keine davon
+        ist das Fehlen einer.
+    module_price_saved: 'Der Preis von „%module%“ wurde gespeichert. Es wurde nichts installiert oder deinstalliert.'
+    module_price_stale: Diese Seite war eine Weile offen. Es wurde nichts geändert — bitte noch einmal.
+    module_price_unknown_pricing: Das ist keine der vier Arten, ein Modul zu bepreisen.
 
 dashboard:
     follow_ups: Deine Wiedervorlagen

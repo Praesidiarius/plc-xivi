@@ -488,6 +488,7 @@ Symfony secrets vault in production.
 | `SIGNUP_HOST` | The hostname the public signup endpoint is served on. **Empty means no signup route exists at all** — see below |
 | `XIVI_SIGNUP_SECRET` | The shared secret the calling site presents in `X-Xivi-Signup-Key` |
 | `XIVI_SIGNUP_PLANS` | Which plans self-service may ask for, comma separated, most ordinary first |
+| `PRICE_CURRENCY` | The ISO 4217 code this deployment's module price list is in. **Empty means prices render as bare numbers** — see below |
 
 ### Which hostnames this installation answers to
 
@@ -690,6 +691,28 @@ its banner, so the failure is visible to somebody who never reads a cron mail
 **It is the privileged half of the feature.** When the public and internal
 deployments are separated it belongs on the internal one; today it needs
 `TENANT_ADMIN_DSN` in whatever environment the cron runs in.
+
+### What this deployment charges for a module
+
+The prices themselves are **not** environment variables. They live on the
+control-plane `module` row and an operator sets them at `/control/modules`, or
+with `module:price` — because a price somebody has to edit in a file is a price
+nobody can change without a deploy (§6.5).
+
+`PRICE_CURRENCY` is the one part that is a deployment fact, and it is **not** the
+currency on a customer's profile: that one is about the invoices *they* write
+(§8.6), while this is what the company running Xivi charges. A deployment picks it
+once, and changing it invalidates every figure on the list at the same moment —
+49.00 CHF and 49.00 EUR are not the same offer — so it is a re-pricing exercise
+rather than an edit between two customers.
+
+```dotenv
+PRICE_CURRENCY=CHF
+```
+
+Left empty, prices are shown as plain numbers and the operator screen says which
+variable to set. Nothing is guessed: a currency guessed for somebody is wrong
+quietly.
 
 ### Before deploying anywhere real
 

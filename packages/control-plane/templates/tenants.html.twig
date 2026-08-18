@@ -9,10 +9,10 @@
 	No `_topbar.html.twig`, for the reason XIV-57's placeholder gave and this page
 	inherits: that bar is the tenant application's navigation — the customer's
 	modules, their company name, their account menu — and every one of those needs
-	a resolved tenant, which this host deliberately has not got. The header below
-	is the control plane's own, and it is still small because there is still one
-	page to navigate between. When there is a second, that is the moment for a
-	nav, not before.
+	a resolved tenant, which this host deliberately has not got. The header is the
+	control plane's own and lives in `_nav.html.twig` since XIV-101 gave this
+	surface a second page — which is the moment this comment used to say to wait
+	for, and did.
 
 	**Every value here comes off a `TenantSummary`, never off a `Tenant`.** The
 	registry row carries `database_dsn` and an encrypted `database_password`, and
@@ -64,15 +64,14 @@
 	{% import _self as modules %}
 
 	<main class="container page-shell py-4">
-		<div class="d-flex align-items-center justify-content-between mb-4">
-			<h1 class="h4 mb-0">{{ 'control_plane.title'|trans }}</h1>
-			<div class="d-flex align-items-center gap-3">
-				<span class="text-body-secondary small">{{ app.user.name }}</span>
-				<a class="btn btn-sm btn-outline-secondary" href="{{ path('control_plane_logout') }}">
-					{{ 'nav.sign_out'|trans }}
-				</a>
-			</div>
-		</div>
+		{#
+			The header moved into a partial when the module pricing screen arrived
+			(XIV-101). The comment at the top of this file said a nav belonged to
+			the moment there was a second page rather than to this one, and that is
+			the moment; the partial is where the sign-out link now lives, so the two
+			pages cannot drift into having different ones.
+		#}
+		{{ include('@XiviControlPlane/_nav.html.twig', {current: 'control_plane_home'}) }}
 
 		{#
 			**The line that makes a stuck tenant answerable from the doorway.**

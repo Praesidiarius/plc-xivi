@@ -65,10 +65,32 @@ final readonly class SetModuleStateCommand
 
         $io->success(sprintf('Module "%s" moved from %s to %s.', $module, $before->value, $state->value));
 
-        $io->text($state->isOfferedInStore()
-            ? 'Every tenant can see it in the store.'
-            : 'It is no longer offered in the store. Tenants that already have it keep it: '
+        if (!$state->isOfferedInStore()) {
+            $io->text('It is no longer offered in the store. Tenants that already have it keep it: '
                 . 'a state says what may be installed from here, never what is uninstalled.');
+
+            return Command::SUCCESS;
+        }
+
+        // **Publishing is now half the answer** (XIV-101). A module is offered
+        // when the platform says it is finished *and* this deployment says it is
+        // for sale, and a price nobody has set is not "free" — so a module
+        // published and left unpriced is one nobody's store shows, for a reason
+        // that is nowhere on the customer's screen. Said here, at the moment
+        // somebody publishes, because this is the last place it can be said
+        // before it becomes a mystery.
+        if (!$this->catalog->price($module)->mayBeOffered()) {
+            $io->warning(sprintf(
+                'It is still not in the store: nobody has said what "%s" costs, and a module with no '
+                . 'price is not a free module. `module:price %s free` if that is the answer.',
+                $module,
+                $module,
+            ));
+
+            return Command::SUCCESS;
+        }
+
+        $io->text('Every tenant can see it in the store.');
 
         return Command::SUCCESS;
     }
