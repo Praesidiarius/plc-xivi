@@ -34,10 +34,13 @@ use Xivi\ControlPlane\Provisioning\TenantProvisioner;
  * turned off for the duration of provisioning and turned back on afterwards.
  *
  * **The tenant is not dropped when the class finishes.** DAMA keeps its
- * connection open until the process ends, and Postgres will not drop a database
- * somebody is connected to. So every run ends with its databases still there,
- * and the reclaim happens on the way *in* rather than on the way out — twice
- * over, at two different scopes:
+ * connection open until the process ends, and a drop with somebody attached is
+ * not a thing to reach for: before [XIV-94] Postgres refused it outright, and
+ * since [XIV-94] `deprovision()` *terminates* what it finds attached — which is
+ * worse here, not better, because the connection it would kill is DAMA's and the
+ * classes still to run in this process are the ones holding it. So every run ends
+ * with its databases still there, and the reclaim happens on the way *in* rather
+ * than on the way out — twice over, at two different scopes:
  *
  *   * `bin/ci` drops every test database matching this checkout's prefix before
  *     the suite starts, killing any session that holds one (XIV-78). That is the
@@ -88,10 +91,12 @@ trait SharesATenant
             $provisioner = self::sharedService(TenantProvisioner::class);
             $existing = $tenants->findOneBySlug($slug);
 
-            // Two classes asking for the same slug. Reuse it rather than make it
-            // again: DAMA still holds a connection to that database, so dropping
-            // it would fail — and every test in both classes is rolled back
-            // anyway, so there is nothing in it to make again.
+            // Two classes asking for the same slug. Reuse it rather than make
+            // it again: DAMA still holds a connection to that database, and a
+            // deprovision would now terminate it out from under the class that is
+            // still using it ([XIV-94]) rather than failing where somebody would
+            // see it. Every test in both classes is rolled back anyway, so there
+            // is nothing in there to make again.
             if (isset(self::$provisioned[$slug])) {
                 \assert($existing instanceof Tenant);
 

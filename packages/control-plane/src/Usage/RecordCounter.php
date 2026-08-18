@@ -64,12 +64,22 @@ final readonly class RecordCounter
      *
      * **The connection this opens is closed again on the way out**, by
      * `runFor`'s `clear()`. That matters twice over. For `tenant:deprovision` it
-     * is what keeps this from being the connection that blocks the
+     * is what keeps this from being the connection that stands in the way of the
      * `DROP DATABASE` two steps later — Postgres refuses to drop a database
      * somebody is attached to. For a collection run walking every customer it is
      * the difference between one open connection at a time and fifty, and between
      * a run that is invisible and a run that is the reason an operator's
      * deprovision fails at three in the morning ([XIV-94]).
+     *
+     * **[XIV-94] settled that worry rather than removing it.** The removal now
+     * terminates every session on the tenant's database before dropping it, so a
+     * connection left open here would be closed *for* it rather than refusing the
+     * drop — which means the two mechanisms agree: this one closes politely on
+     * the way out, and the removal is the backstop for the case where it did not,
+     * because the callback threw somewhere the `finally` could not reach. What it
+     * does not do is make the closing optional. A count that is terminated
+     * mid-`COUNT(*)` fails, and the confirmation this feeds would then say "could
+     * not be read" about a database it had been reading a moment earlier.
      *
      * Allowed to throw, and both callers are allowed to carry on: a tenant whose
      * provisioning died before the database existed is precisely the row somebody

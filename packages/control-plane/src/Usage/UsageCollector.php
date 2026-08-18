@@ -62,6 +62,12 @@ use Xivi\ControlPlane\Repository\TenantUsageRepository;
  * because somebody is connected ([XIV-94]). The collection would have become the
  * thing that blocks the operator, which is the opposite of a tool for operators.
  *
+ * [XIV-94] has since made a removal terminate whatever is attached, so that is no
+ * longer how the leak would present — the drop would succeed and this collection
+ * would be the thing killed, half way through counting somebody. The reason to
+ * close the connection is unchanged and the new failure is the worse of the two to
+ * diagnose, since it is silent from the operator's side.
+ *
  * ## A failure is written down, not thrown
  *
  * One unreachable database must not cost the other forty-nine their figures, so

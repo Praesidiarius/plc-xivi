@@ -16,6 +16,7 @@ namespace App\Tests\Functional\Tenancy;
 use App\Registry\Entity\Tenant;
 use App\Registry\Repository\TenantRepository;
 use App\Tenancy\Dbal\TenantDsnParser;
+use App\Tenancy\Security\TenantSecretCipher;
 use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
@@ -40,6 +41,15 @@ use Xivi\ControlPlane\Provisioning\TenantProvisioner;
  * every other class in the run (see SharesATenant), so anything phrased about
  * the registry as a whole would be an assertion about somebody else's fixtures.
  *
+ * **The last three tests are XIV-94's**, and they are about the removal working
+ * on a tenant that is still in use rather than about the ceremony in front of it.
+ * One holds a real session open on the tenant's database while the command runs,
+ * one asks the cluster whether the shipped provisioning credentials are actually
+ * permitted to end such a session, and one arranges a removal that stops half
+ * way to check that what is left is findable and repairable. They cost a
+ * connection each, which is the price of the failure they cover having been
+ * reported from production-shaped code and reproduced in the suite.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[SkipDatabaseRollback]
@@ -49,6 +59,14 @@ final class TenantDeprovisionCommandTest extends KernelTestCase
 
     private TenantProvisioner $provisioner;
     private ?Connection $admin = null;
+
+    /**
+     * A connection held open *to the tenant's own database*, for the tests about
+     * dropping one out from under somebody. Closed in tearDown for the runs where
+     * the drop never reached it; where it did, closing a terminated connection is
+     * a no-op rather than an error.
+     */
+    private ?Connection $session = null;
 
     protected function setUp(): void
     {
@@ -72,6 +90,9 @@ final class TenantDeprovisionCommandTest extends KernelTestCase
 
     protected function tearDown(): void
     {
+        $this->session?->close();
+        $this->session = null;
+
         $this->removeTenant();
 
         $this->admin?->close();
@@ -187,6 +208,168 @@ final class TenantDeprovisionCommandTest extends KernelTestCase
         $tester->assertCommandIsSuccessful();
         self::assertStringContainsString('could not be read', $tester->getDisplay());
         self::assertNull($this->findTenant());
+    }
+
+    /**
+     * The bug (XIV-94): a tenant with a session open to it is still removable.
+     *
+     * This is the case §4.1 makes unavoidable rather than exotic. `suspended` is
+     * deliberately not a prerequisite for removal, so the command has to work on
+     * a customer who is being served right now — and a customer who is being
+     * served is, by definition, one with a connection open to their database.
+     * Before this, Postgres refused the drop with `SQLSTATE[55006] … is being
+     * accessed by other users`, and it refused it *after* the control-plane row
+     * had already been deleted.
+     *
+     * The session opened here is the real thing rather than a stand-in: the
+     * tenant's own Postgres role, with the password out of the registry, on the
+     * tenant's own database — which is exactly what a request being served looks
+     * like from the cluster's side, and which nothing in this process can close,
+     * so clearing the tenant switcher cannot be what makes this pass.
+     */
+    public function testItRemovesATenantSomebodyIsStillConnectedTo(): void
+    {
+        $database = $this->databaseName();
+        $this->openATenantSession();
+
+        self::assertGreaterThan(0, $this->sessionsOn($database), 'the session is really attached');
+
+        $tester = $this->command();
+        $tester->execute(['slug' => self::SLUG, '--force' => true]);
+
+        $tester->assertCommandIsSuccessful();
+        self::assertNull($this->findTenant());
+        self::assertFalse($this->clusterHasDatabase($database), 'dropped out from under the open session');
+    }
+
+    /**
+     * Whether the shipped provisioning credentials may end somebody else's
+     * session — asked, not assumed.
+     *
+     * The removal above only works because Postgres lets `TENANT_ADMIN_DSN`'s role
+     * call `pg_terminate_backend()` on a backend belonging to a tenant role, and
+     * that is **not** implied by the `CREATE DATABASE` and `CREATE ROLE` rights
+     * the DSN is documented as needing. Postgres grants it to a superuser, to a
+     * member of `pg_signal_backend`, or to a role that inherits the privileges of
+     * the connected role — and a plain `CREATEDB CREATEROLE` role holds none of
+     * those over the tenant roles it created itself, because a `CREATEROLE` grant
+     * carries `ADMIN` without `INHERIT` from Postgres 16 onward. Measured on this
+     * cluster while XIV-94 was being written: such a role fails with
+     * `42501 permission denied to terminate process`.
+     *
+     * Development and test run as the cluster superuser, which is why the test
+     * above passes at all. This test is the one that says so out loud, so that a
+     * deployment which narrows the provisioning role finds out here rather than
+     * at three in the morning — and `TenantProvisioner` catches the same error
+     * and answers it with the grant, for the deployments this suite never runs
+     * against.
+     */
+    public function testTheProvisioningCredentialsMayEndATenantSession(): void
+    {
+        $database = $this->databaseName();
+        $this->openATenantSession();
+
+        $terminated = $this->admin()->fetchFirstColumn(
+            'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = ? AND pid <> pg_backend_pid()',
+            [$database],
+        );
+
+        self::assertNotSame([], $terminated, 'there was a session to end');
+        self::assertNotContains(false, $terminated, 'and the provisioning role was allowed to end it');
+        self::assertSame(0, $this->sessionsOn($database));
+    }
+
+    /**
+     * A removal that stops part-way leaves the registry row, and says so.
+     *
+     * Arranged rather than waited for: the tenant's role is given something to
+     * own in another database on the cluster, which makes `DROP ROLE` fail while
+     * `DROP DATABASE` has already succeeded. That is an artificial cause and a
+     * real state — a role outliving its database because something elsewhere
+     * still depends on it is exactly what happens when a tenant role was ever
+     * granted anything by hand.
+     *
+     * What is being asserted is the ordering decision, not the wording: the
+     * control-plane row is **still there** after a failure, which is what makes
+     * the leftovers findable by `tenant:list` and repairable by running the same
+     * command again. Under the order this replaced, the row would already have
+     * been deleted and the database left standing with nothing naming it.
+     */
+    public function testAFailurePartWayLeavesTheRowAndSaysWhatIsStanding(): void
+    {
+        $database = $this->databaseName();
+        $role = $this->roleName();
+
+        // Something for the role to own, in the admin connection's own database,
+        // so that dropping the role is refused.
+        $this->admin()->executeStatement(sprintf('CREATE TABLE xiv94_holds_%s ()', self::SLUG));
+        $this->admin()->executeStatement(sprintf('ALTER TABLE xiv94_holds_%s OWNER TO "%s"', self::SLUG, $role));
+
+        try {
+            $tester = $this->command();
+            $tester->execute(['slug' => self::SLUG, '--force' => true]);
+
+            $display = $tester->getDisplay();
+
+            self::assertSame(Command::FAILURE, $tester->getStatusCode());
+            self::assertStringContainsString('could not be dropped', $display, 'a sentence, not a stack trace');
+            self::assertStringContainsString('Where "' . self::SLUG . '" stands now', $display);
+            self::assertStringContainsString('tenant:deprovision ' . self::SLUG . ' --force', $display);
+
+            // The state itself, asked of the cluster and the registry rather than
+            // read back out of the message that claims it.
+            self::assertFalse($this->clusterHasDatabase($database));
+            self::assertTrue($this->clusterHasRole($role));
+            self::assertInstanceOf(Tenant::class, $this->findTenant(), 'the row outlives the failure');
+        } finally {
+            $this->admin()->executeStatement(sprintf('DROP TABLE IF EXISTS xiv94_holds_%s', self::SLUG));
+        }
+
+        // And the promise the report makes: the same line again finishes the job.
+        $again = $this->command();
+        $again->execute(['slug' => self::SLUG, '--force' => true]);
+
+        $again->assertCommandIsSuccessful();
+        self::assertFalse($this->clusterHasRole($role));
+        self::assertNull($this->findTenant());
+    }
+
+    /**
+     * A live connection to this class's tenant, held open until the test ends.
+     *
+     * Built the way `TenantConnectionParameters` builds one — the DSN out of the
+     * registry, the password out of the encrypted column — because a session
+     * opened as anybody else would not prove the interesting half: the tenant
+     * role is the one whose backend the provisioning role has to be *permitted*
+     * to terminate.
+     *
+     * `SELECT 1` is not decoration. DBAL connects lazily, so without a statement
+     * there is no backend for `pg_stat_activity` to show and the test would pass
+     * while proving nothing.
+     */
+    private function openATenantSession(): void
+    {
+        $cipher = self::getContainer()->get(TenantSecretCipher::class);
+        \assert($cipher instanceof TenantSecretCipher);
+
+        $ciphertext = $this->tenant()->getEncryptedDatabasePassword();
+        self::assertIsString($ciphertext);
+
+        $params = $this->dsnParser()->parse($this->tenant()->getDatabaseDsn());
+        unset($params['url']);
+        $params['password'] = $cipher->decrypt($ciphertext);
+
+        $this->session = DriverManager::getConnection($params);
+        $this->session->fetchOne('SELECT 1');
+    }
+
+    /** Sessions on $database other than the admin connection asking the question. */
+    private function sessionsOn(string $database): int
+    {
+        return (int) $this->admin()->fetchOne(
+            'SELECT count(*) FROM pg_stat_activity WHERE datname = ? AND pid <> pg_backend_pid()',
+            [$database],
+        );
     }
 
     private function command(): CommandTester

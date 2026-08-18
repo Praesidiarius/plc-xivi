@@ -24,6 +24,7 @@ use App\Tenancy\TenantResolver;
 use App\Tenancy\TenantSwitcher;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
+use Doctrine\DBAL\Exception\DriverException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
@@ -46,6 +47,22 @@ final readonly class TenantProvisioner
 {
     /** Also the tenant's database and role name, so: valid unquoted Postgres identifier. */
     private const string SLUG_PATTERN = '/^[a-z][a-z0-9_]{1,55}$/';
+
+    /**
+     * `55006 object_in_use` — what a `DROP DATABASE` says when somebody is
+     * attached. Matched on the SQLSTATE rather than on the message, because the
+     * message ("database … is being accessed by other users") is localised by the
+     * server's `lc_messages` and the code is not. The failure XIV-94 was reported
+     * from is literally this string.
+     */
+    private const string OBJECT_IN_USE = '55006';
+
+    /**
+     * `42501 insufficient_privilege` — what `pg_terminate_backend()` says when the
+     * provisioning credentials may not signal somebody else's backend.
+     * {@see disconnectEverySessionOn()} for when that happens and what to grant.
+     */
+    private const string INSUFFICIENT_PRIVILEGE = '42501';
 
     /**
      * What a tenant's database and role are called, before the slug.
@@ -71,7 +88,12 @@ final readonly class TenantProvisioner
         /** DSN with `{database}` and `{user}` placeholders, used when no explicit DSN is given. */
         #[Autowire('%env(TENANT_DSN_TEMPLATE)%')]
         private string $dsnTemplate,
-        /** Credentials allowed to CREATE DATABASE and CREATE ROLE; provisioning only. */
+        /**
+         * Credentials allowed to CREATE DATABASE, CREATE ROLE and — since XIV-94 —
+         * to terminate a tenant's sessions before dropping its database. See `.env`
+         * for why the last of those is not implied by the first two on Postgres 16
+         * and later, and what a deployment that narrows this role has to grant it.
+         */
         #[Autowire('%env(TENANT_ADMIN_DSN)%')]
         private string $adminDsn,
         /** @see OBJECT_PREFIX */
@@ -170,32 +192,183 @@ final readonly class TenantProvisioner
     }
 
     /**
-     * Removes a tenant completely: row, database, role.
+     * Removes a tenant completely: database, role, row — in that order.
      *
      * Destructive and irreversible — docs/architecture.md §4 makes export-on-churn a
      * per-customer operation, so take the dump first.
+     *
+     * ## The cluster goes first and the registry last (XIV-94)
+     *
+     * It used to be the other way round, and the reason it is not any more is
+     * that the two orderings fail differently rather than equally. Removing the
+     * row first and then failing to drop leaves a database and a role that
+     * **nothing knows about**: the registry is where every tool in this project
+     * starts — `tenant:list`, `tenant:inspect`, the control-plane pages, this
+     * command's own lookup — so an orphan out there is invisible to all of them
+     * and can only be cleared by somebody who already happens to know the
+     * database name. Dropping first and failing leaves the opposite: a row
+     * pointing at nothing, which every one of those tools *can* see and which
+     * re-running this method removes, since both drops are `IF EXISTS` and step
+     * straight over what is already gone. One failure mode is recoverable by
+     * typing the same line twice and the other needs `psql` and a memory, so the
+     * order is not a preference.
+     *
+     * ## Disconnecting people is the deliberate part
+     *
+     * Postgres refuses `DROP DATABASE` while any session is attached, and §4.1
+     * settled that a **live** tenant may be removed — `suspended` is explicitly
+     * not a prerequisite — so the tenant most likely to be dropped is exactly the
+     * one with sessions open to it. Clearing the switcher only settles *our* end
+     * of that; see {@see disconnectEverySessionOn()} for the rest, and for why
+     * throwing somebody out mid-request is written as a step of its own rather
+     * than smuggled in as a keyword on the drop.
+     *
+     * @throws TenantRemovalFailed with the state it stopped in
      */
     public function deprovision(Tenant $tenant): void
     {
         $slug = $tenant->getSlug();
+        $database = $this->dsnParser->databaseName($tenant->getDatabaseDsn());
+        $role = $this->dsnParser->userName($tenant->getDatabaseDsn()) ?? $this->objectPrefix . $slug;
 
-        // Our own open connection to that database would block the drop.
+        // Our own open connection to that database would block the drop. Done
+        // before anything else because it is the one session we can end politely:
+        // everything below terminates other people's backends, and terminating
+        // our own would be both rude and impossible from the same connection.
         $this->switcher->clear();
-
-        $this->controlPlane->remove($tenant);
-        $this->controlPlane->flush();
 
         $admin = $this->adminConnection();
 
         try {
-            $database = $this->dsnParser->databaseName($tenant->getDatabaseDsn());
-            $role = $this->dsnParser->userName($tenant->getDatabaseDsn()) ?? $this->objectPrefix . $slug;
+            $this->disconnectEverySessionOn($admin, $slug, $database, $role);
 
-            $admin->executeStatement(sprintf('DROP DATABASE IF EXISTS %s', $this->quoteName($admin, $database)));
-            $admin->executeStatement(sprintf('DROP ROLE IF EXISTS %s', $this->quoteName($admin, $role)));
+            try {
+                // `WITH (FORCE)` is not the mechanism, it is the race guard —
+                // see disconnectEverySessionOn() for which is which.
+                $admin->executeStatement(sprintf(
+                    'DROP DATABASE IF EXISTS %s WITH (FORCE)',
+                    $this->quoteName($admin, $database),
+                ));
+            } catch (DriverException $e) {
+                throw $e->getSQLState() === self::OBJECT_IN_USE
+                    ? TenantRemovalFailed::sessionsCameBack($slug, $database, $role, $e)
+                    : TenantRemovalFailed::databaseSurvived($slug, $database, $role, $e);
+            }
+
+            try {
+                $admin->executeStatement(sprintf('DROP ROLE IF EXISTS %s', $this->quoteName($admin, $role)));
+            } catch (DriverException $e) {
+                throw TenantRemovalFailed::roleSurvived($slug, $database, $role, $e);
+            }
         } finally {
             $admin->close();
         }
+
+        try {
+            $this->controlPlane->remove($tenant);
+            $this->controlPlane->flush();
+        } catch (\Throwable $e) {
+            throw TenantRemovalFailed::registryRowSurvived($slug, $database, $role, $e);
+        }
+    }
+
+    /**
+     * Throws every other session off the tenant's database, on purpose (XIV-94).
+     *
+     * ## Why this is a step and not a keyword
+     *
+     * Postgres 13 and later accept `DROP DATABASE … WITH (FORCE)`, which does
+     * roughly what the statement below does and then drops, all in one word. It
+     * would have been a one-character diff and it is the wrong shape for this,
+     * because what that word does is **disconnect a customer's users in the
+     * middle of whatever they were doing**. That is the correct behaviour here —
+     * §4.1 refuses to make `suspended` a prerequisite precisely so that a live
+     * tenant can be removed, and a live tenant is by definition one with sessions
+     * open — but it is a decision, and a decision that arrives as a keyword on
+     * the end of an unrelated statement is one nobody reads. So the disconnection
+     * is written out, named after what it does, and this paragraph is the record
+     * that it was chosen rather than inherited.
+     *
+     * The drop that follows still carries `WITH (FORCE)`, in the belt-and-braces
+     * arrangement `bin/ci`'s test-database reclaim already uses (§9.2): this
+     * statement is the belt, and handles every session that exists right now;
+     * the keyword is the braces, and handles the client that reconnects in the
+     * microseconds between the two statements. Neither makes the other
+     * redundant, and only one of them is the reason the drop succeeds.
+     *
+     * ## It cannot terminate itself
+     *
+     * Two guards, both needed for different reasons. `pid <> pg_backend_pid()`
+     * excludes this very connection, which is the guard that would matter if the
+     * provisioning DSN ever pointed at a tenant's own database — a
+     * misconfiguration, but one whose punishment should not be the command
+     * killing itself half way through a drop. `datname = ?` is the one that
+     * matters in practice: the admin connection is opened against the maintenance
+     * database (`postgres` in every DSN this project ships), so it is not in the
+     * result set at all, and neither is the control-plane connection, which lives
+     * in a third database again. What *is* in the result set is anything holding
+     * the tenant open — including, if somebody arranged it, this process's own
+     * tenant connection, which is why {@see deprovision()} clears the switcher
+     * before reaching here rather than relying on being terminated by its own
+     * command.
+     *
+     * The one caller that deliberately opens a tenant connection just before a
+     * deprovision is `RecordCounter`, which counts what is about to be destroyed
+     * for the confirmation. Its docblock worries about being the session that
+     * blocks the drop; it closes on the way out and so it is not, and if it ever
+     * failed to, this statement would now close it for it. The two agree.
+     *
+     * ## And it may not be allowed to
+     *
+     * Terminating another role's backend is not something `CREATE DATABASE` and
+     * `CREATE ROLE` rights imply. Postgres allows it to a superuser, to a member
+     * of `pg_signal_backend`, or to a role that **inherits** the privileges of
+     * the connected role — and on this project's Postgres 18 a plain
+     * `CREATEDB CREATEROLE` role was measured failing with
+     * `42501 permission denied to terminate process` against a tenant role it had
+     * created itself, because a `CREATEROLE` grant carries `ADMIN` without
+     * `INHERIT` since Postgres 16. Development and test run as the cluster
+     * superuser and never meet it; a production deployment with a narrowed
+     * provisioning role can, so the privilege error is caught and turned into the
+     * grant that fixes it rather than surfacing as a driver exception. §4.1
+     * records the experiment.
+     */
+    private function disconnectEverySessionOn(Connection $admin, string $slug, string $database, string $role): void
+    {
+        $sql = 'SELECT pg_terminate_backend(pid) FROM pg_stat_activity '
+            . 'WHERE datname = ? AND pid <> pg_backend_pid()';
+
+        try {
+            $admin->fetchFirstColumn($sql, [$database]);
+        } catch (DriverException $e) {
+            if ($e->getSQLState() !== self::INSUFFICIENT_PRIVILEGE) {
+                throw TenantRemovalFailed::databaseSurvived($slug, $database, $role, $e);
+            }
+
+            // Counted only now, and on purpose: Postgres aborts the statement
+            // above at the first backend it may not signal, so the number of
+            // sessions is not something the failure itself can tell us. The
+            // connection survives the error — it was never in a transaction — so
+            // asking is safe, and the count is what makes the message an
+            // operator can act on rather than a permission complaint.
+            throw TenantRemovalFailed::mayNotDisconnectSessions(
+                $slug,
+                $database,
+                $role,
+                $this->sessionsOn($admin, $database),
+                $this->dsnParser->userName($this->adminDsn) ?? 'the provisioning role',
+                $e,
+            );
+        }
+    }
+
+    /** How many sessions other than ours are attached to $database right now. */
+    private function sessionsOn(Connection $admin, string $database): int
+    {
+        return (int) $admin->fetchOne(
+            'SELECT count(*) FROM pg_stat_activity WHERE datname = ? AND pid <> pg_backend_pid()',
+            [$database],
+        );
     }
 
     private function dsnFor(string $objectName): string

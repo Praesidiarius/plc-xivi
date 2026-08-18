@@ -45,11 +45,15 @@ use Symfony\Component\Dotenv\Dotenv;
  *     connection and a metadata cache. §7.4 is entirely about that being the way
  *     one customer's field definitions get served to another; `TenantSwitcher`
  *     exists to make it survivable *within* a request, not across an afternoon.
- *   * A held connection to a tenant's database **blocks `DROP DATABASE`**. The
- *     lifecycle tools below deprovision and reset tenants, and a cached kernel
- *     would be the thing that makes them fail — the same failure
+ *   * A held connection to a tenant's database is in the way of `DROP DATABASE`.
+ *     The lifecycle tools below deprovision and reset tenants, and a cached kernel
+ *     would be the connection they have to deal with — the same one
  *     `TenantProvisioner::deprovision()` guards against from the other side by
- *     clearing the switcher first.
+ *     clearing the switcher first. Since [XIV-94] a removal terminates what it
+ *     finds attached rather than refusing, so a cached kernel would no longer
+ *     *block* the tool; it would be disconnected by it and go on holding a dead
+ *     connection to a database that no longer exists, which is a worse thing for a
+ *     server that lives for an afternoon to be left holding.
  *   * The server outlives the code. An agent that edits a service and calls a
  *     tool would be answered out of the container compiled before the edit,
  *     which is [XIV-63]'s stale-artifact failure wearing a different hat, and it
