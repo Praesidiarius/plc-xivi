@@ -22,6 +22,7 @@ use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Export\RecordExporter;
 use Xivi\Core\Record\CollectionLimit;
+use Xivi\Core\Record\DuplicateValue;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordRepository;
 use Xivi\Core\Record\RecordWriter;
@@ -111,6 +112,31 @@ final readonly class RecordImporter
 
         try {
             $report = $this->write($module, $plan, $ownerId, $commit);
+        } catch (DuplicateValue $clash) {
+            // **A unique index refusing a row, made into a sentence** (XIV-109).
+            //
+            // Duplicates *within* a file are caught by the validator like any
+            // other rule, because every row of an import is written on one
+            // connection inside one transaction and therefore sees the rows
+            // before it. What reaches here is the other case: somebody saving a
+            // record in the ordinary way, in another request, taking a value
+            // this file was about to use.
+            //
+            // **The whole import is refused rather than the one row**, and that
+            // is not a preference. A failed statement poisons a Postgres
+            // transaction, so there is nothing to carry on *with* — and an
+            // import is all-or-nothing by design anyway (see the commit below),
+            // which means "this row was rejected" and "nothing was applied" are
+            // the same outcome described at two levels of detail. The file-level
+            // problem is the honest one.
+            $this->connection->rollBack();
+
+            return ImportReport::refused([new ImportProblem(
+                'file',
+                null,
+                $clash->translatable()->getMessage(),
+                $clash->translatable()->getParameters(),
+            )]);
         } catch (\Throwable $e) {
             $this->connection->rollBack();
 

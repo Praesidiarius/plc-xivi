@@ -25,6 +25,7 @@ use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
 use Xivi\Core\Metadata\MetadataCache;
 use Xivi\Core\Metadata\MetadataRepository;
+use Xivi\Core\Record\UniqueIndex;
 
 /**
  * Installs a module into one tenant's database: its tables, and its definitions.
@@ -48,6 +49,8 @@ final readonly class ModuleInstaller
         private FieldTypeRegistry $fieldTypes,
         private TranslatorInterface $translator,
         private MetadataCache $cache,
+        // What makes a blueprint's `unique` true rather than checked (XIV-109).
+        private UniqueIndex $uniqueIndexes,
     ) {
     }
 
@@ -107,6 +110,21 @@ final readonly class ModuleInstaller
 
         $this->entityManager->persist($module);
         $this->entityManager->flush();
+
+        // The indexes behind whatever the blueprint marked unique (XIV-109).
+        //
+        // **After the flush rather than beside the table creation**, because an
+        // index is a fact about a definition and the definitions are what has
+        // just been written; building it from the blueprint instead would mean
+        // two readings of "which fields are unique here" that a preset could
+        // make disagree. It costs nothing on a table this installer created a
+        // moment ago and which therefore has no rows in it — the build is the
+        // one case where `CREATE UNIQUE INDEX` cannot block anybody or find a
+        // duplicate.
+        foreach ($module->getFields() as $field) {
+            $this->uniqueIndexes->follow($module, $field);
+        }
+
         // A module's definitions are new or gone (XIV-53); anything holding the
         // previous answer is now wrong.
         $this->cache->clear();

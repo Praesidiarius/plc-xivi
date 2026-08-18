@@ -183,6 +183,7 @@ field:
     back_to: Zurück zu %module%
     rule_required: Pflichtfeld
     rule_unique: eindeutig
+    rule_unique_note: 'Eindeutig wird von der Datenbank durchgesetzt und nicht nur beim Speichern geprüft: kein zweiter Datensatz darf denselben Wert tragen, ein leeres Feld ist kein Duplikat eines anderen leeren, und ein gelöschter Datensatz steht nicht im Weg. Ein Feld, dessen Datensätze sich schon einen Wert teilen, lässt sich erst eindeutig machen, wenn diese Datensätze in Ordnung sind — welche Werte das sind, erfährst du dann.'
     rule_filterable: filterbar
     rule_listed: in der Liste
     rule_title: benennt ihn
@@ -272,6 +273,13 @@ field:
             %count% weitere enthalten etwas, das dieses Muster nie erzeugen könnte — eine
             Referenz in anderer Form. Damit kann nichts kollidieren, sie bleiben unberührt.
         start_next: 'Der nächste neu angelegte Datensatz heißt <code>%next%</code>.'
+        start_unique: >-
+            <strong>Dieses Feld wird dabei auch eindeutig.</strong> Eine Nummer, die kein zweiter
+            Datensatz tragen darf, <em>ist</em> genau das, was eine Belegnummer ausmacht — deshalb
+            ist das Versprechen nicht mehr nur Rechnerei, sondern ein Index in der Datenbank:
+            niemand kann eine zweite Nummer schreiben, die schon einmal vergeben wurde. Teilen sich
+            hier bereits zwei Datensätze einen Wert, lässt sich das nicht versprechen und es ändert
+            sich nichts — welche Werte das sind, erfährst du dann.
         start_note: >-
             Der Zähler lässt sich danach auf der Nummerierungsseite dieses Feldes vorstellen,
             falls das alte System weiter gekommen ist als die Nummern, die hier schon stehen.

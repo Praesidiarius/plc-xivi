@@ -79,6 +79,18 @@
 					{% endif %}
 				</p>
 
+				{#
+					And the flag that goes on beside the pattern (XIV-109). A numbered
+					field is a unique field — §5.10 opens by saying that two documents
+					carrying one number is fatal — so turning numbering on marks the
+					field unique and builds the index that makes that true. It is said
+					here because it is a change to the field's own rules that nobody
+					asked for on this page, and because it is the one step that can
+					refuse: a column already holding the same reference twice cannot
+					promise unique numbers, and the refusal names the values.
+				#}
+				<p>{{ 'field.numbering.start_unique'|trans|raw }}</p>
+
 				<p class="text-body-secondary small mt-3 mb-0">{{ 'field.numbering.start_note'|trans }}</p>
 			</div>
 		</div>

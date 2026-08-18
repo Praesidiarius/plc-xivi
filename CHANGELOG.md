@@ -260,6 +260,38 @@ lands in `Unreleased` here.
 
 ### Fixed
 
+- **A field marked unique is now enforced by a unique index rather than by a
+  query, so two saves arriving together can no longer both write the same value**
+  ([XIV-109], [§7.2](docs/architecture.md#7-open-design-questions)). It was a
+  validator that read the table and then let the save proceed — a read and a
+  write with no lock between them, which two people pressing Save at the same
+  moment walked straight through. The index is created when the flag goes on,
+  dropped when it goes off or the field is removed, and covers live records with
+  something in the field: several records with nothing in it are still not
+  duplicates, and a deleted record no longer reserves its value.
+- **A save that loses that race comes back as a message on the field**, not as a
+  500. The validator stays and still catches every ordinary duplicate while the
+  form is open; the index only fires on the moment between its read and the
+  write, and that refusal is turned back into a form error naming the field.
+- **Marking a field unique now names the values that are in the way** when
+  records already share one, instead of only counting them — the count was true
+  and left somebody scrolling a list looking for rows they could not describe.
+  The change is still refused, which is the decision: applying it anyway leaves
+  records nobody can save.
+- **A numbered field is now a unique field.** Turning numbering on marks the
+  field unique beside `derived` and builds its index, which closes the window
+  [XIV-91] wrote down in §5.10: the scan that floors the counter now runs against
+  a table nothing else can write to. Turning numbering *off* leaves the field
+  unique — the numbers are on documents customers are holding, and the field
+  becoming typeable again is exactly when that matters.
+  **Order and invoice numbers are affected on existing installations**: the
+  tenant migration below marks them unique.
+- **On upgrade, `bin/deploy` builds every index a customer's current definitions
+  imply**, reading their own field definitions rather than the module blueprints.
+  **A tenant whose column already holds the same value twice will fail to
+  migrate**, by design: `tenant:migrate` reports it, the other tenants are
+  unaffected, and it is retried with `--slug` once those records are fixed. The
+  Postgres error names the index and the duplicated value.
 - **A self-service name that would collide once translated is now refused when it
   is asked for** ([XIV-98]). `tenant.slug` holds provisioning slugs — underscores
   legal, hyphens not — and a signup slug is the mirror image, so an operator's
@@ -387,3 +419,4 @@ lands in `Unreleased` here.
 [XIV-65]: https://xivi.youtrack.cloud/issue/XIV-65
 [XIV-106]: https://xivi.youtrack.cloud/issue/XIV-106
 [XIV-107]: https://xivi.youtrack.cloud/issue/XIV-107
+[XIV-109]: https://xivi.youtrack.cloud/issue/XIV-109

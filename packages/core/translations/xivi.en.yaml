@@ -66,6 +66,15 @@ record:
     # limit and no number on purpose — inventing one would be worse than saying
     # plainly that this could not be read.
     submission_unreadable: 'This form sent values in a shape it does not have, so nothing was saved. Reload the page and try again.'
+    # The unique index refusing a save (XIV-109). It says what happened rather
+    # than only that something failed, because what happened is genuinely
+    # surprising: the form was checked, it was fine, and it stopped being fine
+    # while it was being written. Somebody told only "already in use" looks at
+    # the value, sees nothing wrong with it, and presses Save again.
+    duplicate_value: 'Another record was given this %field% a moment ago, while this one was being saved, so nothing was saved here. Change it and try again.'
+    # And the same thing where the field could not be named — a unique index
+    # this engine did not create. Naming nothing beats naming the wrong one.
+    duplicate_value_unknown: 'Another record was given one of these values a moment ago, while this one was being saved, so nothing was saved here. Check the fields that have to be unique and try again.'
 
 history:
     period:
@@ -138,6 +147,9 @@ metadata:
     key_taken: '"%shape%" already has a field named "%key%".'
     system_field: 'The field "%key%" came with the module and cannot be removed. Fields you added yourself can be.'
     module_not_installed: 'No module named "%module%" is installed here.'
+    # Refusing to make a field unique, with the values to go and fix (XIV-109).
+    # No plural to handle: a value cannot be *shared* by fewer than two records.
+    values_are_shared: '%count% records already share a value in "%key%", so it cannot be made unique. On more than one record: %values%. Fix those records first, or leave "%key%" as it is.'
 
 query:
     unknown_field: 'There is nothing called "%path%" on "%shape%" to filter or sort by.'

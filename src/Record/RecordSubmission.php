@@ -19,6 +19,7 @@ use Symfony\Component\Validator\ConstraintViolationListInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Record\CollectionLimit;
+use Xivi\Core\Record\DuplicateValue;
 use Xivi\Core\Record\InheritedValues;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordFormData;
@@ -51,9 +52,10 @@ final readonly class RecordSubmission
         private InheritedValues $inherited,
         private RecordValidator $validator,
         private RecordWriter $writer,
-        // Only for the one message this class produces itself (XIV-68). Every
-        // other message on the form comes out of the validator, which already
-        // holds a translator of its own.
+        // For the two messages this class produces itself — the collection cap
+        // (XIV-68) and the duplicate an index refused (XIV-109). Every other
+        // message on the form comes out of the validator, which already holds a
+        // translator of its own.
         private TranslatorInterface $translator,
     ) {
     }
@@ -245,6 +247,47 @@ final readonly class RecordSubmission
             ),
             $rows,
         ));
+    }
+
+    /**
+     * A duplicate the database caught, put where the validator would have put it
+     * (XIV-109).
+     *
+     * **Why this is not a 500.** Uniqueness is enforced by an index now, so the
+     * losing side of a race no longer gets a validation message — it gets a
+     * constraint violation out of the middle of a write, after the form was
+     * checked and found to be fine. Left alone that is a stack trace shown to
+     * somebody who typed nothing wrong and pressed Save a fraction of a second
+     * too late. So the refusal is turned back into what it would have been if
+     * the read had been a moment later: a message on the field, on the form they
+     * are still looking at, with everything they typed still in it.
+     *
+     * **On the field when the field is on this form, and on the form when it is
+     * not**, which is the same rule {@see self::mapViolations()} follows and is
+     * not a coincidence: a unique field belonging to another variant (§5.5) has
+     * no control here, and a message hung on a control that does not exist is a
+     * message nobody sees. The sentence names the field in that case, which is
+     * why {@see DuplicateValue} carries the label as well as the key.
+     *
+     * @param FormInterface<array<string, mixed>> $form the record form, whole — the
+     *                                                  field is looked for inside its
+     *                                                  `fields` child, and the fallback
+     *                                                  goes on the form itself, where
+     *                                                  `form_errors()` draws it
+     */
+    public function report(DuplicateValue $clash, FormInterface $form): void
+    {
+        $fields = $form->get('fields');
+
+        if ($clash->fieldKey !== null && $fields->has($clash->fieldKey)) {
+            $fields->get($clash->fieldKey)->addError(new FormError(
+                $clash->translatable()->trans($this->translator),
+            ));
+
+            return;
+        }
+
+        $form->addError(new FormError($clash->translatable()->trans($this->translator)));
     }
 
     /**

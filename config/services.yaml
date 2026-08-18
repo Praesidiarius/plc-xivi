@@ -181,6 +181,15 @@ services:
         arguments:
             $connection: '@doctrine.dbal.tenant_connection'
 
+    # The index behind a unique field (XIV-109). Its DDL has to land in the
+    # customer's database and, more sharply, in the *same* transaction as the
+    # definition row that implies it — MetadataEditor takes the connection off
+    # the tenant entity manager for exactly that reason, and this is the other
+    # end of it.
+    Xivi\Core\Record\UniqueIndex:
+        arguments:
+            $connection: '@doctrine.dbal.tenant_connection'
+
     # What a form starts with (XIV-30). Core's own, and autowired: it reads a
     # shape and a record and asks nothing about whose database it is in.
     Xivi\Core\Record\RecordFormData: ~

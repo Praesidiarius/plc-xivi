@@ -240,6 +240,7 @@ field:
     back_to: Back to %module%
     rule_required: required
     rule_unique: unique
+    rule_unique_note: 'Unique is enforced by the database rather than only checked while a form is open: no two records may hold the same value, an empty field is not a duplicate of another empty one, and a deleted record does not stand in the way. A field whose records already share a value cannot be made unique until those records are fixed — you will be told which values they share.'
     rule_filterable: filterable
     rule_listed: on list
     rule_title: titles it
@@ -329,6 +330,12 @@ field:
             %count% more hold something this pattern could never produce — a reference typed in
             some other shape. Those cannot collide with anything and are left alone.
         start_next: 'The next record created after this will be <code>%next%</code>.'
+        start_unique: >-
+            <strong>This field also becomes unique.</strong> A number no two records may share is
+            what a document number <em>is</em>, so the promise stops being arithmetic and becomes an
+            index in the database: nothing can write a second record carrying a number this one has
+            already given out. If two records already share a value here, that cannot be promised
+            and nothing is changed — you will be told which values they share.
         start_note: >-
             The counter can be moved forward afterwards, on this field's numbering page, if your
             old system got further than the numbers already in here.

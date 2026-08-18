@@ -792,7 +792,9 @@ thing both EAV and JSON are bad at, and a CRM is relational at its core. Relatio
 that exists.
 
 **Validation** is built dynamically from metadata using Symfony's `Collection`
-constraint plus per-field constraints, including a custom unique-field constraint.
+constraint plus per-field constraints, including a custom unique-field constraint
+— which since XIV-109 is the *readable* half of uniqueness rather than the
+enforcing one, sitting in front of a real unique index on the column (§7.2).
 
 **Records are not Doctrine entities.** Their shape is decided per tenant at
 runtime, and mapping that through the ORM means fighting it; the fixed-shape
@@ -1571,7 +1573,13 @@ module's (§5.1).
   field required or unique is a promise about data that already exists; applying
   it blind leaves records nobody can save until they work out why. The editor
   counts first and refuses with the number. Relaxing a rule is always allowed,
-  because it cannot invalidate anything.
+  because it cannot invalidate anything. **The unique half also names the shared
+  values** (XIV-109), because a count on its own is not something anybody can act
+  on: four records among six hundred, with nothing to search for. The values are
+  the search terms. And the flag no longer only decides what a validator checks —
+  ticking it builds a unique index on the column and unticking it drops one, in
+  the same transaction as the definition row; see §7.2 for why that had to change
+  and what it means for a save that loses a race.
 - **A module's own fields cannot be removed.** Only the ones the customer added.
   §7.2's other half, unchanged.
 
@@ -2420,14 +2428,59 @@ happened. This one writes numbers into records that already exist. A checkbox in
 that row would make the most consequential change on the page look like the
 cheapest one.
 
-**What is still open, said plainly.** The scan runs inside the transaction that
-turns numbering on, and the field is not `derived` until that transaction commits
-— so a record saved on another connection in those milliseconds could still slip a
-hand-typed value in beside the counter's floor. It is an administrator-only action
-and the window is small, and it is a window. The honest fix is a unique index on
-the column, which is §7.2's territory: the engine's `unique` flag is enforced by a
-validator that queries the table rather than by an index, and closing this
-properly means closing that.
+#### A numbered field is a unique field (XIV-109)
+
+For one release this section ended with a window, written down rather than
+papered over: the column scan runs inside the transaction that turns numbering
+on, the field is not `derived` until that transaction commits, and a record saved
+on another connection in those milliseconds could slip a hand-typed value in
+beside the counter's freshly-applied floor. Administrator-only, small, and a
+window. The honest fix named there was a unique index on the column, in §7.2's
+territory rather than XIV-91's.
+
+**§7.2 built it, and it lands here as a statement rather than as a lock.** This
+section opens by saying that two documents carrying the same number is one of the
+two fatal failures of this feature. Everything above keeps that promise with
+arithmetic — a counter that moves in one statement, only forward, and a scan of
+what somebody typed before it existed — and arithmetic is not a constraint: it is
+complete about the numbers the counter gave out and blind to every other way a
+string can reach that column. So the definition now says what the feature has
+always meant. **Turning numbering on marks the field `unique` beside `derived`**,
+which builds the index §7.2 describes, and the shipped order and invoice
+blueprints declare it too.
+
+Three things follow, and the third is the one that closes the window.
+
+**The promise stops depending on the engine being the only writer.** `derived`
+means nothing but the engine fills the field, and that was the whole guarantee; a
+row arriving by any other route — an import that predates the flag, a restore, a
+column somebody edited — could carry a number the counter would later hand out
+again. Now it cannot be written at all.
+
+**It can refuse, and that is right.** A column that already holds the same
+reference on two records cannot be made to promise unique numbers, so turning
+numbering on is refused there, with the values named (§7.2). The confirmation page
+says so before anybody agrees to anything.
+
+**The window is gone rather than narrowed.** `CREATE UNIQUE INDEX` takes a `SHARE`
+lock on the table and holds it until the transaction commits, and that lock
+conflicts with every insert and update. Marking the field unique is therefore the
+*first* step of turning numbering on, and from that line onward no other
+connection can write a row of the module at all: the scan that follows is not a
+read that can be raced but a read of a table nobody may change, and the floor it
+computes is true when it is applied. Neither XIV-91's floor nor XIV-27's
+in-statement counter guard is weakened or removed — they answer different
+questions and a lock that stops being taken for some future reason must not take a
+counter with it.
+
+**Turning numbering off leaves the field unique**, which is the decision worth
+reading twice. Un-numbering makes the field an ordinary text box anybody may type
+in, and that is exactly the moment the index earns its keep: the numbers on those
+records are on documents customers are holding, and the first thing a text box
+invites is somebody typing one of them a second time. Relaxing the promise as a
+side effect of a change about something else would be the opposite of what the
+rest of this section does. A customer who really means it unticks the box
+themselves.
 
 ---
 
@@ -3698,6 +3751,53 @@ Not yet decided. Decide deliberately rather than by accident.
    would overrule that. Adding a table and definition rows destroys nothing, so an
    explicit, additive-only upgrade is the obvious first slice of this question; it is not
    built yet.
+
+   *How `unique` is actually enforced, since it was asked here* (XIV-109). By a **unique
+   expression index** on the customer's own record table, `data ->> 'key'`, partial:
+   `WHERE deleted_at IS NULL AND (data ->> 'key') IS NOT NULL`. It is created when the flag
+   goes on, dropped when it goes off, and removed with the field — one method,
+   `UniqueIndex::follow()`, called by everything that writes the flag, in the same
+   transaction as the definition row it belongs to, so a definition claiming a rule the
+   database is not keeping cannot exist even for a moment.
+
+   Until then it was a validator that queried the table and let the save proceed, which is a
+   read followed by a write with nothing across the gap: under READ COMMITTED two saves
+   arriving together both found nothing and both inserted, and two people pressing Save was
+   the whole of the reproduction. The validator **stays**, first, and the split is the
+   ordinary one — *it produces the readable message and the index is what is true*. Almost
+   every duplicate is still caught while the form is open, on the field it belongs to, with
+   nothing written; the index fires only on the sliver the validator structurally cannot see,
+   and a `UniqueConstraintViolationException` is turned back into a message on that same
+   field rather than into a 500 (`DuplicateValue`).
+
+   Three decisions were needed and are recorded here rather than in a ticket.
+   **Partial in both directions**: several records with nothing in a field are not colliding,
+   and a plain `UNIQUE` would silently make "unique" mean "unique and mandatory"; a
+   soft-deleted record keeps its value but must not reserve it, or deleting a contact would
+   quietly retire their email address for ever. Both predicates are exactly the validator's
+   own WHERE clause, so the two can never disagree about which rows count.
+   **Existing duplicates are refused, not fixed**: applying the rule anyway would leave
+   records nobody can save — the trap this very question already refuses in general terms —
+   and picking a winner would be data loss on a tick box. What changed is that the refusal
+   now names the shared values as well as counting the records, because a count on its own
+   leaves somebody scrolling a list looking for rows they cannot describe.
+   **Built inside the transaction rather than `CONCURRENTLY`**: a concurrent build cannot be
+   in a transaction, so the flag and the index could not land as one act, and it *fails soft*
+   — a duplicate leaves an `INVALID` index that exists and enforces nothing, which is the
+   exact failure being closed. The cost is a `SHARE` lock on one shape's table for the length
+   of the build, taken during a deliberate administrative act; §4.2 makes the same trade for
+   the deploy-time half.
+
+   Existing customers get theirs from a tenant migration that reads **their own definitions**
+   — not the blueprints (§6.1) — and builds one index per unique field. A tenant whose column
+   already holds a duplicate stops there, loudly, and is retried with `--slug` once the
+   records are fixed; the alternative, skipping the field and logging a line, would leave the
+   one customer most likely to be bitten as the one customer with nothing enforcing it.
+
+   What this does **not** answer is `unique` on a collection's field, which the installer
+   still refuses outright: unique across the whole table and unique within one parent are
+   different rules, and the engine will not guess which was meant. The index would be one
+   line either way; the question is not a technical one and is still open.
 3. **Query layer.** Filtering, sorting, and pagination across mixed real-column and JSONB
    storage, without degenerating into concatenated SQL. This is the highest-risk
    component in the system.

@@ -18,10 +18,23 @@ use Symfony\Component\Validator\Constraint;
 /**
  * The per-tenant unique field of §5.
  *
- * It cannot be a unique index today: the value lives inside a JSONB payload, and
- * whether a field is unique is a customer's decision that can change after rows
- * exist. A promoted column (§5) can carry a real index later, at which point this
- * becomes the second line of defence rather than the only one.
+ * **This is the readable half, not the enforcing half** (XIV-109). For two
+ * releases it was both, and that was the bug: a query that finds nothing and
+ * then lets a save proceed is a read followed by a write with no lock across the
+ * gap, so two saves arriving together both found nothing and both inserted.
+ * There is now a unique expression index behind every unique field
+ * ({@see \Xivi\Core\Record\UniqueIndex}), created and dropped as the flag moves,
+ * and *that* is what is true.
+ *
+ * This stays, and stays first, because an index is a refusal and not a sentence.
+ * It fires while the form is still on the screen, puts its message on the field
+ * it is about, and lets somebody fix a typo without ever meeting a failed write.
+ * The index catches only what this cannot see — the moment between the read and
+ * the write — and {@see \Xivi\Core\Record\DuplicateValue} carries that back to
+ * the same place this puts its message.
+ *
+ * The two agree on which rows count, deliberately: live records only, empty
+ * values exempt. See the index for why each of those is the answer.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */

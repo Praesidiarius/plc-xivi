@@ -37,6 +37,7 @@ use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Permission\ModuleAction;
 use Xivi\Core\Record\CollectionLimit;
 use Xivi\Core\Record\DerivedValues;
+use Xivi\Core\Record\DuplicateValue;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordRepository;
 use Xivi\Core\Record\SubmittedRows;
@@ -273,7 +274,22 @@ final class RecordForm extends AbstractController
             return null;
         }
 
-        $saved = $this->submission->save($definition, $record, $submitted['fields'], $rows, $this->currentUserId());
+        try {
+            $saved = $this->submission->save($definition, $record, $submitted['fields'], $rows, $this->currentUserId());
+        } catch (DuplicateValue $clash) {
+            // **The refusal the validator above could not make** (XIV-109). It
+            // read the table and found nothing; somebody else's save landed in
+            // the moment between that read and this write, and the unique index
+            // refused. Nothing was written — the writer's transaction is already
+            // rolled back — so the answer is the same shape as a validation
+            // failure: the message on the field, the view dropped so the next
+            // render is one that has it, and null to re-render the form with
+            // everything still typed into it.
+            $this->submission->report($clash, $this->getForm());
+            $this->formView = null;
+
+            return null;
+        }
 
         $this->addFlash('success', $this->translator->trans('flash.saved'));
 

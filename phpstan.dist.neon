@@ -8,6 +8,14 @@ parameters:
         # config had.
         - packages
         - tests
+    # Not analysed — migrations are generated-shaped files the cs-fixer is also
+    # kept out of — but their classes have to be *findable*, because a test may
+    # run one on purpose (XIV-109: the catch-up migration is the only part of
+    # that change existing customers meet, and a fresh test database has nothing
+    # for it to do). Scanning rather than adding to `paths` keeps the analysis
+    # boundary exactly where it was.
+    scanDirectories:
+        - migrations
     treatPhpDocTypesAsCertain: false
 
     # Lets the Doctrine and Symfony extensions reason about the real container

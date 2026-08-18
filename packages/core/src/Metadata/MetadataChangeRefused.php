@@ -125,6 +125,68 @@ final class MetadataChangeRefused extends \RuntimeException
         );
     }
 
+    /**
+     * The unique half of the rule above, refused with the values named
+     * (XIV-109).
+     *
+     * **Because a count is not actionable and this is.** "That rule would make 4
+     * existing records invalid" is true and leaves somebody scrolling six
+     * hundred contacts looking for four they cannot describe. The values that
+     * are actually shared are the search terms — paste one into the filter bar
+     * and the colliding records are on the screen — so the refusal hands them
+     * over rather than making the customer derive them.
+     *
+     * **Refuse rather than fix, and that is the decision.** The alternatives
+     * were to make the field unique anyway and leave the duplicates unsaveable —
+     * which is the trap §5.4 refuses in general terms, records nobody can save
+     * until they work out why — or to have the engine pick a winner and clear
+     * the losers, which is data loss on a tick box. So the answer is no, with
+     * enough in the sentence to make it a yes next time.
+     *
+     * There is no plural to handle: a value cannot be *shared* by fewer than two
+     * records, so the count is always at least two.
+     *
+     * @param array<string, int> $duplicates value => how many records hold it, worst first.
+     *                                       The caller is expected to have asked for one *more*
+     *                                       than it wants shown, which is how this can tell
+     *                                       "there are exactly five" from "there are at least
+     *                                       five" without a second query
+     * @param int                $shown      how many of them the message lists; the rest become
+     *                                       an ellipsis, because a column duplicated a thousand
+     *                                       ways is a column that was never meant to be unique
+     *                                       and printing all of it is a refusal nobody reads
+     */
+    public static function valuesAreShared(string $key, int $records, array $duplicates, int $shown): self
+    {
+        $named = \array_slice(array_keys($duplicates), 0, $shown);
+
+        $values = implode(', ', array_map(
+            static fn (string $value): string => sprintf('"%s"', $value),
+            $named,
+        ));
+
+        if (\count($duplicates) > $shown) {
+            // An ellipsis rather than "and 37 others": how many *more* distinct
+            // values there are would need a second query over the whole column,
+            // and the reader's next action — go and fix these — is the same
+            // either way.
+            $values .= ' …';
+        }
+
+        return self::of(
+            sprintf(
+                '%d existing records already share a value in "%s", so it cannot be made unique. On more '
+                . 'than one record: %s. Fix those records first, or leave "%s" as it is.',
+                $records,
+                $key,
+                $values,
+                $key,
+            ),
+            'metadata.values_are_shared',
+            ['%count%' => $records, '%key%' => $key, '%values%' => $values],
+        );
+    }
+
     public static function wouldInvalidateRecords(string $key, int $records): self
     {
         return self::of(

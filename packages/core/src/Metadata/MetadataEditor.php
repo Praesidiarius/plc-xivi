@@ -19,6 +19,7 @@ use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
 use Xivi\Core\Numbering\NumberFormat;
 use Xivi\Core\Record\RecordRepository;
+use Xivi\Core\Record\UniqueIndex;
 
 /**
  * Changing a customer's own field definitions (§5.4).
@@ -39,11 +40,25 @@ final readonly class MetadataEditor
     /** Field keys are JSON object keys and column-ish identifiers; keep them boring. */
     public const string KEY_PATTERN = '/^[a-z][a-z0-9_]*$/';
 
+    /**
+     * How many shared values a refusal names before it gives up and says "…"
+     * (XIV-109).
+     *
+     * Five is enough to recognise a pattern — three phone numbers that are all
+     * `-` is a different problem from three that are real — and short enough to
+     * fit in a message somebody reads rather than skims.
+     */
+    private const int DUPLICATES_NAMED = 5;
+
     public function __construct(
         private EntityManagerInterface $entityManager,
         private FieldTypeRegistry $fieldTypes,
         private RecordRepository $records,
         private MetadataCache $cache,
+        // The index that makes `unique` true rather than checked (XIV-109). It
+        // has to be written by whatever writes the flag, or a definition and a
+        // database disagree about a promise a customer is relying on.
+        private UniqueIndex $uniqueIndexes,
     ) {
     }
 
@@ -104,8 +119,17 @@ final readonly class MetadataEditor
 
         $this->assertRecordsSurvive($shape, $field, $required, $unique);
 
-        $this->entityManager->persist($field);
-        $this->entityManager->flush();
+        $this->asOneChange(function () use ($shape, $field): void {
+            $this->entityManager->persist($field);
+            $this->entityManager->flush();
+            // A field added with the same key as one that was removed brings
+            // back the values that were left behind (§5.4), so even a brand-new
+            // definition can meet a column that already holds something. The
+            // count above has just refused the case where that collides; this
+            // builds the index over whatever survived.
+            $this->uniqueIndexes->follow($shape, $field);
+        });
+
         // What these queries would return has just changed (XIV-53). A page
         // still showing the old shape would look like the edit had failed.
         $this->cache->clear();
@@ -159,7 +183,17 @@ final readonly class MetadataEditor
         $field->setWidth($width);
         $field->setOptions(self::withOptions($field->getOptions(), $options));
 
-        $this->entityManager->flush();
+        $this->asOneChange(function () use ($field): void {
+            $this->entityManager->flush();
+            // Both directions, in the same transaction as the flag itself
+            // (XIV-109): ticking the box builds the index, unticking it drops
+            // the index, and a failure in either takes the definition back with
+            // it. The alternative — flush, then index — leaves a field claiming
+            // to be unique with nothing enforcing it, which is the state this
+            // whole change exists to make impossible.
+            $this->uniqueIndexes->follow($field->getShape(), $field);
+        });
+
         $this->cache->clear();
     }
 
@@ -323,11 +357,110 @@ final readonly class MetadataEditor
             throw MetadataChangeRefused::systemField($field->getKey());
         }
 
-        $field->getShape()->removeField($field);
+        $shape = $field->getShape();
+        $shape->removeField($field);
 
-        $this->entityManager->remove($field);
-        $this->entityManager->flush();
+        $this->asOneChange(function () use ($shape, $field): void {
+            $this->entityManager->remove($field);
+            $this->entityManager->flush();
+            // The values stay and the rule goes (XIV-109, §5.4). Keeping the
+            // index would keep enforcing a promise nothing in the definitions
+            // still makes — and would refuse a save on a field the customer can
+            // no longer see, which is the least explainable error this engine
+            // could produce. Adding the field back with the same key rebuilds
+            // it, which is what makes removal reversible here too.
+            $this->uniqueIndexes->drop($shape, $field);
+        });
+
         $this->cache->clear();
+    }
+
+    /**
+     * Mark a field unique, on its own (XIV-109).
+     *
+     * {@see self::updateField()} is a form's whole row and is the ordinary way
+     * this flag moves. This exists for the caller that has one reason to want
+     * uniqueness and no opinion at all about the label, the position or the
+     * width — today that is {@see NumberingChange::start()}, where a document
+     * number turning into a document number is precisely a promise that no two
+     * records carry the same one. Routing that through `updateField()` would
+     * mean reading seven settings off a definition and writing them straight
+     * back, which reads as a change to all seven.
+     *
+     * **Already unique is a no-op rather than a rebuild.** The index is created
+     * `IF NOT EXISTS`, so repeating it is harmless either way; returning early
+     * is about the table lock a build takes, which is not worth paying to
+     * confirm something that is already so.
+     *
+     * @throws MetadataChangeRefused when records already share a value, with the
+     *                               count and the worst of the offending values
+     *                               named — see {@see self::assertRecordsSurvive()}
+     */
+    public function makeUnique(FieldDefinition $field): void
+    {
+        if ($field->isUnique()) {
+            return;
+        }
+
+        $shape = $field->getShape();
+        $this->assertRecordsSurvive($shape, $field, required: false, unique: true);
+
+        $field->setUnique(true);
+
+        $this->asOneChange(function () use ($shape, $field): void {
+            $this->entityManager->flush();
+            $this->uniqueIndexes->follow($shape, $field);
+        });
+
+        $this->cache->clear();
+    }
+
+    /**
+     * The values standing in the way of making this field unique (XIV-109).
+     *
+     * For the sentence a customer reads when the answer is no. Counting is not
+     * enough on its own: "that rule would make 4 existing records invalid" is
+     * true, and somebody then has to find four records among six hundred with
+     * nothing to search for. These are what to search for.
+     *
+     * A read with no side effects, so a screen may call it to explain itself
+     * before anybody has clicked anything.
+     *
+     * @return array<string, int> value => how many live records hold it, worst first
+     */
+    public function duplicatesIn(FieldDefinition $field, int $limit = 5): array
+    {
+        return $this->records->duplicateValues($field->getShape(), $field, $limit);
+    }
+
+    /**
+     * A definition change and the schema change it implies, or neither
+     * (XIV-109).
+     *
+     * The two writes are through different objects — the entity manager for the
+     * row, the connection for the index — and they are one change. A flush that
+     * lands while the `CREATE UNIQUE INDEX` after it fails would leave a field
+     * marked unique with nothing enforcing it, which is exactly the state
+     * XIV-109 exists to end; the reverse leaves an index enforcing a rule no
+     * definition mentions, which is worse, because nothing in the editor can
+     * then explain the refusal somebody meets.
+     *
+     * **The connection is taken from the entity manager rather than injected**,
+     * and that is the point rather than a shortcut: it is by construction the
+     * connection the flush will use, so the DDL below cannot end up in a
+     * different transaction from the row it belongs with. An injected
+     * `Connection` would be the same object today (config/services.yaml binds
+     * both to the tenant's) and would be one wiring change away from not being.
+     *
+     * Postgres is transactional for DDL, which is what makes this possible at
+     * all; on a database where it is not, this method would be a lie and the
+     * ordering would have to be argued differently.
+     *
+     * @param \Closure():void $change
+     */
+    private function asOneChange(\Closure $change): void
+    {
+        $this->entityManager->getConnection()->transactional($change);
     }
 
     /** How many records still hold a value for this field. */
@@ -362,8 +495,32 @@ final readonly class MetadataEditor
 
         $violations = $this->records->countViolating($shape, $field, $required, $unique);
 
-        if ($violations > 0) {
-            throw MetadataChangeRefused::wouldInvalidateRecords($field->getKey(), $violations);
+        if ($violations === 0) {
+            return;
         }
+
+        // The unique half gets its own sentence when it is the half that failed
+        // (XIV-109), because it is the only one with something to hand over: a
+        // required field's problem is "these are empty" and there is nothing to
+        // name. Asked only on the failing path, so the ordinary save of the
+        // field editor still costs one count and no more.
+        // One more than the message will print, so that the refusal can tell
+        // "these five" from "at least these five" without a second query over
+        // the whole column.
+        $duplicates = $unique ? $this->duplicatesIn($field, self::DUPLICATES_NAMED + 1) : [];
+
+        if ($duplicates !== []) {
+            throw MetadataChangeRefused::valuesAreShared(
+                $field->getKey(),
+                // The unique half's own count rather than the sum above: a
+                // caller switching both rules on at once would otherwise be told
+                // that the empty records share a value with something.
+                $this->records->countViolating($shape, $field, required: false, unique: true),
+                $duplicates,
+                self::DUPLICATES_NAMED,
+            );
+        }
+
+        throw MetadataChangeRefused::wouldInvalidateRecords($field->getKey(), $violations);
     }
 }
