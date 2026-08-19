@@ -123,7 +123,7 @@ final class OrderVoucherTest extends WebTestCase
      */
     public function testAnAbsoluteVoucherIsALineOfItsOwn(): void
     {
-        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ABSOLUTE, 'amount' => '10.00']);
+        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '10.00']);
 
         $order = $this->anOrder($voucher, [
             ['description' => 'Desk lamp', 'quantity' => '1', 'unit_price' => '100.00', 'tax_rate' => self::STANDARD],
@@ -131,8 +131,8 @@ final class OrderVoucherTest extends WebTestCase
 
         self::assertSame(
             [
-                ['custom', 'Desk lamp', '1.00', '100.00', self::STANDARD, '100.00'],
-                ['discount', 'GIVE-10', '1.00', '-10.00', self::STANDARD, '-10.00'],
+                ['custom', 'Desk lamp', '1.00', '100.00', self::STANDARD, '', '100.00'],
+                ['discount', 'GIVE-10', '1.00', '-10.00', self::STANDARD, '', '-10.00'],
             ],
             $this->linesOf($order),
             'the line somebody typed, and a line the engine wrote under it',
@@ -157,7 +157,7 @@ final class OrderVoucherTest extends WebTestCase
      */
     public function testTheDiscountIsInsideTheVatTable(): void
     {
-        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ABSOLUTE, 'amount' => '10.00']);
+        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '10.00']);
 
         $order = $this->anOrder($voucher, [
             ['description' => 'Desk lamp', 'quantity' => '1', 'unit_price' => '100.00', 'tax_rate' => self::STANDARD],
@@ -170,8 +170,8 @@ final class OrderVoucherTest extends WebTestCase
     public function testARelativeVoucherIsTheSameLineWithTheAmountComputed(): void
     {
         $voucher = $this->aVoucher(
-            ['code' => 'TENTH', 'kind' => VoucherModule::RELATIVE, 'percentage' => '10'],
-            VoucherModule::RELATIVE,
+            ['code' => 'TENTH', 'kind' => VoucherModule::ORDER_PERCENTAGE, 'percentage' => '10'],
+            VoucherModule::ORDER_PERCENTAGE,
         );
 
         $order = $this->anOrder($voucher, [
@@ -181,16 +181,26 @@ final class OrderVoucherTest extends WebTestCase
         // 3 × 66.65 is 199.95, a tenth of which is 19.995 — which rounds to 20.00
         // rather than being left as a third decimal nobody can pay.
         self::assertSame(
-            [['custom', 'Consulting', '3.00', '66.65', self::STANDARD, '199.95'],
-                ['discount', 'TENTH', '1.00', '-20.00', self::STANDARD, '-20.00']],
+            [['custom', 'Consulting', '3.00', '66.65', self::STANDARD, '', '199.95'],
+                ['discount', 'TENTH', '1.00', '-20.00', self::STANDARD, '', '-20.00']],
             $this->linesOf($order),
         );
 
         self::assertSame('179.95', $this->orderRecord($order)->get(OrderModule::NET_TOTAL));
     }
 
-    /** A free article is a line at a quantity and a price of nothing. */
-    public function testAFreeArticleVoucherIsALineAtQuantityNAndPriceZero(): void
+    /**
+     * **A free article is now a line voucher at a hundred percent**, and this is
+     * the assertion that says the third kind was dissolved rather than dropped
+     * (XIV-122).
+     *
+     * The customer puts the mug on the order the way every other article goes on
+     * it, and the voucher — restricted to that article — takes its whole price off
+     * that line. What is gone is the row appearing underneath at a quantity the
+     * voucher decided; what is kept is the customer receiving a mug and paying
+     * nothing for it, which is the half anybody cared about.
+     */
+    public function testAFreeArticleIsALineVoucherAtAHundredPercent(): void
     {
         $article = $this->savedId($this->saveRecord(ArticleModule::KEY, [
             'title' => 'Travel mug',
@@ -199,24 +209,32 @@ final class OrderVoucherTest extends WebTestCase
         ]));
 
         $voucher = $this->aVoucher([
-            'code' => 'TWO-MUGS',
-            'kind' => VoucherModule::FREE_ARTICLE,
+            'code' => 'FREE-MUG',
+            'kind' => VoucherModule::LINE_PERCENTAGE,
+            'percentage' => '100',
             'article' => (string) $article,
-            'quantity' => '2',
-        ], VoucherModule::FREE_ARTICLE);
+        ], VoucherModule::LINE_PERCENTAGE);
 
-        $order = $this->anOrder($voucher, [
+        $order = $this->anOrder(null, [
             ['description' => 'Desk lamp', 'quantity' => '1', 'unit_price' => '100.00', 'tax_rate' => self::STANDARD],
+            [
+                'kind' => OrderModule::ARTICLE_LINE,
+                'article' => (string) $article,
+                'description' => 'Travel mug',
+                'quantity' => '2',
+                'unit_price' => '24.00',
+                'tax_rate' => self::STANDARD,
+                OrderModule::LINE_VOUCHER => (string) $voucher,
+            ],
         ]);
 
         self::assertSame(
-            [['custom', 'Desk lamp', '1.00', '100.00', self::STANDARD, '100.00'],
-                ['discount', 'Travel mug', '2.00', '0.00', '', '0.00']],
+            [['custom', 'Desk lamp', '1.00', '100.00', self::STANDARD, '', '100.00'],
+                ['article', 'Travel mug', '2.00', '24.00', self::STANDARD, '48.00', '0.00']],
             $this->linesOf($order),
-            'the article by name, twice, at nothing — and no rate, because nothing is charged',
+            'the mug is charged for and then given away in the column beside it',
         );
 
-        // Nothing came off, because nothing was charged for.
         self::assertSame('100.00', $this->orderRecord($order)->get(OrderModule::NET_TOTAL));
         self::assertSame([[self::STANDARD, '100.00', '8.10']], $this->vatTableOf($order));
     }
@@ -286,7 +304,7 @@ final class OrderVoucherTest extends WebTestCase
      */
     public function testAVoucherWorthMoreThanTheOrderIsCappedByIt(): void
     {
-        $voucher = $this->aVoucher(['code' => 'GIVE-50', 'kind' => VoucherModule::ABSOLUTE, 'amount' => '50.00']);
+        $voucher = $this->aVoucher(['code' => 'GIVE-50', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '50.00']);
 
         $order = $this->anOrder($voucher, [
             ['description' => 'Notebook', 'quantity' => '1', 'unit_price' => '20.00', 'tax_rate' => self::STANDARD],
@@ -310,7 +328,7 @@ final class OrderVoucherTest extends WebTestCase
      */
     public function testAGeneratedLineCannotBeEditedByHand(): void
     {
-        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ABSOLUTE, 'amount' => '10.00']);
+        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '10.00']);
         $order = $this->anOrder($voucher, [
             ['description' => 'Desk lamp', 'quantity' => '1', 'unit_price' => '100.00', 'tax_rate' => self::STANDARD],
         ]);
@@ -335,8 +353,8 @@ final class OrderVoucherTest extends WebTestCase
         ]);
 
         self::assertSame(
-            [['custom', 'Desk lamp', '1.00', '100.00', self::STANDARD, '100.00'],
-                ['discount', 'GIVE-10', '1.00', '-10.00', self::STANDARD, '-10.00']],
+            [['custom', 'Desk lamp', '1.00', '100.00', self::STANDARD, '', '100.00'],
+                ['discount', 'GIVE-10', '1.00', '-10.00', self::STANDARD, '', '-10.00']],
             $this->linesOf($order),
             'what was typed over it is gone; the voucher still decides',
         );
@@ -347,7 +365,7 @@ final class OrderVoucherTest extends WebTestCase
     /** And it cannot be deleted by hand either: a save that leaves it out gets it back. */
     public function testAGeneratedLineCannotBeDeletedByHand(): void
     {
-        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ABSOLUTE, 'amount' => '10.00']);
+        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '10.00']);
         $order = $this->anOrder($voucher, [
             ['description' => 'Desk lamp', 'quantity' => '1', 'unit_price' => '100.00', 'tax_rate' => self::STANDARD],
         ]);
@@ -365,8 +383,8 @@ final class OrderVoucherTest extends WebTestCase
         ]);
 
         self::assertSame(
-            [['custom', 'Desk lamp', '1.00', '100.00', self::STANDARD, '100.00'],
-                ['discount', 'GIVE-10', '1.00', '-10.00', self::STANDARD, '-10.00']],
+            [['custom', 'Desk lamp', '1.00', '100.00', self::STANDARD, '', '100.00'],
+                ['discount', 'GIVE-10', '1.00', '-10.00', self::STANDARD, '', '-10.00']],
             $this->linesOf($order),
         );
     }
@@ -416,7 +434,7 @@ final class OrderVoucherTest extends WebTestCase
      */
     public function testTheControlsForAGeneratedRowAreDisabled(): void
     {
-        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ABSOLUTE, 'amount' => '10.00']);
+        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '10.00']);
         $order = $this->anOrder($voucher, [
             ['description' => 'Desk lamp', 'quantity' => '1', 'unit_price' => '100.00', 'tax_rate' => self::STANDARD],
         ]);
@@ -449,8 +467,8 @@ final class OrderVoucherTest extends WebTestCase
     public function testEditingADiscountedOrderDoesNotCompoundTheDiscount(): void
     {
         $voucher = $this->aVoucher(
-            ['code' => 'TENTH', 'kind' => VoucherModule::RELATIVE, 'percentage' => '10'],
-            VoucherModule::RELATIVE,
+            ['code' => 'TENTH', 'kind' => VoucherModule::ORDER_PERCENTAGE, 'percentage' => '10'],
+            VoucherModule::ORDER_PERCENTAGE,
         );
 
         $order = $this->anOrder($voucher, [
@@ -481,8 +499,8 @@ final class OrderVoucherTest extends WebTestCase
         }
 
         self::assertSame(
-            [['custom', 'Consulting', '1.00', '100.00', self::STANDARD, '100.00'],
-                ['discount', 'TENTH', '1.00', '-10.00', self::STANDARD, '-10.00']],
+            [['custom', 'Consulting', '1.00', '100.00', self::STANDARD, '', '100.00'],
+                ['discount', 'TENTH', '1.00', '-10.00', self::STANDARD, '', '-10.00']],
             $this->linesOf($order),
             'still two lines, and the same two',
         );
@@ -500,7 +518,7 @@ final class OrderVoucherTest extends WebTestCase
      */
     public function testAGeneratedRowKeepsItsIdAcrossSaves(): void
     {
-        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ABSOLUTE, 'amount' => '10.00']);
+        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '10.00']);
         $order = $this->anOrder($voucher, [
             ['description' => 'Desk lamp', 'quantity' => '1', 'unit_price' => '100.00', 'tax_rate' => self::STANDARD],
         ]);
@@ -540,7 +558,7 @@ final class OrderVoucherTest extends WebTestCase
      */
     public function testDeletingTheVoucherLeavesTheOrderAsItWas(): void
     {
-        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ABSOLUTE, 'amount' => '10.00']);
+        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '10.00']);
         $order = $this->anOrder($voucher, [
             ['description' => 'Desk lamp', 'quantity' => '1', 'unit_price' => '100.00', 'tax_rate' => self::STANDARD],
         ]);
@@ -563,7 +581,7 @@ final class OrderVoucherTest extends WebTestCase
      */
     public function testADraftEditedAfterTheVoucherIsGoneKeepsItsDiscount(): void
     {
-        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ABSOLUTE, 'amount' => '10.00']);
+        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '10.00']);
         $order = $this->anOrder($voucher, [
             ['description' => 'Desk lamp', 'quantity' => '1', 'unit_price' => '100.00', 'tax_rate' => self::STANDARD],
         ]);
@@ -602,7 +620,7 @@ final class OrderVoucherTest extends WebTestCase
      */
     public function testAnInvoiceSeededFromADiscountedOrderCarriesTheDiscount(): void
     {
-        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ABSOLUTE, 'amount' => '10.00']);
+        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '10.00']);
         $order = $this->anOrder($voucher, [
             ['description' => 'Desk lamp', 'quantity' => '1', 'unit_price' => '100.00', 'tax_rate' => self::STANDARD],
         ]);
@@ -644,6 +662,9 @@ final class OrderVoucherTest extends WebTestCase
         $rows = [];
 
         foreach ($lines as $values) {
+            // Custom unless the row says otherwise, so the ordinary case stays one
+            // line and a line naming an article — or a voucher — can still be
+            // written without a second helper.
             $rows[] = self::row([OrderModule::KIND => OrderModule::CUSTOM_LINE, ...$values]);
         }
 
@@ -661,7 +682,7 @@ final class OrderVoucherTest extends WebTestCase
      */
     private function aThreeRateOrder(string $amount): int
     {
-        $voucher = $this->aVoucher(['code' => 'SPLIT-' . str_replace('.', '', $amount), 'kind' => VoucherModule::ABSOLUTE, 'amount' => $amount]);
+        $voucher = $this->aVoucher(['code' => 'SPLIT-' . str_replace('.', '', $amount), 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => $amount]);
 
         return $this->anOrder($voucher, [
             ['description' => 'Dinner', 'quantity' => '1', 'unit_price' => '100.00', 'tax_rate' => self::STANDARD],
@@ -730,7 +751,7 @@ final class OrderVoucherTest extends WebTestCase
     }
 
     /** @param array<string, string> $fields */
-    private function aVoucher(array $fields, string $variant = VoucherModule::ABSOLUTE): int
+    private function aVoucher(array $fields, string $variant = VoucherModule::ORDER_AMOUNT): int
     {
         return $this->savedId($this->saveRecord(VoucherModule::KEY, $fields, variant: $variant));
     }
@@ -754,9 +775,15 @@ final class OrderVoucherTest extends WebTestCase
     }
 
     /**
-     * The lines as stored: kind, description, quantity, price, rate, total.
+     * The lines as stored: kind, description, quantity, price, rate, discount,
+     * total.
      *
-     * @return list<array{string, string, string, string, string, string}>
+     * The discount column joined the tuple with XIV-122 rather than being asserted
+     * separately, because what it is worth checking against is the line total
+     * beside it — a reduction and a total that disagree is the one failure this
+     * feature can have that still looks plausible.
+     *
+     * @return list<array{string, string, string, string, string, string, string}>
      */
     private function linesOf(int $order): array
     {
@@ -767,6 +794,7 @@ final class OrderVoucherTest extends WebTestCase
                 (string) $row->get(OrderModule::QUANTITY),
                 (string) $row->get(OrderModule::UNIT_PRICE),
                 (string) $row->get(OrderModule::TAX_RATE),
+                (string) $row->get(OrderModule::LINE_DISCOUNT),
                 (string) $row->get(OrderModule::LINE_TOTAL),
             ],
             $this->rowsOf($order, OrderModule::LINES),
@@ -781,7 +809,7 @@ final class OrderVoucherTest extends WebTestCase
     private function discountLinesOf(int $order): array
     {
         return array_values(array_map(
-            static fn (array $line): array => [$line[4], $line[5]],
+            static fn (array $line): array => [$line[4], $line[6]],
             array_filter($this->linesOf($order), static fn (array $line): bool => $line[0] === OrderModule::DISCOUNT_LINE),
         ));
     }

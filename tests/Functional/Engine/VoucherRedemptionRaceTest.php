@@ -136,7 +136,7 @@ final class VoucherRedemptionRaceTest extends KernelTestCase
                 $metadata->get(VoucherModule::KEY),
                 new Record([
                     VoucherModule::CODE => 'LAST-ONE',
-                    VoucherModule::KIND => VoucherModule::RELATIVE,
+                    VoucherModule::KIND => VoucherModule::ORDER_PERCENTAGE,
                     VoucherModule::PERCENTAGE => '10.00',
                     VoucherModule::MAX_REDEMPTIONS => 1,
                 ]),

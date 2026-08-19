@@ -21,6 +21,7 @@ field:
     quantity: Menge
     unit: Einheit
     unit_price: Einzelpreis
+    line_discount: Rabatt
     line_total: Positionssumme
     tax_rate: MWST-Satz (%)
     vat_mode: Preisbasis

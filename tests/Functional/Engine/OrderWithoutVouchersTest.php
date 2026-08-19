@@ -108,6 +108,38 @@ final class OrderWithoutVouchersTest extends WebTestCase
     }
 
     /**
+     * **And neither has a line** (XIV-122), which is the same rule one shape
+     * further down and needed the rule to learn about collections.
+     *
+     * Worth a method rather than a line inside the one above, because it is the
+     * half that would have leaked silently: an order form with no rows on it yet
+     * draws no line controls at all, so the page assertion below passes whether or
+     * not the field was installed. The definitions are where the answer is.
+     *
+     * **The discount column beside it is asserted *present*, and that is the
+     * honest half.** It names no module, so `AvailableFields` has no opinion about
+     * it and this customer gets a *Discount* column that nothing can ever fill in.
+     * It is a cosmetic cost and it is accepted rather than fixed: hiding it would
+     * need a rule saying "this field is only writable while that other field
+     * exists", which is one module's internals living in the engine, and §5.4
+     * already gives the customer the better answer — the field editor removes a
+     * field they do not want. Asserted so that the cost is a decision somebody
+     * made rather than something the next reader discovers.
+     */
+    public function testTheOrderLineHasNoVoucherFieldEither(): void
+    {
+        $lines = $this->orderModule()->getCollection(OrderModule::LINES);
+
+        self::assertNotNull($lines, 'the collection installed');
+        self::assertNotNull($lines->getField(OrderModule::UNIT_PRICE), 'and it is a real order line');
+        self::assertNull($lines->getField(OrderModule::LINE_VOUCHER), 'with no voucher picker on it');
+        self::assertNotNull(
+            $lines->getField(OrderModule::LINE_DISCOUNT),
+            'and a discount column that nothing here can fill in — see the docblock',
+        );
+    }
+
+    /**
      * And the page somebody types an order into has no control for it.
      *
      * The positive half is asserted in the same breath: the customer control *is*

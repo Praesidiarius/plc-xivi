@@ -111,7 +111,13 @@ final readonly class ModuleInstaller
                 position: $collection->position,
                 variantField: $collection->variantField,
             );
-            $this->defineFields($definition, $collection->fields, $domain, $locale);
+            // **A collection's fields go through the same filter as the module's**
+            // (XIV-122). An order *line* may name a voucher exactly as the order
+            // itself may, and a customer without vouchers must no more be given a
+            // picker with nothing in it on every line than on the header — see
+            // {@see AvailableFields}, where the argument is written once and the
+            // fact that a shape is a shape (§5.1) is what lets it be asked twice.
+            $this->defineFields($definition, $this->available->of($collection->fields, $blueprint->key), $domain, $locale);
         }
 
         $this->entityManager->persist($module);
@@ -156,7 +162,7 @@ final readonly class ModuleInstaller
         $preset ??= $blueprint->defaultPreset;
 
         if ($preset === null) {
-            return $this->available->of($blueprint->fields);
+            return $this->available->of($blueprint->fields, $blueprint->key);
         }
 
         $chosen = $blueprint->preset($preset) ?? throw new \RuntimeException(sprintf(
@@ -192,7 +198,7 @@ final readonly class ModuleInstaller
         // field the module has never had is still the typo it is, while a preset
         // naming one this customer cannot point at is quietly the shorter list —
         // two different things that filtering first would have made one.
-        return $this->available->of($fields);
+        return $this->available->of($fields, $blueprint->key);
     }
 
     /**
@@ -448,7 +454,10 @@ final readonly class ModuleInstaller
             position: $collection->position,
             variantField: $collection->variantField,
         );
-        $this->defineFields($definition, $collection->fields, $domain, $locale);
+        // Filtered exactly as the install path filters it (XIV-122): a collection
+        // adopted a year later is still a collection, and a field in it pointing
+        // at a module this customer has not got is still an empty picker.
+        $this->defineFields($definition, $this->available->of($collection->fields, $module->getKey()), $domain, $locale);
 
         $this->entityManager->persist($definition);
         $this->entityManager->flush();

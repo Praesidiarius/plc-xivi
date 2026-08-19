@@ -565,10 +565,9 @@ final class OrderTotalsTest extends WebTestCase
     /**
      * An order line fits on one row (XIV-43).
      *
-     * The widths are declared on the blueprint and have to add up: an article
-     * line is the busiest kind and comes to exactly twelve. Asserted as
+     * The widths are declared on the blueprint and have to add up. Asserted as
      * arithmetic rather than as a screenshot, because what breaks this is
-     * somebody adding a seventh field and not noticing the row now wraps.
+     * somebody adding another field and not noticing the row now wraps.
      *
      * **Only the busy kinds can be exact.** A width belongs to a field, and a
      * field is shared by every kind that has it — a comment line holds nothing
@@ -576,6 +575,16 @@ final class OrderTotalsTest extends WebTestCase
      * description to be the whole row and leave a subtotal's figure no room at
      * all. So the crowded kinds are made to fit and the sparse ones are left
      * short, which is the direction that reads well.
+     *
+     * **And the busiest line is no longer the same line in every installation**
+     * ([XIV-122]). A line may name a voucher and show what it took off, and both
+     * of those fields exist only where that customer has the voucher module
+     * ({@see \Xivi\Core\Module\AvailableFields}) — so *this* tenant, which has
+     * orders and no vouchers, draws a row one twelfth short. That is the harmless
+     * direction: a row with a gap at the end reads fine and a row that wraps does
+     * not. The exact twelve is asserted where the busiest row actually exists, in
+     * `OrderLineVoucherTest`, and what is asserted here is the property that
+     * matters everywhere — nothing wraps.
      */
     public function testAnArticleLineFitsOnOneRow(): void
     {
@@ -601,10 +610,14 @@ final class OrderTotalsTest extends WebTestCase
         });
 
         self::assertNotContains(null, $widths, 'every field on the busiest line says how wide it is');
-        self::assertSame(12, array_sum($widths), sprintf(
-            'an article line is exactly one row: %s',
+        self::assertLessThanOrEqual(12, array_sum($widths), sprintf(
+            'an article line is at most one row: %s',
             json_encode($widths, \JSON_THROW_ON_ERROR),
         ));
+        // Not merely "not too wide": a row that came to four would pass the check
+        // above while looking nothing like a line of an order, so the floor says
+        // the fields are still where somebody put them.
+        self::assertGreaterThanOrEqual(11, array_sum($widths), 'and it still fills one');
 
         // An article line is the widest thing the collection draws, so every
         // other kind fits by construction.

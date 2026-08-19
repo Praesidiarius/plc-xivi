@@ -103,7 +103,7 @@ final class OrderVoucherRedemptionTest extends WebTestCase
     /** A use is taken when the order commits, and not before. */
     public function testAUseIsTakenWhenTheOrderCommits(): void
     {
-        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ABSOLUTE, 'amount' => '10.00']);
+        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '10.00']);
 
         self::assertSame(0, $this->redeemed($voucher), 'nothing yet');
 
@@ -121,7 +121,7 @@ final class OrderVoucherRedemptionTest extends WebTestCase
      */
     public function testTypingTheCodeIntoAFormTakesNothing(): void
     {
-        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ABSOLUTE, 'amount' => '10.00']);
+        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '10.00']);
 
         $rendered = $this->recordForm(OrderModule::KEY)
             ->set('module_record', [
@@ -144,7 +144,7 @@ final class OrderVoucherRedemptionTest extends WebTestCase
     /** A save that fails takes nothing either — the redemption is in the transaction that failed. */
     public function testAFailedSaveTakesNothing(): void
     {
-        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ABSOLUTE, 'amount' => '10.00']);
+        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '10.00']);
 
         // No customer, which the module requires: the save is refused after the
         // deriver has run and before anything is written.
@@ -168,7 +168,7 @@ final class OrderVoucherRedemptionTest extends WebTestCase
     /** Taking the voucher off a draft gives the use back. */
     public function testRemovingTheVoucherFromADraftGivesTheUseBack(): void
     {
-        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ABSOLUTE, 'amount' => '10.00']);
+        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '10.00']);
         $order = $this->anOrder($voucher, [
             ['description' => 'Desk lamp', 'quantity' => '1', 'unit_price' => '100.00', 'tax_rate' => self::STANDARD],
         ]);
@@ -195,7 +195,7 @@ final class OrderVoucherRedemptionTest extends WebTestCase
     /** Deleting the order gives it back too: the count is how many documents carry the voucher. */
     public function testDeletingTheOrderGivesTheUseBack(): void
     {
-        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ABSOLUTE, 'amount' => '10.00']);
+        $voucher = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '10.00']);
         $order = $this->anOrder($voucher, [
             ['description' => 'Desk lamp', 'quantity' => '1', 'unit_price' => '100.00', 'tax_rate' => self::STANDARD],
         ]);
@@ -219,14 +219,14 @@ final class OrderVoucherRedemptionTest extends WebTestCase
      */
     public function testASaveThatIsRefusedAfterReleasingPutsTheUseBack(): void
     {
-        $mine = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ABSOLUTE, 'amount' => '10.00']);
+        $mine = $this->aVoucher(['code' => 'GIVE-10', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '10.00']);
         $order = $this->anOrder($mine, [
             ['description' => 'Desk lamp', 'quantity' => '1', 'unit_price' => '100.00', 'tax_rate' => self::STANDARD],
         ]);
 
         $spent = $this->aVoucher([
             'code' => 'ONCE-ONLY',
-            'kind' => VoucherModule::ABSOLUTE,
+            'kind' => VoucherModule::ORDER_AMOUNT,
             'amount' => '5.00',
             'max_redemptions' => '1',
         ]);
@@ -271,7 +271,7 @@ final class OrderVoucherRedemptionTest extends WebTestCase
     {
         $voucher = $this->aVoucher([
             'code' => 'ONCE-ONLY',
-            'kind' => VoucherModule::ABSOLUTE,
+            'kind' => VoucherModule::ORDER_AMOUNT,
             'amount' => '10.00',
             'max_redemptions' => '1',
         ]);
@@ -292,7 +292,7 @@ final class OrderVoucherRedemptionTest extends WebTestCase
     {
         $voucher = $this->aVoucher([
             'code' => 'LAST-YEAR',
-            'kind' => VoucherModule::ABSOLUTE,
+            'kind' => VoucherModule::ORDER_AMOUNT,
             'amount' => '10.00',
             'valid_until' => '2020-12-31',
         ]);
@@ -306,7 +306,7 @@ final class OrderVoucherRedemptionTest extends WebTestCase
     {
         $voucher = $this->aVoucher([
             'code' => 'NEXT-YEAR',
-            'kind' => VoucherModule::ABSOLUTE,
+            'kind' => VoucherModule::ORDER_AMOUNT,
             'amount' => '10.00',
             'valid_from' => '2099-01-01',
         ]);
@@ -330,7 +330,7 @@ final class OrderVoucherRedemptionTest extends WebTestCase
      */
     public function testAVoucherThatIsGoneCannotBeNamedThroughTheForm(): void
     {
-        $voucher = $this->aVoucher(['code' => 'VANISHED', 'kind' => VoucherModule::ABSOLUTE, 'amount' => '10.00']);
+        $voucher = $this->aVoucher(['code' => 'VANISHED', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '10.00']);
 
         $this->deleteRecord(VoucherModule::KEY, $voucher);
 
@@ -471,7 +471,7 @@ final class OrderVoucherRedemptionTest extends WebTestCase
     }
 
     /** @param array<string, string> $fields */
-    private function aVoucher(array $fields, string $variant = VoucherModule::ABSOLUTE): int
+    private function aVoucher(array $fields, string $variant = VoucherModule::ORDER_AMOUNT): int
     {
         return $this->savedId($this->saveRecord(VoucherModule::KEY, $fields, variant: $variant));
     }

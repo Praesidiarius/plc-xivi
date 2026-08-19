@@ -30,6 +30,7 @@ field:
     unit: Unit
     unit_price: Unit price
     tax_rate: VAT rate (%)
+    line_discount: Discount
     line_total: Line total
     rate: Rate (%)
     taxable_net: Net

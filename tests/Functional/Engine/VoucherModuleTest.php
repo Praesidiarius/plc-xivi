@@ -32,7 +32,7 @@ use Xivi\Voucher\Code\VoucherCode;
 use Xivi\Voucher\VoucherModule;
 
 /**
- * A voucher exists, is called something, and is worth one of three things
+ * A voucher exists, is called something, and is worth one of four things
  * (XIV-103).
  *
  * The module half of the ticket. What is not here is the counter, which has a
@@ -57,6 +57,19 @@ final class VoucherModuleTest extends WebTestCase
     private const string EMAIL = 'voucher@example.test';
     private const string PASSWORD = 'voucher-password';
     private const string FORM = 'module_record';
+
+    /**
+     * The four the module ships, in the order the blueprint lists them
+     * (XIV-122).
+     *
+     * @var list<string>
+     */
+    private const array KINDS = [
+        VoucherModule::ORDER_AMOUNT,
+        VoucherModule::ORDER_PERCENTAGE,
+        VoucherModule::LINE_AMOUNT,
+        VoucherModule::LINE_PERCENTAGE,
+    ];
 
     private KernelBrowser $client;
     private Tenant $tenant;
@@ -96,9 +109,9 @@ final class VoucherModuleTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('h1', 'What kind');
-        self::assertCount(3, $crawler->filter('a[href*="variant="]'), 'one link per kind');
+        self::assertCount(4, $crawler->filter('a[href*="variant="]'), 'one link per kind');
 
-        foreach (['absolute', 'relative', 'free_article'] as $kind) {
+        foreach (self::KINDS as $kind) {
             self::assertStringContainsString('variant=' . $kind, $crawler->html());
         }
     }
@@ -109,28 +122,36 @@ final class VoucherModuleTest extends WebTestCase
      */
     public function testEachKindIsAskedForItsOwnFieldsAndNobodyElses(): void
     {
-        $absolute = $this->client->request('GET', $this->url('/m/voucher/new?variant=absolute'));
+        $order = $this->client->request('GET', $this->url('/m/voucher/new?variant=' . VoucherModule::ORDER_AMOUNT));
 
         self::assertSelectorExists(self::selector(VoucherModule::AMOUNT));
-        self::assertCount(0, $absolute->filter(self::selector(VoucherModule::PERCENTAGE)));
-        self::assertCount(0, $absolute->filter(self::selector(VoucherModule::ARTICLE)));
+        self::assertCount(0, $order->filter(self::selector(VoucherModule::PERCENTAGE)));
+        // **The combination that does not exist** (XIV-122): an order voucher
+        // restricted to an article. It is refused by the article field being
+        // declared on the two line variants and no others, which is §5.5 doing
+        // the work a validation rule would otherwise have to.
+        self::assertCount(0, $order->filter(self::selector(VoucherModule::ARTICLE)));
 
-        $relative = $this->client->request('GET', $this->url('/m/voucher/new?variant=relative'));
+        $relative = $this->client->request(
+            'GET',
+            $this->url('/m/voucher/new?variant=' . VoucherModule::ORDER_PERCENTAGE),
+        );
 
         self::assertSelectorExists(self::selector(VoucherModule::PERCENTAGE));
         self::assertCount(0, $relative->filter(self::selector(VoucherModule::AMOUNT)));
+        self::assertCount(0, $relative->filter(self::selector(VoucherModule::ARTICLE)));
 
-        $free = $this->client->request('GET', $this->url('/m/voucher/new?variant=free_article'));
+        $line = $this->client->request('GET', $this->url('/m/voucher/new?variant=' . VoucherModule::LINE_PERCENTAGE));
 
+        self::assertSelectorExists(self::selector(VoucherModule::PERCENTAGE));
         self::assertSelectorExists(self::selector(VoucherModule::ARTICLE));
-        self::assertSelectorExists(self::selector(VoucherModule::QUANTITY));
-        self::assertCount(0, $free->filter(self::selector(VoucherModule::AMOUNT)));
+        self::assertCount(0, $line->filter(self::selector(VoucherModule::AMOUNT)));
     }
 
     /** What every kind shares: its code, its dates and its limit. */
     public function testTheFieldsEveryKindSharesAreOnAllOfThem(): void
     {
-        foreach (['absolute', 'relative', 'free_article'] as $kind) {
+        foreach (self::KINDS as $kind) {
             $this->client->request('GET', $this->url('/m/voucher/new?variant=' . $kind));
 
             foreach ([VoucherModule::CODE, VoucherModule::VALID_FROM, VoucherModule::VALID_UNTIL, VoucherModule::MAX_REDEMPTIONS] as $field) {
@@ -139,21 +160,45 @@ final class VoucherModuleTest extends WebTestCase
         }
     }
 
-    /** The three kinds save, each with the field only it has. */
-    public function testAllThreeKindsSave(): void
+    /**
+     * The four kinds save, each with the field only it has — and the fourth is
+     * what a free article became (XIV-122).
+     *
+     * `FREE-CUP` is the interesting row: [XIV-103] shipped it as a kind of its
+     * own, and it is now a line voucher restricted to that article at a hundred
+     * percent, said entirely in the vocabulary the other three already used.
+     */
+    public function testAllFourKindsSave(): void
     {
         $article = $this->savedId($this->saveRecord(ArticleModule::KEY, ['title' => 'Coffee', 'price' => '4.50']));
 
-        $this->submit(['code' => 'TEN-OFF', 'kind' => 'absolute', 'amount' => '10.00'], 'absolute');
-        $this->submit(['code' => 'HALF', 'kind' => 'relative', 'percentage' => '50'], 'relative');
         $this->submit(
-            ['code' => 'FREE-CUP', 'kind' => 'free_article', 'article' => (string) $article, 'quantity' => '1'],
-            'free_article',
+            ['code' => 'TEN-OFF', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '10.00'],
+            VoucherModule::ORDER_AMOUNT,
+        );
+        $this->submit(
+            ['code' => 'HALF', 'kind' => VoucherModule::ORDER_PERCENTAGE, 'percentage' => '50'],
+            VoucherModule::ORDER_PERCENTAGE,
+        );
+        $this->submit(
+            ['code' => 'FIVE-OFF-ONE', 'kind' => VoucherModule::LINE_AMOUNT, 'amount' => '5.00'],
+            VoucherModule::LINE_AMOUNT,
+        );
+        $this->submit(
+            [
+                'code' => 'FREE-CUP',
+                'kind' => VoucherModule::LINE_PERCENTAGE,
+                'percentage' => '100',
+                'article' => (string) $article,
+            ],
+            VoucherModule::LINE_PERCENTAGE,
         );
 
-        self::assertSame(3, $this->countVouchers());
+        self::assertSame(4, $this->countVouchers());
         self::assertSame('10.00', $this->stored('TEN-OFF')[VoucherModule::AMOUNT] ?? null);
         self::assertSame('50.00', $this->stored('HALF')[VoucherModule::PERCENTAGE] ?? null);
+        self::assertSame('5.00', $this->stored('FIVE-OFF-ONE')[VoucherModule::AMOUNT] ?? null);
+        self::assertSame('100.00', $this->stored('FREE-CUP')[VoucherModule::PERCENTAGE] ?? null);
         self::assertSame($article, $this->stored('FREE-CUP')[VoucherModule::ARTICLE] ?? null);
     }
 
@@ -162,7 +207,7 @@ final class VoucherModuleTest extends WebTestCase
     /** A code the customer typed is the code they get, in capitals. */
     public function testATypedCodeIsKeptAndFolded(): void
     {
-        $this->submit(['code' => 'give-10', 'kind' => 'absolute', 'amount' => '10.00'], 'absolute');
+        $this->submit(['code' => 'give-10', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '10.00'], VoucherModule::ORDER_AMOUNT);
 
         self::assertSame('GIVE-10', $this->stored('GIVE-10')[VoucherModule::CODE] ?? null);
     }
@@ -173,7 +218,7 @@ final class VoucherModuleTest extends WebTestCase
      */
     public function testAnEmptyCodeBoxProducesAGeneratedCode(): void
     {
-        $this->submit(['code' => '', 'kind' => 'relative', 'percentage' => '10'], 'relative');
+        $this->submit(['code' => '', 'kind' => VoucherModule::ORDER_PERCENTAGE, 'percentage' => '10'], VoucherModule::ORDER_PERCENTAGE);
 
         $codes = $this->codes();
 
@@ -195,10 +240,10 @@ final class VoucherModuleTest extends WebTestCase
      */
     public function testEditingAVoucherDoesNotChangeItsCode(): void
     {
-        $id = $this->savedId($this->submit(['code' => '', 'kind' => 'relative', 'percentage' => '10'], 'relative'));
+        $id = $this->savedId($this->submit(['code' => '', 'kind' => VoucherModule::ORDER_PERCENTAGE, 'percentage' => '10'], VoucherModule::ORDER_PERCENTAGE));
         $first = $this->codes()[0];
 
-        $this->saveRecord(VoucherModule::KEY, ['code' => $first, 'kind' => 'relative', 'percentage' => '20'], recordId: $id);
+        $this->saveRecord(VoucherModule::KEY, ['code' => $first, 'kind' => VoucherModule::ORDER_PERCENTAGE, 'percentage' => '20'], recordId: $id);
 
         self::assertSame([$first], $this->codes(), 'the same code after an edit');
     }
@@ -212,8 +257,8 @@ final class VoucherModuleTest extends WebTestCase
      */
     public function testADuplicateCodeIsRefusedWhateverCaseItIsTypedIn(): void
     {
-        $this->submit(['code' => 'GIVE-10', 'kind' => 'absolute', 'amount' => '10.00'], 'absolute');
-        $refused = $this->submit(['code' => 'give-10', 'kind' => 'absolute', 'amount' => '5.00'], 'absolute');
+        $this->submit(['code' => 'GIVE-10', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '10.00'], VoucherModule::ORDER_AMOUNT);
+        $refused = $this->submit(['code' => 'give-10', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '5.00'], VoucherModule::ORDER_AMOUNT);
 
         self::assertNull($refused->headers->get('Location'), 'nothing was saved');
         self::assertStringContainsString('Another record already uses this value', (string) $refused->getContent());
@@ -223,7 +268,7 @@ final class VoucherModuleTest extends WebTestCase
     /** A code that cannot be dictated is refused, and the message says what one looks like. */
     public function testAMalformedCodeIsRefusedWithAnExample(): void
     {
-        $refused = $this->submit(['code' => 'GIVE 10!', 'kind' => 'absolute', 'amount' => '10.00'], 'absolute');
+        $refused = $this->submit(['code' => 'GIVE 10!', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '10.00'], VoucherModule::ORDER_AMOUNT);
         $body = (string) $refused->getContent();
 
         self::assertNull($refused->headers->get('Location'), 'nothing was saved');
@@ -234,7 +279,7 @@ final class VoucherModuleTest extends WebTestCase
     /** The code is what a voucher is called, so it is the heading and the link. */
     public function testTheCodeIsWhatAVoucherIsCalled(): void
     {
-        $id = $this->savedId($this->submit(['code' => 'give-10', 'kind' => 'absolute', 'amount' => '10.00'], 'absolute'));
+        $id = $this->savedId($this->submit(['code' => 'give-10', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '10.00'], VoucherModule::ORDER_AMOUNT));
 
         $this->client->request('GET', $this->url('/m/voucher/' . $id));
 
@@ -255,7 +300,7 @@ final class VoucherModuleTest extends WebTestCase
      */
     public function testUnlimitedIsAnAbsentValueAndNotABigOne(): void
     {
-        $this->submit(['code' => 'FOREVER', 'kind' => 'relative', 'percentage' => '10'], 'relative');
+        $this->submit(['code' => 'FOREVER', 'kind' => VoucherModule::ORDER_PERCENTAGE, 'percentage' => '10'], VoucherModule::ORDER_PERCENTAGE);
 
         // The raw column rather than a loaded record: a `Record` read back is
         // hydrated with every field this shape defines, so an unlimited voucher
@@ -273,8 +318,8 @@ final class VoucherModuleTest extends WebTestCase
     /** Once is one, and a fixed number is that number. Nothing else is needed to tell them apart. */
     public function testOnceAndNTimesAreOrdinaryNumbers(): void
     {
-        $this->submit(['code' => 'ONCE', 'kind' => 'relative', 'percentage' => '10', 'max_redemptions' => '1'], 'relative');
-        $this->submit(['code' => 'FIVE', 'kind' => 'relative', 'percentage' => '10', 'max_redemptions' => '5'], 'relative');
+        $this->submit(['code' => 'ONCE', 'kind' => VoucherModule::ORDER_PERCENTAGE, 'percentage' => '10', 'max_redemptions' => '1'], VoucherModule::ORDER_PERCENTAGE);
+        $this->submit(['code' => 'FIVE', 'kind' => VoucherModule::ORDER_PERCENTAGE, 'percentage' => '10', 'max_redemptions' => '5'], VoucherModule::ORDER_PERCENTAGE);
 
         self::assertSame(1, $this->stored('ONCE')[VoucherModule::MAX_REDEMPTIONS] ?? null);
         self::assertSame(5, $this->stored('FIVE')[VoucherModule::MAX_REDEMPTIONS] ?? null);
@@ -287,8 +332,8 @@ final class VoucherModuleTest extends WebTestCase
     public function testAVoucherGoodForNoRedemptionsIsRefused(): void
     {
         $refused = $this->submit(
-            ['code' => 'NEVER', 'kind' => 'relative', 'percentage' => '10', 'max_redemptions' => '0'],
-            'relative',
+            ['code' => 'NEVER', 'kind' => VoucherModule::ORDER_PERCENTAGE, 'percentage' => '10', 'max_redemptions' => '0'],
+            VoucherModule::ORDER_PERCENTAGE,
         );
 
         self::assertNull($refused->headers->get('Location'), 'nothing was saved');

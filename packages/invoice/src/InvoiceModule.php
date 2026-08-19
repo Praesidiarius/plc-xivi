@@ -75,6 +75,7 @@ final class InvoiceModule implements ModuleProvider
     public const string UNIT = 'unit';
     public const string UNIT_PRICE = 'unit_price';
     public const string TAX_RATE = 'tax_rate';
+    public const string LINE_DISCOUNT = 'discount';
     public const string LINE_TOTAL = 'line_total';
 
     public const string RATE = 'rate';
@@ -436,9 +437,44 @@ final class InvoiceModule implements ModuleProvider
                                 'samples' => [8.1, 8.1, 8.1, 2.6, 3.8, null],
                             ],
                         ),
+                        // **What a voucher took off this line on the order this
+                        // bill was made from** (XIV-122).
+                        //
+                        // The invoice grants no discounts of its own and never
+                        // will — it bills what was agreed, and what was agreed
+                        // happened on the order (§5.12). What it has to do is
+                        // *carry* one, and this column is how: the seed copies it
+                        // down like the price and the rate beside it, and the
+                        // engine's arithmetic subtracts it from the line exactly
+                        // as it did there. Without the column the bill would
+                        // silently charge the undiscounted line, which is the
+                        // most convincing wrong number this module could produce.
+                        //
+                        // Derived, so it is shown and not typed into — the same
+                        // flag the line total beside it has carried since XIV-16
+                        // and for the same reason. It is worth being exact about
+                        // what that buys here and what it does not: nothing on an
+                        // invoice recomputes this column, so a **forged** value
+                        // would survive on a draft in a way it cannot on the
+                        // order. That is not a hole this field opens, it is the
+                        // shape an invoice already has — a discount *line* copied
+                        // down from an order has an ordinary editable price on it
+                        // too — and it closes where invoices close, which is
+                        // `sent`: the lifecycle locks there because the customer
+                        // has the document, and a correction after that is a
+                        // credit note rather than an edit.
+                        new FieldBlueprint(
+                            key: self::LINE_DISCOUNT,
+                            width: 1,
+                            label: 'field.line_discount',
+                            type: 'currency',
+                            variants: [self::ARTICLE_LINE, self::CUSTOM_LINE],
+                            position: 48,
+                            derived: true,
+                        ),
                         new FieldBlueprint(
                             key: self::LINE_TOTAL,
-                            width: 2,
+                            width: 1,
                             label: 'field.line_total',
                             type: 'currency',
                             variants: [self::ARTICLE_LINE, self::CUSTOM_LINE, self::SUBTOTAL_LINE, self::DISCOUNT_LINE],
@@ -518,6 +554,13 @@ final class InvoiceModule implements ModuleProvider
                 taxableNet: self::TAXABLE_NET,
                 taxAmount: self::TAX_AMOUNT,
                 subtotalKind: self::SUBTOTAL_LINE,
+                // **A column it can carry and nothing it can grant** (XIV-122).
+                // There is deliberately no `discountKind` beside this: an invoice
+                // names no voucher, so nothing on it is asked what comes off it,
+                // and a discount row copied down from an order is an ordinary
+                // priced line here. Naming the column is what lets the same
+                // arithmetic subtract a reduction the order worked out.
+                lineDiscount: self::LINE_DISCOUNT,
                 vatMode: self::VAT_MODE,
             ),
             // **Made from an order.** The customer comes along so the invoice can
@@ -551,6 +594,16 @@ final class InvoiceModule implements ModuleProvider
                         self::UNIT => 'unit',
                         self::UNIT_PRICE => 'unit_price',
                         self::TAX_RATE => 'tax_rate',
+                        // **And what a voucher took off the line** (XIV-122),
+                        // which is the one addition to this list that is not a
+                        // figure somebody typed. It is copied for the same reason
+                        // the price is: an invoice quotes what was agreed, and a
+                        // line that was agreed at forty francs off was agreed at
+                        // forty francs off. Note what is still *not* copied — the
+                        // line total, which is derived from this and the price on
+                        // the way in, so an invoice for half the lines restates
+                        // its own figures rather than repeating the order's.
+                        self::LINE_DISCOUNT => 'discount',
                     ],
                     source: self::ORDER_LINE,
                     outstanding: self::QUANTITY,

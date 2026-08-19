@@ -5353,6 +5353,15 @@ built here is the voucher *existing*, being valid, and being redeemable. §5.24 
 the other half, and the seam between them turned out to be exactly the one method
 call this section predicted.
 
+> **The kinds below have since been reshaped** ([XIV-122], §5.25). There are now
+> four rather than three, they say a *mode* as well as an arithmetic, and
+> `free_article` is gone — dissolved into "a line voucher restricted to that
+> article at 100%" rather than renamed. Everything this section argues about
+> *why* the kind is a variant, why the module does not `require` articles, and
+> how the counter works is unchanged and is why the reshape cost a blueprint
+> edit. What it says about the article link being **required**, and about that
+> being load-bearing twice, is the one claim §5.25 deliberately overturned.
+
 Most of it is a blueprint like every module before it. One part of it is not, and
 that part is the reason this section is long: **a usage limit is a counter, and a
 counter that two requests can reach is the one thing a declaration cannot
@@ -5667,7 +5676,10 @@ most of them.
 is one method call, and the shape of the discount is already declared: an amount,
 a percentage, or an article and a quantity. *Answered by §5.24*, which took the
 prediction literally: `Money\DocumentDiscounts` is one method, and the three kinds
-collapse into one sentence — every one of them is a line.
+collapse into one sentence — every one of them is a line. *And by §5.25*, which
+found that sentence governs one of two modes and that the other reduces the line
+it is applied to — through the same one method, which is the part of the
+prediction that mattered.
 
 **Module pricing** ([XIV-101], [XIV-102]) is a different feature that happens to
 also involve money. A voucher against a module purchase is not this and has not
@@ -6376,7 +6388,10 @@ Two decisions came with the ticket and are not re-argued here, only followed:
   the reduced net, rather than being deducted from a gross figure.
 - **A discount is its own line.** Not a mutation of the lines it discounts, and
   not a field on the header — which is [XIV-16]'s own rule about discounts,
-  arriving where it was always going to.
+  arriving where it was always going to. **[XIV-122] later gave a voucher a
+  *mode*, and this rule turns out to govern one of the two** — the mode where
+  there is no line for the money to belong to. A voucher applied to a single line
+  reduces that line instead, which is not a departure from this: see §5.25.
 
 Together they unify the three kinds §5.19 declared, and that unification is the
 whole reason the implementation is small: **every kind is a line.** An absolute
@@ -6703,7 +6718,13 @@ document. Two things were arranged so that it fits around this rather than being
 retro-fitted: the redemption counter now has a release as well as a take and both
 go through the one guarded statement, and `DerivesTotals` asks a *list* of
 discount sources, so a document can carry an order voucher's own line and a
-reduced line at once.
+reduced line at once. *Answered by §5.25*, and one of the two hooks was used
+differently than expected: the counter's release is what the set diff is built on
+and was exactly right, but the list of sources stayed one entry long — a line
+voucher turned out to be a second **answer** from the same source rather than a
+second source, because both modes are decided from one record in one save and a
+second source answering separately about the header and the lines would have had
+nothing reconciling the two.
 
 **Applying a voucher directly to an invoice.** A separate question with a separate
 answer, and this ticket is orders only.
@@ -6729,6 +6750,283 @@ is locked, and nobody can take the voucher off it.
 **Anything about who pays for the discount.** No accounting split, no cost centre,
 no reporting on promotions. What is here is a document that says what the
 customer owes.
+
+---
+
+### 5.25 Two ways to apply a voucher (XIV-122)
+
+§5.24 put a voucher on an order and settled that **a discount is its own line**.
+This is the other way of applying one, and the first thing to say is that the two
+are not in tension — which they were read as being, and which is worth writing
+down because the reading was reasonable.
+
+**A voucher has a mode, and the mode decides both where it may be applied and
+what it does.**
+
+| mode | applied to | what it does |
+| --- | --- | --- |
+| **order** | the whole document | **adds its own line**, as §5.24 settled |
+| **line** | one line, chosen when applied | **reduces that line** |
+
+§5.24's rule governs the order mode, where there *is* no line for the money to
+belong to, so it needs one of its own. The line mode has a line already and
+reducing it is the natural reading — and adding a second line beside it would be
+a document saying the same thing twice. Two modes, two answers, neither
+overruling the other.
+
+Everything below is the detail that follows.
+
+#### The mode and the kind are one field, and that is what says which combinations exist
+
+There are two independent questions — order or line, amount or percentage — and
+both change what a voucher *is*. §5.5's rule is that the variants are the variant
+field's options and the fields depend on the answer, so the shape asks **one
+question with four answers** rather than two questions the engine could not
+relate:
+
+    order_amount        Amount off the order
+    order_percentage    Percentage off the order
+    line_amount         Amount off one line
+    line_percentage     Percentage off one line
+
+Which combinations exist is therefore a **list rather than a rule**, and the list
+is all four. Each is a promotion somebody runs. What is decided by their absence
+is the fifth thing a `mode` field beside a `kind` field would have allowed: **an
+order voucher restricted to an article**, which is not "ten francs off" at all but
+a rule about which orders qualify — a different and much larger feature. The
+restriction is declared on the two line variants and on no others, so the engine
+refuses it by not offering it, which is exactly the work §5.5 does and validation
+would otherwise have to.
+
+A `mode` choice beside a `kind` choice was the alternative, and it is [XIV-103]'s
+own "one shape with a nullable field per kind" mistake one level up: nothing
+anywhere could say that an order voucher restricted to an article is nonsense,
+because a variant can hide a field and a plain choice field cannot.
+
+#### The line is chosen when the voucher is applied, and that is what reaches a custom line
+
+An earlier revision had the voucher name an **article** and the engine hunt for
+the line selling it. That cannot reach a **custom line**, which has no article —
+and a custom line is exactly where a negotiated discount lands. It would have
+missed the case the feature exists for.
+
+So the line is chosen by the voucher **being named on it**: the order's line
+collection carries a `voucher` reference, and putting a voucher there is the whole
+of applying one. That asks nothing of the line at all, which is the property the
+article-hunting design could not have.
+
+The article reference survives as an **optional restriction** rather than as the
+targeting mechanism. Named, and the voucher may only go on a line carrying that
+article; empty, and it may go on any line, custom included.
+
+*Free article* then falls out of the general rule as **"line mode, restricted to
+article X, 100%"** rather than being a kind of its own, and [XIV-103]'s
+`free_article` is gone rather than renamed — it described neither half of the
+shape any more. What it stops doing is *adding* the article as a line: the article
+goes on the order the way every other article does, and the voucher takes its
+price off. One more step for whoever types the order, and in exchange the free
+article is a line somebody chose at a quantity somebody chose, priced from the
+catalogue, rather than a row appearing underneath at a quantity the voucher
+decided months earlier.
+
+#### The consequence that removes a guard, recorded rather than noticed
+
+[XIV-103] made the article reference `required: true` **specifically** so that
+`AvailableVariants` would hide that kind from a tenant without the Article module;
+its blueprint comment called this *"load-bearing twice"*. An optional reference is
+not a reason to hide a kind, and `AvailableVariants` correctly says nothing about
+one. **So that guard no longer fires, and all four kinds are offered to every
+customer.**
+
+That is the right outcome rather than a regression — "ten francs off one line" is
+a perfectly good voucher for a tenant with no catalogue, and hiding it would
+refuse them a feature that works, which is the opposite of what [XIV-23] hides a
+kind for. But the **empty picker** [XIV-23] was really avoiding is still worth
+avoiding, and it is, one class over.
+
+`Module\AvailableFields` was narrowed by §5.24 to leave *variant-scoped* fields
+alone, because a variant is `AvailableVariants`' business and the two rules would
+fight. That narrowing was written when the only variant-scoped reference in the
+codebase was required, so the two spellings agreed. They have come apart, and the
+narrowing is **halved**:
+
+> A **required** variant-scoped reference is `AvailableVariants`' to hide. An
+> **optional** one is `AvailableFields`' to take away.
+
+Between them every reference into a module is covered exactly once, and nothing
+overlaps. The kind is offered to a customer with no catalogue; the restriction
+simply is not a field they have.
+
+The same class had to learn about **collections**, for the same reason and with no
+new argument: an order *line* may name a voucher just as an order may, and §5.1's
+claim is that a shape is a shape. Both places a definition is born now ask it —
+the installer for a collection installed with its module, and the upgrade offer
+(§7.2.1) for a field offered afterwards. Without it every order line in a tenant
+that never bought vouchers would carry a picker with nothing behind it, which is
+precisely what §5.24 spends its last section preventing on the header.
+
+`VoucherWithoutArticlesTest` is where the loss is recorded rather than discovered:
+the method that asserted two kinds of three now asserts four of four, and a second
+one asserts that the restriction is not installed at all.
+
+#### The reduction is a column, and the recipient can check it
+
+A reduced line has to *say* it was reduced. §5.24 refused to let a document read
+`1 × Widget @ 100.00 = 90.00` in the other mode and the same objection holds here:
+that line asks its reader to take the arithmetic on trust. So the line gains a
+derived **discount column**, and the line total under it is what is left:
+
+    Consulting   3 × 66.65    199.95   −29.99   169.96
+
+`LineTotals::$lineDiscount` is how a module names it, beside the `discountKind` it
+already named for the other mode. A module may have one, the other, both or
+neither, and an invoice is the interesting case: it has the **column and no
+kind** — it can carry a reduction the order worked out without anything on it
+granting one.
+
+**What protects it is the derived flag, and here that is the right precedent
+rather than the wrong one.** §5.24 found that a subtotal protects *a column, not a
+row*, and needed three mechanisms because the engine owned the whole discount row.
+A line voucher reduces a row the customer owns and edits freely — their own
+article line — so a column is exactly what needs protecting, and the flag that has
+done that since [XIV-20] does it. The deriver restates the column from the voucher
+on every save, so a request forging a smaller figure into it has that figure
+overwritten before anything is stored, and the form draws it disabled on top of
+that.
+
+#### Two passes, and no new arithmetic
+
+`DerivesTotals` walked the rows once, because everything a discount did was
+appended underneath them. A line reduction is not appended: what a line
+contributes to the subtotal above it and to its rate's VAT base is not known until
+the seam has answered, and the seam cannot answer until it has seen the lines.
+
+So the loop is split at exactly that point — first pass works out what each row
+*charges*, the seam is asked once in between, second pass takes the reductions off
+and places the money. The rounding rule, the subtotal rule, the per-rate grouping
+and the treatment of a row the engine wrote last time are the same statements in
+the same order, one indentation level further down.
+
+**Before VAT in both modes**, which is what makes both intelligible: a reduced line
+joins its own rate's group carrying the reduced figure, so the tax is computed on
+what was actually charged. And a line discount needs **no apportionment at all**,
+which is the whole difference from §5.24's order voucher: it stays on its own line,
+so it joins exactly one rate by being part of it. [XIV-116]'s rule about
+remainders never crossing a rate boundary is satisfied by there being no share to
+distribute.
+
+**One seam, not two.** `Money\DocumentDiscounts` still has one method. A line
+voucher turned out to be a second *answer* from the same source rather than a
+second source, which is the better outcome: both modes are decided from one record
+in one save, and a source answering separately about the header and the lines
+would have had nothing anywhere reconciling the two. `Discount` carries `off` for
+the document and `perLine` for the lines; `DiscountLine` is gone with the
+free-article kind that was its only producer.
+
+**When both are on one document the line reductions happen first**, and an order
+percentage is a percentage of what is left. That is the only reading that is not
+arbitrary — "a tenth off this order" is a tenth of what the order costs, and what
+it costs already reflects the tenth somebody negotiated off one line. It also
+keeps the two from ever adding up to more than the document charges.
+
+#### The bound, decided rather than emergent
+
+- **A percentage is capped at 100** by the field, unchanged from §5.19, and for the
+  unchanged reason: a 120% voucher is a document that owes the customer money.
+- **A fixed amount larger than the line is floored at the line**, not refused. A
+  negative line is money owed back and nothing downstream hands any over; a
+  refusal would be the engine declining an arithmetic it can perform, when the
+  shop said "twenty off this", the line was worth fifteen, and fifteen off is
+  plainly what was meant. It is §5.24's document-wide cap reached one level down,
+  and a line that charges nothing or less than nothing takes nothing off.
+
+#### One voucher on several lines is one use
+
+The question this ticket left open, and the answer is [XIV-104]'s invariant
+unchanged rather than a new one: **the count is the number of documents that carry
+the voucher.** An order with `HALF-OFF` on three of its lines is one order carrying
+`HALF-OFF`, so it takes one use.
+
+"One use per line" loses on what a limit *means*. A customer told "this voucher may
+be used five times" reads that as five customers, or five visits — a promotion
+whose budget is five. Under per-line counting it is spent by the first shopper who
+buys five things, and the five-customer promotion ends at the first customer. The
+limit would be counting keystrokes rather than deals.
+
+It also keeps **one counter**. Per-line counting needs a use to be a *(voucher,
+line)* pair, which a counter keyed by `voucher_id` cannot express — so it would
+have meant a second table with a second rule in it, and two counters that must
+agree are two counters that will not.
+
+**Which makes the diff a set.** [XIV-104] read one field's before-and-after because
+a voucher could only be in one place; there are now many places, so what is
+compared is the set of vouchers the document carries, before and after. Gaining
+one takes a use, losing one gives it back, swapping does both, deleting the
+document gives every one back — and **moving a voucher from one line to another
+does nothing at all**, which is what the set buys and a per-field diff could not.
+Dragging it down a row is two field changes and no change to the document; a naive
+reading would release and re-take, and on a single-use voucher at its limit would
+refuse a save that changed nothing about how many times the voucher had been used.
+
+The "before" set is reconstructed from `RecordChanges` rather than read, because by
+the time the subscriber runs the rows are already written: a row that was added is
+taken out, a row that was removed is put back with the voucher its summary
+remembers, and a row whose voucher changed gets the one it came in with. The
+history entry and the subscriber read the same facts, which is what makes the
+reconstruction trustworthy rather than clever.
+
+One small thing had to be added for the delete path. `RecordChanged` is dispatched
+*after* the delete inside the same transaction (§5.2), so the one moment at which
+what a record carried matters most is also the one moment its rows are behind a
+tombstone. `RecordRepository::findChildren()` gained the `includeDeleted` flag
+`find()` already had, and every ordinary caller sees what it saw before. This was
+found by a test rather than by reading: the first version released nothing on
+deletion and said so.
+
+#### Where the mode is enforced, and why it is there
+
+A line voucher put on the order, or an order voucher put on a line, is **worth
+nothing in the deriver and refused at the write** — with a sentence that names the
+fix rather than the rule, because it is a mistake with an obvious one. A voucher
+on a line that breaks its article restriction is refused the same way, by name, so
+that whoever is holding it knows where it does work.
+
+Both halves are needed. A refusal cannot happen in a deriver (§5.24), and the
+deriver runs on every keystroke of a form somebody is still typing into — so the
+rule would fire while they were halfway through choosing. And silently discounting
+nothing would put a figure on the page that nobody could explain. What the deriver
+must not do is *guess*: an order voucher dropped on a line is not "probably meant
+for the order".
+
+It could not have been a field definition or a validation constraint either, which
+is §5.24's own test for anything landing at the write: whether this voucher may go
+on this line depends on the **voucher's** kind and the **line's** article, and a
+constraint on either record cannot see the other.
+
+#### Deliberately not in this
+
+**A voucher on two documents at once is still two uses**, and a cancelled order
+still keeps its use. §5.24's edges are unchanged.
+
+**Nothing shows a customer which of their lines a voucher would be worth most on.**
+Choosing is a person's job here.
+
+**The reduction has no reason on it.** "15% off, agreed with the customer on the
+phone" is a note, and the line's description is where a note goes.
+
+**A line still carries at most one voucher.** Two vouchers on one line is a stacking
+rule — which comes first, whether the second is a percentage of the first's
+result — and nothing here has an opinion about it. The field is a single reference,
+so the question cannot be asked yet.
+
+**And one cost is accepted rather than fixed.** The *Discount* column names no
+module, so `AvailableFields` has no opinion about it and an installation with
+orders and no vouchers gets a column nothing can ever fill in. Hiding it would
+need a rule saying "this field is only writable while that other field exists",
+which is one module's internals living in the engine — and §5.4 already gives the
+better answer, since the field editor removes a field somebody does not want. It
+is asserted in `OrderWithoutVouchersTest` so that it stays a decision rather than
+becoming a discovery.
 
 ---
 

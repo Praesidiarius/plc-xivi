@@ -15,19 +15,22 @@ field:
     kind: Art
     amount: Betrag
     percentage: Rabatt (%)
-    article: Gratisartikel
-    quantity: Menge
+    article: Nur auf Zeilen mit
     valid_from: Gültig ab
     valid_until: Gültig bis
     max_redemptions: Erlaubte Einlösungen
 
 kind:
-    absolute: Betrag
-    relative: Rabatt in Prozent
-    free_article: Gratisartikel
+    order_amount: Betrag auf den Auftrag
+    order_percentage: Prozent auf den Auftrag
+    line_amount: Betrag auf eine Zeile
+    line_percentage: Prozent auf eine Zeile
 
 refusal:
     expired: Der Gutschein %voucher% ist abgelaufen und kann nicht verwendet werden.
     not_yet_valid: Der Gutschein %voucher% ist noch nicht gültig.
     exhausted: Der Gutschein %voucher% wurde bereits so oft eingelöst, wie er erlaubt.
     unavailable: Der Gutschein %voucher% ist nicht mehr verfügbar.
+    wrong_place_for_line: Der Gutschein %voucher% gilt für eine einzelne Zeile und gehört deshalb auf eine Zeile statt auf den Auftrag.
+    wrong_place_for_order: Der Gutschein %voucher% gilt für den ganzen Auftrag und gehört deshalb auf den Auftrag statt auf eine Zeile.
+    wrong_article: Der Gutschein %voucher% kann nur auf einer Zeile mit %article% verwendet werden.
