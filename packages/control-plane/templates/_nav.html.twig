@@ -53,6 +53,16 @@
 			<a class="nav-link py-1 {{ current == 'control_plane_notices' ? 'active' : '' }}"
 			   {{ current == 'control_plane_notices' ? 'aria-current="page"' : '' }}
 			   href="{{ path('control_plane_notices') }}">{{ 'control_plane.notices'|trans }}</a>
+			{#
+				The fifth page (XIV-123), and the pair to the fourth: notices are what
+				an operator says to customers, and this is what customers say back. It
+				sits last because it is the only item where somebody else decides there
+				is work — the other four are opened when an operator has a question,
+				and this one is opened because a customer had one.
+			#}
+			<a class="nav-link py-1 {{ current == 'control_plane_support' ? 'active' : '' }}"
+			   {{ current == 'control_plane_support' ? 'aria-current="page"' : '' }}
+			   href="{{ path('control_plane_support') }}">{{ 'control_plane.support'|trans }}</a>
 		</nav>
 	</div>
 	<div class="d-flex align-items-center gap-3">

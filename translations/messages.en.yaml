@@ -46,6 +46,10 @@ nav:
     # Short on purpose: it labels one item in the menu under your own name, and
     # the page it opens says "Your account" in its own heading (XIV-77).
     account: Account
+    # Reaching whoever runs this installation (XIV-123). "Support" rather than
+    # "Help": help is documentation, which lives on the documentation site, and
+    # this is a person.
+    support: Support
     sign_out: Sign out
 
 login:
@@ -256,6 +260,42 @@ control_plane:
         A notice appears on the dashboard of everybody it was addressed to, in their own
         installation, where they are already working.
 
+    # A customer asks the operator something (XIV-123). The pair to the notices
+    # above, and the vocabulary is deliberately smaller than a helpdesk's: there
+    # are tickets, a state and a reply, and no queue, no agent, no case number and
+    # no priority. Each of those words would be a promise this installation has no
+    # way to keep.
+    support: Support
+    support_outstanding: '%count% customer(s) are waiting for an answer.'
+    support_outstanding_hint: >-
+        A reply appears on the customer's own screen the moment you write it — the wait is
+        only on the way in, while a ticket is collected.
+    support_raised: 'asked %time%'
+    # Not "as of", for the purchases screen's reason: the reader has to understand
+    # that the row could be out of date rather than merely be told a timestamp.
+    support_collected: 'collected %time%'
+    support_replied_by: '%name% answered %time%'
+    support_reply: Reply
+    support_reply_again: Rewrite the reply
+    support_reply_hint: >-
+        Plain text, and the customer reads it straight away. There is one reply per ticket;
+        sending another replaces it.
+    support_send: Send
+    support_state: State
+    support_move: Move
+    support_moved: 'Moved to %status%.'
+    support_replied: Your reply is on the customer's screen.
+    support_stale: That page had been open a while. Nothing was changed — try again.
+    support_gone: That ticket no longer exists; its customer may have been removed.
+    support_unknown_status: That is not a state a ticket can be in.
+    no_support: Nobody has asked anything
+    # The sentence that tells an empty queue from a job nobody scheduled — the
+    # failure XIV-126 exists to make visible, and this screen's version of it.
+    no_support_hint: >-
+        Tickets appear here after `tenant:support:collect` runs. An installation that never
+        put that on a schedule sees this page exactly like one nobody has written to.
+    support_last_collection: 'Last collected %time%.'
+
 dashboard:
     # A widget's heading (XIV-81). The module tiles have none — a grid of labelled
     # cards under the company name describes itself — so this is the only one so
@@ -320,6 +360,54 @@ notice:
         # ROLE_ADMIN is the nearest thing an installation knows to "whoever pays",
         # and the word for it should be the one the user screens already use.
         administrators: Administrators
+
+# Reaching whoever runs this installation (XIV-123, §8.17). The customer's half
+# of the same conversation the notices above are the operator's half of.
+#
+# In the application's catalogue and not the control plane's, and the status
+# names are read on *both* screens: an operator sets one and a customer reads it,
+# and one installation has one catalogue.
+support:
+    title: Support
+    intro: >-
+        Questions for the people who run this installation. Whatever you write here reaches
+        them, and their answer comes back onto this page.
+    raise: Ask something
+    subject: Subject
+    body: What is happening
+    body_hint: >-
+        What you were doing, what you expected, and what happened instead. Screenshots and
+        attachments are not supported yet.
+    send: Send
+    # The delay, on the screen of the person it happens to. No number: how often
+    # tickets are collected is a line in the crontab of whoever runs this
+    # installation, and a figure printed here would be this software guessing at
+    # somebody else's file.
+    delay: >-
+        Tickets are collected periodically, so it can be a few minutes before anybody sees
+        this. Their reply appears here as soon as it is written.
+    # Not "thank you" and not "we will be in touch within 24 hours": what is true
+    # is that it has been written down, that nobody has it yet, and that it will
+    # get there. §8.15's rule about a flash that refuses to congratulate anybody.
+    raised: >-
+        Written down. It reaches whoever runs this installation at the next collection, and
+        their answer will appear here.
+    stale: That page had been open a while. Nothing was sent — try again.
+    none: You have not asked anything yet
+    none_hint: >-
+        Anything anybody here asks appears on this page, with the answer, so a colleague can
+        read it too.
+    # The honest fourth state, and it is an absence rather than a status: nobody
+    # has collected this yet, which is not the same as nobody having looked at it.
+    not_received: Not received yet
+    raised_by: '%name% asked %time%'
+    replied_by: '%name% answered %time%'
+    status:
+        open: Waiting for an answer
+        # The case that earns the enum: "somebody has picked this up" is the
+        # sentence a waiting customer most wants and that nothing else can say.
+        in_progress: Being looked at
+        closed: Closed
 
 account:
     region: Region

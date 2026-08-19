@@ -1266,8 +1266,10 @@ checked rather than assumed: `App\Registry` reads, and the writers in `src/` are
 whose only callers are the `module:*` commands and the operator pricing screen;
 `TenantSecretRotator` is driven from `tenant:rotate-secrets`; and — since
 [XIV-120] — `Registry\Notice\NoticeBoard`, whose only caller is the operator's
-notices screen (§8.16). Every one of those callers is in the package and
-therefore absent from the image.
+notices screen (§8.16); and — since [XIV-123] — `Registry\Support\SupportDesk`,
+whose only caller is the operator's support screen (§8.17), plus
+`Support\SupportTicketCollector` in the package itself. Every one of those
+callers is in the package and therefore absent from the image.
 
 **That a writer is present in the image and unreachable is not the guarantee
 being relied on**, and §6.5 says so at length where the split runs through one
@@ -1300,6 +1302,20 @@ to the generator — a grant that would have been produced, run, and been wrong.
 Anything that is a table and not an entity is outside `readableTables()`;
 `doctrine_migration_versions` is the only other member of that set and is named
 explicitly for the same reason.
+
+**And [XIV-123] has since decided one that goes both ways**, which is the case
+neither of the two above covers. A support ticket is a customer's *write*, so
+§8.15's sentence applies unchanged and the row goes into their own database with
+a collector to bring it back. What the operator then does about it — a status, a
+reply — is a write on *this* side that the **customer has to read**, which is
+§8.16's direction. So the collected copy is an `App\Registry\Entity` class,
+readable by a customer-facing instance, and the answer needs no second collector
+pointing the other way: an operator writes it here and it is on the customer's
+screen on their next request. That is why `support_request` is a registry table
+while [XIV-102]'s `purchase_intent`, which nobody but an operator reads, is one of
+the administration surface's. §8.17 has the argument, and
+`tests/Functional/Deployment/SupportGrantsTest.php` proves it as the restricted
+role.
 
 **`bin/console deploy:registry-grants` prints the SQL**, and it prints rather
 than executes for a reason: a running instance that could grant privileges to
@@ -11206,6 +11222,301 @@ for a deployment that needs it and is not this one.
 **No summary.** The previous iteration had a title, a summary and a body; a
 summary is a second thing to write that can disagree with the first. A title and
 a body is what an announcement is.
+
+---
+
+### 8.17 A customer can reach whoever runs this installation (XIV-123)
+
+The previous iteration had a `Support` module — tickets, replies, an FAQ. This
+one had **no channel from a customer to the operator at all**: not a ticket, not
+a contact form, not an address. A customer whose invoice module was behaving
+oddly, or who wanted a module they could not see in the store, had whatever email
+address they happened to be given when they signed up.
+
+#### The pair this completes
+
+§8.16 gave the operator a way to talk **to** customers. This is the return path,
+and the two are one feature seen from both ends:
+
+* an announcement is one-to-many, scheduled, and about the installation;
+* a ticket is one-to-one, unscheduled, and about a problem.
+
+Neither substitutes for the other, and building only the first would have been
+odd — an operator who can broadcast and cannot be replied to.
+
+#### Where it lives, and the constraint that decides it
+
+A ticket is **written by a customer**, which is [XIV-102]'s direction and
+therefore [XIV-102]'s constraint: §4.4 gives the customer-facing instance
+`SELECT` on the registry tables and no write privilege anywhere in the
+control-plane database. So the ticket cannot be written there, and it goes where
+every write a customer's request makes goes — into their own database, as
+`support_ticket` — with `tenant:support:collect` bringing it back for an operator
+to read. That is `tenant:purchase:collect`'s shape with different columns, reused
+rather than re-derived.
+
+The alternative that removes the collector is the same one §8.15 rejected and it
+is rejected here for the same sentence: **an HTTP call to the control plane**
+would hand the public image a credential that writes that database, re-obtaining
+over the network exactly the privilege PostgreSQL refuses it. §4.4's whole
+argument is that the sharp boundary is the grant rather than the topology.
+
+#### But the answer comes back the other way, and that is the design
+
+Here is where this stops being [XIV-102] and starts being both tickets at once.
+
+**The status and the reply live on the collected copy, in the control plane, and
+the customer reads them directly.** Reading the registry is precisely what §4.4's
+grant has always permitted (§8.16 is a whole section about how cheap that
+direction is), so an operator who answers at 14:03 has answered on the customer's
+screen at 14:03. There is no second collector pointing into every customer's
+database, no push, and nothing that can be stale.
+
+That decides the one thing about this feature that could have been got quietly
+wrong: **`support_request` is an `App\Registry\Entity` class**, not one of
+`Xivi\ControlPlane\Entity`'s. `RegistryGrants` derives the readable list from that
+namespace and no other, so the namespace *is* the grant — and filed beside
+[XIV-102]'s `purchase_intent`, which is the obvious place for it, every
+customer's support page would have met SQLSTATE 42501. The difference between the
+two tables is exactly the difference between the two features: a purchase request
+is collected **for an operator to read**, and a support ticket is collected so
+that an operator can **answer**.
+
+**The cost of that lands on a deploy, and it is stated rather than discovered.**
+A release that adds a registry table means `deploy:registry-grants` has to be run
+again — that is why the command derives its list from the mapping rather than
+maintaining a script (§4.4) — and an installation that skips it gets a
+customer-facing instance whose role cannot read `support_request`. The failure is
+immediate, loud and total for that instance rather than latent. [XIV-120] made
+the same trade for `notice` and `CHANGELOG.md` names it as an action bullet the
+same way.
+
+#### The delay, decided rather than inherited
+
+Collection means a delay, in one direction only, and it is worth being exact
+about which:
+
+| | Who is waiting | How long |
+| --- | --- | --- |
+| Customer → operator | nobody is watching a screen; the operator is not sitting in the product | one collection interval |
+| Operator → customer | the person who asked, who came back to look | none at all |
+
+**The leg that waits is the leg where nobody is watching.** That asymmetry is
+what makes the interval acceptable, and it is why the alternative — a secret in
+the public image — buys so little for what it costs.
+
+Three things follow, and all three are built:
+
+1. **`App\Monitoring\ScheduledJobs` carries `tenant:support:collect` at five
+   minutes**, which is `signup:provision`'s cadence rather than
+   `tenant:purchase:collect`'s ten, and for `signup:provision`'s reason: somebody
+   is waiting rather than something is being counted. §4.5 exists because
+   `tenant:purchase:collect` shipped into *no* list of cron entries at all; the
+   list is now what `deploy:crontab` prints, so this job reaches a crontab
+   without anybody remembering it.
+2. **The customer's own screen says so.** A ticket nobody has collected reads
+   *not received yet* rather than borrowing a status it has not got — §8.11's
+   *absence says it exactly*, pointed at the person the delay happens to. That is
+   the honest rendering, and it is what stops a quiet product looking like a
+   broken one. The flash after raising one says the same thing in words, and
+   deliberately does not thank anybody or promise a time (§8.15's rule).
+3. **The operator's screen prints the collection time on every row**, and its
+   empty state names the command. This matters more here than on the purchase
+   screen: an empty support queue and a cron entry nobody ever wrote look
+   identical, for ever.
+
+**No interval is printed anywhere in the product.** How often tickets are
+collected is a line in the crontab of whoever runs the installation, and a figure
+on a customer's screen would be this repository guessing at somebody else's file
+— §8.15's refusal to promise "within 24 hours", one screen over.
+
+#### Replies are in scope, and the shape is one column
+
+The ticket asked whether replies were a first slice or a later one. They are in,
+because **the mechanism is already paid for**: a status the customer can see
+requires a control-plane row the customer can read, and once that exists an
+operator's answer is one `TEXT` column on it arriving by the same route. Building
+the whole read path and then telling the customer to check their email would have
+been the odd outcome.
+
+What is *not* built is a thread. There is one reply per ticket; sending another
+rewrites it, and `replied_at` moves with it, because a second version of an
+answer is the answer. A customer cannot answer back in place — they raise another
+ticket, and the operator sees both.
+
+The reason is a boundary rather than effort. **A customer's message crosses the
+collector and an operator's does not**, so a two-sided thread is not one feature
+symmetrically applied: it is a message table on each side, an interleaving that
+has to survive a collection interval, and an operator's screen that has to make
+sense while half the conversation is in flight. That is a conversation product,
+and it is a much bigger thing than this ticket. What is here is the honest first
+slice: **a customer can ask, an operator can answer, and both can see where it
+has got to.**
+
+**Replying does not move the status**, which is a decision rather than an
+oversight. An operator who answers and considers it finished closes it; one who
+answers and expects to hear more leaves it in progress. A hidden state change on
+a screen that also has a visible state control is how the two stop agreeing.
+
+#### The status, and the states that are not there
+
+`SupportStatus` is `Open`, `InProgress`, `Closed`.
+
+§8.15 refused a status column outright on a purchase request, and the argument
+was good: fulfilment there is *observable* — the customer either has the module or
+they do not, and a column would have been a second copy of a fact free to
+disagree with it. **None of that transfers.** Whether somebody has picked up a
+question is not observable from anywhere; it exists in an operator's head until
+they say so, and a customer staring at silence is the entire problem this ticket
+is about.
+
+So each case has to earn its place by saying something nothing else says:
+
+* **`InProgress` is the one that earns the enum.** *"Somebody is looking at
+  this"* is what a waiting customer most wants and what no other column can
+  express; without it the only way to signal progress is to close a ticket that
+  is not finished.
+* **There is no `Answered`.** A reply is visible on the row — the customer is
+  reading it — so a state naming its existence would be §8.15's second copy
+  arriving by the back door.
+* **No priority, no category, no SLA.** An ERP support queue is not a helpdesk
+  product and those three are how it becomes one. Each is also a promise: a
+  priority promises an ordering and an SLA promises a time, and this installation
+  knows nothing about the arrangement between the two companies that would let it
+  keep either.
+
+Any state may follow any other. A lifecycle (§5.8) would be modelling a process
+nobody has described, and an operator reopening something they closed by mistake
+is an ordinary Tuesday.
+
+#### Who may raise one: everybody signed in
+
+Not administrators only, and not a per-installation setting.
+
+**Raising a ticket commits nothing** — no money, no install, no change to the
+installation — which is the whole of the difference from [XIV-102]'s `buy`, where
+the argument for a separate grant was that pressing a button obliges the company
+to pay somebody. And **the person who met the problem is the person who can
+describe it**: routing a bug report through an administrator means the
+description travels through somebody who did not see it happen, or does not
+travel at all.
+
+**A per-installation setting was refused**, and not only on the grounds that it
+is more than this needs. It is a switch whose only possible effect is to stop
+somebody with a problem reaching the people who can fix it — §8.16's argument for
+refusing a `@notices` permission, pointed the other way: the channel between a
+customer and their operator should not be something either end can quietly close.
+
+The firewall is the whole of the access control, and
+`SupportTicketTest::testSomebodyWhoIsNotSignedInCannotReachIt` proves it through
+a real request, on the POST as well as the GET, because a form that is not drawn
+is not a check.
+
+**The tickets are the company's, not the reader's.** A colleague who asked the
+same question on Tuesday should find the answer rather than ask it again, which
+is most of what a screen buys over an email. The name of whoever raised each one
+is on the row, so nothing is anonymous — it is simply not private between
+colleagues, and the page says so where somebody deciding what to type will meet
+it.
+
+#### What a ticket carries, and who does not cross
+
+A subject, a body, a date, who raised it, and a status. The ticket asked for
+exactly that and nothing was added.
+
+**Who raised it does not cross.** The tenant-side row keeps the person's id and
+the name they had at the time — `follow_up`'s two-column pattern, so somebody
+leaving does not take the record of a question with them — and **neither value
+ever reaches the control plane**. §8.11 drew the line at *how much* rather than
+*what*, [XIV-102] held it for purchase requests, and it is held here where
+crossing it is most tempting: an operator would obviously like to know whom to
+write back to.
+
+**They do not need to, and that is what makes this line free rather than merely
+principled.** The answer is delivered inside the product — it lands on the
+collected row and the customer reads it on the screen they raised the ticket on —
+so an operator answers the company without ever learning which of its staff typed
+the question.
+
+#### The reference, and a rebuilt database
+
+The collected copy is matched on a random 128-bit `reference` generated in the
+customer's database, on the pair `(tenant, reference)`.
+
+The primary key would have been the obvious choice and is wrong. **Ids are a
+sequence per database**, so a customer whose database is rebuilt — `tenant:reset`
+does exactly that, and §4.1's rebuild is a supported operation — starts again at
+1, and the next collection would find "ticket 1" and overwrite the row holding an
+operator's answer to a different question. And the tenant is half of the key
+because a reference is a value produced inside a *customer's* database: matching
+on it alone would let one customer name another's row by producing the same
+string.
+
+#### The collector removes nothing, which is where it differs from [XIV-102]'s
+
+`PurchaseIntentCollector` deletes a collected row whose request has gone from the
+customer's database, and the reason is good: a queue half full of requests that
+no longer exist is a queue somebody stops trusting.
+
+**The support collector deliberately does not**, because the operator's half of
+the row — the status, the reply, who wrote it and when — exists **only here**.
+Deleting it would destroy the answer rather than tidy up after it, and *"we
+answered them in March and then their database was rebuilt"* is a question
+somebody asks. Nothing in this system deletes a support ticket.
+
+For the same reason the collector writes the customer's three columns and touches
+nothing else. A collection that rewrote the whole row — the obvious
+implementation, and the one an upsert produces — would discard an answer whenever
+a run overlapped with somebody typing one, on a job that runs every five minutes,
+and the visible symptom would be a customer shown their own question back with
+the answer gone. `SupportRequestTest::testACollectionDoesNotUndoAnOperatorsAnswer`
+is what goes red.
+
+#### The FAQ is out of scope, and its home is named
+
+The previous iteration's `Support` module bundled tickets, replies **and an FAQ**,
+and the third of those is a different feature wearing a similar name. An FAQ is
+**documentation**, and this project has a documentation site in its own
+repository — <https://praesidiarius.github.io/plc-xivi-docs/>. If a customer's
+question has a written answer, that is where the answer belongs: written once,
+versioned with the product, readable by somebody who has not signed in yet, and
+editable without a deploy. Reproducing it inside the application would mean a
+second place for the same sentences to be wrong in.
+
+**And no link to it from the support page either**, which is the smaller decision
+inside the larger one. The docs site's address is a fact about *this* deployment
+— a company that forked Xivi has its own — so putting it on a customer's screen
+means a new environment variable and a new deployment fact, for a link. `README.md`
+names it for the people who can act on it. That is where it stays until somebody
+asks.
+
+#### What is deliberately not built
+
+**No mail, in either direction.** Not to the operator when a ticket arrives and
+not to the customer when it is answered. §8.7 is a section about how much has to
+be true before an installation sends a message reliably, and none of it should
+stand between somebody with a problem and the people who can fix it — §8.16 made
+the same call for notices. The customer sees the answer where they asked; the
+operator sees the queue where they work.
+
+**No attachments and no screenshots.** A screenshot is the single most useful
+thing a support ticket could carry and it is not here, because it is a file
+upload crossing a tenant boundary — stored in the customer's database, copied or
+referenced by a collector, and served to an operator on a different host. That is a feature, not a column, and it is the first thing to
+build when this one has been used in anger.
+
+**No read receipts and no "the operator has seen it".** `InProgress` is somebody
+*saying* they have picked it up, which is a claim a person makes rather than a
+fact a system observes — and §8.16's refusal to report a dismissal as "read"
+applies here word for word.
+
+**No search, no paging, no filtering.** One company's tickets are a list of tens
+over the life of an installation, and the operator's page is every company's list
+sorted by who has waited longest. When it stops being tens the answer is the same
+one §8.10 gives for the tenant list: a search box, and the ordering reaching SQL.
+
+**Nothing withdraws a ticket.** A customer who solves it themselves says so, in
+the ticket, which is what a person does anyway.
 
 ---
 

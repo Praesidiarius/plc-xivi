@@ -100,6 +100,25 @@ final readonly class ScheduledJobs
                 'a customer\'s request to buy a module never reaches the operator screen',
             ),
 
+            // The other one with somebody sitting on the other end, and the most
+            // impatient of the three: they have just typed out what is wrong with
+            // their business software and their own screen says, honestly, that
+            // nobody has it yet. §4.4's grant means a customer's request cannot
+            // write to the control plane, so this walk is the *only* thing that
+            // puts a ticket in front of an operator (XIV-123, §8.17).
+            //
+            // Five minutes rather than the purchase collector's ten, and it is
+            // `signup:provision`'s cadence for `signup:provision`'s reason:
+            // somebody is waiting rather than something is being counted. The
+            // reply travels the other way with no interval at all — it is a
+            // control-plane row the customer reads directly — so this is the only
+            // leg of the conversation a cadence can slow down.
+            new ScheduledJob(
+                'tenant:support:collect',
+                '*/5 * * * *',
+                'a customer\'s question to whoever runs this installation reaches nobody',
+            ),
+
             // The housekeeping one. Nobody is waiting, and the page is honest
             // about it either way — every row reads "not collected yet" until
             // this has run, and carries its own timestamp afterwards (§8.11) —

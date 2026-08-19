@@ -1,0 +1,150 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'support.title'|trans }}{% endblock %}
+
+{#
+	**Reaching whoever runs this installation** (XIV-123, §8.17).
+
+	The customer's end of a pair. [XIV-120] put the operator's announcements on
+	this person's dashboard; this is the way back, and until it existed there was
+	no channel from a customer to an operator at all.
+
+	**Everything on this page comes out of two databases and says which.** The
+	question is a row in the customer's own database, because §4.4 gives their
+	instance no write privilege anywhere in the control plane; the status and the
+	reply are rows in the control plane, read directly, because `SELECT` on the
+	registry is what that grant has always allowed. So the answer appears the
+	instant an operator writes it, and the *question* waits for the next
+	collection — which is the asymmetry this page states out loud rather than
+	papering over.
+
+	**No attachments, no screenshots, no priority.** An ERP support queue is not a
+	helpdesk product, and each of those is a step towards being one. A priority in
+	particular is a promise about ordering that this installation has no way to
+	keep.
+#}
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<h1 class="h3 mb-1">{{ 'support.title'|trans }}</h1>
+		<p class="text-body-secondary">{{ 'support.intro'|trans }}</p>
+
+		<div class="row g-4">
+			<div class="col-12 col-lg-5">
+				<form method="post" class="card">
+					<div class="card-body">
+						<h2 class="h6">{{ 'support.raise'|trans }}</h2>
+						<input type="hidden" name="_token" value="{{ csrf_token('support') }}">
+
+						<div class="mb-3">
+							<label class="form-label" for="support-subject">{{ 'support.subject'|trans }}</label>
+							<input class="form-control" id="support-subject" name="subject" required
+							       maxlength="{{ max_subject }}">
+						</div>
+
+						<div class="mb-3">
+							<label class="form-label" for="support-body">{{ 'support.body'|trans }}</label>
+							<textarea class="form-control" id="support-body" name="body" rows="8" required
+							          maxlength="{{ max_body }}"></textarea>
+							{#
+								What to write, said before somebody writes the wrong thing. An
+								operator reading "it does not work" has to ask two questions
+								before they can start, and the round trip costs a collection
+								interval each way.
+							#}
+							<div class="form-text">{{ 'support.body_hint'|trans }}</div>
+						</div>
+
+						<button class="btn btn-primary" type="submit">{{ 'support.send'|trans }}</button>
+
+						{#
+							**The delay, on the screen of the person it happens to.** A ticket
+							is written into this installation's own database and an operator
+							sees it at the next collection; saying so here is the difference
+							between a product that is quiet for ten minutes and one that looks
+							broken for ten minutes. §8.17 refuses to name an interval, because
+							the crontab that decides it belongs to whoever runs this
+							installation and a number printed here would be this repository
+							guessing at somebody else's file.
+						#}
+						<p class="form-text mb-0 mt-3">{{ 'support.delay'|trans }}</p>
+					</div>
+				</form>
+			</div>
+
+			<div class="col-12 col-lg-7">
+				{% if tickets is empty %}
+					<div class="card">
+						<div class="card-body">
+							<h2 class="h6">{{ 'support.none'|trans }}</h2>
+							<p class="text-body-secondary mb-0">{{ 'support.none_hint'|trans }}</p>
+						</div>
+					</div>
+				{% else %}
+					{#
+						The company's tickets rather than this reader's. A colleague who
+						asked the same question on Tuesday should find the answer instead of
+						asking it again, which is most of what a screen buys over an email
+						— and the name of whoever raised each one is on the row, so nothing
+						here is anonymous. It is simply not private between colleagues.
+					#}
+					{% for ticket in tickets %}
+						<article class="card mb-3 {{ ticket.isOutstanding ? '' : 'opacity-75' }}">
+							<div class="card-body">
+								<div class="d-flex justify-content-between align-items-start gap-3">
+									<h2 class="h6 mb-1">{{ ticket.subject }}</h2>
+									{#
+										Colour and the word, never colour alone — the tenant list's
+										rule, and here it carries the honest fourth case: a ticket
+										nobody has collected yet has no status at all, and says so
+										rather than borrowing "open". That is §8.11's *absence says
+										it exactly*, in the direction the customer is looking.
+									#}
+									{% if not ticket.isReceived %}
+										<span class="badge text-bg-secondary">{{ 'support.not_received'|trans }}</span>
+									{% elseif ticket.status.value == 'closed' %}
+										<span class="badge text-bg-success">{{ ticket.status.label|trans }}</span>
+									{% elseif ticket.status.value == 'in_progress' %}
+										<span class="badge text-bg-info">{{ ticket.status.label|trans }}</span>
+									{% else %}
+										<span class="badge text-bg-warning">{{ ticket.status.label|trans }}</span>
+									{% endif %}
+								</div>
+
+								<p class="small text-body-secondary mb-2">
+									{{- 'support.raised_by'|trans({
+										'%name%': ticket.raisedByLabel,
+										'%time%': ticket.raisedAt|date('Y-m-d H:i'),
+									}) -}}
+								</p>
+
+								{# Plain text rendered as plain text, with the line breaks somebody typed. #}
+								<p class="mb-0" style="white-space: pre-wrap">{{ ticket.body }}</p>
+
+								{% if ticket.reply %}
+									{#
+										The operator's answer, drawn as a distinct block rather than
+										as another paragraph: the one thing a person opening this
+										page is looking for is whether anybody has said anything.
+									#}
+									<div class="mt-3 p-3 rounded bg-body-secondary">
+										<div class="small text-body-secondary mb-1">
+											{{- 'support.replied_by'|trans({
+												'%name%': ticket.replyAuthorLabel,
+												'%time%': ticket.repliedAt|date('Y-m-d H:i'),
+											}) -}}
+										</div>
+										<div style="white-space: pre-wrap">{{ ticket.reply }}</div>
+									</div>
+								{% endif %}
+							</div>
+						</article>
+					{% endfor %}
+				{% endif %}
+			</div>
+		</div>
+	</main>
+{% endblock %}

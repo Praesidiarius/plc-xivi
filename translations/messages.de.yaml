@@ -35,6 +35,7 @@ nav:
     profile: Firma
     store: Store
     account: Konto
+    support: Support
     sign_out: Abmelden
 
 login:
@@ -158,6 +159,34 @@ control_plane:
         Eine Mitteilung erscheint im Dashboard aller, an die sie gerichtet ist — in ihrer eigenen
         Installation, dort, wo sie ohnehin arbeiten.
 
+    # Eine Kundin fragt den Betreiber etwas (XIV-123).
+    support: Support
+    support_outstanding: '%count% Kundinnen und Kunden warten auf eine Antwort.'
+    support_outstanding_hint: >-
+        Eine Antwort erscheint sofort auf dem Bildschirm der Kundin — gewartet wird nur auf dem
+        Hinweg, solange ein Ticket eingesammelt wird.
+    support_raised: 'gefragt %time%'
+    support_collected: 'eingesammelt %time%'
+    support_replied_by: '%name% hat %time% geantwortet'
+    support_reply: Antworten
+    support_reply_again: Antwort überschreiben
+    support_reply_hint: >-
+        Reiner Text, und die Kundin liest ihn sofort. Es gibt eine Antwort pro Ticket; eine
+        weitere ersetzt sie.
+    support_send: Senden
+    support_state: Stand
+    support_move: Setzen
+    support_moved: 'Auf %status% gesetzt.'
+    support_replied: Die Antwort steht auf dem Bildschirm der Kundin.
+    support_stale: Die Seite war eine Weile offen. Es wurde nichts geändert — bitte noch einmal.
+    support_gone: Dieses Ticket gibt es nicht mehr; die Kundin wurde vielleicht entfernt.
+    support_unknown_status: Diesen Stand kann ein Ticket nicht haben.
+    no_support: Es hat noch niemand gefragt
+    no_support_hint: >-
+        Tickets erscheinen hier, sobald `tenant:support:collect` läuft. Eine Installation, die das
+        nie eingeplant hat, sieht diese Seite genauso wie eine, an die niemand geschrieben hat.
+    support_last_collection: 'Zuletzt eingesammelt %time%.'
+
 dashboard:
     follow_ups: Deine Wiedervorlagen
     no_access: Du hast noch auf kein Modul Zugriff. Eine Administratorin oder ein Administrator kann ihn dir geben.
@@ -198,6 +227,38 @@ notice:
     audience:
         everyone: Alle hier
         administrators: Administratorinnen und Administratoren
+
+# Den Betreiber dieser Installation erreichen (XIV-123, §8.17).
+support:
+    title: Support
+    intro: >-
+        Fragen an die Leute, die diese Installation betreiben. Was hier steht, erreicht sie, und
+        ihre Antwort erscheint wieder auf dieser Seite.
+    raise: Etwas fragen
+    subject: Betreff
+    body: Was passiert
+    body_hint: >-
+        Was du gemacht hast, was du erwartet hast und was stattdessen passiert ist. Screenshots
+        und Anhänge gehen noch nicht.
+    send: Senden
+    delay: >-
+        Tickets werden regelmässig eingesammelt, es kann also ein paar Minuten dauern, bis das
+        jemand sieht. Die Antwort erscheint hier, sobald sie geschrieben ist.
+    raised: >-
+        Notiert. Es erreicht den Betreiber beim nächsten Einsammeln, und die Antwort erscheint
+        hier.
+    stale: Die Seite war eine Weile offen. Es wurde nichts gesendet — bitte noch einmal.
+    none: Du hast noch nichts gefragt
+    none_hint: >-
+        Alles, was hier jemand fragt, erscheint mit der Antwort auf dieser Seite, damit es auch
+        eine Kollegin lesen kann.
+    not_received: Noch nicht angekommen
+    raised_by: '%name% hat %time% gefragt'
+    replied_by: '%name% hat %time% geantwortet'
+    status:
+        open: Wartet auf Antwort
+        in_progress: Wird angeschaut
+        closed: Abgeschlossen
 
 account:
     region: Region
