@@ -82,6 +82,12 @@ in the brief first.
 - **Comments explain *why*, in prose, at length.** This codebase argues with
   itself in its own comments. Match that; a terse one-liner in a file full of
   reasoning reads as unfinished.
+- **Each set starts at a baseline, and history begins there.** `migrations/tenant`
+  and `migrations/control` hold one file each: the fifty-one written before
+  2026-08-19 were squashed while nothing was deployed (XIV-151, §4.2). That was a
+  one-off and the window is shut — **a migration you write now is history and is
+  kept.** The originals are in git if you need the argument behind a column:
+  `git log --diff-filter=D --name-only -- migrations/tenant`.
 - **Start a migration with `bin/new-migration control|tenant 'what it does'`**,
   which picks the version for you. Two branches picked `Version20260818140000`
   on the same afternoon (XIV-107) — hand-written migrations mean the version is a
@@ -178,9 +184,10 @@ bin/compose exec php bin/console tenant:schema:validate   # does a customer's sc
 `tenant:schema:validate` is the tenant half of `doctrine:schema:validate`, which
 cannot be pointed at a tenant: the DSN comes from a resolved tenant and a console
 command has none (§7.4). It reads and writes nothing. **It is expected to report
-thirteen differences today** — index names, partial indexes and two column
+sixteen differences today** — index names, partial indexes and three column
 defaults, all written down in §9.2 and split off as their own ticket — so read
-what it says rather than its exit status until that lands.
+what it says rather than its exit status until that lands. XIV-151's squash did
+not change that list by one line, which is part of how the baseline was checked.
 
 `tenant:reset` throws a development tenant away and rebuilds it end to end,
 resolving module install order from the modules' own requirements. It destroys

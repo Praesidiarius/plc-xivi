@@ -252,6 +252,16 @@ Migrations are split: `migrations/control` runs once per deploy, `migrations/ten
 runs once per tenant, and `bin/deploy` is what runs both — see
 [Deploying](https://praesidiarius.github.io/plc-xivi-docs/running/deploying/).
 
+**Each set is one baseline plus whatever has been written since.** The fifty-one
+migrations written before 2026-08-19 were squashed into two, which was possible
+only because no instance had been deployed and is therefore not something that
+happens again (XIV-151, §4.2). If you are looking for why a column exists and the
+baseline does not say, the original migration is in git:
+`git log --diff-filter=D --name-only -- migrations/tenant`.
+
+A dev tenant provisioned before that squash cannot be migrated forward — its
+`doctrine_migration_versions` names classes that are gone — so `tenant:reset` it.
+
 Every schema change lands for every customer, and a deploy walks their databases
 one at a time with the instance still serving, so tenant migrations are
 **additive only**: expand in this release, contract in a later one. `up()` may not

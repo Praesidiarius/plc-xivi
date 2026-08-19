@@ -345,6 +345,67 @@ the author's to apply; the test catches the cases the rule is most often broken
 by accident in, and saying so here is better than implying a guarantee it does
 not give.
 
+#### Fifty-one migrations became two, and that door is now shut (XIV-151)
+
+On 2026-08-19 `migrations/tenant` held 37 files and `migrations/control` held 14,
+written over six days — fifteen tenant migrations on the last of those days
+alone. They are now one baseline each.
+
+**The whole justification is one sentence: nothing had been deployed anywhere.**
+A migration does two jobs. It builds a schema, and it walks an installation that
+already exists from one version of that schema to the next. Only the first job
+had ever been done. XIV-61's deploy definition was still open, no instance had
+been stood up, and every database the fifty-one had ever touched was a
+development tenant that could be dropped and rebuilt — which is what was done.
+With the second job serving nobody, fifty-one files were fifty-one ways of
+saying what one file says, and the cost of keeping them was paid on every
+provision, every test run and every reading.
+
+**The window is closed, and closing it is the point of writing this down.** From
+the first real deployment onwards, squashing means telling a live database that a
+version it never ran is already applied — `doctrine:migrations:version --add`,
+once per customer database, with no check that the schema underneath actually
+matches what the baseline claims to have built. That is a manual step against
+production data whose failure mode is a tenant silently skipping a future
+migration, and it is not worth what it saves. So: **this was a one-off, it
+happened before the first deploy, and there is not a second one.** A migration
+written after this commit is history, and is kept.
+
+Three things make the difference between a squash that is safe and one that
+merely looks it, and all three are in the two baselines rather than here:
+
+- **A baseline generated from the Doctrine mapping would have been wrong.** The
+  mapping describes tables. It does not describe `btree_gist`, the two
+  `IMMUTABLE` SQL functions XIV-136 installs, or the fact that
+  `EXCLUDE USING gist` cannot exist without them — so a generated baseline would
+  have built every table correctly and quietly dropped overlap prevention. It was
+  written against a `pg_dump` of a fully migrated database instead, and verified
+  by diffing that dump against one taken from a database built by the baseline
+  alone.
+- **Several of the fifty-one were retro-fits and are no-ops on a fresh
+  database** — XIV-109's index build over each customer's existing unique fields,
+  XIV-21's `position` backfill, XIV-97's `SERIAL`-to-identity conversion. They
+  read rows that do not exist yet on a new tenant, so their absence from the
+  baseline is a fact rather than a loss. Their *conclusions* are in it: every
+  `id` is an identity column, and `UniqueIndex` builds the expression indexes at
+  runtime as it always did.
+- **What is genuinely lost is the argument, not the schema.** A diff proves the
+  schema; nothing proves the reasoning, and fifty-one files of it collapsing into
+  two is exactly the failure XIV-149 spent the same day guarding this brief
+  against. So each baseline carries the per-column reasoning inline, cites the
+  ticket and section behind each group, and says in its own docblock that git
+  holds the originals and how to read them.
+
+The measurable half is small and worth stating precisely, because XIV-150 (a
+template database) is decided on it: `tenant:provision` end to end went from a
+median of **601 ms to 479 ms** over ten runs each, against a console-boot floor
+of about 120 ms — so roughly 480 ms of work became roughly 360 ms. Squashing
+takes a quarter off the schema build and does not touch the `CREATE DATABASE`,
+the role, or the connection, which is where the rest of it is. **That is not
+enough to close XIV-150**, and it moves the argument for it: a template database
+now has to justify itself against 360 ms rather than 480 ms, and against a schema
+that is already one file.
+
 #### "Migrated 49 of 50" is not success
 
 `tenant:migrate` catches per tenant and carries on, which is correct and is not
