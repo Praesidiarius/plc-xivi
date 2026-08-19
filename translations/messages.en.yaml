@@ -538,6 +538,11 @@ field:
     # deciding that an Order names a Contact.
     points_at: Points at
     points_at_label: 'Points at (reference fields)'
+    # What a period may not overlap another one within (XIV-136). "Exclusive
+    # within" rather than "scope", because the column is read by somebody
+    # deciding that two stays cannot share a Room.
+    exclusive_within: 'Exclusive within'
+    exclusive_within_none: 'May overlap'
     # Which shared list a choice field takes its values from (XIV-127). "Takes
     # from" rather than "list", because the column beside it already says "points
     # at" and a reader scanning the header row has to be able to tell the two

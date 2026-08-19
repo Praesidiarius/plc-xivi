@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Xivi\Core\Record;
 
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Exception\DriverException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Xivi\Core\Entity\CollectionDefinition;
@@ -21,6 +22,7 @@ use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Event\RecordChanged;
+use Xivi\Core\Period\ExclusiveWithin;
 
 /**
  * One user action against one record: the record, its collections, and the
@@ -47,6 +49,15 @@ final readonly class RecordWriter
     /** The gap left between rows, so one can be moved between two (XIV-21). */
     private const int POSITION_STEP = 10;
 
+    /**
+     * Postgres' code for "an exclusion constraint refused this" (XIV-136).
+     *
+     * A constant rather than a literal in the `catch`, because it is the only
+     * thing standing between a booking clash and every other driver error: DBAL
+     * has no exception class for `23P01`, so the SQLSTATE *is* the identification.
+     */
+    private const string EXCLUSION_VIOLATION = '23P01';
+
     public function __construct(
         private Connection $connection,
         private RecordRepository $records,
@@ -70,6 +81,9 @@ final readonly class RecordWriter
      *                           {@see CollectionLimit::MAX_ROWS} (XIV-68)
      * @throws DuplicateValue    when a unique field's index refuses the write —
      *                           the race the validator cannot see (XIV-109)
+     * @throws OverlappingPeriod when a period field's exclusion constraint refuses
+     *                           it — the race nothing in PHP can see at all
+     *                           (XIV-136)
      */
     public function save(ModuleDefinition $module, Record $record, array $children = [], ?RecordAction $as = null): Record
     {
@@ -77,15 +91,23 @@ final readonly class RecordWriter
 
         try {
             return $this->write($module, $record, $children, $as);
-        } catch (UniqueConstraintViolationException $clash) {
-            // **The one refusal this engine's own indexes make** (XIV-109).
-            // Uniqueness is enforced by an index rather than only by a query
-            // ({@see UniqueIndex}), so the loser of a race arrives here instead
-            // of getting a validation message — and a validation message is what
-            // it has to leave as. The transaction is already rolled back by the
-            // time this runs, so nothing half-written survives; what is left is
-            // to work out which field it was about and say so.
-            throw DuplicateValue::of($module, $this->fieldBehind($module, $clash), $clash);
+        } catch (DriverException $refused) {
+            // **Two refusals this engine's own schema makes**, and they arrive as
+            // different shapes of the same thing. A unique index has a DBAL class
+            // of its own; an exclusion constraint has none, because DBAL maps no
+            // exception to `23P01` and hands back a plain `DriverException`. So
+            // the SQLSTATE is what is matched on, exactly as
+            // `UniqueValueRaceTest` matches `55P03` rather than a class — a
+            // syntax error is also a `DriverException`, and catching the class
+            // alone would report one as a booking clash.
+            //
+            // Anything else goes on up untouched: this method turns two known
+            // refusals into sentences and has no opinion about the rest.
+            throw match (true) {
+                $refused instanceof UniqueConstraintViolationException => DuplicateValue::of($module, $this->fieldBehind($module, $refused), $refused),
+                $refused->getSQLState() === self::EXCLUSION_VIOLATION => OverlappingPeriod::of($module, $this->periodBehind($module, $refused), $refused),
+                default => $refused,
+            };
         }
     }
 
@@ -245,11 +267,7 @@ final readonly class RecordWriter
      */
     private function fieldBehind(ModuleDefinition $module, \Throwable $clash): ?FieldDefinition
     {
-        $reported = '';
-
-        for ($error = $clash; $error !== null; $error = $error->getPrevious()) {
-            $reported .= "\n" . $error->getMessage();
-        }
+        $reported = self::reported($clash);
 
         foreach ($module->getFields() as $field) {
             if (!$field->isUnique()) {
@@ -262,6 +280,56 @@ final readonly class RecordWriter
         }
 
         return null;
+    }
+
+    /**
+     * Which field's exclusion constraint refused the write (XIV-136).
+     *
+     * The same identification as {@see self::fieldBehind()}, over the other
+     * schema object — see there for why a constraint name is matched rather than
+     * an error message parsed.
+     *
+     * The candidates are the fields that *say* they are exclusive within
+     * something, which is a narrower list than "every period field" and a
+     * deliberately different question from "which constraints exist". If a
+     * definition and the schema had somehow drifted, this returns null and
+     * {@see OverlappingPeriod} has a sentence for that case — a worse message
+     * than naming the field, and a far better one than a stack trace.
+     */
+    private function periodBehind(ModuleDefinition $module, \Throwable $clash): ?FieldDefinition
+    {
+        $reported = self::reported($clash);
+
+        foreach ($module->getFields() as $field) {
+            if (ExclusiveWithin::of($field) === null) {
+                continue;
+            }
+
+            if (str_contains($reported, OverlapExclusion::nameFor($module->getTableName(), $field->getKey()))) {
+                return $field;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Everything the database said, wrapper and all.
+     *
+     * The whole chain, because DBAL wraps the driver's exception and the
+     * constraint name is in the innermost one; `getMessage()` on the wrapper
+     * already carries it, and walking `getPrevious()` is there so this does not
+     * depend on that staying true across a DBAL release.
+     */
+    private static function reported(\Throwable $clash): string
+    {
+        $reported = '';
+
+        for ($error = $clash; $error !== null; $error = $error->getPrevious()) {
+            $reported .= "\n" . $error->getMessage();
+        }
+
+        return $reported;
     }
 
     /**

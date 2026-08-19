@@ -2806,6 +2806,15 @@ which is what deptrac taught this project in XIV-60 — it also plants the
 violation: a type declaring a need no control exists for, refused by the same
 function the select is built from.
 
+**And a seventh, which is optional again** ([XIV-136], §5.27). A period field may
+say what it is exclusive within — the room, the machine, the person — and a field
+that says nothing is an ordinary field whose values may overlap each other freely,
+which is what a project's duration wants. `ExcludesOverlaps` cost the same three
+things as the third: an interface, a line in that list, one `<select>` in the field
+table. What is new about it is the *control*: it is the first one whose answers
+come from the shape being edited rather than from a fixed list or from the
+container, since what a period is exclusive within is a field beside it.
+
 ##### Removing an option that records hold: refused, and [XIV-127] follows this
 
 A list is the first of these settings that somebody **edits** rather than
@@ -7524,6 +7533,283 @@ lesson.
 - **colour and icon anywhere but the record list and the record page.** A
   document and an export get `display()`, which is the label — the same decision
   §5.21 made about a formatted field in a table cell.
+
+---
+
+### 5.27 A period as one thing, and two of them that cannot overlap (XIV-136)
+
+Prompted by reading a **care home** built on the previous engine, and the question
+was never whether Xivi should ship those modules — it should not — but whether
+Xivi could *express* them, which is the real test of an engine that claims a
+customer can build their own shapes.
+
+Mostly it could. A resident is a record, a room is a record, one references the
+other, care notes are a collection, a lifecycle moves somebody from *enquiry* to
+*resident* to *left*. What it could not express is the thing a care home and a
+hotel are both made of: **a period, and the rule that two of them cannot
+overlap.**
+
+Two `date` fields hold the dates and not the relationship, so nothing in the
+engine can answer *who is in room 3 today* or *is this room free next week* — every
+module would write that query itself, slightly differently each time — and *two
+bookings for one room on one night* cannot be prevented at all. Everything else a
+vertical needs is a field, a reference or a collection; this is engine work by
+definition, and it is why the engine could not express a hotel.
+
+#### A type, not a pair of fields the engine understands as belonging together
+
+The alternative was two `date` fields plus a rule somewhere saying they are one
+value. It is more flexible on paper — every field capability already built would
+apply to each half — and it fails on the thing this ticket exists for: **overlap
+prevention needs something to constrain, and a pair of loose fields gives it
+nothing to hold.** A constraint would have to be described in terms of two field
+keys that nothing guarantees still exist, still hold dates, or still belong
+together; the first person to remove one half would leave a rule about a field
+that is not there.
+
+So a period is one value in one key. `DateRangeFieldType` and
+`DateTimeRangeFieldType` are the two types; `Period` is the value they hand back.
+
+#### Stored as one ISO-8601 interval, which is what kept the rest of the engine still
+
+`2026-08-01/2026-08-05`, or `2026-08-01/..` for an open end. The obvious
+alternative — a JSON object with two keys — was rejected on evidence rather than
+taste: **a stored value that stops being a scalar is a change to five things at
+once.** The spreadsheet export writes cells; the history diff compares stored
+values; the importer reads one column per field; `IS EMPTY` compiles to a test on
+`data ->> 'stay'`; and the accessor every other part of the query layer builds is
+`data ->> key`. As one string none of them learned anything, and it sorts by start
+date as text — the same property §5's date fields are kept in ISO for.
+
+**Two field types rather than one with a precision option**, and the engine's own
+seam decided it. `FieldType::comparableSql()` is handed an accessor and nothing
+else — no field, no options — because that is what stops the query compiler
+growing a switch on type. A precision kept as a per-field option would be
+invisible exactly there, at the one point where the SQL has to know whether it is
+building a `daterange` or a `tsrange`. Making it the type answers a second
+question for free: §5.4 refuses to change a field's type because stored values may
+not survive one, and a precision somebody could flip on a populated field *is* a
+stored value not surviving.
+
+#### The end bound is exclusive, and that is the decision the feature turns on
+
+`[from, until)`. **`until` is the first moment outside the period, not the last
+one inside it.** A stay from the 1st to the 5th occupies the nights of the 1st to
+the 4th, the room is free again *on* the 5th, and the next booking may start that
+day.
+
+Three reasons, and they compound:
+
+- **It is the only bound that means the same thing at both precisions.** A date
+  range has a last day; a datetime range has no last instant, because time is
+  continuous and "11:00 minus the smallest thing" is not a value. An inclusive end
+  is undefined for the datetime half, and a rule that flips at one precision is a
+  rule nobody holds in their head.
+- **Postgres already agrees.** `daterange` canonicalises every literal to `[)`
+  whatever it was written as, so an inclusive end in the JSON would disagree with
+  the value in the constraint's index by one day, for ever.
+- **The arithmetic comes out.** Nights, hours and days are `until - from` with no
+  ±1, and two adjacent periods meet exactly: no overlap and no gap.
+
+What it costs is that a tenancy whose last day is the 5th is entered as ending on
+the **6th**, which is genuinely surprising the first time. That is paid where it
+is felt rather than argued away: the field's own help text says what the second box
+means, and `PeriodFieldTest` asserts the boundary day in both directions at both
+precisions, with failure messages that state the bound rather than the line number.
+
+**This is deliberately not an option.** A field where each customer chose the
+bound would mean the same two dates meaning different things on two modules of one
+installation, and a constraint whose meaning depends on a setting somebody can
+change under records that already exist.
+
+Note the contrast with §5.19, which is not an inconsistency: a voucher's
+`valid_from`/`valid_until` are **two fields**, both inclusive, describing when a
+*rule* applies rather than a stretch of time something occupies. Nothing overlaps
+anything there, and nothing needed to.
+
+#### Open at the end, never at the start, and never by accident
+
+A tenancy with no agreed end is ordinary and `[from, ∞)` says it exactly. A period
+with no *beginning* is not: everything this holds starts on a day somebody can
+name, and unbounded-below would be a value overlapping every past period ever
+recorded, arrived at by leaving a box empty.
+
+The interface has three controls — from, until, and **a checkbox that says there is
+no end** — because two cannot answer the question. An empty end box is also what a
+half-filled form looks like, so the two are told apart rather than guessed at: a
+typed end always wins over the tick (dropping something somebody typed is the one
+outcome no reading justifies), a ticked blank is `[from, ∞)`, and **a blank nobody
+ticked is refused** with a sentence saying to fill it in or tick the box. That
+refusal is §8.3.1's argument applied to a blank: a control meaning two opposite
+things depending on what somebody intended is a control that reports nothing.
+
+#### The constraint is XIV-109's finding one level harder, and its conclusion transfers exactly
+
+[XIV-109] found a validator that queried and then wrote, with nothing holding the
+gap: under READ COMMITTED two saves arriving together both read, neither sees the
+other's uncommitted row, and both insert. Its answer was to stop asking and start
+constraining.
+
+*Is this room free next week* is that same read. The booking that follows is the
+write. Between them is the millisecond in which the other guest books, and **no
+amount of care in PHP closes it** — so this engine has no application-level check
+for overlap at all. That is worth saying plainly, because the absence looks like
+an omission: a validator here would catch almost everything, would tempt the next
+reader into believing it were the rule, and would still let two guests into one
+room on the afternoon it mattered. The constraint is not a second opinion behind a
+validator; it is the only opinion.
+
+`EXCLUDE USING gist` is the range equivalent of that ticket's partial unique
+index: a unique index whose equality has been replaced by an operator per column.
+`(data ->> 'room') WITH =, xivi_date_range(data ->> 'stay') WITH &&` — no two live
+rows may name the same room and periods that share a moment.
+
+**The predicate is partial three times over**, and each is a rule: `deleted_at IS
+NULL`, because records are soft-deleted and a cancelled booking must not hold a
+room for ever; the scope `IS NOT NULL`, because a booking with no room yet is a
+draft and drafts occupy nothing; the period `IS NOT NULL`, because an empty field
+is not a period. The first is XIV-109's own predicate, kept for its own reason.
+
+**Built in the transaction that writes the definition**, exactly as the unique
+index is, and `CONCURRENTLY` does not even arise: `ALTER TABLE … ADD CONSTRAINT`
+has no concurrent form. It costs an `ACCESS EXCLUSIVE` lock on one customer's
+record table for one build.
+
+#### What a period is exclusive *within* is configurable, because there is no global answer
+
+"No overlaps" is never a statement about a module. It is a statement about a
+**resource** — one room, one machine, one carer, one van — and which field names
+the resource is exactly what the engine cannot guess. So it is a per-field option
+(`exclusive_within`), on the same terms as [XIV-114]'s per-field country, and that
+option is also the on switch: a period field naming no scope has no constraint,
+which is what a project's duration and an employment's dates want, since those
+overlap each other constantly and always should.
+
+It is the **sixth** entry in the capability list §5.4 describes (`ExcludesOverlaps`),
+and it cost what the third, fourth and fifth cost: one interface, one line in
+`FieldController::PER_TYPE`, one control in the field table. No branch was added
+anywhere.
+
+Three things it deliberately does not do. **A composite scope** — "one room *and*
+one bed" — is expressible in Postgres and is not built, because the cost is not in
+the database but in the editor and in the refusals, where "which of these four
+fields do your records conflict on" is a sentence nobody can write. **There is no
+"nowhere"**: a module where no two periods may overlap at all would be a module
+holding exactly one resource, and the honest expression of that is a scope field
+with one option in it. **A collection's period cannot be made exclusive**, on the
+same terms `unique` is refused there: within one parent record and across the whole
+table are different rules and the engine will not guess (§7).
+
+Switching it on over records that already overlap is **refused with the pairs
+named** — `#41/#58 in "3"` — which is XIV-109's courtesy about duplicate values,
+one feature along. Pairs rather than values, because an overlap is a relationship
+and neither record is wrong on its own.
+
+#### The awkward part: an index expression must be immutable, and dates do not parse immutably
+
+`(data ->> 'stay')::date` **cannot be indexed**. `date_in` is only *stable* — it
+reads `DateStyle` and accepts `today` — so Postgres refuses the index outright,
+and `timestamp_in` and `timestamptz_in` are stable for the same reason. This is
+the one place where the JSONB storage model costs something real, and it is worth
+recording because the obvious spelling fails with an error most people meet for the
+first time here.
+
+The way out is to stop asking Postgres to parse anything. A stored period is a
+**fixed-width** ISO string, so the year, month and day are known offsets and
+`make_date`/`make_timestamp` build the value from integers with nothing to
+interpret — genuinely immutable, rather than the usual workaround of declaring a
+parsing function `IMMUTABLE` while it is not.
+
+That expression is long, so it is named once, per tenant, by a migration:
+`xivi_date_range(text)` and `xivi_datetime_range(text)`, plus `btree_gist` (a
+*trusted* extension since Postgres 13, so a tenant's own role installs it and no
+operator walks the cluster). Three properties earn the function over an inline
+expression: `STRICT`, so a row with no period yields `NULL` rather than an
+unbounded range that overlaps everything; a leading regular expression, so a
+malformed value yields `NULL` rather than raising and taking a whole list page with
+it; and **one expression shared by the constraint and the filter**, which is what
+lets a filter be answered by the index the constraint built.
+
+**The cost of that is a rule.** Postgres does not re-evaluate an index when a
+function it was built over changes, so editing `PeriodSql` in place would leave
+every existing constraint enforcing the old rule silently. A change there is a new
+migration that redefines the function *and* rebuilds every constraint over it.
+
+**Datetimes are `tsrange` over naive UTC timestamps rather than `tstzrange`**, and
+that is not a shortcut: everything the engine stores is UTC (§8.4.4), so the wall
+clock in the stored string *is* the instant. `tstzrange` would need
+`make_timestamptz`, which reads the session's `TimeZone` and is therefore not
+immutable — the index would depend on the setting of whichever connection last
+wrote to it.
+
+#### Filtering answers the question in the query
+
+One operator, `overlaps`, and it is the only comparison in the engine that is
+about two stretches rather than a point. `Equals` on a period asks whether two
+stays are the identical stay, which nobody wants to know; `GreaterThan` would have
+to mean "starts after" or "ends after" and nothing can say which.
+
+The compiler emits `<range> && <range>` and knows nothing about periods, because
+**it applies the type's own `comparableSql()` to the bound parameter as well as to
+the column** — the method is a pure text→SQL transform, so one definition of "a
+period" is used twice and there is no second parser to disagree with the first. A
+lone date is read as that whole day, at both precisions, which is what makes
+`filter[0][op]=overlaps&filter[0][value]=2026-08-19` — *which of these overlap
+today* — a URL somebody can type.
+
+That it is answered *in* the query rather than in PHP is asserted by arrangement
+rather than by result: sixty records, a page of twenty-five, and the three that
+overlap are the oldest, so a filter applied after loading a page would return
+nothing at all.
+
+#### Timezones: one more implementation of a seam that already existed
+
+A date range is zoneless, like a `date` field and for the same reason. A datetime
+range is stored in UTC and read in the reader's zone, which is [XIV-83]'s chain —
+and the chain had to reach somewhere new. XIV-83 rendered every moment by turning
+one knob on Twig, which works for anything that arrives at a template as a
+`\DateTimeInterface`; a period arrives as *one value that a field type turns into a
+sentence*, in PHP, before Twig sees anything but a string.
+
+So core declares `ReaderTimezone` — the fifth instance of the seam
+`InstanceCurrency`, `DefaultPaymentTerms`, `DefaultVatMode` and `InstanceRegion`
+keep — and the application answers it by **delegating to `DisplayTimezone`**,
+which is the same object the request listener asks. §8.4.4's own argument about
+`ProfileRegion`: a second *reader* of one setting is the same mistake in cheaper
+clothes, and here it would show a booking's own times in one zone and the "changed
+at" beside them in another, on the same screen, with nothing looking wrong enough
+to check.
+
+The zone decides more than the clock. A slot stored `22:00Z–23:30Z` is Tuesday
+night in Greenwich and Wednesday morning in Zurich, so it decides **which day the
+period is filed under** — which is exactly where §8.4.4 says this goes wrong when
+it goes wrong. A datetime period whose ends fall on one day *in the reader's zone*
+is written with the date once; that collapse happens in Zurich and not in
+Greenwich.
+
+#### What this is not
+
+**Not a booking module.** No availability search, no calendar, no pricing by
+season, no "next free room". [XIV-135] is where a domain like that would live and
+is a placeholder for a reason.
+
+**Not a rewrite of anything.** No existing `date` field moved, no tenant's data
+was touched, and the migration creates two functions and an extension and not one
+row. A customer who has been holding *from* and *until* in two date fields keeps
+them: converting would be a type change, and §5.4 refuses those because stored
+values may not survive one.
+
+**And demo data had to be built against its own constraint.** The generator writes
+in batches inside a transaction and `tenant:reset` destroys before it builds, so
+one pair of overlapping generated periods costs the whole tenant — the hazard two
+tickets met this week from other directions. `sample()` therefore places each
+record in its own week (or its own pair of hours) off the sequence, exactly as
+`PhoneFieldType` uses the sequence to avoid colliding on a unique index, and never
+offers an open end on an exclusive field, because a period with no end covers every
+later one.
+
+The point of all of it is that a vertical can now be **built** on this engine — a
+care home, a hotel, a workshop, a hire fleet — not that Xivi ships one.
 
 ---
 

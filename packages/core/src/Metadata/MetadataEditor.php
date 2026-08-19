@@ -27,6 +27,8 @@ use Xivi\Core\Field\Type\ChoiceFieldType;
 use Xivi\Core\Field\Type\ReferenceFieldType;
 use Xivi\Core\Module\AdditionKind;
 use Xivi\Core\Numbering\NumberFormat;
+use Xivi\Core\Period\ExclusiveWithin;
+use Xivi\Core\Record\OverlapExclusion;
 use Xivi\Core\Record\RecordRepository;
 use Xivi\Core\Record\UniqueIndex;
 use Xivi\Core\ValueList\ValueLists;
@@ -81,6 +83,11 @@ final readonly class MetadataEditor
         // actually there, on the write path, where the importer and the console
         // meet it too.
         private ValueLists $lists,
+        // And the constraint that makes "these two cannot overlap" true rather
+        // than checked (XIV-136). The same sentence, one level harder: a period
+        // field naming what it is exclusive within is a promise, and a promise
+        // with nothing enforcing it is the state both tickets exist to end.
+        private OverlapExclusion $exclusions,
     ) {
     }
 
@@ -148,6 +155,7 @@ final readonly class MetadataEditor
         $this->assertNeedsAreAnswered($this->fieldTypes->get($type), $key, $merged);
         $this->assertTargetExists($this->fieldTypes->get($type), $key, $merged);
         $this->assertListExists($this->fieldTypes->get($type), $key, $merged);
+        $this->assertScopeIsUsable($shape, $field, $merged);
         $this->assertRecordsSurvive($shape, $field, $required, $unique);
 
         $this->asOneChange(function () use ($shape, $field): void {
@@ -159,6 +167,10 @@ final readonly class MetadataEditor
             // count above has just refused the case where that collides; this
             // builds the index over whatever survived.
             $this->uniqueIndexes->follow($shape, $field);
+            // And the same for periods, for the same reason — a re-added key can
+            // meet values that were left behind, and those values can overlap
+            // (XIV-136).
+            $this->exclusions->follow($shape, $field);
         });
 
         // What these queries would return has just changed (XIV-53). A page
@@ -222,6 +234,11 @@ final readonly class MetadataEditor
         // field has just stopped pointing at.
         $merged = self::withOptions($field->getOptions(), $options);
         $this->assertNeedsAreAnswered($type, $field->getKey(), $merged, $options);
+        // Before the flags below, on the same terms as the option guards above:
+        // it is a refusal about records nobody is looking at, and a save that had
+        // already relabelled the field before refusing the scope would be the
+        // half-done state XIV-27 spent an ordering argument avoiding.
+        $this->assertScopeIsUsable($field->getShape(), $field, $merged);
 
         $this->assertRecordsSurvive(
             $field->getShape(),
@@ -258,6 +275,11 @@ final readonly class MetadataEditor
             // to be unique with nothing enforcing it, which is the state this
             // whole change exists to make impossible.
             $this->uniqueIndexes->follow($field->getShape(), $field);
+            // Both directions again, for the scope (XIV-136). Naming one builds
+            // the constraint, clearing it drops the constraint, and moving it
+            // from one field to another is a drop and a build — which is why
+            // `follow()` always drops first.
+            $this->exclusions->follow($field->getShape(), $field);
         });
 
         $this->cache->clear();
@@ -909,6 +931,13 @@ final readonly class MetadataEditor
             // could produce. Adding the field back with the same key rebuilds
             // it, which is what makes removal reversible here too.
             $this->uniqueIndexes->drop($shape, $field);
+            // The same for the period's constraint (XIV-136), and it matters
+            // twice over: a removed period field would otherwise go on refusing
+            // bookings nobody can see a reason for, and a removed *scope* field
+            // leaves a constraint over a key that is no longer in any payload —
+            // which quietly becomes "one booking at a time, ever".
+            $this->exclusions->drop($shape, $field);
+            $this->rebuildPeriodsScopedBy($shape, $field);
         });
 
         $this->cache->clear();
@@ -1073,6 +1102,88 @@ final readonly class MetadataEditor
     }
 
     /** @throws MetadataChangeRefused */
+    /**
+     * What a period is exclusive within has to be something, and the records
+     * already there have to survive it (XIV-136).
+     *
+     * Four refusals, in the order somebody meets them, and the ordering is the
+     * usual one: the questions that are about the *shape* first, because they are
+     * true whatever is stored, and the one that costs a query over the records
+     * last.
+     *
+     * **On the write path rather than in the form**, like every other guard in
+     * this class: the editor draws a select of the shape's own fields, so a
+     * customer using the page meets a control that cannot say anything wrong —
+     * and an import, a console command or a form posted around the page meets
+     * this.
+     *
+     * **Only when the caller named the option**, which is XIV-26's contract:
+     * a form that draws no scope control says nothing about scopes, so an
+     * ordinary relabelling of a booking's period does not re-run a self-join over
+     * every record.
+     *
+     * @param array<string, mixed> $merged the options the field will end up with
+     *
+     * @throws MetadataChangeRefused
+     */
+    private function assertScopeIsUsable(ShapeDefinition $shape, FieldDefinition $field, array $merged): void
+    {
+        $scope = $merged[ExclusiveWithin::OPTION] ?? null;
+
+        if (!\is_string($scope) || trim($scope) === '') {
+            return;
+        }
+
+        $scope = trim($scope);
+
+        if (!$shape instanceof ModuleDefinition) {
+            throw MetadataChangeRefused::scopeOnACollection($field->getKey(), $shape->getLabel());
+        }
+
+        if ($scope === $field->getKey() || $shape->getField($scope) === null) {
+            throw MetadataChangeRefused::scopeIsNotAField($field->getKey(), $scope);
+        }
+
+        // One more than the message prints, so the refusal can tell "these five"
+        // from "at least these five" without a second query — the same trick
+        // {@see MetadataChangeRefused::valuesAreShared()} plays with duplicates.
+        $conflicts = $this->exclusions->conflicts($shape, $field, $scope, self::DUPLICATES_NAMED + 1);
+
+        if ($conflicts !== []) {
+            throw MetadataChangeRefused::periodsAlreadyOverlap(
+                $field->getKey(),
+                $scope,
+                $conflicts,
+                self::DUPLICATES_NAMED,
+            );
+        }
+    }
+
+    /**
+     * Every period constraint that was about the field just removed, brought back
+     * into line with the definitions (XIV-136).
+     *
+     * A scope field is an ordinary field and can be removed like any other, and
+     * the constraint over it is not the customer's to see: it names two keys in a
+     * JSONB payload, one of which has just stopped being a field. Left standing it
+     * would keep comparing `data ->> 'room'`, which no page writes any more, so
+     * every record would be in the same scope as every other one and the module
+     * would quietly become "one booking at a time, ever".
+     *
+     * `follow()` drops before it decides, and it decides by asking the shape
+     * whether the scope field exists — which, by this point, it does not. So this
+     * is a rebuild that correctly builds nothing, rather than a special case that
+     * has to know it is a removal.
+     */
+    private function rebuildPeriodsScopedBy(ShapeDefinition $shape, FieldDefinition $removed): void
+    {
+        foreach ($shape->getFields() as $field) {
+            if (ExclusiveWithin::of($field) === $removed->getKey()) {
+                $this->exclusions->follow($shape, $field);
+            }
+        }
+    }
+
     private function assertRecordsSurvive(
         ShapeDefinition $shape,
         FieldDefinition $field,

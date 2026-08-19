@@ -13,9 +13,7 @@ declare(strict_types=1);
 
 namespace App\Tenant\EventListener;
 
-use App\Tenant\Entity\User;
-use App\Tenant\Settings\DisplayTimezone;
-use Symfony\Bundle\SecurityBundle\Security;
+use App\Tenant\Settings\ReadersTimezone;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
@@ -62,8 +60,12 @@ use Twig\Extension\CoreExtension;
 final readonly class DisplayTimezoneListener
 {
     public function __construct(
-        private Security $security,
-        private DisplayTimezone $timezones,
+        // Who is reading, resolved once (XIV-136). This used to ask `Security`
+        // and `DisplayTimezone` here, and that stopped being the only caller the
+        // moment a field type had to render a period in PHP rather than in Twig —
+        // so the resolution moved into a service both can hold, and this listener
+        // became what it always was: the thing that turns Twig's knob.
+        private ReadersTimezone $reader,
         private Environment $twig,
     ) {
     }
@@ -74,10 +76,6 @@ final readonly class DisplayTimezoneListener
             return;
         }
 
-        $user = $this->security->getUser();
-
-        $this->twig->getExtension(CoreExtension::class)->setTimezone(
-            $this->timezones->of($user instanceof User ? $user : null),
-        );
+        $this->twig->getExtension(CoreExtension::class)->setTimezone($this->reader->zone());
     }
 }

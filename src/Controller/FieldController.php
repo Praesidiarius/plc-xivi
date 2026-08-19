@@ -29,6 +29,7 @@ use Xivi\Core\Field\AssumesACountry;
 use Xivi\Core\Field\Autocomplete;
 use Xivi\Core\Field\Autocompletes;
 use Xivi\Core\Field\Enumerates;
+use Xivi\Core\Field\ExcludesOverlaps;
 use Xivi\Core\Field\FieldType;
 use Xivi\Core\Field\FieldTypeRegistry;
 use Xivi\Core\Field\NeedsAnAnswer;
@@ -47,6 +48,7 @@ use Xivi\Core\Module\ModuleUpgrade;
 use Xivi\Core\Numbering\AssignsNumbers;
 use Xivi\Core\Numbering\CounterRefused;
 use Xivi\Core\Numbering\NumberFormat;
+use Xivi\Core\Period\ExclusiveWithin;
 use Xivi\Core\Phone\PhoneRegion;
 use Xivi\Core\ValueList\ValueLists;
 
@@ -162,6 +164,15 @@ final class FieldController extends AbstractController
         // `configurable()` below is what refuses a type that declared it and
         // could not be asked.
         ChoiceFieldType::LIST => PointsAtAList::class,
+        // The seventh (XIV-136), and back to being an option with a good empty
+        // answer: what a period is exclusive within. Blank means the periods in
+        // this field may overlap each other freely, which is what a project's
+        // duration wants and what a booking's does not. One line here, one
+        // capability interface and one `<select>` of this shape's own fields —
+        // and, for the first time on this list, an option whose control has to
+        // know which *shape* it is being drawn on, since the answer is a field
+        // beside it rather than a value from a fixed list.
+        ExclusiveWithin::OPTION => ExcludesOverlaps::class,
     ];
 
     public function __construct(
@@ -1184,6 +1195,19 @@ final class FieldController extends AbstractController
             // response to one of those is to change nothing.
             $chosen = strtoupper(trim((string) $request->request->get(PhoneRegion::OPTION, '')));
             $options[PhoneRegion::OPTION] = Countries::exists($chosen) ? $chosen : null;
+        }
+
+        if ($this->offers(ExclusiveWithin::OPTION, $type)) {
+            // Blank is a real answer and clears, like the width and the country
+            // above: a period field that is exclusive within nothing is the
+            // ordinary kind. What the select offers is this shape's own other
+            // fields, and what it is checked against is nothing at all here —
+            // the engine refuses a key that is not a field, on the write path
+            // where a console command and an import meet the same rule, and a
+            // second copy of that check in a controller is the copy that gets
+            // forgotten (XIV-136).
+            $scope = trim((string) $request->request->get(ExclusiveWithin::OPTION, ''));
+            $options[ExclusiveWithin::OPTION] = $scope === '' ? null : $scope;
         }
 
         if ($this->offers(ReferenceFieldType::MODULE, $type) && $request->request->has(ReferenceFieldType::MODULE)) {

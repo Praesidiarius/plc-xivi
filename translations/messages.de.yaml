@@ -376,6 +376,11 @@ field:
     # dass eine Bestellung einen Kontakt benennt.
     points_at: Zeigt auf
     points_at_label: 'Zeigt auf (Referenzfelder)'
+    # Worin ein Zeitraum keinen anderen überschneiden darf (XIV-136). „Exklusiv
+    # innerhalb“ und nicht „Bereich“: Gelesen wird die Spalte von jemandem, der
+    # entscheidet, dass zwei Aufenthalte sich kein Zimmer teilen können.
+    exclusive_within: 'Exklusiv innerhalb'
+    exclusive_within_none: 'Darf überschneiden'
     takes_from: Werte aus
     takes_from_label: 'Werte aus (Auswahlfelder)'
     takes_from_own: Eigene Optionen

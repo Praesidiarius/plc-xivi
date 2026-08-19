@@ -743,6 +743,107 @@ final class MetadataChangeRefused extends \RuntimeException
         );
     }
 
+    /**
+     * A period told to be exclusive within something that is not a field of its
+     * own shape (XIV-136).
+     *
+     * Covers both the misspelling and the field that has since been removed, and
+     * says the same thing about each: **there is nothing to be exclusive within,
+     * so there would be no constraint.** Silence was the alternative and it is
+     * the worse one — a customer who has just switched on "no two of these may
+     * overlap" and been told nothing would believe the rule was in force, and
+     * find out the day two guests arrive.
+     *
+     * A field cannot be exclusive within *itself* either, and that lands here for
+     * the same reason: `data ->> 'stay' = data ->> 'stay'` is true of every row
+     * against itself and of nothing else, so the constraint would refuse only two
+     * records holding the identical period — which is not the rule anybody meant.
+     */
+    public static function scopeIsNotAField(string $key, string $scope): self
+    {
+        return self::of(
+            sprintf(
+                '"%s" cannot be exclusive within "%s": this module has no field called that. Periods are '
+                . 'exclusive within something — a room, a machine, a person — and that something is a field '
+                . 'beside them.',
+                $key,
+                $scope,
+            ),
+            'metadata.scope_is_not_a_field',
+            ['%key%' => $key, '%scope%' => $scope],
+        );
+    }
+
+    /**
+     * The same rule, refused on a collection's field (XIV-136).
+     *
+     * Exactly the argument the installer makes about `unique` on a collection:
+     * across the whole table and within one parent record are different rules, and
+     * the engine will not guess which was meant (§7). It is sharper here, because
+     * both readings are plausible — one row of a booking's collection must not
+     * overlap another row *of the same booking*, or of any booking — and picking
+     * one silently would build a constraint enforcing a rule nobody chose.
+     */
+    public static function scopeOnACollection(string $key, string $shape): self
+    {
+        return self::of(
+            sprintf(
+                '"%s" is a field of the collection "%s", and periods there cannot be made exclusive: within '
+                . 'one parent record and across the whole table are different rules and the engine will not '
+                . 'guess (docs/architecture.md §7).',
+                $key,
+                $shape,
+            ),
+            'metadata.scope_on_a_collection',
+            ['%key%' => $key, '%shape%' => $shape],
+        );
+    }
+
+    /**
+     * Records that already overlap, refused with the pairs named (XIV-136).
+     *
+     * {@see self::valuesAreShared()}'s argument, one feature along: a count is
+     * true and useless, and what somebody needs is *which records*. Here that is
+     * pairs rather than values — an overlap is a relationship between two records
+     * and neither of them is wrong on its own — so the sentence names the two ids
+     * and the scope they collide in, which is what somebody types into the URL
+     * bar to go and look at them.
+     *
+     * **Refuse rather than fix**, for the reason that ticket sets out at length:
+     * building the constraint anyway would leave records nobody can save, and
+     * having the engine choose a winner would be data loss on a select box.
+     *
+     * @param list<array{scope: string, first: int, second: int}> $conflicts one *more* than will be
+     *                                                                       shown, so this can tell
+     *                                                                       "exactly five" from "at
+     *                                                                       least five" without a
+     *                                                                       second query
+     */
+    public static function periodsAlreadyOverlap(string $key, string $scope, array $conflicts, int $shown): self
+    {
+        $pairs = implode(', ', array_map(
+            static fn (array $pair): string => sprintf('#%d/#%d in "%s"', $pair['first'], $pair['second'], $pair['scope']),
+            \array_slice($conflicts, 0, $shown),
+        ));
+
+        if (\count($conflicts) > $shown) {
+            $pairs .= ' …';
+        }
+
+        return self::of(
+            sprintf(
+                'Records already overlap in "%s", so it cannot be made exclusive within "%s" yet: %s. Move '
+                . 'those records apart first, or leave "%s" as it is.',
+                $key,
+                $scope,
+                $pairs,
+                $key,
+            ),
+            'metadata.periods_already_overlap',
+            ['%key%' => $key, '%scope%' => $scope, '%pairs%' => $pairs],
+        );
+    }
+
     public static function wouldInvalidateRecords(string $key, int $records): self
     {
         return self::of(

@@ -491,6 +491,48 @@ lands in `Unreleased` here.
   is checked and nothing changes. No password is needed: the check reads the
   catalogue rather than connecting as the role.
 
+- **A period is one field, and two of them can be stopped from overlapping**
+  ([XIV-136]) — two new field types, *Period (days)* and *Period (times)*. A stay,
+  a tenancy, a room assignment, a booking, a hire: *from* and *until* in one
+  field, which the engine understands as one value rather than as two dates that
+  happen to sit beside each other. §5.26 has the whole argument.
+- **Two periods can be told they may not overlap, and the database is what
+  refuses them** ([XIV-136]) — a period field can say what it is exclusive
+  *within*: an **Exclusive within** column in the field editor, naming another
+  field beside it — the room, the machine, the carer. Two records that name the
+  same one and share so much as a day are refused when the second is saved, by
+  the database rather than by a check on the form, so two people booking the same
+  room in the same second cannot both succeed. Leave the column empty — which is
+  the default — and periods may overlap freely, which is what a project's dates
+  want.
+- **The end date is the day it stops, not the last day inside** ([XIV-136]) —
+  worth reading twice, because it is the one thing to get wrong: a stay entered as
+  *1 Aug → 5 Aug* covers the nights of the 1st to the 4th and **the room is free
+  on the 5th**, so the next stay may start that day. A tenancy whose last day is
+  the 5th is entered as ending on the **6th**. The field says so under the second
+  box. The same rule holds for times: a slot until 11:00 leaves 11:00 free.
+- **A period with no end is a tick box, not an empty box** ([XIV-136]) — a
+  tenancy nobody has agreed an end for is a real thing, so the field has a *No end
+  date* box that says so. Leaving the end blank **without** ticking it is refused
+  with a sentence asking which was meant, because a blank is also what a
+  half-finished form looks like.
+- **"Which of these overlap today" is a filter** ([XIV-136]) — mark a period field
+  filterable and the filter bar offers *overlaps*; type a date and you get every
+  record whose period covers that day. It is answered by the database in one
+  query, over the same index the no-overlap rule builds, rather than by reading
+  every record.
+- **Times are stored in UTC and shown in your zone** ([XIV-136]) — a *Period
+  (times)* is an instant, so it follows the timezone you already have on your
+  account or your company profile. A period that runs from 22:00 to
+  23:30 UTC reads in Zurich as the next day, 00:00 to 01:30 — the same moments,
+  the day they are actually on. A *Period (days)* has no zone at all: those days
+  are those days wherever they are read.
+- **Nothing you already have changed** ([XIV-136]) — no existing field moved, no
+  record was rewritten, and existing *Date* fields work exactly as before. If you
+  are keeping a period in two date fields today, they stay two date fields: a
+  field's type cannot be changed, because stored values may not survive one. The
+  upgrade adds two functions to each customer database and touches no data.
+
 ### Fixed
 
 - **A choice field you add now has choices, and a reference has something to
@@ -634,6 +676,7 @@ lands in `Unreleased` here.
 [XIV-144]: https://xivi.youtrack.cloud/issue/XIV-144
 [XIV-119]: https://xivi.youtrack.cloud/issue/XIV-119
 [XIV-127]: https://xivi.youtrack.cloud/issue/XIV-127
+[XIV-136]: https://xivi.youtrack.cloud/issue/XIV-136
 
 ## Releases
 

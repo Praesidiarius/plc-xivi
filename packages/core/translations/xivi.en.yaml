@@ -18,6 +18,9 @@ operator:
     lte: until
     empty: is empty
     filled: is not empty
+    # The only comparison that is about two stretches rather than a point
+    # (XIV-136). Reads as a comparison in a filter row: "Stay overlaps 19.8.2026".
+    overlaps: overlaps
 
 # Whether somebody types to narrow a field's candidates (XIV-36). Read in the
 # metadata editor, beside the field's width — three answers rather than a tick
@@ -75,6 +78,15 @@ record:
     # And the same thing where the field could not be named — a unique index
     # this engine did not create. Naming nothing beats naming the wrong one.
     duplicate_value_unknown: 'Another record was given one of these values a moment ago, while this one was being saved, so nothing was saved here. Check the fields that have to be unique and try again.'
+
+    # The exclusion constraint refusing a save (XIV-136). Harder to explain than
+    # the duplicate above, because nothing on the form is wrong: what is in the
+    # way is another record, which the person saving may not even be able to see.
+    # So it says what happened and what to change rather than "invalid".
+    overlapping_period: 'Another record already covers part of this %field% for the same thing, so nothing was saved here. Choose a different period, or a different one to book it against.'
+    # And the same where the field could not be named — a constraint this engine
+    # did not create. Naming nothing beats naming the wrong one.
+    overlapping_period_unknown: 'Another record already covers part of one of these periods for the same thing, so nothing was saved here. Check the periods on this record and try again.'
 
 history:
     period:
@@ -190,6 +202,14 @@ metadata:
     values_are_not_on_the_list: '%count% existing records hold a value in "%key%" that is not on the list "%list%": %values%. Pointing the field at that list would leave them holding something it does not contain, and they could not be saved again until somebody fixed them. Add those values to the list first, or change the records.'
     values_are_not_among_its_options: '%count% existing records hold a value in "%key%" that is not one of the field''s own options: %values%. Taking the field off the shared list would leave them holding something the field does not offer. Add those options to the field first, or leave it on the list.'
 
+    # The three refusals a period's scope can meet (XIV-136). Each is about a rule
+    # that would otherwise be switched on and enforce nothing — the worst
+    # available outcome for a constraint, because the page says the overlaps are
+    # impossible and the database goes on allowing them.
+    scope_is_not_a_field: '"%key%" cannot be exclusive within "%scope%": this module has no field called that. Periods are exclusive within something — a room, a machine, a person — and that something is a field beside them.'
+    scope_on_a_collection: '"%key%" is a field of the collection "%shape%", and periods there cannot be made exclusive: within one parent record and across the whole table are different rules, and the engine will not guess which was meant.'
+    periods_already_overlap: 'Records already overlap in "%key%", so it cannot be made exclusive within "%scope%" yet: %pairs%. Move those records apart first, or leave "%key%" as it is.'
+
 query:
     unknown_field: 'There is nothing called "%path%" on "%shape%" to filter or sort by.'
     unknown_collection: '"%module%" has no collection called "%collection%".'
@@ -249,3 +269,17 @@ value_list:
         Tools: Tools
         Done: Tick
         Attention: Warning
+
+# The three controls of a period, and the one sentence that has to be there
+# (XIV-136).
+#
+# `until_help` is the whole of the bound decision, said where somebody meets it:
+# the second date is when the period *stops*, not its last day. Getting that
+# wrong is a bug nobody sees until the day two guests arrive, so it is written
+# beside the box rather than in a manual.
+period:
+    from: From
+    until: Until
+    until_help: The day the period ends — it is not included, so a room is free again on this date.
+    open_ended_label: No end date
+    open_ended: 'from %from%'

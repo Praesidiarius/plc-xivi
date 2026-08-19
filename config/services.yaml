@@ -258,6 +258,15 @@ services:
         arguments:
             $connection: '@doctrine.dbal.tenant_connection'
 
+    # And the constraint behind a period that may not overlap another (XIV-136).
+    # The same argument as the index above, one level harder: the `EXCLUDE` has
+    # to land in the customer's database and in the same transaction as the
+    # option that implies it, or a field says two bookings cannot share a room
+    # while the database goes on letting them.
+    Xivi\Core\Record\OverlapExclusion:
+        arguments:
+            $connection: '@doctrine.dbal.tenant_connection'
+
     # What a form starts with (XIV-30). Core's own, and autowired: it reads a
     # shape and a record and asks nothing about whose database it is in.
     Xivi\Core\Record\RecordFormData: ~
@@ -360,6 +369,13 @@ services:
     # two that can drift. Core normalises every number to E.164 through this and
     # never learns what a tenant is.
     Xivi\Core\Region\InstanceRegion: '@App\Tenant\Settings\ProfileRegion'
+
+    # And which zone the person currently reading reads moments in (XIV-136).
+    # The fifth of the same seam and, like the region, emphatically not a new
+    # setting: XIV-83 already answers it, and `ReadersTimezone` delegates to the
+    # very object the request listener asks so that a period's own times and the
+    # "changed at" beside them cannot be drawn in two different zones.
+    Xivi\Core\Time\ReaderTimezone: '@App\Tenant\Settings\ReadersTimezone'
 
     # Documents (XIV-4). Core fills a .docx template and asks for a PDF through
     # Xivi\Core\Document\PdfConverter; the application answers with Gotenberg,

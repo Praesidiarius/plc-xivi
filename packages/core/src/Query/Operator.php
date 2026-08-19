@@ -38,6 +38,20 @@ enum Operator: string
     case IsEmpty = 'empty';
     case IsNotEmpty = 'filled';
 
+    /**
+     * Shares a moment with (XIV-136).
+     *
+     * The one comparison that is not about a point but about two stretches, and
+     * the only question anybody actually asks of a period: *is this room free
+     * next week*, *who is here today*. The value is a period too — and a lone
+     * date is read as that whole day ({@see \Xivi\Core\Field\Type\PeriodFieldType::toStorage()}),
+     * so `overlaps=2026-08-19` is a URL somebody can type.
+     *
+     * Offered only by types that hold a range, like every other operator: asking
+     * whether a phone number overlaps Thursday is not a question worth answering.
+     */
+    case Overlaps = 'overlaps';
+
     /** The two that are about presence rather than about a value. */
     public function needsValue(): bool
     {

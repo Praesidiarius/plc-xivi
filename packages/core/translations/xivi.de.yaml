@@ -11,6 +11,10 @@ operator:
     lte: bis
     empty: ist leer
     filled: ist nicht leer
+    # Der einzige Vergleich, der zwei Zeitspannen betrifft statt eines Punktes
+    # (XIV-136). Liest sich in einer Filterzeile: „Aufenthalt überschneidet
+    # 19.8.2026“.
+    overlaps: überschneidet
 
 # Ob jemand tippt, um die Auswahl einzugrenzen (XIV-36).
 autocomplete:
@@ -60,6 +64,13 @@ record:
     # sein.
     duplicate_value: 'Ein anderer Datensatz hat diesen Wert (%field%) gerade eben bekommen, während dieser gespeichert wurde. Deshalb wurde hier nichts gespeichert. Ändere ihn und versuche es noch einmal.'
     duplicate_value_unknown: 'Ein anderer Datensatz hat einen dieser Werte gerade eben bekommen, während dieser gespeichert wurde. Deshalb wurde hier nichts gespeichert. Prüfe die Felder, die eindeutig sein müssen, und versuche es noch einmal.'
+
+    # Die Ausschluss-Bedingung, die ein Speichern ablehnt (XIV-136). Schwerer zu
+    # erklären als der Dublettenfall darüber: am Formular selbst ist nichts
+    # falsch — im Weg steht ein anderer Datensatz, den die speichernde Person
+    # womöglich gar nicht sehen darf.
+    overlapping_period: 'Ein anderer Datensatz belegt einen Teil dieses Zeitraums (%field%) für dieselbe Sache. Deshalb wurde hier nichts gespeichert. Wähle einen anderen Zeitraum — oder etwas anderes, wofür er gilt.'
+    overlapping_period_unknown: 'Ein anderer Datensatz belegt einen Teil eines dieser Zeiträume für dieselbe Sache. Deshalb wurde hier nichts gespeichert. Prüfe die Zeiträume an diesem Datensatz und versuche es noch einmal.'
 
 history:
     period:
@@ -161,6 +172,15 @@ metadata:
     values_are_not_on_the_list: '%count% vorhandene Datensätze tragen in „%key%“ einen Wert, den es in der Liste „%list%“ nicht gibt: %values%. Zeigte das Feld auf diese Liste, stünden sie mit etwas da, das sie nicht enthält, und ließen sich erst wieder speichern, wenn jemand sie in Ordnung bringt. Ergänze diese Werte zuerst in der Liste, oder ändere die Datensätze.'
     values_are_not_among_its_options: '%count% vorhandene Datensätze tragen in „%key%“ einen Wert, der keine der eigenen Optionen des Feldes ist: %values%. Nähme man das Feld von der gemeinsamen Liste, stünden sie mit etwas da, das das Feld nicht anbietet. Ergänze diese Optionen zuerst am Feld, oder lass es auf der Liste.'
 
+    # Die drei Absagen, die der Bezug eines Zeitraums bekommen kann (XIV-136).
+    # Jede betrifft eine Regel, die sonst eingeschaltet wäre und nichts
+    # durchsetzen würde — das Schlimmste, was einer Bedingung passieren kann:
+    # Die Seite sagt, Überschneidungen seien unmöglich, und die Datenbank lässt
+    # sie weiter zu.
+    scope_is_not_a_field: '„%key%“ kann nicht exklusiv innerhalb „%scope%“ sein: Dieses Modul hat kein Feld mit diesem Namen. Zeiträume sind exklusiv innerhalb von etwas — einem Zimmer, einer Maschine, einer Person — und dieses Etwas ist ein Feld daneben.'
+    scope_on_a_collection: '„%key%“ ist ein Feld der Unterliste „%shape%“, und Zeiträume dort können nicht exklusiv gemacht werden: innerhalb eines übergeordneten Datensatzes und über die ganze Tabelle sind zwei verschiedene Regeln, und die Engine rät nicht, welche gemeint war.'
+    periods_already_overlap: 'In „%key%“ überschneiden sich bereits Datensätze, deshalb kann es noch nicht exklusiv innerhalb „%scope%“ sein: %pairs%. Trenne diese Datensätze zuerst, oder lass „%key%“ wie es ist.'
+
 query:
     unknown_field: 'Auf „%shape%“ gibt es nichts namens „%path%“, wonach sich filtern oder sortieren ließe.'
     unknown_collection: '„%module%“ hat keine Sammlung namens „%collection%“.'
@@ -207,3 +227,14 @@ value_list:
         Tools: Werkzeug
         Done: Haken
         Attention: Warnung
+
+# Die drei Bedienelemente eines Zeitraums und der eine Satz, der dabeistehen muss
+# (XIV-136). `until_help` ist die ganze Entscheidung über die Grenze, gesagt dort,
+# wo sie jemandem begegnet: Das zweite Datum ist der Moment, an dem der Zeitraum
+# *endet*, nicht sein letzter Tag.
+period:
+    from: Von
+    until: Bis
+    until_help: Der Tag, an dem der Zeitraum endet — er gehört nicht mehr dazu, das Zimmer ist an diesem Tag wieder frei.
+    open_ended_label: Kein Enddatum
+    open_ended: 'ab %from%'
