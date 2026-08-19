@@ -37,6 +37,7 @@
         "symfony/translation": "8.1.*",
         "symfony/twig-bundle": "8.1.*",
         "symfony/ux-autocomplete": "^3.4",
+        "symfony/ux-chartjs": "^3.4",
         "symfony/ux-live-component": "^3.4",
         "symfony/validator": "8.1.*",
         "symfony/workflow": "8.1.*",

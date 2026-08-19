@@ -2276,9 +2276,32 @@ happen — and a different one the moment anything writes an entry with an older
 timestamp, which a backfilling import reasonably would. That was invisible while
 the page was one flat list and is not once it draws a boundary between days.
 
+**Because it stores the values, it is also a time series** (XIV-121), and that
+is worth stating here rather than being rediscovered. The diff holds `from` and
+`to` and not merely the fact that something moved; the `created` entry records
+every field the record was born with as a change from null; `RecordWriter` is the
+only supported way to write a record, so there is no path that writes a value and
+no entry; and nothing prunes the table. Put together, the chain of values for any
+one field is unbroken from a record's creation to the moment it is read — so
+"what was this article's price in March" is a question this table already
+answers, and a second table holding a price series would be a copy of facts
+already recorded, kept in step by hand, with two answers the first time it was
+not. §8.3.1 is where that gets drawn as a line; `HistoryRepository` grew one
+extra read for it, selecting only the entries with a `fields` branch and
+returning them oldest first, because a trend is the opposite shape from a
+timeline: the whole life of one value, with the *old* end carrying the
+information.
+
 Still to decide: retention and whether `occurred_at` wants range partitioning.
 Cheap now, expensive at 60M rows. And field types will need a way to say "do not
 record this value" before the first sensitive type ships.
+
+**Retention has a second consumer now**, which changes what deciding it means.
+While this table was only a timeline, dropping entries older than some horizon
+would have cost a page nobody scrolls to the end of. Since XIV-121 it is also
+where a chart comes from, and pruning the far past is precisely pruning the half
+of a trend that carries the shape. Whatever retention turns out to be, it has to
+be a decision made in front of that, not one made about a log.
 
 ### 5.3 Asking questions: the query layer
 
@@ -6608,6 +6631,113 @@ second round trip for nothing.
 **A widget declaring what it costs** stays a question rather than a requirement.
 `defer` is a widget saying "this touches the database", which is as much as
 anything currently acts on; a number would be a number nothing reads.
+
+##### The "no charts yet" position, narrowed rather than reversed (XIV-121)
+
+XIV-66 declined to add charting and gave the rule that would let something in
+later: *"a dashboard that looks sad is fixed by useful numbers and actionable
+lists, not by graphics; a chart earns its place where a **trend** is what is
+being read, and nowhere else. Add the dependency for the one or two widgets that
+need one. If that turns out to be zero, it was never needed."*
+
+It did not turn out to be zero. **An article's price over time is a trend and
+nothing else**, and it is the case the rule was written to admit: the same data
+as a table — "on 3 March, 100.00 became 120.00" — is already on the record page
+twice, in the history card and on the timeline page, and nobody reads it as a
+series, because a column of numbers is not a shape. So the chart is not a second
+way of showing what is shown; it is the one reading of that data a table cannot
+give. `symfony/ux-chartjs` is in (MIT; Chart.js MIT, self-hosted through
+AssetMapper like everything else — §8.3's no-CDN promise is unchanged).
+
+**What is narrowed and what still stands.** The dependency is now paid for, so
+the argument against the *next* chart can no longer be "it costs a dependency".
+It has to be XIV-66's actual rule, which is unchanged: a chart is for a trend.
+Dashboards of charts, revenue over time and anything aggregating across records
+are still refused here — not because they cannot be drawn now, but because each
+is a different design with a different subject and a different permission
+question, and none of them has been through it.
+
+**Where it went, and why not the dashboard.** A price trend is about *that*
+article, so it is a card on the article's own page. A dashboard is what somebody
+sees before they have picked anything, so a price chart there would need a
+subject chosen for the reader — "which article?" is a question with no obvious
+answer and is a feature of its own.
+
+**It is not a chart of `price`, it is a chart of a numeric field.** One chart
+wired to one field of one module would have been a special case with a
+dependency attached. `Xivi\Core\History\FieldTrends` takes a module and a record
+and answers for every field whose recorded values are numbers; the article
+module contains not one line about charts. Which field is drawn is a picker on
+the card, and its default is the field with the most changes, so the card is
+useful before anybody touches it.
+
+**Numeric is read off the values rather than declared**, which is §5's rule
+about not growing a switch on field type, applied here. A field type added later
+is plottable the day it stores numbers, and a *customer's own* field (§6.1) gets
+a trend with no deploy. The one exclusion is a reference, whose value is another
+record's id — a number that means nothing on an axis — and it is excluded by
+asking the type whether it names a record (`LinksToRecord`, XIV-42) rather than
+by knowing the word `reference`. A `choice` field somebody has filled with bare
+numbers is deliberately *not* excluded: over-including costs one entry in a
+picker, under-including costs a ticket.
+
+**The card is the dashboard split, one level down.** §8.3.1's line — the page
+decides whether a card exists, the card decides what is in it — is applied to a
+record instead of a dashboard, and inverted in one respect worth naming: the
+record page mounts this unconditionally and the *card* decides whether it
+exists, because whether a module takes follow-ups is a flag on the definition
+and whether a record has anything numeric to draw is not. The card answers it
+from the definitions before it queries anything, so a contact page pays a
+construction and no round trip.
+
+**A control on a card is the card's, not the URL's** (XIV-84 again, and the same
+sentence): which of two numbers somebody is looking at is not navigation, is not
+worth a back-button entry and is not a link anybody sends a colleague.
+
+**Permissions are asked twice and the second answer is silence.** A chart is a
+number about records, so a reader must see nothing here about a record they may
+not open (§8.4). The record page has voted `view` on the record; the component
+asks again at its own endpoint, record-level rather than module-level, because
+props are signed rather than secret. It **draws nothing** rather than refusing:
+a controller answers a page and can answer 404, but there is no reading of "404"
+a card inside somebody else's page can perform — thrown from a template it
+becomes a 500, which is a worse outcome for exactly the same disclosure, namely
+none.
+
+**The degenerate cases are the common ones.** A catalogue is mostly articles
+nobody has ever edited, so "one change, or none" is not an edge case. A record
+whose price never changed draws a flat line from its creation to now and a
+sentence saying since when — an empty box would be a question about whether the
+feature is broken, where "100.00 since 3 March, unchanged" is a real answer to
+"what was this in March". The line always runs to *now* rather than stopping at
+the last change, because a line that stopped there leaves the reader to infer
+from an absence that the last value is still in force.
+
+**Chart.js is loaded lazily, and that is the difference between the cost above
+and a real one.** `assets/controllers.json` marks the chart controller `fetch:
+lazy` — the only controller in this application that is not eager — so the
+library is imported when a page contains a canvas asking for it and on no other
+page. The sign-in page, the dashboard, every list and every record of a module
+with no numbers on it are byte-for-byte what they were. Eager would have put
+200 KB of JavaScript on all of them for a card that appears on some article
+pages.
+
+**Which is why there is a browser test.** Lazy loading, the stepped
+configuration and the small controller that formats the axis all fail the same
+way — a blank box, a message in a console nobody is reading, and a green suite,
+because every other test asserts what the *server* put in the page. The browser
+test reads the canvas back and counts the pixels that are not transparent, which
+is true only if the dynamic import resolved, the controller connected, the
+configuration was accepted and a line was painted. §8.3's warning about this
+layer stands and is why it is one assertion rather than a suite.
+
+**What it cost, measured against the built image.** `symfony/ux-chartjs` v3.4.0
+plus Chart.js 4.5.1 and `@kurkle/color`: **+586 KB inside `frankenphp_public`**
+(235 KB of AssetMapper sources, 243 KB of the compiled copies under
+`public/assets`, 27 KB of PHP, and the rest autoloader and warmed cache), which
+is **+175 KB, or +0.17%, on the image's own reported size** of 103 MB. A browser
+downloads about 208 KB of JavaScript, once, from this installation's own host.
+
 
 ### 8.4 Authorization: grants, resolved per person
 

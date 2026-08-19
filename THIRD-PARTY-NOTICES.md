@@ -82,18 +82,27 @@ which is what keeps it out of the production image.
 The CSS, and one piece of the JavaScript: `Tooltip`, for the hints on icon-only
 buttons (XIV-8), which brings Popper (`@popperjs/core`, MIT) with it. Nothing is
 committed here — `importmap:install` downloads each package into `assets/vendor/`
-at build time, and the files keep their own licence headers. They are then served
-from this application's own host rather than a CDN, so no third party is
-contacted when a customer loads a page.
+at build time. They are then served from this application's own host rather than
+a CDN, so no third party is contacted when a customer loads a page.
+
+**The downloaded JavaScript carries no licence header, and this file is why that
+is not a problem** (noticed while adding Chart.js, XIV-121). AssetMapper fetches
+each package from jsDelivr, which rebundles it — every `*.index.js` under
+`assets/vendor/` opens with jsDelivr's own "Bundled by jsDelivr" comment and the
+upstream copyright notice is gone. MIT requires that notice to be preserved in
+substantial portions of the software, so **this file is where it is preserved**,
+for every package listed below, and it has to be kept accurate for that reason
+rather than as a courtesy. Stylesheets are unaffected: Bootstrap's CSS arrives
+with its own header intact.
 
 **Symfony UX** — MIT, Copyright (c) Fabien Potencier.
 <https://github.com/symfony/ux>
 
-`ux-live-component`, `ux-twig-component`, `stimulus-bundle` and
-`ux-autocomplete`, which between them make a form re-render itself on the server
-and a picker searchable. Their JavaScript is served from this
-application's own host like everything else, out of the packages themselves
-rather than a download.
+`ux-live-component`, `ux-twig-component`, `stimulus-bundle`, `ux-autocomplete`
+and `ux-chartjs`, which between them make a form re-render itself on the server,
+a picker searchable and a record's price legible as a line. Their JavaScript is
+served from this application's own host like everything else, out of the packages
+themselves rather than a download.
 
 **Stimulus** — MIT, Copyright (c) 2021 Basecamp, LLC.
 <https://github.com/hotwired/stimulus>
@@ -126,6 +135,25 @@ since the route it registers only serves the entity helper.*
 
 *htmx (0BSD) was here between XIV-28 and XIV-33 and has been removed; see brief
 §8.3 for why the choice changed.*
+
+**Chart.js** — MIT, Copyright (c) 2014-2022 Chart.js Contributors and
+Copyright (c) 2015 Nick Downie.
+<https://github.com/chartjs/Chart.js>
+
+The one chart in this application: what a numeric field on a record has been
+worth over time (XIV-121, brief §8.3.1). It arrives under `symfony/ux-chartjs`
+(MIT, Symfony UX above), which is the PHP half — a builder, a model and a
+Stimulus controller — while Chart.js is the drawing. It brings **`@kurkle/color`**
+(MIT, Copyright (c) 2018 Jukka Kurkela), which does the colour arithmetic behind
+a fill. Same arrangement as everything else here: fetched into `assets/vendor/`
+by `importmap:install`, self-hosted, not committed and not from a CDN.
+
+Deliberately *not* brought in with it: `chartjs-adapter-date-fns` and `date-fns`,
+which are what Chart.js's own time axis wants. Unbundled through AssetMapper
+`date-fns` is larger than Chart.js itself, for the sake of formatting a handful
+of axis labels — so the server sends epoch milliseconds on a linear scale and
+`assets/controllers/trend_chart_controller.js` formats them with the browser's
+own `Intl`.
 
 **Bootstrap Icons** — MIT, Copyright (c) 2019-2024 The Bootstrap Authors.
 <https://github.com/twbs/icons>

@@ -40,4 +40,6 @@ return [
     '@orchidjs/sifter' => ['version' => '1.1.0'],
     '@orchidjs/unicode-variants' => ['version' => '1.1.2'],
     'tom-select/dist/css/tom-select.bootstrap5.css' => ['version' => '2.6.2', 'type' => 'css'],
+    'chart.js' => ['version' => '4.5.1'],
+    '@kurkle/color' => ['version' => '0.3.4'],
 ];

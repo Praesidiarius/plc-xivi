@@ -106,6 +106,70 @@ final readonly class HistoryRepository
     }
 
     /**
+     * Every field value this record's timeline recorded, oldest first (XIV-121).
+     *
+     * **The one question about history that is not "what happened to this record
+     * lately".** {@see self::findFor()} is a window on the newest entries because
+     * that is what a timeline is read as; a trend is the opposite shape — the
+     * whole life of one value, and the *old* end of it is the half that carries
+     * the information. So this is a second read of the same table rather than a
+     * flag on the first, because the two differ in what they select, how they
+     * order it and what they do when there is too much of it.
+     *
+     * **It selects only the entries that changed a value.** A document generated
+     * and a mail sent are entries with no `fields` branch at all (§5.2), and so is
+     * a delete; including them would spend the cap below on rows that can
+     * contribute no point. `jsonb_exists` rather than the `?` operator, which
+     * Postgres spells with the same character DBAL uses for a positional
+     * parameter — there is no escape for it, and the function is what it is for.
+     *
+     * **Newest first with a LIMIT, and reversed here.** A record edited every day
+     * for five years has a timeline nobody would draw, and the cap has to bite at
+     * the end that matters least, which is the far past. Taking the newest and
+     * turning them round is the only way to have both the cap and the order; the
+     * caller learns it hit the cap by asking for one more row than it wants, which
+     * is why there is no count query beside this one.
+     *
+     * The `(record_id, id DESC)` index does the narrowing exactly as it does for
+     * the timeline; the JSON test is a filter over one record's own slice.
+     *
+     * @return list<array{occurredAt: \DateTimeImmutable, fields: array<string, mixed>}>
+     */
+    public function fieldChangesFor(ModuleDefinition $module, int $recordId, int $limit): array
+    {
+        $rows = $this->connection->fetchAllAssociative(
+            sprintf(
+                "SELECT occurred_at, changes->'fields' AS fields
+                 FROM %s WHERE record_id = :record AND jsonb_exists(changes, 'fields')
+                 ORDER BY occurred_at DESC, id DESC LIMIT :limit",
+                $this->table($module),
+            ),
+            ['record' => $recordId, 'limit' => max(1, $limit)],
+            ['record' => ParameterType::INTEGER, 'limit' => ParameterType::INTEGER],
+        );
+
+        $changes = [];
+
+        foreach (array_reverse($rows) as $row) {
+            $fields = \is_string($row['fields'] ?? null)
+                ? json_decode($row['fields'], true, flags: \JSON_THROW_ON_ERROR)
+                : [];
+
+            if (!\is_array($fields)) {
+                continue;
+            }
+
+            /* @var array<string, mixed> $fields */
+            $changes[] = [
+                'occurredAt' => new \DateTimeImmutable((string) $row['occurred_at']),
+                'fields' => $fields,
+            ];
+        }
+
+        return $changes;
+    }
+
+    /**
      * How long the timeline is.
      *
      * Its own query rather than a window function beside the rows: the page

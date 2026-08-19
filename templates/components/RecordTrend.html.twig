@@ -1,0 +1,128 @@
+{#
+	What one number on this record has been worth, as a line (XIV-121).
+
+	The card draws nothing at all for a module with no numeric field on it — see
+	`RecordTrend::hasAnything()` for why that is nothing rather than an empty
+	state. The record page mounts this unconditionally and lets the card decide,
+	which is §8.3.1's split — the page decides whether a card exists, the card
+	decides what is in it — applied one level down to a record instead of a
+	dashboard.
+
+	Every moment here goes through `|date`, which converts into the reader's own
+	zone before formatting because a request-scoped listener sets Twig's timezone
+	(§8.4.4). The chart's axis is formatted in the browser instead, by
+	`assets/controllers/trend_chart_controller.js`, and both therefore say the
+	same day.
+#}
+{% if not this.hasAnything %}
+	{#
+		Nothing to say, and an element to say it in.
+
+		A live component is mounted on a root element and its props are written
+		onto that element, so rendering literally nothing would leave the library
+		with nowhere to put them. This is that element and no more: no card, no
+		heading, no border, nothing that occupies a pixel. A record page for a
+		module with no numbers on it looks exactly as it did before this feature
+		existed, which is the point — an empty card saying "no chart" would be the
+		feature refusing to leave (§5.18's rule about a panel, applied to a card).
+	#}
+	<div{{ attributes }} hidden></div>
+{% else %}
+	{% set trend = this.chosen %}
+	{% set extent = trend.extent %}
+
+	<div{{ attributes.defaults({class: 'card mb-3'}) }}>
+		<div class="card-body">
+			<div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+				<h2 class="h6 text-uppercase text-body-secondary mb-0">{{ 'module.trend'|trans }}</h2>
+
+				{#
+					Only when there is a choice to make. One numeric field is not a
+					decision, and a select with a single option in it is a control that
+					can do nothing — which reads as a control that is broken.
+
+					`data-model` rather than a live action: the whole interaction is
+					"this prop is now that", and the component re-renders itself. There
+					is nothing to write down, nothing to validate and nothing to refuse,
+					which is exactly the case a bound model is for.
+				#}
+				{% if this.trends|length > 1 %}
+					<select class="form-select form-select-sm w-auto"
+					        data-model="field"
+					        aria-label="{{ 'module.trend_field'|trans }}">
+						{% for key, option in this.trends %}
+							<option value="{{ key }}"{{ key == trend.field.key ? ' selected' : '' }}>
+								{{- option.field.label -}}
+							</option>
+						{% endfor %}
+					</select>
+				{% endif %}
+			</div>
+
+			{#
+				The height belongs to the card rather than to Chart.js, which is why
+				the options turn `maintainAspectRatio` off: left to itself it derives a
+				height from the width, and this card sits in a column that is narrow on
+				a laptop and full-width on a phone — so the same chart would be a
+				letterbox on one and a square on the other. See `.trend-chart`.
+			#}
+			<div class="trend-chart">
+				{#
+					A canvas says nothing to a screen reader, so the label carries what
+					the picture carries: which number this is and how it has moved. The
+					sentence below repeats it in the page for everybody, because it is
+					worth reading whether or not the chart drew.
+				#}
+				{{ render_chart(this.chart, {
+					'role': 'img',
+					'aria-label': trend.isFlat
+						? 'module.trend_since'|trans({
+							'%field%': trend.field.label,
+							'%value%': display_stored(trend.field, trend.first.value),
+							'%date%': trend.first.at|date('Y-m-d'),
+						})
+						: 'module.trend_summary'|trans({
+							'%field%': trend.field.label,
+							'%low%': display_stored(trend.field, extent[0]),
+							'%high%': display_stored(trend.field, extent[1]),
+							'%value%': display_stored(trend.field, trend.last.value),
+						}),
+				}) }}
+			</div>
+
+			{#
+				What the line says, in words. Not a caption for the chart so much as
+				the other half of it: a horizontal line and a chart that failed to
+				load look alike at a glance, and "unchanged since March" is the
+				sentence that tells them apart. It is also the whole answer for a
+				record that has never been edited, which is most of them.
+			#}
+			<p class="small text-body-secondary mb-0 mt-2">
+				{% if trend.isFlat %}
+					{{ 'module.trend_since'|trans({
+						'%field%': trend.field.label,
+						'%value%': display_stored(trend.field, trend.first.value),
+						'%date%': trend.first.at|date('Y-m-d'),
+					}) }}
+				{% else %}
+					{{ 'module.history_changes'|trans({'%count%': trend.changes}) }}
+					<span class="mx-1">·</span>
+					{{ 'module.trend_range'|trans({
+						'%low%': display_stored(trend.field, extent[0]),
+						'%high%': display_stored(trend.field, extent[1]),
+					}) }}
+				{% endif %}
+
+				{#
+					The cap is the reader's business (§5.2's rule about a list that
+					silently stopped). A line that began at whatever the oldest entry
+					this read happened to say, presented without this, would be
+					claiming the record was born at that value.
+				#}
+				{% if trend.truncated %}
+					<span class="d-block">{{ 'module.trend_truncated'|trans }}</span>
+				{% endif %}
+			</p>
+		</div>
+	</div>
+{% endif %}
