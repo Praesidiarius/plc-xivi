@@ -176,6 +176,37 @@
 									</th>
 								{% endfor %}
 								<th scope="col" class="text-body-secondary small text-uppercase">{{ 'module.owner'|trans }}</th>
+								{#
+									**When this row was last touched** (XIV-132).
+
+									A system column beside a system column: `owner_id` and
+									`updated_at` are both written by the engine on every record of
+									every module (§5.2), neither is a field anybody declared, and
+									the one has been drawn here since the list existed. So this is
+									the second half of a pair rather than a new idea, and like the
+									first it sorts on nothing — a `RecordQuery` orders on the
+									customer's own definitions, and these two are not among them.
+
+									It is here because of what a knowledge base fails at. An empty
+									one is obvious and harmless; a *confidently wrong* one — an
+									entry from 2023 describing a process that changed in 2024,
+									which somebody reads and follows — is the failure that costs
+									something, and the only cheap defence is that the age is on the
+									screen next to the entry rather than one click inside it. The
+									record page has shown "Changed" in its right-hand card all
+									along, which is the right place to find it and the wrong place
+									to *notice* it: by the time you are reading the page you have
+									already decided this is the answer.
+
+									Every other module gets it too, and that is deliberate rather
+									than collateral. "Which of these did somebody touch today" is a
+									question a list of orders and a list of contacts get asked as
+									often as a list of entries does, and a column the engine can
+									fill for free on every module is not a knowledge-base feature
+									that leaked — it is the generic thing this ticket happened to
+									be the first to need.
+								#}
+								<th scope="col" class="text-body-secondary small text-uppercase">{{ 'module.changed'|trans }}</th>
 								<th scope="col"></th>
 							</tr>
 						</thead>
@@ -203,6 +234,20 @@
 									{# owner_id is a system column; the name is resolved by the
 									   application, since the engine does not know what a user is. #}
 									<td class="text-body-secondary">{{ owners[record.ownerId] ?? '—' }}</td>
+									{# The date alone, without the time: a list is scanned rather
+									   than read, and "2024-11-03" answers "is this still current"
+									   where "2024-11-03 16:42" makes the reader do the same
+									   arithmetic through more digits. The full moment is a click
+									   away on the record itself, and the exact one after that in
+									   the timeline. `<time>` carries the machine-readable form so
+									   the column is not merely a picture of a date. #}
+									<td class="text-body-secondary">
+										{%- if record.updatedAt -%}
+											<time datetime="{{ record.updatedAt|date('c') }}">{{ record.updatedAt|date('Y-m-d') }}</time>
+										{%- else -%}
+											—
+										{%- endif -%}
+									</td>
 									<td class="row-actions text-end">
 										{# Asked about this row, not about the module: with a scope of
 										   "own", the answer differs from one line to the next. #}

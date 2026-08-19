@@ -74,6 +74,35 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **A Knowledge module, for what your experienced people know** ([XIV-132]) — a
+  very simple place to write down the answers that currently live in one person's
+  head: how a refund past thirty days is handled, which supplier to call when the
+  usual one is out, what was agreed with a customer in 2023. An entry has a
+  title, a topic and a formatted body ([XIV-131]); the list has the topic and the
+  date it last changed; the filter bar finds an entry by any word in it. Install
+  it from the store like any other module — it needs no other module first, so a
+  brand-new installation can have this and nothing else. §5.22 has the whole
+  argument.
+- **Knowledge entries are internal, and stay internal** ([XIV-132]) — nothing
+  here is published, shared with a contact or sent by email, and the module is
+  built so it cannot be: it names no contact and declares no recipient, so the
+  *send this record* button is not on the page at all.
+- **Writing is a separate grant from reading** ([XIV-132]) — no new permission
+  concept was added, and none was needed: *View* and *List* on Knowledge make
+  somebody a reader, *Add* and *Edit* make them a writer. The recommended default
+  is that most people read and a few write, and since nothing is granted until
+  you grant it, that is what you get by doing nothing.
+- **What the search does and does not do** ([XIV-132]) — *contains* matches text,
+  ignoring capitals. It is substring matching, not full-text search: there is no
+  stemming, so the plural does not find the singular, and no ranking, so results
+  come back in whatever order the list is sorted by rather than best first. At a
+  few dozen entries this is indistinguishable from search; at a few thousand it
+  will not be, and that is a separate ticket rather than a promise this makes.
+- **Every module's list now shows when a record last changed** ([XIV-132]) — a
+  *Changed* column beside *Owner*, filled from the same history that has always
+  been there. It exists because a knowledge entry that is quietly three years out
+  of date is worse than one that is missing, and it is useful on every other list
+  for the same reason.
 - **A field can hold formatted text** ([XIV-131]) — a new field type, *Formatted
   text*, written as Markdown: headings, bold, italic, lists, links and tables. Add
   one in the field editor like any other. The form is a plain textarea with a
@@ -257,6 +286,7 @@ lands in `Unreleased` here.
 [XIV-124]: https://xivi.youtrack.cloud/issue/XIV-124
 [XIV-126]: https://xivi.youtrack.cloud/issue/XIV-126
 [XIV-131]: https://xivi.youtrack.cloud/issue/XIV-131
+[XIV-132]: https://xivi.youtrack.cloud/issue/XIV-132
 [XIV-142]: https://xivi.youtrack.cloud/issue/XIV-142
 
 ## Releases

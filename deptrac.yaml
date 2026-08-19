@@ -80,6 +80,27 @@ deptrac:
         - type: classLike
           value: '^Xivi\\Voucher\\'
 
+    # The knowledge module (XIV-132), and the emptiest layer here: one blueprint
+    # and one bundle, importing three classes from core and nothing else at all.
+    #
+    # Checked the way the paragraph at the top of this file demands rather than
+    # assumed, because a layer that collects nothing is green for the wrong
+    # reason: `requires: [ContactModule::KEY]` was planted in
+    # `KnowledgeModule.php` and `composer deptrac` reported
+    # "Xivi\Knowledge\KnowledgeModule must not depend on Xivi\Contact\ContactModule".
+    # It was then removed, and this module goes on naming no other module at all
+    # — which it can, because it links to nothing (§5.22).
+    #
+    # **A bare `use` statement is not enough to plant.** The first attempt only
+    # added the import and left it unreferenced, and deptrac reported zero
+    # violations — which for a moment looked exactly like the false green this
+    # whole exercise exists to rule out. Whoever tests the next layer this way
+    # should reference the class in code, not merely import it.
+    - name: ModuleKnowledge
+      collectors:
+        - type: classLike
+          value: '^Xivi\\Knowledge\\'
+
     - name: App
       collectors:
         - type: classLike
@@ -161,6 +182,12 @@ deptrac:
     ModuleVoucher:
       - Core
 
+    # Points at nothing and is pointed at by nothing: the knowledge module has no
+    # `reference` field, no `requires` and no `uses`, so this line is the whole
+    # of its dependency surface and is unlikely ever to grow (§5.22, XIV-132).
+    ModuleKnowledge:
+      - Core
+
     # **ControlPlane is deliberately absent from this list, and that absence is
     # the rule XIV-60 exists to state.** The application serves customers; it must
     # be buildable, bootable and testable with no administration surface compiled
@@ -176,6 +203,7 @@ deptrac:
       - ModuleOrder
       - ModuleInvoice
       - ModuleVoucher
+      - ModuleKnowledge
 
     # Provisioning a customer means creating a database, connecting to it as that
     # customer, running the tenant migrations and installing modules — so the
