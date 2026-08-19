@@ -110,12 +110,27 @@ final class ContactModule implements ModuleProvider
                     filterable: true,
                     position: 30,
                 ),
+                // A phone number rather than forty characters of text (XIV-114).
+                // The three spellings of one Swiss mobile — `+41 79 123 45 67`,
+                // `0791234567`, `079 123 45 67` — used to be three values here,
+                // which is why the filter box was worth nothing on this column
+                // and why two records for one person never looked like
+                // duplicates. Now whatever is typed is stored as `+41791234567`
+                // and the column is filterable, because a filter over a
+                // canonical value is a filter that finds things.
+                //
+                // **This does not reach into anybody's database.** A tenant that
+                // installed Contact before this release keeps a text field
+                // called Phone and goes on keeping it — §6.1, and ModuleUpgrade
+                // never offers a key the shape already has, whatever it now
+                // looks like. Changing it for them would be a type change, which
+                // §5.4 refuses because stored values cannot survive one.
                 new FieldBlueprint(
                     key: 'phone',
                     label: 'field.phone',
-                    type: 'text',
+                    type: 'phone',
+                    filterable: true,
                     position: 40,
-                    options: ['max_length' => 40],
                 ),
                 new FieldBlueprint(
                     key: 'birthday',

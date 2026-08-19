@@ -436,6 +436,11 @@ field:
     width: Width
     width_default: Type default
     autocomplete: Search box
+    # Which country a phone number typed without a country code is read as
+    # (XIV-114). "Country" rather than "region", because the column is read by
+    # somebody choosing Germany, not by somebody thinking about ISO 3166.
+    region: Country
+    region_default: This installation's
     back_to: Back to %module%
     rule_required: required
     rule_unique: unique

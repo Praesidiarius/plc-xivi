@@ -86,8 +86,16 @@ final readonly class FormattingLocale
      * The login page has no tenant resolved yet in some deployments, and a
      * console command has none at all — neither is a reason to fail, so both
      * fall through to the bare language.
+     *
+     * **Public since [XIV-114]**, which is the one change that ticket made to
+     * this class. A phone number typed without a country code has to be read
+     * against a country, and the country it is read against is this one — so
+     * `App\Tenant\Settings\ProfileRegion` calls this rather than reaching into
+     * the profile repository a second time. The alternative was a fourth
+     * variation on the chain §8.4.2 established, which is precisely what that
+     * ticket set out not to build. Nothing else about this method changed.
      */
-    private function instanceRegion(): ?string
+    public function instanceRegion(): ?string
     {
         if ($this->context->tryGetTenant() === null) {
             return null;

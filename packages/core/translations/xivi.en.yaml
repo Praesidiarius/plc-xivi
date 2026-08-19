@@ -169,3 +169,10 @@ markdown:
         Formatting: <code>**bold**</code>, <code>*italic*</code>, <code># Heading</code>,
         and a line beginning with <code>-</code> for a list item.
     preview: Preview
+
+# What a phone box says about itself (XIV-114). The single fact that makes a
+# later refusal comprehensible: a number typed without a country code is read as
+# belonging to one particular country, and this is which.
+phone:
+    help_country: 'Typed without a country code, this is read as a %country% number.'
+    help_no_country: 'This installation has not said which country it is in, so type numbers in full, with the country code.'

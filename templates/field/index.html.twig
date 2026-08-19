@@ -72,6 +72,7 @@
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.order'|trans }}</th>
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.width'|trans }}</th>
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.autocomplete'|trans }}</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.region'|trans }}</th>
 									<th scope="col"></th>
 								</tr>
 							</thead>
@@ -138,6 +139,25 @@
 														name="autocomplete" style="width: 8rem">
 													{% for value, label in autocompleteChoices %}
 														<option value="{{ value }}" {{ field.getOption('autocomplete', '') == value ? 'selected' : '' }}>{{ label|trans({}, 'xivi') }}</option>
+													{% endfor %}
+												</select>
+											{% endif %}
+										</td>
+										{# Which country a number typed without a country code is read as
+										   (XIV-114). Only for the types that read their values against one —
+										   today that is `phone` and nothing else. Blank is the useful answer
+										   for almost every field: it follows the country on the instance
+										   profile (§8.6) and keeps following it if that changes. What is
+										   decided here is how the *next* value typed into this field is
+										   read; nothing already stored moves, because a stored number is
+										   already E.164 and already carries its own country. #}
+										<td>
+											{% if field.type in settable.region %}
+												<select form="f{{ field.id }}" class="form-select form-select-sm"
+														name="region" style="width: 11rem">
+													<option value="">{{ 'field.region_default'|trans }}</option>
+													{% for code, name in regionChoices %}
+														<option value="{{ code }}" {{ field.getOption('region', '') == code ? 'selected' : '' }}>{{ name }}</option>
 													{% endfor %}
 												</select>
 											{% endif %}

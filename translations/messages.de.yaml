@@ -307,6 +307,8 @@ field:
     width: Breite
     width_default: Feldtyp-Standard
     autocomplete: Suchfeld
+    region: Land
+    region_default: Das der Installation
     back_to: Zurück zu %module%
     rule_required: Pflichtfeld
     rule_unique: eindeutig

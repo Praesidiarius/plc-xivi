@@ -14,6 +14,7 @@
         "doctrine/doctrine-bundle": "^3.3",
         "doctrine/doctrine-migrations-bundle": "^4.0",
         "doctrine/orm": "^3.6",
+        "giggsey/libphonenumber-for-php-lite": "^9.0",
         "league/commonmark": "^2.7",
         "maennchen/zipstream-php": "^3.2",
         "openspout/openspout": "^5.10",

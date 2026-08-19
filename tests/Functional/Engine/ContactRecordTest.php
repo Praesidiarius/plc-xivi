@@ -287,7 +287,7 @@ final class ContactRecordTest extends KernelTestCase
         $violations = $this->validateIn($this->alpha, [
             'first_name' => 'Ada',
             'last_name' => 'Lovelace',
-            'phone' => '+41 00 000 00 00',
+            'phone' => '+41 44 668 18 00',
         ]);
 
         self::assertCount(0, $violations, (string) $violations);
@@ -491,7 +491,7 @@ final class ContactRecordTest extends KernelTestCase
 
         $this->switcher->runFor($this->alpha, function () use ($contact): void {
             $module = self::service(MetadataRepository::class)->get(ContactModule::KEY);
-            $contact->data['phone'] = '+41 00 000 00 00';
+            $contact->data['phone'] = '+41 44 668 18 00';
 
             self::service(RecordWriter::class)->save($module, $contact, [
                 'addresses' => [['id' => null, 'data' => ['street' => 'Baker Street 1', 'city' => 'Zürich']]],
