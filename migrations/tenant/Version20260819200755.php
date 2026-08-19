@@ -369,6 +369,24 @@ final class Version20260819200755 extends AbstractMigration
             )
             SQL);
 
+        // **The one row of data in this file, and it is not optional.** The
+        // profile is a singleton — id 1, always — and every setting on it is
+        // written by `UPDATE`, never by an upsert. Without this row an
+        // administrator can save the company name, the currency, the SMTP
+        // credentials or the installation's dashboard layout and have the save
+        // report success while changing nothing, because `UPDATE … WHERE id = 1`
+        // against no rows is not an error.
+        //
+        // It is called out at this length because it is the one thing in the
+        // XIV-151 squash that a schema comparison cannot check. `pg_dump
+        // --schema-only` of a database built by the old thirty-seven and of one
+        // built by this file are identical whether or not this statement is here;
+        // what caught its absence was the suite — `DashboardLayoutTest` setting an
+        // installation layout that then did not apply. A baseline is a schema
+        // *plus* whatever rows the schema is meaningless without, and this is the
+        // only such row in either database.
+        $this->addSql("INSERT INTO tenant_profile (id, company_name, currency, updated_at) VALUES (1, '', NULL, NOW())");
+
         // ---------------------------------------------------------------------
         // The per-feature tables
         // ---------------------------------------------------------------------
