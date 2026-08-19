@@ -81,15 +81,13 @@ speaking HTTP could previously tell a rejection from an acceptance — and it is
 recorded here rather than discovered by whatever reads these responses next.
 
 **What a submitted record form *means* is not the controller's** (XIV-30), and
-that is why the move above was a change of caller rather than a rewrite. Four
-things are held outside it: what a form starts with, which submitted rows were
-really typed into, whether the submission is valid, and what gets written. None
-of them is a fact about HTTP. What a form starts with is core's, since it follows
-from the shape; what a submission *means* needs the validator, the writer and
-Symfony's form errors together, so it lives in the application. The rule to keep:
-whatever renders the form — a controller, a component, an import, whatever comes
-next — asks the same service, and none of them gets its own idea of what a valid
-record is.
+that is why the move above was a change of caller rather than a rewrite. What a
+form starts with, which submitted rows were really typed into, whether the
+submission is valid and what gets written are none of them facts about HTTP; that
+a controller was holding them is an accident of there having been one caller. The
+rule to keep: whatever renders the form — a controller, a component, an import,
+whatever comes next — asks the same service, and none of them gets its own idea of
+what a valid record is.
 
 **One browser runs, and only over what only a browser can see** (XIV-31). Every
 other test calls the component directly and learns nothing about whether the page
@@ -140,38 +138,16 @@ to cut it around.
 **A widget is a service that decides whether it has anything to say, and if so
 names a template and hands it data.** Nothing more: no registry to configure, no
 per-user arrangement, no layout engine, nothing persisted. Discovery and ordering
-are Symfony's tagged iterator — `#[AutoconfigureTag]` on the interface,
-`#[AsTaggedItem(priority:)]` on the implementation — which is the reach-for-the-
-component rule applied to a problem that would otherwise have grown a
-`dashboard.yaml`. Nothing keeps a list of widgets, so nothing can disagree with the
-classes that exist.
-
-**A template name and an array, never a rendered string.** A widget that returned
-HTML would need the translator, the router and the escaper injected to build it —
-the reasons Twig exists, rebuilt once per widget. Headings are translation *keys*
-for the same reason a permission action hands out a label key rather than a label.
+are Symfony's tagged iterator, which is the reach-for-the-component rule applied
+to a problem that would otherwise have grown a `dashboard.yaml`. Nothing keeps a
+list of widgets, so nothing can disagree with the classes that exist. Returning
+null is "this does not apply to you" rather than "I am empty"; a widget that
+throws takes the page down rather than being quietly omitted, because a dashboard
+that silently drops a panel is one nobody can trust to be complete.
 
 **The module tiles were converted rather than left in place**, and that is most of
 what makes this real. One interface with one implementation and a template that
-still knew the answer would have been a special case wearing an abstraction. It is
-also the widget that answers "what does a customer with no modules see": it never
-returns null, because the two empty states — nothing installed, which an
-administrator can act on, and nothing yours, which they cannot — are exactly what
-a dashboard with no modules has to say.
-
-**Returning null is "this does not apply to you", not "I am empty".** The
-follow-up widget draws itself with a sentence when the lens has nothing in it, and
-stays off the page only when no module in the installation takes follow-ups at
-all. The condition is deliberately *not* "any module this reader may view": a
-reader can hold follow-ups on a module they can no longer open, and hiding the
-widget would take that work off the screen entirely — the one outcome the feature
-is built to prevent. The price is that somebody with no grants sees an empty box,
-and "nothing on your list" is a true sentence.
-
-**A widget that throws takes the page down, and is allowed to.** The tempting
-try/catch per panel is refused: a dashboard that silently omits one is a dashboard
-nobody can trust to be complete, and the follow-up widget in particular is a list
-of work somebody was given.
+still knew the answer would have been a special case wearing an abstraction.
 
 **A widget's own controls are its own state, not the URL's** (XIV-84). The
 follow-up lens shipped as three links carrying `?follow_ups=today`, on the
@@ -189,9 +165,7 @@ it is not "components are nicer": **the dashboard decides whether a card exists,
 the card decides what is in it.** Whether this customer does follow-ups at all is
 a fact about the installation, settled before anything renders and unchanged by
 anybody looking at it; which of them are due this week changes while they look.
-Those are different lifetimes, and the widget interface is the seam between them —
-which is why `panel()` still returns a template and an array, and the array is now
-empty.
+Those are different lifetimes, and the widget interface is the seam between them.
 
 The URL keeps what it was always for: which page you are on.
 
@@ -214,36 +188,28 @@ finds, exactly as `ValueDeriver`, `Lifecycle` and `Seed` already work. Core lear
 a tag name and nothing else; it still has no idea what a user, a tenant or a
 module package is.
 
-**A seam in core does not mean everything using it moves.** `ModuleTilesWidget`
-reads the application's own navigation and `FollowUpWidget` reads a table in
-`src/`; both are application concerns and both stayed exactly where they were,
-implementing a core interface from up there. The temptation to move them with it
-is the one worth naming, because "the interface is in core so the implementations
-belong there" is a rule that would have dragged the permission resolver and the
-tenant context down with them.
+**A seam in core does not mean everything using it moves.** The two existing
+widgets read the application's own navigation and a table in `src/`; both stayed
+where they were, implementing a core interface from up there. The temptation to
+move them with it is the one worth naming, because "the interface is in core so
+the implementations belong there" is a rule that would have dragged the
+permission resolver and the tenant context down with them.
 
 The module needed two more things to be genuinely self-sufficient, and both are
-one line each rather than a mechanism. `WidgetPanel` carries a **translation
-domain**, so a module names its card out of its own catalogue instead of adding a
-key to the application's file. And `RecordPageUrl` is the sibling of
-`RecordSearchUrl` (§7.6) — core asks where a record's page is and the application
-answers with a route — because "12 unpaid invoices" being twelve *links* is the
-whole difference between a statistic and a to-do list, and twelve links need
-twelve URLs. Without it the module would spell `module_show` in its own Twig
-template, which is the §3 boundary leaking out through the one file deptrac
-cannot read.
+one line each rather than a mechanism: a **translation domain** on the panel, so a
+module names its card out of its own catalogue; and `RecordPageUrl`, the sibling
+of `RecordSearchUrl` (§7.6), because "12 unpaid invoices" being twelve *links* is
+the whole difference between a statistic and a to-do list. Without the second the
+module would spell `module_show` in its own Twig template, which is the §3
+boundary leaking out through the one file deptrac cannot read.
 
 ##### A layout is the fourth instance of §8.4.2's chain, not a fourth variation
 
 The person, then the installation (§8.6), then nothing — where nothing is every
 widget that applies, in the order the tags declare, which is what every
 installation had before the setting existed. `DashboardLayout` is deliberately
-`FormattingLocale` and `DisplayTimezone` with a different value in it: same two
-collaborators, same `of()` for the whole chain and `fallbackFor()` for the part a
-settings page has to name out loud, same handling of a console command that has no
-tenant. Both columns are `JSON`, nullable, unbackfilled, and the picker sits on the
-two screens the other three already live on — your own on `/account`, the
-installation's on the profile page.
+`FormattingLocale` and `DisplayTimezone` with a different value in it rather than
+a fourth variation on the same sentence.
 
 **One thing genuinely differs, and it is why the columns are nullable rather than
 defaulting to a list.** A language, a region and a zone have no empty value; a
@@ -262,16 +228,13 @@ somebody can edit is not a place to answer it.
 
 **A saved layout is data referring to code, which is the sharp part.** A key can
 name a module the customer has uninstalled, a widget a later deploy renamed, or a
-class somebody deleted. `Dashboard` drops a key nothing answers to — the same
-treatment and the same argument as a stale `reference` (§7.6): the missing thing is
-a runtime fact about one customer, not a broken installation, and failing there
-would mean a module somebody uninstalled taking the landing page down for everybody
-who had ever ticked its box. The key lives on the *panel* rather than on the
-interface, so a widget that returns null produces no key at all and "does not apply
-to you" and "is not on offer to you" are one fact rather than two that can
-disagree. §6.2's rule — a widget for an uninstalled module is not offered — is
-therefore enforced nowhere: it falls out of the widget returning null, which is the
-only place that fact is known.
+class somebody deleted, and a key nothing answers to is dropped — the same
+treatment and the same argument as a stale `reference` (§7.6). The key lives on
+the *panel* rather than on the interface, so a widget that returns null produces
+no key at all and "does not apply to you" and "is not on offer to you" are one
+fact rather than two that can disagree. §6.2's rule — a widget for an uninstalled
+module is not offered — is therefore enforced nowhere: it falls out of the widget
+returning null, which is the only place that fact is known.
 
 ##### Deferring, and what makes it worth anything
 
@@ -281,22 +244,16 @@ saves nothing on its own.** `panel()` is asked of every widget on every render �
 has to be, because the reader's layout is a list of keys and the keys come from the
 panels — so a widget that counted rows in that method would have charged the page
 for a card the reader had hidden, and a deferred one would have charged it twice.
-
 So `panel()` is cheap by contract and the panel's data is a **promise** the
-renderer resolves only for a panel it is actually drawing. That is XIV-84's line —
-the dashboard decides whether a card exists, the card decides what is in it —
-restated one level down. Measured on a tenant with the invoice card on it: the
-landing page costs the same number of tenant queries with the card as without it,
-and the two queries behind it happen on the request that fetches the card.
+renderer resolves only for a panel it is actually drawing: XIV-84's line — the
+dashboard decides whether a card exists, the card decides what is in it —
+restated one level down.
 
 **The mount is the dashboard's rather than each widget's**, which is the other
 half of the module story: `loading="defer"` is an attribute on a Live Component,
 and `symfony/ux-live-component` is not a dependency of `packages/invoice`. One
 generic `DashboardPanel` component takes a widget key, so a module ships a class
-and a plain Twig template with no front-end dependency of any kind. A widget whose
-body is *already* a component — the follow-up card — defers on its own mount
-instead, because wrapping a deferred component in a deferred component buys a
-second round trip for nothing.
+and a plain Twig template with no front-end dependency of any kind.
 
 **A widget declaring what it costs** stays a question rather than a requirement.
 `defer` is a widget saying "this touches the database", which is as much as
@@ -327,38 +284,17 @@ are still refused here — not because they cannot be drawn now, but because eac
 is a different design with a different subject and a different permission
 question, and none of them has been through it.
 
-**Where it went, and why not the dashboard.** A price trend is about *that*
-article, so it is a card on the article's own page. A dashboard is what somebody
-sees before they have picked anything, so a price chart there would need a
-subject chosen for the reader — "which article?" is a question with no obvious
-answer and is a feature of its own.
-
-**It is not a chart of `price`, it is a chart of a numeric field.** One chart
-wired to one field of one module would have been a special case with a
-dependency attached. `Xivi\Core\History\FieldTrends` takes a module and a record
-and answers for every field whose recorded values are numbers; the article
-module contains not one line about charts. Which field is drawn is a picker on
-the card, and its default is the field with the most changes, so the card is
-useful before anybody touches it.
-
-**Numeric is read off the values rather than declared**, which is §5's rule
-about not growing a switch on field type, applied here. A field type added later
-is plottable the day it stores numbers, and a *customer's own* field (§6.1) gets
-a trend with no deploy. The one exclusion is a reference, whose value is another
-record's id — a number that means nothing on an axis — and it is excluded by
-asking the type whether it names a record (`LinksToRecord`, XIV-42) rather than
-by knowing the word `reference`. A `choice` field somebody has filled with bare
-numbers is deliberately *not* excluded: over-including costs one entry in a
-picker, under-including costs a ticket.
+**It is not a chart of `price`, it is a chart of a numeric field**, read off the
+values rather than off a declared type, so a customer's own field (§6.1) gets a
+trend with no deploy. One chart wired to one field of one module would have been
+a special case with a dependency attached.
 
 **The card is the dashboard split, one level down.** §8.3.1's line — the page
 decides whether a card exists, the card decides what is in it — is applied to a
 record instead of a dashboard, and inverted in one respect worth naming: the
 record page mounts this unconditionally and the *card* decides whether it
 exists, because whether a module takes follow-ups is a flag on the definition
-and whether a record has anything numeric to draw is not. The card answers it
-from the definitions before it queries anything, so a contact page pays a
-construction and no round trip.
+and whether a record has anything numeric to draw is not.
 
 **A control on a card is the card's, not the URL's** (XIV-84 again, and the same
 sentence): which of two numbers somebody is looking at is not navigation, is not
@@ -374,32 +310,23 @@ a card inside somebody else's page can perform — thrown from a template it
 becomes a 500, which is a worse outcome for exactly the same disclosure, namely
 none.
 
-**The degenerate cases are the common ones.** A catalogue is mostly articles
-nobody has ever edited, so "one change, or none" is not an edge case. A record
-whose price never changed draws a flat line from its creation to now and a
-sentence saying since when — an empty box would be a question about whether the
-feature is broken, where "100.00 since 3 March, unchanged" is a real answer to
-"what was this in March". The line always runs to *now* rather than stopping at
-the last change, because a line that stopped there leaves the reader to infer
-from an absence that the last value is still in force.
-
-**Chart.js is loaded lazily, and that is the difference between the cost above
+**Chart.js is loaded lazily, and that is the difference between the cost below
 and a real one.** `assets/controllers.json` marks the chart controller `fetch:
 lazy` — the only controller in this application that is not eager — so the
 library is imported when a page contains a canvas asking for it and on no other
 page. The sign-in page, the dashboard, every list and every record of a module
 with no numbers on it are byte-for-byte what they were. Eager would have put
 200 KB of JavaScript on all of them for a card that appears on some article
-pages.
+pages. A JSON file holds no comment, so this paragraph is the only place that
+`lazy` is explained.
 
 **Which is why there is a browser test.** Lazy loading, the stepped
 configuration and the small controller that formats the axis all fail the same
 way — a blank box, a message in a console nobody is reading, and a green suite,
 because every other test asserts what the *server* put in the page. The browser
-test reads the canvas back and counts the pixels that are not transparent, which
-is true only if the dynamic import resolved, the controller connected, the
-configuration was accepted and a line was painted. §8.3's warning about this
-layer stands and is why it is one assertion rather than a suite.
+test reads the canvas back and counts the pixels that are not transparent. §8.3's
+warning about this layer stands and is why it is one assertion rather than a
+suite.
 
 **What it cost, measured against the built image.** `symfony/ux-chartjs` v3.4.0
 plus Chart.js 4.5.1 and `@kurkle/color`: **+586 KB inside `frankenphp_public`**
@@ -544,16 +471,10 @@ locks the person out, keeps every record attributable, and is reversible.
 from the beginning and nothing read it: no user checker, no query filtering on
 it. A deactivate button on top of that would have been worse than none, because
 somebody would have relied on it. It now takes **two** mechanisms, and neither
-covers the other's case:
-
-- `ActiveUserChecker` refuses the sign-in.
-- `DeactivatedUserListener` ends a session that already exists. A user checker is
-  *not* consulted when a session is restored: `ContextListener` compares
-  identifier, password and roles, and nothing else. Without the listener,
-  withdrawing access would take effect whenever the session happened to expire.
-  `EquatableInterface` is the other way to do this and was not taken — it replaces
-  the framework's whole change comparison, so the application would silently
-  become responsible for the password-change case too.
+covers the other's case: a user checker refuses the sign-in, and a request
+listener ends a session that already exists — because a user checker is *not*
+consulted when a session is restored, so without the second, withdrawing access
+would take effect whenever the session happened to expire.
 
 **Every refusal is about lock-out.** An administrator cannot deactivate their own
 account, cannot take administrator away from themselves, and cannot leave the
@@ -569,17 +490,9 @@ picker was answering both: choosing "Deutsch" got German-from-Germany, so a Swis
 reader was shown `1.234.500,00` where their country writes `1’234’500.00` — a
 different decimal separator, not only a different grouping one. An
 English-speaking colleague at a Swiss company is an ordinary hire, and wants
-English words with Swiss figures.
-
-So the language is chosen from the catalogues that exist and the region from the
-countries there are, and `FormattingLocale` puts them back together — `de` and
-`CH` make `de_CH`. Nothing downstream learns a new concept: `Request::setLocale()`
-also sets PHP's own default, which is what every formatter already reads.
-
-**A region costs no translation work.** Symfony falls a locale back to its
-language, so `de_CH` finds the `de` catalogue. That is most of why the two are
-stored apart and joined at the point of use rather than offered as one long list
-of every combination.
+English words with Swiss figures. So the language is chosen from the catalogues
+that exist and the region from the countries there are, and they are put back
+together at the point of use — `de` and `CH` make `de_CH`.
 
 The chain is the familiar one, and each step is a different promise: the person,
 then the installation (§8.6, whose people are mostly in one country), then
@@ -656,36 +569,29 @@ is a second enum of verbs; `PermissionVerb` is what it and `ModuleAction` have i
 common, and it is deliberately tiny — a stored value, whether the verb can be
 scoped, and how to label it. Everything else stays exactly as it was: one grant
 table, one resolver, one resolved `PermissionSet`, additive grants, a maximum
-rather than a precedence table.
-
-**And it costs no migration**, which is the same argument §8.4 made about the
-catalogue, one level up. `permission_grant` was already "a subject, a verb, a
-scope" and had opinions about none of them: `module_key` was never a join, so it
-already held `@profile`, and now holds `@store` on the same rule that `@` cannot
-collide with a module key. The `action` column is 16 characters of string, and
-`browse` and `install` fit in it.
+rather than a precedence table. **And it costs no migration**, which is the same
+argument §8.4 made about the catalogue, one level up: `permission_grant` was
+already "a subject, a verb, a scope" and had opinions about none of them.
 
 The one thing that did change is the column's *mapping*: `enumType:` names exactly
 one enum class, so a column holding a verb from either vocabulary cannot use it.
-The typing moved one layer out — the column is a string and `PermissionGrant`
-hands back a `PermissionVerb`. That works only while the two vocabularies share no
-word, so `PermissionCoverageTest` fails the build if they ever collide; a
-collision would not throw, it would silently resolve to whichever enum was tried
-first, for grants somebody had already been given.
+The typing moved one layer out — the column is a string and the entity hands back
+a `PermissionVerb`. That works only while the two vocabularies share no word, so
+`PermissionCoverageTest` fails the build if they ever collide; a collision would
+not throw, it would silently resolve to whichever enum was tried first, for grants
+somebody had already been given.
 
 **Two voters, one per axis.** `ModulePermissionVoter`'s whole subject is a
 module's records; teaching it a second vocabulary would have made it the class
 that knows about both axes, which is a job `PermissionVerbs` already does in one
-place. `StorePermissionVoter` is the same shape one axis over, because the model
-underneath genuinely is the same.
+place.
 
 **A verb from the wrong axis is not stored.** The permission screens generate
 their cells from what the customer has, so nothing legitimate posts
 `('contact', 'install')` — but a hand-edited request can, and the row would sit in
-the table reading as an authority and conferring nothing. `PermissionVerbs`
-answers which verbs a subject accepts, derived from the subject rather than
-listed, and the manager drops the rest. Same policy as an unknown module key:
-ignored rather than explained.
+the table reading as an authority and conferring nothing. Which verbs a subject
+accepts is derived from the subject rather than listed, and the manager drops the
+rest. Same policy as an unknown module key: ignored rather than explained.
 
 **Nobody has these grants on upgrade, and that is deliberate.**
 `tenant:permissions:grant-all` does not hand them out. Its contract is every
@@ -739,21 +645,16 @@ Swiss company will never open this setting, which is the whole reason it derives
 rather than demanding an answer on day one.
 
 **Derive only where the country has exactly one zone, and never take the first of
-several.** The head-of-list rule is the trap here, and it is a quiet one:
-CLDR orders by identifier, so Spain's list opens `Africa/Ceuta` and America's
-opens `America/Adak` — a Madrid office silently filed in North Africa and a New
-York one in the Aleutians. Where the country is ambiguous nothing is derived and
-the setting becomes one somebody answers, because **a wrong zone is worse than an
-unanswered question**: nothing on screen reveals it, since a timestamp in the
-wrong zone still looks exactly like a timestamp. Which is also why both pickers
-name the zone that is currently in force beside their empty option — the
-cheapest available way to make an unnoticed default noticeable.
-
-Germany's two zones are the same offset — Büsingen is a German exclave inside
-Switzerland keeping Swiss time — and it is still asked. Collapsing zones that
-*happen* to agree today would mean keeping a list of "close enough" pairs that is
-true only until one of them changes its rules, which is a maintenance liability
-bought with one saved click. The rule stays arithmetic.
+several.** The head-of-list rule is the trap here, and it is a quiet one: CLDR
+orders by identifier, so a head-of-list rule files a Madrid office in North
+Africa. Where the country is ambiguous nothing is derived and the setting becomes
+one somebody answers, because **a wrong zone is worse than an unanswered
+question**: nothing on screen reveals it, since a timestamp in the wrong zone
+still looks exactly like a timestamp. Which is also why both pickers name the
+zone that is currently in force beside their empty option — the cheapest
+available way to make an unnoticed default noticeable. Zones that *happen* to
+agree today are not collapsed either, because a list of "close enough" pairs is
+true only until one of them changes its rules; the rule stays arithmetic.
 
 **One departure, and it is a different question wearing the same clothes.** India
 lists `Asia/Calcutta` beside `Asia/Kolkata`: two names for one zone, because the
@@ -766,28 +667,23 @@ database rather than CLDR, so symfony/intl still says which zones a country has
 and PHP's own `DateTimeZone::listIdentifiers()` is asked the narrow question of
 which identifiers are canonical.
 
-**Rendering is one setting on Twig rather than a filter on every template.**
-Twig's `date` filter already converts into a configured zone before formatting —
-that is what `twig.date.timezone` sets — so a request-scoped listener turning the
-same knob per reader covers every moment on every page with no new Twig
-extension and no `|date(…, timezone)` threaded through a dozen templates.
-`date_default_timezone_set()` was the alternative and is rejected: it would also
-change what gets *written*, and since those are absolute instants that would still
-store correctly, the damage would be quiet rather than loud. The application runs
-in UTC and keeps running in UTC.
+**Rendering is one setting on Twig rather than a filter on every template.** A
+request-scoped listener turning `twig.date.timezone` per reader covers every
+moment on every page with no new Twig extension and no `|date(…, timezone)`
+threaded through a dozen templates. `date_default_timezone_set()` was the
+alternative and is rejected: it would also change what gets *written*, and since
+those are absolute instants that would still store correctly, the damage would be
+quiet rather than loud. The application runs in UTC and keeps running in UTC.
 
 The grouping is the one thing the Twig setting cannot reach, because it happens in
-PHP before anything renders. `HistorySection::of()` takes a `\DateTimeZone` and
-applies it to `now`; `HistoryPeriod` then draws midnight where `now` is, and the
-entries themselves need no conversion at all, since comparing two moments compares
-instants rather than wall clocks. Core takes a zone rather than asking who is
-reading — the engine still does not know what a user is (§5.2).
+PHP before anything renders — so core takes a `\DateTimeZone` and applies it to
+`now` rather than asking who is reading, the engine still not knowing what a user
+is (§5.2). The entries themselves need no conversion at all, since comparing two
+moments compares instants rather than wall clocks.
 
 **A console command has no user and may have no tenant, and neither is an
-error.** `TenantContext::tryGetTenant()` returning null is the ordinary condition
-in `bin/console` and on the login page, so the chain simply runs out of things to
-ask and lands on UTC — the handling `FormattingLocale::instanceRegion()` already
-demonstrated.
+error.** No tenant resolved is the ordinary condition in `bin/console` and on the
+login page, so the chain simply runs out of things to ask and lands on UTC.
 
 ### 8.5 The first user comes from provisioning
 
@@ -885,14 +781,13 @@ PNG, which is one step in their design tool and not a step anybody here has to b
 right about. WebP and AVIF are left out for a much smaller reason — they are safe,
 they are simply not what anybody hands over — and could be added any time.
 
-Half a mebibyte, and no larger than four thousand pixels in either direction. The
-size ceiling is not only about a logo being small: the bytes sit on
-`tenant_profile`, which is read on nearly every page, so it is also the extra row
-every request carries once a customer has uploaded one. The pixel ceiling is not
-about our own memory at all — nothing here decodes the image — but about not
-handing a decompression bomb to the browser drawing the sign-in page. Both are
-decided by reading the header, never by the file name or the `Content-Type` the
-upload claimed, which is the same call §5.7's `.docx` check makes.
+There is a size ceiling and a pixel ceiling, and they exist for different
+reasons: the bytes sit on `tenant_profile`, which is read on nearly every page, so
+the first is also the extra row every request carries; the second is not about our
+own memory at all — nothing here decodes the image — but about not handing a
+decompression bomb to the browser drawing the sign-in page. Both are decided by
+reading the header, never by the file name or the `Content-Type` the upload
+claimed, which is the same call §5.7's `.docx` check makes.
 
 **Nothing is re-encoded.** What comes back out is byte for byte what went in,
 against the obvious alternative of normalising everything through GD: re-encoding
@@ -934,17 +829,15 @@ maintains.
 every page including the sign-in one, comes out of the database and changes almost
 never, so it wants a long lifetime — and a long lifetime that outlives a
 replacement means a customer uploads a new logo, is shown the old one, and
-reasonably concludes the upload failed. Putting a SHA-256 of the bytes in the path
+reasonably concludes the upload failed. Putting a digest of the bytes in the path
 gets both: a different logo is a different address, so the old address is never
-asked for again and the bytes behind the new one may be declared `immutable` for a
-year. A path segment rather than a query string, because caches are entitled to
-ignore a query string when deciding what a URL means. The remaining case is a page
-that was itself cached before the change and still asks for the old address; that
-is answered with the current bytes and `no-store`, because caching them under an
+asked for again and the bytes behind the new one may be declared `immutable`. A
+path segment rather than a query string, because caches are entitled to ignore a
+query string when deciding what a URL means. The remaining case is a page that was
+itself cached before the change and still asks for the old address; that is
+answered with the current bytes and `no-store`, because caching them under an
 address that has already meant something else is exactly the promise `immutable`
-must not break. Symfony's session listener would otherwise stamp
-`private, must-revalidate` over all of this, correctly, so the opt-out is explicit
-on that one response.
+must not break.
 
 **`alt` differs between the two places it is drawn, and the rule is what generates
 the difference.** A mark that repeats adjacent text is decorative; a mark that is
@@ -1044,16 +937,12 @@ a configured DSN.** §9.2 already recorded why the catcher is not a guarantee: i
 sees what is pointed at it, and a DSN naming a real server is believed. With
 per-tenant credentials that gap stopped being theoretical — the suite provisions
 real tenants, so one fixture storing a real SMTP password would have been one send
-from mailing an actual person. So `App\Mail\NonProductionMailGuard` is registered
-ahead of every transport factory symfony/mailer ships, and outside production
-nothing that could deliver is ever **built**: not from `MAILER_DSN`, and not from a
-tenant's credentials, because those go through the same factory rather than
-constructing a transport by hand. Its only concession is a short list of hosts that
-accept mail and deliver none — the compose catcher in dev, and *nothing at all* in
-test, where §9.2 had already refused to read from the catcher because eight
-paratest workers against one inbox is a shared mutable thing. `sendmail` and
-`native` are refused with everything else: neither names a host, so no allowlist
-could have saved them, and both hand the message to whatever MTA the machine has.
+from mailing an actual person. So a guard is registered ahead of every transport
+factory symfony/mailer ships, and outside production nothing that could deliver is
+ever **built**: not from `MAILER_DSN`, and not from a tenant's credentials,
+because those go through the same factory rather than constructing a transport by
+hand. That is the load-bearing observation — one place turns a DSN into a
+transport, so one factory in front of it is a guarantee rather than a default.
 
 ### 8.8 An invitation instead of a password read off a screen (XIV-1)
 
@@ -1088,7 +977,7 @@ What is left over after taking the framework's version is small, and it is the
 honest departure to declare:
 
 - **An invitee has no password, so a login link is not sufficient by itself.** It
-  gets them through the door; `must_change_password` and `MustChangePasswordListener`
+  gets them through the door; `must_change_password` and the listener behind it
   then hold them at `/account` until they have chosen one. Both existed already,
   for generated passwords, and neither needed changing — the feature composes out
   of parts that were here, which is most of the argument for this shape. The one
@@ -1098,9 +987,9 @@ honest departure to declare:
   outright for an account that already has a password.
 - **A stateless link cannot be revoked, and an invitation has to be revoked
   twice** — when it is used, and when a second one supersedes it. That is what
-  `app_user.invitation_seed` is for. It is one of the signature properties, so
-  rewriting it invalidates every link already in a mailbox, and rewriting it is
-  one `UPDATE`. It is not the token: it is one input to an HMAC keyed with the
+  `app_user.invitation_seed` is for: one of the signature properties, so rewriting
+  it invalidates every link already in a mailbox, and rewriting it is one
+  `UPDATE`. It is not the token — it is one input to an HMAC keyed with the
   application secret, so what is written down is not a credential.
 
 **Symfony's own answer to single-use was considered and rejected.** `max_uses` is
@@ -1162,19 +1051,15 @@ customer-facing and this goes to a colleague, and they are tenant-editable — w
 a tenant who edited the link out of this one would lock somebody out of an account
 they have no other way to reach. It also has to work for a tenant that has
 installed nothing and written nothing, which is exactly XIV-64's first user again.
-It is sent in the language of whoever pressed the button: the invitee has no
-account they have ever opened, and so no language on file.
 
 **This is a dependency of XIV-64, not a nicety.** Self-service signup provisions a
 tenant with nobody watching a terminal, so there is no screen to print a first
-password to. One consequence is recorded here because it is not obvious from
-either ticket: the autowired `LoginLinkHandlerInterface` is *firewall-aware* and
-works the firewall out from the current request, so it throws outright when there
-is not one. The `main` firewall's handler is therefore injected by name, and an
-invitation can be sent from a console command. What still has to be answered when
-that ticket arrives is the router's request context — a URL generated off a cron
-has no hostname to be absolute against, and a tenant's hostname is the one thing
-that link cannot get wrong.
+password to — and sending from a console command turned out to need the firewall's
+login-link handler named rather than autowired, because the autowired one works
+the firewall out from the current request and throws when there is not one. What
+still has to be answered when that ticket arrives is the router's request context:
+a URL generated off a cron has no hostname to be absolute against, and a tenant's
+hostname is the one thing that link cannot get wrong.
 
 **That sentence needs one correction now XIV-64 has landed** (§8.12), because it
 predicted the wrong ticket. Signup does not provision, so nothing here is invoked
@@ -1259,11 +1144,10 @@ ordering fails the build rather than shipping.
 **The firewall is host-scoped by a request matcher rather than by `host:`.** That
 key is a regular expression, and a hostname written into one is a pattern in which
 every dot matches any character — `control.example.com` also accepts
-`controlXexample.com`, a name somebody else can own.
-`Xivi\ControlPlane\Security\ControlPlaneHost` compares normalised strings instead,
-through `TenantResolver::normalize()`, which is the same function tenancy uses to
-decide that a host is served without a tenant. One normalisation, so the firewall
-matches exactly the host on which no tenant resolves.
+`controlXexample.com`, a name somebody else can own. A matcher comparing
+normalised strings uses the same normalisation tenancy uses to decide that a host
+is served without a tenant, so the firewall matches exactly the host on which no
+tenant resolves.
 
 #### Where it is served, and what makes it resolve no tenant
 
@@ -1341,28 +1225,21 @@ paragraph above says in as many words that no hostname setting changes that.
 
 **`CONTROL_PLANE_ALLOWED_IPS` is a list of addresses and CIDR ranges, and a
 request to the control-plane host from anywhere else is refused before anything
-else looks at it.** `App\Deployment\ControlPlaneAllowList` holds the policy and
-`Xivi\ControlPlane\EventListener\ControlPlaneAddressListener` applies it at
-`kernel.request` priority 101 — ahead of `TenantRequestListener` (100) and of
-`ControlPlaneRequestListener` (99), so an address that is not on the list cannot
-make this installation consult its registry, resolve a route, touch a session or
-build a firewall listener.
+else looks at it** — at `kernel.request` priority 101, ahead of both the tenancy
+and control-plane listeners, so an address that is not on the list cannot make
+this installation consult its registry, resolve a route, touch a session or build
+a firewall listener.
 
 **It is the outermost of four and a replacement for none of them.** As the only
 layer it would be bad design: an address is a claim about a network, and networks
 are borrowed, shared behind one office NAT and spoofable on unfiltered paths. As
 the fourth it is worth having, because it turns "anybody may attempt a password"
 into "anybody on this list may attempt a password". Nothing about the firewall
-ordering changed, `ControlPlaneFirewallTest` is untouched by this ticket, and
-`ControlPlaneAllowListTest` asserts that an admitted address still lands on the
-sign-in page rather than past it.
+ordering changed.
 
 **Empty is the default and means no restriction**, which is `PlaceholderSecretGuard`'s
 rule (§4.2) and `TrustedHosts`' (§4.3) for their reason: `bin/compose up`, the
-suite and `bin/ci` all run on addresses no operator would ever write down, and
-the listener returns before it reads anything at all when the variable is empty —
-so "an installation that sets nothing behaves exactly as before" is a property of
-the code rather than a claim about it.
+suite and `bin/ci` all run on addresses no operator would ever write down.
 
 ###### The address comes from Symfony, and that is the whole of the design
 
@@ -1384,10 +1261,6 @@ forwarded headers, which would be wrong in the other direction: a deployment
 behind a balancer would have to allow-list the balancer, which admits everybody
 behind it.
 
-Ranges are matched with `IpUtils::checkIp()` rather than compared as strings —
-an office is a range and a VPN is a range, IPv4 and IPv6 both work, and `::1` and
-`0:0:0:0:0:0:0:1` are the same address whatever form a network happens to present.
-
 ###### A refusal says nothing and the log says everything
 
 An empty **403**, which is the line `UntrustedHostListener` already draws for
@@ -1406,13 +1279,12 @@ profiler paths `ControlPlaneRequestListener` deliberately stands aside for: thos
 are exempt from *which host serves them*, not from *who may connect*, and one
 answer for every path is also one that draws no map.
 
-The `error` line names the resolved address, the variable, what it admits, and
-any entry that is not an address. **It also names `REMOTE_ADDR` beside the
-resolved address**, which is the part that pays for itself: when the two are
-equal on an installation the operator swears is behind a load balancer,
-`TRUSTED_PROXIES` has not been set and every request in the installation is being
-attributed to the balancer. That presents as "the allow-list refuses my office
-and my office address is correct", and this line answers it in one glance.
+The `error` line **names `REMOTE_ADDR` beside the resolved address**, which is
+the part that pays for itself: when the two are equal on an installation the
+operator swears is behind a load balancer, `TRUSTED_PROXIES` has not been set and
+every request in the installation is being attributed to the balancer. That
+presents as "the allow-list refuses my office and my office address is correct",
+and this line answers it in one glance.
 
 ###### Where it is enforced, and the one that was not built
 
@@ -1436,26 +1308,13 @@ first: every customer keeps working, every dashboard stays green, and the only
 sign is a 403 on a console one person visits — at whatever hour they next need
 it, which by the nature of consoles is an hour when something is already wrong.
 
-Three things reduce it and none of them removes it:
-
-- **`deploy:check-control-plane` reports the list before anything depends on
-  it**, in the shape `deploy:check-hosts` and `deploy:check-secrets` established
-  and on their exit-code convention (0, and 3 for "would refuse"). It reads only
-  the environment, so it answers from the same values the listener will see.
-  `--address=…` asks about one address in particular; without it, the command
-  offers the address `SSH_CONNECTION` says this shell came from, with the caveat
-  attached — that is where the *shell* came from and it equals the browser's
-  address only if both leave by the same route.
-- **An entry that is not an address does not switch the restriction off.** It is
-  dropped, remembered, printed by the command and named in the log, and the list
-  stays in force. The two alternatives are worse: treating an all-invalid list as
-  unconfigured is a restriction that silently stops restricting while its author
-  believes in it, and *throwing* — which is what `TrustedHosts` does — would be a
-  500 for every customer of the installation over one mistyped character in a
-  variable about the operator's own console. §4.3's asymmetry, one step along.
-- **The console is always the way back**, as it is for the last operator above:
-  the variable is a deployment's own, and `deploy:check-control-plane` run on the
-  box says what the running process actually has.
+Three things reduce it and none of them removes it: `deploy:check-control-plane`
+reports the list before anything depends on it, on the `deploy:check-*` family's
+exit-code convention; an entry that is not an address is dropped and remembered
+rather than switching the restriction off, because a restriction that silently
+stops restricting is this whole layer's failure mode and *throwing* would be a
+500 for every customer over one mistyped character in a variable about the
+operator's own console; and the console is always the way back.
 
 What is *not* claimed is that this is safe to set unattended. **An operator who
 never runs the check can still lock themselves out**, and the honest mitigation
@@ -1563,36 +1422,21 @@ optional in the same week it was introduced.
 ##### What a revoked operator can still reach: nothing, and it took two mechanisms
 
 **`Operator::active` is enforced twice, and neither mechanism covers the other's
-case.** This is the same pair `User::active` needed (§8.4.1) and it is here for
-the same framework reason rather than by imitation:
-
-- **`ActiveOperatorChecker`**, wired as the `control_plane` firewall's
-  `user_checker`, refuses the sign-in. It says the account was *revoked* rather
-  than that the credentials were wrong, because a former operator otherwise goes
-  looking for the password reset this surface does not have.
-- **`RevokedOperatorListener`** ends a session that already exists.
-
-The second is the part that had to be established rather than reasoned about.
+case** — a checker on the `control_plane` firewall for the sign-in, a listener
+for a session that already exists. This is the same pair `User::active` needed
+(§8.4.1) and it is here for the same framework reason rather than by imitation:
 "Symfony refreshes the user from the provider on every request" is true and
-strongly suggests that a revoked account falls out at the next click. It does
-not: `ContextListener::refreshUser()` compares the stored user against the
-reloaded one on **identifier, password and roles**, and `active` is none of the
-three. Run with the listener removed and the checker in place, a revoked
-operator's next request returns 200 and renders the tenant list with their name
-in the topbar — every customer's hostname, plan and usage, for as long as the
-session lasts. That was watched happening; the listener was written against it.
+strongly suggests a revoked account falls out at the next click, and it does not.
+With the listener removed and the checker in place, a revoked operator's next
+request returns 200 and renders the tenant list with their name in the topbar —
+every customer's hostname, plan and usage, for as long as the session lasts. That
+was watched happening; the listener was written against it.
 
-**A password change needed no listener at all**, and the asymmetry is worth
-knowing rather than rediscovering: the hash *is* one of the three things
-`ContextListener` compares, so `control:operator:password` signs every live
-session out on its own. Both behaviours are covered by
-`ControlPlaneRevocationTest`, the second precisely because behaviour nobody wrote
-is behaviour a framework release can take away quietly.
-
-`EquatableInterface` on `Operator` would have done the revocation case in one
-method and was not taken, for the reason §8.4.1 gives on the tenant side: it
-replaces the framework's whole change comparison, so this package would silently
-become responsible for the password case above too.
+The duplication between the two sides is deliberate rather than an omission: one
+checker reading both a tenant `User` and an `Operator` would be a single object
+holding the rule for both sides of a boundary this section spends its length
+arguing should have nothing in common, and deptrac would have to be told the
+tenant application may reach into the control-plane package to get it.
 
 ##### The last operator
 
@@ -1601,24 +1445,10 @@ past it.** The control plane has no sign-up, no invitation and no password reset
 so the web has no way back in at all.
 
 The refusal counts **active operators, not rows**, and that distinction is the
-whole of it. A guard written as "refuse when only one operator exists" is
-defeated by revoking two accounts in turn: with two rows present, the first
-revocation passes the count and so does the second, leaving an installation with
-two operator accounts and nobody who can sign in. Counting what is still active
-makes the *second* call the one that is refused — which is the call somebody
-would actually be making. `OperatorManagerTest` states that arrangement outright,
-against a repository nothing else can write to, because the control-plane
-database is shared by every parallel test worker and a test of a count run
-against a table other tests are writing to passes for reasons it did not intend.
-
-The guard is absolute rather than overridable, which is a deliberate departure
-from `tenant:deprovision`'s `--force` (§4.1). That command needs an escape hatch
-because removing a customer unattended is a real operation; there is no
-legitimate shape of "remove the last operator" that this refusal blocks. The
-person leaving has a successor, who is created first; the installation being
-decommissioned loses nothing by leaving a row in a database that is about to be
-dropped. An escape hatch here would exist only to be typed by the person the
-guard is for.
+whole of it. Its absence from `tenant:deprovision`'s `--force` (§4.1) is a
+deliberate departure: that command needs an escape hatch because removing a
+customer unattended is a real operation, and there is no legitimate shape of
+"remove the last operator" that this refusal blocks.
 
 It is worth being honest about what the guard is *not*. It is not protection
 against a catastrophe — whoever could type the revocation can type
@@ -1635,17 +1465,10 @@ holding the keyboard.
 
 The convenient reading is that creating over an existing address should just set
 a new password — one verb, no second command to remember. It is refused, and
-`control:operator:password` exists so that the refusal costs nothing.
-
-Two reasons, and the second decides it. A **typo'd address becomes
-indistinguishable from a rotation**: type `alice@exmaple.com` for
-`alice@example.com` and an overloaded `create` reports success either way, in one
-case having changed a password and in the other having minted a second identity
-with the reach of the first, at an address nobody owns. And it would **silently
-reinstate a revoked account** — writing a working password onto a row whose whole
-point is that it no longer works, through a command that never mentions
-revocation. So the two situations get different sentences, and each names the
-command that does what the person was trying to do.
+`control:operator:password` exists so that the refusal costs nothing: an
+overloaded `create` would make a typo'd address indistinguishable from a
+rotation, and would silently reinstate a revoked account through a command that
+never mentions revocation.
 
 #### What is deliberately not built yet
 
@@ -1731,15 +1554,12 @@ physically stops them. What stops them is knowing why it is not there, which is
 why the argument is in `TenantListController`'s docblock as well as in this
 paragraph.
 
-`TenantListTest` proves it rather than asserting it in prose. Three things
-together: no tenant is resolved after the request; the tenant connection was left
-unopened by a request that rendered every row; and touching that connection
-afterwards throws — which is what stops the second from being a statement about
-DBAL's laziness. The fixtures compound it. **The three tenants it lists have no
-databases at all** — rows written straight into the registry, with DSNs naming a
-host that does not resolve — so a page that connected would not be quietly wrong,
-it would be red. Provisioning three real customers would have been the more
-realistic fixture and a strictly weaker instrument.
+`TenantListTest` proves it rather than asserting it in prose, and the fixtures
+are what make the proof sharp: **the three tenants it lists have no databases at
+all** — rows written straight into the registry, with DSNs naming a host that does
+not resolve — so a page that connected would not be quietly wrong, it would be
+red. Provisioning three real customers would have been the more realistic fixture
+and a strictly weaker instrument.
 
 #### The row also carries a credential, and the defence is a type
 
@@ -1751,13 +1571,12 @@ somebody pastes into a chat. Every one of those is a mistake that reads as
 harmless while it is being made, so "be careful in the template" is not a
 control.
 
-**So the entity never reaches the template.** `Xivi\ControlPlane\View\TenantSummary`
-is a readonly object of seven scalars and two arrays, with a private constructor
-and one static factory — the single place in the codebase that reads a `Tenant`
-for this page, and it does not read those two columns. Dump it, encode it, hand it
-to a JavaScript component: there is no credential in it. That is a property of the
-type rather than of whoever edits the template next, which is the only kind worth
-having.
+**So the entity never reaches the template.** A readonly view object with a
+private constructor and one static factory is the single place in the codebase
+that reads a `Tenant` for this page, and it does not read those two columns. Dump
+it, encode it, hand it to a JavaScript component: there is no credential in it.
+That is a property of the type rather than of whoever edits the template next,
+which is the only kind worth having.
 
 The test asserts it from the other side anyway, over the headers as well as the
 body, and looks for the DSN's *parts* as well as the whole so that a "which server
@@ -1774,25 +1593,13 @@ Tuesday sits on the third screen between two healthy customers, in a cell that
 looks like every other cell. Provisioning is measured in seconds, so a tenant
 found in that state by somebody loading a page is not mid-flight — it is what a
 run that died halfway leaves behind (§4.1), and it is the single thing an operator
-wants to see from the doorway.
-
-Two things carry that, and both are needed:
-
-1. **The table is ordered by `TenantStatus::attentionRank()` first and by name
-   second.** The rank is a `match` on the enum rather than an `ORDER BY status`,
-   because the stored strings sort alphabetically — `active`, `provisioning`,
-   `suspended`, `trial` — which puts the healthy majority on top by accident of
-   spelling. Provisioning outranks suspended: both stop a customer being served,
-   but somebody *chose* the second. The rank is deliberately not derived from
-   `servesRequests()`, which collapses those two; that predicate answers "may this
-   hostname be served" and this one answers "who should read this row first", and
-   a status added later can move in one without moving in the other.
-2. **The page opens with a line saying how many customers are not being served,
-   and naming them** — and is drawn only when that number is not zero. A banner
-   permanently reading "0 customers are not being served" is furniture, and
-   furniture is what the eye learns to skip. "Not being served" rather than
-   "broken" because it is a fact rather than a judgement: a suspended customer
-   belongs in the same count as a provisioning run that died.
+wants to see from the doorway. So the table is ordered by how much a row wants
+explaining and then by name, and the page opens with a line saying how many
+customers are not being served and naming them — drawn only when that number is
+not zero, because a banner permanently reading "0 customers are not being served"
+is furniture and furniture is what the eye learns to skip. "Not being served"
+rather than "broken" because it is a fact rather than a judgement: a suspended
+customer belongs in the same count as a provisioning run that died.
 
 **Rejected: computing "stuck" from a threshold** — `provisioning` with
 `updated_at` older than a day, drawn as a warning. It is the obvious reading and
@@ -1893,34 +1700,26 @@ carries on.** One unreachable database must not cost the other forty-nine their
 figures — but the run still exits non-zero, because under cron the exit status is
 how anybody finds out at all.
 
-**Each tenant's connection is closed before the next is opened.** `runFor` does
-it unconditionally, including when the callback throws, and there is one tenant
-connection object in the process. This is not tidiness: a collection run that sat
-attached to every customer's database at once would be the reason an operator's
-`tenant:deprovision` fails, because Postgres will not drop a database somebody is
-connected to ([XIV-94]). The collector would have become the thing that blocks the
-operator, which is the opposite of a tool for operators.
+**Each tenant's connection is closed before the next is opened**, which is not
+tidiness: a collection run that sat attached to every customer's database at once
+would be the reason an operator's `tenant:deprovision` fails ([XIV-94]). The
+collector would have become the thing that blocks the operator, which is the
+opposite of a tool for operators.
 
 **The counting is shared with `tenant:deprovision`, not copied.** That command has
 asked the same question since XIV-72 — it prints how much is in there before it
 destroys it — so "switch to the tenant, read its own metadata, count each shape"
-is now `Xivi\ControlPlane\Usage\RecordCounter` and both callers use it. Two copies
-would have drifted at the first change to any of the three steps.
+has one implementation and both callers use it.
 
 #### Where the figures live: their own table, not columns on `tenant`
 
 `tenant_usage`, one row per customer, and the argument is that **a row there is a
-collection rather than a customer**:
-
-- Every figure means nothing without the moment it was taken beside it, so
-  `collected_at` is not an extra column — it is the column the others are
-  relative to. It is a fact about the run.
-- So is the failure. A customer whose database did not answer has not changed;
-  the collection failed. `tenant.failure` would read as a broken customer.
-- **A customer nobody has collected yet has no row at all.** Five nullable
-  columns on `tenant` could not have said that without a sixth meaning "the nulls
-  above are real nulls". Absence says it exactly, and it is the state a customer
-  provisioned ten minutes ago is genuinely in.
+collection rather than a customer**: `collected_at` is not an extra column but the
+column the others are relative to, a failure is a fact about the run rather than
+about a customer whose `tenant.failure` would read as broken, and a customer
+nobody has collected yet has **no row at all** — which five nullable columns on
+`tenant` could not have said without a sixth meaning "the nulls above are real
+nulls".
 
 The association points one way only — `TenantUsage` knows its tenant and `Tenant`
 knows nothing — because Doctrine cannot lazily load the inverse side of a nullable
@@ -1942,8 +1741,7 @@ The page shows the collection time beside the numbers, and it distinguishes thre
 states rather than two: *not collected yet*, *could not be read, tried at …*, and
 the figures with their timestamp. **Zero and "we could not count" must not look
 alike** — the same rule [XIV-39] drew for a mail that was not sent, one screen
-along. A tenant whose collection failed shows as failed, with when it was tried,
-and shows no numbers at all.
+along.
 
 **A failed collection drops the previous figures rather than keeping them beside
 the failure.** Keeping them would be more information and the wrong kind: the
@@ -1955,10 +1753,7 @@ misled by the screen rather than by their own carelessness.
 connection error names the host, the port and the role — and §8.10's whole defence
 is that a `Tenant`, and therefore a DSN, cannot reach an HTML page. Storing the
 driver's words would smuggle those parts back in through a table whose rows are
-rendered, waiting for somebody to print them "just for debugging". The class name
-separates an unreachable database from a missing schema and names nothing; the
-full message goes to the terminal of whoever ran the collection, who already has
-the DSN.
+rendered, waiting for somebody to print them "just for debugging".
 
 #### Counts, not contents — and why the line is exactly there
 
@@ -1966,11 +1761,11 @@ An operator page exists to say **how much**, and the moment it says **what**, th
 control plane has become a way to read a customer's data without their knowledge.
 That is not a slippery-slope argument, it is a one-line argument: the code that
 opens a tenant connection to count rows is a `SELECT *` away from selecting them,
-and every seam here is shaped so that the tempting change is also an obvious one.
-`RecordCounter` can only return integers. `UserRepository::countAndLastSignIn()`
-is one aggregate row and loads no user — a `findAll()` and a `usort` would have
-produced the same two numbers while pulling every customer's names, emails and
-password hashes through the control plane's process to get them.
+and every seam here is shaped so that the tempting change is also an obvious one —
+the counter can only return integers, and the user figures come back as one
+aggregate row rather than as a `findAll()` that would pull every customer's names,
+emails and password hashes through the control plane's process to reach the same
+two numbers.
 
 The one value here that is not a count is `MAX(last_login_at)`, which the ticket
 asked for by name and which identifies nobody: it says somebody was here on
@@ -2026,12 +1821,11 @@ this cell must never report**, because a real one is meant to send somebody
 looking.
 
 For the same reason the installed list is read from the metadata rather than
-taken from the keys of `records_by_module`, which happen to be the same strings
-today. `array_keys()` would make *what a customer has installed* a by-product of
-how counting is implemented: the first time the counter learns to skip a shape,
-that module vanishes from the installed list and the page reports a difference
-that does not exist. It costs nothing to ask separately — `MetadataCache` (XIV-53)
-answers the second call from memory inside the same switch.
+taken from the keys of the per-module counts, which happen to be the same strings
+today. Deriving it would make *what a customer has installed* a by-product of how
+counting is implemented: the first time the counter learns to skip a shape, that
+module vanishes from the installed list and the page reports a difference that
+does not exist.
 
 #### A difference is information, not a fault
 
@@ -2039,18 +1833,17 @@ answers the second call from memory inside the same switch.
 styling choice. A module installed by hand is a legitimate state that somebody
 chose; §6.1 says a customer's definitions win once installed. A page that told an
 operator off for it would be a page they learn to stop reading — the same failure
-§8.10 describes for a banner permanently saying "0 customers need attention".
+§8.10 describes for a banner permanently saying "0 customers need attention". So
+the cell names the two directions and stops: *not recorded* for a module the
+tenant has that the registry does not list, since the control plane is the thing
+that failed to write it down; *not installed* for the other way, named from the
+customer's side because that is whose experience it is.
 
-So the cell names the two directions and stops. *not recorded* for a module the
-tenant has that the registry does not list — the control plane is the thing that
-failed to write it down, and the customer is fine. *not installed* for the other
-way, named from the customer's side because that is whose experience it is: their
-users see a module that is not there. There is no severity, no alarm colour and
-nothing offering to fix it. **Reconciling the two lists is a different feature
-with a much higher bar**: writing the registry from a tenant's metadata means
-deciding which side is authoritative, and §6.1's answer to that question is "the
-tenant, and the registry is an arrangement" — which is not obviously what an
-operator pressing a button would expect.
+**Reconciling the two lists is a different feature with a much higher bar**:
+writing the registry from a tenant's metadata means deciding which side is
+authoritative, and §6.1's answer to that question is "the tenant, and the registry
+is an arrangement" — which is not obviously what an operator pressing a button
+would expect.
 
 #### Where the per-module counts went, and why the row still fits
 
@@ -2059,17 +1852,11 @@ invisible on a touch screen and to a screen reader, so the answer to *of what* w
 reaching a mouse and nobody else — and this ticket was drawing per-module
 information into the same table anyway. Deciding it twice would have produced two
 answers. So the counts moved out of the tooltip and onto the module names they
-belong to: one module per line, its count spelled out in words beside it, and the
-disagreement in the same line when there is one.
-
-That is much more text than a row of badges, which raises the question the ticket
-asked. **Six modules is the most any customer in this repository can have today
-and nothing stops there being more**, so the cell shows the first five and folds
-the rest into a `<details>` — a control that a keyboard reaches and a screen
-reader announces, which is exactly what the tooltip it replaces was not. The
-ordering is what makes the folding safe: modules the two sources disagree about
-sort first, alphabetically within that, so what folds away is only ever something
-both sides already agree on. Same argument as §8.10's row ordering, one cell down.
+belong to, and a long list folds into a `<details>` — a control that a keyboard
+reaches and a screen reader announces, which is exactly what the tooltip it
+replaces was not. The ordering is what makes the folding safe: modules the two
+sources disagree about sort first, so what folds away is only ever something both
+sides already agree on. Same argument as §8.10's row ordering, one cell down.
 
 **Rejected: truncating with an ellipsis.** It hides the end of whichever line is
 longest, and the end of the line is where the disagreement is named — replacing a
@@ -2135,24 +1922,15 @@ users is bound to a *tenant's* database (§8.1). There is no tenant. There is no
 creating an account for somebody who may never confirm — which is precisely the
 thing confirmation exists to avoid.
 
-So the token is the control plane's own, and it is a **stored digest**:
-
-- **32 bytes from `random_bytes`**, base64url in the URL. 256 bits of entropy, so
-  brute force is out of reach without help from the rate limiter — which matters,
-  because the rate limiter is about volume and a token that depended on it would
-  stop being safe the day somebody widened a limit.
-- **SHA-256 of it in the row, never the token.** §8.8's objection to a token table
-  was that *"a token table stores something replayable and a signature stores
-  nothing at all"*. That objection is answered by hashing rather than by not
-  storing: a dump of the control-plane database carries nothing anybody can
-  present. A plain digest rather than a password hasher, deliberately — the input
-  is full-entropy random, so there is no dictionary for a slow KDF to defend
-  against, and a slow hash would be paid on every click of every link.
-- **Twenty-four hours**, the same window an invitation gets, and for the mirror
-  image of §8.8's argument. There the window was short and the mitigation was that
-  an administrator could send another; here the person can reissue it themselves by
-  submitting the form again, so the same window costs less. What it buys is that an
-  unanswered signup stops occupying its address within a day.
+So the token is the control plane's own, and it is a **stored digest**: full
+entropy from `random_bytes` in the link, SHA-256 of it in the row, never the token
+itself. §8.8's objection to a token table was that *"a token table stores
+something replayable and a signature stores nothing at all"*, and that objection
+is answered by hashing rather than by not storing — a dump of the control-plane
+database carries nothing anybody can present. The window is twenty-four hours, the
+same an invitation gets, for the mirror image of §8.8's argument: there the
+mitigation was that an administrator could send another, here the person can
+reissue it themselves by submitting the form again, so the same window costs less.
 
 `UriSigner` was the third candidate and loses to the requirement below: a signature
 over an id and an expiry cannot be invalidated when a second submission supersedes
@@ -2215,29 +1993,23 @@ sixteen-character column.
 
 #### Two slug rules, on purpose
 
-`TenantProvisioner::SLUG_PATTERN` is `/^[a-z][a-z0-9_]{1,55}$/`. It permits
-**underscores** and forbids **hyphens**, which is exactly backwards for a string
-that becomes a DNS label: `my_company.xivi.app` is not a valid hostname.
+`TenantProvisioner::SLUG_PATTERN` permits **underscores** and forbids
+**hyphens**, which is exactly backwards for a string that becomes a DNS label:
+`my_company.xivi.app` is not a valid hostname.
 
 **It is not changed, and this paragraph exists so that nobody unifies the two.** It
 is right for what it guards — a provisioning slug is also a PostgreSQL database and
 role name, where an underscore is the ordinary separator and a hyphen would force
-every identifier to be quoted. Every tenant that exists is named that way and so is
-the whole test suite (`test_picker_candidates` and two dozen like it). And
-`provision()` never derives a hostname from a slug at all: hostnames are an explicit
-parameter, so an operator is free to route `acme.example.com` at a tenant called
-`acme_ag` and nothing is inconsistent.
+every identifier to be quoted. And `provision()` never derives a hostname from a
+slug at all: hostnames are an explicit parameter, so an operator is free to route
+`acme.example.com` at a tenant called `acme_ag` and nothing is inconsistent.
 
 Self-service is the case where **nobody types the hostname**. The slug *is* the
-subdomain, so it gets a second, stricter rule:
-
-    ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$
-
-One DNS label as RFC 1123 allows it: lowercase alphanumerics and hyphens, no
-leading or trailing hyphen, at most 63 characters. The two rules overlap on names
-made only of lowercase letters and digits and disagree everywhere else, in both
-directions. `SelfServiceSlugTest` asserts that disagreement from both sides, so
-replacing either pattern with the other fails the build.
+subdomain, so it gets a second, stricter rule: one DNS label as RFC 1123 allows
+it. The two overlap on names made only of lowercase letters and digits and
+disagree everywhere else, in both directions, and `SelfServiceSlugTest` asserts
+that disagreement from both sides so that replacing either pattern with the other
+fails the build.
 
 **A consequence to hand to [XIV-98]**: because the two rules disagree, a
 hyphenated self-service slug can never equal an existing tenant's slug today, and
@@ -2283,26 +2055,21 @@ an expansion of their own — a Swedish `Å` is `a` here rather than `aa` — an
 deployment selling somewhere that trade is wrong changes one constant, which is a
 decision about the installation rather than about a request.
 
-**Reserved names are two lists.** The conventional one — `www`, `admin`, `api`,
-`mail`, `app`, `control`, `status`, `support` — exists because those are names a
-platform will want later and cannot take back. The second is computed from
+**Reserved names are two lists.** The conventional one exists because those are
+names a platform will want later and cannot take back. The second is computed from
 `app.system_hosts` and the control-plane host, and it is a boundary rather than a
 convention: [XIV-57] made `tenant:provision` refuse to route a tenant onto a system
 host, and that refusal fires when [XIV-98] runs — long after somebody has confirmed
 an address and been told the name is theirs. What is reserved is the **first label**
-of each such host, because that is what collides: a control plane at
-`control.xivi.app` is collided with by a signup for `control` under the same domain,
-not by one for the whole string.
+of each such host, because that is what collides.
 
 #### Abuse: confirmation and volume are different problems
 
 **Squatting** is answered by the two rules above, and the mechanism is worth stating
-plainly: **a name is held only by a confirmed address**. An unconfirmed signup
-reserves nothing, so a script that posts ten thousand company names has produced ten
-thousand rows and blocked nobody. Holding a name costs a working mailbox and a
-clicked link — *per name*, because a confirmed address may hold only one
-unprovisioned signup at a time. Without that second half the cost is paid once and
-reused for as many names as you like.
+plainly: **a name is held only by a confirmed address**, and a confirmed address
+may hold only one unprovisioned signup at a time. Holding a name therefore costs a
+working mailbox and a clicked link, *per name*; without the second half the cost
+is paid once and reused for as many names as you like.
 
 The price of that is a race the design cannot remove and does not try to: two people
 ask for `acme`, both are told it is free because nothing is held, and the second to
@@ -2336,29 +2103,24 @@ private detail — that was the assumption when it was written, and §8.13 kept 
 even though the landing page ended up in this repository: the page holds the
 secret and posts to this contract like any other caller, so a deployment that
 builds its own front end is on the same footing as the one shipped here. That
-fixes four things:
+fixes four things: a documented request and response shape, next to the code
+rather than only here; **a version in the path** (`/api/signup/v1/`), within which
+fields and error codes may be *added* and added fields must be optional, while
+anything removed, renamed or made required is a v2 served beside v1; **a stable
+error vocabulary**, with its HTTP statuses decided in one table rather than at
+each `return`; and **a shared secret**, compared in constant time.
 
-- **A documented request and response shape**, on
-  `Xivi\ControlPlane\Controller\SignupApiController`, next to the code rather than
-  only here.
-- **A version in the path** (`/api/signup/v1/`). Within v1: fields and error codes
-  may be *added*, and added fields must be optional; nothing may be removed,
-  renamed or made required. Anything else is v2, served beside v1.
-- **A stable error vocabulary** — `invalid_request`, `unauthorized`,
-  `invalid_email`, `invalid_slug`, `slug_taken`, `address_already_registered`,
-  `unknown_plan`, `rate_limited`, `mail_failed` — with its HTTP statuses decided in
-  one table rather than at each `return`. The message beside the code is one
-  **fixed** English sentence per code, for a developer's log; [XIV-65] owns the
-  words a visitor reads, in their language. Fixed rather than descriptive is a
-  security property rather than laziness — the *internal* refusal message names
-  which of three reasons made a slug unavailable, and the first version of this
-  endpoint returned it, undoing the paragraph below from inside the response that
-  paragraph was written for.
-- **A shared secret**, in `X-Xivi-Signup-Key`, compared in constant time and
-  **refusing everybody when unset**. A deployment that set a host and forgot the
-  secret has published an anonymous endpoint; failing closed makes that a feature
-  that does not work, which is noticed in minutes, rather than one that works for
-  everybody, which is not noticed at all.
+Two of those carry an argument rather than a convention. The message beside an
+error code is one **fixed** English sentence, for a developer's log — [XIV-65]
+owns the words a visitor reads, in their language — and fixed rather than
+descriptive is a security property rather than laziness: the *internal* refusal
+message names which of three reasons made a slug unavailable, and the first
+version of this endpoint returned it, undoing the paragraph below from inside the
+response that paragraph was written for. And the secret **refuses everybody when
+unset**: a deployment that set a host and forgot the secret has published an
+anonymous endpoint, and failing closed makes that a feature that does not work,
+which is noticed in minutes, rather than one that works for everybody, which is
+not noticed at all.
 
 **A server-side post is the recommended integration**, and the difference is where
 the credential lives: in a browser-side design it is in the page's source, which is
@@ -2418,10 +2180,6 @@ secret and the confirmation link is how somebody proves control of a mailbox.
 
 One variable does both jobs — empty `SIGNUP_HOST` is off, a hostname is on and says
 where — rather than a flag beside a hostname, which is two facts that can disagree.
-`SignupRouteLoaderTest` asserts the empty collection directly rather than by booting
-a second kernel: the claim is about the route collection, the loader is what
-produces it, and two kernels in one environment share a compiled matcher, so the
-kernel version of that test would pass or fail on test order.
 
 **That was not enough, and §8.13 found out why.** The loader was right about its
 own collection and the routing table held a second, host-less copy of every signup
@@ -2472,25 +2230,20 @@ state below exists to serve.
 
 #### Three states, two switches, and one `and`
 
-The page and the endpoint are wanted independently:
-
-- **page and endpoint** — the default when signup is on, and what the company
-  selling this runs.
-- **endpoint only** — somebody has built their own front end. The built-in page
-  would be a second front door onto the same intake, worse than theirs and
-  confusing to find.
-- **neither** — a single company self-hosting, for whom an open endpoint that
-  records signups is a liability rather than a feature. **This is the shipped
-  default**: `.env` leaves `SIGNUP_HOST` empty.
+The page and the endpoint are wanted independently: **page and endpoint**, the
+default when signup is on; **endpoint only**, for somebody who has built their own
+front end, where the built-in page would be a second front door onto the same
+intake, worse than theirs and confusing to find; and **neither**, for a single
+company self-hosting, for whom an open endpoint that records signups is a
+liability rather than a feature. The last is the shipped default.
 
 `SIGNUP_HOST` is §8.12's and says whether there is an intake and where.
 `SIGNUP_PAGE` is this one and says whether we also draw the form. They are
-combined in one place, `SignupPage::isEnabled()`, and the combination is an `and`
-— so the fourth state, a page with no intake behind it, is **not expressible**
-rather than refused by a check. That is worth being deliberate about because it is
-the combination that would fail worst: a form that renders, accepts a company
-name and then cannot post anywhere looks like it works to everybody except the
-person filling it in.
+combined in one place and the combination is an `and` — so the fourth state, a
+page with no intake behind it, is **not expressible** rather than refused by a
+check. That is worth being deliberate about because it is the combination that
+would fail worst: a form that renders, accepts a company name and then cannot post
+anywhere looks like it works to everybody except the person filling it in.
 
 A boolean here where §8.12 refused one for the endpoint, and the asymmetry is not
 an inconsistency. That variable had a second job — it has to say *where* — so a
@@ -2510,9 +2263,10 @@ What decides it is the confirmation link. It lands on `SIGNUP_HOST/signup/confir
 because only this side can answer it — the token is a row in the control-plane
 database — and a visitor who filled in a form at one name and is asked to confirm
 at another has been handed the exact shape of a phishing mail. One name, from the
-form to the mailbox and back. A second hostname would also be a second variable, a
-second DNS record and a second certificate for a page whose entire job is to post
-to the first one.
+form to the mailbox and back. A deployment that genuinely wants the form under its
+marketing domain has a better tool than a second hostname here: it puts its own
+page there and posts to the contract, which is what the "endpoint only" state is
+for.
 
 #### It goes through the front door, and the front door is what the test proves
 
@@ -2531,15 +2285,11 @@ shape, its header name, its status codes and its error vocabulary are proven onl
 by a test. Going through the front door means we are broken by the same change
 that breaks a customer's integration, in our own staging, first.
 
-**The request is real; the socket is not.** `SignupClient` builds a genuine
-`Request` — POST, `application/json`, the documented body, the secret in the
-documented header — and hands it to the kernel as a sub-request. It is routed by
-the router to the real controller, parsed by the real `SignupSubmission`, checked
-against the real secret, charged to the real rate limiter and written to the real
-database, and the response is parsed back out of JSON exactly as a third party
-would parse it. What that proves is the whole published contract. What it does not
-prove is DNS, TLS and whatever proxy sits in front, and saying so is part of the
-claim rather than a caveat on it.
+**The request is real; the socket is not.** What crosses is a genuine `Request`
+handed to the kernel as a sub-request, routed to the real controller and charged
+to the real rate limiter. What that proves is the whole published contract. What
+it does not prove is DNS, TLS and whatever proxy sits in front, and saying so is
+part of the claim rather than a caveat on it.
 
 A real socket was the alternative and lost on two grounds. FrankenPHP runs in
 classic mode (§9.2), so a request occupies a worker: a page that opens a
@@ -2554,12 +2304,12 @@ cannot — a landing page that works everywhere except production.
 A live name check **is** an availability oracle offered to anonymous visitors.
 §8.12 names this and asks a deployment that proxies the check to say so to itself;
 this is that deployment saying so. `available: false` is one bit and a script can
-walk it. What is left in front of that bit is the per-visitor `signup_slug_check`
-bucket, which bounds a walker rather than preventing one, and the fact that
-"unavailable" is one word for three situations — so a walker cannot tell a
-customer from a reserved word. That is the price of showing somebody their address
-before they commit to it, which is the whole point of the ticket. A deployment
-unwilling to pay it switches the page off and keeps the endpoint.
+walk it. What is left in front of that bit is a per-visitor bucket, which bounds a
+walker rather than preventing one, and the fact that "unavailable" is one word for
+three situations — so a walker cannot tell a customer from a reserved word. That
+is the price of showing somebody their address before they commit to it, which is
+the whole point of the ticket. A deployment unwilling to pay it switches the page
+off and keeps the endpoint.
 
 The visitor's own address is forwarded to the intake so the limiter counts per
 visitor rather than per installation; without it the client bucket would be a
@@ -2589,25 +2339,20 @@ in the bundle's configuration can say otherwise, because the route that reaches 
 is not this feature's to bind.
 
 So the page is a plain controller whose routes the loader owns, and the live half
-is sixty lines of Stimulus posting to one of them. Server-rendered stays true: the
-script sets text into three elements and toggles two classes, and there is
-deliberately no transliteration in it — a copy of the derivation rule in the
-browser is XIV-100 again, one layer further out and worse, because the customer
-would be reading our answer while the server recorded its own.
+is sixty lines of Stimulus posting to one of them. Server-rendered stays true, and
+there is deliberately no transliteration in the script — a copy of the derivation
+rule in the browser is XIV-100 again, one layer further out and worse, because the
+customer would be reading our answer while the server recorded its own.
 
 #### The defect this found in §8.12, which was live
 
 `SignupRouteLoader` keeps its promise about the collection it returns and
 `SignupRouteLoaderTest` proves it about that collection. It was not true of the
-routing table.
-
-Symfony autoconfigures **every class carrying a `#[Route]` attribute** with
-`routing.controller`, and `config/routes.yaml`'s `resource: routing.controllers`
-loads all of them. The signup controllers carry `#[Route]` attributes, so they
-were loaded twice: once by this feature's loader with the host and `https` stamped
-on, and once by the framework's with neither. Route names are unique in a
-collection, so the survivor was whichever loaded last — which happened to be the
-loader's, purely because `signup:` sat below `controllers:` in a YAML file.
+routing table: the framework autoconfigures every class carrying a `#[Route]`
+attribute into its own loader, so the signup controllers were loaded twice — once
+by this feature's loader with the host and `https` stamped on, and once by the
+framework's with neither — and the survivor was whichever loaded last, which
+happened to be the loader's purely because of key order in a YAML file.
 
 With `SIGNUP_HOST` empty — the shipped default, the state a self-hosting company
 relies on — `debug:router` still listed every signup route, on every hostname,
@@ -2616,12 +2361,10 @@ from being an open intake, which is a defence in depth doing the entire job alon
 And moving two keys in `config/routes.yaml` silently unbound the host of the whole
 feature; that is how it was found.
 
-`SignupRoutesComeOnlyFromTheLoaderPass` takes those classes out of the framework's
-loader, so the loader is the only thing in the process that can register a signup
-route. The assertion that would have caught it is in `SignupPageTest` and is made
-against the **router** rather than the loader: every route named `signup_*` in the
-compiled table carries the configured host and `https`, and the set of them is
-exactly what the loader returns.
+A compiler pass now takes those classes out of the framework's loader. **The
+lesson that outlives the fix is where the assertion goes**: it is made against the
+compiled **router** rather than against the loader, because a loader can only ever
+be asked about what it returns, and the claim being made is about the table.
 
 #### How a content-only change gets through the changelog gate
 
@@ -2669,27 +2412,18 @@ the exact property [XIV-65] fixed a live defect to establish, and
 when it stops holding.
 
 What made a browser affordable is that **both obstacles turned out to be the test
-harness's rather than the application's**, and both are answered outside it:
-
-  * **The hostname.** The web server binds one address and the browser reaches it
-    by whatever name resolves there, so a second compose network alias on the
-    application container is enough — the `Host` header is then simply what the
-    browser asked for. It could not be `signup.localhost`, which is what the suite
-    used to configure: Chromium implements draft-west-let-localhost-be-localhost
-    and answers every `*.localhost` name from its own loopback before DNS is
-    consulted, so no amount of compose wiring reaches one. `.env.test` names
-    `signup.e2e` instead. It keeps a dot because `SignupFirewallTest` proves the
-    signup firewall is scoped by a matcher rather than by `security.yaml`'s `host:`
-    — a regular expression in which a dot matches anything — and it proves it by
-    asking for the hostname with its dots substituted. A single-label host would
-    have left that test asserting nothing.
-  * **The scheme.** `tests/panther-router.php` is handed to `php -S` and stands in
-    for the TLS terminator production has, telling the front controller that a
-    request to *that hostname and no other* arrived securely. The condition matters:
-    the web server is started once for the whole browser suite, `cookie_secure` is
-    `auto`, and a session cookie marked `Secure` is one a browser on `http://` will
-    not store — so lying to the other six classes would have broken every test
-    that signs somebody in.
+harness's rather than the application's**, and both are answered outside it: a
+second compose network alias supplies the hostname, and a router script handed to
+`php -S` stands in for the TLS terminator production has. Two details in that are
+worth carrying because each cost a search. The alias could not be a `*.localhost`
+name — Chromium answers every one of those from its own loopback before DNS is
+consulted, so no amount of compose wiring reaches one — and the name it uses keeps
+a dot, because `SignupFirewallTest` proves the signup firewall is scoped by a
+matcher rather than by `security.yaml`'s `host:` regular expression *by asking for
+the hostname with its dots substituted*, and a single-label host would have left
+that test asserting nothing. And the router script lies for that one hostname and
+no other, because the web server is started once for the whole browser suite and a
+session cookie marked `Secure` is one a browser on `http://` will not store.
 
 **Nothing in `src/`, `packages/` or `config/` changed**, which is a stronger claim
 than a `when@test` seam and is why it was worth the search. `SignupNameTest` states
@@ -2698,27 +2432,24 @@ plain HTTP are still `https`-only and host-bound in the compiled router of the
 process making the claim.
 
 **Two tests, and both are chosen so they cannot pass by accident.** A free name
-asserts the box holds `mueller-soehne-ag` — computed by calling the server's own
-deriver — because that expansion is what §5's argument about [XIV-100] is *for* and
-what any browser-side slugifier would get wrong; it would catch a copy of the rule
-growing in the script, which is the failure this page is most exposed to. A
-reserved name asserts the other half of `report()`, the red class and the absence
-of the green one, and needs no fixture at all: `admin` is reserved by the code
-rather than by a row somebody committed, so the answer does not depend on which
-browser class ran first.
+asserts the box holds the *expanded* transliteration, computed by calling the
+server's own deriver, because that expansion is what §5's argument about [XIV-100]
+is *for* and what any browser-side slugifier would get wrong — it would catch a
+copy of the rule growing in the script, which is the failure this page is most
+exposed to. A reserved name needs no fixture at all, because `admin` is reserved
+by the code rather than by a row somebody committed, so the answer does not depend
+on which browser class ran first.
 
 The net was proved by breaking the page rather than by argument, the way [XIV-84]'s
-own regression test was. Writing `data-action="input->signup-name#company|prevent"`
-— [XIV-84]'s literal bug, one screen over — turns both tests red, and so does
-renaming the controller's value from `url` to `endpoint`, which is the *silent*
-version: nothing appears in the console, the page renders perfectly, and the box
-simply never fills in.
+own regression test was. Reproducing [XIV-84]'s literal `data-action` bug one
+screen over turns both tests red, and so does renaming the controller's value,
+which is the *silent* version: nothing appears in the console, the page renders
+perfectly, and the box simply never fills in.
 
 **What it costs is two Selenium sessions and no tenant.** The landing page resolves
 no customer, so this is the only browser class that provisions nothing, and it is
 the cheapest one there is: about three to five seconds against a suite that varies
-by more than that between runs. The router script is on the path of every browser
-request now and measures inside the same noise.
+by more than that between runs.
 
 **What is still not covered, said plainly.** The debounce and the
 newest-answer-wins sequencing are real logic and no test here touches them; a
@@ -2759,58 +2490,37 @@ cadence differs from [XIV-59]'s — every few minutes rather than nightly — an
 nothing in the command assumes either.
 
 **One failure must not cost the others**, which is [XIV-59]'s rule and is
-inherited rather than restated: the provisioner returns an outcome instead of
-throwing, the failure is written onto that signup's row, the loop moves to the
-next person, and the run exits non-zero so that cron mails somebody. Two things
-about it are deliberately *un*like `tenant:usage:collect`. An empty queue is a
-**success** here — no confirmed signups is the ordinary state of a healthy
-installation on most nights, and a cron entry that mails somebody nightly for
-being idle is one whose mail nobody reads within a fortnight. And nothing is ever
-given up on: there is no attempt limit and no dead-letter state, because every
-failure a retry could fix is one an operator fixes *elsewhere* — a full disk, a
-mail server, a grant on the provisioning role — and a run that had disarmed
-itself in the meantime would make the repair a two-step job whose second step
-nobody remembers.
+inherited rather than restated. Two things about it are deliberately *un*like
+`tenant:usage:collect`. An empty queue is a **success** here — no confirmed
+signups is the ordinary state of a healthy installation on most nights, and a cron
+entry that mails somebody nightly for being idle is one whose mail nobody reads
+within a fortnight. And nothing is ever given up on: there is no attempt limit and
+no dead-letter state, because every failure a retry could fix is one an operator
+fixes *elsewhere* — a full disk, a mail server, a grant on the provisioning role —
+and a run that had disarmed itself in the meantime would make the repair a
+two-step job whose second step nobody remembers.
 
 #### The hard part: which steps are idempotent, established rather than assumed
 
 Provisioning is a registry row, a Postgres role, a database, a schema and then an
-administrator, and it can stop at any of them. `TenantStatus::Provisioning`
-exists for exactly that state. What a retry may do was read out of the code
-rather than hoped for, and the answer is uncomfortable enough to be worth stating
-plainly:
-
-**`provision()` is not re-runnable, at either end.** Called again for a slug the
-registry already holds it throws `slugTaken` before it does anything at all, and
-with that row removed by hand it would throw `databaseExists`; PostgreSQL has no
-`CREATE ROLE IF NOT EXISTS`, so the role would raise `42710` on its own. The
-generated role password is fresh on every call and stored encrypted on the row,
-so a hypothetical resume would also have to `ALTER ROLE … PASSWORD` to make the
-stored DSN true again. Exactly **one** step inside it repeats safely: the
-migration, because Doctrine records executed versions in the tenant's own
-`doctrine_migration_versions` and steps over them.
+administrator, and it can stop at any of them. Nothing about that is transactional
+and nothing could make it so — it spans the control-plane database, the Postgres
+cluster, a customer's own database and somebody else's mail server. So the
+question is not how to avoid stopping half way; it is what a run that stopped half
+way leaves behind, and what the next run does with it. What a retry may do was
+read out of the code rather than hoped for, and the answer decides the design:
+**`provision()` is not re-runnable, at either end**, while the three steps after
+it are idempotent as they stand.
 
 **So a half-made tenant is cleaned up rather than finished**, and the cleanup is
 `deprovision()` — which §4.1's [XIV-94] subsection made re-runnable in precisely
-the way this needs. Both drops are `IF EXISTS`, sessions are terminated before
-the drop, and the registry row is removed **last**, so a cleanup that itself
-fails leaves a row pointing at whatever survived rather than an orphan nothing
-knows about; the same run repeats over what has already gone and finishes it.
-
-Destroying rather than resuming costs nothing, and that is an argument rather
-than a shrug. A tenant still in `provisioning` has never served a request —
-`TenantStatus::servesRequests()` says so and `TenantRequestListener` enforces it
-— and its first user is created *after* `provision()` returns. There is no
-session, no record and nobody holding a credential. It is an empty database with
-a company's name on it.
-
-**The three steps after it are idempotent as they stand**, which is why a tenant
-that is already serving is finished rather than torn down. Creating the first
-user is guarded by a lookup on the address and `UserManager::add()` refuses a
-duplicate anyway. Sending an invitation twice is §8.8's own documented behaviour
-rather than something tolerated here — the seed rotates, the previous link dies,
-and there is never more than one live invitation per person. Removing the signup
-row is a `DELETE` of a row that has already gone.
+the way this needs. Destroying rather than resuming costs nothing, and that is an
+argument rather than a shrug. A tenant still in `provisioning` has never served a
+request — `TenantStatus::servesRequests()` says so and `TenantRequestListener`
+enforces it — and its first user is created *after* `provision()` returns. There
+is no session, no record and nobody holding a credential. It is an empty database
+with a company's name on it. A tenant that *is* already serving is finished rather
+than torn down, for the mirror reason.
 
 #### Telling our own wreckage from somebody else's customer
 
@@ -2846,14 +2556,10 @@ anywhere. That is the honest limit of this criterion: a customer whose name an
 operator took by hand between confirming and the next cron run is visible to
 whoever reads the cron mail and to nobody else.
 
-**What is recorded on the signup row is a stage, not a message.** [XIV-59]
-settled the same question one table along: a driver exception names hosts, ports
-and roles, which is right in front of somebody who already holds the DSN and
-wrong on a row something might later draw on a page. `TenantUsage` stores "could
-not be read" and prints the driver's words; this stores `preflight`, `tenant`,
-`first_user`, `invitation` or `cleanup` and prints the driver's words. A stage
-also answers the only question the stored value has to: whether trying again,
-unaided, could ever work.
+**What is recorded on the signup row is a stage, not a message**, which is
+[XIV-59]'s rule one table along applied unchanged — and a stage additionally
+answers the only question the stored value has to: whether trying again, unaided,
+could ever work.
 
 There is still **no third `SignupStatus`**, for §8.12's reason unchanged — a
 status here would be a second copy of a fact `tenant.slug` already holds, free to
@@ -2862,23 +2568,17 @@ earlier, still holding its name, with a counter and a stage beside it.
 
 #### The slug trap, and how the collision is prevented rather than made unlikely
 
-§8.12 kept two slug rules apart on purpose and handed the consequence here:
-
-    TenantProvisioner::SLUG_PATTERN  /^[a-z][a-z0-9_]{1,55}$/     an identifier
-    SelfServiceSlug::PATTERN         /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/   a label
+§8.12 kept two slug rules apart on purpose and handed the consequence here.
 
 **The translation is hyphen to underscore, and nothing else.** It was chosen over
 dropping the separator or appending a hash because it is the only rule a human
 can perform in their head: an operator reading `acme-bau.xivi.app` in a support
-ticket types `psql tenant_acme_bau` without looking anything up.
-
-**It cannot make two customers collide, and that is a proof rather than a hope.**
-A self-service slug is drawn from `[a-z0-9-]` and contains no underscore, so the
-map is the identity on `[a-z0-9]` and sends the one remaining character to one
-that never occurred in the input. It is a bijection onto its image. Two distinct
-signup slugs therefore never translate to one provisioning slug, and the intake's
-existing rule — one confirmed signup per reserved name — carries over intact with
-no second uniqueness check.
+ticket types `psql tenant_acme_bau` without looking anything up. It **cannot make
+two customers collide, and that is a proof rather than a hope** — a self-service
+slug contains no underscore, so the map is the identity on the shared alphabet
+and sends the one remaining character to one that never occurred in the input, a
+bijection onto its image. The intake's existing rule of one confirmed signup per
+reserved name therefore carries over intact with no second uniqueness check.
 
 **What does not carry over is the check against the registry, and that is the
 sharp edge.** `tenant.slug` holds *provisioning* slugs. No self-service slug can
@@ -2892,22 +2592,18 @@ operator may perfectly well have routed `acme.xivi.app` at a tenant called
 something else. Both refusals are `slug_taken`, which is §8.12's rule about one
 word covering several situations, applied unchanged.
 
-**The map is also partial**, and the gaps are where the two rules disagree about
-something other than separators. A DNS label may be one character and an
-identifier may not; a label may start with a digit and an identifier may not; a
-label may run to 63 characters and an identifier to 56. Those names are refused
-at the intake with `invalid_slug` rather than accepted and failed later.
-
-The two halves of that are treated differently on purpose. A **derived** name is
-a suggestion this system made, so `SelfServiceSlug::derive()` now cuts to 56
-rather than 63 — a suggestion it cannot honour is its own mistake to fix. A name
-somebody **typed** is refused, because silently shortening what a customer asked
-to be called is worse than telling them it is too long. The residual cost is
-real and is stated rather than engineered around: a company whose name begins
-with a digit cannot have that name as a slug, and is asked for another. Every
-scheme that would have rescued it — prefixing a letter, appending a digit — makes
-the translation non-injective, and losing the collision proof to save `3m` is the
-wrong trade.
+**The map is also partial**, where the two rules disagree about length and first
+characters rather than about separators, and those names are refused at the intake
+with `invalid_slug` rather than accepted and failed later. The two halves of that
+are treated differently on purpose. A **derived** name is a suggestion this system
+made, so the deriver cuts to the length provisioning will accept — a suggestion it
+cannot honour is its own mistake to fix. A name somebody **typed** is refused,
+because silently shortening what a customer asked to be called is worse than
+telling them it is too long. The residual cost is real and is stated rather than
+engineered around: a company whose name begins with a digit cannot have that name
+as a slug, and is asked for another. Every scheme that would have rescued it —
+prefixing a letter, appending a digit — makes the translation non-injective, and
+losing the collision proof to save `3m` is the wrong trade.
 
 #### What hostname a self-service tenant gets
 
@@ -2947,26 +2643,18 @@ tenant, and this one signs somebody into a tenant that now does. §8.12 explains
 at length why the framework's login link could not be used for the first job.
 
 §8.8 predicted two problems with sending one off a cron and left them here, and
-both are real:
-
-**There is no request, so there is no hostname to be absolute against.**
-`DEFAULT_URI` is `http://localhost` in this repository, and a link generated
-against it is a link to nowhere. The router's request context is therefore
-pointed at the tenant's own hostname for the duration of the send, over `https`,
-exactly as §8.12's confirmation link is built from configuration rather than from
-a header — and restored in a `finally`, because the run is a loop in one process
-and a leaked context would sign the next person's link for the previous person's
-domain. That is a link that *works*, and admits somebody to the wrong
+both are real. **There is no request, so there is no hostname to be absolute
+against**: the router's request context is pointed at the tenant's own hostname
+for the duration of the send and restored afterwards, because the run is a loop in
+one process and a leaked context would sign the next person's link for the
+previous person's domain — a link that *works*, and admits somebody to the wrong
 installation. The **port** is deliberately left as configuration put it: the host
 is the part only the tenant can supply, while the port is a property of the
-installation, which is what `DEFAULT_URI` states.
-
-**There is no request, so there is no locale either.** An invitation is
-ordinarily written in the language of whoever pressed the button; nobody pressed
-anything. The best answer available is the language the visitor was reading the
+installation. **And there is no locale either** — an invitation is ordinarily
+written in the language of whoever pressed the button, and nobody pressed
+anything, so the best answer available is the language the visitor was reading the
 signup form in, which the row has carried since §8.12 recorded it for the
-confirmation mail — so it is switched to for the send, and it is also what the
-new account's own locale is set to.
+confirmation mail.
 
 The mail itself needed no exception carved for it. §8.8 refused one and was
 right: a freshly provisioned tenant has configured no SMTP server, so §8.7's
@@ -3067,34 +2755,20 @@ feature whose first requirement is a write made by a customer's own request
 therefore has exactly one database available to it.
 
 That constraint turns out to point at the right place anyway, which is worth
-saying so that nobody reads this as a workaround:
-
-- **It is the customer's fact.** They asked; they are the party entitled to see
-  that they asked, on their own screen, when they come back on Thursday wondering
-  why nothing has happened.
-- **It sits beside the thing it is about.** A module is installed into their
-  database; the record of wanting one belongs in the same place, next to §6.1's
-  definitions rather than one boundary away from them.
-- **It cannot leak between tenants**, for the same structural reason nothing else
-  can: one request resolves one tenant and the connection is theirs (§7.4).
+saying so that nobody reads this as a workaround: it is the customer's own fact,
+it sits beside the thing it is about, and it cannot leak between tenants for the
+same structural reason nothing else can (§7.4).
 
 **How an operator sees it: `tenant:purchase:collect`, which is [XIV-59]'s
-collector reused rather than reinvented.** The command walks the registry one
-tenant at a time through `TenantSwitcher::runFor()`, reads each customer's
-requests, and writes copies into `purchase_intent` in the control plane; the
-operator's screen reads that table and opens no tenant connection at all. Every
-sentence of §8.11's argument transfers: the fan-out belongs in a process nobody is
-waiting on, the page stays one request against one database, and §7.4's guarantee
-stays a *consequence* of how requests work rather than a rule with an exception in
-it.
+collector reused rather than reinvented**, writing copies into `purchase_intent`
+in the control plane so the operator's screen opens no tenant connection at all.
+Every sentence of §8.11's argument transfers and none of it is restated here.
 
 **The honest cost, stated rather than buried:** an operator learns about a request
 within one collection interval rather than the instant it is made. That is small
 against what happens next — a person deciding about money and then installing a
 module by hand — and the screen prints the collection time beside every row so
-nobody has to guess how fresh the list is. A deployment that minds runs the
-command more often; unlike the usage collector, this one is about somebody
-waiting, and the command's docblock says so where the crontab line gets written.
+nobody has to guess how fresh the list is.
 
 #### The shape that was rejected, and it is the tempting one
 
@@ -3128,14 +2802,9 @@ makes the guarantee checkable — a role with one exception has a second one com
 moment somebody pressed the button. §6.5 left this as an instruction rather than a
 suggestion, and it is [XIV-67]'s rule about payment terms and §5.9's about invoice
 totals arriving at the same place: what was agreed is a fact about the
-transaction, never a live lookup. An operator who raises a module's price the next
-morning has changed what the *next* customer will be quoted and has changed nothing
-about this one — which is the only reading under which the figure the customer saw
-means anything.
-
-The collector carries the copy across untouched and **never consults
-`ModuleCatalog`**, so the operator's screen cannot drift back to the live figure
-by somebody being helpful.
+transaction, never a live lookup. The collector carries the copy across untouched
+and **never consults `ModuleCatalog`**, so the operator's screen cannot drift back
+to the live figure by somebody being helpful.
 
 **Asking again rewrites the row rather than adding one**, which is §8.12's
 `reissue()` for its reason: somebody pressing the button twice is asking again,
@@ -3148,11 +2817,10 @@ long this has been outstanding is the number that says how badly it went.
 
 Fulfilment is **observed**, not tracked. The customer either has the module or
 they do not, their own metadata is the truth about that (§6.1), the collector is
-already inside their database, and nothing here uninstalls anything (§6.2) — so
-`installed` on the collected row is read at collection time and a status column
-would be a second copy of a fact the customer's database already holds, free to
-disagree with it. That is §8.14's argument for refusing a `provisioned` status on
-a signup, and it lands the same way.
+already inside their database, and nothing here uninstalls anything (§6.2) — so a
+status column would be a second copy of a fact the customer's database already
+holds, free to disagree with it. That is §8.14's argument for refusing a
+`provisioned` status on a signup, and it lands the same way.
 
 The visible consequence is that **the operator's screen has no button on it.** An
 operator answers a request by installing the module — `tenant:module:install`,
@@ -3167,8 +2835,7 @@ The tenant-side row records the person's id and the name they had at the time �
 `follow_up`'s two-column pattern, so somebody leaving does not take the record of
 a purchase request with them — and **neither value ever leaves that database.**
 §8.11 drew the line at *how much* rather than *what*, and a customer's own people
-are on the far side of it: an operator page that listed names would have made the
-control plane a way to read a customer's staff without their knowing.
+are on the far side of it.
 
 So an operator knows **which company wants which module** and does not know whom
 to write to. They reach the customer the way they already reach them, which is the
@@ -3180,35 +2847,18 @@ elsewhere anyway.
 #### Buying is its own permission, and that is a decision rather than an omission
 
 **`StoreAction::Buy`, a third case on [XIV-6]'s axis** rather than a reuse of
-`install`.
-
-The two are close enough that folding them together is the obvious move, and the
-reason not to has nothing to do with software. `install` is *"may decide what this
-installation consists of"* — §8.4.3's own words for it — which is authority over
-the shape of the system, and in a twelve-person company it belongs to whoever set
-the thing up. `buy` is may **commit this company to a payment**, which is authority
-over its money, and in the same company it very possibly belongs to somebody who
-would not know what a preset was.
-
-The direction of the mistake decides it. Granting an office manager `install` so
-they can add follow-ups, and thereby granting them the ability to order something
-the owner has to pay for, is a surprise nobody consented to. The reverse — a
-second grant that mostly gets handed to the same person — costs one more switch on
-a screen that already draws every other one.
-
-**It costs nothing today and cannot break anything today**: every module in this
-repository is free, so nothing is buyable, and no existing grant changes meaning.
-The day a deployment prices something is the day somebody has to decide who may
-spend, which is exactly when that decision should be asked for rather than
-assumed. And `buy` does **not** imply `install`, which is the property that makes
-it safe to hand out: a purchase request installs nothing at all.
+`install`. The two are close enough that folding them together is the obvious
+move, and the reason not to has nothing to do with software: `install` is *"may
+decide what this installation consists of"* — authority over the shape of the
+system — and `buy` is authority over the company's money, which in a small company
+belongs to somebody else. The direction of the mistake decides it: granting an
+office manager `install` so they can add follow-ups, and thereby granting them the
+ability to order something the owner has to pay for, is a surprise nobody consented
+to.
 
 A third *axis* was not needed and was not added — the subject is still `@store`,
 the scope still does not apply, and the permission screens draw the new verb
-because they iterate the enum. The counter-argument, which is not stupid: one
-grant is simpler, and a deployment that wants one authority grants both to one
-group in one screen. That is why this is a case on an existing axis rather than
-something larger.
+because they iterate the enum.
 
 **The operator's side has no permission at all**, and the asymmetry is not an
 inconsistency. A tenant has many users with different authority over the company's
@@ -3222,23 +2872,20 @@ screen carries.
 **It must not look like a payment page.** A form that looks like checkout and
 quietly does nothing is worse than a sentence saying what is actually going on,
 because it teaches people to type card numbers into pages that do not take them —
-a habit worth not creating in software somebody uses at work every day.
+a habit worth not creating in software somebody uses at work every day. Item by
+item, and each is asserted rather than intended:
 
-So, item by item, and each of these is asserted rather than intended:
-
-- **No card fields.** None, of any kind, disabled or otherwise. The page's only
-  input is the CSRF token, and `ModulePurchaseTest` counts them — bluntly, because
-  that assertion is what goes red when a later ticket makes the page friendlier.
+- **No card fields**, of any kind, disabled or otherwise. `ModulePurchaseTest`
+  counts the page's inputs — bluntly, because that assertion is what goes red when
+  a later ticket makes the page friendlier.
 - **No total, no line items, no VAT row.** The price appears once, as what the
   module costs. A total is the visual grammar of a page about to charge you.
-- **No "processing", no spinner, no confirmation number.** The button posts a row
-  and redirects; there is no transaction to have a state.
-- **No promise of when.** "Somebody will get in touch" is what is true. An
-  installation that said "within 24 hours" would be making a commitment on behalf
-  of a company this code knows nothing about.
-- **No congratulation.** The flash afterwards says *asked for X, nothing has been
-  charged, somebody will get in touch* — not "thank you for your purchase", which
-  is the exact lie the whole ticket refuses to tell.
+- **No "processing", no spinner, no confirmation number.** There is no
+  transaction to have a state.
+- **No promise of when.** An installation that said "within 24 hours" would be
+  making a commitment on behalf of a company this code knows nothing about.
+- **No congratulation.** Not "thank you for your purchase", which is the exact lie
+  the whole ticket refuses to tell.
 
 What it does say is what it costs, that pressing the button is a request rather
 than a payment, that nothing is charged, and that a person will reply.
@@ -3347,9 +2994,7 @@ Sunday"*. This is information that belongs where the work is.
 It is a widget rather than a banner welded into the layout because [XIV-66] had
 just built the seam that makes a card a class and a template, and inventing a
 second mechanism for the same job a week later is exactly what that seam exists
-to prevent. `NoticeWidget` sits above the follow-ups, which is the only widget
-with a real claim to the top of the page: a maintenance window on Sunday is
-information about whether the work below it can be done at all.
+to prevent.
 
 #### Which database it lives in, and why this is [XIV-102] in the easy direction
 
@@ -3369,39 +3014,31 @@ makes this one cheap**, and neither is a workaround.
 That was confirmed against the grant rather than assumed, and the confirmation
 turned out to have teeth.
 
-**The namespace is the grant.** `App\Deployment\RegistryGrants` derives the
-readable list by walking the `control` entity manager's mapping and taking the
-table name of every class under `App\Registry\Entity\`, and nothing else. So a
-`Notice` declared in `Xivi\ControlPlane\Entity` — which is where an operator's
-feature would naturally be filed — would land on the *withheld* list beside
-`operator` and `signup_request`, and the first customer dashboard to render would
-meet a permission error. `Notice` and `NoticeRecipient` are therefore
-`App\Registry\Entity` classes in `src/`, exactly as §3.1 requires of anything a
-tenant's own request reads.
+**The namespace is the grant.** The readable list is derived by walking the
+control entity manager's mapping and taking the table name of every class under
+`App\Registry\Entity\`, and nothing else. So a `Notice` declared in
+`Xivi\ControlPlane\Entity` — which is where an operator's feature would naturally
+be filed — would land on the *withheld* list beside `operator` and
+`signup_request`, and the first customer dashboard to render would meet a
+permission error.
 
 **And the recipients are an entity rather than a `ManyToMany`, which is the
 finding worth keeping.** A many-to-many's join table is not a class, has no
-metadata, and is therefore *invisible to the grant generator*. The grant would
-have been generated, run, and been wrong — and the failure would have appeared
-only on the deployment that matters, only for notices addressed to named
-customers, and never in a suite that runs as an account holding everything. The
-general form: **anything that is a table but not an entity is outside
-`readableTables()`**, and the only other member of that set today is
+metadata, and is therefore *invisible to the grant generator*. The general form is
+the part that outlives this feature: **anything that is a table but not an entity
+is outside `readableTables()`**, and the only other member of that set today is
 `doctrine_migration_versions`, which is named explicitly for that reason. Nothing
 enforces this in general — a test would have to know what tables a future feature
 means to read — so it is written down here and asserted for these two tables by
 name.
 
-**The proof is a role, not an argument.**
-`tests/Functional/Deployment/NoticeGrantsTest.php` creates the role, runs
-`RegistryGrants`'s own statements, opens a connection **as that role**, builds an
-entity manager on it and runs `LiveNotices` — the same class the dashboard runs —
-through it. That is why `LiveNotices` takes its entity manager as a constructor
+**The proof is a role, not an argument.** The test creates the role, runs the
+grant statements, opens a connection **as that role** and reads a notice through
+it. That is why the reading class takes its entity manager as a constructor
 argument instead of being a `ServiceEntityRepository`: a repository resolves its
 own connection out of the `ManagerRegistry`, so the test could only ever have
 exercised it as the suite's own privileged account, which is a test that proves
-nothing while passing. The same class asserts the role still cannot `INSERT`,
-`DELETE` or address anything.
+nothing while passing.
 
 **The cost of that arrangement lands on a deploy, and it is worth stating.** A
 release that adds a registry table means `deploy:registry-grants` has to be run
@@ -3427,15 +3064,12 @@ of something already published.
 
 #### Everybody, or named customers
 
-Both, as the ticket asked. `notice.every_tenant` is the switch and
-`notice_recipient` is the list.
-
-**They are not folded into one.** "No recipient rows" and "everybody" would look
-identical on the screen and mean different things in fact: recipient rows cascade
-away with a deprovisioned customer, so an announcement addressed to three
-companies would silently become an announcement to the *entire installation* on
-the day the last of them left. A boolean says which of the two somebody meant and
-no cascade can change it.
+Both, as the ticket asked, and **they are not folded into one**: "no recipient
+rows" and "everybody" would look identical on the screen and mean different things
+in fact, because recipient rows cascade away with a deprovisioned customer, so an
+announcement addressed to three companies would silently become an announcement to
+the *entire installation* on the day the last of them left. A boolean says which of
+the two somebody meant and no cascade can change it.
 
 **A third case — "every customer who has module X" — was considered and is not
 here.** It is a different kind of question. The registry knows which modules are
@@ -3476,13 +3110,10 @@ true, and it is true because the sender is the party running the installation.
 #### Dismissing, and where that write goes
 
 **A customer can dismiss a notice, per person, and the row lands in their own
-database** — `notice_dismissal`, in `src/Tenant/Entity`.
-
-This is §8.15's shape reused rather than a new one, and again §4.4 decides it
-rather than a preference: the customer-facing instance may read the control plane
-and may write nothing there, so a dismissal has exactly one database available to
-it. **The feature reads across the boundary and writes on this side of it**,
-which is the arrangement the grant was built to force.
+database.** §4.4 decides that rather than a preference: the customer-facing
+instance may read the control plane and may write nothing there. **The feature
+reads across the boundary and writes on this side of it**, which is the
+arrangement the grant was built to force.
 
 **Per person, not per tenant.** Dismissing is *"I have read this"*. A
 tenant-wide dismissal would let whoever opened the dashboard first take a
@@ -3493,19 +3124,16 @@ ticket is against.
 in another database. That makes it the same kind of value as a saved dashboard
 layout's widget key (§8.3.1) or a stale `reference` (§7.6): data referring to
 something outside this database, resolved where it is read and dropped when it
-resolves to nothing. A dismissal of a deleted notice hides a notice that does not
-exist, which is correct and needs no repair — and there is deliberately no
-process hunting orphans, because a cross-database garbage collector is a much
-worse thing to own than a few bytes.
+resolves to nothing. There is deliberately no process hunting orphans, because a
+cross-database garbage collector is a much worse thing to own than a few bytes.
 
 #### Stopping one, and what an operator can see
 
 **A notice is live between `published_at` and `expires_at`, and withdrawing is
-the second of those being set to now.** One concept rather than two: a
-`withdrawn` boolean beside an expiry would be two ways of saying *stop showing
-this*, free to disagree, with every reader having to remember both. The cost is
-that an operator cannot afterwards tell whether something ran out or was pulled,
-which is a fact about the past nobody has asked for.
+the second of those being set to now** — one concept rather than two ways of
+saying *stop showing this*, free to disagree, with every reader having to remember
+both. The cost is that an operator cannot afterwards tell whether something ran
+out or was pulled, which is a fact about the past nobody has asked for.
 
 **Withdrawing is not deleting.** The row stays on the operator's screen, marked
 ended, because *"what did we tell them in March"* is a question somebody asks and
@@ -3528,22 +3156,13 @@ asked of every widget on every render, before the reader's layout is applied, so
 a widget that counts rows there charges the page for a card somebody may have
 hidden. `NoticeWidget` asks the registry whether anything is live for this
 customer, which is a database read. **That is deliberate, and the alternative is
-worse.**
-
-"Does this apply to you" is answerable for the follow-ups from a per-request
-metadata cache and for the module tiles from the navigation. For a notice it *is*
-the question the database holds. A widget that returned a panel unconditionally
-would put a permanent, usually-empty "Notices" card on every dashboard in every
-installation — furniture, which §8.10 and the purchase screen both refuse — and
-would make the one week it says something the week nobody notices it.
-
-The cost is bounded rather than hand-waved: one indexed `SELECT` on the control
-connection, which is already open because resolving the tenant needed it, and a
-second query against the customer's own database **only when the first found
-something**. An installation that announces nothing — most of them, most weeks —
-pays one read. `defer` is false for the same reason: by the time the panel
-exists, its contents are already in memory, so deferring would buy a round trip
-to render text we have.
+worse:** for a notice, "does this apply to you" *is* the question the database
+holds, and a widget that returned a panel unconditionally would put a permanent,
+usually-empty card on every dashboard in every installation — furniture, which
+§8.10 and the purchase screen both refuse — and would make the one week it says
+something the week nobody notices it. The cost is bounded rather than hand-waved:
+an installation that announces nothing, which is most of them most weeks, pays one
+indexed read on a connection that was already open.
 
 #### [XIV-108] revisited, and the answer is no
 
@@ -3636,13 +3255,8 @@ control-plane database. So the ticket cannot be written there, and it goes where
 every write a customer's request makes goes — into their own database, as
 `support_ticket` — with `tenant:support:collect` bringing it back for an operator
 to read. That is `tenant:purchase:collect`'s shape with different columns, reused
-rather than re-derived.
-
-The alternative that removes the collector is the same one §8.15 rejected and it
-is rejected here for the same sentence: **an HTTP call to the control plane**
-would hand the public image a credential that writes that database, re-obtaining
-over the network exactly the privilege PostgreSQL refuses it. §4.4's whole
-argument is that the sharp boundary is the grant rather than the topology.
+rather than re-derived, and §8.15's rejection of an HTTP call to the control plane
+is inherited word for word.
 
 #### But the answer comes back the other way, and that is the design
 
@@ -3657,21 +3271,13 @@ database, no push, and nothing that can be stale.
 
 That decides the one thing about this feature that could have been got quietly
 wrong: **`support_request` is an `App\Registry\Entity` class**, not one of
-`Xivi\ControlPlane\Entity`'s. `RegistryGrants` derives the readable list from that
-namespace and no other, so the namespace *is* the grant — and filed beside
-[XIV-102]'s `purchase_intent`, which is the obvious place for it, every
-customer's support page would have met SQLSTATE 42501. The difference between the
-two tables is exactly the difference between the two features: a purchase request
-is collected **for an operator to read**, and a support ticket is collected so
-that an operator can **answer**.
-
-**The cost of that lands on a deploy, and it is stated rather than discovered.**
-A release that adds a registry table means `deploy:registry-grants` has to be run
-again — that is why the command derives its list from the mapping rather than
-maintaining a script (§4.4) — and an installation that skips it gets a
-customer-facing instance whose role cannot read `support_request`. The failure is
-immediate, loud and total for that instance rather than latent. [XIV-120] made
-the same trade for `notice` and `CHANGELOG.md` names it as an action bullet the
+`Xivi\ControlPlane\Entity`'s — §8.16's rule that the namespace *is* the grant,
+meeting a second feature. Filed beside [XIV-102]'s `purchase_intent`, which is the
+obvious place for it, every customer's support page would have met SQLSTATE 42501.
+The difference between the two tables is exactly the difference between the two
+features: a purchase request is collected **for an operator to read**, and a
+support ticket is collected so that an operator can **answer**. It carries §8.16's
+deploy cost with it unchanged, and `CHANGELOG.md` names it as an action bullet the
 same way.
 
 #### The delay, decided rather than inherited
@@ -3751,22 +3357,11 @@ they do not, and a column would have been a second copy of a fact free to
 disagree with it. **None of that transfers.** Whether somebody has picked up a
 question is not observable from anywhere; it exists in an operator's head until
 they say so, and a customer staring at silence is the entire problem this ticket
-is about.
-
-So each case has to earn its place by saying something nothing else says:
-
-* **`InProgress` is the one that earns the enum.** *"Somebody is looking at
-  this"* is what a waiting customer most wants and what no other column can
-  express; without it the only way to signal progress is to close a ticket that
-  is not finished.
-* **There is no `Answered`.** A reply is visible on the row — the customer is
-  reading it — so a state naming its existence would be §8.15's second copy
-  arriving by the back door.
-* **No priority, no category, no SLA.** An ERP support queue is not a helpdesk
-  product and those three are how it becomes one. Each is also a promise: a
-  priority promises an ordering and an SLA promises a time, and this installation
-  knows nothing about the arrangement between the two companies that would let it
-  keep either.
+is about. So a status is a real thing to store here, and each case earns its place
+by saying something nothing else on the row says — which is why there is no
+`Answered`, a reply being visible two columns away, and no priority, category or
+SLA, each of which is a promise this installation knows nothing about the
+arrangement between the two companies to keep.
 
 Any state may follow any other. A lifecycle (§5.8) would be modelling a process
 nobody has described, and an operator reopening something they closed by mistake
@@ -3807,13 +3402,9 @@ it.
 A subject, a body, a date, who raised it, and a status. The ticket asked for
 exactly that and nothing was added.
 
-**Who raised it does not cross.** The tenant-side row keeps the person's id and
-the name they had at the time — `follow_up`'s two-column pattern, so somebody
-leaving does not take the record of a question with them — and **neither value
-ever reaches the control plane**. §8.11 drew the line at *how much* rather than
-*what*, [XIV-102] held it for purchase requests, and it is held here where
-crossing it is most tempting: an operator would obviously like to know whom to
-write back to.
+**Who raised it does not cross**, on §8.15's two-column pattern and for §8.11's
+line — held here where crossing it is most tempting, because an operator would
+obviously like to know whom to write back to.
 
 **They do not need to, and that is what makes this line free rather than merely
 principled.** The answer is delivered inside the product — it lands on the
@@ -3823,8 +3414,8 @@ the question.
 
 #### The reference, and a rebuilt database
 
-The collected copy is matched on a random 128-bit `reference` generated in the
-customer's database, on the pair `(tenant, reference)`.
+The collected copy is matched on a random `reference` generated in the customer's
+database, on the pair `(tenant, reference)`.
 
 The primary key would have been the obvious choice and is wrong. **Ids are a
 sequence per database**, so a customer whose database is rebuilt — `tenant:reset`
@@ -3837,7 +3428,7 @@ string.
 
 #### The collector removes nothing, which is where it differs from [XIV-102]'s
 
-`PurchaseIntentCollector` deletes a collected row whose request has gone from the
+[XIV-102]'s collector deletes a collected row whose request has gone from the
 customer's database, and the reason is good: a queue half full of requests that
 no longer exist is a queue somebody stops trusting.
 
@@ -3852,8 +3443,7 @@ nothing else. A collection that rewrote the whole row — the obvious
 implementation, and the one an upsert produces — would discard an answer whenever
 a run overlapped with somebody typing one, on a job that runs every five minutes,
 and the visible symptom would be a customer shown their own question back with
-the answer gone. `SupportRequestTest::testACollectionDoesNotUndoAnOperatorsAnswer`
-is what goes red.
+the answer gone.
 
 #### The FAQ is out of scope, and its home is named
 
