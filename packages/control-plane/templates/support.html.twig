@@ -1,0 +1,182 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'control_plane.support'|trans }}{% endblock %}
+
+{#
+	**What customers have asked, and where each one has got to** (XIV-123, §8.17).
+
+	The return path of [XIV-120]. That page is where an operator tells every
+	customer something; this is where one customer tells the operator something,
+	and building only the first would have left an installation that can broadcast
+	and cannot be replied to.
+
+	**Every row is a *collection*, not a ticket.** The question is written in the
+	customer's own database, because §4.4 grants a customer-facing instance no
+	write privilege anywhere in the control-plane database, and
+	`tenant:support:collect` copies it here. So this page is as fresh as the last
+	run, and it says so rather than looking live — §8.11's rule, and it bites
+	harder here than on the usage figures: an empty list means *nothing was
+	collected*, which is what an installation with no cron entry looks like every
+	day of its life.
+
+	**The two controls on it write here and are read there.** Moving a status and
+	writing a reply are UPDATEs on this row; the customer reads them straight out
+	of the registry, which is what §4.4's grant has always permitted. So the answer
+	is on their screen the moment it is written, with no interval in it — the
+	asymmetry that makes the collection delay on the way *in* acceptable.
+
+	**No name, and that is deliberate.** The tenant-side row records who typed the
+	question and that value never leaves their database ([XIV-102]'s line). An
+	operator answers the company, on the screen the company reads, which is why not
+	knowing whom to write to costs nothing here.
+#}
+{% block body %}
+	<main class="container page-shell py-4">
+		{{ include('@XiviControlPlane/_nav.html.twig', {current: 'control_plane_support'}) }}
+
+		{{ include('_flashes.html.twig') }}
+
+		{#
+			The line to read before anything else, and only when there is something
+			to read. Warning rather than danger: nothing is broken, somebody simply
+			has to answer a person. Absent at zero, because a banner that always says
+			"0 outstanding" is furniture and furniture is what the eye learns to skip.
+		#}
+		{% if outstanding is not empty %}
+			<div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+				<i class="bi bi-chat-left-dots" aria-hidden="true"></i>
+				<div>
+					<strong>{{ 'control_plane.support_outstanding'|trans({'%count%': outstanding|length}) }}</strong>
+					<div class="small">{{ 'control_plane.support_outstanding_hint'|trans }}</div>
+				</div>
+			</div>
+		{% endif %}
+
+		{% if requests is empty %}
+			<div class="card">
+				<div class="card-body">
+					<h2 class="h6">{{ 'control_plane.no_support'|trans }}</h2>
+					{#
+						**The sentence that distinguishes "nobody asked" from "nothing ran".**
+						An installation whose crontab never got this line looks exactly like a
+						happy one from here, for ever, and XIV-126 exists because that had
+						already happened once to `tenant:purchase:collect`. So the empty state
+						names the command rather than congratulating anybody.
+					#}
+					<p class="text-body-secondary mb-0">{{ 'control_plane.no_support_hint'|trans }}</p>
+					<p class="text-body-secondary small mb-0 mt-2">
+						<code>bin/console tenant:support:collect</code>
+					</p>
+				</div>
+			</div>
+		{% else %}
+			{% for request in requests %}
+				{# A closed ticket is dimmed and sorted to the bottom rather than removed:
+				   "what did they ask us in March" is a question somebody asks. #}
+				<article class="card mb-3 {{ request.isOutstanding ? '' : 'opacity-75' }}">
+					<div class="card-body">
+						<div class="d-flex justify-content-between align-items-start gap-3">
+							<div>
+								<h2 class="h6 mb-1">{{ request.subject }}</h2>
+								<div class="small text-body-secondary">
+									{{ request.tenantName }}
+									<span class="font-monospace">{{ request.tenantSlug }}</span>
+								</div>
+							</div>
+							{# Colour and the word, never colour alone — the tenant list's rule. #}
+							{% if request.status.value == 'closed' %}
+								<span class="badge text-bg-success">{{ request.status.label|trans }}</span>
+							{% elseif request.status.value == 'in_progress' %}
+								<span class="badge text-bg-info">{{ request.status.label|trans }}</span>
+							{% else %}
+								<span class="badge text-bg-warning">{{ request.status.label|trans }}</span>
+							{% endif %}
+						</div>
+
+						<p class="small text-body-secondary mt-2 mb-2">
+							{{ 'control_plane.support_raised'|trans({'%time%': request.raisedAt|date('Y-m-d H:i')}) }}
+							&middot;
+							{#
+								The collection time, on every row, because every value above it is
+								only true as of this moment — the customer may have raised three
+								more since.
+							#}
+							{{ 'control_plane.support_collected'|trans({'%time%': request.collectedAt|date('Y-m-d H:i')}) }}
+						</p>
+
+						{# Plain text rendered as plain text, with the line breaks somebody typed. #}
+						<p class="mb-0" style="white-space: pre-wrap">{{ request.body }}</p>
+
+						{% if request.reply %}
+							<div class="mt-3 p-3 rounded bg-body-secondary">
+								<div class="small text-body-secondary mb-1">
+									{{- 'control_plane.support_replied_by'|trans({
+										'%name%': request.replyAuthorLabel,
+										'%time%': request.repliedAt|date('Y-m-d H:i'),
+									}) -}}
+								</div>
+								<div style="white-space: pre-wrap">{{ request.reply }}</div>
+							</div>
+						{% endif %}
+
+						<div class="row g-3 mt-2">
+							<div class="col-12 col-lg-8">
+								<form method="post" action="{{ path('control_plane_support_reply', {id: request.id}) }}">
+									<input type="hidden" name="_token" value="{{ csrf_token('support_request') }}">
+									<label class="form-label small" for="reply-{{ request.id }}">
+										{#
+											"Reply" on a ticket that already has one says *rewrite*,
+											because that is what it does: there is one reply and a
+											second one replaces it. §8.17 names the absence of a
+											thread among what this deliberately is not.
+										#}
+										{{ (request.reply ? 'control_plane.support_reply_again' : 'control_plane.support_reply')|trans }}
+									</label>
+									<textarea class="form-control" id="reply-{{ request.id }}" name="reply" rows="3"
+									          required>{{ request.reply }}</textarea>
+									<button class="btn btn-sm btn-primary mt-2" type="submit">
+										{{ 'control_plane.support_send'|trans }}
+									</button>
+									<span class="form-text ms-2">{{ 'control_plane.support_reply_hint'|trans }}</span>
+								</form>
+							</div>
+
+							<div class="col-12 col-lg-4">
+								<form method="post" action="{{ path('control_plane_support_status', {id: request.id}) }}">
+									<input type="hidden" name="_token" value="{{ csrf_token('support_request') }}">
+									<label class="form-label small" for="status-{{ request.id }}">
+										{{ 'control_plane.support_state'|trans }}
+									</label>
+									<div class="input-group">
+										{# The cases of the enum, so a fourth one cannot be invisible here. #}
+										<select class="form-select" id="status-{{ request.id }}" name="status">
+											{% for state in states %}
+												<option value="{{ state.value }}"
+												        {{ state.value == request.status.value ? 'selected' : '' }}>
+													{{ state.label|trans }}
+												</option>
+											{% endfor %}
+										</select>
+										<button class="btn btn-outline-secondary" type="submit">
+											{{ 'control_plane.support_move'|trans }}
+										</button>
+									</div>
+								</form>
+							</div>
+						</div>
+					</div>
+				</article>
+			{% endfor %}
+
+			{#
+				When this list last learned anything. Below the rows rather than above
+				them, because it is a fact about the page rather than about any ticket
+				— and it is the number that says whether an empty-looking queue is
+				empty or stopped.
+			#}
+			<p class="text-body-secondary small">
+				{{ 'control_plane.support_last_collection'|trans({'%time%': collected_at|date('Y-m-d H:i')}) }}
+			</p>
+		{% endif %}
+	</main>
+{% endblock %}

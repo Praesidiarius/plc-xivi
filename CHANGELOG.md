@@ -336,6 +336,39 @@ lands in `Unreleased` here.
   no crontab, so a customer's request to buy a module never reached the operator
   screen on an installation that followed the instructions. **Action:** if you
   set your crontab up before today, add it.
+- **A customer can now reach whoever runs their installation** ([XIV-123]) — a
+  *Support* page under your own name in the top bar, where anybody signed in can
+  describe a problem and read the answer. It is the return path for [XIV-120]'s
+  notices: those are the operator talking to you, this is you talking back. §8.17
+  has the argument.
+- **What a ticket carries, and what happens to it** ([XIV-123]) — a subject, a
+  description, who asked and when, and a state the operator moves: *waiting for
+  an answer*, *being looked at*, *closed*. The operator's reply appears on the
+  same page. Everybody in your company sees the company's tickets, so a colleague
+  finds the answer instead of asking again. No priorities, no categories and no
+  attachments — this is a way to reach a person, not a helpdesk product.
+- **A ticket takes a few minutes to arrive, and the page says so** ([XIV-123]) —
+  the question is written into your own installation's database and collected
+  from there, so it reads *Not received yet* until a collection has run. The
+  answer goes the other way with no wait at all: an operator's reply is on your
+  screen the moment they write it. **Action for operators:** add
+  `tenant:support:collect` to your crontab — `bin/console deploy:crontab` prints
+  it, every five minutes, and nothing reaches the support screen without it.
+- **Action: run `bin/console deploy:registry-grants` again** ([XIV-123]) — this
+  release adds a registry table, `support_request`, and a customer-facing
+  instance's database role has to be granted `SELECT` on it. An installation that
+  skips this gets a support page that fails outright for every customer. The
+  command prints the SQL; a database administrator runs it.
+- **An operator answers every customer from one screen** ([XIV-123]) — *Support*
+  in the control plane lists every company's tickets, oldest waiting first, with
+  the time of the last collection on every row so an empty queue can be told from
+  a collector nobody scheduled. Who typed the question stays in the customer's
+  own database and never reaches this screen, exactly as with a purchase request:
+  an operator answers the company, on the screen the company reads.
+- **The FAQ half of the old Support module is deliberately not here**
+  ([XIV-123]) — an FAQ is documentation, and it belongs on the
+  [documentation site](https://praesidiarius.github.io/plc-xivi-docs/), where it
+  is written once and can be read by somebody who has not signed in.
 
 ### Fixed
 
@@ -449,6 +482,7 @@ lands in `Unreleased` here.
 [XIV-141]: https://xivi.youtrack.cloud/issue/XIV-141
 [XIV-114]: https://xivi.youtrack.cloud/issue/XIV-114
 [XIV-104]: https://xivi.youtrack.cloud/issue/XIV-104
+[XIV-123]: https://xivi.youtrack.cloud/issue/XIV-123
 
 ## Releases
 

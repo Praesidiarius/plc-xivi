@@ -149,7 +149,14 @@ final class ScheduledJobsAreWatchableTest extends KernelTestCase
         self::assertSame(PrintCrontabCommand::INCOMPLETE, $tester->getStatusCode());
 
         $output = $tester->getDisplay();
-        self::assertStringContainsString('1 of 3 job(s) watched', $output);
+        // The total comes from the list rather than from a literal: a ticket that
+        // adds a scheduled command should not have to remember to edit a number
+        // in a test whose subject is that nobody remembers things (XIV-123 added
+        // the fourth).
+        self::assertStringContainsString(
+            sprintf('1 of %d job(s) watched', \count((new ScheduledJobs())->all())),
+            $output,
+        );
         self::assertStringContainsString('NOT WATCHED', $output);
     }
 
@@ -161,7 +168,12 @@ final class ScheduledJobsAreWatchableTest extends KernelTestCase
         )));
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
-        self::assertStringContainsString('3 of 3 job(s) watched', $tester->getDisplay());
+        $count = \count((new ScheduledJobs())->all());
+
+        self::assertStringContainsString(
+            sprintf('%1$d of %1$d job(s) watched', $count),
+            $tester->getDisplay(),
+        );
         self::assertStringNotContainsString('NOT WATCHED', $tester->getDisplay());
     }
 

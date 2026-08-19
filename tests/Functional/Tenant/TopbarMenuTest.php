@@ -83,16 +83,20 @@ final class TopbarMenuTest extends WebTestCase
     // -- who sees which item -------------------------------------------------
 
     /**
-     * Granted nothing: your own account, and the way out. Nothing else.
+     * Granted nothing: your own account, a way to ask for help, and the way out.
+     * Nothing else.
      *
-     * The account page is in the list unconditionally and rightly — it is your
-     * own — so this is the floor rather than an empty menu.
+     * Two items are in the list unconditionally and both rightly. The account
+     * page is your own; **Support** is [XIV-123]'s decision that every signed-in
+     * user may reach whoever runs the installation, because asking commits
+     * nothing and the person who met the problem is the person who can describe
+     * it (§8.17). That is the floor rather than an empty menu.
      */
     public function testSomebodyGrantedNothingSeesOnlyTheirOwnAccount(): void
     {
         $this->signIn(self::MEMBER);
 
-        self::assertSame(['Account'], $this->menuItems());
+        self::assertSame(['Account', 'Support'], $this->menuItems());
         self::assertTrue($this->hasSignOut(), 'and the way out, which is nobody\'s privilege');
     }
 
@@ -147,13 +151,15 @@ final class TopbarMenuTest extends WebTestCase
      * `signIn()` in one test signs nobody in: `/login` redirects an authenticated
      * request straight back to the dashboard, and the form it looks for is not
      * there. The order is also the order somebody reads — yours first, then the
-     * installation's.
+     * installation's, and **Support** last (XIV-123): it is what somebody hunts
+     * for when the rest of the product has already disappointed them, so it
+     * belongs at the end rather than competing with what they came to do.
      */
     public function testAnAdministratorSeesTheWholeMenu(): void
     {
         $this->signIn(self::ADMIN);
 
-        self::assertSame(['Account', 'Company', 'Store', 'Users'], $this->menuItems());
+        self::assertSame(['Account', 'Company', 'Store', 'Users', 'Support'], $this->menuItems());
     }
 
     // -- what the redesign could have lost -----------------------------------

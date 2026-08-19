@@ -126,6 +126,28 @@
 			{% endif %}
 
 			{#
+				Reaching whoever runs this installation (XIV-123). **Behind no
+				condition at all**, which is the one item in this menu that is
+				unconditional, and that is the decision rather than an oversight:
+				every user of an installation may ask the operator a question,
+				because asking commits nothing and the person who met the problem is
+				the person who can describe it (§8.17). A permission here would be a
+				switch whose only effect is to stop somebody with a problem reaching
+				the people who can fix it.
+
+				Last, and after sign-out is the only thing that would be worse: it is
+				the item somebody hunts for when the rest of the product has already
+				disappointed them, so it should be at the end of a list rather than
+				competing with the things they came here to do.
+			#}
+			{% set items = items|merge([{
+				route: 'support',
+				icon: 'life-preserver',
+				label: 'nav.support'|trans,
+				current: route starts with 'support',
+			}]) %}
+
+			{#
 				**How a shut menu still says where you are.** A dropdown that only
 				marks its current item once it is open would take the answer away from
 				the bar entirely: you would have to open a menu to find out which page
