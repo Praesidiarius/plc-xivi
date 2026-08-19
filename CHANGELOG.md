@@ -337,6 +337,35 @@ lands in `Unreleased` here.
   the behaviour it describes. The site is the other half — what an installation
   *is*, rather than why it was built that way.
 
+### Decided
+
+- **Only we publish modules** ([XIV-141],
+  [§3.2](docs/architecture.md#32-only-we-publish-modules-xiv-141)). There is no
+  third-party module and no plugin registry, and the brief now says so where the
+  package boundary is argued. Three consequences are written down rather than
+  implied: **`Xivi\Core` is explicitly not a public API and has no deprecation
+  policy**, which verticals we own is a deliberate list, and deptrac's module
+  boundary and the per-package `composer.json` files were built as though the
+  answer were open and are kept for what they prevent *inside* this repository —
+  not an abandoned plugin plan.
+- **An uploadable vertical is a *shape pack*, not a preset — and it is blocked on
+  the metadata editor rather than on a file format** ([XIV-141],
+  [§6.6](docs/architecture.md#66-a-vertical-as-data-and-whether-it-can-be-uploaded-xiv-141)).
+  A `ModulePreset` names a subset of a module's own fields, so a shareable "Law
+  Firm preset" can only ever mean *Contact with fewer fields*. §6.6 sets the
+  boundary a pack would have — it may do nothing a customer could not do by hand
+  in the editor (§5.4) — and finds that the boundary encloses almost nothing
+  today, because the editor cannot set a choice field's `choices` or a reference
+  field's target module. Fields only, never collections; applied once, never a
+  standing schema authority; a tenant administrator may apply one, and nobody but
+  us may publish one.
+- **The add-field form offers two types it cannot configure** ([XIV-141]).
+  `choice` and `reference` are in the type select, and there is no control for
+  `choices` or for a reference's `module` — so a field added that way is an empty
+  select, or a link that renders every value as `#id`. Found while answering the
+  above; §5.4's unfinished sentence, *a type says which of its options are the
+  customer's to set*, is what closes it and now has a second reason to exist.
+
 [XIV-18]: https://xivi.youtrack.cloud/issue/XIV-18
 [XIV-66]: https://xivi.youtrack.cloud/issue/XIV-66
 [XIV-84]: https://xivi.youtrack.cloud/issue/XIV-84
@@ -351,6 +380,7 @@ lands in `Unreleased` here.
 [XIV-132]: https://xivi.youtrack.cloud/issue/XIV-132
 [XIV-142]: https://xivi.youtrack.cloud/issue/XIV-142
 [XIV-120]: https://xivi.youtrack.cloud/issue/XIV-120
+[XIV-141]: https://xivi.youtrack.cloud/issue/XIV-141
 
 ## Releases
 
