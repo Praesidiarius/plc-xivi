@@ -179,6 +179,70 @@ invisible to the schema. What changed is that the `control` entity manager now h
 mappings over one database — `App\Registry\Entity` and `Xivi\ControlPlane\Entity` — which
 is the split stated in the one place Doctrine reads.
 
+### 3.2 Only we publish modules (XIV-141)
+
+**Decided: closed.** Every module in a Xivi installation is one we wrote, ship in
+the image and maintain. There is no third-party module, no plugin registry, no
+side-loaded bundle, and none of that is a gap waiting for a ticket.
+
+It is written down here rather than left to the trajectory, because the trajectory
+was going to answer it anyway and answering it by default is the failure mode the
+question was raised against. The argument is not that open is unworkable; it is
+that open is five separate products — distribution, review, versioning, revenue
+and support — and each of them is a permanent obligation rather than a feature
+with a finish line. A half-maintained third-party Resident module is worse for a
+care home than no Resident module, for exactly the reason a half-maintained
+first-party one would be: they bought it.
+
+Four things follow, and each is a consequence rather than a restatement.
+
+**Core is not a public API, and it does not have a deprecation policy.** This is
+the sentence the decision exists to make sayable. `Xivi\Core` may be renamed,
+narrowed, split or deleted in any release, `ModuleBlueprint`'s constructor may
+grow a required argument, and `FieldTypeRegistry` may change what it hands back —
+because every caller is in this repository and every caller is fixed in the same
+commit. `docs/architecture.md` is a brief and not a contract, and it is now
+explicitly not a contract rather than ambiguously one. The obligation this
+*replaces* is real and is not weaker: a change to core has to leave `bin/ci`
+green across every module in the tree, which is a stricter check than a
+deprecation notice and it runs on every commit rather than on somebody else's
+upgrade schedule.
+
+**Which verticals we own is a list, not a reflex.** Breadth is bounded by one
+person's time, so it has to be spent deliberately: a vertical earns a module when
+it needs *behaviour* — a lifecycle, a deriver, a document, a number series — and
+not merely different words on a contact. That test is the whole of §6.6, and it
+is what stops "somebody asked for it" from being a roadmap. Most requests are
+refused, and refusing them is the decision working rather than failing.
+
+**The store is designed for a curated set and may assume it.** Thirty tiles is a
+problem [XIV-140] solves with grouping; three thousand would be a problem
+grouping does not touch, and a store that has to defend against an unbounded
+catalogue is a different piece of software. `ModuleCatalog` may keep joining the
+build against the control plane in memory, `StoreOffer` may keep carrying a
+blueprint, and neither has to grow a search index it does not need. [XIV-139]'s
+packages are the curation made visible: a customer sees *Hotel* rather than
+thirty tiles, and *Hotel* is a set we chose.
+
+**And the boundaries stay, on their own merits.** `packages/*` are separate
+Composer packages with their own `composer.json`, and deptrac enforces that a
+module may reach core and never another module (§3). That is most of a plugin
+architecture, and it was built before this question was asked — so a future reader
+finding it is owed the answer that **it was not an abandoned plugin plan**. The
+boundary earns its keep with nobody outside at all: it is what made [XIV-96]'s
+two-image split possible, it is why the invoice module could be almost nothing but
+a blueprint, and it is the only thing standing between five modules and a mesh in
+which every one of them imports two others. A boundary is worth having because of
+what it prevents *inside* the repository; that it would also have supported an
+outside is a coincidence, and one that is now on the record as a coincidence.
+**The `symfony/symfony` subtree-split escape hatch above is unchanged** — it is
+about distributing our own packages, not about accepting somebody else's.
+
+What this decision deliberately does **not** close is whether a *vertical* can
+arrive without a deploy. That is a question about data rather than code, the brief
+has always answered it with §6.1's templates, and §6.6 is where [XIV-141] examined
+whether such a thing could be uploaded as a file.
+
 ---
 
 ## 4. Deployment topology: single instance, database per tenant
@@ -5901,6 +5965,15 @@ Three sources, and the discipline is knowing which one a given need belongs to:
   control plane next to plan and enabled modules, because adding one means a new
   market rather than a code change — and needing a deploy to onboard a vertical is
   v1's compiled-in module list wearing a different hat.
+
+  *Its second half is a shape pack, and §6.6 is what that may contain (XIV-141).*
+  "Then add these fields" was one clause here and turns out to be the load-bearing
+  one: a vertical is *"Contact with different fields"*, a preset can only ever mean
+  *"Contact with fewer fields"*, and the gap between those two sentences is the
+  whole of a trade. §6.6 draws the boundary — a pack may do nothing a customer
+  could not do by hand in the editor (§5.4) — finds that the boundary encloses
+  almost nothing until the editor can set a choice field's `choices`, and decides
+  what the file may never contain whatever the editor grows.
 - **Metadata rows** — anything one specific customer needs. The moment a preset is
   named after a customer, it has stopped being a preset.
 
@@ -6391,6 +6464,293 @@ the first customer-facing one. It is worth noticing that this is exactly what th
 [XIV-96] paragraph above predicted: reading a price is a customer-facing concern,
 so the read side of this feature compiles into the public image and the operator
 screen that writes it does not.
+
+### 6.6 A vertical as data, and whether it can be uploaded (XIV-141)
+
+§3.2 closed modules. The question it left open is the interesting half: a vertical
+is mostly *shape* rather than behaviour, shape is data (§5), and data does not need
+a deploy — so can somebody who is not us hand a customer a file that turns their
+Contact module into a law firm's, or a care home's?
+
+The answer is **not yet, and the obstacle is not the file format.** What follows is
+the whole of it, because the finding that decides it is one nobody expects.
+
+#### "Preset" is the wrong word, and §6.1 already has the right one
+
+The middle position as it was proposed — *modules stay closed, presets are open* —
+does not survive contact with what a preset is. A `ModulePreset` is a `key`, a
+`label`, a `description` and **a list of field keys taken from the blueprint's own
+fields**. It cannot add a field, rename one, reorder anything, or change a field's
+options. It is a subset and nothing else.
+
+So a shareable *Law Firm preset*, in the word's actual meaning, is **Contact with
+fewer fields** — and there is no arrangement of the contact module's nine fields
+that makes a law firm. The phrase the ticket reached for was *"Contact with
+different fields"*, and *different* is precisely the thing a preset cannot express.
+Worse, it would be redundant even where it works: since [XIV-70] a customer can
+install the extended preset and decline what they do not want, item by item, on a
+screen built for it (§7.2.1). Uploading a subset would add a file format to reach a
+place two clicks already reach.
+
+§6.1 already names the thing that was actually wanted, and has since this brief was
+written: a **template** — *install these modules with these presets, then add these
+fields*. "Dentist practice" is a template, not a preset. It is data, it lives in the
+control plane, and the reason given there is exactly the reason XIV-141 was raised:
+**needing a deploy to onboard a vertical is v1's compiled-in module list wearing a
+different hat.** The middle way is not a new idea to be evaluated; it is an idea
+this brief has been carrying, unbuilt, for a while. What XIV-141 adds is the part
+§6.1 never spelled out — what "then add these fields" may actually contain, and
+whether the file holding it may arrive from outside.
+
+To keep the two apart, the second half of a template has a name here: a **shape
+pack** is the list of edits applied to an installed module's definitions after the
+modules are in.
+
+#### The boundary, and it is the right one
+
+> **A pack may do nothing a customer could not do by hand in the metadata editor.**
+
+That is what makes a pack *data* rather than code, and every property worth having
+falls out of it rather than being added on top. There is nothing to execute, so
+there is no sandbox to get right. It grants no privilege — whoever applies it is
+already an administrator who could sit down and make the same twenty edits one at a
+time, which is §5.4's authority unchanged. Every outcome is reachable through a UI
+somebody is allowed to use, so "what could a malicious pack do" has the same answer
+as "what could a malicious administrator do", which is a question this system
+already answers and does not have to answer twice. And it is reviewable by
+*reading* it, which is the property a module never had.
+
+It also gives an implementation with no new engine in it: a pack is a sequence of
+`MetadataEditor::addField()`, `updateField()` and `renameShape()` calls, and it
+inherits every refusal those already make — a bad key, a taken key, an unknown
+type, a rule the existing records could not keep (§5.4). A pack cannot talk the
+editor into anything the editor would refuse a person, because it *is* a person's
+edits with the typing removed.
+
+#### And today that boundary encloses almost nothing
+
+This is the finding. **The metadata editor cannot configure a choice field's
+choices, and it cannot tell a reference field which module it points at.**
+`FieldController::optionsFrom()` draws exactly `max_length`, `min` and `max`, plus
+the two per-type settings [XIV-36] and [XIV-27] introduced — `autocomplete` and
+`sequence`. `choices` and `module` are on §5.4's own list of settings *the form
+must not touch*, and they are on it because the form has no control for them and
+saving the whole options array used to wipe them.
+
+Meanwhile the add-field form's type select is `$this->fieldTypes->all()`. So a
+customer can add a `choice` field today and get a select with nothing in it, or a
+`reference` field with no target that renders every value as `#id`. Both types
+degrade politely — `ChoiceFieldType::constraints()` skips its `Assert\Choice` when
+the list is empty, which its own comment calls "a confusing way to say
+misconfigured" — and neither is usable. That is a live gap in the editor,
+independent of packs, and it is the reason this section ends where it does.
+
+What survives the boundary today is: add text, textarea, integer, decimal, date,
+email and currency fields, with labels, `required`, `unique`, `filterable`,
+`listed`, `title`, a position, a width and a length or range; relabel and reorder
+the module's own fields; rename the module. What does not survive is **a choice
+field with choices** and **a link to another module** — which are the two things a
+vertical is mostly made of. A law firm needs a matter type; a care home needs a
+care level; both need to point at something.
+
+So the boundary is right and the editor is too small. The prerequisite is not an
+upload mechanism, it is the sentence §5.4 has been half-writing since [XIV-36]: **a
+type says which of its options are the customer's to set.** `choices` wants a
+capability interface and a control the same way `sequence` got one; a reference's
+`module` and `variant` want the same, with the added question of what happens to
+stored ids if a target is changed after records exist. That is a ticket of its own,
+it is worth doing whether or not a pack ever ships, and until it lands a pack is a
+file that can rename things.
+
+#### The file, and what it cannot say
+
+A law firm flavour of the contact module, written out in full so the trade-offs are
+visible rather than described:
+
+```yaml
+# law-firm.pack.yaml
+pack: law-firm
+format: 1
+label:  { en: Law firm,   de: Anwaltskanzlei }
+description:
+  en: Contacts as a practice keeps them — clients, opposing parties, courts.
+  de: Kontakte, wie eine Kanzlei sie führt — Mandanten, Gegenparteien, Gerichte.
+
+# What has to be installed already. A pack installs nothing itself: §6.3 refuses
+# to chain-install for a reason that applies here word for word, since each
+# module carries its own preset choice.
+requires: [contact]
+
+shapes:
+  contact:
+    rename: { en: Client, de: Mandant }          # renameShape()
+    fields:
+      # Existing fields, adjusted. The key must already be there; `type` and
+      # `key` are not sayable, here or anywhere, because §5.4 has no answer for
+      # either (§7.2).
+      - key: company_name
+        label:    { en: Firm or authority, de: Firma oder Behörde }
+        position: 10
+      - key: birthday
+        listed: false
+
+      # New fields. The key must NOT already be there — a key the shape has is
+      # skipped and reported, which is §7.2.1's rule arrived at from this side.
+      - key: matter_number
+        add:      text
+        label:    { en: Matter number, de: Aktenzeichen }
+        unique:   true
+        listed:   true
+        position: 20
+        options:  { max_length: 32 }
+
+      - key: matter_type
+        add:      choice
+        label:    { en: Matter type, de: Rechtsgebiet }
+        filterable: true
+        position: 30
+        options:
+          choices:                                 # ← nothing can apply this today
+            litigation: { en: Litigation, de: Prozess }
+            advisory:   { en: Advisory,   de: Beratung }
+            notarial:   { en: Notarial,   de: Notariat }
+
+      - key: responsible_partner
+        add:      reference
+        label:    { en: Responsible partner, de: Verantwortlicher Partner }
+        position: 40
+        options:
+          module:  contact                         # ← nor this
+          variant: person
+```
+
+Two lines in that file — the two that carry the vertical — are instructions the
+system has no way to perform. That is the section above, made concrete.
+
+And here is what the format has nowhere to put, which matters more than what it
+has:
+
+- **A collection.** *Matters*, as rows belonging to a client, is the shape a law
+  firm actually wants and is the first thing anybody would try to write here.
+- **A variant.** "Client" and "opposing party" as *kinds* of contact is
+  `ModuleBlueprint::$variantField` plus a field's `variants` list, and neither is
+  editable by anybody — `updateField()` does not take `variants` at all.
+- **A lifecycle** (§5.8), a **deriver** (§5.9), a **document template** (§5.7), a
+  **number series** beyond what the editor's own numbering page does (§5.10), or
+  any validation rule other than `required` and `unique`.
+- **Translations.** A module ships a catalogue and the installer seeds labels
+  through it (§6.1); a pack has no catalogue, so its labels are literals and it has
+  to carry a language map or install in one language only. The map above is the
+  honest version and it is also the version that goes stale silently.
+
+Which leads to the naming, and it is a decision rather than pedantry: this can be
+called a **field pack** and must not be called a *Law Firm*. Something named after
+a trade promises the trade; a file that supplies four field names and a rename
+would be sold as the first and delivered as the second, and the customer finds out
+after they have configured around it. The apply screen shows the literal list of
+changes, the way §7.2.1's confirmation does, and the marketing word stays with
+[XIV-139]'s packages, where there is a module behind it.
+
+#### Collections are out, and the reason is a table name
+
+The hardest edge, and it does not fall the way the boundary rule alone suggests.
+"Only the installer makes a table" is no longer the whole story: since [XIV-70],
+`ModuleInstaller::adoptCollection()` creates one on an administrator's click
+(§7.2.1). So "DDL on an admin's click" is already sanctioned, and refusing a pack
+on that ground alone would be quoting a rule that has moved.
+
+The real objection is narrower and worse. **A table name in an uploaded file is a
+claim on an identifier in the customer's database, and it is permanent.**
+`createRecordTable()` refuses to adopt a table it did not create — deliberately —
+so a pack that creates `contact_matter` in a tenant has made it impossible for any
+future *module* of ours declaring that table to ever install there. Not difficult:
+impossible, for that customer, for good, with the failure arriving years later as
+"this one tenant cannot install Matters" and no way back that does not involve
+dropping a table with their data in it. Prefixing uploaded tables would contain it
+and is exactly the kind of decision that cannot be un-made afterwards.
+
+So: **fields only, never collections** — which is word for word the rule §6.1
+already gives presets, arrived at independently and for an unrelated reason. There
+it is because a collection cannot be added back; here it is because a collection
+cannot be taken back. Two different arguments landing on the same line is the
+strongest evidence available that the line is in the right place.
+
+#### Applied once, and never a standing authority
+
+A pack is a **seed**, on §6.1's terms and for §6.1's reason. It is applied, an
+audit line records that it was, and from that instant the customer's definitions
+are the truth and the file has no further say. Nothing stores it as the shape of
+that tenant, nothing re-applies it, and there is no "update the pack" operation.
+
+The alternative is the thing to name so it stays rejected: a stored, re-appliable
+pack is a **second schema authority** sitting over a customer's definitions, and it
+reopens every guarantee §6.1 makes — it would want to correct a label somebody
+changed, restore a field somebody removed, and reconcile itself on a schedule. That
+is not a bigger version of this feature. It is the retro-fit the whole brief
+refuses, arriving as a file instead of as a deploy.
+
+Applying once is also what disposes of the third-party-breakage problem [XIV-141]
+worried about arriving through the back door. A pack names field keys and a
+shipped module's blueprint moves; if the pack is applied once, at a moment somebody
+is watching, then drift is a **report** — *this pack expected `company_name` and
+this module has no such field; three of its eleven changes were skipped* — rather
+than a break. Nothing is left holding a stale reference, because nothing is left
+holding anything. A pack we ship in a package ([XIV-139]) is ours to keep in step;
+a pack somebody else wrote goes stale, says so on the screen when it does, and
+costs the customer a message rather than an outage.
+
+#### Who may apply one, and into what
+
+Two questions that look like one, and the answers are opposite.
+
+**A tenant administrator, into their own installation: yes.** It is the same
+authority the metadata editor already grants (§5.4, admin-only), doing the same
+edits faster, previewed in full before anything is written. Whoever wrote the file
+— a consultant, a partner, the customer's own IT — is irrelevant to the risk,
+because the boundary makes the file's *origin* not matter. That is the whole point
+of the boundary.
+
+**An operator, into the store, listed for everyone: no.** That is not a bigger
+version of the same thing; it re-opens the two questions §3.2 just closed. Whoever
+lists it is vouching for it, and a pack that is wrong for a law firm is wrong for
+every law firm that installs it — the fact that it cannot execute code limits the
+*security* exposure and does nothing about the liability. So the rule is:
+**anybody may author a pack; nobody but us may publish one.** Ours travel inside
+[XIV-139]'s packages, where they are curated exactly as the module list is;
+everybody else's travel as a file the customer chooses to apply, at their own risk,
+with a preview.
+
+That also settles the transport question honestly, and it is the least intuitive
+conclusion here. §6.1 already puts templates in the control plane as data, which
+already means **our** verticals need no deploy. Uploading buys exactly one thing on
+top of that: a file that reaches a customer without an operator touching anything.
+That is a real benefit and it is a narrow one, and it is not worth designing the
+format around — so the format is designed for the control plane first, and uploading
+is a second front door onto the same parser whenever somebody wants it.
+
+#### The decision
+
+**Not built, and not refused.** The order is:
+
+1. **The editor learns `choices`, and a reference's `module` and `variant`** —
+   §5.4's own unfinished sentence, worth doing on its own merits because the add
+   form currently offers two types it cannot configure. Until this exists a pack
+   cannot express a vertical, and a pack that cannot express a vertical is a
+   feature with no reason to exist.
+2. **Templates land** ([XIV-139] and §9.3), with the shape pack as their second
+   half, in the control plane, ours. This is where the format is written and where
+   it earns its first real use.
+3. **Uploading is a separate, later decision**, onto the same format, and nothing
+   in steps 1 and 2 forecloses it.
+
+**Checked against [XIV-139] and [XIV-140]**, as XIV-141 required. Neither changes.
+[XIV-139]'s "presets travel with it" is the acceptance criterion this section
+answers: a vertical that is "Contact with different fields" is expressible as a
+*shape pack* carried by the package, and it is **not** expressible as a preset, so
+that criterion needs the pack rather than §6.1's presets and should say so.
+[XIV-140] is unaffected and its lean is confirmed — packages are the grouping, the
+catalogue stays curated (§3.2), and a store designed for a curated set is a store
+that never has to answer "who else may put something here".
 
 ---
 
@@ -10960,6 +11320,19 @@ named at the end of that section.
 customer gets, with which presets. They need nothing new from the engine — a
 template is a list of installations it already knows how to perform — but they do
 need somewhere in the control plane to live.
+
+*Corrected by §6.6 ([XIV-141]).* "They need nothing new from the engine" is true of
+the first half and false of the second. Installing modules with presets is indeed a
+list of operations the engine already performs; **"then add these fields" is not**,
+because the metadata editor cannot set a choice field's `choices` or a reference's
+`module`, and those are the two things a vertical is made of. So templates want one
+thing from the engine after all, it is §5.4's own unfinished sentence — a type says
+which of its options are the customer's to set — and it comes before the control
+plane needs a table.
+
+*And modules themselves are closed* ([XIV-141], §3.2). Nobody outside this
+repository publishes one, Core is explicitly not a public API with a deprecation
+policy, and the store may assume a curated catalogue.
 
 The two halves of §7.2 still open are a field changing type, and purging a removed
 field's values. They are opposites and probably want deciding together: one is
