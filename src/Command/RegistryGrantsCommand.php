@@ -53,6 +53,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * and `tenant:migrate` publish exist because those two can find something wrong
  * with an installation; this one cannot.
  *
+ * The command that can is `deploy:check-grants` ([XIV-143]), which compares what
+ * this prints against what the role is actually holding and exits 3 when they
+ * differ. `bin/deploy` runs it on every release, because "run this again after a
+ * release that adds a registry table" was previously a sentence in a changelog
+ * and was missed twice in two days.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[AsCommand(

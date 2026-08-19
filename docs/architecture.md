@@ -567,9 +567,18 @@ unusual. It is the single most important thing this ticket fixes.
 #### The tenant migrations are a one-shot deploy step, not an entrypoint step
 
 `bin/deploy` runs, in this order: the secret check below, the control-plane
-migrations, then `tenant:migrate` across the whole registry. It is meant to be
+migrations, the two checks that read the database the migration has just moved —
+`deploy:check-grants` ([XIV-143], §4.4) and then `deploy:check-hosts` ([XIV-93],
+§4.3) — and finally `tenant:migrate` across the whole registry. It is meant to be
 run once per release, out of the image being released, before the serving
 containers are replaced.
+
+**The checks sit where they do because of what they read and what they cost.**
+Both need the control-plane schema to be current — one asks about a table this
+release may have added, the other reads the registry — so neither can run before
+the migration above them; and both are before the containers are replaced, which
+is what makes a non-zero exit cheap rather than an outage. Everything a deploy
+can discover for free, it discovers there.
 
 Putting the tenant loop in the entrypoint beside the control-plane migration is
 the obvious alternative and was rejected for three reasons that compound.
@@ -1333,6 +1342,90 @@ PostgreSQL: `SELECT` on `tenant` and `tenant_domain` succeeds, `INSERT`, `UPDATE
 and `DELETE` on `tenant` are refused, and `operator` is not readable at all. The
 string-matching version of that test would pass for a script that names the wrong
 tables, one that forgets its `REVOKE`, or one that is never run.
+
+#### Nothing checked that it had been run (XIV-143)
+
+The paragraph above ends on "or one that is never run", and for two releases that
+was exactly the hole. The list of tables is derived, so it grows on its own; the
+**grant** grows when a database administrator runs the printed SQL, and nothing
+anywhere asked whether they had. An installation upgraded without that step has a
+role whose privileges match the *previous* release's entity list.
+
+**It happened twice in two days.** [XIV-120] added `notice` and
+`notice_recipient`, [XIV-123] added `support_request`. Both shipped a `CHANGELOG`
+bullet saying the command has to be re-run, and a changelog bullet works exactly
+as well as whoever reads changelogs. The cost of missing it is not subtle: the
+notice widget is on the dashboard (§8.3.1), so a customer-facing instance one
+release behind on grants answers **500 to every user of every tenant**, with
+`SQLSTATE[42501]: permission denied for table notice`, and the support page does
+the same.
+
+That failure is loud rather than silent, which §8.3.1 prefers and which is better
+than a page that quietly hides notices. But **loud at the customer is still the
+customer finding out**, and this section's neighbour already owns the better
+answer: `deploy:check-hosts` exists so that a deploy discovers a too-narrow
+trusted-host pattern before a browser does. `deploy:check-grants` is the same
+shape, one table over.
+
+**It derives its expectations from `RegistryGrants`, not from a list.** The same
+`readableTables()` that writes the `GRANT`s decides what is checked, and the same
+`withheldTables()` decides what must be unreachable — so adding a registry entity
+cannot make the check and the grant disagree, which is the only property that
+makes a check like this worth having at all. Asserted from both ends:
+`CheckRegistryGrantsTest` proves against a real cluster that what is reported
+missing is exactly what the generator names, and
+`RegistryPrivilegeExpectationsTest` invents an eighth entity in the mapping and
+requires it to appear in the query and in the finding, which is what a hardcoded
+list of today's seven tables would fail.
+
+**It asks `has_table_privilege` rather than reading the ACL**, and the difference
+decides real cases. An ACL comparison answers "was this statement run", which is
+a question about history; `has_table_privilege(role, table, privilege)` answers
+"can this role do it", which is the question a customer's request is about to
+ask. A privilege reached through `GRANT`ed role membership, or held by `PUBLIC`,
+is invisible in the first answer. A **superuser** is the sharp end of that: it
+passes every privilege check there is, so a `DATABASE_URL` still carrying the
+administrator's credentials undoes the whole of this section while every page
+works — and it is reported on its own line rather than as one finding per table,
+because it is not a grant that went wrong.
+
+**Excess is a finding, not only absence.** A role missing `SELECT` is an outage
+somebody will report within the hour; a role holding `INSERT` on a registry table
+is this section's guarantee not holding while everything looks healthy, which is
+worse. The same query answers both. [XIV-120] and [XIV-123] each asserted the
+refusal for their own two tables against the *generated statements*; this asserts
+it for every registry table against the **privileges the cluster is actually
+holding**, at deploy time.
+
+**It checks and does not repair**, decided rather than left to emerge. Re-running
+`deploy:registry-grants` is idempotent, so the two are one line apart — but the
+line is this section's own: an application that could grant privileges to itself
+could be made to grant itself others. A repair also begins with `REVOKE ALL`, so
+it would silently remove a privilege an administrator had added deliberately,
+during a deploy, from a script. What it prints instead is the command to run, with
+the role already in it.
+
+**Where it runs: `bin/deploy`, immediately after the control-plane migration.**
+That is the earliest moment the question can be asked — a table this release added
+exists only once that migration has run — and it is before the serving containers
+are replaced, which is what makes stopping cheap: the old containers keep serving,
+the old code does not read the new table, and nobody is dark while somebody runs
+one `GRANT`. Exit 3 and `set -e`, the same contract `deploy:check-hosts` and
+`tenant:migrate` publish (§4.2). **Deliberately not in the container entrypoint**,
+where `deploy:check-hosts` also appears as a diagnostic: the remedy here is a
+statement only a database administrator can run, so a line in `docker logs` on
+every restart would be advice nobody reading it is in a position to act on,
+repeated for as long as the mistake stood. The deploy is where the decision gets
+made, so the deploy is the only place it runs.
+
+**A deployment says which role by setting `XIVI_PUBLIC_ROLE`, and empty is a real
+answer** — the same shape `XIVI_TRUSTED_DOMAINS` and [XIV-126]'s ping list have.
+An installation served entirely by the internal image has one database user and
+nothing to compare, and a check that stopped those deploys would be a check
+somebody appends `|| true` to within the week. The cost is that a split
+deployment has to say so once; the alternative is guessing the role name, and a
+check that silently audits a role nobody uses passes for ever while proving
+nothing.
 
 #### The schema has exactly one owner
 
