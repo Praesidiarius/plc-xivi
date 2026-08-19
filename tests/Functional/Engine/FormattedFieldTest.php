@@ -21,6 +21,7 @@ use App\Tests\Support\SharesATenant;
 use Doctrine\DBAL\Connection;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Xivi\Contact\ContactModule;
 use Xivi\Core\Document\DocumentMarkers;
@@ -316,7 +317,17 @@ final class FormattedFieldTest extends WebTestCase
 
         self::assertSelectorExists('textarea#module_record_fields_' . self::PROCEDURE);
         self::assertSame('gloves', $form->filter('.markdown-preview .markdown-body strong')->text());
-        self::assertStringContainsString('Formatting:', $form->filter('.form-text')->text());
+        // Somewhere among the form's help texts rather than in the first one.
+        // This used to read `.form-text` and take what the crawler gave it,
+        // which was this hint only for as long as nothing else on a contact form
+        // had one — and since XIV-114 the phone field does.
+        self::assertContains(
+            true,
+            $form->filter('.form-text')->each(
+                static fn (Crawler $hint): bool => str_contains($hint->text(), 'Formatting:'),
+            ),
+            'the markdown hint is drawn beside the textarea',
+        );
         self::assertCount(0, $form->filter('.markdown-preview script'), 'and the preview escapes too');
     }
 
@@ -334,7 +345,7 @@ final class FormattedFieldTest extends WebTestCase
         ));
     }
 
-    private function show(int $id): \Symfony\Component\DomCrawler\Crawler
+    private function show(int $id): Crawler
     {
         $page = $this->client->request('GET', $this->url('/m/contact/' . $id));
 

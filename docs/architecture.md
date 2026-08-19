@@ -5926,6 +5926,127 @@ one.
 
 ---
 
+### 5.23 A phone number is one number (XIV-114)
+
+Phone numbers were typed into `text` fields, so `+41 79 123 45 67`, `0791234567`
+and `079 123 45 67` were three different values for one number. A search found
+one of them, a duplicate check found none of them, an export was whatever each
+person had happened to type, and nothing downstream could ever have rung any of
+it. `phone` is a field type now: whatever is typed is stored as **E.164**
+(`+41791234567`), and what cannot be read is refused with a sentence rather than
+kept as a string.
+
+**`toStorage()` is the seam, which is §5.19's argument one step harder.** The
+voucher code folds case there because `RecordValidator` normalises before it
+validates, `RecordRepository` before it writes and `QueryCompiler` before it
+compares — one method, and the form, the spreadsheet import, the unique index and
+every future lookup agree without any of them being told. A phone number is the
+same shape of rule about the same kind of value, so it lives in the same place.
+The property worth stating as a property: **the form, the importer and the query
+compiler cannot disagree about what a phone number is, because none of them has
+an opinion.** `PhoneNumberTest` proves that by going in one door and out another
+— a number typed `079 123 45 67` into the record form is found by a filter typed
+`+41 79 123 45 67` in the URL of the list page — rather than by calling
+`toStorage()` and asserting what comes back, which would test the method and say
+nothing about the seam.
+
+Three consequences follow, and each is taken rather than discovered:
+
+- **`unique` starts working.** [XIV-109]'s index is over the stored string, so
+  two people entering one number differently now collide as they always should
+  have. Proved against the index rather than against a PHP comparison: the test
+  writes both spellings through `RecordWriter`, which validates nothing, and what
+  refuses the second is Postgres.
+- **An import of existing data will refuse rows.** Ten years of hand-typed
+  numbers contain some that are not numbers. That is correct and it is still a
+  surprise, so the refusal names the value *and* the country it was read against
+  — `"079 123 45" is not a phone number that can be dialled in Switzerland` sends
+  somebody to the right place, where "row 2 is invalid" does not.
+- **Google's metadata moves, so validity moves with it.** `isValidNumber()` is a
+  question about a table in the package rather than about arithmetic, and
+  countries open and retire ranges. A `composer update` can therefore change
+  whether a number is acceptable — in both directions. Nothing revalidates on
+  read, deliberately: a stored number is a fact about a customer (§5.9) and a
+  library update is not a reason to stop showing somebody their own data. What it
+  does mean is that the same spreadsheet can import cleanly on one release and be
+  refused on the next, which is a thing to know before it happens rather than
+  after.
+
+**The country comes from the chain that already exists, and that is the decision
+this ticket is mostly about.** `079 123 45 67` is only a number if you know where
+it was dialled; the same digits are a valid Swiss mobile and a valid German
+landline. §8.6 gives an installation a region, [XIV-50] built the chain that
+reads it and [XIV-83] extended the same shape to the timezone — so a fourth
+country setting was the thing to avoid, and none was added.
+`Xivi\Core\Region\InstanceRegion` is the fourth instance of the seam
+`InstanceCurrency`, `DefaultPaymentTerms` and `DefaultVatMode` keep, and
+`ProfileRegion` answers it by **delegating to
+`FormattingLocale::instanceRegion()`** rather than reading the profile a second
+time: a fourth *reader* of one setting is the same mistake in cheaper clothes.
+
+**The person is deliberately not in that chain, and display is where they come
+back.** `FormattingLocale::of()` starts with the reader's own region; parsing
+starts one link down, because how a number is *shown* is about who is looking and
+how it is *stored* must not be. A French colleague at a Swiss company typing a
+local number is typing a Swiss number, and a chain that asked who was looking
+would store `+33…` for them and `+41…` for everybody else — the same digits
+becoming two different customers depending on whose screen they were entered
+from. Display then takes the opposite rule: national where the number is local to
+the reader, international where it is not, read off `\Locale::getDefault()`,
+which is [XIV-50]'s chain arriving where `DateFieldType` and `CurrencyFieldType`
+already collect it. Core still does not know what a user is.
+
+**A per-field override, because it is an option with a default rather than a
+setting.** A customer whose `supplier_phone` only ever holds German numbers can
+say so on that one field; every other phone field goes on following the profile
+and nobody opens the metadata editor to get the common case. It is the **third**
+entry in §5.4's declared option-to-capability list, and the first added since
+that list stopped being a pair of `instanceof`s — which is the evidence that the
+list was worth declaring. It cost one capability interface (`AssumesACountry`),
+one line in `FieldController::PER_TYPE` and one `<select>` in the field table.
+No branch was added anywhere. Changing it decides how the *next* value typed into
+that field is read and rewrites nothing already stored, which is worth saying out
+loud because the tempting reading is the other one.
+
+**Extensions are refused, and the reason is arithmetic rather than taste.**
+`+41 44 668 18 00 ext. 12` is a real thing people type, and there were three
+options: keep it in the value, give it a second field, or refuse it. E.164 has no
+room for an extension and `format(E164)` **drops it silently** — measured, and
+asserted in `PhoneFieldTypeTest` so that the day the library changes its mind
+something goes red. Keeping it would mean either storing something that is not
+E.164, giving up the canonical form the whole type exists for, or filing a
+switchboard and the twelve people behind it under one value: on a `unique` field
+the twelfth colleague is then refused for a reason nothing on screen can explain.
+A second field is the right answer and the customer already has it — the metadata
+editor adds one without a deploy (§5.4) — so the refusal says exactly that.
+
+**The dependency is the lite build, and the trade is measured.**
+`giggsey/libphonenumber-for-php-lite` against `giggsey/libphonenumber-for-php`:
+2.8 MB against 25 MB installed, and the 22 MB is geocoding, carrier lookup,
+short-number data and number-to-timezone mapping, none of which this feature
+touches. [XIV-96] took the customer image from 7.3 GB to 462 MB, so the full
+build would have spent 5% of that image on which carrier owns a prefix. The
+argument lives in `packages/core/src/Phone/PhoneNumbers.php` — the file that uses
+it — so that whoever is later tempted to swap the requirement meets the reasoning
+before the diff. **It is also the first Apache-2.0 dependency in a production
+image**, which is compatible with this project's MIT and is not MIT: it carries a
+notice requirement and an express patent grant, and `THIRD-PARTY-NOTICES.md` has
+a section shaped for that now rather than a bullet in a list of exceptions.
+
+**Contact's `phone` becomes one, and nobody's database moves.** The blueprint
+declares the new type and marks the field filterable, because a filter over a
+canonical value is a filter that finds things. A tenant that installed Contact
+before this release keeps a text field and goes on keeping it — §6.1, and
+`ModuleUpgrade` never offers a key the shape already has, whatever it now looks
+like. Changing it for them would be a type change, which §5.4 refuses because
+stored values may not survive one; §7.2's open half is still open and this does
+not reopen it.
+
+**Deliberately not in this:** nothing is *sent* to a phone number. No SMS, no
+verification codes, no click-to-dial. This is a field type.
+
+---
+
 ## 6. Extensibility
 
 Three composable layers, all "one codebase, no forks":

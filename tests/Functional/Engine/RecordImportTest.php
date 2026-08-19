@@ -115,7 +115,7 @@ final class RecordImportTest extends KernelTestCase
             'kind' => ContactModule::PERSON,
             'first_name' => 'Ada',
             'last_name' => 'Lovelace',
-            'phone' => '+41 44 000 00 00',
+            'phone' => '+41 44 668 18 00',
         ]);
 
         $this->file(['contact' => [
@@ -127,7 +127,11 @@ final class RecordImportTest extends KernelTestCase
 
         $record = $this->all()[0];
         self::assertSame('King', $record->data['last_name']);
-        self::assertSame('+41 44 000 00 00', $record->data['phone'], 'a column the file does not have is not a value to clear');
+        // Stored E.164 rather than as it was typed (XIV-114) — this row went in
+        // through the writer, which normalises through the field type like every
+        // other door. The assertion is still the one this test is about: a column
+        // the file has not got is not a value to clear.
+        self::assertSame('+41446681800', $record->data['phone'], 'a column the file does not have is not a value to clear');
     }
 
     /** Lenient in, stable out (§5.6): the export writes keys, the import takes either. */

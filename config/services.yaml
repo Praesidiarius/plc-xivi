@@ -339,6 +339,15 @@ services:
     # record — which is where the arithmetic reads it from ever after.
     Xivi\Core\Money\DefaultVatMode: '@App\Tenant\Settings\ProfileVatMode'
 
+    # And which country a phone number typed without a country code was dialled
+    # in (XIV-114). The fourth of the same seam, and the one that is emphatically
+    # *not* a new setting: the answer is the region §8.6 already stores and
+    # XIV-50 already reads, reached through `FormattingLocale` so that there is
+    # one implementation of "which country is this installation in" rather than
+    # two that can drift. Core normalises every number to E.164 through this and
+    # never learns what a tenant is.
+    Xivi\Core\Region\InstanceRegion: '@App\Tenant\Settings\ProfileRegion'
+
     # Documents (XIV-4). Core fills a .docx template and asks for a PDF through
     # Xivi\Core\Document\PdfConverter; the application answers with Gotenberg,
     # a service on the compose network. Same seam as the currency above.

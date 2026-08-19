@@ -17,6 +17,7 @@ use App\Tenant\Security\NoModulePermission;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Intl\Countries;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -24,6 +25,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
+use Xivi\Core\Field\AssumesACountry;
 use Xivi\Core\Field\Autocomplete;
 use Xivi\Core\Field\Autocompletes;
 use Xivi\Core\Field\FieldType;
@@ -39,6 +41,7 @@ use Xivi\Core\Module\ModuleUpgrade;
 use Xivi\Core\Numbering\AssignsNumbers;
 use Xivi\Core\Numbering\CounterRefused;
 use Xivi\Core\Numbering\NumberFormat;
+use Xivi\Core\Phone\PhoneRegion;
 
 /**
  * The metadata editor: a customer changing the shape of their own module.
@@ -89,12 +92,19 @@ final class FieldController extends AbstractController
      *
      * So the *type* is asked, by implementing a capability interface. XIV-36
      * introduced that with a single `instanceof` and said in as many words that
-     * generalising from one example would be guessing; there are two now, which
+     * generalising from one example would be guessing; XIV-27 made it two, which
      * is the point at which the shape §5.4 has always described — **a type
-     * saying which of its options are the customer's to set** — can be written
-     * from evidence rather than from imagination. This is that list. A third
-     * option is a capability interface, a line here and a control in the
-     * template, rather than another branch through this class.
+     * saying which of its options are the customer's to set** — could be written
+     * from evidence rather than from imagination. This is that list, and it
+     * predicted its own next entry: "a third option is a capability interface, a
+     * line here and a control in the template, rather than another branch
+     * through this class."
+     *
+     * **[XIV-114] is that third, and it cost exactly those three things.** A
+     * phone field may assume a country other than the installation's, which is
+     * {@see AssumesACountry}, one line below and one `<select>` in the field
+     * table. Nothing in this class learned that a country exists. Two
+     * predictions of a shape are a guess and three are a shape.
      *
      * What stays per option, deliberately, is *drawing* it: a select of three
      * fixed answers and a numbering pattern with a live preview have nothing in
@@ -107,6 +117,11 @@ final class FieldController extends AbstractController
     private const array PER_TYPE = [
         Autocomplete::OPTION => Autocompletes::class,
         NumberFormat::OPTION => Numbers::class,
+        // The third, and the one that proves the list was worth declaring
+        // (XIV-114): a phone field may assume a country other than the
+        // installation's, and adding that was this line, a capability interface
+        // and one control in the template. No branch through this class.
+        PhoneRegion::OPTION => AssumesACountry::class,
     ];
 
     public function __construct(
@@ -120,7 +135,7 @@ final class FieldController extends AbstractController
     }
 
     #[Route('', name: 'field_index', methods: ['GET'])]
-    public function index(string $module): Response
+    public function index(string $module, Request $request): Response
     {
         $definition = $this->definition($module);
 
@@ -135,6 +150,11 @@ final class FieldController extends AbstractController
             // a list of strings.
             'settable' => $this->settableByType(),
             'autocompleteChoices' => Autocomplete::settable(),
+            // Every country there is, named in the language being read (XIV-114).
+            // From symfony/intl rather than a list kept here, for the reason the
+            // currency and timezone pickers give: a copy of the country list
+            // maintained by hand is a copy that is wrong.
+            'regionChoices' => Countries::getNames($request->getLocale()),
             // And which *fields* are actually numbered, which the type cannot
             // answer: the link to the numbering page appears on those, and the
             // page itself refuses everything else on the same test.
@@ -662,6 +682,19 @@ final class FieldController extends AbstractController
             $options[Autocomplete::OPTION] = $chosen === null || $chosen === Autocomplete::Auto
                 ? null
                 : $chosen->value;
+        }
+
+        if ($this->offers(PhoneRegion::OPTION, $type)) {
+            // Blank is the answer almost every phone field wants — "whichever
+            // country this installation is in" — and it is therefore what an
+            // empty select clears back to, on the same terms as the width and
+            // the autocomplete control above. Checked against symfony/intl
+            // rather than trusted, for the same reason the autocomplete select
+            // is checked against its enum: the control offers the countries
+            // there are, so anything else is a hand-edited form, and the honest
+            // response to one of those is to change nothing.
+            $chosen = strtoupper(trim((string) $request->request->get(PhoneRegion::OPTION, '')));
+            $options[PhoneRegion::OPTION] = Countries::exists($chosen) ? $chosen : null;
         }
 
         return $options;

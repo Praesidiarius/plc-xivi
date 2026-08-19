@@ -27,7 +27,16 @@ the list with:
 
     composer licenses --no-dev
 
-**Checked on each addition, and the last one was `symfony/http-client`**
+**Checked on each addition, and the last one was
+`giggsey/libphonenumber-for-php-lite`** (XIV-114). It is **Apache-2.0**, which is
+the first time a *runtime PHP* dependency of this project has been anything but
+MIT or BSD, so it has an entry of its own rather than a line: see
+[Apache-2.0 in the production image](#apache-20-in-the-production-image) below.
+Nothing arrives with it — its only requirement is `symfony/polyfill-mbstring`,
+which was already installed; the lock diff that added it adds exactly one
+package.
+
+The addition before that was `symfony/http-client`
 (XIV-126): MIT, Copyright (c) 2004-present Fabien Potencier, first-party. It was
 **already installed and already in production** — `symfony/asset-mapper` requires
 it — and adding it to `composer.json` only makes a dependency that was real
@@ -35,11 +44,12 @@ explicit, so that removing the asset mapper one day cannot silently take the
 cron-monitoring pings with it. Nothing new arrives with it:
 `symfony/http-client-contracts` and the PSR interfaces were already there.
 
-The addition before that was `symfony/rate-limiter` (XIV-64): MIT, Copyright (c)
+And the one before *that* was `symfony/rate-limiter` (XIV-64): MIT, Copyright (c)
 2016-present Fabien Potencier, first-party, and it too brought nothing with it
 that was not already installed — `symfony/options-resolver` and the cache
-contracts arrive with the framework. No new entry below is needed for either,
-which is what the check is for: it establishes that, rather than assuming it.
+contracts arrive with the framework. No new entry below is needed for either of
+those two, which is what the check is for: it establishes that, rather than
+assuming it.
 
 **Healthchecks is named in `.env` and in §4.5 and is not a dependency of
 anything** (XIV-126). It is BSD-3-Clause and self-hostable, and Xivi neither
@@ -58,6 +68,59 @@ The exceptions, all permissive and all compatible with MIT:
   Worth stating rather than leaving to be rediscovered: `composer licenses` prints
   all three, so a search for "GPL" finds these two and says nothing about which
   licence is actually in force.
+
+### Apache-2.0 in the production image
+
+Everything above is MIT or BSD, and those two ask for the same thing in the same
+way: keep the copyright notice with the copies. Apache-2.0 asks for more, so the
+first runtime dependency under it gets a real entry rather than a bullet — and
+this heading is the shape for the next one.
+
+**giggsey/libphonenumber-for-php-lite** — Apache-2.0. Copyright (c) Joshua Gigg
+(the PHP port) and the libphonenumber authors, originally Google Inc. (the
+library and its metadata it is a port of).
+<https://github.com/giggsey/libphonenumber-for-php-lite> ·
+<https://github.com/google/libphonenumber>
+
+What every phone number in this application is parsed, validated, normalised to
+E.164 and formatted with (XIV-114, brief §5.23). The full licence text ships in
+the package at `vendor/giggsey/libphonenumber-for-php-lite/LICENSE.txt` and is
+installed into the production image with it, which is where a recipient of a
+binary distribution is entitled to find it.
+
+The three things Apache-2.0 asks that MIT does not, each answered rather than
+gestured at:
+
+- **§4(a), the licence must travel with the copies.** It does: the package is
+  installed by Composer into `vendor/`, licence file included, and nothing here
+  vendors or repackages its sources.
+- **§4(d), a `NOTICE` file must be passed on if the work has one.** *This one has
+  no `NOTICE` file* — checked in the installed package, which contains
+  `LICENSE.txt`, `README.md`, `composer.json`, `METADATA-VERSION.php`,
+  `qodana.yaml` and `src/`. So there is nothing to pass on beyond the attribution
+  above, and this paragraph exists to record that the question was asked. Should a
+  future release add one, it has to be reproduced here.
+- **§3, an express patent grant.** A term in the licensee's favour and one MIT is
+  silent about. Nothing to do; worth naming, because "Apache is stricter than MIT"
+  is only half of what is true.
+
+**No modifications.** Nothing in this repository changes, extends or subclasses
+the library's own classes, so §4(b) — the requirement to carry prominent notices
+on changed files — has nothing to attach to.
+
+**The lite build rather than the full one**, and that is a deliberate, measured
+choice about the size of the customer image rather than an accident of which
+package was easier to type. The argument, with the numbers, is in
+`packages/core/src/Phone/PhoneNumbers.php`, which is the file that uses it; the
+short version is that the extra 22 MB in the full package is geocoding, carrier
+lookup and timezone mapping, none of which anything here calls. Both builds are
+Apache-2.0, so swapping them changes the size and not this section.
+
+*Apache-2.0 was already in the tree twice before this and neither was here.* Tom
+Select and its two `@orchidjs` packages are front-end assets, listed below;
+`jetbrains/phpstorm-stubs` and `mcp/sdk` are development-only and never installed
+into a production build. This is the first one a customer's running instance
+actually contains.
 
 ## Development dependencies
 

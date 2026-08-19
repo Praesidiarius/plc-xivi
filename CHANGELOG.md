@@ -74,6 +74,40 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **A phone field, so one number is one value** ([XIV-114]) — `+41 79 123 45 67`,
+  `0791234567` and `079 123 45 67` are one number, and until now they were three
+  values in a text box: the filter found one of them, a duplicate check found
+  none of them, and an export was whatever each person had typed. A `phone` field
+  stores whatever is typed as `+41791234567`, shows it back as `079 123 45 67` to
+  a Swiss reader and `+41 79 123 45 67` to everybody else, and refuses what it
+  cannot read. §5.23 has the reasoning.
+- **The country comes from your company profile, not a new setting** ([XIV-114])
+  — `079 123 45 67` is only a number if you know where it was dialled, and the
+  *Country* on *Company profile* is where that comes from. Nothing new to fill
+  in. A single field can be told to assume a different one — a *Country* column
+  in the field editor, for the supplier list whose numbers are all German — and
+  a field that says nothing follows the company.
+- **Contact's Phone field is a phone number now, and it is filterable**
+  ([XIV-114]) — on **new** installations. An installation that already has
+  Contact keeps the text field it has: changing a field's type would put stored
+  values at risk, so nothing reaches into your database. Your existing Phone
+  field goes on working exactly as before.
+- **"Marked as unique" now catches the same number typed two ways** ([XIV-114])
+  — a consequence worth knowing before you tick the box on a phone field: two
+  records that used to look different because one had spaces in it are now the
+  duplicate they always were, and the second one is refused.
+- **Action: an import can now refuse rows it used to accept** ([XIV-114]) — a
+  spreadsheet column of hand-typed numbers going into a `phone` field is checked,
+  and a value that is not a diallable number stops the import with the value and
+  the country named: *"079 123 45" is not a phone number that can be dialled in
+  Switzerland*. This is only about fields of the new type — a text field imports
+  exactly as it did.
+- **A number with an extension is refused, on purpose** ([XIV-114]) —
+  `+41 44 668 18 00 ext. 12` is not stored, because the storage format has no room
+  for an extension and would drop it silently, filing a switchboard and everybody
+  behind it under one number. The message says to put the extension in a field of
+  its own, which the field editor can add without a deploy.
+
 - **A Knowledge module, for what your experienced people know** ([XIV-132]) — a
   very simple place to write down the answers that currently live in one person's
   head: how a refund past thirty days is handled, which supplier to call when the
@@ -381,6 +415,7 @@ lands in `Unreleased` here.
 [XIV-142]: https://xivi.youtrack.cloud/issue/XIV-142
 [XIV-120]: https://xivi.youtrack.cloud/issue/XIV-120
 [XIV-141]: https://xivi.youtrack.cloud/issue/XIV-141
+[XIV-114]: https://xivi.youtrack.cloud/issue/XIV-114
 
 ## Releases
 

@@ -27,6 +27,10 @@ return static function (ContainerConfigurator $container): void {
                 __DIR__ . '/../src/Mail/{MailRecipient,Recipient}.php',
                 __DIR__ . '/../src/Money/Amount.php',
                 __DIR__ . '/../src/Payment/PaymentTerms.php',
+                // What came of reading one string as a phone number, and the
+                // constraint that reports it (XIV-114). Both are values the
+                // container would otherwise try to autowire a `?string` into.
+                __DIR__ . '/../src/Phone/{PhoneReading,DiallablePhoneNumber}.php',
                 __DIR__ . '/../src/Metadata/NumberingPlan.php',
                 __DIR__ . '/../src/Numbering/{NumberFormat,NumbersFound}.php',
                 __DIR__ . '/../src/Record/{Record,Derivation}.php',

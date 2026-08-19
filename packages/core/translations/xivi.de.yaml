@@ -152,3 +152,7 @@ markdown:
         Formatierung: <code>**fett**</code>, <code>*kursiv*</code>, <code># Überschrift</code>,
         und eine Zeile, die mit <code>-</code> beginnt, für einen Listenpunkt.
     preview: Vorschau
+
+phone:
+    help_country: 'Ohne Landesvorwahl getippt, wird das als Nummer aus %country% gelesen.'
+    help_no_country: 'Diese Installation hat kein Land hinterlegt — schreib Nummern deshalb vollständig, mit Landesvorwahl.'
