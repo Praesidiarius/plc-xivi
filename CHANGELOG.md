@@ -272,6 +272,16 @@ lands in `Unreleased` here.
   polls to the same five-second deadline `DROP DATABASE … WITH (FORCE)` keeps,
   and still demands that the session really went. **Nothing in Xivi changed**:
   the drop waits for those backends itself, which the brief now records (§4.1).
+- **The landing page's live name check is tested in a real browser** ([XIV-105])
+  — the script that fills in your address as you type your company name was
+  covered by nothing, exactly like the dashboard buttons that shipped inert under
+  [XIV-84]. Two tests now type into the form and require the answer to arrive, and
+  both go red when the wiring is broken. **Nothing in Xivi changed**: the signup
+  routes are still bound to `SIGNUP_HOST` and still `https`-only, and the test
+  asserts that as it runs. What moved is the test harness — a compose alias and a
+  router script for the suite's own web server — and the suite's `SIGNUP_HOST` is
+  now `signup.e2e`, since Chromium cannot be pointed at a `*.localhost` name.
+  Reasoning, and what is still not covered, in `docs/architecture.md` §8.13.
 
 ### Changed
 
@@ -312,8 +322,10 @@ lands in `Unreleased` here.
 
 [XIV-18]: https://xivi.youtrack.cloud/issue/XIV-18
 [XIV-66]: https://xivi.youtrack.cloud/issue/XIV-66
+[XIV-84]: https://xivi.youtrack.cloud/issue/XIV-84
 [XIV-102]: https://xivi.youtrack.cloud/issue/XIV-102
 [XIV-116]: https://xivi.youtrack.cloud/issue/XIV-116
+[XIV-105]: https://xivi.youtrack.cloud/issue/XIV-105
 [XIV-118]: https://xivi.youtrack.cloud/issue/XIV-118
 [XIV-121]: https://xivi.youtrack.cloud/issue/XIV-121
 [XIV-124]: https://xivi.youtrack.cloud/issue/XIV-124
