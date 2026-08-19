@@ -407,14 +407,17 @@ merely looks it, and all three are in the two baselines rather than here:
   holds the originals and how to read them.
 
 The measurable half is small and worth stating precisely, because XIV-150 (a
-template database) is decided on it: `tenant:provision` end to end went from a
-median of **601 ms to 479 ms** over ten runs each, against a console-boot floor
-of about 120 ms — so roughly 480 ms of work became roughly 360 ms. Squashing
-takes a quarter off the schema build and does not touch the `CREATE DATABASE`,
-the role, or the connection, which is where the rest of it is. **That is not
-enough to close XIV-150**, and it moves the argument for it: a template database
-now has to justify itself against 360 ms rather than 480 ms, and against a schema
-that is already one file.
+template database) is decided on it. `tenant:provision` end to end, ten runs of
+each set back to back on one machine: a median of **592 ms before and 481 ms
+after**, against a console-boot floor of about 115 ms. So roughly 477 ms of
+actual work became roughly 366 ms — **a quarter off, not an order of magnitude**.
+
+That is the number XIV-150 has to beat, and squashing does not make its case for
+it either way. What is left is not migration time: it is `CREATE DATABASE`, the
+role, the grants and the connection, none of which a smaller migration set
+touches and all of which a template database would. **XIV-150 stays open**, and
+whoever picks it up should measure against 366 ms of work rather than the 480 it
+would have been arguing with last week.
 
 #### "Migrated 49 of 50" is not success
 
