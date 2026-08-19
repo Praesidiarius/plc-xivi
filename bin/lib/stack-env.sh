@@ -147,7 +147,7 @@ else
 	# offset buys — an address you can bookmark, the same one every time — is
 	# worth more than the rarity. So the answer is `xivi_assert_ports_free`
 	# below: notice the collision, name the other checkout, and refuse. See
-	# docs/architecture.md §9.2.
+	# docs/architecture/decisions.md §9.2.
 	XIVI_PORT_OFFSET=$((10#$(printf '%s' "$XIVI_PROJECT" | cksum | cut -d' ' -f1) % 100 + 1))
 
 	# **The bands, as a table rather than as six `export` lines** (XIV-86).

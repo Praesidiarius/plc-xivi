@@ -601,6 +601,12 @@ lands in `Unreleased` here.
   an issue still names exactly what it named before. References that carried the
   file path were rewritten to the file the section now lives in (166 of them, plus
   18 anchor links). Condensing the content is separate and still to come.
+- **§9.2 moved out too, and the entry point is 357 lines** ([XIV-149]) — §9 was
+  655 of the 945, and §9.2 alone was 595: the decisions belonging to no single
+  section, which 42 places in the code and the configuration cite by number. It is
+  `docs/architecture/decisions.md` now and keeps its number, so every `§9.2` still
+  resolves. The map also stopped printing each file's line count, which was a copy
+  of `wc -l` and went stale the same day it was written.
 - **§4 *Deployment topology* is shorter, and decides the same things** ([XIV-149])
   — 1,539 lines down to 1,287, by deleting what the code already carries and
   pointing at it instead: the deploy ordering and the entrypoint argument that
