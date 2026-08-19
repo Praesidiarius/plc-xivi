@@ -601,6 +601,22 @@ lands in `Unreleased` here.
   an issue still names exactly what it named before. References that carried the
   file path were rewritten to the file the section now lives in (166 of them, plus
   18 anchor links). Condensing the content is separate and still to come.
+- **§5 *Data model* is condensed: 6,029 lines to 5,495** ([XIV-149]) — the second
+  half of the split. What came out is duplication, and only where the class the
+  passage describes already carries the same argument in its own docblock: the
+  `<module>_history` DDL listing, the voucher redemption statement, the DrawingML
+  packaging detail behind `[tenant.logo]`, the collection-cap and submitted-row
+  mechanics, and the per-class halves of the query layer, the metadata editor's
+  option-to-capability list and the period constraint. **No heading text and no
+  section number changed**, so every `§5.n` cited in a comment, a test or an
+  issue still names what it named before. Constraints, rejected alternatives,
+  decisions about things deliberately *not* built and every measurement table
+  were kept deliberately — the file is shorter, not blander.
+- **Two arguments moved from the brief into the code that owns them** ([XIV-149])
+  — `IntegerFieldType` now says why it is deliberately not thousand-grouped
+  (nothing in the codebase said it), and `VoucherRedemptions::redeem()` now
+  answers the "see below for why that is not the race it looks like" its own
+  docblock had been promising and not delivering.
 - **Markdown is rendered in one place now** ([XIV-131]) — the converter, the
   raw-HTML escaping and the sanitizer policy moved out of the email renderer into
   a single core service that email and formatted fields share. **No behaviour
