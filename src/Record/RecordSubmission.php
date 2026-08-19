@@ -23,6 +23,7 @@ use Xivi\Core\Record\DuplicateValue;
 use Xivi\Core\Record\InheritedValues;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordFormData;
+use Xivi\Core\Record\RecordRefused;
 use Xivi\Core\Record\RecordWriter;
 use Xivi\Core\Validation\RecordValidator;
 
@@ -250,8 +251,8 @@ final readonly class RecordSubmission
     }
 
     /**
-     * A duplicate the database caught, put where the validator would have put it
-     * (XIV-109).
+     * A refusal from inside the write, put where the validator would have put it
+     * (XIV-109, XIV-104).
      *
      * **Why this is not a 500.** Uniqueness is enforced by an index now, so the
      * losing side of a race no longer gets a validation message — it gets a
@@ -269,25 +270,31 @@ final readonly class RecordSubmission
      * message nobody sees. The sentence names the field in that case, which is
      * why {@see DuplicateValue} carries the label as well as the key.
      *
+     * **Two exceptions and one treatment**, which is the point rather than a
+     * saving: a unique index refusing a race (XIV-109) and a module refusing from
+     * a subscriber (XIV-104, {@see RecordRefused}) are the same thing to whoever
+     * is looking at the form — a rule that could only be enforced where the write
+     * happens, and a sentence about it. They carry the same two things for that
+     * reason, and a reader must not be able to tell which layer caught them.
+     *
      * @param FormInterface<array<string, mixed>> $form the record form, whole — the
      *                                                  field is looked for inside its
      *                                                  `fields` child, and the fallback
      *                                                  goes on the form itself, where
      *                                                  `form_errors()` draws it
      */
-    public function report(DuplicateValue $clash, FormInterface $form): void
+    public function report(DuplicateValue|RecordRefused $refusal, FormInterface $form): void
     {
         $fields = $form->get('fields');
+        $sentence = $refusal->translatable()->trans($this->translator);
 
-        if ($clash->fieldKey !== null && $fields->has($clash->fieldKey)) {
-            $fields->get($clash->fieldKey)->addError(new FormError(
-                $clash->translatable()->trans($this->translator),
-            ));
+        if ($refusal->fieldKey !== null && $fields->has($refusal->fieldKey)) {
+            $fields->get($refusal->fieldKey)->addError(new FormError($sentence));
 
             return;
         }
 
-        $form->addError(new FormError($clash->translatable()->trans($this->translator)));
+        $form->addError(new FormError($sentence));
     }
 
     /**

@@ -25,3 +25,9 @@ kind:
     absolute: Betrag
     relative: Rabatt in Prozent
     free_article: Gratisartikel
+
+refusal:
+    expired: Der Gutschein %voucher% ist abgelaufen und kann nicht verwendet werden.
+    not_yet_valid: Der Gutschein %voucher% ist noch nicht gültig.
+    exhausted: Der Gutschein %voucher% wurde bereits so oft eingelöst, wie er erlaubt.
+    unavailable: Der Gutschein %voucher% ist nicht mehr verfügbar.

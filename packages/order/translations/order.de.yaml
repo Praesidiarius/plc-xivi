@@ -24,6 +24,7 @@ field:
     line_total: Positionssumme
     tax_rate: MWST-Satz (%)
     vat_mode: Preisbasis
+    voucher: Gutschein
     net_total: Total netto
     tax_total: MWST
     gross_total: Total
@@ -71,6 +72,7 @@ line:
     custom: Freie Position
     comment: Kommentar
     subtotal: Zwischensumme
+    discount: Rabatt
 
 transition:
     confirm: Bestätigen

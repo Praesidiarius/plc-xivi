@@ -41,6 +41,7 @@ use Xivi\Core\Record\CollectionLimit;
 use Xivi\Core\Record\DerivedValues;
 use Xivi\Core\Record\DuplicateValue;
 use Xivi\Core\Record\Record;
+use Xivi\Core\Record\RecordRefused;
 use Xivi\Core\Record\RecordRepository;
 use Xivi\Core\Record\SubmittedRows;
 
@@ -285,15 +286,19 @@ final class RecordForm extends AbstractController
 
         try {
             $saved = $this->submission->save($definition, $record, $submitted['fields'], $rows, $this->currentUserId());
-        } catch (DuplicateValue $clash) {
-            // **The refusal the validator above could not make** (XIV-109). It
-            // read the table and found nothing; somebody else's save landed in
-            // the moment between that read and this write, and the unique index
-            // refused. Nothing was written — the writer's transaction is already
-            // rolled back — so the answer is the same shape as a validation
-            // failure: the message on the field, the view dropped so the next
-            // render is one that has it, and null to re-render the form with
-            // everything still typed into it.
+        } catch (DuplicateValue|RecordRefused $clash) {
+            // **The refusals the validator above could not make** (XIV-109,
+            // XIV-104). One read the table and found nothing, and somebody else's
+            // save landed in the moment between that read and this write, so the
+            // unique index refused. The other is a module refusing from inside
+            // the transaction — a voucher whose last use went to the checkout
+            // that got there first, which no earlier read could have known.
+            //
+            // Neither wrote anything: the writer's transaction is already rolled
+            // back. So the answer is the same shape as a validation failure — the
+            // message on the field, the view dropped so the next render is one
+            // that has it, and null to re-render the form with everything still
+            // typed into it.
             $this->submission->report($clash, $this->getForm());
             $this->formView = null;
 
@@ -463,6 +468,8 @@ final class RecordForm extends AbstractController
             }
         }
 
+        $generated = $this->generatedKind($definition);
+
         foreach ($definition->getCollections() as $collection) {
             // A derived collection is not on the form at all — the VAT table is
             // read on the record's page, not typed into here.
@@ -477,8 +484,19 @@ final class RecordForm extends AbstractController
                     continue;
                 }
 
+                // **A row the engine owns is written back whole** (XIV-104). Every
+                // other row on the form gets only its derived columns back,
+                // because the rest are what somebody is currently typing and
+                // handing them their own keystrokes back is at best a no-op. A
+                // discount line has nobody typing into it: its text, its
+                // quantity, its price and its rate are all worked out from the
+                // voucher, so all four have to follow a change to the lines above
+                // it — otherwise the total moves while the line that explains the
+                // total does not.
+                $whole = $generated !== null && ($row['data'][(string) $collection->getVariantField()] ?? null) === $generated;
+
                 foreach ($collection->getFields() as $field) {
-                    if ($field->isDerived()) {
+                    if ($whole || $field->isDerived()) {
                         $initial['collections'][$collection->getKey()][$row['index']]['fields'][$field->getKey()]
                             = $row['data'][$field->getKey()] ?? null;
                     }
@@ -591,6 +609,21 @@ final class RecordForm extends AbstractController
         }
 
         $record->set($field, $this->vatMode->mode()?->value);
+    }
+
+    /**
+     * Which kind of row this module's own code generates, if any (XIV-104).
+     *
+     * Read from the blueprint rather than from the customer's definitions, for
+     * the reason {@see AvailableVariants} gives: what the
+     * engine owns is a fact about the module, and what the customer has made of
+     * it is a fact about them. Renaming the label does not hand them the rows.
+     */
+    public function generatedKind(ModuleDefinition $definition): ?string
+    {
+        $key = $definition->getKey();
+
+        return $this->modules->has($key) ? $this->modules->get($key)->lineTotals?->discountKind : null;
     }
 
     private function offers(string $collection, string $kind): bool

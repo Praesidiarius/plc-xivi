@@ -76,6 +76,7 @@ line:
     custom: Custom line
     comment: Comment
     subtotal: Subtotal
+    discount: Discount
 
 transition:
     send: Mark sent

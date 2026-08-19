@@ -80,7 +80,16 @@ final class RecordType extends AbstractType
                 // is the whole enforcement: Symfony ignores whatever arrives for
                 // a disabled field, so a hand-edited request cannot type over a
                 // total any more than the form can.
-                'disabled' => $field->isDerived(),
+                //
+                // **And every field of a row the engine writes for itself**
+                // (XIV-104). A discount line is generated whole rather than
+                // filled in — its text, its quantity, its price and its rate all
+                // come from the voucher the document names — so the difference
+                // from a derived field is only that here it is the *row* that is
+                // the engine's rather than one column of it. Drawing those
+                // controls editable would be offering somebody a change the next
+                // save takes straight back out.
+                'disabled' => $field->isDerived() || $options['lock_fields'],
                 // How wide, as a class on the field's own wrapper (XIV-43), so
                 // the template still renders the whole set in one call and never
                 // asks what kind of field it is holding.
@@ -118,6 +127,10 @@ final class RecordType extends AbstractType
             ->setAllowedTypes('variant', ['null', 'string'])
             ->setDefault('lock_variant', false)
             ->setAllowedTypes('lock_variant', 'bool')
+            // Everything on this row belongs to the engine (XIV-104). Distinct
+            // from `lock_variant`, which fixes only *which kind* the row is.
+            ->setDefault('lock_fields', false)
+            ->setAllowedTypes('lock_fields', 'bool')
             ->setDefaults([
                 // A record is an array, not an object.
                 'data_class' => null,

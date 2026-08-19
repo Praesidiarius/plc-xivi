@@ -19,6 +19,7 @@ use Symfony\Component\Form\Extension\Core\Type\FormType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Xivi\Core\Entity\ModuleDefinition;
+use Xivi\Core\Module\ModuleRegistry;
 
 /**
  * The whole editing form for one record: its own fields, and the collections
@@ -41,6 +42,17 @@ use Xivi\Core\Entity\ModuleDefinition;
  */
 final class ModuleRecordType extends AbstractType
 {
+    /**
+     * The registry, for the one thing a *definition* cannot answer: which kind of
+     * row the module's own code generates (XIV-104). That is a fact about the
+     * module rather than about what this customer has made of it (§6.1), so it is
+     * read from the blueprint — and read here because this is the only form type
+     * that holds the module at all.
+     */
+    public function __construct(private readonly ModuleRegistry $modules)
+    {
+    }
+
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $module = $options['module'];
@@ -72,9 +84,19 @@ final class ModuleRecordType extends AbstractType
                 continue;
             }
 
+            $totals = $this->modules->has($module->getKey())
+                ? $this->modules->get($module->getKey())->lineTotals
+                : null;
+
             $collections->add($collection->getKey(), CollectionType::class, [
                 'entry_type' => CollectionRowType::class,
-                'entry_options' => ['shape' => $collection, 'label' => false],
+                'entry_options' => [
+                    'shape' => $collection,
+                    'label' => false,
+                    'generated_kind' => $totals?->collection === $collection->getKey()
+                        ? $totals->discountKind
+                        : null,
+                ],
                 'label' => $collection->getLabel(),
                 'allow_add' => true,
                 'allow_delete' => true,

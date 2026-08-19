@@ -5053,8 +5053,10 @@ ticket of that shape should put it back rather than weaken the check.
 
 A tenant can create vouchers: a code they hand out, worth one of three things,
 good between two dates and redeemable a bounded number of times. **Applying one
-to an order is [XIV-104]** and is deliberately absent — what is built here is the
-voucher *existing*, being valid, and being redeemable.
+to an order is [XIV-104]** and is deliberately absent from this section — what is
+built here is the voucher *existing*, being valid, and being redeemable. §5.24 is
+the other half, and the seam between them turned out to be exactly the one method
+call this section predicted.
 
 Most of it is a blueprint like every module before it. One part of it is not, and
 that part is the reason this section is long: **a usage limit is a counter, and a
@@ -5368,7 +5370,9 @@ most of them.
 
 **Applying a voucher to anything** ([XIV-104]). The seam between the two tickets
 is one method call, and the shape of the discount is already declared: an amount,
-a percentage, or an article and a quantity.
+a percentage, or an article and a quantity. *Answered by §5.24*, which took the
+prediction literally: `Money\DocumentDiscounts` is one method, and the three kinds
+collapse into one sentence — every one of them is a line.
 
 **Module pricing** ([XIV-101], [XIV-102]) is a different feature that happens to
 also involve money. A voucher against a module purchase is not this and has not
@@ -6044,6 +6048,390 @@ not reopen it.
 
 **Deliberately not in this:** nothing is *sent* to a phone number. No SMS, no
 verification codes, no click-to-dial. This is a field type.
+
+---
+
+### 5.24 A voucher on an order (XIV-104)
+
+§5.19 made a voucher exist, be valid, and be redeemable. This is the other half:
+putting one on an order and changing what the customer owes. The seam between the
+two turned out to be one method call in each direction — one to ask what a
+voucher is worth, one to take a use of it — and almost everything below is about
+where those two calls happen rather than about what they compute.
+
+**Only where both modules are installed.** §6.1 says a customer's own module list
+is the truth, and this has to be invisible to a tenant who has vouchers and no
+orders, or the reverse. How that is arranged is the last part of this section and
+is the one part that needed something new in the engine.
+
+#### The rule that decided most of it
+
+**A discount is a derived value, and derived values are the engine's** (§5.9).
+`DerivesTotals` already works an order's totals out as a `ValueDeriver`, inside
+the save's transaction, writing into ordinary derived fields. A voucher changes
+the total, so it belongs in that path — not in a controller, not in a template,
+and never written by hand. Writing derived values by hand is [XIV-73]'s bug: it
+produces records that look plausible and are wrong.
+
+Two decisions came with the ticket and are not re-argued here, only followed:
+
+- **The voucher applies before VAT.** It reduces the net, and VAT is computed on
+  the reduced net, rather than being deducted from a gross figure.
+- **A discount is its own line.** Not a mutation of the lines it discounts, and
+  not a field on the header — which is [XIV-16]'s own rule about discounts,
+  arriving where it was always going to.
+
+Together they unify the three kinds §5.19 declared, and that unification is the
+whole reason the implementation is small: **every kind is a line.** An absolute
+voucher is a `-10.00` line with nothing to distribute; a relative voucher is the
+same line with the amount computed from what the lines came to; a free-article
+voucher is a line at quantity N and a price of nothing. Nothing downstream — the
+document, the invoice seeded from it, the VAT grouping — has to know which kind
+it was.
+
+It settles presentation too. The customer's document shows what they were quoted,
+on the lines they were quoted, with the discount stated separately. Nothing
+silently reads `1 × Widget @ 100.00 = 90.00`.
+
+`DerivesTotals` needed no apportionment step to make the VAT work: it already
+builds the table by grouping lines on `tax_rate`, summing each group's
+`line_total` and applying the rate to the group once. A negative line joins that
+grouping like any other.
+
+#### Which rate a discount line carries
+
+The sub-question those decisions leave, and the only genuinely open one.
+
+A discount line must have a rate or it falls out of the grouping entirely — and a
+discount outside the VAT table means tax computed on undiscounted nets, which
+contradicts the first decision. On a single-rate order there is one answer and
+one discount line. On a mixed-rate order no single line can carry the right rate,
+so it becomes **one discount line per rate present**, each carrying that rate and
+its share, pro rata on that rate's own net:
+
+    Discount (8.1%)   −6.67
+    Discount (2.6%)   −3.33
+
+The distribution therefore comes back as *lines*, which is better than the
+alternative it replaced: it is visible on the document and adds up in front of the
+reader instead of inside a deriver.
+
+**Where the remainder lands is decided and written down.** Rounded shares do not
+have to add back — ten francs over three rates that sold equal amounts is 3.33
+three times, which is 9.99, and a ten-franc voucher that took 9.99 off is a
+voucher that lied by a rappen. So the shares before the last are computed and
+subtracted, and **the last line takes the balance**. The lines are emitted sorted
+by rate, the same order the VAT table is in, so "the last one" is the highest rate
+on the document and a reader checking the column meets the odd rappen in the same
+place they meet it everywhere else.
+
+That agrees with [XIV-116], which settled the neighbouring question hours before
+this one started: *the figure somebody stated is exact and the derived figure
+absorbs what is left over.* There the stated figure is a gross price and the
+derived one is the tax within a rate; here the stated figure is what the voucher
+is worth and the derived ones are its per-rate shares. Neither remainder crosses
+a rate boundary in a way that changes what a rate owes: each rate's discount line
+joins that rate's own group and is taxed with it.
+
+**Inclusive VAT needed no case of its own**, which is worth saying because it did
+not exist when this ticket was written. The mode says how to read the price
+column (§5.9, [XIV-116]), and a discount line is in that column like every other
+line: on a shelf-priced order the discount comes off the gross, and the net and
+the tax follow from it by the same division. A tenth off a gross is a tenth off
+the net inside it.
+
+**A voucher worth more than the order is capped by it.** The shares are computed
+over the rates that sold something positive, and the discount stops at what they
+came to. A negative total is money owed back to a customer, which nothing
+downstream is built to hand over — §5.19 caps the percentage at 100 for the same
+reason.
+
+#### One deriver, and a seam rather than a second one
+
+The arithmetic could not be a second `ValueDeriver`, and the reason is written
+into `ValueDeriver` itself: **order between derivers is unspecified**, on purpose,
+because two modules wanting the same field is not an argument the engine settles.
+A discount deriver and a totals deriver are not two modules disagreeing, though —
+they are two halves of one sum, and they have a strict order in both directions.
+The discount lines must be in the grouping before the VAT table is computed from
+it, and the *amount* of a relative discount is a fact about what the lines came
+to, so it cannot be worked out before they are summed. A second deriver would
+have been correct roughly half the time, and the half it was wrong in would store
+an order's totals computed without its own discount.
+
+So there stays exactly one deriver for a document's money, and what it does not
+know it asks: `Money\DocumentDiscounts` is a one-method seam that core defines and
+the voucher package implements. Core's half of the contract is deliberately
+narrow — *how much comes off, and which lines to add* — and it contains no
+voucher vocabulary at all. Where the money lands, which rate carries which share,
+which line absorbs the rappen and whether the discount is capped are all
+arithmetic about a document, and §5.9 has one place for that.
+
+**The voucher package finds the order's field rather than being told it.** §3
+forbids either package importing the other, and neither needs to: a link between
+modules is a `reference` field carrying the *key* of the module it points at
+([XIV-13]), and that key is in the customer's own definitions. So "does this
+document name a voucher" is answered by reading the shape and looking for a
+reference into `voucher` — the same reading the record page does in reverse when
+it lists the orders naming a contact. It also means this works for any module a
+customer points at vouchers, including one they built themselves in the metadata
+editor.
+
+**Three answers, and the third is the interesting one.** A source returns `null`
+for *not mine*, an empty `Discount` for *mine and worth nothing today*, and a
+discount otherwise. Collapsing the first two would break one case each way: an
+invoice carrying discount lines copied down from its order (§5.12) would have them
+taken off it by a module that has never heard of vouchers, or a voucher removed
+from a draft would leave its discount on the order for ever.
+
+#### The engine owns these lines, and a subtotal was not the precedent
+
+A generated line must not be editable or deletable by hand, or it desynchronises
+from the voucher that produced it. `SUBTOTAL_LINE` looked like the precedent, and
+**establishing what the editor actually does with a subtotal row is what showed it
+was not**: a subtotal's *figure* is derived and the row is the customer's — they
+add it from a button, move it by typing a position, and delete it — and the whole
+of its protection is that `line_total` is a `derived` field, which the form draws
+disabled and the writer recomputes. That protects a *column*. A discount line
+needs the *row* protected, because it is a fact about a voucher somebody redeemed
+rather than a heading somebody wanted.
+
+Three things do that, and only the first is enforcement:
+
+- **The deriver writes them on every save.** Rows of the generated kind are taken
+  out of the submitted set before the sums are computed, and whatever the voucher
+  is worth now is written in their place — reusing the ids of the rows it
+  replaced, so editing an order does not churn a row per save. A request that
+  edits one, deletes one or invents one therefore changes nothing: the next
+  derivation states the truth again. That is what `OrderVoucherTest` asserts, and
+  it asserts it through the record form's own save action rather than by calling a
+  guard.
+- **The form draws them disabled.** `CollectionRowType` is told which kind the
+  module generates and `RecordType` disables every field of such a row — the same
+  mechanism a derived field has used since [XIV-20], one level up. A disabled
+  field ignores what is submitted, so this is a second, independent refusal rather
+  than decoration.
+- **The kind is not offered.** `AvailableVariants` — the one class that answers
+  "which kinds can be created here", and which both the form and the kind chooser
+  already ask — leaves it out. The kind itself stays an ordinary option on the
+  customer's variant field, because rows of it have to render and §5.5 is explicit
+  that the variants *are* the field's options with no second list to disagree.
+
+**Taking the discount lines off the form entirely was the alternative** and is
+worse in a way that is easy to miss: a row that is not submitted has no id to
+carry, so the writer would delete three rows and insert three identical ones on
+every save — churning ids, filling the timeline with "line removed / line added"
+and leaving a tombstone behind each time.
+
+#### What is stored, and what is re-read
+
+[XIV-67] settled this for payment terms and [XIV-16] for totals: **what was agreed
+is a fact about the document.** The discount line's amount is stored like every
+other line total, and the order's reference merely says which voucher it was.
+Recomputing from the voucher on every *read* is the mistake §5.9 exists to
+prevent, and nothing here does it — deleting the voucher afterwards changes
+nothing on the order, which is asserted rather than asserted-about.
+
+What the deriver does do is recompute on every *save*, from the voucher's current
+values, exactly as a line total recomputes from its quantity and price. So editing
+a voucher changes what an order that is still open will say the next time somebody
+saves it. That is deliberate, and what keeps it away from a document somebody has
+been given is §5.8: a **locked** record cannot be saved, and a record that cannot
+be saved is never derived again.
+
+**The window is wider than "a draft", and it is worth being exact about it.** The
+order module locks `delivered` and `cancelled` and not `confirmed`, so a confirmed
+order re-saved after the voucher was edited does restate its discount. That is not
+a hole this feature opened: every derived figure on that order — the line totals,
+the subtotals, the VAT table — has exactly the same window, and has since
+[XIV-16]. Narrowing it for the discount alone would be a rule about vouchers
+wearing the clothes of a rule about documents, and the place to narrow it, if it
+is ever worth narrowing, is the lifecycle.
+
+**A voucher that cannot be read leaves the lines alone.** Deleted, or its module
+uninstalled — the deriver has nothing to say and changes nothing, rather than
+reading the absence as "no discount" and quietly taking money off a document
+somebody has already been given.
+
+#### Redemption is a write, and it happens once
+
+[XIV-103] built a guarded counter — its own tenant table and one
+`ON CONFLICT … DO UPDATE … WHERE` statement — and said this ticket would be its
+caller. It is, and everything interesting is *when*.
+
+The caller is a subscriber on `RecordChanged`, which is dispatched **inside the
+writer's transaction** (§5.2). That one fact buys all three properties the ticket
+asked for:
+
+- **A use is taken when the order commits**, not when somebody types a code into a
+  form and wanders off. It has to be: the live form re-derives on every keystroke
+  ([XIV-32]), so a redemption on that path would burn a voucher per character.
+- **A save that fails takes nothing**, because the redemption is a statement in
+  the transaction that rolled back. Nothing has to remember to undo anything,
+  which is the property [XIV-103] chose its statement's shape for.
+- **A refusal takes the save down with it.** Whether a use is left cannot be known
+  any earlier than the statement that fails to increment the count, so the
+  refusal has to be able to happen at the write.
+
+**Removing a voucher from a draft gives the use back**, which was the open
+question, and the invariant that decides it is worth stating in one line: **the
+count is the number of documents that carry the voucher.** Naming one takes a
+use, un-naming it gives that use back, swapping one for another does both, and
+deleting the document gives it back. Anything else about the order — a line
+edited, a status confirmed — does nothing at all, which is most of the traffic and
+is why the subscriber reads the *field diff* rather than the record.
+
+Leaving the count up instead would burn a single-use voucher on somebody's
+mistake, with nobody in the building able to put it right: the counter is engine
+bookkeeping and is deliberately not a field a customer can edit (§5.19). Giving it
+back needs a second statement — `redeemed_count - 1` with a floor of zero — and
+[XIV-103]'s guarded statement stays the only way a use is *taken*, which is the
+part that had to stay true for [XIV-122]'s second caller.
+
+**A cancelled order keeps its use**, and that is the one edge this invariant
+leaves visibly imperfect. A cancelled order still carries the voucher, it is a
+record of what happened (§5.8), and the lifecycle has locked it so nobody can take
+the voucher off it either. Releasing on cancellation would be a fourth rule about
+a fifth state; the honest answer for now is that the count says how many documents
+carry it, and a cancelled order is one of them.
+
+#### Refusing, and saying which
+
+An expired, not-yet-started, exhausted or unreadable voucher is refused with a
+sentence naming which — four sentences, not one, because a code that has been
+used up, a promotion that starts next month and a voucher somebody deleted are
+three different situations with three different things to do about them.
+
+That needed something the engine did not have. §7.1's question was "may a
+subscriber refuse a save", and it was half-answered: a subscriber has always been
+able to take the transaction down by throwing, because the event is dispatched
+inside it — what it could not do is *say what happened*, so a refusal was a stack
+trace shown to somebody who typed a code that had already been used.
+`Record\RecordRefused` is that missing half, and its shape is copied from
+[XIV-109]'s `DuplicateValue`: it names the field it is about, the record form
+catches it exactly as it catches a duplicate, and the sentence lands on that
+control with everything the person typed still in the form. A reader cannot tell
+the two apart and should not be able to.
+
+**The deriver still cannot refuse**, and nothing here weakens that: `ValueDeriver`
+has no return value, no stoppable event and no flag. What may refuse is a
+subscriber, at the write, for a rule that can only be checked there. A rule that
+could have been a field definition, a lifecycle transition or a validation
+constraint belongs in one of those, where somebody meets it before pressing save.
+
+**Validity is checked when the use is taken, once, and never again.** An order
+agreed while a promotion was running keeps its discount after the promotion ends,
+because expiry is the calendar rather than an act (§5.19) and re-checking on every
+save would take the discount off a draft somebody merely opened the following
+week.
+
+**There is deliberately no transition guard** ([XIV-110]). "This order's voucher
+has since expired" would refuse to confirm an order the shop has already agreed
+to, on the grounds that the shop took too long to confirm it.
+
+**A voucher that is already gone cannot be named through the form at all**, and
+that is the engine's answer rather than this feature's: a `reference` control
+offers the records that exist, so an id naming a deleted one does not survive the
+submit — the field arrives empty and the order is saved without a voucher. The
+refusal above is therefore a backstop for the callers that are not the form, the
+importer and the demo generator among them, and it is tested at the writer because
+that is the only place it can be reached.
+
+#### The field exists only where both modules do
+
+The negative half of the ticket, and the one part that needed a new rule in the
+engine.
+
+An order may name a voucher and vouchers are a module a customer may not have
+bought — the link is `uses` rather than `requires` ([XIV-23]), because an order
+book is a perfectly good thing to keep without ever running a promotion. What that
+customer must not get is a **"Voucher" control with an empty picker behind it** on
+every order they ever type.
+
+[XIV-23]'s answer works for a row *kind*: the whole kind is hidden, so the link
+inside it is never drawn. A field on the record itself has no kind to hide it
+with. So it is hidden the only other way a field can be — **by not being
+installed** — and that turns out to be the better answer rather than the
+remaining one, because a definition that does not exist is invisible everywhere at
+once: the form, the list, the record page, the import, the export, the document
+templates and the history all read the customer's definitions, and not one of them
+needs to learn a rule. `Module\AvailableFields` is that rule, in one place, asked
+by the installer and by the upgrade offer.
+
+Three consequences, each of which had to be arranged:
+
+- **The upgrade offer asks the same question** (§7.2.1). Without it, an order-only
+  customer would be *invited* to take a link into a module they have not got —
+  nothing would refuse the invitation, and they would end up with exactly the
+  empty picker the install skipped.
+- **A customer who buys vouchers later is offered the field** by that same screen,
+  which is what it is for. Installing is a seed and the definitions are the truth
+  afterwards (§6.1), so nothing retro-fits and nobody is edited without being
+  asked.
+- **`ModuleInstallOrder` follows `uses` edges within the requested set**
+  ([XIV-72]). Installing four modules from one command line must not depend on the
+  order somebody typed them in, and an order installed before vouchers is an order
+  with no voucher field on it. The edge is followed only when both modules are
+  being installed anyway — nothing is pulled in and nothing is refused, which is
+  the whole distinction between the two words.
+
+**The rule is narrowed twice.** It applies only to a `reference` field, and only
+to one that is not scoped to a variant — because a variant is
+`AvailableVariants`' business and the two rules would fight: a voucher's own
+`article` link belongs to the free-article kind, and taking the field away here
+would make that kind look fillable and offer it with nothing in it, which is
+precisely the failure [XIV-103] wrote a test against.
+
+#### The invoice needed almost nothing
+
+§5.12 seeds an invoice from an order by copying its lines, and a discount is a
+line — so a bill for a discounted order comes out discounted with no new
+machinery, which was the point of deciding it was a line in the first place.
+
+The one thing the invoice module had to gain is the `discount` kind itself, and
+**as an ordinary kind rather than a generated one**. The seed copies the kind
+along with the figures, and a value the field had never heard of would fail the
+choice constraint and refuse to bill a discounted order at all. But nothing
+*generates* one on an invoice: an invoice names no voucher, so a discount line
+there is a copy, and from that moment it is a line with a negative price and a
+label saying what it is — which is what [XIV-16] has called a discount since
+before vouchers existed. That also means it stays editable and deletable there,
+which is right: what it says was decided on the order, and what to bill is decided
+on the invoice.
+
+#### Deliberately not in this
+
+**A line voucher** ([XIV-122]), which reduces a single line rather than the
+document. Two things were arranged so that it fits around this rather than being
+retro-fitted: the redemption counter now has a release as well as a take and both
+go through the one guarded statement, and `DerivesTotals` asks a *list* of
+discount sources, so a document can carry an order voucher's own line and a
+reduced line at once.
+
+**Applying a voucher directly to an invoice.** A separate question with a separate
+answer, and this ticket is orders only.
+
+**A partial invoice takes the whole discount.** The seed's `outstanding`
+arithmetic draws down on quantity, and a discount line has a quantity of one, so
+the first invoice made from a discounted order carries the discount and a second
+one does not. That is a defensible answer and it is not a decided one; if it
+matters it wants its own ticket.
+
+**The discount line does not appear until the first save.** The live form
+recomputes the totals on every keystroke ([XIV-32]), so picking a voucher moves
+the figures immediately — but the *line* it moved them by is a row the deriver
+invented, and a row invented mid-typing has no index in the form it would have to
+be drawn into. So the totals follow the voucher live and the line under them
+appears when the order is saved. Showing it live means the preview inserting rows
+into a form somebody is typing in, which is a bigger change to XIV-32 than the
+thing it would show.
+
+**A cancelled order keeps its use.** See above: it still carries the voucher, it
+is locked, and nobody can take the voucher off it.
+
+**Anything about who pays for the discount.** No accounting split, no cost centre,
+no reporting on promotions. What is here is a document that says what the
+customer owes.
 
 ---
 

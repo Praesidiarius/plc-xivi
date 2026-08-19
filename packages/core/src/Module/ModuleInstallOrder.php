@@ -31,6 +31,23 @@ namespace Xivi\Core\Module;
  * a cycle it is standing inside it and can name the whole path, which is the
  * only useful thing to say about one.
  *
+ * ### `uses` orders too, and only within the set (XIV-104)
+ *
+ * A module that merely *uses* another still cares which way round they arrive,
+ * because what one takes from the other is decided at install time and never
+ * revisited (§6.1): an order installed before vouchers is an order with no
+ * voucher field on it, and installing vouchers afterwards does not go back and
+ * add one — that is {@see ModuleUpgrade}'s offer to make, and asking somebody a
+ * question that a moment's ordering could have answered is a poor way to install
+ * four modules from one command line.
+ *
+ * So a `uses` edge is followed **when both modules are being installed anyway**,
+ * and never otherwise. That asymmetry with `requires` is the whole of the
+ * distinction the two words draw: a requirement missing from the set is a
+ * refusal, and an optional module missing from it is simply a customer who did
+ * not buy it. Nothing is pulled in, nothing is refused, and a set that names one
+ * of the pair behaves exactly as it did before this paragraph existed.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class ModuleInstallOrder
@@ -137,6 +154,26 @@ final readonly class ModuleInstallOrder
             }
 
             $this->visit($requirement, $within, $ordered, $done, [...$path, $key]);
+        }
+
+        foreach ($blueprint->uses as $used) {
+            // Only inside the requested set, and never as a reason to widen it —
+            // see the class docblock. `closureOf()` passes no set at all because
+            // its job is to answer "what should the list have said", and an
+            // optional module is precisely one the list is allowed not to say.
+            if ($within === null || !\in_array($used, $within, true)) {
+                continue;
+            }
+
+            // **A soft edge cannot make a cycle a failure.** Two modules that use
+            // each other are a perfectly installable pair — either order works,
+            // since each simply installs without the other's optional part — so
+            // meeting one already on the path means stopping rather than
+            // throwing. A `requires` cycle stays fatal, because there no order
+            // exists at all.
+            if (!\in_array($used, $path, true) && $used !== $key) {
+                $this->visit($used, $within, $ordered, $done, [...$path, $key]);
+            }
         }
 
         $done[$key] = true;

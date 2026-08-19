@@ -135,6 +135,44 @@ final class AmountTest extends TestCase
         self::assertNotNull(Amount::of('0'), 'zero, though, is a number');
     }
 
+    /**
+     * A pro-rata share, and the rappen it does not account for (XIV-104).
+     *
+     * Ten francs over three rates that sold a hundred each is 3.33 three times,
+     * which is 9.99. This is where that is *visible*: `shareOf()` rounds and
+     * says nothing about the remainder, deliberately, because where the leftover
+     * lands is a decision about a document rather than about arithmetic —
+     * {@see \Xivi\Core\Money\DerivesTotals} gives it to the last line and
+     * `OrderVoucherTest` is where that is asserted.
+     */
+    public function testAShareIsRoundedAndTheLeftoverIsNotThisClasssBusiness(): void
+    {
+        $ten = Amount::of('10.00');
+        $hundred = Amount::of('100.00');
+        $threeHundred = Amount::of('300.00');
+        self::assertNotNull($ten);
+        self::assertNotNull($hundred);
+        self::assertNotNull($threeHundred);
+
+        $share = $ten->shareOf($hundred, $threeHundred);
+
+        self::assertSame('3.33', (string) $share);
+        self::assertSame(
+            '9.99',
+            (string) $share->plus($share)->plus($share),
+            'three of them are a rappen short of the ten they came from',
+        );
+    }
+
+    /** A whole of nothing has no shares in it, rather than dividing by zero. */
+    public function testAShareOfNothingIsNothing(): void
+    {
+        $ten = Amount::of('10.00');
+        self::assertNotNull($ten);
+
+        self::assertSame('0.00', (string) $ten->shareOf(Amount::zero(), Amount::zero()));
+    }
+
     /** Whole numbers still read as money, so a stored value has one spelling. */
     public function testAnAmountIsWrittenAtTheCurrencysScale(): void
     {
