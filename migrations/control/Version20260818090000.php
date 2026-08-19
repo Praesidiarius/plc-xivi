@@ -211,7 +211,7 @@ final class Version20260818090000 extends AbstractMigration
     /**
      * The way back, which is a real requirement here rather than a formality.
      *
-     * Every schema change lands for every installation (docs/architecture.md
+     * Every schema change lands for every installation (docs/architecture/deployment.md
      * §4), so one that cannot be undone is one somebody is stuck with at the
      * worst possible moment. This carries the position across by the same rule
      * and in the same direction, so `up()` followed by `down()` leaves a

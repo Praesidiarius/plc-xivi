@@ -20,7 +20,7 @@ use Symfony\Component\Console\Event\ConsoleTerminateEvent;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
- * **The one place a job is monitored from** (XIV-126, docs/architecture.md
+ * **The one place a job is monitored from** (XIV-126, docs/architecture/deployment.md
  * §4.5).
  *
  * ## Why this is a listener rather than three lines in three commands

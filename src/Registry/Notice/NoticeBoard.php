@@ -20,7 +20,7 @@ use App\Registry\Repository\TenantRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
- * Writing a notice down, and taking one back (XIV-120, docs/architecture.md
+ * Writing a notice down, and taking one back (XIV-120, docs/architecture/identity-and-access.md
  * §8.16).
  *
  * ## A writer in `src/` whose only callers are in the administration surface

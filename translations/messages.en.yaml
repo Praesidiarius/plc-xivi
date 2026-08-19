@@ -757,7 +757,7 @@ field:
             The counter is kept where it is, so switching numbering back on later carries on from
             there rather than starting again over numbers that are already out.
 
-# Taking what a module grew after it was installed (XIV-70, docs/architecture.md
+# Taking what a module grew after it was installed (XIV-70, docs/architecture/open-questions.md
 # §7.2.1). The sentences here do an unusual amount of work: what is being offered
 # is a change to the shape of every record in a module, and the thing a customer
 # most needs told is not what happens but what does *not* — their own edits are

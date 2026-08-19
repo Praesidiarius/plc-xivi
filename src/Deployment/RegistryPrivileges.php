@@ -19,7 +19,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * **What the customer-facing instance's database role can actually do, against
- * what {@see RegistryGrants} says it should** (XIV-143, docs/architecture.md
+ * what {@see RegistryGrants} says it should** (XIV-143, docs/architecture/deployment.md
  * §4.4).
  *
  * ## The gap this closes

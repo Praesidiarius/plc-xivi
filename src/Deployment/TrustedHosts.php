@@ -17,7 +17,7 @@ use App\Tenancy\TenantResolver;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
- * Which hostnames this installation answers to (XIV-93, docs/architecture.md
+ * Which hostnames this installation answers to (XIV-93, docs/architecture/deployment.md
  * §4.3).
  *
  * ## What was unset, and what actually followed from it

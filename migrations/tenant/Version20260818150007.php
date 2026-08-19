@@ -13,7 +13,7 @@ use Doctrine\Migrations\AbstractMigration;
  * One row per voucher, holding how many times it has been used. A table rather
  * than a field on the record, and that is the decision this migration exists to
  * carry — the argument in full is in
- * `Xivi\Voucher\Redemption\VoucherRedemptions` and in docs/architecture.md
+ * `Xivi\Voucher\Redemption\VoucherRedemptions` and in docs/architecture/data-model.md
  * §5.19. The short version: a record is written by `RecordWriter` as one unit of
  * work, replacing the whole JSONB document, so two redemptions through that path
  * are two whole-document writes and the second overwrites the first's count. A

@@ -23,7 +23,7 @@ use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 /**
- * Putting one of the operator's notices away (XIV-120, docs/architecture.md
+ * Putting one of the operator's notices away (XIV-120, docs/architecture/identity-and-access.md
  * §8.16).
  *
  * The only thing a customer can *do* about a notice, and the whole of the
