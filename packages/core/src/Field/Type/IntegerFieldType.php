@@ -20,6 +20,17 @@ use Xivi\Core\Field\FieldType;
 use Xivi\Core\Query\Operator;
 
 /**
+ * A number with nothing after the point (XIV-22).
+ *
+ * **Deliberately not thousand-grouped**, which is the one decision on this type
+ * and is not an oversight. `currency` and `decimal` group their derived values
+ * (XIV-47) because a figure nobody types back is safe to punctuate; this type is
+ * the one that must not, because it covers things that are *counted* and things
+ * that are merely *written as digits*, and nothing in a definition tells them
+ * apart. Grouping turns the year 2026 into `2.026` and the postcode 8001 into
+ * `8.001`. Being right about a quantity is not worth being wrong about a year,
+ * and the only integer this codebase itself ships is a row reference.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 final class IntegerFieldType implements FieldType

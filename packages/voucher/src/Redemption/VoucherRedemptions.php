@@ -132,12 +132,19 @@ final readonly class VoucherRedemptions
      * @param int|null $limit     how many redemptions this voucher allows in total,
      *                            or {@see UNLIMITED}. Read off the record by the
      *                            caller and passed *into* the statement rather than
-     *                            compared outside it — see below for why that is not
-     *                            the race it looks like
+     *                            compared outside it
      *
      * @return int which redemption this one is, counting from one
      *
      * @throws VoucherExhausted when the limit is already reached
+     *
+     * **Reading the limit outside the statement is not the race it looks like.**
+     * What is raced is the *count*; the limit is a property of the voucher's own
+     * definition, changed only by an administrative edit, so reading it off the
+     * record and putting it in the `WHERE` is safe against every concurrent
+     * redemption. Two people editing the limit in the same moment is
+     * last-writer-wins on an administrative act, which is what it is everywhere
+     * else in this system.
      */
     public function redeem(int $voucherId, ?int $limit): int
     {

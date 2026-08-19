@@ -25,31 +25,13 @@ Definition rows carry the UI hints beside the rules: `required`, `unique`,
 
 Closed, not open: adding a field type is a deliberate code change, not customer config.
 
-**A widget is an option, not a type** (XIV-36). Autocomplete was the first thing to
-test that line, and the answer is worth writing down because the question will be
-asked again about the next control somebody wants. A field type owns what a value
-*means*; how somebody picks it is not part of the meaning. An
-`autocomplete_choice` type would have copied `choice`'s storage, its constraints,
-its operators and its display and differed in one method — and from the day it
-existed, a customer wanting to switch a field over would have been doing a **data
-migration through the metadata editor** (§5.4 refuses changes that strand data)
-instead of ticking a box.
+**A widget is an option, not a type** (XIV-36). The test to apply to the next
+candidate is: **does turning it on change what is stored, what validates, how the
+field filters, or how it exports?** If not, it is an option on the existing type.
+If so, it may be a type. A type per widget is how a small closed set stops being
+one.
 
-The rule this follows is XIV-22's, from when the engine grew `decimal`: `integer`,
-`decimal` and `currency` "are the same string in the database and differ in what
-they print", and what earned a new type there was a difference in *meaning*, not
-in appearance. So the test to apply to the next candidate is: **does turning it on
-change what is stored, what validates, how the field filters, or how it exports?**
-If not, it is an option on the existing type. If so, it may be a type. A type per
-widget is how a small closed set stops being one.
-
-The option itself is `auto` / `always` / `never` rather than a boolean, and
-defaults to auto. The engine knows how many candidates there are, so it decides:
-a plain select while the count is small, a search box once it is not — a customer
-should not have to discover a setting because their contact list grew past a
-number they never see. The override earns its place because the count is not the
-only reason to want typing, and `never` is what a field with four options wants
-forever. Which types offer it is the *type's* declaration, which is a first step
+Which types offer it is the *type's* declaration, which is a first step
 toward what §5.4 says the real shape is: a type saying which of its options are
 the customer's to set.
 
@@ -88,14 +70,6 @@ string, never a float** — 19.90 has no exact binary representation, and the pl
 a lost hundredth of a cent turns up is an invoice. And **the currency is not
 stored beside the amount**: one per installation means a column of prices adds
 up, where per record it would need exchange rates behind it to mean anything.
-
-The widget itself is Symfony's `MoneyType` under the Bootstrap theme, which
-already draws the input group and already knows which side of the amount a
-currency goes on in each language. **Framework first, wherever it reaches**: a
-hand-rolled widget sitting next to Symfony's own is a widget somebody has to keep
-next to it, and the first thing it stops matching is the locale handling nobody
-wrote down. Where the framework has an answer, this codebase takes it and spends
-its own opinions on the parts that are actually the product.
 
 **Relations stay relational.** Real link tables, real foreign keys. Relations are the one
 thing both EAV and JSON are bad at, and a CRM is relational at its core. Relations are
@@ -185,15 +159,12 @@ Three decisions fell out of building it:
   exists to have already fixed.
 
 **Rows keep the order the customer put them in** (XIV-21), on a `position`
-column beside the parent id — a system column, not a field: it is not theirs to
-name or delete, and every read of a collection sorts by it. Numbered in **tens**
-and renumbered on every save, so a row can be moved between two others by typing
-a number between theirs and the next insertion still has room. Typing a number
-rather than pressing move-up and move-down, which used to be the difference
-between a form submission each and one save. Since §8.3 that reason is spent and
-the choice is open again — though typing 15 between 10 and 20 is a thing people
-already know how to do, and buttons that swap two rows are a worse fit for moving
-one line past nine others.
+column beside the parent id, numbered in **tens** and renumbered on every save.
+Typing a number rather than pressing move-up and move-down, which used to be the
+difference between a form submission each and one save. Since §8.3 that reason is
+spent and the choice is open again — though typing 15 between 10 and 20 is a
+thing people already know how to do, and buttons that swap two rows are a worse
+fit for moving one line past nine others.
 
 **Moving a row is not a change to it.** The id does not move and the history says
 nothing happened, because nothing about the row did — where it sits is a property
@@ -207,22 +178,7 @@ customer by the installer rather than by a migration, so only the tenant's own
 
 **A field may be inherited from the record it points at** (XIV-18). An order line
 names an article and shows its description and price — *copied* when the line is
-written, not read through afterwards. Three properties follow, and all three are
-the point rather than side effects:
-
-- an order confirmed at 19.90 says 19.90 next year, and says it after the article
-  is deleted;
-- nothing ever copies over a value somebody typed, so a negotiated price is an
-  edit rather than a defect;
-- and because of the second, the page has to say **which fields have since
-  drifted** from what they were copied out of — a negotiated price and a stale
-  copy are otherwise indistinguishable, and telling them apart is a conversation
-  with a customer.
-
-It is **declared on the field**, not coded in the module: the alternative was the
-order module carrying a hook that fills in its own lines, and a module with code
-in it is what §1 exists to avoid. One option, and it works for any field of any
-shape pointing anywhere.
+written, not read through afterwards.
 
 **Numbers come in three kinds, and the difference is meaning rather than
 storage** (XIV-22): `integer` for things you count, `decimal` for things you
@@ -238,58 +194,21 @@ it now lives — for four tickets this paragraph said it was "deliberately absen
 and pointed at an article module that had no unit either, so a line read `2.5` of
 nothing and the sentence described a place that did not exist (XIV-118).
 
-**Thousands are grouped where nothing is typed back** (XIV-47). `display()` has
-always grouped, so a record's page and a printed document read `1.234.500,00` to
-a German reader. A *form* did not, and the totals on an order are read there now
-that they follow the typing (XIV-32) — so a **derived** money or decimal field is
-grouped there too. It is `disabled`, so nothing parses the grouped string back;
-the same change on a field somebody edits would put separators into the value
-being typed, which is the round trip XIV-44 was a bug in.
-
-`integer` is deliberately **not** grouped, and that is not an oversight. The type
-covers things that are counted and things that are merely written as digits, and
-the engine cannot tell them apart: grouping turns the year 2026 into `2.026` and
-the postcode 8001 into `8.001`. Being right about a quantity is not worth being
-wrong about a year, and the only integer this codebase ships is a row reference.
-
 **A field can be derived rather than typed** — a line's total, a subtotal's
-figure. It is shown and never offered for editing, enforced with `disabled` so a
-hand-edited request cannot type over it either. A derived value somebody can type
-over is a default with extra steps.
+figure.
 
 **How wide a field is drawn is the field type's answer, until somebody disagrees**
-(XIV-43). A type already owns storage, validation, the form control and the
-display; how much room it needs is the same kind of knowledge. So `text` asks for
-half a row, `textarea` for all of it, a count for a quarter — and a form of twelve
-short fields stops being twelve rows without any module declaring anything.
-
-One blanket number would not have been a neutral default but a wrong one, correct
-for `textarea` and wrong for everything else, leaving every module to fix it by
-hand.
-
-The stored width is **nullable, and null is not the same as storing the type's
-number**: null means "whatever this kind of field wants" and keeps following it,
-so improving a type's default reaches every field nobody has an opinion about. A
-number means somebody chose. The same promise `User::locale` makes with null
-(§8.4.2), for the same reason.
-
-It is a **proportion, in twelfths, never a class name** — what the grid is called
-belongs to §8.3 and outlives whichever framework renders it — and it is always a
-full row below `md`, because a column of half-width fields on a phone is
-unusable. Ordering (XIV-21) plus width *is* the layout: the grid wraps a line once
-its columns pass twelve, which is why this needed no layout editor, no rows as an
-entity, and no drag surface in the metadata editor.
+(XIV-43). It is a **proportion, in twelfths, never a class name** — what the grid
+is called belongs to §8.3 and outlives whichever framework renders it. Ordering
+(XIV-21) plus width *is* the layout: the grid wraps a line once its columns pass
+twelve, which is why this needed no layout editor, no rows as an entity, and no
+drag surface in the metadata editor.
 
 **A collection is deliberately not a link between modules.** Contact → Company is
 a different thing: both sides exist independently, either can be browsed, and the
 target module may not even be installed for that customer (§3). Conflating the
 two is how a CRM ends up with orphaned addresses nobody can reach. When
 module-to-module links arrive they are their own mechanism; §7 tracks them.
-
-**Uniqueness on a collection field is refused, not guessed.** Unique across the
-whole table and unique within one parent are different rules, and which one a
-customer means is not something the installer should decide for them. It waits
-for the same decision §7.5 is waiting for.
 
 #### How long a collection can get, measured (XIV-68)
 
@@ -431,12 +350,6 @@ The decision the table above was taken for. **Four hundred rows is the supported
 size of a collection**, refused above that at write time, and a request is
 allowed 256M so that four hundred renders.
 
-**Why four hundred and not a number the measurement points at.** It is not a
-ceiling, it is a promise: orders and invoices are usually well under a hundred
-lines, so four hundred is ample for the documents this is for, and it is a round
-number somebody can hold in their head. What the measurement decides is not the
-cap but what has to be true underneath it — and on that it was decisive.
-
 **The cap alone was not sufficient, which is the part that is easy to miss.**
 Re-measured on the merged tree after XIV-36 took 63% off the form's bytes, same
 250-article catalogue, `APP_DEBUG=0`, per request:
@@ -454,32 +367,6 @@ the cap now refuses to build the fixture. That is the right way round: the tool'
 job is no longer finding the ceiling but confirming that the supported size still
 draws, so its default sizes stop at 400 and measuring past it is a deliberate act.
 
-About **0.35 MB per row on a base near 1 MB**, straight-line as everything here
-has been. Nothing in `frankenphp/conf.d` set `memory_limit`, so a request ran on
-PHP's stock **128M** — which puts the genuine ceiling at **~365 rows**. A 400-line
-order would have answered 500 at exactly the number being called supported.
-
-So `memory_limit = 256M`, in `frankenphp/conf.d/10-app.ini`, with the measurement
-named in a comment beside it. That is the whole of "make 400 work": one line and
-no product code. It puts a 400-row form at **55% of its allowance**, which is
-headroom for the per-row constant to drift as the form grows rather than a figure
-sitting just above the requirement. **Raising the cap means moving this with it**,
-at about a third of a megabyte a row.
-
-**Refused at write time, not truncated at render time.** A record page that
-quietly drew 400 of 500 lines would be a document lying about itself, and a
-document that lies is worse than a save that refuses. Three paths write rows —
-the record form, the importer (XIV-26) and anything holding `RecordWriter` — and
-they meet at `RecordWriter::save()`, so **the check is there and there is no
-fourth path to remember**. The form and the importer each ask first anyway, and
-that is not the check repeated: it is each of them turning the same refusal into
-what its reader is looking at, a message on the form and a problem against a
-sheet. The number and the sentence live once, in `Core\Record\CollectionLimit`.
-
-The message names the limit *and* the attempted count and says what to do —
-the shape XIV-35's truncation notice established, where a bound reads as a bound
-rather than as something having gone wrong.
-
 **Shape C — paginating the edit form — was declined rather than forgotten.** It
 was the right answer while the ceiling looked like 250 rows and a legitimate
 3 000-line order looked plausible. Against a 400-row cap it is a large change to
@@ -490,29 +377,14 @@ about all of its lines at once (§5.9). Paying for all three to serve a case tha
 does not arise is the trade being refused.
 
 **The read view keeps no bound of its own**, and that is a decision rather than an
-omission. It is 18 queries flat at every measured size (XIV-54) and about 15 KB
-per row, so it survives to roughly 9 500 rows; with writes capped at 400 it is
-never within an order of magnitude of trouble, and a second limit would be a
-number somebody has to keep in step with the first for no benefit. The same
-argument retires the history render noted above: `_history.html.twig` draws every
-collection change inside each of the five shown entries, so the creation entry of
-an N-line order is N list items — alarming at 10 000 and unremarkable at 400.
-
-**Nothing is rejected retroactively.** The cap is a rule about writes. A record
-holding more than it still reads, and nothing can have produced one, because the
-genuine ceiling was below the cap until the memory limit moved.
+omission. The same argument retires the history render noted above:
+`_history.html.twig` draws every collection change inside each of the five shown
+entries, so the creation entry of an N-line order is N list items — alarming at
+10 000 and unremarkable at 400.
 
 #### Counting the rows before the form is built (XIV-90)
 
 **A cap you can only enforce by first doing the thing it forbids is not a cap.**
-`RecordWriter::save()` is the right place for it and remains the place: it is the
-one door the form, the importer and everything future go through. But the form
-path reaches that door *through the form* — the values arrive as a submission,
-and a submission of four hundred and one rows had to be built as four hundred and
-one row forms before anything could count them. The Live Component builds the
-whole thing more than once per action besides: the real form, plus the throwaway
-one `RecordForm::asSubmitted()` uses to turn view values back into model values
-(XIV-32).
 
 Measured on this branch by `testWhatAnOverLongSubmissionCosts()`, an order of
 article lines posted to the component's `save` action, `APP_DEBUG=0`, per
@@ -556,41 +428,6 @@ does bite, is the limit rather than the cap**: four hundred rows is a promise ma
 to customers, while `memory_limit` is a line in an ini file, and the two are not
 equally expensive to change.
 
-**Where the count comes from.** `Core\Record\SubmittedRows` reads the submitted
-values while they are still the plain array the browser sent — no `FormView`
-anywhere — and hands the number to the same `CollectionLimit` the writer asks. It
-is a second caller, not a second rule: same number, same sentence, same
-placeholders, so a reader cannot tell which layer caught them and does not need
-to. **The writer's guard did not move and must not**, which is what keeps the
-limit true for the importer, the demo generator and whatever calls it next; the
-test proving the writer refuses on its own passes untouched.
-
-**Both post shapes are counted, and they are not the same shape.** A Live
-Component action replaces the whole model at once —
-`updated: {"module_record": {"collections": {"lines": [...]}}}` — while an
-ordinary form post sends one entry per control, keyed by the path its `name`
-attribute makes, because the component puts `data-model` on the `<form>` element:
-`updated: {"module_record.collections.lines.0.fields.text": "…"}`. On top of
-either sits whatever the signed `props` already held, which is where the rows of a
-record being edited come from. The library reconciles all three onto the
-component's raw values before any form exists, so the count is taken there — one
-reading rather than a second parser that would eventually disagree with the first.
-
-**The refused page draws the record as it stands**, not the submission. There is
-nothing else it honestly can draw: the submission is the thing that will not fit,
-and truncating it to four hundred would be the document-that-lies this section
-already refuses. The submitted values themselves are left exactly as they arrived
-and go back out in the component's props untouched — emptying them would be the
-far worse bug, because the next save would then write the shortened list over the
-record.
-
-**A submission that cannot be counted is refused as itself.** Nothing a browser
-sends can put a string where a collection's rows belong, so what arrives that way
-was written by hand and there is no honest number to name in a refusal. It gets a
-sentence of its own — `record.submission_unreadable`, which names no limit and no
-count — because a message saying "this holds at most 400 rows and this one has 0"
-would be a number somebody invented.
-
 **What is still open.** Reaching the cap through the interface takes four hundred
 "add row" round trips, and the four hundred and first is not refused: the button
 appends and the re-render then costs what a 401-row submission costs. Nobody
@@ -625,35 +462,15 @@ so this is an ordinary table created by the installer alongside the module's own
 with no field definitions. Making history describable would buy nothing and cost
 every index.
 
-    id           bigint identity      -- bigint from the start; this is what grows
-    record_id    int  NOT NULL        -- FK → contact(id) ON DELETE CASCADE
-    occurred_at  timestamptz NOT NULL
-    user_id      int  NULL            -- no FK: core still does not know what a user is
-    user_label   text NULL            -- who they were at the time
-    action       varchar(31)          -- created | updated | deleted
-    changes      jsonb NOT NULL
-
-One index, on `(record_id, id DESC)`, because that is the only question anyone
-asks. Over-indexing is the other half of what made the old table hurt.
-
 **One entry per action, not per row touched.** Fixing an email and adding an
 address in one save is one line in the timeline, not three. The grouping key is
 the *record*, so an import touching 500 contacts still writes 500 entries.
 
-That granularity is why writing goes through **`RecordWriter`**, a unit of work
-that owns the transaction, takes the before-images, merges the diff and dispatches
-one event per root record. The obvious alternative — a request-scoped buffer
-flushed at the end — is the §7.4 hazard wearing a hat: state outliving the context
-it was made in, waiting to flush one tenant's changes into another's database on a
-console command that serves several in sequence. An explicitly scoped object
-cannot do that.
-
-`RecordWriter` is the *only* supported way to write a record; `RecordRepository`'s
-mutating methods are internal to it. Otherwise the first import to call the
-repository directly would silently write no history, and a history with holes in
-it is worse than none, because it is trusted. PHP has no package-private, so this
-is `@internal` plus the fact that nothing else calls it — enforced by review, not
-by the compiler.
+That granularity is why writing goes through **`RecordWriter`**, and why it is
+the *only* supported way to write a record; `RecordRepository`'s mutating methods
+are internal to it. Otherwise the first import to call the repository directly
+would silently write no history, and a history with holes in it is worse than
+none, because it is trusted.
 
 **Merge rules**, so the timeline stays readable:
 
@@ -664,19 +481,6 @@ by the compiler.
 - `action` is the root record's own verb: adding an address to an existing contact
   is an update *of the contact*.
 - Deleting a record writes one entry; its collections cascade silently.
-
-**The diff is structured, and mirrors the form** — the same `fields` and
-`collections` branches the form and validator already use:
-
-    {"fields": {"email": {"label": "Email", "from": "…", "to": "…"}},
-     "collections": {"addresses": [{"action": "added", "child_id": 7, …}]}}
-
-Labels are captured **at write time**. History is a record of what happened, so
-renaming a field later must not rewrite the past — the same reason `user_label` is
-denormalised rather than joined. Descriptions are rendered at read time through
-the field type when the definition still exists, and fall back to the stored label
-when it does not, because history outlives the schema that produced it. That is
-§7.2 arriving from a new direction.
 
 **Values only, no reads.** Recording who *looked* at a record is a different
 feature with roughly a hundred times the volume and a different retention answer;
@@ -742,28 +546,19 @@ customer's own definitions. It is what §7.3 called the highest-risk component,
 and it was built after collections precisely so that it was designed against a
 to-many relation rather than retrofitted with one.
 
-**Nothing from a user is concatenated.** Field names are resolved against
-definition rows and bound as parameters; comparisons are a closed enum; the only
-text interpolated is a table name from a definition row. A filter the engine
-cannot answer raises rather than being dropped — a condition that silently does
-nothing shows a list that looks like a result and is not one, which is worse than
-an error because somebody acts on it.
+**Nothing from a user is concatenated.** A filter the engine cannot answer raises
+rather than being dropped — a condition that silently does nothing shows a list
+that looks like a result and is not one, which is worse than an error because
+somebody acts on it.
 
-**A condition on a collection is a semi-join.** `EXISTS`, never `JOIN`: a contact
-with two addresses in Zürich is one contact, and a join would return them twice
-and inflate every count on the page. The child's own soft delete is honoured, so
-a removed address stops keeping its contact in that city's results.
+**A condition on a collection is a semi-join.** `EXISTS`, never `JOIN`.
 
-**Sorting by a collection is refused.** Two addresses are two cities and there is
-no answer, so `Sort` cannot express one and the compiler raises. Refusing is the
-feature; quietly picking one would be a wrong answer that looks right.
+**Sorting by a collection is refused.** Refusing is the feature; quietly picking
+one would be a wrong answer that looks right.
 
-**The field type owns its comparisons**, as §5 always said it would: which
-operators it accepts, and how its stored value has to be read to compare —
-`::numeric` for a whole number, nothing for text, and nothing for a date either,
-since ISO-8601 compares and sorts as text, which is why dates are stored that
-way. The compiler therefore has no switch on field type, and column promotion
-will change the accessor without touching any of it.
+**The field type owns its comparisons**, as §5 always said it would. The compiler
+therefore has no switch on field type, and column promotion will change the
+accessor without touching any of it.
 
 **Every ordering ends on the record id.** Without a total order two records
 sharing a sort value may swap between pages, so one is shown twice and another
@@ -782,16 +577,9 @@ page it is meant to narrow, and the count beside it least of all.
 **One closed disjunction, which is not that `OR`** (XIV-36). A `RecordQuery` may
 carry a `Search`: one string, looked for across a fixed set of the shape's own
 fields, compiled as a single parenthesised group and ANDed with everything else.
-It exists because a record is named by its *title fields* — plural — so a search
-that could only look in one of them would find Ada by "Ada" and not by
-"Lovelace", which nobody would call a search. What the paragraph above refuses is
-a tree: something that composes, that a URL can express, and that needs an
-interface to build. This composes with nothing, its fields come from the
-definitions rather than from a request, and a field whose type cannot answer
-"contains" is skipped. The parentheses are the load-bearing part — without them
-the group's last term would bind to the `AND` chain and the soft-delete and
-access predicates would stop applying, which is a permission bug wearing a syntax
-error's clothes.
+What the paragraph above refuses is a tree: something that composes, that a URL
+can express, and that needs an interface to build. This composes with nothing,
+and its fields come from the definitions rather than from a request.
 
 #### Once a set of records is in hand, read what it names (XIV-54)
 
@@ -819,41 +607,6 @@ record page has every row back from `findChildren()`. So the priming pass has an
 obvious home, and the shape is one `WHERE id IN (…)` per target module — the same
 move `findChildrenOfAny()` already makes one level up, copied rather than
 reinvented.
-
-Four decisions hold it together:
-
-- **Priming is an optimisation and never a requirement.** Every reader still
-  falls back to a single memoised lookup, so a caller that forgets is slower and
-  never wrong. A seam that breaks when nobody calls it would be worse than the
-  queries it saves, because forgetting is silent and every new call site is a
-  chance to forget. `RecordPrimer::prime()` is therefore called from the list, the
-  record page and the document path, and none of them has to.
-- **The primer does not know what a reference is.** It groups a shape's fields by
-  type and hands each type its own; a type that can use a whole set says so by
-  implementing `PrimesFromRecords`. Batching *per target module* is then the
-  type's decision, which is knowledge the primer would need a switch on field type
-  to have — the thing field types exist to prevent, and the same argument
-  `LinksToRecord` makes about drawing an anchor.
-- **One memo, three readers.** The records live in `ReferenceTargets`, which the
-  name, the link and the drift check all read. That removes a duplicate lookup
-  that predates the batching: the page asked the database for the same article
-  twice per row. A record looked for and *not* found is remembered as missing, so
-  a collection full of stale links stays bounded too.
-- **The memo dies with the request** (§7.4). It holds one customer's records, so
-  anything longer-lived would eventually name their articles on somebody else's
-  page — a wrong label rather than an error, which is the kind that ships. It
-  implements `ResetInterface`, so Symfony's services resetter empties it on
-  `kernel.terminate` rather than the guarantee resting on the process ending.
-  That was not true before: under `disableReboot()` the old memo visibly survived
-  from one request into the next, which is exactly the shape §7.4 warns about.
-
-**Priming reads under exactly the rule `titleOf()` already read under, which is
-unscoped** (§8.4, XIV-42). The name of a linked record is shown to anybody who may
-read the record pointing at it; whether they are offered a *link* is the separate
-question, and it is still answered per reader, from the record already in memory.
-Stating it rather than quietly widening or narrowing it is the point: a batched
-read is where a permission changes by accident, and the ticket asked for the
-existing rule and not a second one.
 
 Afterwards, the same pages: **16 queries at 5, 50 and 500 lines** — flat, and the
 assertion in `ReferencePrimingTest` is `assertSame` between two sizes precisely so
@@ -927,27 +680,15 @@ module's (§5.1).
 **What the form does not mention, it does not touch** (XIV-26). Options are where
 the declarative half of the engine lives — a choice field's `choices`, a
 reference's `module`, an order line's `inherit`, a numbered field's `sequence` —
-and this form draws three settings. It used to save the whole options array,
-which meant renaming a label wiped everything the form had never heard of: a
-module's states, a shape's variants, a link's target, none of it typeable back in
-because the editor has no control for any of it. Saving now names only what it
-drew, and a setting it means to *empty* it names as null — the difference between
-"not mentioned" and "mentioned as nothing" is what lets a form both leave alone
-what it does not know and still clear the boxes it does.
+and this form draws three settings. A setting a form does not mention is one it
+can neither wipe nor invent.
 
-That was a patch over the real shape, which is that a **type** says which of its
-options are the customer's to set — the same way it already owns its validation,
-its storage and its widget — so the editor can draw the right controls per type
-instead of three fixed ones.
-
-**That shape now exists** (XIV-36, then XIV-27). Autocomplete came first, as one
-option behind one `instanceof`, and said in as many words that generalising an
-interface from a single example would be guessing. Numbering was the second, and
-two is the number at which the general form can be written from evidence: the
-editor holds **one declared list of option to capability interface** —
-`autocomplete` to `Autocompletes`, `sequence` to `Numbers` — and resolves it once
-against the registry. A third option is a marker interface, a line in that list
-and a control in the template, rather than another branch through the controller.
+**A type says which of its options are the customer's to set** (XIV-36, then
+XIV-27), so the editor holds **one declared list of option to capability
+interface** — `autocomplete` to `Autocompletes`, `sequence` to `Numbers` — and
+resolves it once against the registry. A third option is a marker interface, a
+line in that list and a control in the template, rather than another branch
+through the controller.
 
 What stays per option, deliberately, is *drawing* it. A select of three fixed
 answers and a numbering pattern with a live preview and a counter beside it have
@@ -956,48 +697,12 @@ control as well would mean inventing a widget-description language to save two
 `{% if %}`s, which is the speculative generalisation §1 warns about wearing a
 different hat.
 
-The rest of the rule is unchanged and is what makes the list safe: a control the
-editor draws is **named on every save, cleared when blank**, and a type that does
-not offer it is not named at all — so a `text` field's save says nothing about
-autocomplete and could not clear one even if something had put it there. A
-setting a form does not mention is one it can neither wipe nor invent.
-
 #### The two the editor offered and could not configure (XIV-144)
 
-The list above had three entries and the add-field select had every registered
-type in it, and nothing compared the two. So a customer could add a **`choice`
-field and never be offered its `choices`**, and a **`reference` field and never
-be offered its target module** — both on this section's own "the form must not
-touch these" list, neither excluded from the select.
-
-Nothing failed. `ChoiceFieldType::constraints()` skips its `Assert\Choice` when
-the option list is empty, on the argument that an empty list would otherwise
-reject the empty value too and "misconfigured" is not what a record should be
-told; so the field validated everything, offered nothing, and said so nowhere. A
-reference with no target rendered `#41` where a name belongs. **A control that
-appears to work and does nothing** is exactly what §8.3.1 exists to prevent, and
-it had been sitting in the middle of the editor since the editor was built,
-written down twice as an honest limit (§5.20, §5.22) and diagnosed neither time.
-
-**The fix is the fourth and fifth entries in that list, and one new idea.** The
-three that were there describe an option a field *may* have, and every one has a
-good answer for a field that says nothing: decide the search box from the count,
-do not number this field, follow the installation's country. These two have
-none. So a capability may now say that it is **not optional** — `NeedsAnAnswer`,
-which `Enumerates` and `PointsAtAModule` extend, and whose one method is the list
-of options a field of that type is not finished without.
-
-Two things read it, in different layers, and the split is the design:
-
-- **the editor will not offer a type it cannot ask the question for.** The
-  add-field select is built from the types whose every need this form draws a
-  control for, rather than from the registry. Today that is every type and the
-  two lists are the same list again; the day somebody writes a type needing
-  something nobody has built a control for, it is absent from the select instead
-  of being offered broken.
-- **the engine will not write a definition that leaves one unanswered**, which
-  holds for the importer, the console and the form posted around the page — the
-  same division `assertNumbersSomething()` already made, for the same reason.
+**The fix is the fourth and fifth entries in that list, and one new idea.** A
+capability may now say that it is **not optional** — `NeedsAnAnswer`, which
+`Enumerates` and `PointsAtAModule` extend, and whose one method is the list of
+options a field of that type is not finished without.
 
 **A sixth entry followed, and it is a different shape** ([XIV-127], §5.26). Every
 entry so far names one option answering one question. A `choice` field's values
@@ -1687,50 +1392,16 @@ marker is what grows.*
 
 **`[tenant.logo]` is a change to this pipeline rather than a key in a list**,
 which is why it was split out of XIV-49 and given a ticket of its own. Everything
-above resolves to **text**: `DocumentMarkers::dataFor()` returns
-`array<string, string>`, `DocumentGenerator` hands that to `anourvalar/office`,
-and that library's `ZipDriver` opens the .docx and replaces strings inside the XML
-parts. There is no image path in it at all — a driver for the spreadsheet side and
-nothing equivalent for a Word drawing — so this is DrawingML written by hand, and
-the marker's run is **replaced by an element instead of having its text
-substituted**, which is the opposite of the one operation the whole feature is
-built out of.
-
-**Four things in the package have to agree, and they are per *part*.** The bytes
-go in as `word/media/…`; that part is reachable only through a relationship in the
-rels of whichever part draws it; `[Content_Types].xml` has to say what a `.png` in
-this package is, or Word calls the file corrupt; and the drawing carries an extent
-in EMU. A letterhead puts its mark in `header1.xml`, and a header keeps its own
-relationships — so all of it happens once per part that mentions the marker, and
-the media bytes are the only thing shared between them. `DocumentImages` is the
-class; the seam it reads through is a second method on `DocumentContext`, so core
-still never learns what a tenant or a logo is.
-
-**The `rId` is taken from the part rather than counted.** Every `Id` in the rels
-is collected, the highest `rIdN` decides where to start, and the candidate is
-checked against the collected set anyway — because a relationship id is an xsd:ID
-and nothing requires it to be `rId` plus a number, so a template that has been
-through a converter or somebody's script may well carry `rIdImage1`. This matters
-more than it looks: **a collision does not crash.** The package still opens and one
-relationship answers for two uses, so the customer's own header image comes out as
-the logo, or the logo comes out as their embedded font. A document that is wrong
-and opens is worse than one that does not open.
-
-**Where the drawing goes, and the split marker.** `<w:drawing>` is run content — a
-sibling of `<w:t>` inside a `<w:r>` — so the substitution closes the text, emits
-the drawing and opens a fresh one: `…</w:t><w:drawing/><w:t>…`. That is valid
-because a run may hold text, then a drawing, then text again, and it is also
-exactly right for the case that makes this hard. Word cuts a placeholder somebody
-typed in one go across several runs, so the span being replaced routinely contains
-`</w:t></w:r><w:r><w:t>` in the middle of it; consuming that span and emitting the
-three fragments removes one `</w:r>` and one `<w:r>` together, so the markup stays
-balanced and the two runs become one. The tail text inherits the first run's
-formatting rather than its own, which is the one thing this loses and is a fair
-trade against reconstructing run properties from a span that may have crossed
-three of them. A span that crosses a *paragraph* is refused instead: a `[` at the
-end of one paragraph finding a `]` at the start of the next is two brackets facing
-each other, and welding the paragraphs together to draw between them is a worse
-answer than leaving the words alone.
+above resolves to **text**, and `anourvalar/office` has no image path in it at
+all — a driver for the spreadsheet side and nothing equivalent for a Word
+drawing — so this is DrawingML written by hand, and the marker's run is
+**replaced by an element instead of having its text substituted**, which is the
+opposite of the one operation the whole feature is built out of. `DocumentImages`
+is the class, and the OPC bookkeeping that costs — the media part, the
+relationship, the content type and the extent, each of them per *part* rather
+than per document — is written out there. The seam it reads through is a second
+method on `DocumentContext`, so core still never learns what a tenant or a logo
+is.
 
 **The tolerant pattern moved to `TemplateTokens`**, beside the scan XIV-25 put
 there. `RepeatingBlocks` had it privately and the library has its own copy inside
@@ -1739,20 +1410,7 @@ scanners disagreeing about what a marker is. Two callers in this repository now
 share one.
 
 **How big: natural size at 96 dpi, scaled down to fit 40 × 20 mm, never scaled
-up.** Three decisions rather than one. *Natural size* is the only starting point
-that does not require guessing, and it is what makes a small mark come out small
-instead of blown up. *The box* is what stops the common case being absurd — logos
-are exported at two or three times their intended size as a matter of course, so a
-1200-pixel-wide PNG is a 40 mm wordmark at 3× and not a request for a banner
-317 mm across. A4 leaves about 160 mm between ordinary margins, so 40 mm is a
-quarter of the text width: enough to read as the company's mark, small enough that
-dropping it into a paragraph does not rearrange the page; the 20 mm ceiling is what
-keeps a *square* logo from becoming a 40 mm block. *Never scaled up* because
-enlarging a bitmap to fill a box is how a crisp mark acquires soft edges and the
-customer has no way of knowing we did it — the same argument §8.6 makes for not
-re-encoding the upload. The aspect ratio is preserved throughout, so the box is a
-bound and not a shape. A PNG's own `pHYs` chunk is deliberately ignored: most
-exports carry none and the ones that do carry whatever the design tool felt like.
+up.** Three decisions rather than one, argued at `DocumentImages::extentOf()`.
 
 **This does not want a second upload**, which the ticket asked about and §8.6 left
 open. Fitting rather than stretching already gives a wide wordmark and a square
@@ -2159,12 +1817,10 @@ make the same ones.
   those are this year's rates and this is not a Swiss engine. Empty means no VAT,
   which is the right answer for a customer who is not registered for it, and such
   a customer sees no VAT table at all rather than one full of zeroes.
-- **Rounding has one answer**, written down in `Money\Amount` and nowhere else: a
-  line total is rounded to two places as it is computed, so the printed column
-  adds up to the printed total; **VAT is grouped per rate before it is rounded**,
-  because a hundred lines each losing half a rappen is fifty rappen of tax nobody
-  owes. Halves go away from zero. Rounding to five rappen is deliberately absent:
-  that is a rule about paying cash, not about what an invoice says.
+- **Rounding has one answer**, written down in `Money\Amount` and nowhere else:
+  a line total is rounded to two places as it is computed, and **VAT is grouped
+  per rate before it is rounded**. Rounding to five rappen is deliberately
+  absent: that is a rule about paying cash, not about what an invoice says.
 - **A discount is a line with a negative price**, not a percentage on the header.
   A discount reduces the VAT base it was given against, and only a line can say
   which rate that was — a header field would be guessing on any document with two
@@ -2335,10 +1991,9 @@ things can go wrong with a document number and both are fatal — one that chang
 after somebody has read it down the phone, and two documents carrying the same
 one — so the mechanism is small and the decisions are written down.
 
-**Declared as an option, not as a field type.** A number is a string; what is
-special about it is *who fills it in*, which is a fact about the field rather
-than about the kind of value. So `NumberFormat::from('ORD-{year}-{number:4}')`
-spreads into any text field's options, the way inherited values do (§5.1), so it
+**Declared as an option, not as a field type.**
+`NumberFormat::from('ORD-{year}-{number:4}')` spreads into any text field's
+options, the way inherited values do (§5.1), so it
 is per customer and changeable without a deployment — **and, since XIV-27,
 changeable by the customer**, on a page of their own in the metadata editor. For
 two releases this section claimed that and it was false: the mechanism was
@@ -2346,28 +2001,23 @@ theirs, the control was missing, and every Xivi customer's orders were called
 `ORD-` whether they sold orders or Aufträge.
 
 **One pattern instead of three settings.** Prefix, padding and "resets each year"
-were never independent: a year in the number that did not reset would look absurd
-by 2028, and a reset without the year in it would hand out `0001` twice. So **the
-pattern decides the period** — a number containing `{year}` resets each year, one
-without it does not — and the third setting cannot be set wrongly because it
-cannot be set at all. The width earns its keep twice: it is what makes sorting
-the text sort the numbers.
+were never independent, so **the pattern decides the period** — a number
+containing `{year}` resets each year, one without it does not — and the third
+setting cannot be set wrongly because it cannot be set at all. The width earns
+its keep twice: it is what makes sorting the text sort the numbers.
 
 **The counter is a table, and allocation is one statement.**
 `INSERT ... ON CONFLICT DO UPDATE ... RETURNING` against a unique index on
-(shape, field, period). Read-then-increment in PHP is the textbook race — two
-requests read 41, two invoices go out as 42 — and that is the one bug here that
-cannot be cleaned up afterwards, because both documents may already have been
-sent. A Postgres `SEQUENCE` was the other candidate and loses on both counts: it
-cannot restart each year without an `ALTER` that two January transactions race
-through, and `nextval` survives a rollback.
+(shape, field, period), which closes the read-then-increment race — the one bug
+here that cannot be cleaned up afterwards, because both documents may already
+have been sent. A Postgres `SEQUENCE` was the other candidate and loses on both
+counts: it cannot restart each year without an `ALTER` that two January
+transactions race through, and `nextval` survives a rollback.
 
 **Allocated inside the save's transaction**, through the §5.9 seam — the first
 thing to use it that is not a module, which is the useful confirmation that the
 engine needed exactly what a module needed. A save that fails gives its number
-back. The cost is a row lock held until that transaction ends, so two people
-creating an order at the same moment take turns; for a table written once per
-document that is the right way round.
+back.
 
 **Gaps, decided.** The number is assigned on the **first save**, not when a
 document is issued: it is what the record is *called* in lists and links (§5.4),
@@ -2601,47 +2251,22 @@ open and it is now closed: **a table row containing a collection marker draws
 itself once per row of that collection.**
 
 `anourvalar/office` does not do it — its repeating rows are a spreadsheet
-feature, and for a .docx it substitutes flat markers and nothing else. So the
-document is preprocessed before the library ever sees it: **the rows are
-multiplied first and substituted second**, and the library still only ever
-substitutes markers. Doing it the other way round would mean copying rows that
-have already lost the markers saying which row they were.
+feature — so the document is preprocessed before the library ever sees it:
+**the rows are multiplied first and substituted second**, and the library still
+only ever substitutes markers.
 
 **No syntax to open and close a block.** Writing `[lines.description]` in a cell
-is what makes that row repeat, because a marker naming a collection can only mean
-"once per row of it". The `<w:tr>` is the unit because it is the unit Word gives
-a person: they build the row they want and it comes out that many times.
+is what makes that row repeat, and the `<w:tr>` is the unit because it is the
+unit Word gives a person.
 
 **How much the template cares about kinds is the template's business**, which is
-the decision the ticket asked for and it is deliberately not a single answer:
-
-- a row whose markers name a kind — `[lines:article.description]` — is drawn only
-  for lines of that kind, so a template can lay out one row per kind and give the
-  comment line no money columns and the subtotal line a bold figure;
-- a row whose markers name no kind is drawn for every line.
-
-So the simple template stays one row and the careful one is possible. The
-rejected alternative was for the engine to hand each row a pre-formatted set of
-markers so that one block fits all — less to lay out, and it would have meant the
-engine choosing how somebody's invoice looks, which is the one thing a template
-is for.
+the decision the ticket asked for. The rejected alternative was for the engine to
+hand each row a pre-formatted set of markers so that one block fits all — less to
+lay out, and it would have meant the engine choosing how somebody's invoice
+looks, which is the one thing a template is for.
 
 **Consecutive blocks for one collection are a group**, replaced as a whole by the
-rows in the order the collection holds them (XIV-21). They have to be: a comment
-sits *between* two article lines, so drawing all the article rows and then all
-the comment rows would sort the invoice by kind. A row no block was laid out for
-is not drawn at all — falling back to another kind's row prints a comment through
-an article line's columns, and a template that lists only what it has a row for
-is a template somebody meant.
-
-**An empty collection leaves nothing behind**, not one blank row: the table's
-heading is still there, which is the sensible page for a document with no lines.
-The record's own markers — the totals, the number — sit outside the table and are
-written once, because they are values rather than columns.
-
-Markers are found in the row's *text* and replaced tolerantly of markup, because
-Word cuts a placeholder somebody typed in one go across several runs. That is the
-same problem §5.7 describes and the same technique answers it.
+rows in the order the collection holds them (XIV-21).
 
 **An email does none of this, and §5.13.1 is where that is argued.** There a
 collection is *one* marker — `[lines]` — rendering a whole table whose shape
@@ -3220,21 +2845,14 @@ somebody a paid invoice was late is worse than an empty column.
 The other tempting version is a state beside draft, sent, paid and cancelled. It
 should not be one, for a reason that is structural rather than aesthetic: **every
 existing transition is something a person performs** — send, pay, cancel. Nothing
-performs *overdue*; the calendar does.
+performs *overdue*; the calendar does, and there is no worker process here to act
+on its behalf (§8.7, XIV-59).
 
-A state would need something to move invoices into it on a schedule, which is a job
-mutating a customer's documents with no human act behind it — and there is no
-worker process here, a constraint §8.7 and XIV-59 both settled around. It would
-also be a state that can be *wrong*: a record is overdue the instant midnight
-passes, and one whose lateness is a stored flag is late only once the job has run.
-
-So overdue is `status = sent AND due_date < today`, evaluated when read. Cheap,
-always correct, needs no job, and cannot drift out of step with the calendar.
-Nothing is stored, so refining the definition later migrates nothing. It is
-expressed twice from one declaration — as a question about a record in hand, which
-is what a page drawing one wants, and as query conditions, which is what a *list*
-of them wants, because counting overdue invoices by loading every invoice and
-asking each one is the N+1 that a dashboard cannot afford on the first page after
+So overdue is `status = sent AND due_date < today`, evaluated when read. Nothing
+is stored, so refining the definition later migrates nothing. It is expressed
+twice from one declaration — as a question about a record in hand, and as query
+conditions, because counting overdue invoices by loading every invoice and asking
+each one is the N+1 that a dashboard cannot afford on the first page after
 signing in.
 
 Strictly before today, not on or before: an invoice due today is due today, and
@@ -3328,41 +2946,24 @@ guess is good**, and the precedent was already there: inherited values, number
 formats and column widths are all declarations on the field.
 
 **Hence one option: `samples`, a list of values the field's demo data is drawn
-from.** Read in one place, `Xivi\Core\Demo\FieldSampler`, which sits between the
-generator and the type registry. No field type changed, and a field that declares
-nothing reaches its type by a path that — deliberately — draws no random number
-of its own, so it consumes the seeded sequence exactly as it did before. That is
-the criterion protecting every field nobody has said anything about, and it is
-asserted rather than assumed: the suite samples every field of a module that
-declares nothing, through the sampler and through the types directly, from the
-same seed, and compares value for value.
+from.** Read in one place, `Xivi\Core\Demo\FieldSampler`. No field type changed,
+and a field that declares nothing consumes the seeded sequence exactly as it did
+before — the criterion protecting every field nobody has said anything about, and
+asserted rather than assumed.
 
 **Which record gets which value stays the seed's business.** The draw uses the
 same `mt_rand` sequence as everything else, so `--seed` still makes a run
 repeatable with declarations in play.
 
-**A declared value is treated as though somebody had typed it.** Nothing converts
-it on the way in; the write goes through `RecordWriter` like every other write, so
-`8.1` on a decimal is stored `8.10` exactly as the form would store it. That also
-sets the standard of care: a declared value the field would refuse is a value the
+**A declared value is treated as though somebody had typed it**, which sets the
+standard of care: a declared value the field would refuse is a value the
 generator will write, in the same way a `min` above a `max` is.
 
-**Weighting is repetition, not a second concept.** "Some articles with no VAT at
-all" wants either weights beside the values or an empty value among them, and the
-second is smaller: the list stays a list, the draw stays uniform, and a value that
-should come up more often is written twice. `[8.1, 8.1, 8.1, 2.6, 3.8, null]` is
-half a catalogue at the standard rate and one article in six sold without VAT.
-`FakerSampleValues::country()` has drawn from `['CH', 'CH', 'CH', 'DE', …]` since
-it was written, so this is the project's own idiom rather than a new one.
-
-**Two declarations are dropped rather than trusted**, because both would break the
-promise the generator is actually measured on — that everything it makes passes
-the module's own validation. A `null` among a *required* field's samples: empty is
-a real value and belongs in a list, but a required field is the one place it
-cannot be, and the field already says so. And the whole list on a *unique* field:
-a fixed list is the one thing that cannot fill a unique column, since the second
-record drawn from it collides — the type's own sample knows to put the sequence
-number on the end, so the honest answer is to let it.
+**Weighting is repetition, not a second concept**, and **two declarations are
+dropped rather than trusted** — a `null` among a *required* field's samples, and
+the whole list on a *unique* field — because both would break the promise the
+generator is actually measured on, that everything it makes passes the module's
+own validation.
 
 **What a sample means, per type.** A literal value, everywhere, which is why the
 mechanism needed no type to cooperate: text and textarea take strings, decimal,
@@ -3526,12 +3127,9 @@ row's `action`.
 
 **A note is editable and deletable by its author and by nobody else, including an
 administrator.** The one place this feature departs from §8.4, and the only place
-in the application where `ROLE_ADMIN` is not a bypass. A note is a sentence
-somebody said; editing it under their name is putting words in their mouth, and
-there is no configuration of a permission system that should make that possible.
-It follows that a deleted user's notes become nobody's to edit — the correct end
-state, and the reason the rule is expressed against the stored author id rather
-than against a relation.
+in the application where `ROLE_ADMIN` is not a bypass. It follows that a deleted
+user's notes become nobody's to edit — the correct end state, and the reason the
+rule is expressed against the stored author id rather than against a relation.
 
 **A follow-up may only be assigned to somebody who may view its record.**
 Otherwise a task lands on a list whose owner cannot open what it is about, and a
@@ -3844,24 +3442,17 @@ picker with nothing in it is a different thing: broken rather than degraded.
 unguessable, so the customer may type their own — and a duplicate is refused with
 a message on the field while the form is open.
 
-**Case is decided by folding, not by comparing.** `give-10` and `GIVE-10` are the
-same voucher to a person, and there are two ways to arrange that. The tempting
-one is a case-insensitive comparison wherever a code is looked up. It loses for a
+**Case is decided by folding, not by comparing.** The tempting alternative is a
+case-insensitive comparison wherever a code is looked up, and it loses for a
 structural reason: since [XIV-109] a `unique` field is enforced by a **unique
-expression index over `data ->> 'code'`**, which is case-sensitive, because that
-is what Postgres does with text. A case-insensitive rule in PHP and a
-case-sensitive index do not differ in style — they *disagree about what a
-duplicate is*, and the database is the one that is actually true. `give-10` would
-be accepted beside `GIVE-10` and then found by either spelling: two vouchers
-answering to one name, with whichever one the till picked deciding the discount.
+expression index over `data ->> 'code'`**, which is case-sensitive. A
+case-insensitive rule in PHP and a case-sensitive index do not differ in style —
+they *disagree about what a duplicate is*, and the database is the one that is
+actually true.
 
-So the fold happens **on the way in**, in `VoucherCodeFieldType::toStorage()`.
-That is not a convenient hook but the engine's own normalisation seam:
-`RecordValidator` runs values through it before validating ("values are validated
-in the shape they will be stored in"), `RecordRepository` before writing, and
-`QueryCompiler` before comparing. One method covers the form, the import, the
-validator, the index and every future lookup by code — including the one
-[XIV-104] will make — and nothing downstream has to know case exists.
+So the fold happens **on the way in**, in `VoucherCodeFieldType::toStorage()` —
+the engine's own normalisation seam, which every writer, validator and comparison
+already passes through, so nothing downstream has to know case exists.
 
 **A field type rather than an option on `text`.** The interface's own docblock
 says a type owns storage, validation, the form control and the display, and that
@@ -3874,18 +3465,11 @@ Hiding it would need the engine to learn which module may offer which type — a
 concept it does not have and should not grow for one dropdown entry.
 
 **Two alphabets, because two different things choose the characters.** What a
-customer may type is wide: `A-Z`, `0-9` and single hyphens between groups.
-`GIVE-10` contains `I`, `1` and `0`, so narrowing that set would refuse the one
-code anybody would actually write. What the **generator** may pick is narrow, and
-for a reason that does not apply to a chosen code: nobody chose those characters,
-so nothing is lost by leaving out the ones that get read wrong. It is Crockford's
-set — `0-9A-Z` less `0`, `1`, `I`, `L`, `O` and `U`. The first five are the pair
-and the trio a person dictating and a person typing disagree about; `U` is there
-for a different reason, which is that eight random letters occasionally spell
-something a customer has to apologise for. A mitigation, not a guarantee. The
-line is drawn at a published set rather than a longer bespoke one: `S`/`5`,
-`2`/`Z` and `8`/`B` are also confusable in some fonts and are kept, because every
-character removed costs entropy.
+customer may type is wide, because `GIVE-10` contains `I`, `1` and `0` and
+narrowing the set would refuse the one code anybody would actually write. What
+the **generator** may pick is Crockford's set, narrow for a reason that does not
+apply to a chosen code: nobody chose those characters, so nothing is lost by
+leaving out the ones that get read wrong.
 
 Eight characters in two groups of four — `HK4T-9PQM`, read out in two breaths —
 from `random_int()` rather than `mt_rand()`. **Not a sequence**: document numbers
@@ -3938,36 +3522,13 @@ may have each value, and two callers arriving in the same millisecond must not
 both be told yes. §5.10 solved that once and this is the same solution with a
 ceiling on it.
 
-The bug is the textbook one and needs no unusual conditions. Read the count,
-compare it to the limit in PHP, write it back: under READ COMMITTED two checkouts
-both read "4 of 5 used", both find room, and both write 5. A voucher good for five
-orders has been used six times, and the sixth is money given away. Two people
-checking out at once is the entire reproduction.
-
 **Where the count lives: a table of its own, `voucher_redemption`, one row per
-voucher, unique on `voucher_id`.** Not a field on the record, and this is the
-decision worth reading. A record is written by `RecordWriter` as one unit of work
-(§5.2) — the whole `data` document replaced by a single `UPDATE`, with a history
-entry beside it — so two redemptions through that path are two whole-document
-writes and the second overwrites the first's count with a number it read before
-the first happened. The same race, wearing the engine's clothes, and with no
-`WHERE` available to put the limit in because the statement is about a document
-rather than about a counter.
-
-Three more things follow, and all three are reasons rather than consequences:
-
-- **It can carry the guard.** `ON CONFLICT … DO UPDATE … WHERE` needs a conflict
-  target and a column to compare — a row that is *about the count*. A JSONB
-  document has neither.
-- **It is not the customer's field.** A redemption count is engine bookkeeping,
-  like `position` on a collection row (§5.1) and like `number_sequence`. Nobody
-  should be able to rename it, delete it in the metadata editor, type over it in
-  a form or import a spreadsheet that zeroes it — and every one of those is
-  possible for a field, because a field is theirs.
-- **It does not stamp the voucher as edited.** Redeeming is not a change to the
-  voucher. Through the record writer it would bump `updated_at` and write a
-  history entry on every checkout, which is [XIV-91]'s argument about the
-  numbering backfill on a hotter path.
+voucher, unique on `voucher_id`.** Not a field on the record, because a record is
+written whole and a whole-document write has no `WHERE` to put a limit in. **It
+is not the customer's field either**: a redemption count is engine bookkeeping,
+like `position` on a collection row (§5.1) and like `number_sequence`, and nobody
+should be able to rename it, delete it in the metadata editor, type over it in a
+form or import a spreadsheet that zeroes it.
 
 Reusing `number_sequence` itself — shape `voucher`, field `redemptions`, period =
 the record id — was considered and rejected. The table is already in every tenant
@@ -3987,46 +3548,14 @@ table it would point at does not exist in most databases and may never exist in
 some. A counter row can therefore outlive the voucher it counted, which is the
 same thing soft deletion already does to everything else.
 
-**The statement, in full:**
-
-```sql
-INSERT INTO voucher_redemption (voucher_id, redeemed_count)
-SELECT CAST(:voucher AS INT), 1
-WHERE CAST(:limit AS INT) IS NULL OR CAST(:limit AS INT) >= 1
-ON CONFLICT (voucher_id)
-DO UPDATE SET redeemed_count = voucher_redemption.redeemed_count + 1
-WHERE CAST(:limit AS INT) IS NULL
-   OR voucher_redemption.redeemed_count < CAST(:limit AS INT)
-RETURNING redeemed_count
-```
-
-The first caller for a voucher inserts the row; every caller after that collides
-with the unique index, is turned into an update, and waits on the lock Postgres
-has already taken. There is no `SELECT FOR UPDATE`, no advisory lock, no retry
-loop and — critically — no window between the check and the write. When the limit
-is reached the `WHERE` fails, no row comes back, and that absence *is* the
-refusal, exactly as it is for [XIV-27]'s counter wind-forward.
-
-**`SELECT … WHERE` in place of `VALUES` is not decoration.** Written with
-`VALUES` the insert branch is unguarded, so a voucher whose limit is zero would
-be refused on every redemption *except the first* — the one with no row to
-conflict with. One statement with one rule beats two rules that agree until they
-meet the edge.
-
-**The limit is passed into the statement rather than compared outside it**, and
-that is not the race it looks like. What is raced is the count; the limit is a
-property of the voucher's own definition, changed only by an administrative edit,
-so reading it off the record and putting it in the `WHERE` is safe against every
-concurrent *redemption*. Two people editing the limit at the same moment is
-last-writer-wins on an administrative act, which is what it is everywhere else in
-this system.
+**One statement**, and the limit is inside it: there is no `SELECT FOR UPDATE`,
+no advisory lock, no retry loop and no window between the check and the write.
+When the limit is reached no row comes back, and that absence *is* the refusal,
+exactly as it is for [XIV-27]'s counter wind-forward.
 
 **Inside the caller's transaction**, like `NumberAllocator`: a checkout that
 fails after redeeming gives the redemption back, because the lock and the
-increment both belong to the transaction that failed. Nothing has to remember to
-undo anything. The cost is a row lock held until that transaction ends, so two
-orders redeeming one voucher take turns — for a row touched once per checkout,
-the right way round.
+increment both belong to the transaction that failed.
 
 #### Proving it, and what a single-process test cannot prove
 
@@ -4685,32 +4214,20 @@ it. `phone` is a field type now: whatever is typed is stored as **E.164**
 (`+41791234567`), and what cannot be read is refused with a sentence rather than
 kept as a string.
 
-**`toStorage()` is the seam, which is §5.19's argument one step harder.** The
-voucher code folds case there because `RecordValidator` normalises before it
-validates, `RecordRepository` before it writes and `QueryCompiler` before it
-compares — one method, and the form, the spreadsheet import, the unique index and
-every future lookup agree without any of them being told. A phone number is the
-same shape of rule about the same kind of value, so it lives in the same place.
-The property worth stating as a property: **the form, the importer and the query
-compiler cannot disagree about what a phone number is, because none of them has
-an opinion.** `PhoneNumberTest` proves that by going in one door and out another
-— a number typed `079 123 45 67` into the record form is found by a filter typed
-`+41 79 123 45 67` in the URL of the list page — rather than by calling
-`toStorage()` and asserting what comes back, which would test the method and say
-nothing about the seam.
+**`toStorage()` is the seam, which is §5.19's argument one step harder**, and it
+buys the property worth stating as a property: **the form, the importer and the
+query compiler cannot disagree about what a phone number is, because none of them
+has an opinion.** `PhoneNumberTest` proves that by going in one door and out
+another — a number typed `079 123 45 67` into the record form is found by a
+filter typed `+41 79 123 45 67` in the URL of the list page — rather than by
+calling `toStorage()` and asserting what comes back, which would test the method
+and say nothing about the seam.
 
-Three consequences follow, and each is taken rather than discovered:
+Two consequences are taken rather than discovered — **`unique` starts working**,
+since [XIV-109]'s index is over the stored string, and **an import of existing
+data will refuse rows**, because ten years of hand-typed numbers contain some
+that are not numbers. A third is outside anybody's control:
 
-- **`unique` starts working.** [XIV-109]'s index is over the stored string, so
-  two people entering one number differently now collide as they always should
-  have. Proved against the index rather than against a PHP comparison: the test
-  writes both spellings through `RecordWriter`, which validates nothing, and what
-  refuses the second is Postgres.
-- **An import of existing data will refuse rows.** Ten years of hand-typed
-  numbers contain some that are not numbers. That is correct and it is still a
-  surprise, so the refusal names the value *and* the country it was read against
-  — `"079 123 45" is not a phone number that can be dialled in Switzerland` sends
-  somebody to the right place, where "row 2 is invalid" does not.
 - **Google's metadata moves, so validity moves with it.** `isValidNumber()` is a
   question about a table in the package rather than about arithmetic, and
   countries open and retire ranges. A `composer update` can therefore change
@@ -4758,16 +4275,11 @@ that field is read and rewrites nothing already stored, which is worth saying ou
 loud because the tempting reading is the other one.
 
 **Extensions are refused, and the reason is arithmetic rather than taste.**
-`+41 44 668 18 00 ext. 12` is a real thing people type, and there were three
-options: keep it in the value, give it a second field, or refuse it. E.164 has no
-room for an extension and `format(E164)` **drops it silently** — measured, and
-asserted in `PhoneFieldTypeTest` so that the day the library changes its mind
-something goes red. Keeping it would mean either storing something that is not
-E.164, giving up the canonical form the whole type exists for, or filing a
-switchboard and the twelve people behind it under one value: on a `unique` field
-the twelfth colleague is then refused for a reason nothing on screen can explain.
-A second field is the right answer and the customer already has it — the metadata
-editor adds one without a deploy (§5.4) — so the refusal says exactly that.
+E.164 has no room for an extension and `format(E164)` **drops it silently** —
+measured, and asserted in `PhoneFieldTypeTest` so that the day the library
+changes its mind something goes red. A second field is the right answer and the
+customer already has it — the metadata editor adds one without a deploy (§5.4) —
+so the refusal says exactly that.
 
 **The dependency is the lite build, and the trade is measured.**
 `giggsey/libphonenumber-for-php-lite` against `giggsey/libphonenumber-for-php`:
@@ -5577,15 +5089,10 @@ against a white page is a colour the dark one still has to read. `#f5f5f5` for
 "archived" is invisible at night, and nothing would report it — the customer who
 picked it is not the customer who reads it.
 
-So the palette is exactly **the colours the theme has a dark answer for**.
-Bootstrap defines, for its eight theme colours and for nothing else, the trio a
-chip needs — `--bs-{tone}-bg-subtle`, `--bs-{tone}-text-emphasis` and
-`--bs-{tone}-border-subtle` — and **redefines all three under
-`[data-bs-theme=dark]`**. A badge composed of those three follows the theme
-without anything in the codebase knowing there are two, which is the trick
-`.follow-up-priority` already plays with `--bs-danger` (XIV-84). Eight is
-therefore an answer rather than a round number: a ninth would be a colour with no
-dark counterpart, which is the thing being avoided.
+So the palette is exactly **the colours the theme has a dark answer for**, which
+is the eight Bootstrap redefines under `[data-bs-theme=dark]`. Eight is therefore
+an answer rather than a round number: a ninth would be a colour with no dark
+counterpart, which is the thing being avoided.
 
 Two things follow that are worth naming. `text-bg-{tone}` is **not** used, though
 it is the obvious Bootstrap badge class: it computes a readable foreground
@@ -5595,8 +5102,7 @@ not what "survives dark mode" means. And the icons are a **bounded set of
 twelve**, for the same two reasons plus one: the name is interpolated into
 `class="bi bi-…"`, so a free string would be a customer's typing in the page's
 markup, and a *wrong* free string renders nothing at all, because Bootstrap Icons
-has no fallback glyph. Icons take `currentColor`, so they follow the tone with no
-second decision.
+has no fallback glyph.
 
 The chip is drawn through `value_badge(field, value)`, which asks the **field**
 rather than its type — the third function on `FieldDisplayExtension` with that
@@ -5812,18 +5318,9 @@ one inside it.** A stay from the 1st to the 5th occupies the nights of the 1st t
 the 4th, the room is free again *on* the 5th, and the next booking may start that
 day.
 
-Three reasons, and they compound:
-
-- **It is the only bound that means the same thing at both precisions.** A date
-  range has a last day; a datetime range has no last instant, because time is
-  continuous and "11:00 minus the smallest thing" is not a value. An inclusive end
-  is undefined for the datetime half, and a rule that flips at one precision is a
-  rule nobody holds in their head.
-- **Postgres already agrees.** `daterange` canonicalises every literal to `[)`
-  whatever it was written as, so an inclusive end in the JSON would disagree with
-  the value in the constraint's index by one day, for ever.
-- **The arithmetic comes out.** Nights, hours and days are `until - from` with no
-  ±1, and two adjacent periods meet exactly: no overlap and no gap.
+Three reasons compound, and `Period`'s own docblock has them: it is the only
+bound that means the same thing at both precisions, Postgres' `daterange` already
+canonicalises to `[)`, and the arithmetic comes out with no ±1 anywhere.
 
 What it costs is that a tenancy whose last day is the 5th is entered as ending on
 the **6th**, which is genuinely surprising the first time. That is paid where it
@@ -5859,35 +5356,20 @@ things depending on what somebody intended is a control that reports nothing.
 
 #### The constraint is XIV-109's finding one level harder, and its conclusion transfers exactly
 
-[XIV-109] found a validator that queried and then wrote, with nothing holding the
-gap: under READ COMMITTED two saves arriving together both read, neither sees the
-other's uncommitted row, and both insert. Its answer was to stop asking and start
-constraining.
-
-*Is this room free next week* is that same read. The booking that follows is the
-write. Between them is the millisecond in which the other guest books, and **no
-amount of care in PHP closes it** — so this engine has no application-level check
-for overlap at all. That is worth saying plainly, because the absence looks like
-an omission: a validator here would catch almost everything, would tempt the next
-reader into believing it were the rule, and would still let two guests into one
-room on the afternoon it mattered. The constraint is not a second opinion behind a
-validator; it is the only opinion.
+*Is this room free next week* is [XIV-109]'s read; the booking that follows is
+its write; between them is the millisecond in which the other guest books, and
+**no amount of care in PHP closes it** — so this engine has no application-level
+check for overlap at all. That is worth saying plainly, because the absence looks
+like an omission: a validator here would catch almost everything, would tempt the
+next reader into believing it were the rule, and would still let two guests into
+one room on the afternoon it mattered. The constraint is not a second opinion
+behind a validator; it is the only opinion.
 
 `EXCLUDE USING gist` is the range equivalent of that ticket's partial unique
 index: a unique index whose equality has been replaced by an operator per column.
-`(data ->> 'room') WITH =, xivi_date_range(data ->> 'stay') WITH &&` — no two live
-rows may name the same room and periods that share a moment.
-
-**The predicate is partial three times over**, and each is a rule: `deleted_at IS
-NULL`, because records are soft-deleted and a cancelled booking must not hold a
-room for ever; the scope `IS NOT NULL`, because a booking with no room yet is a
-draft and drafts occupy nothing; the period `IS NOT NULL`, because an empty field
-is not a period. The first is XIV-109's own predicate, kept for its own reason.
-
-**Built in the transaction that writes the definition**, exactly as the unique
-index is, and `CONCURRENTLY` does not even arise: `ALTER TABLE … ADD CONSTRAINT`
-has no concurrent form. It costs an `ACCESS EXCLUSIVE` lock on one customer's
-record table for one build.
+The predicate is partial three times over — soft-deleted rows, a record with no
+scope and a record with no period each occupy nothing — and it is built in the
+transaction that writes the definition, exactly as the unique index is.
 
 #### What a period is exclusive *within* is configurable, because there is no global answer
 
@@ -5921,28 +5403,12 @@ and neither record is wrong on its own.
 
 #### The awkward part: an index expression must be immutable, and dates do not parse immutably
 
-`(data ->> 'stay')::date` **cannot be indexed**. `date_in` is only *stable* — it
-reads `DateStyle` and accepts `today` — so Postgres refuses the index outright,
-and `timestamp_in` and `timestamptz_in` are stable for the same reason. This is
-the one place where the JSONB storage model costs something real, and it is worth
-recording because the obvious spelling fails with an error most people meet for the
-first time here.
-
-The way out is to stop asking Postgres to parse anything. A stored period is a
-**fixed-width** ISO string, so the year, month and day are known offsets and
-`make_date`/`make_timestamp` build the value from integers with nothing to
-interpret — genuinely immutable, rather than the usual workaround of declaring a
-parsing function `IMMUTABLE` while it is not.
-
-That expression is long, so it is named once, per tenant, by a migration:
-`xivi_date_range(text)` and `xivi_datetime_range(text)`, plus `btree_gist` (a
-*trusted* extension since Postgres 13, so a tenant's own role installs it and no
-operator walks the cluster). Three properties earn the function over an inline
-expression: `STRICT`, so a row with no period yields `NULL` rather than an
-unbounded range that overlaps everything; a leading regular expression, so a
-malformed value yields `NULL` rather than raising and taking a whole list page with
-it; and **one expression shared by the constraint and the filter**, which is what
-lets a filter be answered by the index the constraint built.
+`(data ->> 'stay')::date` **cannot be indexed**, because `date_in` is only
+*stable*. This is the one place where the JSONB storage model costs something
+real, and it is worth recording because the obvious spelling fails with an error
+most people meet for the first time here. The way out — building the value from
+integers at known offsets in a fixed-width ISO string, named once per tenant as
+`xivi_date_range(text)` and `xivi_datetime_range(text)` — is in `PeriodSql`.
 
 **The cost of that is a rule.** Postgres does not re-evaluate an index when a
 function it was built over changes, so editing `PeriodSql` in place would leave
