@@ -57,6 +57,17 @@ final class TenantDeprovisionCommandTest extends KernelTestCase
 {
     private const string SLUG = 'test_deprovision';
 
+    /**
+     * How long a signalled backend is given to actually go, and how often it is
+     * asked about in the meantime. Both are argued for at length on
+     * {@see sessionsOnceTheTerminationHasLanded()}; the short version is that the
+     * deadline is Postgres's own — it is what `DROP DATABASE … WITH (FORCE)`
+     * waits before raising `55006` — and the interval is a shade under the
+     * fastest linger measured, so it never costs a green run anything.
+     */
+    private const int TERMINATION_DEADLINE_NS = 5_000_000_000;
+    private const int TERMINATION_POLL_MICROSECONDS = 500;
+
     private TenantProvisioner $provisioner;
     private ?Connection $admin = null;
 
@@ -263,6 +274,16 @@ final class TenantDeprovisionCommandTest extends KernelTestCase
      * at three in the morning — and `TenantProvisioner` catches the same error
      * and answers it with the grant, for the deployments this suite never runs
      * against.
+     *
+     * The statement is written out here rather than reached through
+     * `TenantProvisioner`, and it is deliberately the **one-argument** form, the
+     * same one `disconnectEverySessionOn()` issues. The two-argument
+     * `pg_terminate_backend(pid, timeout)` that Postgres 14 added would answer
+     * the last of the three questions below by itself, and it is the wrong tool
+     * twice over: it is not the statement the product runs, so a test using it
+     * would be reporting on a statement nobody ships, and its `false` means
+     * either "not permitted" or "did not go in time" — which is precisely the
+     * distinction the middle assertion exists to make.
      */
     public function testTheProvisioningCredentialsMayEndATenantSession(): void
     {
@@ -276,7 +297,7 @@ final class TenantDeprovisionCommandTest extends KernelTestCase
 
         self::assertNotSame([], $terminated, 'there was a session to end');
         self::assertNotContains(false, $terminated, 'and the provisioning role was allowed to end it');
-        self::assertSame(0, $this->sessionsOn($database));
+        self::assertSame(0, $this->sessionsOnceTheTerminationHasLanded($database), 'and the session really went');
     }
 
     /**
@@ -381,6 +402,73 @@ final class TenantDeprovisionCommandTest extends KernelTestCase
             'SELECT count(*) FROM pg_stat_activity WHERE datname = ? AND pid <> pg_backend_pid()',
             [$database],
         );
+    }
+
+    /**
+     * The same count, asked until the cluster has finished acting on a
+     * `pg_terminate_backend` — or until it is clear that it never will (XIV-142).
+     *
+     * ## Why the question has to be asked more than once
+     *
+     * `pg_terminate_backend` does not end a session. It **sends SIGTERM** to the
+     * backend and returns true when the signal was delivered; the backend acts on
+     * it at its next interrupt check, detaches from shared memory and only then
+     * leaves `pg_stat_activity`. Those are two different moments, and the caller
+     * is told about the first one. Asking for the count in the very next
+     * statement is therefore asking whether a second process has been scheduled
+     * yet, which is a question about the machine rather than about Postgres.
+     *
+     * It was reported twice on 2026-08-18, from two branches that touch neither
+     * tenancy nor provisioning, as `Failed asserting that 1 is identical to 0`
+     * during a full eight-worker run, and it passed on every rerun in isolation.
+     * That is the shape a scheduling window has. Measured on this cluster while
+     * XIV-142 was being written: with sixty sessions open instead of one, so that
+     * sixty backends have to be reaped rather than one, the *unfixed* assertion
+     * failed in two runs out of ten, then three out of ten, reporting counts
+     * between one and nine — the reported message, on demand. Holding a single
+     * backend with SIGSTOP so that it cannot act on the signal at all makes it
+     * fail every time: `pg_terminate_backend` returns `[true]` and the session is
+     * still attached half a second later, and stays attached until the process is
+     * allowed to run again. The stragglers that are merely descheduled clear in
+     * 0.6 to 2.6 milliseconds.
+     *
+     * ## Why this is a poll and not a wait
+     *
+     * A `sleep` before the count would be the same test on a timer: it would cost
+     * its full delay on every green run, and a machine slower than whatever delay
+     * was guessed would still fail. This asks immediately, and asks again only
+     * while the answer is still the wrong one. When the backend has already gone
+     * — which is every run on an unloaded machine — it costs exactly the one
+     * query the old code cost, and the test is no slower than it was. The pause
+     * between attempts is pacing rather than waiting: without it the loop would
+     * spin a core against the test cluster for the whole deadline on a genuine
+     * failure, which is a rude thing to do to the seven other workers sharing it.
+     *
+     * ## Why five seconds, of all numbers
+     *
+     * Because that is the deadline the product's own drop keeps, so this test
+     * fails exactly when a real deprovision would. `DROP DATABASE … WITH (FORCE)`
+     * signals the remaining backends and then waits for them to detach, and it
+     * does not wait forever: measured here, with one backend held under SIGSTOP,
+     * it gave up after 5005 ms with the `55006 … is being accessed by other
+     * users` that §4.1 quotes. A session still attached five seconds after being
+     * signalled is therefore not slowness this test should tolerate — it is the
+     * state in which `TenantProvisioner` raises `TenantRemovalFailed`, and a
+     * count this returns non-zero is a real answer rather than an impatient one.
+     */
+    private function sessionsOnceTheTerminationHasLanded(string $database): int
+    {
+        $deadline = hrtime(true) + self::TERMINATION_DEADLINE_NS;
+
+        while (true) {
+            $sessions = $this->sessionsOn($database);
+
+            if ($sessions === 0 || hrtime(true) >= $deadline) {
+                return $sessions;
+            }
+
+            usleep(self::TERMINATION_POLL_MICROSECONDS);
+        }
     }
 
     private function command(): CommandTester

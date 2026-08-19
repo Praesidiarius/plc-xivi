@@ -139,13 +139,34 @@ final class TenantRemovalFailed extends \RuntimeException
     /**
      * We disconnected everything we could see, and Postgres still refused.
      *
-     * The remaining case after the terminate is a race and nothing else: a client
-     * that reconnected in the moment between the two statements — an application
-     * container restarting, a connection pool refilling, a second operator. The
-     * drop is issued `WITH (FORCE)` precisely so that window is small, but small
-     * is not zero, and a reconnecting client can win it indefinitely if it is
+     * The expected case after the terminate is a race: a client that reconnected
+     * in the moment between the two statements — an application container
+     * restarting, a connection pool refilling, a second operator. The drop is
+     * issued `WITH (FORCE)` precisely so that window is small, but small is not
+     * zero, and a reconnecting client can win it indefinitely if it is
      * reconnecting in a loop. Which is why the advice here is to stop *that*
      * rather than to run this command harder.
+     *
+     * **It is not quite the only case, and this docblock used to say it was**
+     * (XIV-142). `pg_terminate_backend` sends SIGTERM and returns as soon as the
+     * signal is away; the backend leaves `pg_stat_activity` a moment later, when
+     * it next checks for interrupts. So a session can still be attached when the
+     * drop is issued without anything having reconnected. That does not normally
+     * reach here, because `WITH (FORCE)` signals what is left and then *waits* up
+     * to five seconds for it to detach — measured on this cluster at 5005 ms
+     * before it gives up, with a backend deliberately held under SIGSTOP. A
+     * backend that has not gone after five seconds of being asked twice is stuck
+     * rather than slow.
+     *
+     * The sentence below is left claiming a reconnect anyway, and that is a
+     * deliberate trade rather than an oversight. It is right about the case that
+     * happens and it points at the action that fixes it; hedging it would cost
+     * every operator who meets the ordinary failure a sentence of "or possibly
+     * something else" in exchange for a case this project has only ever produced
+     * with `kill -STOP`. What is owed instead is this paragraph, so that an
+     * operator who follows the advice and finds nothing dialling the database
+     * knows there is a second thing to look for: a backend that has stopped
+     * running rather than a client that keeps starting.
      */
     public static function sessionsCameBack(
         string $slug,
