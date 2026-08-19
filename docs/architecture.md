@@ -6689,6 +6689,17 @@ resolves *both* from the browser's container and from the application's own,
 because the web server binds to the name it will later be asked for; the service
 name will not do, because that one is deliberately served without a tenant.
 
+**A third thing, found when the layer was pointed at a page that is bound**
+(XIV-105). The server Panther starts speaks plain HTTP and cannot be made to speak
+anything else, so a route confined to `https` — which the whole signup surface is,
+for reasons §8.12 argues at length — is unreachable from this layer as shipped.
+Both halves of the fix are outside the application, a compose alias and a router
+script handed to `php -S`, and the argument for doing it that way rather than
+loosening the routes under `when@test` is in §8.13. The rule it leaves behind is
+worth stating here, where somebody will next hit it: **when the browser layer
+cannot reach something, ask what the harness is missing before asking what the
+application could give up.**
+
 **The cost to watch is the components, not the library.** A live action is a
 second way into the write path and a second place permissions have to be
 answered, and the temptation is one component per module the moment something
@@ -9215,6 +9226,89 @@ catalogue is product text — renaming *Invoice* is a change a customer sees.
 Giving the page its own translation domain was worth doing for that reason alone.
 It is also the right shape independently: the person who edits marketing copy
 should not be editing the file that names the engine's fields.
+
+#### The sixty lines of script, and how a browser was made to reach them (XIV-105)
+
+The section above ends by saying the live half is sixty lines of Stimulus. `bin/ci`
+never ran a single one of them. Every route the page owns is driven by
+`SignupPageTest` with a real client, and every one of those assertions would go on
+passing with the script deleted — which is the shape [XIV-84] already made
+expensive once. There, a `data-action` typo made every lens button on the
+dashboard inert and the suite stayed green, because the server-side tests called
+the action directly and no button was involved. This page has three `target`
+attributes, two action descriptors and one value name, and it is the one page in
+this repository strangers reach.
+
+**So it is tested in a browser, and the interesting part was that it could not be.**
+Panther serves the application with `php -S` — plain HTTP, an arbitrary port — and
+the signup routes carry the signup host and `https` because the surface behind them
+mints mailbox-proving links and carries a shared secret in a header. That is not an
+oversight in the test: it is a genuine incompatibility between how the page is
+bound and how the browser suite reaches an application, and **the binding is the
+half that is right**. Relaxing it under `when@test` was rejected outright — it is
+the exact property [XIV-65] fixed a live defect to establish, and
+`SignupPageTest::testEverySignupRouteInTheRouterCameFromTheLoader` exists to fail
+when it stops holding.
+
+What made a browser affordable is that **both obstacles turned out to be the test
+harness's rather than the application's**, and both are answered outside it:
+
+  * **The hostname.** The web server binds one address and the browser reaches it
+    by whatever name resolves there, so a second compose network alias on the
+    application container is enough — the `Host` header is then simply what the
+    browser asked for. It could not be `signup.localhost`, which is what the suite
+    used to configure: Chromium implements draft-west-let-localhost-be-localhost
+    and answers every `*.localhost` name from its own loopback before DNS is
+    consulted, so no amount of compose wiring reaches one. `.env.test` names
+    `signup.e2e` instead. It keeps a dot because `SignupFirewallTest` proves the
+    signup firewall is scoped by a matcher rather than by `security.yaml`'s `host:`
+    — a regular expression in which a dot matches anything — and it proves it by
+    asking for the hostname with its dots substituted. A single-label host would
+    have left that test asserting nothing.
+  * **The scheme.** `tests/panther-router.php` is handed to `php -S` and stands in
+    for the TLS terminator production has, telling the front controller that a
+    request to *that hostname and no other* arrived securely. The condition matters:
+    the web server is started once for the whole browser suite, `cookie_secure` is
+    `auto`, and a session cookie marked `Secure` is one a browser on `http://` will
+    not store — so lying to the other six classes would have broken every test
+    that signs somebody in.
+
+**Nothing in `src/`, `packages/` or `config/` changed**, which is a stronger claim
+than a `when@test` seam and is why it was worth the search. `SignupNameTest` states
+it as an assertion rather than as a paragraph: the routes it has just reached over
+plain HTTP are still `https`-only and host-bound in the compiled router of the
+process making the claim.
+
+**Two tests, and both are chosen so they cannot pass by accident.** A free name
+asserts the box holds `mueller-soehne-ag` — computed by calling the server's own
+deriver — because that expansion is what §5's argument about [XIV-100] is *for* and
+what any browser-side slugifier would get wrong; it would catch a copy of the rule
+growing in the script, which is the failure this page is most exposed to. A
+reserved name asserts the other half of `report()`, the red class and the absence
+of the green one, and needs no fixture at all: `admin` is reserved by the code
+rather than by a row somebody committed, so the answer does not depend on which
+browser class ran first.
+
+The net was proved by breaking the page rather than by argument, the way [XIV-84]'s
+own regression test was. Writing `data-action="input->signup-name#company|prevent"`
+— [XIV-84]'s literal bug, one screen over — turns both tests red, and so does
+renaming the controller's value from `url` to `endpoint`, which is the *silent*
+version: nothing appears in the console, the page renders perfectly, and the box
+simply never fills in.
+
+**What it costs is two Selenium sessions and no tenant.** The landing page resolves
+no customer, so this is the only browser class that provisions nothing, and it is
+the cheapest one there is: about three to five seconds against a suite that varies
+by more than that between runs. The router script is on the path of every browser
+request now and measures inside the same noise.
+
+**What is still not covered, said plainly.** The debounce and the
+newest-answer-wins sequencing are real logic and no test here touches them; a
+regression in either shows up as a form that feels wrong rather than one that is
+broken, and it would ship. The same is true of the submit path, which is a plain
+form post and needs no script. What is closed is the wiring — the attributes, the
+route the script calls, and the two places the answer is written — which is the
+part that has shipped broken before.
 
 ### 8.14 Turning a confirmed signup into a customer (XIV-98)
 

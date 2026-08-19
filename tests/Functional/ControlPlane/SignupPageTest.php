@@ -123,9 +123,11 @@ final class SignupPageTest extends WebTestCase
         self::assertCount(1, $crawler->filter('input[name="email"]'));
 
         // The domain the name will sit under, which is what makes a bare word
-        // read as an address. `signup.localhost` in the suite, so the parent is
-        // `localhost` — see SignupPage::tenantDomain() for why the first label is
-        // dropped and why this is a display hint rather than a promise.
+        // read as an address. `signup.e2e` in the suite, so the parent is `e2e` —
+        // see SignupPage::tenantDomain() for why the first label is dropped and
+        // why this is a display hint rather than a promise. The suite's signup
+        // hostname is the one the browser container can resolve rather than a
+        // `*.localhost` name; XIV-105 and `.env.test` say why.
         self::assertSelectorTextContains('.input-group-text', '.' . self::service(SignupPage::class)->tenantDomain());
     }
 

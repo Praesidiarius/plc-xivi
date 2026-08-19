@@ -91,6 +91,29 @@ services:
       default:
         aliases:
           - xivi-e2e
+          # **A second name for the same container, and the landing page is why**
+          # (XIV-105). The signup surface is host-bound (§8.12) and the landing
+          # page shares that host (§8.13), so a browser can only reach the page by
+          # asking for a name the routing table recognises — and `SIGNUP_HOST` in
+          # `.env.test` is this one. It is an alias and *not* a second `hostname:`
+          # because the web server binds `xivi-e2e` and never binds this: the
+          # browser connects to the same socket under a different name, which is
+          # the only part of the arrangement the application can see.
+          #
+          # **Not `signup.localhost`, which is what the suite used to configure.**
+          # Chromium implements draft-west-let-localhost-be-localhost and answers
+          # every `*.localhost` name from its own loopback before DNS is consulted,
+          # so a browser in this network cannot be pointed at one of them however
+          # the alias is spelled. Any other parent is resolved the ordinary way.
+          #
+          # **It keeps a dot, and that is not cosmetic.**
+          # `SignupFirewallTest::testTheSignupFirewallIsScopedByAMatcherAndNotByARegularExpression`
+          # proves the signup firewall is scoped by a request matcher rather than
+          # by `security.yaml`'s `host:`, which is a regular expression in which a
+          # dot matches anything — and it proves it by asking for the hostname with
+          # its dots replaced. A single-label signup host would have nothing to
+          # replace and that test would be asserting nothing at all.
+          - signup.e2e
     tty: true
 
   # The browser the end-to-end tests drive (XIV-31).
