@@ -90,6 +90,37 @@ final readonly class LineTotals
          */
         public ?string $discountKind = null,
         /**
+         * The line's own **discount column**: what came off this one line, as a
+         * positive amount, before the line total under it (XIV-122).
+         *
+         * The other half of `discountKind` above, and the two answer the two modes
+         * a voucher comes in. An *order* voucher has no line to belong to and gets
+         * a row of its own, which is what `discountKind` names. A *line* voucher
+         * has one already, so it reduces it — and the reduction has to be visible
+         * or the document says `1 × Widget @ 100.00 = 90.00` and asks its
+         * recipient to take the arithmetic on trust, which §5.24 refused in the
+         * other mode for exactly the same reason. A stated column is what makes
+         * `100.00 − 10.00 = 90.00` something the person holding the document can
+         * check.
+         *
+         * **Derived, and that is where its protection comes from.** The engine
+         * writes it on every save from whatever granted the discount, so a request
+         * that forges a smaller figure into it is overwritten rather than
+         * obeyed — the same protection a line total has had since [XIV-20], and
+         * here it is the right one rather than the wrong one: §5.24 needed the
+         * *row* protected because the engine owned the whole row, and this is a
+         * column on a row the customer owns and edits freely.
+         *
+         * Null for a module nothing can discount a single line of, and — the case
+         * that matters — for a customer whose module predates this. A missing
+         * column means no line was ever reduced, which is exactly what was true.
+         *
+         * A module that has one and no `discountKind` is a perfectly sensible
+         * shape and is what an invoice is: it can *carry* a reduction copied down
+         * from the order it bills (§5.12) without anything on it granting one.
+         */
+        public ?string $lineDiscount = null,
+        /**
          * The line's own text — what an article line is called, what a comment
          * says, and what a generated discount line has to be able to fill in.
          *

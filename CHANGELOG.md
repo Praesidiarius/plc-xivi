@@ -140,6 +140,63 @@ lands in `Unreleased` here.
   is offered on the order module's *upgrade* screen rather than appearing on its
   own — take it there when you want it. Installing several modules at once now
   orders them so that an optional one lands before the module that uses it.
+- **A voucher can be applied to one line instead of the whole order** ([XIV-122])
+  — a voucher now says which of the two it is, and the two do different things.
+  *Amount off the order* and *Percentage off the order* add their own line, exactly
+  as before. *Amount off one line* and *Percentage off one line* are put on the
+  line you want them on, in a new **Voucher** column on the order's lines, and
+  reduce that line. Both come off before VAT. §5.25 has the whole argument.
+- **The reduced line shows what came off it** ([XIV-122]) — a new **Discount**
+  column beside the line total, so the line reads `199.95 − 29.99 = 169.96` and
+  whoever receives the document can check it rather than being asked to trust a
+  total. The column is worked out from the voucher on every save; it cannot be
+  typed over.
+- **A line voucher reaches a custom line** ([XIV-122]) — which is the point of
+  choosing the line rather than having the voucher find one. A hand-typed line has
+  no catalogue article on it, and that is exactly where a negotiated discount
+  lands.
+- **A voucher on three lines of one order is one use** ([XIV-122]) — the count has
+  always said how many *documents* carry the voucher, and that has not changed: a
+  single-use voucher can cover every line of one order, and it is the next order
+  that is refused. Moving a voucher from one line to another costs nothing.
+- **Action: the voucher kinds have changed, and existing vouchers need re-making**
+  ([XIV-122]) — the three kinds *Amount off*, *Percentage off* and *Free article*
+  are replaced by the four above. Vouchers are still a **development** module and
+  are not in the store, so this affects nobody who has bought one — but a
+  development installation with vouchers in it will find them showing no kind, and
+  the fix is to create them again. This was done now precisely so that it could be
+  a change to a declaration rather than a migration later.
+- **"Free article" is gone, and is now a line voucher at 100%** ([XIV-122]) — put
+  the article on the order the way you put on any other, and a voucher restricted
+  to that article at *Percentage off one line: 100* makes it free. One more step
+  when typing the order, and in exchange the free item is a line you chose, at a
+  quantity you chose, priced from your catalogue.
+- **A voucher can be limited to lines for one article** ([XIV-122]) — the article
+  link is now an optional **restriction** rather than the thing being given away.
+  Name one and the voucher only goes on lines for it; leave it empty and it goes
+  on any line at all.
+- **Consequence: every voucher kind is now offered even without the Articles
+  module** ([XIV-122]) — previously the free-article kind was hidden from an
+  installation with no catalogue. It is not hidden any more, and that is
+  deliberate: *Amount off one line* is a perfectly good voucher for somebody who
+  keeps no catalogue. What such an installation does not get is the *Only on lines
+  for* field, which is simply not installed — so there is still no picker with
+  nothing behind it.
+- **Putting a voucher in the wrong place says so** ([XIV-122]) — a line voucher
+  put on the order, or an order voucher put on a line, is refused when you save
+  with a sentence naming which way round it goes. So is a restricted voucher on a
+  line for something else, and that one names the article.
+- **A fixed amount larger than the line takes the whole line and stops**
+  ([XIV-122]) — twenty francs off a fifteen-franc line is fifteen francs off, not
+  a line worth minus five. The same rule the whole-order discount has had.
+- **An invoice made from an order with a reduced line is reduced too** ([XIV-122])
+  — the discount column comes across with the price and the rate, so the bill
+  charges what was agreed. As with the discount *line*, it is an ordinary editable
+  figure once it is on the invoice.
+- **The Voucher field on a line follows the same rule as the one on the order**
+  ([XIV-122]) — no vouchers module, no column; buy vouchers later and the column
+  is offered on the order module's *upgrade* screen rather than appearing on its
+  own.
 - **A Knowledge module, for what your experienced people know** ([XIV-132]) — a
   very simple place to write down the answers that currently live in one person's
   head: how a refund past thirty days is handled, which supplier to call when the
@@ -526,6 +583,7 @@ lands in `Unreleased` here.
 [XIV-141]: https://xivi.youtrack.cloud/issue/XIV-141
 [XIV-114]: https://xivi.youtrack.cloud/issue/XIV-114
 [XIV-104]: https://xivi.youtrack.cloud/issue/XIV-104
+[XIV-122]: https://xivi.youtrack.cloud/issue/XIV-122
 [XIV-123]: https://xivi.youtrack.cloud/issue/XIV-123
 [XIV-143]: https://xivi.youtrack.cloud/issue/XIV-143
 [XIV-144]: https://xivi.youtrack.cloud/issue/XIV-144

@@ -355,7 +355,7 @@ final readonly class ModuleUpgrade
             // place a definition can be born — and the reason a customer who
             // buys vouchers later *is* offered the order's voucher field: the
             // answer changes the day the module they lacked arrives.
-            if (!$this->available->has($field)) {
+            if (!$this->available->has($field, $module->getKey())) {
                 continue;
             }
 
@@ -391,6 +391,14 @@ final readonly class ModuleUpgrade
             // which is the claim this engine keeps making and this is one more
             // place it costs nothing to keep.
             foreach ($collection->fields as $field) {
+                // And the same rule about a link into a module they have not got
+                // (XIV-122). Offering an order line a "Voucher" picker would be
+                // offering the empty picker the installer skipped, one shape
+                // further down than XIV-104 had to think about.
+                if (!$this->available->has($field, $module->getKey())) {
+                    continue;
+                }
+
                 if ($installed->getField($field->key) !== null) {
                     continue;
                 }

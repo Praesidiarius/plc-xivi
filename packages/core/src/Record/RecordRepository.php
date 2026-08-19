@@ -220,15 +220,25 @@ final readonly class RecordRepository
      * Rows written before positions existed all sit at zero and therefore keep
      * the order they had.
      *
+     * **`includeDeleted` is the same flag {@see self::find()} already carries**,
+     * for the same one caller shape and no other (XIV-122). A `RecordChanged`
+     * subscriber runs *after* the delete inside the same transaction (§5.2), so
+     * the one moment at which what a record carried matters most — the moment it
+     * stops carrying it — is also the one moment its rows are already behind a
+     * tombstone. A voucher named on a line of an order somebody deletes has to be
+     * given back, and there is nowhere else to read it from. Every ordinary
+     * caller leaves the flag alone and sees exactly what it saw before.
+     *
      * @return list<Record>
      */
-    public function findChildren(CollectionDefinition $collection, int $parentId): array
+    public function findChildren(CollectionDefinition $collection, int $parentId, bool $includeDeleted = false): array
     {
         $rows = $this->connection->fetchAllAssociative(
             sprintf(
-                'SELECT * FROM %s WHERE %s = :parent AND deleted_at IS NULL ORDER BY %s ASC, id ASC',
+                'SELECT * FROM %s WHERE %s = :parent%s ORDER BY %s ASC, id ASC',
                 $this->table($collection),
                 CollectionDefinition::PARENT_COLUMN,
+                $includeDeleted ? '' : ' AND deleted_at IS NULL',
                 CollectionDefinition::POSITION_COLUMN,
             ),
             ['parent' => $parentId],

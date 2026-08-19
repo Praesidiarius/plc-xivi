@@ -71,6 +71,20 @@ final class OrderModule implements ModuleProvider
     /** Which voucher was used on it, where the customer has vouchers at all (XIV-104). */
     public const string VOUCHER = 'voucher';
 
+    /**
+     * And on a line: which voucher was applied to *that line*, and what it took
+     * off it (XIV-122).
+     *
+     * Two fields for the two halves of one act. `LINE_VOUCHER` is what somebody
+     * chooses — the whole of how a line voucher is applied, since choosing the
+     * line is naming the voucher on it — and `LINE_DISCOUNT` is what the engine
+     * works out from it, stated in its own column so that the recipient of the
+     * document can subtract it by hand rather than being asked to believe a line
+     * total.
+     */
+    public const string LINE_VOUCHER = 'voucher';
+    public const string LINE_DISCOUNT = 'discount';
+
     /** And the fields of one row of the VAT table. */
     public const string RATE = 'rate';
     public const string TAXABLE_NET = 'net';
@@ -411,11 +425,18 @@ final class OrderModule implements ModuleProvider
                         // only field is the one every line has.
                         new FieldBlueprint(
                             key: 'description',
-                            // Three twelfths rather than four since XIV-118: the
-                            // unit took one, and a row that adds up to more than
-                            // twelve wraps — which would put the unit on a line
-                            // of its own, below the number it qualifies.
-                            width: 3,
+                            // **Two twelfths, and the shrinking is the record of
+                            // what the row has had to fit** (XIV-118, XIV-122).
+                            // It was four until the unit took one and two until
+                            // the voucher and its discount took two more, because
+                            // a row adding up to past twelve wraps — and a wrapped
+                            // row puts a figure on a line of its own, underneath
+                            // the number it belongs beside. The description is
+                            // what gives, on every occasion, because it is the
+                            // one column that reads perfectly well truncated: a
+                            // reader who cannot see all of "Ergonomic office
+                            // chair, black" has still read it.
+                            width: 2,
                             label: 'field.description',
                             type: 'text',
                             required: true,
@@ -545,9 +566,90 @@ final class OrderModule implements ModuleProvider
                         // means two things: on a priced line, quantity times
                         // price; on a subtotal, the priced lines since the last
                         // one.
+                        // **Which voucher was applied to this line** (XIV-122).
+                        //
+                        // A line voucher is applied *by being named here*, which
+                        // is the whole of the mechanism and is why there is no
+                        // second control anywhere asking which line a voucher
+                        // should find. An earlier revision of this ticket had the
+                        // voucher name an article and the engine hunt for a line
+                        // selling it; that cannot reach a **custom** line, which
+                        // has no article — and a custom line is exactly where a
+                        // negotiated discount lands. Choosing the line asks
+                        // nothing of the line at all.
+                        //
+                        // On the two kinds that charge for something and on
+                        // neither of the others. A comment carries no money and a
+                        // subtotal restates rows that do; a generated discount row
+                        // is the engine's own and is what an *order* voucher
+                        // produces, so putting a voucher on one would be a
+                        // voucher discounting a voucher.
+                        //
+                        // **Only where the customer has both modules**, exactly
+                        // as the header's own voucher field is
+                        // ({@see \Xivi\Core\Module\AvailableFields}) — and that
+                        // rule had to learn about collections for this, because
+                        // XIV-104 had no line pointing anywhere to teach it with.
+                        // Without it every order line in a tenant that never
+                        // bought vouchers would carry a picker with nothing
+                        // behind it, which is the failure §5.24 spends its last
+                        // section preventing on the header.
+                        new FieldBlueprint(
+                            key: self::LINE_VOUCHER,
+                            width: 1,
+                            label: 'field.voucher',
+                            type: 'reference',
+                            variants: [self::ARTICLE_LINE, self::CUSTOM_LINE],
+                            position: 47,
+                            options: [
+                                ReferenceFieldType::MODULE => self::VOUCHER_MODULE,
+                                // **A generated line names no voucher** (§5.17,
+                                // XIV-73), for precisely the reason the header's
+                                // field says nothing either: a reference samples a
+                                // real record, and a single-use voucher drawn
+                                // twice would refuse the second order and take the
+                                // whole `tenant:reset` down with it. One line, one
+                                // demo order, and the same trap — a list of one
+                                // empty value is how a field says "not this one".
+                                'samples' => [null],
+                            ],
+                        ),
+                        // **What the voucher on this line took off it** (XIV-122).
+                        //
+                        // Derived, so it is shown and never typed into (XIV-20),
+                        // and that is the whole of its protection: the engine
+                        // restates it from the voucher on every save, so a
+                        // request forging a smaller figure into it has that
+                        // figure overwritten before anything is stored. §5.24
+                        // needed three mechanisms to protect a discount *row*
+                        // because the engine owned the whole row; this is a
+                        // column on a row the customer owns and edits freely,
+                        // which is exactly the case the derived flag was built
+                        // for and the case a subtotal's own figure has been since
+                        // XIV-16.
+                        //
+                        // **Stated rather than folded into the total.** A line
+                        // reading `1 × Chair @ 400.00 = 360.00` asks its reader
+                        // to take the arithmetic on trust; `400.00 − 40.00 =
+                        // 360.00` is something they can check. §5.24 refused the
+                        // same silence in the other mode, and this is that
+                        // decision arriving one level down.
+                        //
+                        // Not on a discount line: a generated row *is* the
+                        // discount, and a discount on a discount is a sentence
+                        // with no reading.
+                        new FieldBlueprint(
+                            key: self::LINE_DISCOUNT,
+                            width: 1,
+                            label: 'field.line_discount',
+                            type: 'currency',
+                            variants: [self::ARTICLE_LINE, self::CUSTOM_LINE],
+                            position: 48,
+                            derived: true,
+                        ),
                         new FieldBlueprint(
                             key: self::LINE_TOTAL,
-                            width: 2,
+                            width: 1,
                             label: 'field.line_total',
                             type: 'currency',
                             variants: [self::ARTICLE_LINE, self::CUSTOM_LINE, self::SUBTOTAL_LINE, self::DISCOUNT_LINE],
@@ -657,6 +759,12 @@ final class OrderModule implements ModuleProvider
                 // about vouchers — how much comes off is the voucher's business
                 // and where it lands is the engine's.
                 discountKind: self::DISCOUNT_LINE,
+                // And what a discount looks like on a *line* of it (XIV-122): the
+                // column the engine writes what came off that one line into. The
+                // module names it and says nothing else about it — how much comes
+                // off is still the voucher's business and where it lands is still
+                // the engine's.
+                lineDiscount: self::LINE_DISCOUNT,
                 description: 'description',
                 vatMode: self::VAT_MODE,
             ),

@@ -29,6 +29,7 @@ field:
     unit: Einheit
     unit_price: Einzelpreis
     tax_rate: MWST-Satz (%)
+    line_discount: Rabatt
     line_total: Positionssumme
     rate: Satz (%)
     taxable_net: Netto

@@ -37,6 +37,15 @@ use Xivi\Core\Entity\ModuleDefinition;
  * totals computed without its own discount. So there stays exactly one deriver
  * for a document's money, and what it does not know it asks.
  *
+ * **Two modes, one seam** ([XIV-122]). A discount either comes off the document
+ * as a whole — in which case there is no line for it to belong to and it gets one
+ * of its own — or off a single line that is already there, in which case reducing
+ * that line is the natural reading and adding a second one beside it would be a
+ * document saying the same thing twice. Which of the two it is belongs to
+ * whatever grants the discount, so it is stated in the answer ({@see Discount})
+ * rather than asked for in a second method here. The engine's half is unchanged
+ * by it: *how much comes off, and off what*.
+ *
  * **It is asked about every document, and most sources will say nothing.** `null`
  * means *not mine*, which is both the invoice that has no voucher field and the
  * order in a tenant that never installed vouchers; see {@see Discount} for why
@@ -61,16 +70,32 @@ interface DocumentDiscounts
      * What comes off this document, or null if this source has nothing to say
      * about it.
      *
-     * @param array<string, mixed> $fields  the record's own values, as the save has
-     *                                      them — the reference naming a voucher is
-     *                                      one of these
-     * @param Amount               $lineSum what the priced lines came to before any
-     *                                      discount, which is what a percentage is a
-     *                                      percentage *of*. It carries whatever the
-     *                                      line-total column carries, so it is a net
-     *                                      on a net-priced document and a gross on a
-     *                                      shelf-priced one (XIV-116) — and a tenth
-     *                                      off is a tenth off either way
+     * **Still one question and one method** ([XIV-122]). A line voucher and an
+     * order voucher are two answers rather than two questions: both are "what
+     * comes off this document", and both are decided from the same record in the
+     * same save. Asking twice would let a source answer one way about the header
+     * and another way about the lines, with nothing anywhere reconciling the two —
+     * and it would ask the ordering question this seam exists to avoid, since a
+     * percentage off the whole document has to be a percentage of what is left
+     * after the lines have been reduced.
+     *
+     * @param array<string, mixed>   $fields  the record's own values, as the save has
+     *                                        them — the reference naming a voucher is
+     *                                        one of these
+     * @param Amount                 $lineSum what the priced lines came to before any
+     *                                        discount, which is what a percentage is a
+     *                                        percentage *of*. It carries whatever the
+     *                                        line-total column carries, so it is a net
+     *                                        on a net-priced document and a gross on a
+     *                                        shelf-priced one (XIV-116) — and a tenth
+     *                                        off is a tenth off either way
+     * @param list<DiscountableLine> $lines   the lines that can be reduced, in the
+     *                                        order the document has them and with what
+     *                                        each charges. Generated discount rows are
+     *                                        **not** among them: they are this seam's
+     *                                        own output from the last save, and a
+     *                                        source offered its own answer back would
+     *                                        discount a discount
      */
-    public function on(ModuleDefinition $module, array $fields, Amount $lineSum): ?Discount;
+    public function on(ModuleDefinition $module, array $fields, Amount $lineSum, array $lines): ?Discount;
 }

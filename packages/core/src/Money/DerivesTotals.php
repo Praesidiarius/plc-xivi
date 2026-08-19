@@ -99,20 +99,39 @@ use Xivi\Core\Record\ValueDeriver;
  * a rappen that will not divide lands. See {@see self::discountRows()}, which is
  * where that is spelled out, and §5.24 for the argument.
  *
+ * **Or it takes money off one line** ([XIV-122]), which is the other of the two
+ * modes a voucher comes in and needs no line of its own: the line it reduces is
+ * already there. What that costs here is the shape of the loop rather than any
+ * new arithmetic — the reduction has to be known before the line's contribution
+ * to a subtotal and to its rate's VAT base can be, so the rows are walked twice
+ * with the seam asked in between. The reduction is written into the line's own
+ * discount column (`LineTotals::$lineDiscount`) and the line total under it is
+ * what is left, so the document shows `100.00 − 10.00 = 90.00` rather than a
+ * hundred-franc widget mysteriously coming to ninety.
+ *
+ * **Before VAT in both modes, and for one reason.** A reduced line joins its own
+ * rate's group carrying the reduced figure, so the tax is computed on what was
+ * actually charged; a document-wide discount becomes lines that join the same
+ * grouping. Neither ever leaves the table, which is the property that makes both
+ * of them intelligible to whoever has to check the document.
+ *
  * **How much comes off is not decided here.** {@see DocumentDiscounts} is asked,
- * and its answer is an amount and some lines — never a rate, never a share and
- * never a row of its own. That split is what keeps the voucher module out of the
- * arithmetic and this class out of the promotions business, and it is why there
- * is still exactly one deriver for a document's money: the ordering between "what
- * did the lines come to", "what is the voucher worth" and "what is the tax" is
- * strict in both directions, and derivers have no order (§5.9).
+ * and its answer is an amount off the document and an amount off each line —
+ * never a rate, never a share and never a row of its own. That split is what
+ * keeps the voucher module out of the arithmetic and this class out of the
+ * promotions business, and it is why there is still exactly one deriver for a
+ * document's money: the ordering between "what did the lines come to", "what is
+ * the voucher worth" and "what is the tax" is strict in both directions, and
+ * derivers have no order (§5.9).
  *
  * The rows of that kind that are already on the document are taken **out of the
  * sums** before the question is asked, and put back only if nobody claims them.
  * That is not tidiness: a relative voucher is a tenth of what the lines came to,
  * and counting last save's discount line in that would take a tenth off a total
  * that already had a tenth off it, once per save, for as long as somebody kept
- * editing the order.
+ * editing the order. The same sentence is true of the discount column one level
+ * down, and the same treatment answers it: an answer restates it, and no answer
+ * leaves it exactly as it was found.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
@@ -161,22 +180,37 @@ final readonly class DerivesTotals implements ValueDeriver, SafeToPreview
         // is written.
         $mode = VatMode::of($totals->vatMode === null ? null : ($derivation->fields[$totals->vatMode] ?? null));
 
+        /*
+         * **Two passes, and the second one is new** (XIV-122).
+         *
+         * [XIV-104] could do this in a single loop because everything a discount
+         * did was *appended*: the lines were summed, the seam was asked what came
+         * off the document, and the answer became rows underneath. A line voucher
+         * reduces a line that is already in that loop, so what a line contributes
+         * to the subtotal above it and to its rate's VAT base is not known until
+         * the seam has answered — and the seam cannot answer until it has been
+         * shown the lines.
+         *
+         * So the loop is split at exactly that point. The first pass works out
+         * what each row *charges*, which needs nothing from anybody; the seam is
+         * asked once, in between; the second pass takes the reductions off and
+         * places the money. Nothing else moved: the rounding, the subtotal rule,
+         * the per-rate grouping and the treatment of a row the engine wrote last
+         * time are the same statements in the same order, one indentation level
+         * further down the method.
+         */
         $lines = [];
-        // What the lines add up to. In exclusive mode that is the net total; in
-        // inclusive mode it is the gross one. Deliberately not named for either:
-        // it is the sum of the line-total column as printed, which is the one
-        // sentence true in both modes.
-        $lineSum = Amount::zero();
-        /** @var array<string, Amount> $byRate keyed by the rate as it is stored */
-        $byRate = [];
-        // The priced lines since the last subtotal, which is what the next one
-        // will say.
-        $block = Amount::zero();
-        // The discount lines a previous save wrote, by their index in `$lines`,
-        // so that they can be taken back out of it if this save is going to
-        // write them again (XIV-104).
-        /** @var array<int, array{id: int|null, amount: Amount, rate: string}> $carried */
+        /** @var array<int, Amount> $charged what a priced row charges before anything comes off it, by its place in $lines */
+        $charged = [];
+        /** @var array<int, int|null> $carried the discount rows a previous save wrote, and their ids */
         $carried = [];
+        /** @var list<DiscountableLine> $discountable the rows something may reduce, in document order */
+        $discountable = [];
+        // What the lines charge, which is what a percentage off the whole
+        // document is a percentage of. Before any reduction, deliberately: the
+        // source is the one that knows whether its own per-line answer should
+        // narrow this, and {@see DocumentDiscounts} says so.
+        $sold = Amount::zero();
 
         // `['data' => …] + $line` below rather than a fresh pair, so whatever
         // else the caller put on a row survives being derived. The live form
@@ -187,33 +221,16 @@ final readonly class DerivesTotals implements ValueDeriver, SafeToPreview
         foreach ($derivation->rowsOf($totals->collection) as $line) {
             $data = $line['data'];
             $amount = self::amountOf($data, $totals);
+            $index = \count($lines);
+            $lines[$index] = ['data' => $data] + $line;
 
             if ($amount === null) {
                 // Nothing to charge for. A comment line, and also a subtotal —
-                // which then says what the block above it came to and starts the
-                // next one.
-                $isSubtotal = $kindField !== null
-                    && $totals->subtotalKind !== null
-                    && ($data[$kindField] ?? null) === $totals->subtotalKind;
-
-                $data[$totals->lineTotal] = $isSubtotal ? (string) $block : null;
-
-                if ($isSubtotal) {
-                    $block = Amount::zero();
-                }
-
-                $lines[] = ['data' => $data] + $line;
-
+                // both of which are settled in the second pass, because what a
+                // subtotal says is what the block above it came to *after* the
+                // reductions have been taken off it.
                 continue;
             }
-
-            $data[$totals->lineTotal] = (string) $amount;
-            $lines[] = ['data' => $data] + $line;
-
-            $block = $block->plus($amount);
-
-            $rate = ($totals->taxRate === null ? null : Amount::of($data[$totals->taxRate] ?? null)) ?? Amount::zero();
-            $key = (string) $rate;
 
             // **A row the engine wrote last time is kept out of the sum until it
             // is known whether it is going to be written again** (XIV-104). It
@@ -224,24 +241,31 @@ final readonly class DerivesTotals implements ValueDeriver, SafeToPreview
             // for as long as somebody kept editing the order.
             if ($kindField !== null && $totals->discountKind !== null
                 && ($data[$kindField] ?? null) === $totals->discountKind) {
-                $carried[\count($lines) - 1] = ['id' => $line['id'] ?? null, 'amount' => $amount, 'rate' => $key];
+                $carried[$index] = $line['id'] ?? null;
+                $charged[$index] = $amount;
 
                 continue;
             }
 
-            $lineSum = $lineSum->plus($amount);
-            $byRate[$key] = ($byRate[$key] ?? Amount::zero())->plus($amount);
+            $charged[$index] = $amount;
+            // **A generated row is not offered back to the seam.** It is that
+            // seam's own answer from the last save, and a source shown it would
+            // be invited to discount a discount.
+            $discountable[] = new DiscountableLine($index, $data, $amount);
+            $sold = $sold->plus($amount);
         }
 
         // **What discounts this document, if anything does** — and the three
         // answers are all different (§5.9, {@see Discount}). Nothing to say
         // leaves every row exactly where it was, which is what keeps the discount
         // lines an invoice copied down from its order (§5.12) from being taken
-        // off it by a module that has never heard of vouchers. An answer, even an
-        // empty one, makes the rows of that kind the engine's: the ones that were
-        // there are dropped, and whatever is granted now is written in their
-        // place, reusing their ids so that editing an order does not churn a row
-        // per save.
+        // off it by a module that has never heard of vouchers, and keeps the
+        // reduction on a line it copied down with them. An answer, even an empty
+        // one, makes the rows of that kind and the discount column the engine's:
+        // the generated rows that were there are dropped, whatever is granted now
+        // is written in their place, reusing their ids so that editing an order
+        // does not churn a row per save, and every line's reduction is restated
+        // from the voucher rather than from what arrived.
         // **And only where the module said where such a line would go.** A
         // discount is a *row of a stated kind* (`discountKind`), so a module that
         // has not named one has nowhere to put a discount and is not asked
@@ -250,24 +274,75 @@ final readonly class DerivesTotals implements ValueDeriver, SafeToPreview
         // on them, which is a shape §5.5 has no reading for.
         $discount = $totals->discountKind === null
             ? null
-            : $this->discountOn($module, $derivation->fields, $lineSum);
+            : $this->discountOn($module, $derivation->fields, $sold, $discountable);
 
-        if ($discount === null) {
-            foreach ($carried as $row) {
-                $lineSum = $lineSum->plus($row['amount']);
-                $byRate[$row['rate']] = ($byRate[$row['rate']] ?? Amount::zero())->plus($row['amount']);
-            }
-        } else {
+        if ($discount !== null) {
             foreach (array_keys($carried) as $index) {
-                unset($lines[$index]);
+                unset($lines[$index], $charged[$index]);
+            }
+        }
+
+        // The second pass. Rows keep the keys the first pass gave them, because
+        // that is what a per-line answer is keyed by and what the removal above
+        // has just made non-contiguous.
+        $placed = [];
+        // What the lines add up to. In exclusive mode that is the net total; in
+        // inclusive mode it is the gross one. Deliberately not named for either:
+        // it is the sum of the line-total column as printed, which is the one
+        // sentence true in both modes.
+        $lineSum = Amount::zero();
+        /** @var array<string, Amount> $byRate keyed by the rate as it is stored */
+        $byRate = [];
+        // The priced lines since the last subtotal, which is what the next one
+        // will say.
+        $block = Amount::zero();
+
+        foreach ($lines as $index => $line) {
+            $data = $line['data'];
+            $amount = $charged[$index] ?? null;
+
+            if ($amount === null) {
+                $isSubtotal = $kindField !== null
+                    && $totals->subtotalKind !== null
+                    && ($data[$kindField] ?? null) === $totals->subtotalKind;
+
+                $data[$totals->lineTotal] = $isSubtotal ? (string) $block : null;
+
+                if ($isSubtotal) {
+                    $block = Amount::zero();
+                }
+
+                $placed[] = ['data' => $data] + $line;
+
+                continue;
             }
 
-            $lines = array_values($lines);
+            $off = self::offOneLine($discount, $index, $amount, $data, $totals);
 
-            foreach (self::discountRows($discount, $byRate, $totals, $kindField, array_column($carried, 'id')) as $row) {
+            if ($totals->lineDiscount !== null && $discount !== null) {
+                // **Null rather than 0.00 when nothing came off**, so that an
+                // undiscounted line shows an empty cell instead of a column of
+                // zeroes on every document this installation ever prints.
+                $data[$totals->lineDiscount] = $off->isZero() ? null : (string) $off;
+            }
+
+            $net = $amount->minus($off);
+            $data[$totals->lineTotal] = (string) $net;
+            $placed[] = ['data' => $data] + $line;
+
+            $block = $block->plus($net);
+            $lineSum = $lineSum->plus($net);
+
+            $rate = ($totals->taxRate === null ? null : Amount::of($data[$totals->taxRate] ?? null)) ?? Amount::zero();
+            $key = (string) $rate;
+            $byRate[$key] = ($byRate[$key] ?? Amount::zero())->plus($net);
+        }
+
+        if ($discount !== null) {
+            foreach (self::discountRows($discount, $byRate, $totals, $kindField, array_values($carried)) as $row) {
                 $amount = self::amountOf($row['data'], $totals) ?? Amount::zero();
                 $row['data'][$totals->lineTotal] = (string) $amount;
-                $lines[] = $row;
+                $placed[] = $row;
 
                 $lineSum = $lineSum->plus($amount);
                 $key = (string) (($totals->taxRate === null ? null : Amount::of($row['data'][$totals->taxRate] ?? null)) ?? Amount::zero());
@@ -275,7 +350,7 @@ final readonly class DerivesTotals implements ValueDeriver, SafeToPreview
             }
         }
 
-        $derivation->setRows($totals->collection, $lines);
+        $derivation->setRows($totals->collection, $placed);
 
         $taxes = self::taxesOf($byRate, $totals, $mode);
 
@@ -314,6 +389,65 @@ final readonly class DerivesTotals implements ValueDeriver, SafeToPreview
     }
 
     /**
+     * What comes off one line, floored at what that line charges (XIV-122).
+     *
+     * ### Where the figure comes from, and the two cases are different questions
+     *
+     * With an answer in hand the reduction is **restated from it**, which is what
+     * makes a line voucher un-editable by hand: a request forging a smaller figure
+     * into the discount column has that figure overwritten before anything is
+     * stored, exactly as a forged line total is. Without one — a module nothing
+     * discounts, or a source that says the document is not its — the column is
+     * read back as it stands, because that is a reduction somebody was given and
+     * this class is not the thing that may take it away. It is also what carries a
+     * discounted line onto the invoice made from it (§5.12): the invoice module
+     * grants no discounts and copies the column, and the line total follows from
+     * it without the invoice having to know what a voucher is.
+     *
+     * ### Floored rather than refused, which is a decision
+     *
+     * A fixed amount larger than the line it is applied to takes the whole line and
+     * stops. It does **not** refuse the save, and it does not turn the line
+     * negative. The reasoning is §5.24's, one level down: a negative line is money
+     * owed back to a customer and nothing downstream is built to hand any over, and
+     * a refusal would be the engine declining an arithmetic it can perform — the
+     * shop said "twenty francs off this", the line was worth fifteen, and fifteen
+     * off is plainly what was meant. §5.19 caps the percentage at 100 for the same
+     * reason, and this is the same ceiling reached from the other side.
+     *
+     * A line that charges nothing or less than nothing has nothing to take off, so
+     * it takes nothing — which is also what stops a negative custom line from
+     * being *deepened* by a voucher somebody dropped on it.
+     *
+     * @param array<string, mixed> $data
+     */
+    private static function offOneLine(
+        ?Discount $discount,
+        int $index,
+        Amount $amount,
+        array $data,
+        LineTotals $totals,
+    ): Amount {
+        if ($totals->lineDiscount === null) {
+            return Amount::zero();
+        }
+
+        $off = $discount === null
+            ? Amount::of($data[$totals->lineDiscount] ?? null)
+            : ($discount->perLine[$index] ?? null);
+
+        if ($off === null || !$off->isPositive() || !$amount->isPositive()) {
+            return Amount::zero();
+        }
+
+        // Compared by subtraction because that is what `Amount` offers, and a
+        // comparison method invented for one caller would be one more way to ask
+        // the same question — the same reasoning discountRows() gives for the
+        // document-wide cap.
+        return $off->minus($amount)->isPositive() ? $amount : $off;
+    }
+
+    /**
      * What a line charges, or null when it charges nothing.
      *
      * Rounded here, so that the lines printed on a document add up to the total
@@ -337,16 +471,20 @@ final readonly class DerivesTotals implements ValueDeriver, SafeToPreview
      * **The first source that claims the document owns it.** Two of them wanting
      * the same lines is an argument between modules and the engine is not where
      * it gets settled — the same sentence {@see ValueDeriver} already writes
-     * about two derivers wanting one field. Today there is one implementation and
-     * one field it can be reached through; the loop is here so that [XIV-122]'s
-     * line voucher can be a second one without this method changing.
+     * about two derivers wanting one field. Today there is still one
+     * implementation — [XIV-122]'s line voucher turned out to be a second *answer*
+     * from the same source rather than a second source, which is the better of the
+     * two outcomes: both modes are decided from one record in one save, and a
+     * second source answering separately about the header and the lines would have
+     * nothing anywhere reconciling them.
      *
-     * @param array<string, mixed> $fields
+     * @param array<string, mixed>   $fields
+     * @param list<DiscountableLine> $lines
      */
-    private function discountOn(ModuleDefinition $module, array $fields, Amount $lineSum): ?Discount
+    private function discountOn(ModuleDefinition $module, array $fields, Amount $lineSum, array $lines): ?Discount
     {
         foreach ($this->discounts as $source) {
-            $discount = $source->on($module, $fields, $lineSum);
+            $discount = $source->on($module, $fields, $lineSum, $lines);
 
             if ($discount !== null) {
                 return $discount;
@@ -458,13 +596,6 @@ final readonly class DerivesTotals implements ValueDeriver, SafeToPreview
                     (string) $rate,
                 );
             }
-        }
-
-        // And whatever the discount hands over as a line in its own right — a
-        // free article, which is a line at a quantity and a price of nothing
-        // rather than a subtraction, because that is what receiving one is.
-        foreach ($discount->lines as $line) {
-            $rows[] = self::discountRow($totals, $kindField, $line->description, $line->quantity, $line->price, null);
         }
 
         foreach ($rows as $index => $row) {

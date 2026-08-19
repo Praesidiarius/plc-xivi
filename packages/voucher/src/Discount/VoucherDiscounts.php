@@ -13,40 +13,72 @@ declare(strict_types=1);
 
 namespace Xivi\Voucher\Discount;
 
+use Xivi\Core\Entity\CollectionDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Money\Amount;
 use Xivi\Core\Money\Discount;
-use Xivi\Core\Money\DiscountLine;
+use Xivi\Core\Money\DiscountableLine;
 use Xivi\Core\Money\DocumentDiscounts;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordTitle;
 use Xivi\Voucher\VoucherModule;
 
 /**
- * What a voucher is worth on the document that names it (XIV-104).
+ * What a voucher is worth on the document that names it (XIV-104, XIV-122).
  *
  * The seam [XIV-103] said was one method call, and this is that method. It is
  * asked while a document's totals are being worked out
  * ({@see \Xivi\Core\Money\DerivesTotals}) and it answers in the only currency
- * the engine will take: **how much comes off, and which lines to add**. Where
- * the money lands — which VAT rate carries which share of it, which line absorbs
- * the leftover rappen, whether a discount is capped by the order it is used on —
- * is not decided here, because it is arithmetic about a document and there is one
- * place for that.
+ * the engine will take: **how much comes off the document, and how much comes off
+ * each line**. Where the money lands — which VAT rate carries which share of it,
+ * which line absorbs the leftover rappen, whether a discount is capped by what it
+ * is used on — is not decided here, because it is arithmetic about a document and
+ * there is one place for that.
  *
- * ### The three kinds, and why they are three lines of code
+ * ### Two modes, and the mode decides where a voucher may be applied
  *
- * A voucher is money off, a percentage off, or a free article (§5.19). The
- * product decision this ticket was given is that **every one of them is a line**,
- * and once that is settled the three collapse:
+ * [XIV-122] settled it, and the whole of the shape follows from one table:
  *
- * - **Absolute** is the amount, and there is nothing else to work out. A `-10.00`
- *   line is the whole feature.
- * - **Relative** is the same thing with the amount computed first: a tenth of
- *   what the lines came to. It is *not* a percentage carried down to the line, so
- *   nothing downstream has to know it was ever a percentage.
- * - **Free article** is a line at a quantity and a price of nothing, which needs
- *   no subtraction at all — the customer receives something and pays zero for it.
+ * | mode  | named on   | what it does          |
+ * | ----- | ---------- | --------------------- |
+ * | order | the header | adds its own line(s)  |
+ * | line  | one line   | reduces that line     |
+ *
+ * So this class reads two places instead of one. The document's own voucher field
+ * gives the order-mode answer, which is [XIV-104]'s `off` and is unchanged. Each
+ * line's voucher field gives that line's reduction. Both are the same lookup —
+ * "which field on this shape points at vouchers" — asked of two shapes, which is
+ * the whole reason {@see VoucherReference} takes a `ShapeDefinition`.
+ *
+ * **A voucher in the wrong place is worth nothing here and refused at the write.**
+ * A line voucher named on the header, or an order voucher named on a line, gets no
+ * money off — and the save that tried it is refused by
+ * {@see \Xivi\Voucher\Redemption\RedeemsVouchers} with a sentence saying which way
+ * round it goes. Both halves are needed and neither would do alone: a refusal
+ * cannot happen in a deriver ([XIV-104] is explicit about that, and this method
+ * runs on every keystroke), and silently discounting nothing would be a page
+ * showing a figure nobody can explain. What this method must not do is *guess* —
+ * an order voucher dropped on a line is not "probably meant for the order".
+ *
+ * ### The restriction is a restriction, not a target
+ *
+ * A line voucher may name an article, and then it may only go on a line carrying
+ * that article. Naming none lets it go on **any** line, custom lines included —
+ * which is the case the whole redesign exists for, because a custom line has no
+ * article and a negotiated discount is exactly what lands on one.
+ *
+ * A voucher applied to a line that breaks its restriction is worth nothing here
+ * and refused at the write, for the same reason and by the same class.
+ *
+ * ### The order voucher comes off what is left
+ *
+ * When both are on one document, the per-line reductions happen first and a
+ * percentage off the whole order is a percentage of what the lines come to
+ * **after** them. That is the only reading that is not arbitrary: "a tenth off
+ * this order" is a tenth of what the order costs, and what it costs already
+ * reflects the tenth somebody negotiated off one line. It also keeps the two from
+ * being able to add up to more than the document charges, which is a property the
+ * cap in the deriver then never has to rescue.
  *
  * ### What it deliberately does not do
  *
@@ -85,30 +117,31 @@ final readonly class VoucherDiscounts implements DocumentDiscounts
     {
     }
 
-    public function on(ModuleDefinition $module, array $fields, Amount $lineSum): ?Discount
+    public function on(ModuleDefinition $module, array $fields, Amount $lineSum, array $lines): ?Discount
     {
-        $field = $this->vouchers->fieldOn($module);
+        $header = $this->vouchers->fieldOn($module);
+        $rows = $this->linesOf($module);
 
-        if ($field === null) {
+        if ($header === null && $rows === null) {
             // Not ours. An invoice, a contact, an order in a tenant that never
             // bought vouchers — and, importantly, an invoice carrying discount
-            // lines copied down from the order it was made from (§5.12), which
-            // stay exactly as they were copied. See `Discount` for why this is a
-            // different answer from a discount worth nothing.
+            // lines and reduced lines copied down from the order it was made from
+            // (§5.12), which stay exactly as they were copied. See `Discount` for
+            // why this is a different answer from a discount worth nothing.
             return null;
         }
 
-        $id = $this->vouchers->idIn($module, $fields);
+        // **The lines first**, because the order voucher below is worth a share of
+        // what is left after them.
+        $perLine = $rows === null ? [] : $this->perLine($rows, $lines);
 
-        if ($id === null) {
-            // Ours, and empty: whoever was holding a voucher has taken it off
-            // again. The generated lines go with it.
-            return Discount::none();
+        foreach ($perLine as $off) {
+            $lineSum = $lineSum->minus($off);
         }
 
-        $voucher = $this->vouchers->record($id);
+        $voucher = $header === null ? null : $this->voucherIn($fields[$header] ?? null);
 
-        if ($voucher === null) {
+        if ($voucher === false) {
             // Named, and unreadable — the record was deleted or the module was
             // uninstalled. Nothing here can tell which, and neither may be read
             // as "no discount": the lines that are on the document stay on it,
@@ -117,85 +150,158 @@ final readonly class VoucherDiscounts implements DocumentDiscounts
             return null;
         }
 
+        if ($voucher === null) {
+            // Ours, and no order voucher on it: either nobody put one there, or
+            // whoever was holding one has taken it off again. Any line vouchers
+            // still stand — they are named somewhere else entirely.
+            return new Discount(perLine: $perLine);
+        }
+
         return new Discount(
-            off: $this->offOf($voucher, $lineSum),
+            off: self::offDocument($voucher, $lineSum),
             // **The voucher's own code**, which is its title (§5.19), written
             // into the line's description and stored there like any other line's
             // text. It is the same word in every language, it is what the person
             // holding the voucher recognises, and it is what makes the line
             // legible on a document two years later when the voucher itself has
             // been deleted.
+            //
+            // Only the order mode needs one. A line voucher says which voucher it
+            // was by being named on the line it reduced, in a column somebody can
+            // read, so a label would be the same fact printed twice.
             label: $this->titleOf($voucher),
-            lines: $this->linesOf($voucher),
+            perLine: $perLine,
         );
     }
 
     /**
-     * How much comes off the priced lines, or nothing for a voucher that takes
-     * nothing off.
+     * What comes off each line, keyed the way the deriver asked for it.
+     *
+     * A line contributes an entry only when it names a voucher that is readable,
+     * is in the line mode, and passes its own restriction. Everything else — an
+     * empty field, a deleted voucher, an order voucher dropped on a line, a
+     * restriction the line does not meet — contributes nothing, and the save is
+     * refused where a refusal is possible.
+     *
+     * @param list<DiscountableLine> $lines
+     *
+     * @return array<int, Amount>
+     */
+    private function perLine(CollectionDefinition $rows, array $lines): array
+    {
+        $off = [];
+
+        foreach ($lines as $line) {
+            $voucher = $this->voucherIn($this->vouchers->idIn($rows, $line->data));
+
+            if (!$voucher instanceof Record || !VoucherModule::isLineKind($voucher->get(VoucherModule::KIND))) {
+                continue;
+            }
+
+            $restriction = $this->vouchers->restrictionOf($voucher);
+
+            if ($restriction !== null && $restriction !== $this->vouchers->articleIn($rows, $line->data)) {
+                continue;
+            }
+
+            $amount = self::worthOf($voucher, $line->amount);
+
+            if ($amount !== null && $amount->isPositive()) {
+                $off[$line->index] = $amount;
+            }
+        }
+
+        return $off;
+    }
+
+    /**
+     * How much an order voucher takes off the priced lines, or nothing for one
+     * that takes nothing off.
      *
      * A percentage is resolved **against what the lines came to** and rounded
      * once, here, so that everything downstream is dealing in money. Which is
      * also what makes a percentage and an amount the same feature by the time
      * they reach the document: nothing below this line knows the difference.
+     *
+     * A voucher that is not in the order mode is worth nothing here — it is in the
+     * wrong place, and the save naming it there is refused rather than quietly
+     * reinterpreted.
      */
-    private function offOf(Record $voucher, Amount $lineSum): ?Amount
+    private static function offDocument(Record $voucher, Amount $lineSum): ?Amount
     {
-        return match ($voucher->get(VoucherModule::KIND)) {
-            VoucherModule::ABSOLUTE => Amount::of($voucher->get(VoucherModule::AMOUNT)),
-            VoucherModule::RELATIVE => self::percentOf($lineSum, Amount::of($voucher->get(VoucherModule::PERCENTAGE))),
-            default => null,
-        };
-    }
-
-    /** Null in, null out: a relative voucher with no percentage on it is worth nothing. */
-    private static function percentOf(Amount $lineSum, ?Amount $percentage): ?Amount
-    {
-        return $percentage === null ? null : $lineSum->percent($percentage)->rounded();
+        return VoucherModule::isOrderKind($voucher->get(VoucherModule::KIND))
+            ? self::worthOf($voucher, $lineSum)
+            : null;
     }
 
     /**
-     * The lines a voucher hands over as they stand, which today is the free
-     * article and nothing else.
+     * What a voucher is worth against a given figure, whatever kind it is.
      *
-     * **At a price of nothing rather than at the article's price with a matching
-     * subtraction**, which was the alternative and is worse in the one place it
-     * matters: two lines that have to be read together to see that they cancel,
-     * where one line says the whole thing. The quantity is the voucher's, because
-     * "two of them free" is a promotion somebody runs.
-     *
-     * The article is named rather than linked. A generated line pointing into the
-     * article module would need this package to know what an order calls its
-     * article column, which is precisely the dependency §3 forbids — and the
-     * *name* is the thing a reader of the document needs. It comes from
-     * {@see RecordTitle}, so it is whatever that customer calls their articles by,
-     * and it falls back to the voucher's own code when the article cannot be read
-     * at all.
-     *
-     * @return list<DiscountLine>
+     * **One method for both modes and both kinds**, which is worth pausing on:
+     * once a mode has decided *what* the figure is — the whole document in one
+     * case, one line in the other — the arithmetic is identical, and an amount and
+     * a percentage differ only in whether the figure is used. That is the same
+     * collapse [XIV-104] found between its three kinds, holding one axis further
+     * out.
      */
-    private function linesOf(Record $voucher): array
+    private static function worthOf(Record $voucher, Amount $against): ?Amount
     {
-        if ($voucher->get(VoucherModule::KIND) !== VoucherModule::FREE_ARTICLE) {
-            return [];
+        $kind = $voucher->get(VoucherModule::KIND);
+
+        if ($kind === VoucherModule::ORDER_AMOUNT || $kind === VoucherModule::LINE_AMOUNT) {
+            return Amount::of($voucher->get(VoucherModule::AMOUNT));
         }
 
-        $quantity = Amount::of($voucher->get(VoucherModule::QUANTITY));
+        $percentage = Amount::of($voucher->get(VoucherModule::PERCENTAGE));
 
-        if ($quantity === null || !$quantity->isPositive()) {
-            return [];
-        }
-
-        return [new DiscountLine($this->articleIn($voucher), $quantity, Amount::zero())];
+        // Null in, null out: a relative voucher with no percentage on it is worth
+        // nothing.
+        return $percentage === null ? null : $against->percent($percentage)->rounded();
     }
 
-    /** What the free article is called, or the voucher's own name if it cannot be read. */
-    private function articleIn(Record $voucher): string
+    /**
+     * The voucher an id names: the record, `null` for no id at all, and `false`
+     * for an id nothing can be read behind.
+     *
+     * Three states rather than two because the callers do three different things
+     * about them, and collapsing the last two would be the mistake §5.9 keeps
+     * warning about: "there is no voucher here" and "the voucher cannot be read"
+     * must not both mean *take the discount off*.
+     */
+    private function voucherIn(mixed $value): Record|false|null
     {
-        $id = $voucher->get(VoucherModule::ARTICLE);
-        $article = is_numeric($id) ? $this->vouchers->articleNamed((int) $id) : null;
+        $id = VoucherReference::idOf($value);
 
-        return $article ?? $this->titleOf($voucher);
+        if ($id === null) {
+            return null;
+        }
+
+        return $this->vouchers->record($id) ?? false;
+    }
+
+    /**
+     * Which of this module's collections has lines a voucher can go on.
+     *
+     * **Found rather than declared**, exactly as the header field is and for the
+     * same reason: a voucher package cannot know that an order calls its lines
+     * `lines`, and does not have to. A module that points a line at vouchers has
+     * said so in the customer's own definitions, and a list here would be a second
+     * answer that could disagree with them (§3, [XIV-13]).
+     *
+     * The first such collection wins, which is the same tie-break
+     * {@see VoucherReference::fieldOn()} makes one level down and is stable for
+     * the same reason: collections come back in the order the definitions hold
+     * them.
+     */
+    private function linesOf(ModuleDefinition $module): ?CollectionDefinition
+    {
+        foreach ($module->getCollections() as $collection) {
+            if ($this->vouchers->fieldOn($collection) !== null) {
+                return $collection;
+            }
+        }
+
+        return null;
     }
 
     private function titleOf(Record $voucher): string
