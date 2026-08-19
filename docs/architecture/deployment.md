@@ -389,6 +389,16 @@ merely looks it, and all three are in the two baselines rather than here:
   baseline is a fact rather than a loss. Their *conclusions* are in it: every
   `id` is an identity column, and `UniqueIndex` builds the expression indexes at
   runtime as it always did.
+- **A migration set is a schema plus the rows the schema is meaningless
+  without**, and that is the part a schema diff structurally cannot check. One
+  statement in the fifty-one seeded data: `tenant_profile`'s singleton row.
+  Every setting on that table is written by `UPDATE … WHERE id = 1`, so without
+  the row an administrator saves the company name or the installation's dashboard
+  layout, is told it worked, and nothing changes — no error anywhere, because an
+  `UPDATE` matching no rows is not one. `pg_dump --schema-only` was identical with
+  and without it. **The suite is what caught it**, which is the argument for
+  treating a green `bin/ci` as the real gate and the schema diff as the
+  supporting evidence rather than the other way round.
 - **What is genuinely lost is the argument, not the schema.** A diff proves the
   schema; nothing proves the reasoning, and fifty-one files of it collapsing into
   two is exactly the failure XIV-149 spent the same day guarding this brief
