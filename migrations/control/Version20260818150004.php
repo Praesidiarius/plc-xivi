@@ -13,7 +13,7 @@ use Doctrine\Migrations\AbstractMigration;
  * Two columns beside `state` on the module row, for the reason [XIV-7] put
  * `state` there: a blueprint is code and ships identically to every deployment,
  * so a price in `packages/invoice/` would be a price every installation inherits
- * and none of them chose (docs/architecture.md §6.5, §6.2).
+ * and none of them chose (docs/architecture/extensibility.md §6.5, §6.2).
  *
  * ## The two defaults are different, and the difference is the whole migration
  *

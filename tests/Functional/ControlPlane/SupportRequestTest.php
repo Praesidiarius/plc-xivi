@@ -33,7 +33,7 @@ use Xivi\ControlPlane\Support\SupportTicketCollector;
 
 /**
  * An operator sees what every customer has asked, and can answer (XIV-123,
- * docs/architecture.md §8.17).
+ * docs/architecture/identity-and-access.md §8.17).
  *
  * The operator's half of the ticket.
  * {@see \App\Tests\Functional\Tenant\SupportTicketTest} proves that a customer

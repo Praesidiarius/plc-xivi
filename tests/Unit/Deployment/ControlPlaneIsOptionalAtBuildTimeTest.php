@@ -18,7 +18,7 @@ use Symfony\Component\Finder\Finder;
 
 /**
  * **The application's configuration must not name a class the customer-facing
- * build does not have** (XIV-96, docs/architecture.md §4.4).
+ * build does not have** (XIV-96, docs/architecture/deployment.md §4.4).
  *
  * ## What this is for, and why deptrac is not it
  *

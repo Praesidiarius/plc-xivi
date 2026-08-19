@@ -27,7 +27,7 @@ use Xivi\ControlPlane\Security\OperatorCreator;
 
 /**
  * An operator can say something, and can see what they have said (XIV-120,
- * docs/architecture.md §8.16).
+ * docs/architecture/identity-and-access.md §8.16).
  *
  * The operator's half of the ticket.
  * {@see \App\Tests\Functional\Tenant\NoticeWidgetTest} proves a notice arrives on

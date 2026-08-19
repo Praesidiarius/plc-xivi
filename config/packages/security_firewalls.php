@@ -8,7 +8,7 @@ use Xivi\ControlPlane\XiviControlPlaneBundle;
 
 /*
  * **Every firewall this installation has, in the order that decides which one
- * takes a request** (XIV-57, XIV-96, docs/architecture.md §8.9 and §4.4).
+ * takes a request** (XIV-57, XIV-96, docs/architecture/identity-and-access.md §8.9 and §4.4).
  *
  * ### Why the firewalls are a PHP file and the rest of `security.yaml` is not
  *

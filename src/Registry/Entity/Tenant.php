@@ -20,7 +20,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 /**
  * One customer. Lives in the control-plane database only — never in a tenant
- * database (docs/architecture.md §4).
+ * database (docs/architecture/deployment.md §4).
  *
  * **This is the class that decided where XIV-60's boundary falls**, so it is worth
  * knowing why it is in `src/` rather than in `packages/control-plane` with the
@@ -77,7 +77,7 @@ class Tenant
      * The tenant's database password, encrypted with TenantSecretCipher.
      *
      * Nullable in the schema so the column could be added without a destructive
-     * migration (docs/architecture.md §4, expand/contract); required in practice — a tenant
+     * migration (docs/architecture/deployment.md §4, expand/contract); required in practice — a tenant
      * without one cannot be connected to and has to be re-provisioned.
      */
     #[ORM\Column(name: 'database_password', type: 'text', nullable: true)]

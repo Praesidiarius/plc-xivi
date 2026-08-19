@@ -21,7 +21,7 @@ use Xivi\Core\Record\RecordRepository;
 
 /**
  * What a customer's installed module could take from its blueprint, and taking
- * it (XIV-70, docs/architecture.md §7.2.1).
+ * it (XIV-70, docs/architecture/open-questions.md §7.2.1).
  *
  * ### The rule this is built on top of rather than around
  *

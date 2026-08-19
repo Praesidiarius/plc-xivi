@@ -589,6 +589,18 @@ lands in `Unreleased` here.
 
 ### Changed
 
+- **The architecture brief is a map now, and §4–§8 live beside it** ([XIV-149]) —
+  `docs/architecture.md` had reached 13,539 lines, and the standing instruction to
+  read it before starting work meant ~210,000 tokens of reading before anybody
+  wrote a line of code. It is now 945 lines: the non-negotiable constraints, the
+  code layout, the status, and a table saying where the rest is.
+  §4 *Deployment*, §5 *Data model*, §6 *Extensibility*, §7 *Open questions* and
+  §8 *Identity and access* are one file each in `docs/architecture/`.
+  **Not a word of their content changed** — the split was verified byte for byte,
+  and section numbers are untouched, so every `§5.9` cited in a comment, a test or
+  an issue still names exactly what it named before. References that carried the
+  file path were rewritten to the file the section now lives in (166 of them, plus
+  18 anchor links). Condensing the content is separate and still to come.
 - **Markdown is rendered in one place now** ([XIV-131]) — the converter, the
   raw-HTML escaping and the sanitizer policy moved out of the email renderer into
   a single core service that email and formatted fields share. **No behaviour
@@ -637,7 +649,7 @@ lands in `Unreleased` here.
   not an abandoned plugin plan.
 - **An uploadable vertical is a *shape pack*, not a preset — and it is blocked on
   the metadata editor rather than on a file format** ([XIV-141],
-  [§6.6](docs/architecture.md#66-a-vertical-as-data-and-whether-it-can-be-uploaded-xiv-141)).
+  [§6.6](docs/architecture/extensibility.md#66-a-vertical-as-data-and-whether-it-can-be-uploaded-xiv-141)).
   A `ModulePreset` names a subset of a module's own fields, so a shareable "Law
   Firm preset" can only ever mean *Contact with fewer fields*. §6.6 sets the
   boundary a pack would have — it may do nothing a customer could not do by hand
@@ -677,6 +689,7 @@ lands in `Unreleased` here.
 [XIV-119]: https://xivi.youtrack.cloud/issue/XIV-119
 [XIV-127]: https://xivi.youtrack.cloud/issue/XIV-127
 [XIV-136]: https://xivi.youtrack.cloud/issue/XIV-136
+[XIV-149]: https://xivi.youtrack.cloud/issue/XIV-149
 
 ## Releases
 

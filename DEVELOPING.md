@@ -9,7 +9,8 @@ Three other documents, and the line between them:
 
 | | |
 | --- | --- |
-| [`docs/architecture.md`](docs/architecture.md) | The design brief — *why* every decision was made, cited by section number throughout the issue tracker. **Read the relevant sections before designing anything.** |
+| [`docs/architecture.md`](docs/architecture.md) | The design brief's entry point — the non-negotiable constraints, the code layout, and a map of the rest. |
+| [`docs/architecture/`](docs/architecture) | §4–§8, one file per area: deployment, data model, extensibility, open questions, identity and access. Cited by section number throughout the issue tracker. **Read the sections you need, never the whole brief** — together they are ~140,000 words ([XIV-149]). |
 | [`AGENTS.md`](AGENTS.md) | The conventions, and the two or three things that mislead somebody who has only read the code. Written for a coding agent and worth a human's two minutes. |
 | [The documentation site](https://praesidiarius.github.io/plc-xivi-docs/) | For whoever deploys or uses an installation: configuration, hostnames, deploying, the command reference. |
 
@@ -257,7 +258,7 @@ one at a time with the instance still serving, so tenant migrations are
 drop a table or a column, rename either, or add `NOT NULL` to an existing column.
 `tests/Unit/TenantMigrationsAreAdditiveTest.php` refuses the ones that do. The
 window this protects, and what it cannot see, is
-[§4.2](docs/architecture.md#42-what-a-deploy-has-to-do-and-where-each-part-of-it-runs-xiv-61).
+[§4.2](docs/architecture/deployment.md#42-what-a-deploy-has-to-do-and-where-each-part-of-it-runs-xiv-61).
 
 ## Tests and CI
 

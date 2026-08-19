@@ -29,7 +29,7 @@ a contact or an invoice looks like.
 | --- | --- |
 | **📖 [Documentation](https://praesidiarius.github.io/plc-xivi-docs/)** | Installing Xivi, running an installation, and what a record, a module and a tenant actually are. **Start here if you want to *use* this rather than change it.** Its source is [plc-xivi-docs](https://github.com/Praesidiarius/plc-xivi-docs). |
 | **[DEVELOPING.md](DEVELOPING.md)** | Working on the code: the stack, the test suite, `bin/ci`, the package layout, the tooling this project ships for itself. |
-| **[docs/architecture.md](docs/architecture.md)** | The design brief — the decisions this repository is an implementation of. Read it before designing anything; the code comments cite its section numbers. |
+| **[docs/architecture.md](docs/architecture.md)** | The design brief — the decisions this repository is an implementation of. It opens with a map of the rest, which lives one file per area in [`docs/architecture/`](docs/architecture). Code comments cite section numbers; **read the sections they name, not the whole brief.** |
 | **[AGENTS.md](AGENTS.md)** | The conventions, and the handful of things that mislead somebody who has only read the code. Written for a coding agent, worth a human's two minutes. |
 | **[CHANGELOG.md](CHANGELOG.md)** | What has been built and when. It holds what has not shipped yet and indexes the released versions under [docs/changelog/](docs/changelog/). |
 

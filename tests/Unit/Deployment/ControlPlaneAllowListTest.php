@@ -19,7 +19,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * What the control plane's address allow-list admits (XIV-124,
- * docs/architecture.md §8.9).
+ * docs/architecture/identity-and-access.md §8.9).
  *
  * The policy on its own, with no kernel and no request: does a list of addresses
  * and ranges admit the right callers, in both address families, and does the

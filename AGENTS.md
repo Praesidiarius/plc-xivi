@@ -2,7 +2,11 @@
 
 Orientation for a coding agent. Short on purpose — this is what gets got wrong
 without being told, not documentation. The long version of *why* anything here is
-the way it is lives in [`docs/architecture.md`](docs/architecture.md), and the
+the way it is lives in [`docs/architecture.md`](docs/architecture.md) — which is a
+map, with §4–§8 in [`docs/architecture/`](docs/architecture) one file per area.
+**Read the sections your work touches, never the whole brief**: it is ~140,000
+words, and a comment citing §5.9 is telling you which file to open, not to open
+them all ([XIV-149]). The
 long version of *how to work here* — the stack, the suite, the layout, the
 tooling — is [`DEVELOPING.md`](DEVELOPING.md).
 

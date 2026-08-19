@@ -18,7 +18,7 @@ use Symfony\Component\DependencyInjection\EnvVarProcessorInterface;
 
 /**
  * How {@see TrustedHosts} reaches `framework.trusted_hosts` (XIV-93,
- * docs/architecture.md §4.3).
+ * docs/architecture/deployment.md §4.3).
  *
  * ## Why an environment-variable processor and not something simpler
  *

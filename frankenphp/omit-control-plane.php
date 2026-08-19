@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 /*
  * **Takes the administration surface out of an already-installed vendor tree**
- * (XIV-96, docs/architecture.md §4.4).
+ * (XIV-96, docs/architecture/deployment.md §4.4).
  *
  * Run once, inside the `frankenphp_public_builder` stage, between
  * `composer install` and `composer dump-autoload`. It touches exactly one file —

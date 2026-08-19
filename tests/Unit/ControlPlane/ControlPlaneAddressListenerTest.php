@@ -25,7 +25,7 @@ use Xivi\ControlPlane\Security\ControlPlaneHost;
 
 /**
  * What a refused control-plane request gets, and what it leaves behind
- * (XIV-124, docs/architecture.md §8.9).
+ * (XIV-124, docs/architecture/identity-and-access.md §8.9).
  *
  * The sibling of {@see \App\Tests\Unit\Deployment\UntrustedHostListenerTest} and
  * arranged the same way, because it is the same division of labour: **the

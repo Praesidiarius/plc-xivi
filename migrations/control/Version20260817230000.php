@@ -20,7 +20,7 @@ use Doctrine\Migrations\AbstractMigration;
  * without `collected_at` beside it, the failure state is a fact about the attempt
  * rather than about the tenant, and a customer nobody has collected yet has no
  * row at all — which is the state five nullable columns on `tenant` could not
- * have said. See docs/architecture.md §8.11 and `Xivi\ControlPlane\Entity\TenantUsage`.
+ * have said. See docs/architecture/identity-and-access.md §8.11 and `Xivi\ControlPlane\Entity\TenantUsage`.
  *
  * Nothing is backfilled and nothing needs to be: an empty table is exactly
  * "nobody has been collected yet", the page draws that as *not collected yet*,

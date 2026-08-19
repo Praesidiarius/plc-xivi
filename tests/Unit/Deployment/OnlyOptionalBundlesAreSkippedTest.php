@@ -20,7 +20,7 @@ use Symfony\Component\Filesystem\Filesystem;
 
 /**
  * **The kernel skips a bundle that may legitimately be absent, and nothing
- * else** (XIV-111, docs/architecture.md §4.4).
+ * else** (XIV-111, docs/architecture/deployment.md §4.4).
  *
  * ## The risk this test exists to cover is silence
  *

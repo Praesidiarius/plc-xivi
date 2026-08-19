@@ -20,7 +20,7 @@ use Doctrine\Migrations\AbstractMigration;
  * The unique index is the whole safety mechanism. Allocation is one statement —
  * `INSERT ... ON CONFLICT DO UPDATE ... RETURNING` — and the index is what turns
  * the second of two simultaneous inserts into an update of the first one's row,
- * under a lock the database takes and PHP never sees (docs/architecture.md §5.10).
+ * under a lock the database takes and PHP never sees (docs/architecture/data-model.md §5.10).
  *
  * Per tenant, because the sequence belongs to the customer's bookkeeping rather
  * than to the platform (§4).

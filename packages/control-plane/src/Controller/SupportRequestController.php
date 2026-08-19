@@ -28,7 +28,7 @@ use Xivi\ControlPlane\View\SupportRequestListing;
 
 /**
  * Where an operator reads what customers have asked, and answers (XIV-123,
- * docs/architecture.md §8.17).
+ * docs/architecture/identity-and-access.md §8.17).
  *
  * The fifth page of the console and the second that is not merely reading. It
  * completes [XIV-120]'s pair: that one is where an operator says something to

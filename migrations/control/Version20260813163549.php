@@ -9,7 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 /**
  * The tenant registry: one row per customer, replacing per-domain .env files
- * (docs/architecture.md §4).
+ * (docs/architecture/deployment.md §4).
  */
 final class Version20260813163549 extends AbstractMigration
 {

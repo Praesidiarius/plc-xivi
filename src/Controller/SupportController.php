@@ -25,7 +25,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * How a customer reaches whoever runs their installation (XIV-123,
- * docs/architecture.md §8.17).
+ * docs/architecture/identity-and-access.md §8.17).
  *
  * The screen this whole ticket exists for. Before it there was **no channel from
  * a customer to the operator at all** — not a ticket, not a contact form, not an

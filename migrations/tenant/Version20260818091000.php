@@ -24,7 +24,7 @@ use Doctrine\Migrations\AbstractMigration;
  * The control plane is five tables in one database. This is eight tables in
  * *every customer's* database, and until this ticket nobody had checked whether
  * the drift was there, because the easy way to check does not work: a console
- * command has no resolved tenant (docs/architecture.md §7.4), so
+ * command has no resolved tenant (docs/architecture/open-questions.md §7.4), so
  * `doctrine:schema:validate --em=tenant` has nothing to connect to. It is
  * `tenant:schema:validate` that closes that gap — it enters each customer
  * through `TenantSwitcher::runFor()` and runs Doctrine's own validator inside —
@@ -178,7 +178,7 @@ final class Version20260818091000 extends AbstractMigration
      * The way back.
      *
      * More load-bearing here than in the control plane, because this one lands
-     * in every customer's database at once (docs/architecture.md §4) — a change
+     * in every customer's database at once (docs/architecture/deployment.md §4) — a change
      * that could only go forwards would have to be right the first time for all
      * of them simultaneously.
      *

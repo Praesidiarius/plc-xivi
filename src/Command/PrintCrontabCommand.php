@@ -25,7 +25,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * The crontab this build needs, and which of its jobs anything is watching
- * (XIV-126, docs/architecture.md §4.5).
+ * (XIV-126, docs/architecture/deployment.md §4.5).
  *
  * ## Why the crontab is printed rather than described
  *
@@ -183,7 +183,7 @@ final readonly class PrintCrontabCommand
      */
     private function header(SymfonyStyle $io, int $jobs, int $watched): void
     {
-        $io->writeln('# The cron entries this build of Xivi needs (docs/architecture.md §4.5).');
+        $io->writeln('# The cron entries this build of Xivi needs (docs/architecture/deployment.md §4.5).');
         $io->writeln('# Printed by `bin/console deploy:crontab`, from the list that ships with the');
         $io->writeln('# release, so it is what this version needs rather than what a runbook remembers.');
         $io->writeln('#');

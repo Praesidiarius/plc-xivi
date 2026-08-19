@@ -28,7 +28,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 /**
  * **That a customer's instance can read an operator's answer with the privileges
  * it already has, and still cannot write anything** (XIV-123,
- * docs/architecture.md §8.17).
+ * docs/architecture/identity-and-access.md §8.17).
  *
  * ## The claim this class exists to make checkable
  *

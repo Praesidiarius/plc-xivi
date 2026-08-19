@@ -21,7 +21,7 @@ use Symfony\Component\HttpFoundation\Request;
 
 /**
  * What the pattern admits, and — the half that takes an installation off the air
- * — what it refuses (XIV-93, docs/architecture.md §4.3).
+ * — what it refuses (XIV-93, docs/architecture/deployment.md §4.3).
  *
  * ## The two directions are not equally dangerous, so they are not tested equally
  *

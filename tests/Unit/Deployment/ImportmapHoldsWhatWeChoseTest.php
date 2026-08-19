@@ -141,7 +141,7 @@ final class ImportmapHoldsWhatWeChoseTest extends TestCase
         self::assertSame(
             ['chart.js'],
             array_values($charting),
-            "This application draws one chart, with one library (docs/architecture.md §8.3.1).\n"
+            "This application draws one chart, with one library (docs/architecture/identity-and-access.md §8.3.1).\n"
             . "A second one here means two ways to draw the same thing, and two sets of megabytes\n"
             . "in every customer's browser.\n",
         );
@@ -162,7 +162,7 @@ final class ImportmapHoldsWhatWeChoseTest extends TestCase
             . "The recipe offers four and `assets/controllers.json` picks one; the rest are downloaded\n"
             . "into assets/vendor/ and served to nobody. If a package was just added, a Flex recipe has\n"
             . "regenerated this file — check `git diff importmap.php` and keep only the one in use.\n"
-            . "The reasoning is in docs/architecture.md §5.4.\n",
+            . "The reasoning is in docs/architecture/data-model.md §5.4.\n",
         );
     }
 }

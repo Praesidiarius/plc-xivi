@@ -11,7 +11,7 @@ use Doctrine\Migrations\AbstractMigration;
  * The state of each module, platform-wide (XIV-7).
  *
  * One table in the control plane, not a column per tenant: how far along a module
- * is is the same answer for everybody (docs/architecture.md §6.2).
+ * is is the same answer for everybody (docs/architecture/extensibility.md §6.2).
  *
  * Nothing is seeded. A module with no row is in development, which is the default
  * a new module is supposed to get without anybody writing it down — so an empty

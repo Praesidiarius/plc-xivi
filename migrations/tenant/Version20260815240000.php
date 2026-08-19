@@ -11,7 +11,7 @@ use Doctrine\Migrations\AbstractMigration;
  * The .docx templates a customer's documents are made from (XIV-4).
  *
  * The file lives in this column, in the customer's own database. That is the
- * whole of the file-storage decision for now (docs/architecture.md §5.7): templates are
+ * whole of the file-storage decision for now (docs/architecture/data-model.md §5.7): templates are
  * small and few, and keeping them here means the isolation §4 already provides
  * costs nothing extra — no shared volume, no path to get wrong, and backup and
  * export-on-churn keep working per customer with nothing added.

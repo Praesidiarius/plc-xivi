@@ -15,7 +15,7 @@ namespace App\Monitoring;
 
 /**
  * One command this build expects to find in a crontab (XIV-126,
- * docs/architecture.md §4.5).
+ * docs/architecture/deployment.md §4.5).
  *
  * Three strings, and each of them is here because something outside this
  * repository has to be told it.

@@ -571,7 +571,7 @@ field:
     remove_none_hold: No records currently hold a value for it.
     remove_note: >-
         Nothing here deletes data. Permanently removing the values is a separate
-        operation and does not exist yet — see docs/architecture.md §7.2.
+        operation and does not exist yet — see docs/architecture/open-questions.md §7.2.
     remove_confirm: Remove the field
     # Sections (XIV-119). A form with twenty-five fields in one column is a form
     # nobody can find anything in, and these sentences carry the two facts

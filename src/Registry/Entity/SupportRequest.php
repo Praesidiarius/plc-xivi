@@ -18,7 +18,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 /**
  * A customer's question as an operator meets it, and what the operator has done
- * about it (XIV-123, docs/architecture.md §8.17).
+ * about it (XIV-123, docs/architecture/identity-and-access.md §8.17).
  *
  * The control-plane half of {@see \App\Tenant\Entity\SupportTicket}. The
  * customer's row is written in their own database because §4.4 leaves a

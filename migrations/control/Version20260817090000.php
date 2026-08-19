@@ -13,7 +13,7 @@ use Doctrine\Migrations\AbstractMigration;
  * The first table in this database that holds an identity, and the first one in
  * the system that holds an identity belonging to nobody in particular's
  * customer. Every other person who can sign in is a row in `app_user` inside one
- * tenant's own database (docs/architecture.md §8.1); this is the exception the
+ * tenant's own database (docs/architecture/identity-and-access.md §8.1); this is the exception the
  * brief argues for in §8.9, and the reason it is an exception rather than a
  * relaxation of the rule is that its subject matter is the set of tenants and no
  * tenant's database is the right place for that.

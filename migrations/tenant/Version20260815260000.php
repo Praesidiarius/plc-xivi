@@ -11,7 +11,7 @@ use Doctrine\Migrations\AbstractMigration;
  * Collection rows carry a position (XIV-21).
  *
  * Data-driven, and it has to be: a collection's table is created per customer by
- * the installer rather than by a migration (docs/architecture.md §5), so which tables exist
+ * the installer rather than by a migration (docs/architecture/data-model.md §5), so which tables exist
  * here is a question only this database can answer. `shape_definition` knows —
  * every row with `shape_kind = 'collection'` names one.
  *

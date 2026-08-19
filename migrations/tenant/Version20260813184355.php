@@ -11,7 +11,7 @@ use Doctrine\Migrations\AbstractMigration;
  * The first tenant-side table: the people who can sign in to this customer's
  * installation. Users live here rather than in the control plane, so that no
  * customer's names, emails or password hashes sit in a shared database
- * (docs/architecture.md §4).
+ * (docs/architecture/deployment.md §4).
  */
 final class Version20260813184355 extends AbstractMigration
 {

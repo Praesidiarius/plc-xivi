@@ -20,7 +20,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
  * The refusal, and the place a container start asks for it (XIV-61,
- * docs/architecture.md §4.2).
+ * docs/architecture/deployment.md §4.2).
  *
  * ## Why a console command called from the entrypoint, and not something earlier
  *
@@ -110,7 +110,7 @@ final readonly class CheckDeploymentSecretsCommand
             'Refusing to start. This check runs only at APP_ENV=prod — development, the test'
             . "\nsuite and bin/ci run on these placeholders on purpose, and are unaffected."
             . "\n\nSee https://praesidiarius.github.io/plc-xivi-docs/running/configuration/"
-            . "\n(\"Before deploying anywhere real\"), and docs/architecture.md §4.2.",
+            . "\n(\"Before deploying anywhere real\"), and docs/architecture/deployment.md §4.2.",
         );
 
         return Command::FAILURE;

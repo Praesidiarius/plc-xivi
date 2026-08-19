@@ -26,7 +26,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
  * Users live in the tenant database, not the control plane. Pooling them
  * centrally would put customer names, emails and password hashes into one shared
  * database while claiming physical isolation for everything else
- * (docs/architecture.md §4) — and it would make export-on-churn stop being a
+ * (docs/architecture/deployment.md §4) — and it would make export-on-churn stop being a
  * single pg_dump. The cost is that the same person at two customers is two rows,
  * which for a B2B CRM is the honest representation anyway.
  *

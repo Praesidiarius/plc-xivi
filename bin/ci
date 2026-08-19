@@ -116,7 +116,7 @@ fi
 # ---
 #
 # **Content-only branches are exempt, and that is a decision rather than a
-# loophole** (XIV-65, docs/architecture.md §8.13).
+# loophole** (XIV-65, docs/architecture/identity-and-access.md §8.13).
 #
 # The landing page has words on it, and words get edited. A comma moved on a
 # signup form is not something to write in a file that documents an ERP — the
@@ -756,7 +756,7 @@ if [ "$build_prod_image" = true ]; then
 
 	docker build --target frankenphp_prod -t "${IMAGES_PREFIX}xivi-prod-check" "${build_secret[@]}" .
 
-	# **And the customer-facing one** (XIV-96, docs/architecture.md §4.4).
+	# **And the customer-facing one** (XIV-96, docs/architecture/deployment.md §4.4).
 	#
 	# There are two production images: the internal one above, which contains
 	# the administration surface, and this one, which does not. Building only

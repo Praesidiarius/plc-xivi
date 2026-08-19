@@ -34,7 +34,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  * tenant rather than once per deploy.
  *
  * Every schema change lands for every tenant, so tenant migrations must be
- * expand/contract — never destructive in a single step (docs/architecture.md §4).
+ * expand/contract — never destructive in a single step (docs/architecture/deployment.md §4).
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
@@ -167,7 +167,7 @@ final readonly class TenantMigrator
 
         // Built per call rather than cached: the factory holds on to the schema
         // and metadata storage of the database it first saw, which under a
-        // long-running worker would be the previous tenant's (docs/architecture.md §7.4).
+        // long-running worker would be the previous tenant's (docs/architecture/open-questions.md §7.4).
         return DependencyFactory::fromEntityManager(
             new ConfigurationArray($config),
             new ExistingEntityManager($this->entityManager),

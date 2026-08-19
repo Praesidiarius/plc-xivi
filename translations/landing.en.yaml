@@ -1,7 +1,7 @@
 # The landing page's words (XIV-65).
 #
 # **A catalogue of its own, and that is the changelog decision made structural**
-# (docs/architecture.md §8.13). `bin/ci` requires every branch to add a CHANGELOG
+# (docs/architecture/identity-and-access.md §8.13). `bin/ci` requires every branch to add a CHANGELOG
 # entry, which is right for anything an ERP's readers have to act on and absurd
 # for a copy edit to a signup form — and a gate answered routinely with
 # `--no-changelog` stops being a gate. So the page's copy lives here, apart from

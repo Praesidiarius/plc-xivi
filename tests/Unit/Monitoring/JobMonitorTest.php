@@ -23,7 +23,7 @@ use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 
 /**
  * What a ping is, and what it deliberately is not (XIV-126,
- * docs/architecture.md §4.5).
+ * docs/architecture/deployment.md §4.5).
  *
  * Three claims are made about this feature that only a test can hold to:
  *

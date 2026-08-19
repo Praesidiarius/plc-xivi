@@ -16,7 +16,7 @@ use Doctrine\Migrations\AbstractMigration;
  * a name, a subject and a Markdown body — rather than authored in Word and
  * uploaded, since an email has no layout worth designing and re-uploading a
  * .docx to fix a typo would be ceremony bought with nothing
- * (docs/architecture.md §5.13).
+ * (docs/architecture/data-model.md §5.13).
  *
  * `body` is `TEXT` rather than a length: nobody can say in advance how long a
  * dunning letter runs, and Postgres stores a short text exactly as it stores a

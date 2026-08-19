@@ -19,7 +19,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * What the guard refuses, and — the half that is easier to get wrong — what it
- * lets through (XIV-61, docs/architecture.md §4.2).
+ * lets through (XIV-61, docs/architecture/deployment.md §4.2).
  *
  * ## Two kinds of test here, and the second is the one that matters
  *

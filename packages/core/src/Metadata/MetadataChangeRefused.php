@@ -86,7 +86,7 @@ final class MetadataChangeRefused extends \RuntimeException
         return self::of(
             sprintf(
                 'The field "%s" came with the module and cannot be removed. Fields you added yourself can be '
-                . '(docs/architecture.md §7.2).',
+                . '(docs/architecture/open-questions.md §7.2).',
                 $key,
             ),
             'metadata.system_field',
@@ -315,7 +315,7 @@ final class MetadataChangeRefused extends \RuntimeException
             sprintf(
                 'The field "%s" came with the module, and its options are part of what the module does — the '
                 . 'states it moves records between, the kinds of record it knows. You can add options and '
-                . 'rename them; removing one is not offered (docs/architecture.md §5.4).',
+                . 'rename them; removing one is not offered (docs/architecture/data-model.md §5.4).',
                 $key,
             ),
             'metadata.options_are_the_modules',
@@ -554,7 +554,7 @@ final class MetadataChangeRefused extends \RuntimeException
                 'The field "%s" came with the module, and its options are part of what the module does — the '
                 . 'states it moves records between, the kinds of record it knows. It cannot take them from a '
                 . 'list you maintain. Add a field of your own and point that at the list instead '
-                . '(docs/architecture.md §5.4).',
+                . '(docs/architecture/data-model.md §5.4).',
                 $key,
             ),
             'metadata.list_is_the_modules',
@@ -790,7 +790,7 @@ final class MetadataChangeRefused extends \RuntimeException
             sprintf(
                 '"%s" is a field of the collection "%s", and periods there cannot be made exclusive: within '
                 . 'one parent record and across the whole table are different rules and the engine will not '
-                . 'guess (docs/architecture.md §7).',
+                . 'guess (docs/architecture/open-questions.md §7).',
                 $key,
                 $shape,
             ),

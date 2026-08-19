@@ -7,7 +7,7 @@
 # the fonts — everything the template was made in Word for.
 #
 # It is also MIT, as is this bundle, where every pure-PHP PDF library on offer is
-# LGPL or GPL (docs/architecture.md §5.7).
+# LGPL or GPL (docs/architecture/data-model.md §5.7).
 framework:
     http_client:
         scoped_clients:

@@ -25,7 +25,7 @@ use Symfony\Component\HttpKernel\HttpKernelInterface;
 
 /**
  * That a refused request leaves behind the sentence somebody needs (XIV-93,
- * docs/architecture.md §4.3).
+ * docs/architecture/deployment.md §4.3).
  *
  * The response to an untrusted `Host` is a bare 400 and stays one — telling the
  * caller which domains this installation serves is telling the one audience that

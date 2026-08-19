@@ -18,7 +18,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 /**
  * One person has read one of the operator's notices and put it away (XIV-120,
- * docs/architecture.md §8.16).
+ * docs/architecture/identity-and-access.md §8.16).
  *
  * ## Why this row is here and the notice itself is not
  *

@@ -30,7 +30,7 @@ use Symfony\Component\DomCrawler\Crawler;
 
 /**
  * What an operator said, on the dashboard of the people it was said to
- * (XIV-120, docs/architecture.md §8.16).
+ * (XIV-120, docs/architecture/identity-and-access.md §8.16).
  *
  * The customer's half of the ticket.
  * {@see \App\Tests\Functional\Deployment\NoticeGrantsTest} proves the read works

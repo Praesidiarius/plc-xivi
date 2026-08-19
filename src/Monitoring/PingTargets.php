@@ -16,7 +16,7 @@ namespace App\Monitoring;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
- * Where each watched command's ping goes (XIV-126, docs/architecture.md §4.5).
+ * Where each watched command's ping goes (XIV-126, docs/architecture/deployment.md §4.5).
  *
  * `XIVI_MONITOR_PINGS` is a comma-separated list of `command=url` pairs, and
  * **empty — the default — means no pings and no behaviour change whatsoever**.

@@ -22,7 +22,7 @@ use Xivi\ControlPlane\Provisioning\TenantProvisioner;
 
 /**
  * That the pattern actually reaches the framework, and what a request gets when
- * it is outside it (XIV-93, docs/architecture.md §4.3).
+ * it is outside it (XIV-93, docs/architecture/deployment.md §4.3).
  *
  * ## What this proves that the unit test cannot
  *

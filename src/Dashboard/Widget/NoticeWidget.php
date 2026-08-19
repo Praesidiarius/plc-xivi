@@ -23,7 +23,7 @@ use Xivi\Core\Dashboard\WidgetPanel;
 
 /**
  * What the people running this installation have to say (XIV-120,
- * docs/architecture.md §8.16).
+ * docs/architecture/identity-and-access.md §8.16).
  *
  * **Above everything**, including the follow-up list, and it is the only widget
  * that has a claim to that position: a maintenance window on Sunday is

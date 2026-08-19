@@ -1,6 +1,6 @@
 # Die Worte der Landingpage (XIV-65). Siehe landing.en.yaml für den Grund, warum
 # diese Datei ein eigener Katalog ist — sie ist die Hälfte der Änderungen, die
-# `bin/ci` ohne CHANGELOG-Eintrag durchlässt (docs/architecture.md §8.13).
+# `bin/ci` ohne CHANGELOG-Eintrag durchlässt (docs/architecture/identity-and-access.md §8.13).
 landing:
     title: Dein eigenes Xivi
     headline: Deine eigene Xivi-Installation

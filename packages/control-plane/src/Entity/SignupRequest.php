@@ -29,7 +29,7 @@ use Xivi\ControlPlane\Repository\SignupRequestRepository;
  * calling it would put the most privileged operation in the system one anonymous
  * HTTP request away from the least trusted caller there is. So the endpoint
  * writes one row in one table and stops; turning that row into a customer is
- * [XIV-98], and it runs where an operator can see it. docs/architecture.md §8.12
+ * [XIV-98], and it runs where an operator can see it. docs/architecture/identity-and-access.md §8.12
  * has the long version.
  *
  * ### What is stored, and what deliberately is not

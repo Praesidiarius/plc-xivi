@@ -15,7 +15,7 @@ namespace App\Registry\Entity;
 
 /**
  * Who inside a customer's installation a notice is for (XIV-120,
- * docs/architecture.md §8.16).
+ * docs/architecture/identity-and-access.md §8.16).
  *
  * **Per notice rather than per installation**, which is the decision worth
  * stating because the alternative is one line shorter. *"This installation will

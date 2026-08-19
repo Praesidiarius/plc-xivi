@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /*
  * **The bundles that may legitimately not be in this image** (XIV-96, XIV-111,
- * docs/architecture.md §4.4). A flat list of bundle class names, and nothing
+ * docs/architecture/deployment.md §4.4). A flat list of bundle class names, and nothing
  * else.
  *
  * `App\Kernel::getBundlesDefinition()` reads this list and drops any entry whose

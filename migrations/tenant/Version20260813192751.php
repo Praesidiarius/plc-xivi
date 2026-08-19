@@ -13,7 +13,7 @@ use Doctrine\Migrations\AbstractMigration;
  * These describe the shape of everything else, but their own shape is fixed, so
  * they are ordinary tables created by a migration. The tables they describe are
  * created per customer by the module installer instead — a module's table only
- * exists where that module is enabled (docs/architecture.md §4, §5).
+ * exists where that module is enabled (docs/architecture/deployment.md §4, §5).
  */
 final class Version20260813192751 extends AbstractMigration
 {

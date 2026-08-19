@@ -27,7 +27,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
  * **That a customer's instance can read a notice with the privileges it already
- * has, and still cannot write anything** (XIV-120, docs/architecture.md §8.16).
+ * has, and still cannot write anything** (XIV-120, docs/architecture/identity-and-access.md §8.16).
  *
  * ## The claim this class exists to make checkable
  *

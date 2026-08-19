@@ -15,7 +15,7 @@ namespace App\Deployment;
 
 /**
  * What {@see RegistryPrivileges} found, in the shape a deploy has to make one
- * decision from (XIV-143, docs/architecture.md §4.4).
+ * decision from (XIV-143, docs/architecture/deployment.md §4.4).
  *
  * A value object rather than a formatted string, for the reason `TrustedHosts`
  * is not a `preg_match` in a command: the command turns this into a table and an

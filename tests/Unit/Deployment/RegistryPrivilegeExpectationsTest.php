@@ -24,7 +24,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * **That adding an entity to `App\Registry\Entity\` cannot make the check and
- * the grant disagree** (XIV-143, docs/architecture.md §4.4).
+ * the grant disagree** (XIV-143, docs/architecture/deployment.md §4.4).
  *
  * ## Why this needs an entity that does not exist
  *

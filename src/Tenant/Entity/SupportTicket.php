@@ -19,7 +19,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 /**
  * Somebody in this installation has asked the people who run it a question
- * (XIV-123, docs/architecture.md §8.17).
+ * (XIV-123, docs/architecture/identity-and-access.md §8.17).
  *
  * Until this existed, a customer whose invoice module was behaving oddly — or
  * who wanted a module they could not see in the store — had **whatever email

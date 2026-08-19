@@ -22,7 +22,7 @@ use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * Goes and looks at one customer's database, and brings back what they have
- * asked (XIV-123, docs/architecture.md §8.17).
+ * asked (XIV-123, docs/architecture/identity-and-access.md §8.17).
  *
  * ## Why a collector at all
  *

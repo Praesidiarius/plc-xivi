@@ -46,7 +46,7 @@ use Xivi\ControlPlane\Repository\SignupRequestRepository;
  * So this writes one row and sends one mail. Turning a confirmed row into a
  * customer is [XIV-98], and it runs somewhere an operator can see it.
  *
- * **The honest limit** (docs/architecture.md §8.12, and worth repeating rather
+ * **The honest limit** (docs/architecture/identity-and-access.md §8.12, and worth repeating rather
  * than being read as a stronger claim than it is): what has been delivered here
  * is a **code** boundary — a separate service, its own table, no provisioner in
  * scope, nothing in this file that could create a database. It is *not* yet a
@@ -312,7 +312,7 @@ final readonly class SignupIntake
      * Reads and writes nothing, which is what makes it safe to expose as a
      * separate call at all — and is also exactly why it is the surface worth
      * being careful about: see {@see SignupError} for why one refusal word covers
-     * three different reasons, and docs/architecture.md §8.12 for the residual
+     * three different reasons, and docs/architecture/identity-and-access.md §8.12 for the residual
      * enumeration risk it does not remove.
      *
      * **It answers about the name {@see record()} would create**, which is the

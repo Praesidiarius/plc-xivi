@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # The schema half of a deploy: check the secrets, move the control plane, then
-# move every customer (XIV-61, docs/architecture.md §4.2).
+# move every customer (XIV-61, docs/architecture/deployment.md §4.2).
 #
 #   docker run --rm --env-file <the deployment's> <the new image> bin/deploy
 #
@@ -133,7 +133,7 @@ fi
 if [ ! -d packages/control-plane ]; then
 	printf '\nThis is the customer-facing image, which does not contain the administration\n' >&2
 	printf 'surface and whose database user cannot write the registry (XIV-96,\n' >&2
-	printf 'docs/architecture.md section 4.4).\n\n' >&2
+	printf 'docs/architecture/deployment.md section 4.4).\n\n' >&2
 	printf 'A deploy moves the schema, so it has to be run out of the internal image:\n\n' >&2
 	printf '  docker run --rm --env-file <the internal deployment'"'"'s> <the internal image> bin/deploy\n\n' >&2
 	exit 1

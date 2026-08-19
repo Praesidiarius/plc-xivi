@@ -236,7 +236,7 @@ final class SchemaMatchesTheMappingTest extends KernelTestCase
     /**
      * **A tenant schema can be validated at all**, which before this ticket it
      * could not: `doctrine:schema:validate --em=tenant` has no tenant to resolve
-     * and fails in the driver (docs/architecture.md §7.4).
+     * and fails in the driver (docs/architecture/open-questions.md §7.4).
      *
      * What is asserted is that the command reaches a real customer's database and
      * reports on it by name — not that it finds nothing, because it still finds

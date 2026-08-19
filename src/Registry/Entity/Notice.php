@@ -20,7 +20,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 /**
  * Something the operator of this installation has to tell the people using it
- * (XIV-120, docs/architecture.md §8.16).
+ * (XIV-120, docs/architecture/identity-and-access.md §8.16).
  *
  * A maintenance window on Sunday, a module that gained payment terms, a trial
  * with a week left. All three are things whoever runs an installation knows and

@@ -2,7 +2,7 @@
 
 /*
  * **This file is generated. If this comment is not here, a Symfony Flex recipe
- * rewrote the file and nothing is wrong** (XIV-111, docs/architecture.md §4.4).
+ * rewrote the file and nothing is wrong** (XIV-111, docs/architecture/deployment.md §4.4).
  *
  * Flex regenerates `bundles.php` from its own template whenever a package is
  * added or removed, so anything hand-written in it is collateral by design.

@@ -21,7 +21,7 @@ use App\Tenancy\Exception\UnknownTenantHostException;
  * Maps a request hostname to a tenant, from the control-plane database.
  *
  * Deliberately stateless: no memoisation across calls. A host→tenant map cached
- * in a worker process is a cross-tenant leak waiting to happen (docs/architecture.md §7.4),
+ * in a worker process is a cross-tenant leak waiting to happen (docs/architecture/open-questions.md §7.4),
  * and the lookup is one indexed query on a small table. If it ever shows up in a
  * profile, the fix is a cache with an explicit, invalidated key — not a static
  * array that quietly survives the request.

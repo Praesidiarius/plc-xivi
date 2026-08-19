@@ -9,7 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 /**
  * Somewhere to remember that a customer said no to an addition (XIV-70,
- * docs/architecture.md §7.2.1).
+ * docs/architecture/open-questions.md §7.2.1).
  *
  * One nullable column, and the reasoning behind it is entirely in
  * {@see \Xivi\Core\Entity\ShapeDefinition::$declined} rather than repeated here.

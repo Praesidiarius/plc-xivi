@@ -15,7 +15,7 @@ declare(strict_types=1);
  *       --em=tenant --configuration=config/migrations/tenant.php
  *
  * Every change here lands for every customer, so migrations must be
- * expand/contract — never destructive in a single step (docs/architecture.md §4).
+ * expand/contract — never destructive in a single step (docs/architecture/deployment.md §4).
  */
 
 return [

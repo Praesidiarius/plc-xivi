@@ -26,7 +26,7 @@ use Symfony\Component\HttpKernel\KernelInterface;
 
 /**
  * **That `deploy:check-grants` catches a deployment which forgot to re-run
- * `deploy:registry-grants`** (XIV-143, docs/architecture.md §4.4).
+ * `deploy:registry-grants`** (XIV-143, docs/architecture/deployment.md §4.4).
  *
  * ## What has to be true for this class to be worth anything
  *

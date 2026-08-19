@@ -199,7 +199,7 @@ EOF
 # Builder for the customer-facing image
 FROM frankenphp_prod_builder AS frankenphp_public_builder
 
-# **The half of XIV-96 that a route cannot give you** (docs/architecture.md §4.4).
+# **The half of XIV-96 that a route cannot give you** (docs/architecture/deployment.md §4.4).
 #
 # Everything above this line built one image containing the whole repository,
 # administration surface included. This stage takes the administration surface

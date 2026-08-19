@@ -10,7 +10,7 @@ use Doctrine\Migrations\AbstractMigration;
 /**
  * Mark a password the system generated as one that has to be replaced.
  *
- * A generated password (docs/architecture.md §8.5) is read off a screen by the
+ * A generated password (docs/architecture/identity-and-access.md §8.5) is read off a screen by the
  * administrator who created the account and passed on by whatever means was to
  * hand. Until the owner changes it, it is a credential more than one person
  * knows — so the account is held at the password page until they do.

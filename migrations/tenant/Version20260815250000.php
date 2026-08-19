@@ -14,7 +14,7 @@ use Doctrine\Migrations\AbstractMigration;
  * nobody enters. The flag is what the form reads to show one without offering to
  * edit it — a derived value somebody can type over is a default with extra steps.
  *
- * Expand only (docs/architecture.md §4): the column defaults to false, so every field that
+ * Expand only (docs/architecture/deployment.md §4): the column defaults to false, so every field that
  * exists keeps behaving exactly as it did.
  */
 final class Version20260815250000 extends AbstractMigration

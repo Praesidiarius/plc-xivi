@@ -1,4 +1,4 @@
-# How often anybody may ask for an installation (XIV-64, docs/architecture.md §8.12).
+# How often anybody may ask for an installation (XIV-64, docs/architecture/identity-and-access.md §8.12).
 #
 # Confirmation and one-signup-per-confirmed-address are what make *squatting* a
 # name expensive; neither of them makes *volume* expensive, and volume is its own

@@ -25,7 +25,7 @@ use Xivi\Core\Metadata\MetadataCache;
  * Switching tenants means more than swapping a DSN: the open connection points
  * at the previous tenant's database and the entity manager's identity map is
  * full of the previous tenant's objects. Under a long-running worker both
- * outlive the request unless they are dropped explicitly (docs/architecture.md §7.4), so
+ * outlive the request unless they are dropped explicitly (docs/architecture/open-questions.md §7.4), so
  * every switch drops both, unconditionally — closing a connection that was never
  * opened is free, and "was it the same tenant?" is not a question worth being
  * wrong about.

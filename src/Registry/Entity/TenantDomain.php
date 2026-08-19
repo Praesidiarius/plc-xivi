@@ -18,7 +18,7 @@ use Doctrine\ORM\Mapping as ORM;
 /**
  * A hostname routed to a tenant. Separate table rather than a JSON column on
  * Tenant: this is the lookup key of every single request, so it gets a real
- * unique index (docs/architecture.md §4).
+ * unique index (docs/architecture/deployment.md §4).
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */

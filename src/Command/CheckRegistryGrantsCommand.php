@@ -21,7 +21,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
  * Whether the customer-facing role's privileges still match the entity list
- * (XIV-143, docs/architecture.md §4.4).
+ * (XIV-143, docs/architecture/deployment.md §4.4).
  *
  * ## The failure mode this exists for
  *
@@ -118,7 +118,7 @@ final readonly class CheckRegistryGrantsCommand
             $io->writeln(
                 '  That is the default and is correct for an installation served entirely by the internal '
                 . "image. Set it to the role\n  the customer-facing instance connects as if you run the "
-                . 'split deployment (docs/architecture.md §4.4).',
+                . 'split deployment (docs/architecture/deployment.md §4.4).',
             );
 
             return Command::SUCCESS;
@@ -168,7 +168,7 @@ final readonly class CheckRegistryGrantsCommand
             $error->writeln(sprintf(
                 "Either %s names the wrong role, or the role was never created.\n"
                 . "bin/console deploy:registry-grants %s prints the CREATE ROLE and the grants to run\n"
-                . 'as a database administrator (docs/architecture.md §4.4).',
+                . 'as a database administrator (docs/architecture/deployment.md §4.4).',
                 RegistryPrivileges::VARIABLE,
                 $report->role,
             ));
@@ -187,7 +187,7 @@ final readonly class CheckRegistryGrantsCommand
                 . "and it does not\nhold for this role: an INSERT INTO tenant arriving from the process "
                 . "facing the internet would succeed. The usual\ncause is a DATABASE_URL still carrying "
                 . "the administrator's credentials.\n\n"
-                . 'See docs/architecture.md §4.4.',
+                . 'See docs/architecture/deployment.md §4.4.',
             );
 
             return self::PRIVILEGES_DIFFER;
@@ -223,7 +223,7 @@ final readonly class CheckRegistryGrantsCommand
             "\nRun this, and apply the SQL it prints as a database administrator:\n\n"
             . "  bin/console deploy:registry-grants %s\n\n"
             . 'It is generated from this build\'s own mapping, and it starts with a REVOKE, so it '
-            . "corrects both directions.\nSee docs/architecture.md §4.4.",
+            . "corrects both directions.\nSee docs/architecture/deployment.md §4.4.",
             $report->role,
         ));
 

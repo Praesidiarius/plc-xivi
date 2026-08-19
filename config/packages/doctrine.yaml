@@ -114,7 +114,7 @@ when@prod:
                     # every tenant. The result cache is deliberately NOT enabled
                     # here — its keys are derived from the query, not from the
                     # database, so one pool shared by all tenants would serve
-                    # customer A's rows to customer B (docs/architecture.md §7.4). Enabling it
+                    # customer A's rows to customer B (docs/architecture/open-questions.md §7.4). Enabling it
                     # needs a pool namespaced by tenant first.
                     query_cache_driver:
                         type: pool

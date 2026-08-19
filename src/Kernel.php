@@ -31,7 +31,7 @@ class Kernel extends BaseKernel
 
     /**
      * **Do not instantiate a bundle whose class is not in this image**
-     * (XIV-96, XIV-111, docs/architecture.md §4.4).
+     * (XIV-96, XIV-111, docs/architecture/deployment.md §4.4).
      *
      * ## What this replaces, and why the replacement is not merely tidier
      *
@@ -142,7 +142,7 @@ class Kernel extends BaseKernel
                 trigger_error(
                     \sprintf(
                         'The optional bundle "%s" is not in this build, so it was not registered. That is expected '
-                        . 'only in the customer-facing image (docs/architecture.md §4.4); in "%s" it almost always '
+                        . 'only in the customer-facing image (docs/architecture/deployment.md §4.4); in "%s" it almost always '
                         . 'means `composer install` has not finished. Run `bin/compose exec php composer install`.',
                         $class,
                         $this->environment,

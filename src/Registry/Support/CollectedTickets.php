@@ -19,7 +19,7 @@ use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * What the operator has said about this customer's tickets (XIV-123,
- * docs/architecture.md §8.17).
+ * docs/architecture/identity-and-access.md §8.17).
  *
  * **The one query on a customer's request path that touches the control plane
  * for this feature**, and the reason the return leg of the feature is

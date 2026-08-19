@@ -72,7 +72,7 @@ final class TenantConnectionParametersTest extends TestCase
     /**
      * The dangerous case: a tenant DSN missing pieces must not silently inherit
      * the control plane's identity, which would connect us as the wrong user or,
-     * worse, to the wrong database (docs/architecture.md §7.4).
+     * worse, to the wrong database (docs/architecture/open-questions.md §7.4).
      */
     public function testIncompleteTenantDsnDoesNotInheritControlPlaneIdentity(): void
     {

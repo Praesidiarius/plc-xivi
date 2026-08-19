@@ -21,7 +21,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * That the control-plane allow-list is wired, and that a forged header cannot
- * get past it (XIV-124, docs/architecture.md §8.9).
+ * get past it (XIV-124, docs/architecture/identity-and-access.md §8.9).
  *
  * ## What this proves that the unit tests cannot
  *

@@ -33,7 +33,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  * --em=control` — because that connection's DSN is known at deploy time. The
  * tenant connection's is not: it comes out of the `tenant` row of whichever
  * customer is being served, and a console command is not serving anybody
- * (docs/architecture.md §7.4). `--em=tenant` therefore does not fail with a
+ * (docs/architecture/open-questions.md §7.4). `--em=tenant` therefore does not fail with a
  * useful message; it fails at `TenantDriver`, because there is nothing to
  * connect to.
  *
@@ -178,7 +178,7 @@ final readonly class ValidateTenantSchemaCommand
                         // validator holds the entity manager it was made with,
                         // and that manager is replaced on every switch — one kept
                         // across the loop would be reporting on the previous
-                        // customer (docs/architecture.md §7.4).
+                        // customer (docs/architecture/open-questions.md §7.4).
                         $validator = new SchemaValidator($this->entityManager);
 
                         // `??=` rather than a flag: an empty array is a real

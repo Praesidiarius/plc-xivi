@@ -20,7 +20,7 @@ use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * What the operator of this installation is currently saying to one customer
- * (XIV-120, docs/architecture.md §8.16).
+ * (XIV-120, docs/architecture/identity-and-access.md §8.16).
  *
  * **The one query on a customer's request path that touches this feature**, and
  * the reason the feature is cheap. §4.4 gives the customer-facing instance

@@ -26,7 +26,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
- * Resolves the tenant from the Host header (docs/architecture.md §4).
+ * Resolves the tenant from the Host header (docs/architecture/deployment.md §4).
  *
  * Runs before routing so that no controller, and no listener that touches tenant
  * data, can run without a tenant — the request either has one or is rejected here.

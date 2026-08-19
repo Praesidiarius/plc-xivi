@@ -19,7 +19,7 @@ namespace Xivi\Core\Record;
  * Deliberately not a Doctrine entity. The shape of a record is decided per
  * tenant at runtime, and mapping that through the ORM means fighting it; the
  * fixed-shape things — users, metadata definitions — are entities, and these are
- * not (docs/architecture.md §5).
+ * not (docs/architecture/data-model.md §5).
  *
  * `data` holds the custom fields. Where each one physically lives is
  * RecordRepository's business, which is what leaves room for column promotion

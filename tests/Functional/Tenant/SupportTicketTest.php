@@ -31,7 +31,7 @@ use Xivi\ControlPlane\Support\SupportTicketCollector;
 
 /**
  * A customer can reach whoever runs their installation (XIV-123,
- * docs/architecture.md §8.17).
+ * docs/architecture/identity-and-access.md §8.17).
  *
  * The customer's half of the ticket;
  * {@see \App\Tests\Functional\ControlPlane\SupportRequestTest} is the operator's.

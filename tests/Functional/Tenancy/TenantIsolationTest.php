@@ -29,7 +29,7 @@ use Xivi\ControlPlane\Provisioning\TenantProvisioner;
  * process.
  *
  * The client is created with reboots disabled, so every request in a test reuses
- * one container instance — the FrankenPHP worker situation from docs/architecture.md §7.4,
+ * one container instance — the FrankenPHP worker situation from docs/architecture/open-questions.md §7.4,
  * minus the between-request container reset. Isolation therefore has to come
  * from TenantSwitcher dropping the connection and identity map, not from the
  * reset cleaning up afterwards.

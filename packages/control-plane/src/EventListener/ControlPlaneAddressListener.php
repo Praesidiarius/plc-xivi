@@ -23,7 +23,7 @@ use Xivi\ControlPlane\Security\ControlPlaneHost;
 
 /**
  * Refuses a control-plane request from an address the deployment has not listed
- * (XIV-124, docs/architecture.md §8.9).
+ * (XIV-124, docs/architecture/identity-and-access.md §8.9).
  *
  * ## The layer, and where it sits among the others
  *
@@ -183,7 +183,7 @@ final readonly class ControlPlaneAddressListener
             . 'balancer and the address looks like the balancer rather than the caller, '
             . 'TRUSTED_PROXIES is what is missing. "bin/console deploy:check-control-plane '
             . '--address=..." answers this question without waiting for a request. See '
-            . 'docs/architecture.md §8.9.',
+            . 'docs/architecture/identity-and-access.md §8.9.',
             ControlPlaneAllowList::VARIABLE,
             implode(',', $this->allowList->entries()),
         );

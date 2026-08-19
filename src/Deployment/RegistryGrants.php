@@ -19,7 +19,7 @@ use Doctrine\ORM\Mapping\ClassMetadata;
 
 /**
  * **The SQL that makes a customer-facing instance unable to write to the
- * registry** (XIV-96, docs/architecture.md §4.4).
+ * registry** (XIV-96, docs/architecture/deployment.md §4.4).
  *
  * ## The argument, which is not about network topology
  *

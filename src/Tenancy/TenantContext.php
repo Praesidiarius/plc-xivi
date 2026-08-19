@@ -24,7 +24,7 @@ use Symfony\Contracts\Service\ResetInterface;
  * never static state (docs/architecture.md §2). Under FrankenPHP the process outlives the
  * request, so it implements ResetInterface: autoconfiguration tags it
  * `kernel.reset`, and the container reset between requests empties it. A tenant
- * left over from a previous request is exactly the leak docs/architecture.md §7.4 warns about.
+ * left over from a previous request is exactly the leak docs/architecture/open-questions.md §7.4 warns about.
  *
  * Nothing here writes to the tenant connection; use TenantSwitcher to change
  * tenants, so that Doctrine's connection and identity map are dropped with it.

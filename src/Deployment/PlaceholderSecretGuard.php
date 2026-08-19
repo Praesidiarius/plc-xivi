@@ -18,7 +18,7 @@ use Symfony\Component\Dotenv\Dotenv;
 
 /**
  * Whether this process is running on a secret that anybody can read out of the
- * repository (XIV-61, docs/architecture.md §4.2).
+ * repository (XIV-61, docs/architecture/deployment.md §4.2).
  *
  * ## The failure this exists for, which was demonstrated rather than imagined
  *

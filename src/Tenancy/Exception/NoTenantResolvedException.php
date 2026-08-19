@@ -16,7 +16,7 @@ namespace App\Tenancy\Exception;
 /**
  * Something asked for the current tenant when none was resolved — a bug, not a
  * runtime condition. Notably thrown when a tenant database connection is opened
- * outside a tenant context, which is the failure mode docs/architecture.md §7.4 exists to
+ * outside a tenant context, which is the failure mode docs/architecture/open-questions.md §7.4 exists to
  * prevent: silently connecting to the wrong (or previous) tenant's database.
  *
  * @author Praesidiarius <praesidiarius@proton.me>

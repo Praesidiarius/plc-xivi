@@ -25,7 +25,7 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 /**
  * That the list of scheduled jobs is a list of real commands, and that the
- * report about them is honest (XIV-126, docs/architecture.md §4.5).
+ * report about them is honest (XIV-126, docs/architecture/deployment.md §4.5).
  *
  * ## Why the list needs a test at all
  *

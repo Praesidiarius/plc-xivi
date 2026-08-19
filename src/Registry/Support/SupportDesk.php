@@ -19,7 +19,7 @@ use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * Answering a customer, and saying where their question has got to (XIV-123,
- * docs/architecture.md §8.17).
+ * docs/architecture/identity-and-access.md §8.17).
  *
  * ## A writer in `src/` whose only callers are in the administration surface
  *

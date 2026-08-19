@@ -25,7 +25,7 @@ use Xivi\Core\Metadata\Section;
  * Metadata is data, not code: a module bundle ships the definitions it needs to
  * function, they are written into the tenant's database when the module is
  * installed, and from then on the customer's copy is theirs to extend
- * (docs/architecture.md §5, §6). Two customers with the same module can have
+ * (docs/architecture/data-model.md §5, §6). Two customers with the same module can have
  * different fields, which is the entire point.
  *
  * A module is the browsable kind of shape: it has a URL, it appears in the

@@ -21,7 +21,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
  * Which of this installation's own hostnames the trusted-host pattern would
- * refuse (XIV-93, docs/architecture.md §4.3).
+ * refuse (XIV-93, docs/architecture/deployment.md §4.3).
  *
  * ## The failure mode this exists for
  *
@@ -197,7 +197,7 @@ final readonly class CheckTrustedHostsCommand
             "A request to one of those names fails with HTTP 400 and nothing in the body to explain it.\n"
             . "Either add the domain it sits under to %s, or move the tenant to a hostname\n"
             . "under one that is already listed (bin/console tenant:list shows what each one has).\n\n"
-            . 'See https://praesidiarius.github.io/plc-xivi-docs/running/hostnames/ and docs/architecture.md §4.3.',
+            . 'See https://praesidiarius.github.io/plc-xivi-docs/running/hostnames/ and docs/architecture/deployment.md §4.3.',
             TrustedHosts::VARIABLE,
         ));
 

@@ -253,7 +253,7 @@ final readonly class ModuleInstaller
                     throw new \RuntimeException(sprintf(
                         'Field "%s" of collection "%s" is marked unique. Unique across the whole table and '
                         . 'unique within one parent record are different rules, and the engine will not guess '
-                        . 'which was meant. See docs/architecture.md §7.',
+                        . 'which was meant. See docs/architecture/open-questions.md §7.',
                         $field->key,
                         $collection->key,
                     ));

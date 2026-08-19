@@ -29,7 +29,7 @@
 	#
 	# Every request boots the kernel and tears it down again, so no PHP state can
 	# survive from one tenant's request into the next one's. That makes the
-	# docs/architecture.md §7.4 leakage class structurally impossible for web requests, at a
+	# docs/architecture/open-questions.md §7.4 leakage class structurally impossible for web requests, at a
 	# cost of a few milliseconds per request that this workload does not notice.
 	# It does NOT cover shared caches (APCu, Redis, cache pools) — those are
 	# shared under any runtime and still have to be namespaced per tenant.

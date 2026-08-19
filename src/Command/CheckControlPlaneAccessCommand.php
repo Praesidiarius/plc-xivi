@@ -22,7 +22,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * What the control plane's address allow-list admits, before anybody depends on
- * it (XIV-124, docs/architecture.md §8.9).
+ * it (XIV-124, docs/architecture/identity-and-access.md §8.9).
  *
  * ## The failure mode this exists for, and it is worse than §4.3's
  *
@@ -129,7 +129,7 @@ final readonly class CheckControlPlaneAccessCommand
             $io->writeln(
                 "  That is the default. What keeps people out is the sign-in, the operator-only user\n"
                 . "  provider and ROLE_OPERATOR — all of which hold. Setting this variable adds a\n"
-                . '  layer in front of them (see docs/architecture.md §8.9).',
+                . '  layer in front of them (see docs/architecture/identity-and-access.md §8.9).',
             );
 
             // Deliberately still answered, because "would this address be

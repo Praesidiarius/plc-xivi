@@ -400,7 +400,7 @@ field:
     remove_none_hold: Zurzeit hat kein Datensatz einen Wert dafür.
     remove_note: >-
         Hier wird nichts gelöscht. Die Werte endgültig zu entfernen ist ein eigener
-        Vorgang und existiert noch nicht — siehe docs/architecture.md §7.2.
+        Vorgang und existiert noch nicht — siehe docs/architecture/open-questions.md §7.2.
     remove_confirm: Feld entfernen
     # Abschnitte (XIV-119). Ein Formular mit fünfundzwanzig Feldern in einer
     # Spalte ist ein Formular, in dem niemand etwas findet. Diese Sätze tragen
@@ -584,7 +584,7 @@ field:
             laufen.
 
 # Was ein Modul seit der Installation dazubekommen hat (XIV-70,
-# docs/architecture.md §7.2.1). Die Sätze hier tragen ungewöhnlich viel: angeboten
+# docs/architecture/open-questions.md §7.2.1). Die Sätze hier tragen ungewöhnlich viel: angeboten
 # wird eine Änderung an der Form jedes Datensatzes eines Moduls, und das
 # Wichtigste ist nicht, was passiert, sondern was *nicht* — eigene Änderungen
 # werden nicht überschrieben, nichts wird entfernt, kein Feldtyp ändert sich.

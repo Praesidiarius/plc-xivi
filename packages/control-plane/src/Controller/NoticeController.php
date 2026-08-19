@@ -31,7 +31,7 @@ use Xivi\ControlPlane\View\TenantSummary;
 
 /**
  * Where an operator says something to the people using this installation
- * (XIV-120, docs/architecture.md §8.16).
+ * (XIV-120, docs/architecture/identity-and-access.md §8.16).
  *
  * ## The screen the ticket exists for
  *

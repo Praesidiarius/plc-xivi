@@ -18,7 +18,7 @@ use Symfony\Component\HttpFoundation\IpUtils;
 
 /**
  * Which addresses may reach the control plane at all (XIV-124,
- * docs/architecture.md §8.9).
+ * docs/architecture/identity-and-access.md §8.9).
  *
  * ## What this is the answer to, and what it deliberately is not
  *

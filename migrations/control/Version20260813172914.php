@@ -11,7 +11,7 @@ use Doctrine\Migrations\AbstractMigration;
  * Moves the tenant database password out of the DSN and into its own encrypted
  * column, so a dump of the control plane carries no usable credential.
  *
- * Expand only (docs/architecture.md §4): the column is nullable and nothing is rewritten.
+ * Expand only (docs/architecture/deployment.md §4): the column is nullable and nothing is rewritten.
  * Rows written before this migration keep a DSN that names no password and have
  * no ciphertext, so they fail loudly with TenantCredentialMissingException and
  * have to be re-provisioned — which is also what gives them a role of their own.

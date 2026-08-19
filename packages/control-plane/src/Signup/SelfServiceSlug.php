@@ -50,7 +50,7 @@ use Xivi\ControlPlane\Provisioning\TenantProvisioner;
  * accepted by nothing else — in particular it is *not* accepted by
  * `SLUG_PATTERN`, which is why a signup's slug is translated on the way into
  * provisioning by [XIV-98] rather than passed through. Two rules, both enforced,
- * neither pretending to be the other. docs/architecture.md §8.12 records the
+ * neither pretending to be the other. docs/architecture/identity-and-access.md §8.12 records the
  * same thing in prose.
  *
  * ### Reserved names

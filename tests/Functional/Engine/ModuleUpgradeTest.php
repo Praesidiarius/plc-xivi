@@ -36,7 +36,7 @@ use Xivi\Core\Record\UniqueIndex;
 
 /**
  * A customer taking what their module grew after they installed it (XIV-70,
- * docs/architecture.md §7.2.1).
+ * docs/architecture/open-questions.md §7.2.1).
  *
  * The tenant here is installed from a *reduced* blueprint — one field of a module
  * that has five and a collection — which is the honest way to produce the thing

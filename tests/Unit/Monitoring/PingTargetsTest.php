@@ -19,7 +19,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * What `XIVI_MONITOR_PINGS` accepts, and what it refuses out loud (XIV-126,
- * docs/architecture.md §4.5).
+ * docs/architecture/deployment.md §4.5).
  *
  * The refusals are the point of this class rather than the parsing. A monitoring
  * feature has one characteristic way of being useless: it is configured, it is

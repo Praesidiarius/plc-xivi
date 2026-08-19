@@ -23,7 +23,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Raising a question with whoever runs this installation, and reading what they
- * said back (XIV-123, docs/architecture.md §8.17).
+ * said back (XIV-123, docs/architecture/identity-and-access.md §8.17).
  *
  * **The class where the two databases meet**, which is this feature's shape in
  * one file — {@see \App\Tenant\Notice\NoticeInbox} is the same sentence for

@@ -25,7 +25,7 @@ use Symfony\Component\Routing\Attribute\Route;
  * Reports which tenant the current Host resolved to, and which database the
  * tenant connection actually reached.
  *
- * This exists because tenant leakage under a long-running worker (docs/architecture.md §7.4)
+ * This exists because tenant leakage under a long-running worker (docs/architecture/open-questions.md §7.4)
  * is invisible from the outside: the wrong database still answers. Asking
  * Postgres itself, over the same connection the application uses, is the only
  * answer that cannot be faked by a stale service. Debug builds only.

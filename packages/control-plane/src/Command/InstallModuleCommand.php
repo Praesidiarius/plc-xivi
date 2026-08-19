@@ -143,7 +143,7 @@ final readonly class InstallModuleCommand
         if (!$wasInstalled) {
             $io->warning(sprintf(
                 'Tenant "%s" already has "%s". Nothing changed — a preset only ever seeds a new '
-                . 'installation (docs/architecture.md §6.1).',
+                . 'installation (docs/architecture/extensibility.md §6.1).',
                 $found->getSlug(),
                 $module,
             ));

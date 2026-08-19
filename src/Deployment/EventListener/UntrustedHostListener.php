@@ -22,7 +22,7 @@ use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
  * Says, in the log, why a request was answered with 400 (XIV-93,
- * docs/architecture.md §4.3).
+ * docs/architecture/deployment.md §4.3).
  *
  * ## The 400 is the problem, not the refusal
  *
@@ -102,7 +102,7 @@ final readonly class UntrustedHostListener
                     . 'If "%s" is a hostname this installation is meant to serve, add its domain to '
                     . 'that variable and restart — until then every request to it is this same empty '
                     . '400. "bin/console deploy:check-hosts" lists the tenants affected. See '
-                    . 'docs/architecture.md §4.3.',
+                    . 'docs/architecture/deployment.md §4.3.',
                     TrustedHosts::VARIABLE,
                     implode(',', $this->trustedHosts->domains()),
                     implode(', ', $this->trustedHosts->alwaysAdmitted()),

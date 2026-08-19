@@ -31,7 +31,7 @@ namespace Xivi\ControlPlane\Entity;
  * silent: a row marked `provisioned` whose tenant was later deprovisioned would
  * go on holding a slug nobody owns. So the intake table holds *live* signups
  * only, and [XIV-98] removes the row when it has made a tenant out of it. See
- * docs/architecture.md §8.12.
+ * docs/architecture/identity-and-access.md §8.12.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */

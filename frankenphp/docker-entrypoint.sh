@@ -20,7 +20,7 @@ if [ "$1" = 'frankenphp' ] || [ "$1" = 'php' ] || [ "$1" = 'bin/console' ]; then
 	php bin/console -V
 
 	# **Refuse to start on a secret anybody can read out of the repository**
-	# (XIV-61, docs/architecture.md §4.2).
+	# (XIV-61, docs/architecture/deployment.md §4.2).
 	#
 	# `.env` is committed and public, and the image build compiles it into
 	# `.env.local.php` with `composer dump-env prod` — so a freshly built image
@@ -71,7 +71,7 @@ if [ "$1" = 'frankenphp' ] || [ "$1" = 'php' ] || [ "$1" = 'bin/console' ]; then
 		fi
 
 		# **The control plane's migrations, and deliberately not the tenants'**
-		# (XIV-61, docs/architecture.md §4.2).
+		# (XIV-61, docs/architecture/deployment.md §4.2).
 		#
 		# This is one database, one transaction, and the container cannot serve a
 		# single request without it, so running it on every start is both cheap
@@ -151,7 +151,7 @@ if [ "$1" = 'frankenphp' ] || [ "$1" = 'php' ] || [ "$1" = 'bin/console' ]; then
 		fi
 
 		# **Say which hostnames this instance answers to, on every start**
-		# (XIV-93, docs/architecture.md §4.3).
+		# (XIV-93, docs/architecture/deployment.md §4.3).
 		#
 		# `framework.trusted_hosts` refuses a `Host` outside XIVI_TRUSTED_DOMAINS
 		# with a bare 400 — no page, no header named, nothing in the body — and

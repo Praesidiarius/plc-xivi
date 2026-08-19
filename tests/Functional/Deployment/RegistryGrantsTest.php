@@ -21,7 +21,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
  * **That the customer-facing instance's database user really cannot write the
- * registry** (XIV-96, docs/architecture.md §4.4).
+ * registry** (XIV-96, docs/architecture/deployment.md §4.4).
  *
  * ## Why this is a functional test and not an assertion about a string
  *

@@ -21,7 +21,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Xivi\ControlPlane\Provisioning\TenantProvisioner;
 
 /**
- * Every schema change lands for every tenant (docs/architecture.md §4), so a deploy is not
+ * Every schema change lands for every tenant (docs/architecture/deployment.md §4), so a deploy is not
  * finished until this has run across the whole registry.
  *
  * ## Carrying on is right; reporting success afterwards is not (XIV-61)

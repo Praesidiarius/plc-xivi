@@ -15,7 +15,7 @@ namespace App\Monitoring;
 
 /**
  * **What this build expects to be on a schedule** (XIV-126,
- * docs/architecture.md §4.5).
+ * docs/architecture/deployment.md §4.5).
  *
  * There is no worker process in this deployment and no message consumer — the
  * constraint that made mail synchronous in [XIV-37], usage collection a cron job

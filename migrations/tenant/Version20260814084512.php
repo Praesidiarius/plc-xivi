@@ -9,7 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 /**
  * Generalise module_definition into shape_definition, so that a module and a
- * child collection are the same kind of thing (docs/architecture.md §5).
+ * child collection are the same kind of thing (docs/architecture/data-model.md §5).
  *
  * A collection — a contact's addresses — is a table of rows described by field
  * definitions, which is exactly what a module is. The only differences are that

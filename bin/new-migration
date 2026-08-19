@@ -227,5 +227,5 @@ printf '%s\n' "$file"
 	printf '  * the class name matches the file name, and the version is unique across\n'
 	printf '    both sets — tests/Unit/MigrationVersionsAreUniqueTest.php\n'
 	printf '  * a tenant migration is expand/contract: never destructive in one step,\n'
-	printf '    because it runs against every customer (docs/architecture.md §4)\n'
+	printf '    because it runs against every customer (docs/architecture/deployment.md §4)\n'
 } >&2

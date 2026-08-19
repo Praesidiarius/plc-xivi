@@ -17,7 +17,7 @@ use Doctrine\Migrations\AbstractMigration;
  * CREATE ROLE; provisioning only"* — one anonymous HTTP request away from the
  * most privileged operation in the system. So the endpoint records a row here
  * and stops. Turning one into a customer is [XIV-98], and it runs where an
- * operator can see it. docs/architecture.md §8.12.
+ * operator can see it. docs/architecture/identity-and-access.md §8.12.
  *
  * ### Two unique indexes, and both of them are the feature
  *

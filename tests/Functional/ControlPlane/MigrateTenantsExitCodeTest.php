@@ -25,7 +25,7 @@ use Xivi\ControlPlane\Command\MigrateTenantsCommand;
 
 /**
  * "Migrated 49 of 50" must not look like success to the thing that called it
- * (XIV-61, docs/architecture.md §4.2).
+ * (XIV-61, docs/architecture/deployment.md §4.2).
  *
  * ## What was wrong, and it was not the loop
  *

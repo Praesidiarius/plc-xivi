@@ -78,7 +78,7 @@ final class ValueListReachesEveryTypeTest extends KernelTestCase
                 . 'answering where its values come from. ValueListUsage reads exactly that option, so a '
                 . 'field of this type would be invisible to the counts, to the refusal that stops an entry '
                 . 'being removed from under records holding it, and to the merge — silently '
-                . '(docs/architecture.md §5.4).',
+                . '(docs/architecture/data-model.md §5.4).',
                 $key,
                 ChoiceFieldType::LIST,
             ));

@@ -46,7 +46,7 @@ final class SelfServiceSlugTest extends TestCase
      *
      * Both directions are asserted on purpose. One direction alone would pass if
      * somebody replaced one pattern with the other, which is exactly the tidying
-     * this is here to catch. See docs/architecture.md §8.12 and the class docblock
+     * this is here to catch. See docs/architecture/identity-and-access.md §8.12 and the class docblock
      * of {@see SelfServiceSlug} for the argument.
      */
     public function testTheTwoSlugRulesAreDeliberatelyDifferent(): void

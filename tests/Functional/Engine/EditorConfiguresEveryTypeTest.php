@@ -71,7 +71,7 @@ final class EditorConfiguresEveryTypeTest extends KernelTestCase
                 'The field type "%s" says it needs %s, and the metadata editor draws no control for %s. '
                 . 'Add the option to FieldController::PER_TYPE with the capability interface that declares '
                 . 'it, and a control to templates/field/index.html.twig — or the type cannot be added by a '
-                . 'customer at all (docs/architecture.md §5.4).',
+                . 'customer at all (docs/architecture/data-model.md §5.4).',
                 $key,
                 implode(', ', self::optionsOf($type)),
                 implode(', ', array_diff(

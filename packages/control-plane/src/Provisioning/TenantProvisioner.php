@@ -33,7 +33,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  * Creates a customer: control-plane row, database role, database, schema.
  *
  * This is the "provisioning is a console command, not a filesystem ritual" half
- * of docs/architecture.md §4 — nothing here writes configuration to disk, so there is no
+ * of docs/architecture/deployment.md §4 — nothing here writes configuration to disk, so there is no
  * per-domain file to drift.
  *
  * Each tenant gets its **own Postgres role**, and its database revokes CONNECT
@@ -222,7 +222,7 @@ final readonly class TenantProvisioner
 
     /**
      * Brings an existing tenant's schema up to date. Separate from provisioning
-     * because every deploy has to run it for every tenant (docs/architecture.md §4).
+     * because every deploy has to run it for every tenant (docs/architecture/deployment.md §4).
      *
      * @return list<string> executed migration versions
      */
@@ -234,7 +234,7 @@ final readonly class TenantProvisioner
     /**
      * Removes a tenant completely: database, role, row — in that order.
      *
-     * Destructive and irreversible — docs/architecture.md §4 makes export-on-churn a
+     * Destructive and irreversible — docs/architecture/deployment.md §4 makes export-on-churn a
      * per-customer operation, so take the dump first.
      *
      * ## The cluster goes first and the registry last (XIV-94)

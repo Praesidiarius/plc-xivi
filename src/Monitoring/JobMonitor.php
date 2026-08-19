@@ -18,7 +18,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
  * Tells an external monitor that a scheduled job started, and how it ended
- * (XIV-126, docs/architecture.md §4.5).
+ * (XIV-126, docs/architecture/deployment.md §4.5).
  *
  * ## The thing watching is not the thing being watched
  *

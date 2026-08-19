@@ -17,7 +17,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * No tenant migration's `up()` takes anything away (XIV-61, docs/architecture.md §4.2).
+ * No tenant migration's `up()` takes anything away (XIV-61, docs/architecture/deployment.md §4.2).
  *
  * ## The window this is about
  *
@@ -185,7 +185,7 @@ final class TenantMigrationsAreAdditiveTest extends TestCase
         foreach (self::FORBIDDEN as $pattern => $consequence) {
             self::assertDoesNotMatchRegularExpression($pattern, $up, sprintf(
                 "%s takes something away in up(), and %s.\n\n"
-                . "Tenant migrations are additive only (docs/architecture.md §4.2). A deploy walks the\n"
+                . "Tenant migrations are additive only (docs/architecture/deployment.md §4.2). A deploy walks the\n"
                 . "customer databases one at a time with the instance still serving, so for the length\n"
                 . "of that walk the same code meets both schemas — and the containers carrying the new\n"
                 . "code are replaced only afterwards. Expand in this release, contract in a later one.\n\n"

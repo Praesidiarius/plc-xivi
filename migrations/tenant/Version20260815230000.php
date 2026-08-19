@@ -15,7 +15,7 @@ use Doctrine\Migrations\AbstractMigration;
  * notice later.
  *
  * The row is inserted here rather than on first save. It lands for every tenant
- * at once (docs/architecture.md §4) and carries no opinions: an empty company name and no
+ * at once (docs/architecture/deployment.md §4) and carries no opinions: an empty company name and no
  * currency are exactly what "nobody has filled this in" looks like, so nothing is
  * being decided on a customer's behalf while they are not looking.
  */

@@ -21,7 +21,7 @@ use Doctrine\DBAL\Tools\DsnParser;
  * Wraps DBAL's parser with our scheme map, so that every place that reads a
  * tenant DSN (the connection middleware, provisioning) agrees on what a DSN
  * means. Postgres only — a tenant on another engine is not a supported shape
- * (docs/architecture.md §4: one deployed codebase, one storage design).
+ * (docs/architecture/deployment.md §4: one deployed codebase, one storage design).
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */

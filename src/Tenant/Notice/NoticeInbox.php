@@ -26,7 +26,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * What one person in one installation has been told and has not put away yet
- * (XIV-120, docs/architecture.md §8.16).
+ * (XIV-120, docs/architecture/identity-and-access.md §8.16).
  *
  * **The class where the two databases meet**, which is the whole of this
  * feature's shape in one place: the notices come from the control plane, which a
