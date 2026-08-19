@@ -1,0 +1,50 @@
+{#
+	How a formatted field is drawn: the text, a note about the grammar, and what
+	it will look like (XIV-131).
+
+	**A form theme rather than a template around the widget**, because nothing
+	renders a record's fields one at a time — `RecordForm` calls
+	`form_widget(form.fields)` once and knows nothing about what is in it, which
+	is the §5 claim about definitions doing the work. A block keyed on this form
+	type's own prefix is the only way to give one kind of field a different
+	appearance without something upstream learning that it exists.
+
+	**The preview follows the typing for free.** The record form is a Live
+	Component with `data-model` on the form element (XIV-32), so the server
+	re-renders it as somebody types and this block is re-rendered with it. No
+	JavaScript is written here and nothing is fetched from anywhere — the
+	guarantee in §8.3 that a customer's browser makes no CDN calls is not
+	something a preview needs an exception to.
+
+	It is drawn only when there is something to show. An empty bordered box under
+	an empty textarea is furniture: it says "a preview goes here" to somebody who
+	has not typed anything yet and cannot benefit from being told.
+#}
+{% block xivi_markdown_widget %}
+	{{- block('textarea_widget') -}}
+
+	{#
+		`|raw` on a sentence out of our own catalogue, which is how every other
+		help text in this application that wants a `<code>` span is written. It
+		is markup we wrote, in a file only this repository can change — a
+		different thing entirely from the value below.
+	#}
+	<p class="form-text mb-0">{{ 'markdown.hint'|trans({}, 'xivi')|raw }}</p>
+
+	{% if value is not empty %}
+		<div class="markdown-preview mt-2">
+			<p class="markdown-preview-label mb-1">{{ 'markdown.preview'|trans({}, 'xivi') }}</p>
+			{#
+				`markdown()` declares its own output safe, and it is the only
+				thing in this application that may claim that about something a
+				customer typed: what it hands back was parsed with raw HTML
+				escaped and then put through the sanitizer's policy. So there is
+				no `|raw` on this value and there must never be one — the
+				judgement belongs in Xivi\Core\Twig\MarkdownExtension, where the
+				pipeline that earns it is visible, not at a call site where it
+				would look identical to a `|raw` on a database column.
+			#}
+			<div class="markdown-body">{{ markdown(value) }}</div>
+		</div>
+	{% endif %}
+{% endblock %}

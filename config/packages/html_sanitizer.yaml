@@ -1,11 +1,20 @@
-# What an email's HTML is allowed to contain (XIV-38).
+# What rendered Markdown is allowed to contain (XIV-38, XIV-131).
 #
 # The second half of the answer to "sanitize or disable raw HTML" — the first is
-# in EmailRenderer, which parses the Markdown with raw HTML escaped. This is the
-# policy that decides what survives of the markup CommonMark itself produces from
-# perfectly ordinary Markdown, which is where the interesting case lives:
-# `[click](javascript:…)` is a link somebody can type without any raw HTML being
-# involved at all.
+# in Xivi\Core\Markdown\MarkdownRenderer, which parses the Markdown with raw HTML
+# escaped. This is the policy that decides what survives of the markup CommonMark
+# itself produces from perfectly ordinary Markdown, which is where the
+# interesting case lives: `[click](javascript:…)` is a link somebody can type
+# without any raw HTML being involved at all.
+#
+# **It was called `email` and is now called `markdown`** (XIV-131). It was
+# written for XIV-38 and had one caller; a field that holds formatted text is the
+# second, and the two must not be able to diverge — a policy that is tightened
+# for email and left open for a record page is the failure mode the whole
+# extraction exists to prevent. So there is one policy and it is deliberately the
+# *strictest* caller's rather than the union of what both would accept: the two
+# rules below that are specifically about email cost a record page nothing worth
+# having, and the argument for each is on the rule itself.
 #
 # It is Symfony's component and Symfony's configuration rather than an allow-list
 # written by hand, for the reason the workflow component was chosen over a state
@@ -18,7 +27,7 @@
 framework:
     html_sanitizer:
         sanitizers:
-            email:
+            markdown:
                 allow_safe_elements: true
 
                 # Three schemes for links and two for images, and no others.
@@ -26,12 +35,19 @@ framework:
                 # smuggled past a mail client's remote-content warning, and
                 # nothing here needs one — an inline image belongs in the message
                 # as an attachment, whenever somebody asks for one, rather than
-                # in the markup.
+                # in the markup. A record field wanting one is XIV-115 and will
+                # bring its own answer; it is not a reason to open this now.
                 allowed_link_schemes: ['http', 'https', 'mailto']
                 allowed_media_schemes: ['http', 'https']
 
                 # An email has no base URL. A relative link in one resolves
                 # against whatever the mail client guesses, which is nothing
                 # useful, so it is dropped rather than sent somewhere arbitrary.
+                #
+                # A record page *does* have a base URL, and this stays off there
+                # too: a relative link typed into a field would resolve against
+                # whichever record it happened to be read on, which means it goes
+                # somewhere different depending on where you read it. Nobody
+                # means that either.
                 allow_relative_links: false
                 allow_relative_medias: false

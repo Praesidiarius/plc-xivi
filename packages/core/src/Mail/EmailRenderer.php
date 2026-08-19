@@ -13,16 +13,11 @@ declare(strict_types=1);
 
 namespace Xivi\Core\Mail;
 
-use League\CommonMark\ConverterInterface;
-use League\CommonMark\Environment\Environment as MarkdownEnvironment;
-use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
-use League\CommonMark\Extension\Table\TableExtension;
-use League\CommonMark\MarkdownConverter;
-use Symfony\Component\HtmlSanitizer\HtmlSanitizerInterface;
 use Twig\Environment;
 use Xivi\Core\Document\DocumentMarkers;
 use Xivi\Core\Entity\EmailTemplate;
 use Xivi\Core\Entity\ModuleDefinition;
+use Xivi\Core\Markdown\MarkdownRenderer;
 use Xivi\Core\Record\Record;
 
 /**
@@ -76,28 +71,25 @@ use Xivi\Core\Record\Record;
  * Markdown. That is a formatting oddity in one email; the other way round is a
  * script tag in every one.
  *
- * ### Raw HTML is disabled, *and* the output is sanitized
+ * ### Raw HTML is disabled, *and* the output is sanitized — elsewhere now
  *
- * The ticket asked for one of the two and this does both, in that order, because
- * they defend against different things.
+ * The ticket asked for one of the two and this class did both, in that order,
+ * because they defend against different things. It configured the converter in
+ * its own constructor for as long as it was the only thing that had one.
  *
- * **Disabled** (`html_input: escape`) is the primary decision. CommonMark passes
- * raw HTML through by default, which would make the paragraph above false: a
- * marker's value is substituted into the Markdown source, so anything the parser
- * lets through is a route from a customer's *record* into the markup of an
- * email. Escaping closes that route at the point where the distinction between
- * "text somebody typed" and "markup" is still known.
+ * **XIV-131 moved that configuration into {@see MarkdownRenderer}**, because a
+ * field that holds formatted text is the second caller and two converters with
+ * two configurations is how one of them ends up unescaped. Nothing about the
+ * policy changed and nothing about this class's guarantees did: markers are
+ * still substituted into the *source*, the source is still parsed with raw HTML
+ * escaped, and the result is still sanitized before it reaches the wrapper. The
+ * argument for each of those is now in that class, where the record page can
+ * read it too.
  *
- * **Sanitized** is the second layer, and it is not ceremony. CommonMark emits
- * markup of its own from perfectly ordinary Markdown — links, above all — and
- * `[click](javascript:…)` is a link somebody can type without any raw HTML being
- * involved. `allow_unsafe_links: false` refuses the obvious ones and the
- * sanitizer is what enforces the allowed elements, attributes and URL schemes as
- * a policy rather than as a parser setting. It is also what keeps this class
- * honest if raw HTML is ever turned back on for a reason nobody has thought of
- * yet. The policy itself is Symfony's, configured in
- * config/packages/html_sanitizer.yaml, because a hand-rolled allow-list is the
- * kind of thing this project takes from the framework rather than writes.
+ * What is worth keeping here is the consequence rather than the mechanism: a
+ * change to what an email is permitted to contain can no longer apply to email
+ * and not to a record page, because there is one object and one policy and both
+ * of them are handed out by the container.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
@@ -106,36 +98,12 @@ final readonly class EmailRenderer
     /** The one base template, and the argument for there being one is in §5.13. */
     private const string BASE = '@XiviCore/email/base.html.twig';
 
-    private ConverterInterface $markdown;
-
     public function __construct(
         private DocumentMarkers $markers,
         private CollectionTables $tables,
-        private HtmlSanitizerInterface $sanitizer,
+        private MarkdownRenderer $markdown,
         private Environment $twig,
     ) {
-        $environment = new MarkdownEnvironment([
-            // See the class docblock: this is the primary half of the answer to
-            // "sanitize or disable raw HTML", and the half that makes marker
-            // substitution into the source safe rather than merely tidy.
-            'html_input' => 'escape',
-            // `[click me](javascript:alert(1))` needs no raw HTML at all, so the
-            // setting above would not have caught it.
-            'allow_unsafe_links' => false,
-        ]);
-
-        $environment->addExtension(new CommonMarkCoreExtension());
-        // Tables are not CommonMark — they are GitHub's extension to it, and
-        // without this one a collection would come out as a paragraph of pipe
-        // characters in the HTML half while reading perfectly well in the text
-        // half (XIV-62). Named rather than taken as part of
-        // `GithubFlavoredMarkdownExtension`, which would also bring autolinking,
-        // strikethrough, task lists and a raw-HTML filter nothing here asked
-        // for: the smaller the grammar a tenant writes against, the fewer ways
-        // an email surprises them.
-        $environment->addExtension(new TableExtension());
-
-        $this->markdown = new MarkdownConverter($environment);
     }
 
     /**
@@ -177,7 +145,7 @@ final readonly class EmailRenderer
      */
     private function wrap(string $markdown, string $subject): string
     {
-        $content = $this->sanitizer->sanitize($this->markdown->convert($markdown)->getContent());
+        $content = $this->markdown->toHtml($markdown);
 
         return $this->twig->render(self::BASE, [
             'subject' => $subject,

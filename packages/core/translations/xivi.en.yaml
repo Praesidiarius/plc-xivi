@@ -156,3 +156,16 @@ query:
     unknown_collection: '"%module%" has no collection called "%collection%".'
     unsupported_operator: 'Cannot ask whether "%path%" (%type%) %operator%. That type accepts: %supported%.'
     sort_by_collection: 'Cannot sort by "%path%": it belongs to a collection, and a record with two of them has two values. Which one would be the record''s?'
+
+# The two sentences beside a formatted field's textarea (XIV-131).
+#
+# The hint is the whole documentation a customer gets for the grammar, so it
+# names the four constructs somebody will reach for and stops. It is not a
+# Markdown tutorial: what it has to do is answer "can I make this bold" without
+# sending anybody to look for the answer somewhere this application does not
+# control.
+markdown:
+    hint: >-
+        Formatting: <code>**bold**</code>, <code>*italic*</code>, <code># Heading</code>,
+        and a line beginning with <code>-</code> for a list item.
+    preview: Preview

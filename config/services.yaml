@@ -349,14 +349,22 @@ services:
         arguments:
             $entityManager: '@doctrine.orm.tenant_entity_manager'
 
-    # Which sanitizer policy an email's HTML goes through (XIV-38). The framework
-    # registers one service per named sanitizer and autowiring cannot guess which
-    # of them a class means, so the application says — the same shape as the
-    # connections above, one level up: there it says which database, here which
-    # policy. The policy itself is config/packages/html_sanitizer.yaml.
-    Xivi\Core\Mail\EmailRenderer:
+    # Which sanitizer policy rendered Markdown goes through (XIV-38, XIV-131).
+    # The framework registers one service per named sanitizer and autowiring
+    # cannot guess which of them a class means, so the application says — the
+    # same shape as the connections above, one level up: there it says which
+    # database, here which policy. The policy itself is
+    # config/packages/html_sanitizer.yaml.
+    #
+    # **This binding used to be on EmailRenderer and is now one level down.**
+    # XIV-131 moved the converter and both of its safety layers into
+    # MarkdownRenderer so that email and a record's formatted field cannot be
+    # given different rules, and this line is the container half of that: there
+    # is one service holding the policy, so there is nowhere for a second one to
+    # be configured differently.
+    Xivi\Core\Markdown\MarkdownRenderer:
         arguments:
-            $sanitizer: '@html_sanitizer.sanitizer.email'
+            $sanitizer: '@html_sanitizer.sanitizer.markdown'
 
     # **Dev and test cannot put mail on the wire** (XIV-37). Registered ahead of
     # every factory symfony/mailer ships — priority, on the tag they all share —

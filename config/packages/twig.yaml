@@ -4,7 +4,12 @@ twig:
     # definition gets the same structure a hand-written form would — including
     # the input group a price is drawn in, which its own money_widget block
     # already knows how to build (XIV-11).
-    form_themes: ['bootstrap_5_layout.html.twig']
+    # The second one is core's, and it defines exactly one block: how a field
+    # holding formatted text is drawn (XIV-131). It comes after Bootstrap's so
+    # that the `textarea_widget` it calls into is the themed one — a formatted
+    # field is a textarea in every respect that reaches the browser, plus a
+    # preview underneath.
+    form_themes: ['bootstrap_5_layout.html.twig', '@XiviCore/form/markdown.html.twig']
     globals:
         # Tenant name and module navigation, needed by every signed-in page.
         # Lazy: the login page renders without a tenant.

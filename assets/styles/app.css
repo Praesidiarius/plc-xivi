@@ -277,3 +277,60 @@
 	width: 5rem;
 	flex: 0 0 auto;
 }
+
+/*
+ * A formatted field, rendered (XIV-131).
+ *
+ * Almost nothing, and the almost is the interesting part. What comes out of
+ * CommonMark is ordinary semantic markup — headings, paragraphs, lists, tables —
+ * and Bootstrap already styles every one of those, so a block that set its own
+ * type would be a second opinion about how this application looks, held in one
+ * corner of one page. The two rules here are the two places where the *default*
+ * is wrong specifically because the markup is inside a card rather than being the
+ * page.
+ *
+ * **Headings shrink.** An `<h2>` a customer typed inside a field is a heading
+ * within their text, not a heading of the record page — and drawn at the page's
+ * own h2 size it is bigger than the record's title, which makes a note look like
+ * it has taken over. `em` rather than `rem` so the scale follows whatever context
+ * it lands in.
+ *
+ * **The last block loses its margin.** Every block element here carries a bottom
+ * margin, which on the final one is space inside the container that nothing is
+ * separating from anything.
+ */
+.markdown-body > :last-child {
+	margin-bottom: 0;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+	font-size: 1.1em;
+	font-weight: 600;
+}
+
+/*
+ * And the preview under the textarea somebody is typing into.
+ *
+ * It has to read as *output* rather than as more of the form, or the eye takes
+ * it for another control and looks for the label. A dashed edge and the muted
+ * background say "this is what that will look like" without a heading having to
+ * say it — the word above it is one line and does the rest.
+ */
+.markdown-preview {
+	border: 1px dashed var(--bs-border-color);
+	border-radius: var(--bs-border-radius);
+	padding: 0.75rem;
+	background-color: var(--bs-tertiary-bg);
+}
+
+.markdown-preview-label {
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	color: var(--bs-secondary-color);
+}
