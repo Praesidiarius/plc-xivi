@@ -213,6 +213,49 @@ control_plane:
         Requests appear here after `tenant:purchase:collect` runs. A module has to have a price before
         anybody can ask for one — every module is free until somebody sets one.
 
+    # An operator says something to the people using this installation (XIV-120).
+    # The vocabulary is deliberately an announcement's rather than a campaign's:
+    # nothing here is a "message", a "broadcast" or a "post", because an operator
+    # writing to every customer of an ERP they depend on is a serious act and the
+    # words should feel like one.
+    notices: Notices
+    notices_live: '%count% notice(s) customers are seeing now.'
+    notices_live_hint: A notice appears on the dashboard of everybody it was addressed to.
+    # What this screen cannot tell an operator, said on the screen. §8.16 names it
+    # as a gap rather than leaving somebody to assume the number is somewhere.
+    notices_no_receipts: >-
+        Nothing here knows whether anybody has read a notice. Reading that back would mean
+        collecting it out of every customer's own database.
+    notice_write: Write a notice
+    notice_title: Title
+    notice_body: Notice
+    notice_body_hint: Plain text. No links, no formatting.
+    notice_audience: Who sees it
+    notice_expires: Stops showing (optional)
+    notice_expires_hint: UTC. Leave empty for a notice with no end; you can withdraw it at any time.
+    notice_addressed: Addressed to
+    notice_addressed_count: '%count% customer(s)'
+    notice_every_tenant: Every customer
+    notice_named_tenants: Only the customers ticked below
+    notice_no_tenants: There are no customers on this installation yet.
+    notice_publish: Publish
+    notice_published: Published to %count% customer(s).
+    notice_published_all: Published to every customer.
+    notice_published_at: Published
+    notice_state: State
+    notice_live: Live
+    notice_ended: Ended
+    notice_until: 'until %time%'
+    notice_withdraw: Withdraw
+    notice_withdrawn: That notice is no longer shown to anybody.
+    notice_gone: That notice no longer exists.
+    notice_stale: That page had been open a while. Nothing was published — try again.
+    notice_unknown_audience: That is not an audience a notice can have.
+    no_notices: Nothing has been announced
+    no_notices_hint: >-
+        A notice appears on the dashboard of everybody it was addressed to, in their own
+        installation, where they are already working.
+
 dashboard:
     # A widget's heading (XIV-81). The module tiles have none — a grid of labelled
     # cards under the company name describes itself — so this is the only one so
@@ -232,6 +275,11 @@ dashboard:
     # holds the application's own two.
     widget:
         modules: Modules
+
+    # The card the operator of this installation writes (XIV-120). "Notices"
+    # rather than "News" or "Updates": the first is something you are being told
+    # and the other two are something you might browse.
+    notices: Notices
 
     # The way to the picker, from the page it changes. On the dashboard itself
     # rather than only among the cards, because somebody who has hidden all of
@@ -253,6 +301,25 @@ dashboard:
     picker_following_code: Every card, in the order they are listed here.
     saved: Your dashboard was saved.
     reset: Your dashboard follows the company's again.
+
+# What the operator of this installation has said, as a customer's own screen
+# draws it (XIV-120, §8.16).
+#
+# In the application's catalogue rather than the control plane's part of it,
+# because these three strings are read on a *customer's* dashboard: the audience
+# names are also drawn on the operator's form, which is what one catalogue for
+# one installation is for.
+notice:
+    # "Dismiss" rather than "Got it" or "OK": the person is putting something
+    # away, not agreeing to it, and the difference matters on a screen where the
+    # thing being put away might be a maintenance window.
+    dismiss: Dismiss
+    audience:
+        everyone: Everyone here
+        # Deliberately says which people, rather than "administrators only" —
+        # ROLE_ADMIN is the nearest thing an installation knows to "whoever pays",
+        # and the word for it should be the one the user screens already use.
+        administrators: Administrators
 
 account:
     region: Region

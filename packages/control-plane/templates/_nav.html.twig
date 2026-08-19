@@ -43,6 +43,16 @@
 			<a class="nav-link py-1 {{ current == 'control_plane_purchases' ? 'active' : '' }}"
 			   {{ current == 'control_plane_purchases' ? 'aria-current="page"' : '' }}
 			   href="{{ path('control_plane_purchases') }}">{{ 'control_plane.purchases'|trans }}</a>
+			{#
+				The fourth page (XIV-120), and the only one that is not about
+				reading: the other three answer questions an operator has, and this
+				is where they answer a customer's. It sits last because it is what
+				you go and do after reading the other three — a maintenance window
+				follows from the tenant list, a release note from the module page.
+			#}
+			<a class="nav-link py-1 {{ current == 'control_plane_notices' ? 'active' : '' }}"
+			   {{ current == 'control_plane_notices' ? 'aria-current="page"' : '' }}
+			   href="{{ path('control_plane_notices') }}">{{ 'control_plane.notices'|trans }}</a>
 		</nav>
 	</div>
 	<div class="d-flex align-items-center gap-3">

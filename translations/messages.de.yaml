@@ -120,6 +120,44 @@ control_plane:
         Anfragen erscheinen hier, nachdem `tenant:purchase:collect` gelaufen ist. Ein Modul braucht
         einen Preis, bevor es jemand anfragen kann — bis jemand einen setzt, ist jedes Modul kostenlos.
 
+    # Siehe messages.en.yaml: warum die Sprache hier die einer Ankündigung ist
+    # und nicht die einer Kampagne (XIV-120).
+    notices: Mitteilungen
+    notices_live: '%count% Mitteilung(en) sehen die Kundinnen und Kunden gerade.'
+    notices_live_hint: Eine Mitteilung erscheint im Dashboard aller, an die sie gerichtet ist.
+    notices_no_receipts: >-
+        Ob jemand eine Mitteilung gelesen hat, weiss hier nichts. Das zurückzuholen hiesse, es aus
+        jeder Kundendatenbank einzusammeln.
+    notice_write: Mitteilung schreiben
+    notice_title: Titel
+    notice_body: Mitteilung
+    notice_body_hint: Reiner Text. Keine Links, keine Formatierung.
+    notice_audience: Wer sie sieht
+    notice_expires: Läuft aus (optional)
+    notice_expires_hint: UTC. Leer lassen für eine Mitteilung ohne Ende; zurückziehen kannst du sie jederzeit.
+    notice_addressed: Gerichtet an
+    notice_addressed_count: '%count% Kunde(n)'
+    notice_every_tenant: Alle Kundinnen und Kunden
+    notice_named_tenants: Nur die unten angekreuzten
+    notice_no_tenants: Auf dieser Installation gibt es noch keine Kundinnen und Kunden.
+    notice_publish: Veröffentlichen
+    notice_published: An %count% Kunde(n) veröffentlicht.
+    notice_published_all: An alle Kundinnen und Kunden veröffentlicht.
+    notice_published_at: Veröffentlicht
+    notice_state: Zustand
+    notice_live: Sichtbar
+    notice_ended: Beendet
+    notice_until: 'bis %time%'
+    notice_withdraw: Zurückziehen
+    notice_withdrawn: Diese Mitteilung wird niemandem mehr gezeigt.
+    notice_gone: Diese Mitteilung gibt es nicht mehr.
+    notice_stale: Die Seite war eine Weile offen. Es wurde nichts veröffentlicht — versuch es nochmals.
+    notice_unknown_audience: Das ist kein Publikum, das eine Mitteilung haben kann.
+    no_notices: Es wurde noch nichts angekündigt
+    no_notices_hint: >-
+        Eine Mitteilung erscheint im Dashboard aller, an die sie gerichtet ist — in ihrer eigenen
+        Installation, dort, wo sie ohnehin arbeiten.
+
 dashboard:
     follow_ups: Deine Wiedervorlagen
     no_access: Du hast noch auf kein Modul Zugriff. Eine Administratorin oder ein Administrator kann ihn dir geben.
@@ -131,6 +169,9 @@ dashboard:
     # auch wenn es keine Überschrift zeichnet (XIV-66).
     widget:
         modules: Module
+
+    # Die Karte, die der Betreiber dieser Installation schreibt (XIV-120).
+    notices: Mitteilungen
 
     customise: Anpassen
     loading: Wird geladen …
@@ -149,6 +190,14 @@ dashboard:
     picker_following_code: Alle Karten, in der hier gezeigten Reihenfolge.
     saved: Dein Dashboard wurde gespeichert.
     reset: Dein Dashboard folgt wieder dem der Firma.
+
+# Was der Betreiber dieser Installation gesagt hat, auf dem Bildschirm der
+# Kundin (XIV-120, §8.16). Siehe messages.en.yaml für die Wortwahl.
+notice:
+    dismiss: Ausblenden
+    audience:
+        everyone: Alle hier
+        administrators: Administratorinnen und Administratoren
 
 account:
     region: Region

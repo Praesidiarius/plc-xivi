@@ -205,6 +205,23 @@ lands in `Unreleased` here.
   the promise. It costs about 590 KB inside the customer-facing image, roughly a
   sixth of one percent of it. Reasoning in `docs/architecture.md` §8.3.1, and why
   history could answer this without a new table in §5.2.
+- **An operator can say something to customers, and it appears where they work**
+  ([XIV-120]) — a new *Notices* screen in the control plane writes an
+  announcement addressed to every customer or to named ones, and it turns up as a
+  card on their own dashboard: a maintenance window, a release note, a trial
+  running out. Each notice carries a date and the name of whoever wrote it, and
+  says per notice whether everybody in an installation sees it or only its
+  administrators. A reader can dismiss one for themselves, which does not hide it
+  from their colleagues, and an operator can withdraw one, which takes it off
+  every dashboard at once. §8.16 has the argument, including why this needed no
+  new privilege where [XIV-102] needed a whole collector.
+- **On upgrade: re-run `bin/console deploy:registry-grants`** ([XIV-120]). The
+  registry gained two tables (`notice`, `notice_recipient`), and a
+  customer-facing instance whose database role has not been granted `SELECT` on
+  them will fail to draw the dashboard — loudly, on the first request after the
+  deploy, for everybody. The command prints today's statements, which is why it
+  prints rather than maintains a script. Nothing else about the grant changes and
+  **no new write privilege is needed anywhere**.
 
 - **Xivi has documentation, and it is published**
   ([XIV-112](https://xivi.youtrack.cloud/issue/XIV-112)) —
@@ -333,6 +350,7 @@ lands in `Unreleased` here.
 [XIV-131]: https://xivi.youtrack.cloud/issue/XIV-131
 [XIV-132]: https://xivi.youtrack.cloud/issue/XIV-132
 [XIV-142]: https://xivi.youtrack.cloud/issue/XIV-142
+[XIV-120]: https://xivi.youtrack.cloud/issue/XIV-120
 
 ## Releases
 

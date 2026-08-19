@@ -1,0 +1,61 @@
+{#
+	What the people running this installation have to say (XIV-120, §8.16).
+
+	One card per notice, above everything else on the page, because a maintenance
+	window on Sunday is information about whether the work below it can be done at
+	all. The widget is only on the page when there is something on it —
+	`App\Dashboard\Widget\NoticeWidget` returns null otherwise — so this template
+	never draws an empty state and never says "no announcements".
+
+	**It is deliberately plain.** No image, no accent colour, no icon competing for
+	attention, no call to action. An operator writing to every customer of an ERP
+	they depend on is doing something serious, and the visual grammar here is a
+	dated announcement rather than a marketing card: a title, who wrote it, when,
+	and what it says.
+
+	The body is printed with `nl2br` over escaped text, which is the whole of the
+	formatting on offer. Markdown, links and HTML were all considered and all
+	refused: the moment a notice can contain a link it is a channel somebody can
+	be phished through, on the one screen in the product a customer has no reason
+	to distrust.
+#}
+{% for notice in notices %}
+	<article class="card mb-3">
+		<div class="card-body">
+			<div class="d-flex flex-wrap gap-2 justify-content-between align-items-start">
+				<h3 class="h6 card-title mb-1">{{ notice.title }}</h3>
+
+				{#
+					Dismissing is a POST because it writes a row, and the row goes
+					into this customer's own database — §4.4 gives a customer-facing
+					instance no write privilege in the control plane, which is where
+					the notice itself lives. See `App\Tenant\Entity\NoticeDismissal`.
+
+					Per person, not per company: somebody putting this away has read
+					it, and nobody should be able to take a maintenance window off a
+					colleague's screen.
+				#}
+				<form method="post" action="{{ path('notice_dismiss', {id: notice.id}) }}">
+					<input type="hidden" name="_token" value="{{ csrf_token('notice-dismiss') }}">
+					<button type="submit" class="btn btn-sm btn-outline-secondary">
+						{{ 'notice.dismiss'|trans }}
+					</button>
+				</form>
+			</div>
+
+			{#
+				The date and the author, which is what makes this an announcement
+				rather than an advertisement — and the author is a name copied onto
+				the notice when it was published, because this reader's instance
+				cannot read the `operator` table at all (§4.4) and a join would be
+				unreadable by the very party the column is for.
+			#}
+			<p class="text-body-secondary small mb-2">
+				<time datetime="{{ notice.publishedAt|date('c') }}">{{ notice.publishedAt|date('Y-m-d H:i') }}</time>
+				· {{ notice.authorLabel }}
+			</p>
+
+			<p class="card-text mb-0">{{ notice.body|nl2br }}</p>
+		</div>
+	</article>
+{% endfor %}
