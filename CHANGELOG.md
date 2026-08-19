@@ -616,6 +616,15 @@ lands in `Unreleased` here.
   has four (`tenant:support:collect` was missing), and §4.1 said `tenant:reset` is
   kept out of the production image by `config/services.yaml`, which stopped being
   true when the exclusion moved into the control-plane package in XIV-96.
+- **§8 *Identity and access* is condensed: 3,905 lines to 3,495** ([XIV-149]) —
+  the second half of the split above, and it removes duplication rather than
+  reasoning. What went is prose that restated a docblock word for word: the
+  widget interface's contract, the control-plane address allow-list, the tenant
+  list's no-tenant-connection proof, the two slug rules, the collectors' shared
+  argument. What stayed is everything the code cannot say — the rejected
+  alternatives, the things deliberately not built, and the rules that span more
+  than one class. **No heading and no section number changed**, so every `§8.n`
+  and every anchor link still resolves.
 - **Markdown is rendered in one place now** ([XIV-131]) — the converter, the
   raw-HTML escaping and the sanitizer policy moved out of the email renderer into
   a single core service that email and formatted fields share. **No behaviour
