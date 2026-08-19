@@ -322,6 +322,34 @@ arrangement `bin/ci`'s test-database reclaim already uses (§9.2): the statement
 handles every session that exists now, the keyword handles the client that
 reconnects in between. Only one of the two is the reason the drop succeeds.
 
+**`pg_terminate_backend` requests a termination; it does not perform one**
+(XIV-142). It sends SIGTERM and returns true when the signal was delivered. The
+backend acts on it at its next interrupt check, detaches from shared memory, and
+only then leaves `pg_stat_activity` — so between the statement returning and the
+session actually being gone there is a window, short and machine-dependent, in
+which the cluster will still tell you somebody is connected. Measured here:
+descheduled backends clear in under three milliseconds, and a backend held under
+SIGSTOP never clears at all while it is held.
+
+That window is not a problem for the removal, because the `WITH (FORCE)` on the
+drop covers it — and covers it by *waiting*, which is the half of that keyword
+nobody had written down. Postgres signals whatever is left and then polls for up
+to five seconds for those backends to detach, raising the same
+`55006 … is being accessed by other users` if they do not. Measured on this
+cluster with one backend under SIGSTOP: the drop failed after 5005 ms, into the
+`TenantRemovalFailed::databaseSurvived` path that already exists for it. So the
+ordering above is unaffected and XIV-142 changed no behaviour — only
+`TenantRemovalFailed::sessionsCameBack()`'s docblock, which used to say the only
+thing left after a terminate was a client reconnecting, and now names the stuck
+backend as the second thing an operator might be looking at. What the window
+does break is anything that asks *the cluster* about sessions in the statement
+immediately after the terminate, which is what
+`TenantDeprovisionCommandTest::testTheProvisioningCredentialsMayEndATenantSession`
+was doing and what made it fail about one run in ten under eight parallel
+workers. That test now polls to the same five-second deadline the drop keeps, so
+it fails exactly where a real deprovision would rather than wherever the
+scheduler happened to land.
+
 **Two guards keep it from terminating itself.** `pid <> pg_backend_pid()`
 excludes the connection issuing the statement, which would matter if a
 provisioning DSN were ever pointed at a tenant's own database; `datname = ?` is

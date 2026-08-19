@@ -203,6 +203,14 @@ lands in `Unreleased` here.
   because somebody read the diff. The reasoning moved to `docs/architecture.md`
   §5.4, and a test now holds the fact, so a recipe that adds the other three
   fails `bin/ci` instead of shipping three stylesheets served to nobody.
+- **A deprovisioning test no longer fails about one run in ten** ([XIV-142]) —
+  `pg_terminate_backend` sends SIGTERM and returns as soon as the signal is away,
+  so the session it ended is still in `pg_stat_activity` for a millisecond or
+  three afterwards; the test asked in the very next statement and, under eight
+  parallel workers, sometimes got its answer before the backend had gone. It now
+  polls to the same five-second deadline `DROP DATABASE … WITH (FORCE)` keeps,
+  and still demands that the session really went. **Nothing in Xivi changed**:
+  the drop waits for those backends itself, which the brief now records (§4.1).
 
 ### Changed
 
@@ -249,6 +257,7 @@ lands in `Unreleased` here.
 [XIV-124]: https://xivi.youtrack.cloud/issue/XIV-124
 [XIV-126]: https://xivi.youtrack.cloud/issue/XIV-126
 [XIV-131]: https://xivi.youtrack.cloud/issue/XIV-131
+[XIV-142]: https://xivi.youtrack.cloud/issue/XIV-142
 
 ## Releases
 
