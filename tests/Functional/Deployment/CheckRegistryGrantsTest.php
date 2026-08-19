@@ -312,9 +312,15 @@ final class CheckRegistryGrantsTest extends KernelTestCase
         $tester = $this->check($this->role . '_typo');
 
         self::assertSame(3, $tester->getStatusCode());
-        // Not "does not exist": SymfonyStyle wraps its error block at 80 columns
-        // and the role name here is long enough to break that phrase in half.
-        self::assertStringContainsString('not exist in this cluster', $tester->getDisplay());
+        // Against the *unwrapped* text. SymfonyStyle wraps its error block at 80
+        // columns, and where the break lands moves with the role name — which
+        // carries paratest's worker number, so the same assertion passed on one
+        // worker and split a phrase in half on another. Collapsing the runs of
+        // whitespace asserts what the sentence says rather than how wide the
+        // terminal was.
+        $said = (string) preg_replace('/\s+/', ' ', $tester->getDisplay());
+
+        self::assertStringContainsString('does not exist in this cluster', $said);
     }
 
     /**
