@@ -154,7 +154,12 @@ metadata:
     # of them is about something that would otherwise be silent: a field that is
     # drawn and saved and does nothing, an option removed from under the records
     # holding it, ids that go on rendering as the wrong records' names.
-    option_unanswered: 'A "%type%" field does nothing until "%option%" is set, so "%key%" was not saved. A choice field with no options offers nothing to pick and accepts anything; a reference with no target has nowhere to look a record up.'
+    # The option name arrives already quoted, and with an "or" in it when there
+    # is more than one way of answering (XIV-127): a choice field's values may
+    # come from its own options or from a shared list, and a sentence naming only
+    # the first would send somebody off to type options into a field they meant
+    # to point at a list.
+    option_unanswered: 'A "%type%" field does nothing until %option% is set, so "%key%" was not saved. A choice field with no options offers nothing to pick and accepts anything; a reference with no target has nowhere to look a record up.'
     options_are_held: '%count% existing records hold an option you are removing from "%key%": %values%. They would be left with a value that is no longer on the list and could not be saved again until somebody fixed them. Change those records first, or keep the option.'
     options_are_the_modules: 'The field "%key%" came with the module, and its options are part of what the module does — the states it moves records between, the kinds of record it knows. You can add options and rename them; removing one is not offered.'
     target_is_held: '%count% existing records point through "%key%" at records in "%from%". An id only means anything in the module it was chosen from, so pointing this field at "%to%" would leave every one of them naming the wrong record, or none. Empty those records first, or leave it pointing at "%from%".'
@@ -166,6 +171,24 @@ metadata:
     unknown_section: 'There is no section named "%section%" on this module, so "%key%" cannot be put in it. Make it on the sections page first.'
     section_needs_a_name: 'A section is a heading on the form, so it needs a name: it is the only thing it says.'
     sections_are_for_modules: '"%shape%" is a list of rows inside a record rather than a form of its own, so it has no sections to put fields in.'
+    # The shared lists a customer keeps (XIV-127). The first four are §5.4's rule
+    # reaching further than a field's own options: an entry a record holds is not
+    # removable, and where the records are is part of the sentence because they
+    # are in modules the person removing it is not looking at.
+    entries_are_held: '%count% existing records hold an entry you are removing from "%list%": %values%. They are in %where%. Those records would be left holding a value the list no longer has, and could not be saved again until somebody fixed them. Change those records first, or keep the entry.'
+    entry_has_children: '%count% entries sit under "%label%", so it cannot be removed. Move them somewhere else or make them top-level entries first.'
+    list_is_in_use: '"%list%" cannot be deleted: %count% fields take their values from it — %fields%. Point those fields somewhere else first, and the list can go.'
+    list_is_the_modules: 'The field "%key%" came with the module, and its options are part of what the module does — the states it moves records between, the kinds of record it knows. It cannot take them from a list you maintain. Add a field of your own and point that at the list instead.'
+    list_key_taken: 'A shared list named "%key%" already exists.'
+    empty_list_label: 'A list needs a name: it is what the field editor offers when somebody points a field at it.'
+    cannot_merge_that: 'A merge has to name two different entries of "%list%". Pick the entry to keep and the entry to merge into it.'
+    unknown_list: 'No shared list named "%list%" exists here, so "%key%" cannot take its values from it.'
+    # And the two that answer §5.21's objection to options in general: pointing a
+    # populated field at a list, or off one, reinterprets every value already
+    # stored — so the values are counted against the new source first and the
+    # ones that would be stranded are named.
+    values_are_not_on_the_list: '%count% existing records hold a value in "%key%" that is not on the list "%list%": %values%. Pointing the field at that list would leave them holding something it does not contain, and they could not be saved again until somebody fixed them. Add those values to the list first, or change the records.'
+    values_are_not_among_its_options: '%count% existing records hold a value in "%key%" that is not one of the field''s own options: %values%. Taking the field off the shared list would leave them holding something the field does not offer. Add those options to the field first, or leave it on the list.'
 
 query:
     unknown_field: 'There is nothing called "%path%" on "%shape%" to filter or sort by.'
@@ -192,3 +215,37 @@ markdown:
 phone:
     help_country: 'Typed without a country code, this is read as a %country% number.'
     help_no_country: 'This installation has not said which country it is in, so type numbers in full, with the country code.'
+
+# The colours and the pictures a list entry may carry (XIV-127).
+#
+# **Named here rather than in the application's catalogue** because the palette
+# is the engine's: `ValueTone` and `ValueIcon` are what a definition holds, and a
+# module drawing one should not have to reach into `messages` to name it.
+#
+# The colours are named for what they *say* rather than for the pigment. A
+# customer choosing a colour for "urgent" is choosing a meaning, and Bootstrap's
+# own words — primary, danger — are developer vocabulary. "Blue" would be worse
+# still: these are theme colours and the dark theme moves them.
+value_list:
+    tone:
+        primary: Accent
+        secondary: Muted
+        success: Green
+        danger: Red
+        warning: Amber
+        info: Blue
+        light: Pale
+        dark: Charcoal
+    icon:
+        Circle: Dot
+        Square: Square
+        Star: Star
+        Flag: Flag
+        Place: Place
+        Building: Building
+        Person: Person
+        Box: Box
+        Delivery: Delivery
+        Tools: Tools
+        Done: Tick
+        Attention: Warning

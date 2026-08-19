@@ -234,10 +234,18 @@
 									<dt class="col-6 col-md-3 text-body-secondary fw-normal">{{ field.label }}</dt>
 									<dd class="col-6 col-md-3">
 										{% set shown = display(field, record.get(field.key)) %}
+										{# A colour and a picture, when the value carries them
+										   (XIV-127). Asked of the field rather than of its type, on
+										   `record_link()`'s rule; null — and therefore this page
+										   exactly as it was — for every field that is not pointed at
+										   a shared list. #}
+										{% set badge = value_badge(field, record.get(field.key)) %}
 										{# Empty reads quieter than filled, or a half-filled record
 										   looks busier than a full one. #}
 										{% if shown is empty %}
 											<span class="text-body-secondary">—</span>
+										{% elseif badge %}
+											{{ include('_value_badge.html.twig', {badge: badge}) }}
 										{% else %}
 											{{ link.linked(field, record.get(field.key), shown) }}
 										{% endif %}
@@ -292,9 +300,17 @@
 															column and a Word document get it.
 														#}
 														{% set shown = display(field, row.get(field.key)) %}
+														{# A collection's fields point at shared lists exactly as a
+														   module's do — a collection is a shape (§5.1) — so the chip
+														   is drawn here too. It is the same reason the merge counts
+														   collection rows: half of somebody's data saying "Zurich"
+														   for ever would be the worst possible outcome. #}
+														{% set badge = value_badge(field, row.get(field.key)) %}
 														<td>
 															{% if shown is empty %}
 																<span class="text-body-secondary">—</span>
+															{% elseif badge %}
+																{{ include('_value_badge.html.twig', {badge: badge}) }}
 															{% else %}
 																{{ link.linked(field, row.get(field.key), shown) }}
 															{% endif %}

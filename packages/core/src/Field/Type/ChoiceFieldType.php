@@ -17,10 +17,15 @@ use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\String\Slugger\AsciiSlugger;
 use Symfony\Component\Validator\Constraints as Assert;
 use Xivi\Core\Entity\FieldDefinition;
+use Xivi\Core\Entity\ValueList;
 use Xivi\Core\Field\Autocomplete;
 use Xivi\Core\Field\Autocompletes;
 use Xivi\Core\Field\Enumerates;
+use Xivi\Core\Field\PointsAtAList;
+use Xivi\Core\Field\ShowsABadge;
+use Xivi\Core\Field\ValueBadge;
 use Xivi\Core\Query\Operator;
+use Xivi\Core\ValueList\ValueLists;
 
 /**
  * One value out of a closed set the customer defines.
@@ -47,12 +52,30 @@ use Xivi\Core\Query\Operator;
  * be offered a choice: the constraint below skipped itself, the select rendered
  * empty, and nothing anywhere said so.
  *
+ * **Or somebody may keep them beside the field instead** (XIV-127), which is
+ * {@see PointsAtAList} and the second complete answer to the same question. A
+ * field naming a list in `options['list']` draws that list's entries, validates
+ * against them, and renders their labels — and nothing below this line can tell
+ * which of the two it was handed, which is the property that made an option here
+ * cheaper than a field type of its own. A field that names no list is exactly the
+ * field this class has always been, byte for byte in every tenant's definitions.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
-final class ChoiceFieldType implements Autocompletes, Enumerates
+final class ChoiceFieldType implements Autocompletes, PointsAtAList, ShowsABadge
 {
     /** Stored value => label, in `options['choices']`. */
     public const string CHOICES = 'choices';
+
+    /**
+     * The key of a shared list this field takes its values from, in
+     * `options['list']` (XIV-127).
+     *
+     * The **key** rather than the id, on the same terms as a reference's target
+     * module: a key survives a database rebuilt from an export, reads as a word
+     * in the definition, and is what the customer renamed the label away from.
+     */
+    public const string LIST = 'list';
 
     /**
      * How a label is turned into the key records hold, and why German.
@@ -71,6 +94,25 @@ final class ChoiceFieldType implements Autocompletes, Enumerates
      */
     private const string TRANSLITERATION_LOCALE = 'de';
 
+    /**
+     * Where a shared list is looked up, when a field names one (XIV-127).
+     *
+     * **A field type with a repository in it**, which is new here and is
+     * {@see ReferenceFieldType}'s precedent rather than a departure: that one has
+     * held a record repository since §7.6, because a type whose values are ids
+     * cannot render one without reading the record. A type whose values are a
+     * list somebody keeps elsewhere is the same shape of dependency, and the
+     * alternative — hydrating the entries into the definition when it is read —
+     * would put a list's contents inside a definition that a save then writes
+     * back, which is the copy that drifts.
+     *
+     * The reads are cached for the tenant's lifetime ({@see ValueLists}), so a
+     * record list drawing fifty rows of one field costs one query for the list.
+     */
+    public function __construct(private readonly ValueLists $lists)
+    {
+    }
+
     public function key(): string
     {
         return 'choice';
@@ -83,7 +125,7 @@ final class ChoiceFieldType implements Autocompletes, Enumerates
 
     public function constraints(FieldDefinition $field): array
     {
-        $choices = array_keys(self::choicesOf($field));
+        $choices = array_keys($this->optionsOf($field));
 
         return [
             new Assert\Type('string'),
@@ -104,13 +146,20 @@ final class ChoiceFieldType implements Autocompletes, Enumerates
     }
 
     /**
-     * The one option a choice field is not a choice field without (XIV-144).
+     * The one question a choice field is not a choice field without, and the two
+     * ways of answering it (XIV-144, then XIV-127).
      *
-     * @return list<string>
+     * "What is this a choice between?" — answered either by the field's own
+     * options or by the key of a list the customer keeps beside it. One question,
+     * two answers, and a field that has given either of them is finished; see
+     * {@see \Xivi\Core\Field\NeedsAnAnswer::needs()} for why that is a nested
+     * list rather than two entries.
+     *
+     * @return list<non-empty-list<string>>
      */
     public function needs(): array
     {
-        return [self::CHOICES];
+        return [[self::CHOICES, self::LIST]];
     }
 
     /**
@@ -122,7 +171,7 @@ final class ChoiceFieldType implements Autocompletes, Enumerates
      */
     public function sample(FieldDefinition $field, int $sequence): ?string
     {
-        $choices = array_keys(self::choicesOf($field));
+        $choices = array_keys($this->optionsOf($field));
 
         if ($choices === []) {
             return null;
@@ -148,7 +197,11 @@ final class ChoiceFieldType implements Autocompletes, Enumerates
 
     public function formOptions(FieldDefinition $field): array
     {
-        $choices = self::choicesOf($field);
+        // The picker's labels rather than the cell's: a shared list's child
+        // entry arrives indented here and plain in `display()`, which is the
+        // whole of what a hierarchy does (§5.4). A field with its own options has
+        // no hierarchy and the two are the same map.
+        $choices = $this->pickerOptionsOf($field);
 
         return [
             // Symfony wants label => value; the definition stores value => label,
@@ -175,8 +228,38 @@ final class ChoiceFieldType implements Autocompletes, Enumerates
         }
 
         // The label if it is still an option, the raw value if it is not: a
-        // record stored under an option since removed still has to render.
-        return self::choicesOf($field)[$value] ?? $value;
+        // record stored under an option since removed still has to render. That
+        // promise is what lets a shared list be deleted out from under a field
+        // without taking a module's record list down with it.
+        return $this->optionsOf($field)[$value] ?? $value;
+    }
+
+    /**
+     * The colour and the picture, when the value has one (XIV-127).
+     *
+     * {@see ShowsABadge} has the argument for asking the *field* rather than
+     * switching on its type. Null all the way down for a field with its own
+     * options: a plain `choice` field has no colours to carry, so it produces no
+     * badge and every page draws it exactly as it drew it before this ticket.
+     */
+    public function badgeOf(mixed $value, FieldDefinition $field): ?ValueBadge
+    {
+        $list = $this->listOf($field);
+
+        if ($list === null || !\is_string($value) || $value === '') {
+            return null;
+        }
+
+        $entry = $list->getEntry($value);
+
+        if ($entry === null || ($entry->getTone() === null && $entry->getIcon() === null)) {
+            // A list whose entries carry no colour and no picture is a list of
+            // words, and a badge around a word is furniture. Null is the
+            // caller's cue to draw the label the ordinary way.
+            return null;
+        }
+
+        return new ValueBadge($entry->getLabel(), $entry->getTone(), $entry->getIcon());
     }
 
     public function operators(): array
@@ -190,10 +273,95 @@ final class ChoiceFieldType implements Autocompletes, Enumerates
         return $accessor;
     }
 
-    /** @return array<string, string> value => label */
+    /**
+     * The field's **own** options, and deliberately only those.
+     *
+     * Unchanged by XIV-127, and left static on purpose. Two callers want exactly
+     * this question and would be wrong to be given the other one: the editor
+     * compares the options a field *has* with the ones a save is about to give
+     * it ({@see \Xivi\Core\Metadata\MetadataEditor}), and a shape reads its
+     * variants off the variant field (§5.5) — which is always a module's own
+     * field and therefore never points at a shared list.
+     *
+     * Everything that renders, validates or generates a value asks
+     * {@see self::optionsOf()} instead, because those callers must not be able
+     * to tell where the list came from.
+     *
+     * @return array<string, string> value => label
+     */
     public static function choicesOf(FieldDefinition $field): array
     {
         return self::clean($field->getOption(self::CHOICES, []));
+    }
+
+    /**
+     * What this field is actually a choice between: the shared list if it names
+     * one, its own options otherwise (XIV-127).
+     *
+     * **The one place the two answers meet**, which is what keeps every caller
+     * below it — the constraint, the widget, the sample generator, the display —
+     * ignorant of which it was handed. A field naming a list nothing can find
+     * falls through to its own options, which for such a field is empty: the
+     * same state a `choice` field with no options has always been in, rendering
+     * what records hold and validating nothing, rather than a page that throws
+     * because somebody deleted a list (§5.4).
+     *
+     * @return array<string, string> value => label, as a cell should read them
+     */
+    public function optionsOf(FieldDefinition $field): array
+    {
+        $list = $this->listOf($field);
+
+        return $list === null ? self::choicesOf($field) : $list->labels();
+    }
+
+    /**
+     * The same, with a hierarchy's indentation in the labels.
+     *
+     * Split from `optionsOf()` rather than parameterised because the two have
+     * different readers and one of them is a `<select>`: an indent belongs in a
+     * dropdown of forty regions and is noise in a table column
+     * ({@see ValueList::asChoices()}).
+     *
+     * @return array<string, string> value => label, as a picker should offer them
+     */
+    public function pickerOptionsOf(FieldDefinition $field): array
+    {
+        $list = $this->listOf($field);
+
+        return $list === null ? self::choicesOf($field) : $list->asChoices();
+    }
+
+    /**
+     * The shared list this field points at, or null for a field that keeps its
+     * own options.
+     *
+     * Null is the answer for both "names no list" and "names a list this tenant
+     * has not got", and collapsing those two is deliberate: the difference
+     * matters to the editor, which refuses to write either, and to nothing that
+     * draws a page.
+     */
+    public function listOf(FieldDefinition $field): ?ValueList
+    {
+        $key = self::listKeyOf($field);
+
+        return $key === '' ? null : $this->lists->find($key);
+    }
+
+    /**
+     * The key of the shared list this field names, or the empty string.
+     *
+     * Static and beside {@see self::choicesOf()} for the reason that one is:
+     * the editor has to compare the list a field *names* with the one a save is
+     * about to give it, and that comparison must not go anywhere near a
+     * database. {@see ReferenceFieldType::targetModule()} is the same method for
+     * the same job.
+     */
+    public static function listKeyOf(FieldDefinition $field): string
+    {
+        $key = $field->getOption(self::LIST);
+
+        return \is_string($key) ? $key : '';
     }
 
     /**

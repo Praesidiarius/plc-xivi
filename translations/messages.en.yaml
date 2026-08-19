@@ -50,6 +50,10 @@ nav:
     # "Help": help is documentation, which lives on the documentation site, and
     # this is a person.
     support: Support
+    # The lists a customer keeps once and several fields point at (XIV-127).
+    # "Lists" rather than "shared lists" or "taxonomies": the menu is read at a
+    # glance, and the sharing is the page's first sentence rather than its name.
+    lists: Lists
     sign_out: Sign out
 
 login:
@@ -534,6 +538,15 @@ field:
     # deciding that an Order names a Contact.
     points_at: Points at
     points_at_label: 'Points at (reference fields)'
+    # Which shared list a choice field takes its values from (XIV-127). "Takes
+    # from" rather than "list", because the column beside it already says "points
+    # at" and a reader scanning the header row has to be able to tell the two
+    # apart: one names a module full of records, the other names a vocabulary.
+    takes_from: Takes values from
+    takes_from_label: 'Takes values from (choice fields)'
+    # Blank, which is what every choice field in every tenant says today and is a
+    # perfectly good answer rather than a missing one.
+    takes_from_own: Its own options
     # A field of a type that cannot work until something is set, with it unset:
     # a choice with no options, a reference with no target. Nothing new can get
     # here, so this marks what predates the rule.
@@ -625,6 +638,16 @@ field:
             This field came with the module, and its options are part of what the module does —
             the states it moves records between, the kinds of record it knows. You can add
             options and rename them; removing one is not offered.
+        # The field is on a shared list, so the options on this page are its own
+        # and are dormant (XIV-127). Said rather than hidden, because a table of
+        # controls that do nothing is the failure §8.3.1 exists to prevent — and
+        # the page stays reachable because editing these options is the only way
+        # back off a list.
+        on_a_list: >-
+            This field takes its values from the shared list “%list%”, so the options below are
+            the field's own and are not in use. They are what it would fall back to if you took
+            it off the list.
+        on_a_list_link: Open that list
     # The numbering page (XIV-27). Its sentences do more work than most labels
     # here, because what a customer is deciding is a small language with quiet
     # failure modes: the help text has to teach the syntax, and the two notices
@@ -734,6 +757,85 @@ field:
 # is a change to the shape of every record in a module, and the thing a customer
 # most needs told is not what happens but what does *not* — their own edits are
 # not about to be overwritten, nothing is removed, and no field changes type.
+# The lists a customer keeps once and several fields point at (XIV-127).
+#
+# Every sentence here is doing one of three jobs, and they are the three §5.4
+# says a screen like this has to do: say what a record actually holds (the code,
+# not the words), say how far a change reaches (a shared list reaches modules the
+# reader is not looking at), and say what cannot be undone before it is done.
+#
+# "List" throughout, never "tag": free-text, ad-hoc, made-up-on-the-fly is what
+# tagging promises and none of it is true here. This is a vocabulary somebody
+# maintains.
+value_list:
+    title: Lists
+    intro: >-
+        A list you keep once and use from several fields. “Region” on a contact and “Region” on
+        an order can be the same list, so they cannot drift apart.
+    none: No lists yet. Make one below, then point a choice field at it in the field editor.
+    name: Name
+    stored: Stored as
+    entries: Entries
+    used_by: Used by
+    used_by_nothing: nothing yet
+    back: Back to the lists
+    new_label: Name of the new list
+    new_placeholder: Regions
+    new_help: >-
+        What every record stores is a short code made from the name you give — <code>regions</code> —
+        and it never changes again, so renaming the list later is free.
+    no_entries: This list is empty. Add entries below, one per line.
+    colour: Colour
+    icon: Icon
+    under: Under
+    no_colour: none
+    no_icon: none
+    no_parent: '—'
+    add_label: Add entries, one per line
+    removal_note: >-
+        An entry no record holds can be removed. One that records hold cannot — anywhere in the
+        installation, not only in the module you are looking at — because those records would be
+        left with a value the list no longer has.
+    # Merging: the one irreversible thing on this screen (XIV-127, on XIV-91's
+    # shape). Its own page, its own words, and every one of them a figure rather
+    # than a warning — "this may affect existing data" is the sentence somebody
+    # clicks past.
+    merge:
+        title: Merge two entries
+        intro: >-
+            Two entries that turned out to mean the same thing — “Zurich” and “Zürich”. Every
+            record holding one is rewritten to hold the other, and the first entry goes.
+        from: Merge this entry
+        into: into this one
+        review: Review the merge
+        confirm_title: 'Merge “%from%” into “%into%”?'
+        what: >-
+            Every record holding <strong>%from%</strong> will hold <strong>%into%</strong>
+            instead, everywhere in this installation, and <strong>%from%</strong> will be taken
+            off “%list%”.
+        irreversible: This cannot be undone. Afterwards nothing records which of them a record used to hold.
+        writes_none: No records hold that entry today, so nothing is rewritten — the entry is simply taken off the list.
+        where: Where
+        records: Records
+        no_fields: No field takes its values from this list yet, so nothing is rewritten.
+        note: >-
+            Nothing is written to the record history: this is one change to a list, not an edit
+            to each record, and the dates on those records are left as they were.
+        agree_none: 'Yes: take that entry off the list.'
+        do: Merge them
+    # Deleting a whole list. Two facts pulling in opposite directions, and
+    # neither can be left out: nothing in anybody's *records* is destroyed, and
+    # the vocabulary is.
+    delete:
+        title: Delete “%list%”?
+        in_use: >-
+            This list cannot be deleted while fields take their values from it: %fields%. Point
+            those fields somewhere else first.
+        records_keep: >-
+            <strong>Nothing in your records is deleted.</strong> A record keeps the code it was
+            saved with and will show that code instead of the label.
+        do: Delete the list
+
 upgrade:
     title: What this module has gained
     subtitle: '%module% — parts of the module your copy does not have.'
@@ -1260,6 +1362,11 @@ mail:
 
 flash:
     saved: Saved.
+    # The shared lists (XIV-127). "Merged" is the one with a count in it and
+    # lives in the ICU catalogue instead; these three do not count anything.
+    list_created: 'Made “%list%”. Add its entries below.'
+    list_saved: 'Saved “%list%”.'
+    list_deleted: 'Deleted “%list%”. Records that held its entries keep the codes they were saved with.'
     transitioned: 'Now %state%.'
     # Follow-ups (XIV-82). The success says where the thing went, because it went
     # somewhere other than the page's middle and a reader who does not look up

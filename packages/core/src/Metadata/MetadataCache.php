@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Xivi\Core\Metadata;
 
 use Xivi\Core\Entity\ModuleDefinition;
+use Xivi\Core\Entity\ValueList;
 
 /**
  * The definitions already read for whichever tenant is current (XIV-53).
@@ -108,6 +109,69 @@ final class MetadataCache
     }
 
     /**
+     * The shared lists this tenant keeps, by key, including the misses
+     * (XIV-127).
+     *
+     * **Here rather than in a cache of its own, and that is the ticket's own
+     * decision made operational.** A shared list is a core concept *beside*
+     * field definitions — not a module, not a record — and what "beside" means
+     * concretely is that it is read on exactly the pages definitions are read
+     * on, at exactly the same rate: a record list drawing fifty rows of a
+     * `choice` field pointed at "our regions" asks for that list fifty times.
+     *
+     * Everything the class docblock says about lifetime therefore applies to
+     * these unchanged, and it applies **because they share one `clear()`**. A
+     * second cache with its own emptying would be a second thing to remember at
+     * the tenant boundary, and the one that gets forgotten is the one whose
+     * failure is silent and looks like another customer's labels (§7.4).
+     *
+     * @var array<string, ValueList|null>
+     */
+    private array $lists = [];
+
+    /** @var list<ValueList>|null */
+    private ?array $allLists = null;
+
+    /**
+     * One shared list by key, reading it if this is the first time.
+     *
+     * `array_key_exists` for the same reason the definitions above use it: a
+     * field pointing at a list somebody has since deleted asks a question whose
+     * answer is null, and remembering that is what stops the page asking again
+     * for every row it draws.
+     *
+     * @param callable(): (ValueList|null) $load
+     */
+    public function list(string $key, callable $load): ?ValueList
+    {
+        if (!\array_key_exists($key, $this->lists)) {
+            $this->lists[$key] = $load();
+        }
+
+        return $this->lists[$key];
+    }
+
+    /**
+     * Every shared list, filling the per-key entries as well.
+     *
+     * @param callable(): list<ValueList> $load
+     *
+     * @return list<ValueList>
+     */
+    public function lists(callable $load): array
+    {
+        if ($this->allLists === null) {
+            $this->allLists = $load();
+
+            foreach ($this->allLists as $list) {
+                $this->lists[$list->getKey()] = $list;
+            }
+        }
+
+        return $this->allLists;
+    }
+
+    /**
      * Forget everything.
      *
      * Called when the tenant moves and when definitions change. Cheap, and
@@ -118,5 +182,7 @@ final class MetadataCache
     {
         $this->definitions = [];
         $this->all = null;
+        $this->lists = [];
+        $this->allLists = null;
     }
 }

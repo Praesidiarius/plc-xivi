@@ -1,0 +1,69 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'value_list.delete.title'|trans({'%list%': list.label}) }}{% endblock %}
+
+{#
+	Throwing a whole list away (XIV-127).
+
+	A GET confirmation like the one in front of removing a field, because there is
+	nothing to carry: the only input is the decision.
+
+	Two things have to be said, and they pull in opposite directions, which is
+	exactly why neither can be left out. **Nothing in anybody's records is
+	destroyed** — a record holds an entry's value as a plain string in its own
+	JSON, and it will carry on rendering as that string, on the same promise §5.4
+	makes for a removed option. And **the vocabulary is destroyed**: the labels,
+	the colours and the hierarchy are the rows in this table and there is no
+	putting them back.
+
+	If any field still points at the list, this page says so and the button
+	refuses — a list that vanished from under a field would leave it offering an
+	empty picker and validating nothing, which is the state XIV-144 spent a ticket
+	making unreachable.
+#}
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<h1 class="h3 mb-3">{{ 'value_list.delete.title'|trans({'%list%': list.label}) }}</h1>
+
+		<div class="card">
+			<div class="card-body">
+				{% if uses is not empty %}
+					<div class="alert alert-warning mb-0" role="alert">
+						{{ 'value_list.delete.in_use'|trans({'%fields%': uses|join(', ')}) }}
+					</div>
+				{% else %}
+					<p>{{ 'value_list.delete.what'|trans({'%count%': list.entries|length}) }}</p>
+
+					{% set records = held|reduce((carry, count) => carry + count, 0) %}
+
+					{% if records > 0 %}
+						{#
+							Reachable, and worth its own sentence: a field can be pointed away
+							from a list while records still hold its values, which leaves the
+							list unused and the values standing. Somebody deleting it should
+							know those values are about to stop having labels.
+						#}
+						<p>{{ 'value_list.delete.orphans'|trans({'%count%': records}) }}</p>
+					{% endif %}
+
+					<p class="mb-0">{{ 'value_list.delete.records_keep'|trans }}</p>
+				{% endif %}
+			</div>
+		</div>
+
+		<form method="post" class="mt-3" action="{{ path('value_list_delete', {list: list.key}) }}">
+			<input type="hidden" name="_token" value="{{ csrf_token('edit-lists') }}">
+
+			<div class="d-flex align-items-center gap-2">
+				<a class="btn btn-link" href="{{ path('value_list_show', {list: list.key}) }}">{{ 'common.cancel'|trans }}</a>
+				{% if uses is empty %}
+					<button class="btn btn-danger" type="submit">{{ 'value_list.delete.do'|trans }}</button>
+				{% endif %}
+			</div>
+		</form>
+	</main>
+{% endblock %}

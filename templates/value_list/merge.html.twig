@@ -1,0 +1,125 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'value_list.merge.title'|trans }} — {{ list.label }}{% endblock %}
+
+{#
+	The page between deciding and living with it (XIV-127, on XIV-91's shape).
+
+	§4.1 argues the shape of this for removing a tenant, XIV-91 reused it for the
+	numbering backfill, and §5.4 says a merge is that same operation with a
+	shared list's reach: it rewrites a value on every record holding it, across
+	every module whose fields point at this list, and there is no way back.
+
+	Everything below is a **figure** rather than a warning, because "this may
+	affect existing data" is the sentence somebody clicks past. The plan is
+	printed field by field, including the fields with nothing in them, because
+	"this also reaches Aufträge, and there is nothing there today" is a fact about
+	the change and "it only touches Kunden" is a fact about this afternoon.
+
+	Cancel is the plain link on the left and the thing that does it is the button
+	on the right, in danger colours, the same way Remove is laid out.
+#}
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<h1 class="h3 mb-3">
+			{{ 'value_list.merge.confirm_title'|trans({
+				'%from%': plan.entry ? plan.entry.label : plan.from,
+				'%into%': plan.target ? plan.target.label : plan.into,
+			}) }}
+		</h1>
+
+		<div class="card">
+			<div class="card-body">
+				<p>
+					{{ 'value_list.merge.what'|trans({
+						'%from%': plan.entry ? plan.entry.label : plan.from,
+						'%into%': plan.target ? plan.target.label : plan.into,
+						'%list%': list.label,
+					})|raw }}
+				</p>
+
+				{% if plan.touchesRecords %}
+					<div class="alert alert-danger" role="alert">
+						<p class="mb-1">{{ 'value_list.merge.writes'|trans({'%count%': plan.records})|raw }}</p>
+						<p class="mb-0">{{ 'value_list.merge.irreversible'|trans }}</p>
+					</div>
+				{% else %}
+					<p class="text-body-secondary">{{ 'value_list.merge.writes_none'|trans }}</p>
+				{% endif %}
+
+				{#
+					Where, and how much of it. A collection's rows are in here on their
+					own line, because a collection is a shape and its fields point at
+					lists exactly as a module's do (§5.1) — a merge that rewrote the
+					module's rows and skipped the collection's would leave half of
+					somebody's data saying the old thing for ever.
+				#}
+				{% if plan.counts is not empty %}
+					<div class="table-responsive">
+						<table class="table table-sm align-middle mb-0">
+							<thead>
+								<tr>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'value_list.merge.where'|trans }}</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'value_list.merge.records'|trans }}</th>
+								</tr>
+							</thead>
+							<tbody>
+								{% for count in plan.counts %}
+									<tr>
+										<td>{{ count.use.label }}</td>
+										<td class="text-body-secondary small">
+											{{ count.records > 0 ? 'field.options.held_count'|trans({'%count%': count.records}) : 'field.options.held_none'|trans }}
+										</td>
+									</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+				{% else %}
+					<p class="text-body-secondary mb-0">{{ 'value_list.merge.no_fields'|trans }}</p>
+				{% endif %}
+
+				{# The structural consequence, said here because it would otherwise be
+				   discovered afterwards: an entry cannot sit under one that no longer
+				   exists, so whatever sat under this one moves under the survivor. #}
+				{% if plan.children > 0 %}
+					<p class="mt-3 mb-0">{{ 'value_list.merge.children'|trans({'%count%': plan.children})|raw }}</p>
+				{% endif %}
+
+				<p class="text-body-secondary small mt-3 mb-0">{{ 'value_list.merge.note'|trans }}</p>
+			</div>
+		</div>
+
+		<form method="post" class="mt-3" action="{{ path('value_list_merge', {list: list.key}) }}">
+			<input type="hidden" name="_token" value="{{ csrf_token('edit-lists') }}">
+			<input type="hidden" name="from" value="{{ plan.from }}">
+			<input type="hidden" name="into" value="{{ plan.into }}">
+
+			{#
+				A tick before an irreversible write, and the controller requires it too
+				— `required` is a courtesy to somebody using the page and nothing at all
+				to a form posted around it. Unticked on arrival, which is what "defaults
+				to no" means here.
+			#}
+			<div class="form-check mb-3">
+				<input class="form-check-input" type="checkbox" name="confirm" value="1" id="merge-confirm" required>
+				<label class="form-check-label" for="merge-confirm">
+					{% if plan.touchesRecords %}
+						{{ 'value_list.merge.agree'|trans({'%count%': plan.records}) }}
+					{% else %}
+						{{ 'value_list.merge.agree_none'|trans }}
+					{% endif %}
+				</label>
+			</div>
+
+			<div class="d-flex align-items-center gap-2">
+				<a class="btn btn-link" href="{{ path('value_list_show', {list: list.key}) }}">{{ 'common.cancel'|trans }}</a>
+				<button class="btn btn-danger" type="submit">{{ 'value_list.merge.do'|trans }}</button>
+			</div>
+		</form>
+	</main>
+{% endblock %}

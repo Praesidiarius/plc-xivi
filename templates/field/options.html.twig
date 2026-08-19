@@ -32,6 +32,25 @@
 			<a class="btn btn-link" href="{{ path('field_index', {module: module.key}) }}">{{ 'field.options.back'|trans }}</a>
 		</div>
 
+		{#
+			The field is on a shared list, so the options below are its own and are
+			dormant (XIV-127).
+
+			This page stays reachable for such a field on purpose. A 404 was the
+			tidier answer and it is a dead end: taking a field back off a list is
+			only allowed when its own options cover what records hold, so somebody
+			who wants to leave has to be able to edit those options first, and this
+			is the only page that edits them. Saying which of the two lists is
+			actually in use is the whole of what makes the page honest — a table of
+			options that do nothing, unlabelled, is §8.3.1's failure.
+		#}
+		{% if takesFrom %}
+			<div class="alert alert-info" role="alert">
+				{{ 'field.options.on_a_list'|trans({'%list%': takesFrom.label}) }}
+				<a href="{{ path('value_list_show', {list: takesFrom.key}) }}">{{ 'field.options.on_a_list_link'|trans }}</a>
+			</div>
+		{% endif %}
+
 		<form method="post" action="{{ path('field_options_save', {module: module.key, field: field.id}) }}">
 			<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
 

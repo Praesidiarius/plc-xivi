@@ -208,6 +208,19 @@ services:
         arguments:
             $entityManager: '@doctrine.orm.tenant_entity_manager'
 
+    # The shared lists a customer keeps (XIV-127). Beside the field definitions
+    # they sit beside — §5.4 decides they are a core concept rather than a
+    # module, and *this* is the concrete form of that decision: they are rows in
+    # the customer's own database, next to the definitions that name them, and
+    # neither would be worth anything in the control plane.
+    Xivi\Core\ValueList\ValueLists:
+        arguments:
+            $entityManager: '@doctrine.orm.tenant_entity_manager'
+
+    Xivi\Core\ValueList\ValueListEditor:
+        arguments:
+            $entityManager: '@doctrine.orm.tenant_entity_manager'
+
     # Turning numbering on is four writes that are only correct together — the
     # counter's floor, the pattern, the derived flag and the backfill — so it
     # opens the transaction they share (XIV-91). The customer's connection, for

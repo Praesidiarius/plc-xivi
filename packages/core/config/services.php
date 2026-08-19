@@ -35,6 +35,12 @@ return static function (ContainerConfigurator $container): void {
                 __DIR__ . '/../src/Numbering/{NumberFormat,NumbersFound}.php',
                 __DIR__ . '/../src/Record/{Record,Derivation}.php',
                 __DIR__ . '/../src/Validation/UniqueFieldValue.php',
+                // One value drawn as a chip, and the three answers a shared
+                // list's own screens are made of ([XIV-127]). Values, not
+                // services: the container would otherwise try to autowire a
+                // `?ValueTone` and a `string $from` into them.
+                __DIR__ . '/../src/Field/ValueBadge.php',
+                __DIR__ . '/../src/ValueList/{MergeCount,MergePlan,ValueListUse}.php',
                 __DIR__ . '/../src/XiviCoreBundle.php',
             ]);
 };

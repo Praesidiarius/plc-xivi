@@ -88,6 +88,37 @@ lands in `Unreleased` here.
   leaves everything under it, which the confirmation says before it happens,
   together with how many fields come back to the top of the form. Collapsing a
   section is deliberately not in this.
+- **Lists you keep once and use from several fields** ([XIV-127]) — *Lists* in
+  the menu under your name. Make one — "Regions", "Payment terms" — and point any
+  choice field at it in the field editor. *Region* on a contact and *Region* on an
+  order then read from the same list instead of drifting apart. §5.26 has the
+  reasoning, including why this is a core concept beside your fields rather than a
+  module you install.
+- **A value can carry a colour and an icon** ([XIV-127]) — pick from eight
+  colours and twelve icons, and the value is drawn as a chip on the record page
+  and in the list. The eight are the ones the dark theme has an answer for, which
+  is why it is a palette rather than a colour picker: a colour chosen against a
+  white page has to still be readable against a dark one.
+- **A value can sit under another** ([XIV-127]) — one level, so forty regions can
+  be read as five countries. It shapes the picker and nothing else: **filtering on
+  a parent finds records holding the parent, not records holding its children.**
+- **Two values can be merged** ([XIV-127]) — "Zurich" and "Zürich" turn back into
+  one. This **rewrites every record holding the one you merge away, everywhere in
+  your installation, and cannot be undone**, so it is a page of its own that says
+  how many records it will touch and in which fields — including rows inside
+  records, such as order lines — and asks you to tick a box before it does
+  anything.
+- **Action: an entry your records hold cannot be removed** ([XIV-127]) — the same
+  rule a choice field's own options already follow, with a wider reach: the
+  refusal names the values, how many records hold each, and which fields they are
+  in, because those records may be in a module you were not looking at. A list
+  that a field points at cannot be deleted either, and the fields are named. If
+  you want an entry gone, merge it into another or change those records first.
+- **Existing choice fields are untouched** ([XIV-127]) — a field with options of
+  its own keeps them, keeps working exactly as it did, and no migration goes near
+  any definition in any tenant. Pointing an existing field at a list is refused
+  while its records hold anything the list has not got, with the values named —
+  so attaching one cannot quietly reinterpret what is already stored.
 - **A phone field, so one number is one value** ([XIV-114]) — `+41 79 123 45 67`,
   `0791234567` and `079 123 45 67` are one number, and until now they were three
   values in a text box: the filter found one of them, a duplicate check found
@@ -602,6 +633,7 @@ lands in `Unreleased` here.
 [XIV-143]: https://xivi.youtrack.cloud/issue/XIV-143
 [XIV-144]: https://xivi.youtrack.cloud/issue/XIV-144
 [XIV-119]: https://xivi.youtrack.cloud/issue/XIV-119
+[XIV-127]: https://xivi.youtrack.cloud/issue/XIV-127
 
 ## Releases
 

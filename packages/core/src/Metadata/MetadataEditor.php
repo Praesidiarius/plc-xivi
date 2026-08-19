@@ -21,6 +21,7 @@ use Xivi\Core\Field\Enumerates;
 use Xivi\Core\Field\FieldType;
 use Xivi\Core\Field\FieldTypeRegistry;
 use Xivi\Core\Field\NeedsAnAnswer;
+use Xivi\Core\Field\PointsAtAList;
 use Xivi\Core\Field\PointsAtAModule;
 use Xivi\Core\Field\Type\ChoiceFieldType;
 use Xivi\Core\Field\Type\ReferenceFieldType;
@@ -28,6 +29,7 @@ use Xivi\Core\Module\AdditionKind;
 use Xivi\Core\Numbering\NumberFormat;
 use Xivi\Core\Record\RecordRepository;
 use Xivi\Core\Record\UniqueIndex;
+use Xivi\Core\ValueList\ValueLists;
 
 /**
  * Changing a customer's own field definitions (§5.4).
@@ -72,6 +74,13 @@ final readonly class MetadataEditor
         // has to be written by whatever writes the flag, or a definition and a
         // database disagree about a promise a customer is relying on.
         private UniqueIndex $uniqueIndexes,
+        // And the shared lists, for the option whose answer names one
+        // ([XIV-127]). Beside the modules above and read through the same cache,
+        // because the two are the same kind of question: an answer that names
+        // something else in this tenant has to be checked against what is
+        // actually there, on the write path, where the importer and the console
+        // meet it too.
+        private ValueLists $lists,
     ) {
     }
 
@@ -138,6 +147,7 @@ final readonly class MetadataEditor
         // looks like it works.
         $this->assertNeedsAreAnswered($this->fieldTypes->get($type), $key, $merged);
         $this->assertTargetExists($this->fieldTypes->get($type), $key, $merged);
+        $this->assertListExists($this->fieldTypes->get($type), $key, $merged);
         $this->assertRecordsSurvive($shape, $field, $required, $unique);
 
         $this->asOneChange(function () use ($shape, $field): void {
@@ -396,6 +406,14 @@ final readonly class MetadataEditor
      * On an add there is nothing to leave alone, so every need is checked and an
      * option nobody mentioned is a missing answer rather than an absent opinion.
      *
+     * **A need may now have more than one answer** ([XIV-127]), which changes
+     * two words here and no arithmetic: a question is answered when *any* of its
+     * options is, and it is judged at all when the caller named *any* of them. A
+     * row form that sends `list` and not `choices` is therefore still saying
+     * something about where a choice field's values come from, and is judged;
+     * one that sends neither — the table's plain relabel — still says nothing
+     * and is left alone, which is XIV-26's contract unchanged.
+     *
      * @param array<string, mixed>  $merged the options the field will end up with
      * @param ?array<string, mixed> $named  what this caller mentioned, or null for "all of them"
      *
@@ -407,16 +425,20 @@ final readonly class MetadataEditor
             return;
         }
 
-        foreach ($type->needs() as $option) {
-            if ($named !== null && !\array_key_exists($option, $named)) {
+        foreach ($type->needs() as $answers) {
+            if ($named !== null && array_intersect($answers, array_keys($named)) === []) {
                 continue;
             }
 
-            $answer = $merged[$option] ?? null;
+            foreach ($answers as $option) {
+                $answer = $merged[$option] ?? null;
 
-            if ($answer === null || $answer === '' || $answer === []) {
-                throw MetadataChangeRefused::optionUnanswered($type->key(), $option, $key);
+                if ($answer !== null && $answer !== '' && $answer !== []) {
+                    continue 2;
+                }
             }
+
+            throw MetadataChangeRefused::optionUnanswered($type->key(), $answers, $key);
         }
     }
 
@@ -446,6 +468,36 @@ final readonly class MetadataEditor
         }
 
         throw MetadataChangeRefused::unknownTarget($key, $target);
+    }
+
+    /**
+     * A `choice` field pointed at a shared list this customer has not got
+     * ([XIV-127]).
+     *
+     * {@see self::assertTargetExists()} for a list rather than a module, and
+     * written beside it deliberately: the two are the same rule about two
+     * different answers, and a reader who has understood one has understood
+     * both. Checked on the write path for the same reason — the select on the
+     * page is built from the lists that exist, so this is the case that arrives
+     * from an import, a console command or a form posted around the page.
+     *
+     * @param array<string, mixed> $merged
+     *
+     * @throws MetadataChangeRefused
+     */
+    private function assertListExists(FieldType $type, string $key, array $merged): void
+    {
+        if (!$type instanceof PointsAtAList) {
+            return;
+        }
+
+        $list = $merged[ChoiceFieldType::LIST] ?? null;
+
+        if (!\is_string($list) || $list === '' || $this->lists->exists($list)) {
+            return;
+        }
+
+        throw MetadataChangeRefused::unknownList($key, $list);
     }
 
     /**
@@ -491,6 +543,10 @@ final readonly class MetadataEditor
             }
         }
 
+        if ($type instanceof PointsAtAList && \array_key_exists(ChoiceFieldType::LIST, $options)) {
+            $this->assertValuesSurviveTheSource($field, $type, $merged);
+        }
+
         if (!$type instanceof PointsAtAModule || !\array_key_exists(ReferenceFieldType::MODULE, $options)) {
             return;
         }
@@ -533,6 +589,92 @@ final readonly class MetadataEditor
         // now names a variant of a module this field no longer points at — which
         // is a picker that finds nothing, arrived at from the other direction.
         $options[ReferenceFieldType::VARIANT] = null;
+    }
+
+    /**
+     * Where a `choice` field's values come from, changing under records that
+     * already hold some ([XIV-127]).
+     *
+     * **The refusal that made a shared list an option on `choice` rather than a
+     * field type of its own.** §5.21's argument against options in general is
+     * that ticking one *reinterprets* everything already stored, at once, with
+     * no migration and nothing on any screen to say it happened — and it is
+     * exactly right about this option, because a field pointed at a list whose
+     * entries do not include what its records hold is a field whose records
+     * silently stop validating. So the reinterpretation is not permitted to be
+     * silent: the values are counted against the new source first, and the ones
+     * that would be left stranded are named with their counts.
+     *
+     * What survives the check is a change that reinterprets *nothing* — every
+     * value means what it meant, because every value is still on the list. That
+     * is the property §5.21 says an option must have to be an option, and it is
+     * the property this one now has.
+     *
+     * **Both directions**, which is what makes it a rule rather than a
+     * one-way gate: attaching a list, moving to another list, and taking the
+     * field off a list back onto its own options are three spellings of the same
+     * question. Only *changing* the source is checked; the row form sends this
+     * option on every save exactly as it sends the target module, and a save
+     * that leaves it where it was has nothing to reinterpret.
+     *
+     * A module's own field is refused outright and ahead of everything else, on
+     * §5.4's oldest rule — see
+     * {@see MetadataChangeRefused::listIsTheModules()} for why a module's own
+     * `choice` field may not take its options from a list the customer keeps.
+     *
+     * @param array<string, mixed> $merged the options the field would end up with
+     *
+     * @throws MetadataChangeRefused
+     */
+    private function assertValuesSurviveTheSource(FieldDefinition $field, FieldType $type, array $merged): void
+    {
+        $from = ChoiceFieldType::listKeyOf($field);
+        $to = $merged[ChoiceFieldType::LIST] ?? '';
+        $to = \is_string($to) ? $to : '';
+
+        if ($from === $to) {
+            return;
+        }
+
+        if ($field->isSystem()) {
+            throw MetadataChangeRefused::listIsTheModules($field->getKey());
+        }
+
+        if ($to === '') {
+            // Off the list and back onto the field's own options. The survivors
+            // are whatever the same save leaves in `choices`, which for a field
+            // that had its own list before it was attached is the list it had —
+            // XIV-26's "what the form does not mention it does not touch" is
+            // what makes going back possible at all.
+            $held = $this->records->valueCountsExcept(
+                $field->getShape(),
+                $field,
+                array_map(strval(...), array_keys(ChoiceFieldType::clean($merged[ChoiceFieldType::CHOICES] ?? []))),
+                self::DUPLICATES_NAMED,
+            );
+
+            if ($held !== []) {
+                throw MetadataChangeRefused::valuesAreNotAmongItsOptions($field->getKey(), $held);
+            }
+
+            return;
+        }
+
+        // Before the count, because "there is no such list" is true whatever the
+        // records hold, and counting against a list that is not there would be
+        // counting against nothing and refusing with every value in the column.
+        $this->assertListExists($type, $field->getKey(), $merged);
+
+        $held = $this->records->valueCountsExcept(
+            $field->getShape(),
+            $field,
+            $this->lists->get($to)->values(),
+            self::DUPLICATES_NAMED,
+        );
+
+        if ($held !== []) {
+            throw MetadataChangeRefused::valuesAreNotOnTheList($field->getKey(), $to, $held);
+        }
     }
 
     /**

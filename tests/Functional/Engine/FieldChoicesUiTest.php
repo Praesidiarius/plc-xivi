@@ -116,12 +116,17 @@ final class FieldChoicesUiTest extends WebTestCase
     /**
      * And cannot be added without them, which is the other half of "not the
      * current middle".
+     *
+     * The sentence names **both** ways of answering since [XIV-127] — its own
+     * options, or a shared list it is pointed at — because a message naming only
+     * the first would send somebody off to type options into a field they had
+     * meant to point at "our regions".
      */
     public function testAChoiceFieldCannotBeAddedWithoutOptions(): void
     {
         $this->addField(['key' => 'channel', 'label' => 'Channel', 'type' => 'choice'], '');
 
-        self::assertSelectorTextContains('.alert', 'does nothing until "choices" is set');
+        self::assertSelectorTextContains('.alert', 'does nothing until "choices" or "list" is set');
         self::assertNull($this->findField(ContactModule::KEY, 'channel'), 'nothing was created');
     }
 

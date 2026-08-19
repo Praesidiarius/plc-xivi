@@ -1,0 +1,206 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ list.label }}{% endblock %}
+
+{#
+	One shared list: its entries, and everything a customer may decide about each
+	(XIV-127).
+
+	Four things are said here that somebody would otherwise find out by being
+	surprised:
+
+	  * what every record actually holds is the code on the left, not the words
+	    they typed — the same sentence the options page makes for a field's own
+	    list (§5.4), and true for the same reason;
+	  * how many records hold each entry, **across every field pointing at this
+	    list**, which is the number that decides whether it can be removed. It is
+	    printed rather than saved for the refusal, because a rule met as a refusal
+	    is a rule learned one failure at a time;
+	  * where this list reaches, for the same reason one level up;
+	  * that merging is not one of the things in this table. It is a page of its
+	    own, because everything in the table is instantaneous and reversible and
+	    that one rewrites records and cannot be taken back.
+#}
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<div class="d-flex align-items-center justify-content-between mb-3">
+			<div>
+				<h1 class="h3 mb-0">{{ list.label }}</h1>
+				<p class="text-body-secondary small mb-0">
+					{{ 'value_list.stored'|trans }}: <code>{{ list.key }}</code>
+					{% if uses is not empty %}
+						· {{ 'value_list.used_by'|trans }}: {{ uses|join(', ') }}
+					{% else %}
+						· {{ 'value_list.used_by_nothing'|trans }}
+					{% endif %}
+				</p>
+			</div>
+			<a class="btn btn-link" href="{{ path('value_list_index') }}">{{ 'value_list.back'|trans }}</a>
+		</div>
+
+		<form method="post" action="{{ path('value_list_save', {list: list.key}) }}">
+			<input type="hidden" name="_token" value="{{ csrf_token('edit-lists') }}">
+
+			<div class="card mb-3">
+				<div class="card-body">
+					<div class="row g-2 align-items-end">
+						<div class="col-sm-6">
+							<label class="form-label small mb-1" for="list-label">{{ 'value_list.name'|trans }}</label>
+							<input id="list-label" class="form-control form-control-sm" name="list_label"
+							       value="{{ list.label }}" required>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="card mb-3">
+				<div class="card-body">
+					{% if entries is empty %}
+						<p class="text-body-secondary mb-0">{{ 'value_list.no_entries'|trans }}</p>
+					{% else %}
+						<div class="table-responsive">
+							<table class="table table-sm align-middle mb-0">
+								<thead>
+									<tr>
+										<th scope="col" class="text-body-secondary small text-uppercase">{{ 'value_list.stored'|trans }}</th>
+										<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.label'|trans }}</th>
+										<th scope="col" class="text-body-secondary small text-uppercase">{{ 'value_list.colour'|trans }}</th>
+										<th scope="col" class="text-body-secondary small text-uppercase">{{ 'value_list.icon'|trans }}</th>
+										<th scope="col" class="text-body-secondary small text-uppercase">{{ 'value_list.under'|trans }}</th>
+										<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.order'|trans }}</th>
+										<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.options.held'|trans }}</th>
+										<th scope="col"></th>
+									</tr>
+								</thead>
+								<tbody>
+									{% for entry in entries %}
+										<tr>
+											<td><code>{{ entry.value }}</code></td>
+											<td>
+												{#
+													Indented in the cell the way the picker indents it, so
+													the table reads as the tree it is. The indent is the
+													whole of what a hierarchy does — §5.4 decides that a
+													filter matches the value it names and nothing under it.
+												#}
+												<input class="form-control form-control-sm{{ entry.parent ? ' ms-3' : '' }}"
+												       name="label[{{ entry.value }}]" value="{{ entry.label }}"
+												       style="min-width: 12rem">
+											</td>
+											<td>
+												<select class="form-select form-select-sm" name="tone[{{ entry.value }}]" style="width: 9rem">
+													<option value="">{{ 'value_list.no_colour'|trans }}</option>
+													{% for value, label in tones %}
+														<option value="{{ value }}" {{ entry.tone and entry.tone.value == value ? 'selected' : '' }}>{{ label|trans({}, 'xivi') }}</option>
+													{% endfor %}
+												</select>
+											</td>
+											<td>
+												<select class="form-select form-select-sm" name="icon[{{ entry.value }}]" style="width: 10rem">
+													<option value="">{{ 'value_list.no_icon'|trans }}</option>
+													{% for value, label in icons %}
+														<option value="{{ value }}" {{ entry.icon and entry.icon.value == value ? 'selected' : '' }}>{{ label|trans({}, 'xivi') }}</option>
+													{% endfor %}
+												</select>
+											</td>
+											<td>
+												{#
+													One level, which §5.4 argues for: "category and
+													sub-category" is what a parent means, and the roots are
+													the only things offered, so a cycle is impossible by
+													construction rather than by a guard.
+												#}
+												<select class="form-select form-select-sm" name="parent[{{ entry.value }}]" style="width: 10rem">
+													<option value="">{{ 'value_list.no_parent'|trans }}</option>
+													{% for candidate in parents %}
+														{% if candidate.value != entry.value %}
+															<option value="{{ candidate.value }}" {{ entry.parent and entry.parent.value == candidate.value ? 'selected' : '' }}>{{ candidate.label }}</option>
+														{% endif %}
+													{% endfor %}
+												</select>
+											</td>
+											<td>
+												<input type="number" class="form-control form-control-sm"
+												       name="position[{{ entry.value }}]" value="{{ entry.position }}" style="width: 5.5rem">
+											</td>
+											{#
+												The number that decides whether this entry can go, summed
+												across every field pointing at the list — read before
+												anybody tries rather than in the refusal afterwards.
+											#}
+											<td class="text-body-secondary small">
+												{{ held[entry.value] is defined ? 'field.options.held_count'|trans({'%count%': held[entry.value]}) : 'field.options.held_none'|trans }}
+											</td>
+											<td class="text-end">
+												<label class="form-check-label small text-danger">
+													<input type="checkbox" name="remove[{{ entry.value }}]" value="1"> {{ 'common.remove'|trans }}
+												</label>
+											</td>
+										</tr>
+									{% endfor %}
+								</tbody>
+							</table>
+						</div>
+					{% endif %}
+				</div>
+			</div>
+
+			<div class="card mb-3">
+				<div class="card-body">
+					<label class="form-label small mb-1" for="add">{{ 'value_list.add_label'|trans }}</label>
+					<textarea id="add" class="form-control form-control-sm" name="add" rows="3"
+					          placeholder="{{ 'field.options.add_placeholder'|trans }}"></textarea>
+					<p class="text-body-secondary small mb-0 mt-2">{{ 'field.options.add_help'|trans }}</p>
+				</div>
+			</div>
+
+			<p class="text-body-secondary small">{{ 'value_list.removal_note'|trans }}</p>
+
+			<button class="btn btn-primary" type="submit">{{ 'common.save'|trans }}</button>
+		</form>
+
+		{#
+			Merging, on a page of its own and behind its own form (XIV-91's rule,
+			§5.4's reach). Deliberately outside the save above: a save that could also
+			merge would put the one irreversible operation on this screen behind the
+			same button as a colour change.
+		#}
+		{% if entries|length > 1 %}
+			<div class="card mt-4">
+				<div class="card-body">
+					<h2 class="h6">{{ 'value_list.merge.title'|trans }}</h2>
+					<p class="text-body-secondary small">{{ 'value_list.merge.intro'|trans }}</p>
+
+					<form method="post" action="{{ path('value_list_merge_confirm', {list: list.key}) }}"
+					      class="row g-2 align-items-end">
+						<input type="hidden" name="_token" value="{{ csrf_token('edit-lists') }}">
+
+						<div class="col-sm-4">
+							<label class="form-label small mb-1" for="merge-from">{{ 'value_list.merge.from'|trans }}</label>
+							<select id="merge-from" class="form-select form-select-sm" name="from" required>
+								{% for entry in entries %}
+									<option value="{{ entry.value }}">{{ entry.label }}</option>
+								{% endfor %}
+							</select>
+						</div>
+						<div class="col-sm-4">
+							<label class="form-label small mb-1" for="merge-into">{{ 'value_list.merge.into'|trans }}</label>
+							<select id="merge-into" class="form-select form-select-sm" name="into" required>
+								{% for entry in entries %}
+									<option value="{{ entry.value }}">{{ entry.label }}</option>
+								{% endfor %}
+							</select>
+						</div>
+						<div class="col-sm-4">
+							<button class="btn btn-sm btn-outline-danger" type="submit">{{ 'value_list.merge.review'|trans }}</button>
+						</div>
+					</form>
+				</div>
+			</div>
+		{% endif %}
+	</main>
+{% endblock %}

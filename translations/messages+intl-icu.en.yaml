@@ -145,6 +145,19 @@ upgrade:
     review_agree: '{count, plural, one {Yes, add it to {module}.} other {Yes, add all # of them to {module}.}}'
 
 flash:
+    list_merged: '{count, plural, =0 {Merged. No record held it.} one {Merged, and # record was rewritten.} other {Merged, and # records were rewritten.}}'
     upgrade_taken: '{count, plural, one {Added # thing to {module}. It is in the field list now, and is yours to rename and reorder like any other.} other {Added # things to {module}. They are in the field list now, and are yours to rename and reorder like any other.}}'
     password_too_short: '{count, plural, one {Use at least # character.} other {Use at least # characters.}}'
     imported: 'Imported. {module}: {added, plural, other {# added}}, {updated, plural, other {# updated}}.'
+
+# The shared lists a customer keeps (XIV-127). Every one of these is read on a
+# page that is about to change records somebody else is looking at, which is why
+# the counts are in the sentence rather than beside it.
+value_list:
+    merge:
+        writes: '{count, plural, one {<strong>#</strong> record will be rewritten.} other {<strong>#</strong> records will be rewritten.}}'
+        children: '{count, plural, one {# entry sitting under it moves under the entry that stays.} other {# entries sitting under it move under the entry that stays.}}'
+        agree: '{count, plural, one {Yes: rewrite that # record and take the entry off the list.} other {Yes: rewrite those # records and take the entry off the list.}}'
+    delete:
+        what: '{count, plural, =0 {The list has no entries, so nothing is lost but the list itself.} one {The list and its # entry go, with the colours and the order.} other {The list and all # entries go, with the colours and the order.}}'
+        orphans: '{count, plural, one {# record still holds one of its entries and will show the stored code instead of a label.} other {# records still hold its entries and will show the stored codes instead of labels.}}'
