@@ -419,6 +419,22 @@ final readonly class QueryCompiler
             Operator::AtLeast => [sprintf('%s >= :%s', $value, $param), $this->bind($type, $field, $filter->value)],
             Operator::LessThan => [sprintf('%s < :%s', $value, $param), $this->bind($type, $field, $filter->value)],
             Operator::AtMost => [sprintf('%s <= :%s', $value, $param), $this->bind($type, $field, $filter->value)],
+            // **Answered in the database, which is the point of it** (XIV-136).
+            // "Which of these overlap today" over ten thousand bookings is one
+            // `&&` against a GiST index — the same index the exclusion constraint
+            // built ({@see \Xivi\Core\Record\OverlapExclusion}) — rather than ten
+            // thousand records read into PHP to be sifted there.
+            //
+            // **The type's own expression on both sides**, and that is what keeps
+            // this line free of any knowledge of what a period is.
+            // `comparableSql()` is a pure text→SQL transform, so applying it to
+            // the bound parameter builds the *same* range from the value somebody
+            // typed as it builds from the column — one definition of "a period",
+            // used twice, with no second parser here to disagree with the first.
+            Operator::Overlaps => [
+                sprintf('%s && %s', $value, $type->comparableSql(':' . $param)),
+                $this->bind($type, $field, $filter->value),
+            ],
             default => throw UnsupportedQuery::operator($filter->operator, $filter->path(), $field->getType(), $supported),
         };
 

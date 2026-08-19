@@ -104,6 +104,7 @@
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.region'|trans }}</th>
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.points_at'|trans }}</th>
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.takes_from'|trans }}</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.exclusive_within'|trans }}</th>
 									<th scope="col"></th>
 								</tr>
 							</thead>
@@ -287,6 +288,36 @@
 														{% endfor %}
 													</select>
 												{% endif %}
+											{% endif %}
+										</td>
+										{# What a period may not overlap another one within (XIV-136). The
+										   room, the machine, the carer: a field beside this one, whose
+										   value says which thing is being occupied. Choosing one builds a
+										   database constraint that refuses two overlapping periods for the
+										   same thing — not a check that can be raced, which is why the
+										   engine counts the records that already overlap and refuses the
+										   change rather than building something that enforces nothing.
+
+										   Blank is the ordinary answer and clears the rule: two projects
+										   running at once are not a conflict. Only this shape's other
+										   fields are offered, because that is all the constraint can name.
+
+										   Modules only, on the same terms `unique` is refused on a
+										   collection's field: within one parent record and across the
+										   whole table are different rules and the engine will not guess
+										   (§7). The engine refuses it too — this is the control simply not
+										   being offered where there is no honest answer. #}
+										<td>
+											{% if field.type in settable.exclusive_within and shape.key == module.key %}
+												<select form="f{{ field.id }}" class="form-select form-select-sm"
+														name="exclusive_within" style="width: 11rem">
+													<option value="">{{ 'field.exclusive_within_none'|trans }}</option>
+													{% for other in shape.fields %}
+														{% if other.key != field.key %}
+															<option value="{{ other.key }}" {{ field.getOption('exclusive_within', '') == other.key ? 'selected' : '' }}>{{ other.label }}</option>
+														{% endif %}
+													{% endfor %}
+												</select>
 											{% endif %}
 										</td>
 										<td class="text-end text-nowrap">

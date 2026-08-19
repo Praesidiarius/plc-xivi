@@ -25,6 +25,7 @@ use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
 use Xivi\Core\Metadata\MetadataCache;
 use Xivi\Core\Metadata\MetadataRepository;
+use Xivi\Core\Record\OverlapExclusion;
 use Xivi\Core\Record\UniqueIndex;
 
 /**
@@ -51,6 +52,9 @@ final readonly class ModuleInstaller
         private MetadataCache $cache,
         // What makes a blueprint's `unique` true rather than checked (XIV-109).
         private UniqueIndex $uniqueIndexes,
+        // And what makes its `exclusive_within` true rather than hoped for
+        // (XIV-136).
+        private OverlapExclusion $exclusions,
         // Which of the blueprint's fields point at a module this customer has
         // (XIV-104). A link into a module they never bought is a control with an
         // empty picker behind it, and the only way to not offer a *field* is to
@@ -135,6 +139,12 @@ final readonly class ModuleInstaller
         // duplicate.
         foreach ($module->getFields() as $field) {
             $this->uniqueIndexes->follow($module, $field);
+            // And the constraint behind whatever the blueprint declared exclusive
+            // within something (XIV-136), on exactly the same terms and in the
+            // same loop: it is a fact about a definition, the definitions have
+            // just been written, and a table this installer made a moment ago has
+            // no rows for either of them to conflict with.
+            $this->exclusions->follow($module, $field);
         }
 
         // A module's definitions are new or gone (XIV-53); anything holding the
@@ -410,6 +420,11 @@ final readonly class ModuleInstaller
         // it. If that ever stops being true, `create()` throws and this whole
         // adoption rolls back, which is the right answer anyway.
         $this->uniqueIndexes->follow($shape, $definition);
+        // And the constraint behind an adopted period field (XIV-136). Same
+        // reconciliation, same reason: a field arriving through the upgrade path
+        // must not be the one way into the engine that writes the option and
+        // leaves nothing enforcing it.
+        $this->exclusions->follow($shape, $definition);
 
         // The shape somebody is about to be shown has just changed (XIV-53).
         $this->cache->clear();
