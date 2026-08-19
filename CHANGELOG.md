@@ -369,6 +369,25 @@ lands in `Unreleased` here.
   ([XIV-123]) — an FAQ is documentation, and it belongs on the
   [documentation site](https://praesidiarius.github.io/plc-xivi-docs/), where it
   is written once and can be read by somebody who has not signed in.
+- **A deploy now finds out when the registry grants were never re-run**
+  ([XIV-143]) — the two bullets above and below asking you to run
+  `deploy:registry-grants` again ([XIV-120], [XIV-123]) were the only thing
+  standing between a forgotten `GRANT` and a dashboard that fails for every user
+  of every tenant. `bin/console deploy:check-grants` asks PostgreSQL what the
+  customer-facing role may actually do and names every table where that differs
+  from what this release needs — in both directions, so a role that has been given
+  `INSERT` on a registry table is reported too, and so is one that is quietly a
+  superuser. `bin/deploy` runs it on every release, right after the control-plane
+  migration and before any container is replaced, and a difference stops the
+  deploy. It **tells you what to run and repairs nothing**: the command that
+  changes privileges is still one a database administrator runs. §4.4 has the
+  argument.
+- **Action, if you run the two-image deployment: set `XIVI_PUBLIC_ROLE`**
+  ([XIV-143]) — name the database role your customer-facing instance connects as,
+  and the check above happens on every deploy. Left empty, which is the default
+  and is right for an installation served entirely by the internal image, nothing
+  is checked and nothing changes. No password is needed: the check reads the
+  catalogue rather than connecting as the role.
 
 ### Fixed
 
@@ -483,6 +502,7 @@ lands in `Unreleased` here.
 [XIV-114]: https://xivi.youtrack.cloud/issue/XIV-114
 [XIV-104]: https://xivi.youtrack.cloud/issue/XIV-104
 [XIV-123]: https://xivi.youtrack.cloud/issue/XIV-123
+[XIV-143]: https://xivi.youtrack.cloud/issue/XIV-143
 
 ## Releases
 
@@ -495,4 +515,3 @@ lands in `Unreleased` here.
 | [17.0.2](docs/changelog/17.0.2.md) | 2026-08-16 | Four modules, the money and documents they needed, and a front end that changed twice |
 | [17.0.1](docs/changelog/17.0.1.md) | 2026-08-15 | Permissions, localization, and the test suite from 165s to 10s |
 | [17.0.0](docs/changelog/17.0.0.md) | 2026-08-14 | The first numbered version: the engine, tenancy, and everything built before versioning began |
-

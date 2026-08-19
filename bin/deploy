@@ -163,6 +163,43 @@ php bin/console deploy:check-secrets
 step 'Control-plane schema'
 php bin/console doctrine:migrations:migrate --no-interaction --all-or-nothing
 
+# **Then, immediately: can the customer-facing instance still read the registry?**
+#
+# XIV-96 gives that instance a role holding `SELECT` on the registry tables and
+# nothing else, and the list of tables is derived from the mapping — so a release
+# that adds an entity under `App\Registry\Entity\` also adds a table the role has
+# no grant on. The grant is applied by a database administrator running the SQL
+# `deploy:registry-grants` prints, and until XIV-143 **nothing checked that
+# anybody had.** Twice in two days a release shipped a changelog bullet saying to
+# re-run it (XIV-120, XIV-123), and a changelog bullet works exactly as well as
+# whoever reads changelogs. What it costs when it is missed is
+# `SQLSTATE[42501]: permission denied for table notice` on the dashboard of every
+# user of every tenant.
+#
+# **Here rather than anywhere else in this file**, for two reasons that pick the
+# same line. The migration above has just created the table this release added,
+# so this is the earliest moment the question can be asked at all — a check run
+# before it would report a table the database does not have yet. And it is before
+# the containers are replaced, which is what makes stopping cheap: the old
+# containers keep serving, the old code does not read the new table, and nobody
+# is dark while somebody runs one GRANT.
+#
+# Exit 3 means the role's privileges are not the ones this build needs — in
+# either direction, because a role that has been given `INSERT` on a registry
+# table is XIV-96's boundary quietly not being there — and `set -e` stops the
+# deploy on it. It **checks and does not repair**: re-running the grants would be
+# idempotent and easy, and an application that could grant privileges to itself
+# could be made to grant itself others, which is the same reason
+# `deploy:registry-grants` prints its SQL rather than executing it. So this
+# prints the command to run and stops.
+#
+# It exits 0 and says so when XIVI_PUBLIC_ROLE is empty, which is an installation
+# served entirely by this image: one database user, no second set of privileges
+# to have an opinion about. A gate that stopped those deploys would be a gate
+# somebody appends `|| true` to.
+step 'The customer-facing role can read the registry, and only read it'
+php bin/console deploy:check-grants
+
 # **Then: would any of these customers be answered with a 400?**
 #
 # XIV-93 gave this installation a list of hostnames it answers to, composed from

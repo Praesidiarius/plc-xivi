@@ -83,6 +83,15 @@ use Doctrine\ORM\Mapping\ClassMetadata;
  * have; what the application contributes is knowing exactly which tables the
  * list has to cover today, which is the part that goes stale.
  *
+ * ## And what happens when nobody runs it
+ *
+ * Nothing, until a customer's dashboard answers 500. That gap is [XIV-143]'s:
+ * {@see RegistryPrivileges} reads these same two lists and asks PostgreSQL what
+ * the role is actually holding, `bin/console deploy:check-grants` reports the
+ * difference, and `bin/deploy` runs it on every release. The derivation below is
+ * therefore read twice — once to say what to grant, once to say whether it was —
+ * which is the property that stops the check and the grant from disagreeing.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class RegistryGrants
