@@ -74,6 +74,22 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **A field can hold formatted text** ([XIV-131]) — a new field type, *Formatted
+  text*, written as Markdown: headings, bold, italic, lists, links and tables. Add
+  one in the field editor like any other. The form is a plain textarea with a
+  live preview under it — no toolbar, no editor to download, and nothing fetched
+  from anywhere. The record page draws the formatting; a list column, a
+  spreadsheet export cell and a generated Word document get the words with the
+  marks taken off, so `**Warning:**` prints as `Warning:` rather than as
+  punctuation you never meant to send. Filters and search match what you typed,
+  marks included. §5.21 has the argument for each of those, including why this is
+  a new type rather than a checkbox on *Long text*.
+- **Nothing changes for a *Long text* field** ([XIV-131]) — existing textarea
+  fields keep their type, their widget and their behaviour, in every tenant.
+  There is deliberately **no way to convert one into a formatted field**: it would
+  silently reinterpret every value already stored — a parts list typed with `*`
+  bullets would change meaning in every record with nothing to see. Add a
+  formatted field and move the text across if you want one.
 - **An article is sold in a unit, and a line says so** ([XIV-118]) — hours, days,
   pieces, kg, m, m² or litres, shipped as a starting set and seeded into your own
   definitions at install like every other label (§6.1). An order line and an
@@ -161,6 +177,13 @@ lands in `Unreleased` here.
 
 ### Changed
 
+- **Markdown is rendered in one place now** ([XIV-131]) — the converter, the
+  raw-HTML escaping and the sanitizer policy moved out of the email renderer into
+  a single core service that email and formatted fields share. **No behaviour
+  changed for email**; what changed is that what an email is allowed to contain
+  and what a record page is allowed to contain can no longer drift apart. If you
+  have overridden the `email` HTML-sanitizer policy in your own configuration, it
+  is now called `markdown`.
 - **`README.md` is 84 lines instead of 962**
   ([XIV-112](https://xivi.youtrack.cloud/issue/XIV-112)) — what Xivi is, a
   Quickstart that fits on a screen, and links. Nothing was rewritten and nothing
@@ -194,6 +217,7 @@ lands in `Unreleased` here.
 [XIV-118]: https://xivi.youtrack.cloud/issue/XIV-118
 [XIV-124]: https://xivi.youtrack.cloud/issue/XIV-124
 [XIV-126]: https://xivi.youtrack.cloud/issue/XIV-126
+[XIV-131]: https://xivi.youtrack.cloud/issue/XIV-131
 
 ## Releases
 

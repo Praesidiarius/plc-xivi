@@ -14,12 +14,15 @@ declare(strict_types=1);
 namespace Xivi\Core\Twig;
 
 use Twig\Extension\AbstractExtension;
+use Twig\Markup;
 use Twig\TwigFunction;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Field\HoldsFormattedText;
 use Xivi\Core\Field\LinksToRecord;
 use Xivi\Core\Field\RecordLink;
+use Xivi\Core\Markdown\MarkdownRenderer;
 
 /**
  * `display(field, value)` in a template.
@@ -33,8 +36,10 @@ use Xivi\Core\Field\RecordLink;
  */
 final class FieldDisplayExtension extends AbstractExtension
 {
-    public function __construct(private readonly FieldTypeRegistry $fieldTypes)
-    {
+    public function __construct(
+        private readonly FieldTypeRegistry $fieldTypes,
+        private readonly MarkdownRenderer $markdown,
+    ) {
     }
 
     public function getFunctions(): array
@@ -42,6 +47,10 @@ final class FieldDisplayExtension extends AbstractExtension
         return [
             new TwigFunction('display', $this->display(...)),
             new TwigFunction('record_link', $this->recordLink(...)),
+            // Markup, and the only function here that is: see the method for why
+            // this one may hand back something already safe and `display()`
+            // never can.
+            new TwigFunction('formatted', $this->formatted(...)),
             new TwigFunction('display_stored', $this->displayStored(...)),
             new TwigFunction('in_field_order', $this->inFieldOrder(...)),
             new TwigFunction('record_title', $this->recordTitle(...)),
@@ -129,6 +138,40 @@ final class FieldDisplayExtension extends AbstractExtension
         $type = $this->fieldTypes->get($field->getType());
 
         return $type instanceof LinksToRecord ? $type->linkOf($value, $field) : null;
+    }
+
+    /**
+     * The value as formatted markup, when the field is one that holds any
+     * (XIV-131).
+     *
+     * The same shape as `recordLink()` above and for the same reason: **the
+     * template asks the field, not the type key.** A page writing
+     * `field.type == 'markdown'` is a page that has to be edited the next time
+     * something else holds prose, and [XIV-132] already has one on the way. A
+     * type with nothing to format does not implement the interface and the
+     * answer is null, which is the caller's cue to fall back to `display()`.
+     *
+     * **Null and the empty string are different answers here.** Null means "this
+     * field is not formatted, draw it the ordinary way"; the empty string means
+     * "it is formatted and holds nothing", which is a blank the caller renders
+     * as a blank rather than as a paragraph containing nothing.
+     *
+     * **Why this may come back already safe and `display()` may not.** What is
+     * in the {@see Markup} has been through {@see MarkdownRenderer::toHtml()},
+     * which parsed it with raw HTML escaped and then put the result through the
+     * sanitizer's policy — so the markup in it is markup CommonMark produced,
+     * not markup a customer typed. `display()` returns a value straight out of
+     * storage and is escaped by Twig like everything else, which is the
+     * difference between the two and the reason they are two functions rather
+     * than one with a flag.
+     */
+    public function formatted(FieldDefinition $field, mixed $value): ?Markup
+    {
+        $type = $this->fieldTypes->get($field->getType());
+
+        return $type instanceof HoldsFormattedText
+            ? new Markup($this->markdown->toHtml($type->source($value, $field)), 'UTF-8')
+            : null;
     }
 
     /**

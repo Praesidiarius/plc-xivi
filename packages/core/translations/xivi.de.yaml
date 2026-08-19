@@ -139,3 +139,16 @@ query:
     unknown_collection: '„%module%“ hat keine Sammlung namens „%collection%“.'
     unsupported_operator: 'Es lässt sich nicht fragen, ob „%path%“ (%type%) %operator%. Dieser Typ akzeptiert: %supported%.'
     sort_by_collection: 'Nach „%path%“ lässt sich nicht sortieren: es gehört zu einer Sammlung, und ein Datensatz mit zweien davon hat zwei Werte. Welcher wäre der des Datensatzes?'
+
+# Die beiden Sätze neben dem Textfeld eines formatierten Feldes (XIV-131).
+#
+# Der Hinweis ist die gesamte Dokumentation, die ein Kunde zur Syntax bekommt:
+# er nennt die vier Konstrukte, nach denen jemand greift, und hört dann auf.
+# Die Auszeichnungen selbst bleiben englisch, weil sie Zeichen sind und keine
+# Wörter — <code>**fett**</code> wird nicht deutscher, wenn das Wort dazwischen
+# übersetzt ist, aber das Beispiel wird falsch, wenn jemand es abtippt.
+markdown:
+    hint: >-
+        Formatierung: <code>**fett**</code>, <code>*kursiv*</code>, <code># Überschrift</code>,
+        und eine Zeile, die mit <code>-</code> beginnt, für einen Listenpunkt.
+    preview: Vorschau

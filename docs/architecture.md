@@ -5260,6 +5260,194 @@ a label beside a number.
 
 ---
 
+### 5.21 A field with formatting in it (XIV-131)
+
+The longest thing a record could hold was a `textarea`, which is plain text. No
+headings, no lists, no emphasis, no links. That is right for a note and wrong for
+a procedure, for an article description that goes on a document, and for the
+knowledge-base entry [XIV-132] is waiting on.
+
+**The answer is Markdown, and the reason is that the dangerous half was already
+built.** [XIV-38] and [XIV-62] put Markdown into email, and the valuable part of
+that work is not the rendering — CommonMark is a library and turning text into
+HTML is a line of code. The valuable part is a *safety property*: substitution
+happens on the Markdown **source**, before anything is parsed, with
+`html_input: escape`, so a record value containing a script tag becomes text
+**without anybody remembering to make it so**. A sanitizer sits behind that as a
+second layer, and link schemes are confined to http, https and mailto.
+
+A rich-text editor storing HTML is the alternative and it loses on exactly that.
+A value that is already markup arrives on the far side of the escaping decision,
+leaving the sanitizer as the only thing between one customer's data and the
+markup of a page — which is the trade §5.13.1 refused when it insisted a
+collection expand to Markdown rather than to HTML. It also costs a dependency;
+`league/commonmark` is installed, and nothing was added for this.
+
+#### A new type, not an option on `textarea` — and [XIV-113] should follow this
+
+The question is real and was close. An option means every existing textarea keeps
+working and a customer ticks a box; a separate type means a reader knows what a
+field holds from the type alone. It went to the separate type, `markdown`, for
+three reasons.
+
+**The precedent is one file away and went the same way.** `TextareaFieldType`
+exists rather than being an option on `text`, and its own docblock says why:
+*everything that follows from the length differs* — the widget, the default
+maximum, the operators worth offering. Everything that follows from *formatting*
+differs at least as much. The widget gains a preview. The record page draws a
+block instead of a value on a line. A Word document is given something different
+from what the page shows. A list cell is given something different again. That is
+four divergences, which is not a flag on a type; it is a type.
+
+**Whether a value is markup-bearing has to be readable from the type.**
+`$type instanceof HoldsFormattedText` is a question the container answers once.
+`$field->getOption('markdown') === true` is a question every caller answers
+again, in the display path, the document path, the export path and the form path
+— and two answers is how one of them ends up unescaped. This is the same argument
+the section below makes about there being one converter, applied one level up:
+the property being defended is that "text somebody typed" and "markup" stay
+distinguishable *by construction*, and a boolean in a JSON options blob is not a
+construction, it is a convention.
+
+**A checkbox is retroactive and a type cannot be.** Ticking it reinterprets every
+value already stored in that field, at once. A parts list typed with `*` bullets
+and `_snake_case_` product codes changes meaning in every record, with no
+migration, no history entry — §5.2 records *changes*, and nothing changed — and
+nothing on any screen to say it happened. Choosing a type when the field is
+created cannot do that, which is why "an existing `textarea` field is unaffected"
+is a property of the design here rather than something a test had to defend.
+
+The cost is accepted and is real: **there is no path from an existing `textarea`
+to this.** A customer who wants their notes formatted has to add a field and move
+the text. That is a conversion of stored data and belongs in §7.2's territory as
+an explicit operation with a screen and a confirmation, not as a checkbox that
+silently reinterprets what somebody already wrote.
+
+**[XIV-113] weighs the identical question for references and should follow this
+answer rather than reaching its own.** It is much larger and unbuilt, which makes
+it the wrong place to decide a convention and the right place to inherit one; and
+every reason above is *stronger* there, not weaker. A `multiple` option on
+`reference` would change the **storage shape** of the value — an integer becomes
+a list of integers — so the retroactivity argument stops being about how a string
+reads and becomes about whether the stored value can be read at all. If a case
+ever does justify an option where this justified a type, it will be a case where
+the option changes neither what the value *is* nor how it must be escaped, and
+the ticket that finds one should say so here.
+
+#### One converter, configured in one place
+
+`EmailRenderer` built its own `MarkdownConverter` in its constructor, which was
+right while it was the only thing that had one. A second caller makes that
+configuration a policy, so it moved whole into `Xivi\Core\Markdown\MarkdownRenderer`
+and both callers are handed the same object.
+
+**Two converters with two configurations is how one of them ends up unescaped**,
+and the failure is quiet: somebody tightens what a link may point at, tightens it
+in the one they were looking at, and the other stays open for a year with nothing
+going red. There is now one `Environment`, one `MarkdownConverter` and one
+sanitizer, so a change to what is permitted cannot apply to email and not to a
+record page.
+
+**The sanitizer policy was renamed rather than duplicated** — `email` became
+`markdown` in `config/packages/html_sanitizer.yaml` — and it is deliberately the
+*strictest* caller's rather than the union of what both would accept. Two of its
+rules were written about email: relative links are dropped because a message has
+no base URL, and `data:` media are dropped because a data URI is how an image
+gets past a mail client's remote-content warning. Neither costs a record page
+anything worth having. A relative link typed into a field would resolve against
+whichever record it was read on, which is not something anybody means, and an
+image in a field is [XIV-115]'s question. **A policy that relaxes for the newer
+caller is two policies with one name**, which is the thing the extraction exists
+to prevent.
+
+#### The editor is a textarea and a preview
+
+A toolbar means a JavaScript editor, and [XIV-33] settled the front end on Live
+Components precisely so that the interactive parts of this system are
+server-rendered — while the documentation promises a customer's browser makes no
+CDN calls. So the control is the text, and the honesty is the preview underneath
+it.
+
+**The preview costs nothing, and that is not luck.** The record form already
+carries `data-model` on the form element because [XIV-32]'s totals had to follow
+somebody typing into a quantity box, so every keystroke already round-trips and
+re-renders. A preview block inside the field's own widget therefore follows the
+typing without a line of JavaScript being written for it. It is a form theme
+block hung off the form type's prefix, which is the only way to give one kind of
+field a different appearance when nothing renders fields one at a time —
+`RecordForm` calls `form_widget(form.fields)` once and knows nothing about what
+is in it, which is the §5 claim doing its job.
+
+A toolbar is a later question if anybody asks. Nothing here forecloses it.
+
+#### What a value is worth in each of the places it goes
+
+A field's value goes to more places than a form, and leaving three of them to
+emerge from whichever function happened to be nearest is how two screens end up
+telling a reader different things about the same record. Each was decided.
+
+- **The record page** gets the **rendered markup**. This is the only place in the
+  application where a record's own value reaches a page as markup rather than as
+  text, and it is safe for one specific reason rather than by habit: it was
+  parsed with raw HTML escaped and then sanitized, by the same object an email
+  goes through. It takes the whole row rather than a quarter of one, because a
+  heading and a list drawn in a narrow column wrap to two words a line and the
+  formatting that is the point of the field becomes unreadable.
+- **A document** (§5.7) gets **the words with the marks taken off** —
+  `Warning: do not…`, not `**Warning:** do not…`. A .docx is not HTML, so the
+  formatting cannot survive the trip whatever is decided; given that, the only
+  question left is whether the punctuation travels with it, and punctuation
+  printed on a customer's invoice is punctuation nobody meant to send. *"The
+  source, as typed"* is the defensible alternative and it was rejected on that
+  one sentence.
+- **A list column** gets the same, for the same reason arriving from a different
+  direction: a cell has one line and no room for a block, so a cell reading
+  `**bold**` is strictly worse than one reading `bold`. A collection's rows on
+  the record page are a table too and get the same treatment.
+- **An export** (§5.6) gets **the source, untouched**, and needed no decision in
+  code because the exporter already works in storage form. It is still a decision
+  and is written down here: an export has to be importable, so it carries what
+  was stored rather than a rendering of it. That is also the one place a customer
+  can get their formatting back out intact.
+- **A filter and a search** match **the source**. Searching for `Warning` finds a
+  record whose text says `**Warning:**` because `contains` runs on the stored
+  string; searching for `**` finds every record with emphasis in it. Matching the
+  rendered words instead would mean rendering every row on every query, or
+  keeping a second derived copy of every value to search against, and neither
+  buys anything worth having.
+
+**The plain rendering asks the parser, not the string.** Stripping `*` and `#`
+with a regular expression would be a second and worse implementation of a grammar
+already in the room, and it would disagree with the rendered half the first time
+somebody typed a literal asterisk. It is also **not** "the HTML with the tags
+taken out": that would mean un-escaping entities afterwards to get readable text
+back, and a pipeline that escapes and then un-escapes is one refactor away from
+handing markup to a caller that trusted it. What it does instead is walk the
+parsed document and read the literals off it, so the markup is never built at
+all — which is asserted by giving the renderer a sanitizer that throws.
+
+#### Deliberately not in this
+
+**Images and file embeds**, which are [XIV-115]. The sanitizer policy already
+refuses `data:` and relative sources, so nothing here quietly half-supports them.
+
+**Tables beyond what `TableExtension` already gives**, and no other CommonMark
+extension either. The grammar is `CommonMarkCoreExtension` plus tables, named
+individually rather than taken as the GitHub-flavoured bundle — the smaller the
+grammar somebody writes against, the fewer ways their text surprises them, and
+every addition is a new shape of markup the sanitizer's policy would have to have
+an opinion about.
+
+**Collaborative editing**, of any kind.
+
+**A module blueprint that declares one.** The engine has the type and the metadata
+editor offers it; no shipped module changed its own fields to use it, because
+installing does not retro-fit (§6.1) and a blueprint change would have meant new
+tenants and existing ones disagreeing about what an article description is for no
+gain this ticket needed.
+
+---
+
 ## 6. Extensibility
 
 Three composable layers, all "one codebase, no forks":

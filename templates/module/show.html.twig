@@ -178,17 +178,52 @@
 						   half the row, so two sit side by side on a wide screen. #}
 						<dl class="row mb-0">
 							{% for field in fields %}
-								<dt class="col-6 col-md-3 text-body-secondary fw-normal">{{ field.label }}</dt>
-								<dd class="col-6 col-md-3">
-									{% set shown = display(field, record.get(field.key)) %}
-									{# Empty reads quieter than filled, or a half-filled record
-									   looks busier than a full one. #}
-									{% if shown is empty %}
-										<span class="text-body-secondary">—</span>
-									{% else %}
-										{{ link.linked(field, record.get(field.key), shown) }}
-									{% endif %}
-								</dd>
+								{#
+									A field that holds formatted text is the one thing here that
+									is not a value on a line (XIV-131). `formatted()` asks the
+									*field* rather than the template asking what type it is —
+									the same rule `record_link()` follows one line down — and a
+									type with no formatting to offer answers null, which is
+									every other field on this page.
+
+									It takes the whole row rather than a quarter of one, because
+									what is in it has blocks: a heading, a list, a paragraph.
+									Drawn in a `col-md-3` those wrap to two words a line and the
+									formatting that is the entire point of the field becomes
+									unreadable.
+
+									This is the only place in the application where a record's
+									own value reaches a page as markup rather than as text, and
+									it is safe for one specific reason rather than by habit: it
+									was parsed with raw HTML escaped and then sanitized, inside
+									Xivi\Core\Markdown\MarkdownRenderer, which is the same object
+									and the same policy an email goes through. Nothing here says
+									`|raw`, and nothing here may.
+								#}
+								{% set rich = formatted(field, record.get(field.key)) %}
+
+								{% if rich is not null %}
+									<dt class="col-12 text-body-secondary fw-normal">{{ field.label }}</dt>
+									<dd class="col-12">
+										{% if rich is empty %}
+											<span class="text-body-secondary">—</span>
+										{% else %}
+											<div class="markdown-body">{{ rich }}</div>
+										{% endif %}
+									</dd>
+								{% else %}
+									<dt class="col-6 col-md-3 text-body-secondary fw-normal">{{ field.label }}</dt>
+									<dd class="col-6 col-md-3">
+										{% set shown = display(field, record.get(field.key)) %}
+										{# Empty reads quieter than filled, or a half-filled record
+										   looks busier than a full one. #}
+										{% if shown is empty %}
+											<span class="text-body-secondary">—</span>
+										{% else %}
+											{{ link.linked(field, record.get(field.key), shown) }}
+										{% endif %}
+									</dd>
+								{% endif %}
 							{% endfor %}
 						</dl>
 
@@ -225,6 +260,17 @@
 												{% set left = remaining ? remaining.rows[row.id]|default(null) : null %}
 												<tr>
 													{% for field in collection.fields %}
+														{#
+															No `formatted()` here, and that is the decision rather
+															than an oversight (XIV-131, §5.21). A collection row is a
+															table row, and a table cell has no room for blocks: a
+															heading and a two-item list dropped into one make the row
+															four lines tall and the column beside it unreadable. So a
+															cell gets `display()`, which for a formatted field is the
+															words with the marks taken off — `Warning: do not…` rather
+															than `**Warning:** do not…` — for the same reason a list
+															column and a Word document get it.
+														#}
 														{% set shown = display(field, row.get(field.key)) %}
 														<td>
 															{% if shown is empty %}
