@@ -67,6 +67,24 @@ final readonly class LineTotals
          * anything (§5.9). Null for a collection whose rows are all lines.
          */
         public ?string $subtotalKind = null,
+        /**
+         * The record's own field saying whether its prices already include VAT
+         * (XIV-116), holding one of {@see VatMode}'s values.
+         *
+         * **On the record and not on a line**, which is the decision rather than
+         * an implementation detail: a document with some lines quoted gross and
+         * some quoted net is a document nobody can read, and no recipient could
+         * check a column whose meaning changed halfway down it. Everything else
+         * about money here is per line precisely because a *rate* genuinely
+         * differs line by line; how to read a price does not.
+         *
+         * Null for a module that does not offer the choice, and — just as
+         * importantly — for a customer who has deleted the field or has never
+         * taken it from the upgrade offer (§6.1, §7.2.1). All three mean the same
+         * thing to the arithmetic, and it is the thing every stored record
+         * already means: prices exclude VAT.
+         */
+        public ?string $vatMode = null,
     ) {
     }
 }

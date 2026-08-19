@@ -71,6 +71,59 @@ final class AmountTest extends TestCase
     }
 
     /**
+     * The other direction: a price that already has the VAT in it (XIV-116).
+     *
+     * 19.95 is the number on the shelf and 8.1% is Switzerland's rate, so the net
+     * behind it is 19.95 divided by 1.081 — 18.454209… — which rounds to 18.46.
+     */
+    public function testTakingAPercentageBackOutOfAnAmount(): void
+    {
+        $rate = Amount::of('8.10') ?? Amount::zero();
+
+        self::assertSame('18.46', (string) Amount::of('19.95')?->withoutPercent($rate));
+        self::assertSame('46.16', (string) Amount::of('49.90')?->withoutPercent($rate));
+    }
+
+    /**
+     * **The case the whole ticket is about**, and the reason the tax is a
+     * remainder rather than a second multiplication.
+     *
+     * Take the net back out of 19.95 and then add 8.1% of *that* on again — the
+     * way a shopkeeper doing this by hand in the old engine had to — and the
+     * answer is 19.96. A rappen above the price on the shelf, on the customer's
+     * own document, with nobody able to explain it. Subtracting instead cannot
+     * miss: whatever is left of the gross once the net has come out is exactly
+     * what makes the two add back up to what was typed.
+     */
+    public function testTheTaxIsTheRemainderBecauseMultiplyingBackDoesNotReturnTheGross(): void
+    {
+        $gross = Amount::of('19.95');
+        self::assertNotNull($gross);
+
+        $rate = Amount::of('8.10') ?? Amount::zero();
+        $net = $gross->withoutPercent($rate);
+
+        self::assertSame('19.96', (string) $net->plus($net->percent($rate)->rounded()), 'the rappen');
+        self::assertSame('19.95', (string) $net->plus($gross->minus($net)), 'and what the engine does');
+    }
+
+    /**
+     * A rate of nothing divides by one, which is the right reading of "no VAT"
+     * rather than a case anybody has to branch on — and a rate nobody could ever
+     * have meant changes nothing, because a save must not die on one bad row an
+     * import wrote.
+     */
+    public function testARateOfNothingAndARateNobodyCouldMeanBothLeaveTheAmountAlone(): void
+    {
+        $gross = Amount::of('19.95');
+        self::assertNotNull($gross);
+
+        self::assertSame('19.95', (string) $gross->withoutPercent(Amount::zero()));
+        self::assertSame('19.95', (string) $gross->withoutPercent(Amount::of('-100') ?? Amount::zero()));
+        self::assertSame('19.95', (string) $gross->withoutPercent(Amount::of('-250') ?? Amount::zero()));
+    }
+
+    /**
      * Not a number is null rather than an exception: a comment line has no
      * price, and that is an ordinary line rather than a failure.
      */

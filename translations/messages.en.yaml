@@ -676,6 +676,15 @@ profile:
         How long a customer has to pay, counted from the invoice date. A contact can be given
         different terms of their own. Leave it empty and invoices carry no due date, so nothing
         is ever overdue.
+    vat_mode: Prices
+    vat_mode_none: 'Not set (prices exclude VAT)'
+    vat_mode_excluded: Prices exclude VAT
+    vat_mode_included: Prices include VAT
+    vat_mode_help: >-
+        Whether the prices you type already have VAT in them. A shop quotes 19.95 including VAT
+        because that is the number on the shelf; a consultancy quotes net and adds VAT on the
+        invoice. Each new order and invoice takes a copy of this and can be changed on its own,
+        so changing it here never alters a document you have already sent.
     title: Company profile
     intro: >-
         What this installation is called, and the currency it works in. It applies to

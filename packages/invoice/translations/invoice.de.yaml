@@ -17,6 +17,7 @@ field:
     due_date: Fällig
     status: Status
     note: Notiz
+    vat_mode: Preisbasis
     net_total: Total netto
     tax_total: MWST
     gross_total: Total
@@ -47,6 +48,20 @@ unit:
     metre: m
     square_metre: m²
     litre: Liter
+
+# Wie jeder Preis auf dem Dokument zu lesen ist (XIV-116). **Ganze Sätze statt
+# eines Worts**, und das ist die Entscheidung: eine Vorlage schreibt
+# `[vat_mode]` und bekommt die Beschriftung der *Option*, ohne Feldnamen daneben
+# — "inkl." allein ließe die Empfängerin raten, inklusive was. Der Satz muss
+# allein neben einem Totalblock stehen können und von jemandem gelesen werden,
+# der diese Software nie gesehen hat.
+#
+# Wie jede andere Beschriftung beim Installieren in die eigenen Definitionen der
+# Kundin geschrieben und ab da ihre (§6.1) — genau darum geht es, denn "exkl.
+# MWST" gegen "zzgl. MwSt." ist Hausstil so gut wie Übersetzung.
+vat_mode:
+    excluded: Preise exkl. MWST
+    included: Preise inkl. MWST
 
 status:
     draft: Entwurf

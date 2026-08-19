@@ -570,6 +570,16 @@ profile:
         Wie lange eine Kundin Zeit zum Zahlen hat, ab Rechnungsdatum. Einem Kontakt kannst du
         eine eigene Frist geben. Lässt du es leer, tragen Rechnungen kein Fälligkeitsdatum und
         nichts wird je überfällig.
+    vat_mode: Preise
+    vat_mode_none: 'Nicht gesetzt (Preise exkl. MWST)'
+    vat_mode_excluded: Preise exkl. MWST
+    vat_mode_included: Preise inkl. MWST
+    vat_mode_help: >-
+        Ob die Preise, die du eingibst, die MWST schon enthalten. Ein Laden schreibt 19.95 inkl.
+        MWST, weil das die Zahl am Regal ist; eine Beratung rechnet netto und schlägt die MWST
+        auf der Rechnung drauf. Jeder neue Auftrag und jede neue Rechnung übernimmt das als Kopie
+        und lässt sich einzeln ändern — was du hier änderst, ändert nie ein bereits verschicktes
+        Dokument.
     title: Firmenprofil
     intro: >-
         Wie diese Installation heißt und in welcher Währung sie rechnet. Das gilt für

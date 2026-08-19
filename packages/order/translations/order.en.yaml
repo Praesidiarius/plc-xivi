@@ -24,6 +24,7 @@ field:
     unit_price: Unit price
     line_total: Line total
     tax_rate: VAT rate (%)
+    vat_mode: Price basis
     net_total: Net total
     tax_total: VAT
     gross_total: Total
@@ -45,6 +46,21 @@ unit:
     metre: m
     square_metre: m²
     litre: litres
+
+# How to read every price on the document (XIV-116). **Full sentences rather
+# than one word**, and that is the decision: a template prints `[vat_mode]` and
+# gets the *option's* label, with no field name beside it, so "included" would
+# leave the recipient to work out included in what. The sentence has to survive
+# being dropped into a document on its own, next to a totals block, and be read
+# by somebody who has never seen this software.
+#
+# Seeded into the customer's own definitions at install like every other label,
+# and theirs to reword from that moment (§6.1) — which is the point, because
+# "exkl. MWST" and "excl. VAT" and "hors TVA" are house style as much as
+# translation.
+vat_mode:
+    excluded: Prices exclude VAT
+    included: Prices include VAT
 
 status:
     draft: Draft
