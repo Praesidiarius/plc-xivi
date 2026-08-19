@@ -334,3 +334,29 @@
 	letter-spacing: 0.03em;
 	color: var(--bs-secondary-color);
 }
+
+/*
+ * The box a record's trend chart is drawn into (XIV-121).
+ *
+ * Chart.js sizes a canvas from its container, and a canvas with no container
+ * height either collapses to nothing or — with `maintainAspectRatio` left on —
+ * derives one from its width. Neither is right here: this card lives in a column
+ * that is a third of the page on a laptop and the whole of it on a phone, so an
+ * aspect ratio would make the same chart a letterbox on one and a square on the
+ * other, and the *shape of the line* is the entire content of a trend.
+ *
+ * A fixed height is therefore the honest answer, and it is a small one on
+ * purpose. This is a card beside a record rather than a report: what it has to
+ * show is whether a number went up, down or nowhere, which reads perfectly at
+ * ten lines of text and would push the timeline below it off the screen at
+ * twenty.
+ *
+ * `position: relative` because Chart.js's responsive mode measures the parent
+ * and then absolutely positions the canvas inside it; without it the canvas
+ * measures the card and grows on every re-render, which is a real Chart.js
+ * behaviour and not a hypothetical one.
+ */
+.trend-chart {
+	position: relative;
+	height: 10rem;
+}

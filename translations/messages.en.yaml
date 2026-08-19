@@ -326,6 +326,21 @@ module:
     history_empty: >-
         Nothing recorded. Records that existed before history did have none until
         the next time they change.
+    # What a number on this record has been worth over time (XIV-121). The
+    # heading names the *kind* of thing rather than the field, because the field
+    # is named on the picker beside it and on the chart's own tooltip — and
+    # because on a record with one numeric field there is no picker, and "Trend"
+    # is then the only word that says what the picture is.
+    trend: Trend
+    trend_field: Which number to show
+    # The flat case, which is most records: nothing has ever been changed here.
+    # It says the value as well as the date, because a horizontal line and a
+    # chart that failed to draw look alike, and the number is the proof.
+    trend_since: '%value% since %date%, unchanged.'
+    # The same sentence for a screen reader, which is handed no picture at all.
+    trend_summary: '%field% over time: now %value%, between %low% and %high%.'
+    trend_range: 'between %low% and %high%'
+    trend_truncated: Older changes than these are not drawn.
     linked_all: See them all
     action_by: 'by %who%'
     action_by_system: System

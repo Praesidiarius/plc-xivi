@@ -116,6 +116,35 @@ lands in `Unreleased` here.
   below the number. Narrow *Description* by one in the field editor — 4 to 3 on an
   order line, 3 to 2 on an invoice line — and it sits beside the quantity. A new
   installation is already laid out that way.
+- **A record's numbers, as a line** ([XIV-121]) — an article's page now carries a
+  small chart of what its price has been over time, and a sentence saying how
+  many times it has changed and between which two figures. It is **not a chart of
+  `price`**: any numeric field is offered — a VAT rate, a quantity, a stock level
+  you added yourself — and a picker on the card chooses which one is drawn, so a
+  field you invented gets a trend with no new version of Xivi. A reference is
+  never offered, because plotting one would be plotting record ids.
+- **Nothing new is stored, and nothing has to be switched on.** The chart is read
+  out of the record history that has been kept since the beginning: it records
+  the values, not just the fact that something changed, so every price your
+  catalogue has ever had is already there and every article you have — including
+  the ones created years ago — has a chart today. An article nobody has ever
+  edited draws a flat line and says "unchanged since" the day it was made, which
+  is a real answer rather than an empty box.
+- **A reader sees nothing about a record they may not open**, chart included; the
+  card is checked against the record itself and not merely the module, so
+  somebody restricted to their own records cannot read a colleague's prices off
+  an axis.
+- **The first chart in Xivi, and the only one for now** ([XIV-121]) — charting
+  was deliberately left out in [XIV-66] on the argument that a chart earns its
+  place where a *trend* is what is being read and nowhere else. That argument is
+  unchanged; a price over time is the case it admits. Dashboards of charts and
+  anything totalling across records are still not built. The library is Chart.js,
+  MIT, served from your own installation like every other asset — **no request
+  leaves a customer's browser to a third party**, which is unchanged and remains
+  the promise. It costs about 590 KB inside the customer-facing image, roughly a
+  sixth of one percent of it. Reasoning in `docs/architecture.md` §8.3.1, and why
+  history could answer this without a new table in §5.2.
+
 - **Xivi has documentation, and it is published**
   ([XIV-112](https://xivi.youtrack.cloud/issue/XIV-112)) —
   <https://praesidiarius.github.io/plc-xivi-docs/>. Installing Xivi, running an
@@ -213,8 +242,10 @@ lands in `Unreleased` here.
   *is*, rather than why it was built that way.
 
 [XIV-18]: https://xivi.youtrack.cloud/issue/XIV-18
+[XIV-66]: https://xivi.youtrack.cloud/issue/XIV-66
 [XIV-102]: https://xivi.youtrack.cloud/issue/XIV-102
 [XIV-118]: https://xivi.youtrack.cloud/issue/XIV-118
+[XIV-121]: https://xivi.youtrack.cloud/issue/XIV-121
 [XIV-124]: https://xivi.youtrack.cloud/issue/XIV-124
 [XIV-126]: https://xivi.youtrack.cloud/issue/XIV-126
 [XIV-131]: https://xivi.youtrack.cloud/issue/XIV-131

@@ -389,6 +389,28 @@
 					</div>
 				</div>
 
+				{#
+					What a number on this record has been worth over time (XIV-121).
+
+					**Above the timeline and below the record's own facts**, which is
+					where a trend belongs: it is read about the record rather than
+					looked up on it, so it is context in the right-hand column like the
+					history card — but it is a summary of many entries, and a summary
+					reads before the entries it summarises rather than after them.
+
+					Mounted unconditionally and the card decides whether it exists,
+					which is the opposite of what the follow-up panel above does. The
+					difference is what the question costs: whether a module takes
+					follow-ups is a flag on the definition, so the page can ask it for
+					free, while whether this record has anything numeric to draw is a
+					fact about its own history. Asking here would mean the controller
+					building the trends to decide whether to mount the component that
+					builds the trends. The component answers it from its definitions
+					before it queries anything, so a contact page pays a construction
+					and no round trip.
+				#}
+				<twig:RecordTrend module="{{ module.key }}" :recordId="record.id" />
+
 				{# History belongs on the record, not on the form: it is something you
 				   read about a record, not something you edit (§5.2). The latest few
 				   of it, at least — the whole timeline has a page of its own, so this

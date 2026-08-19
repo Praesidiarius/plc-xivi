@@ -224,6 +224,12 @@ module:
     history_empty: >-
         Nichts aufgezeichnet. Datensätze, die es schon vor dem Verlauf gab, haben
         keinen, bis sie das nächste Mal geändert werden.
+    trend: Entwicklung
+    trend_field: Welche Zahl angezeigt wird
+    trend_since: '%value% seit %date%, unverändert.'
+    trend_summary: '%field% im Zeitverlauf: aktuell %value%, zwischen %low% und %high%.'
+    trend_range: 'zwischen %low% und %high%'
+    trend_truncated: Ältere Änderungen als diese werden nicht gezeichnet.
     linked_all: Alle anzeigen
     action_by: 'von %who%'
     action_by_system: System
