@@ -1200,8 +1200,10 @@ Nothing on a customer's request path writes to that database, and that was
 checked rather than assumed: `App\Registry` reads, and the writers in `src/` are
 `ModuleCatalog::moveTo()` and — since [XIV-101] — `ModuleCatalog::priceAt()`,
 whose only callers are the `module:*` commands and the operator pricing screen;
-`TenantSecretRotator` is driven from `tenant:rotate-secrets`. Every one of those
-callers is in the package and therefore absent from the image.
+`TenantSecretRotator` is driven from `tenant:rotate-secrets`; and — since
+[XIV-120] — `Registry\Notice\NoticeBoard`, whose only caller is the operator's
+notices screen (§8.16). Every one of those callers is in the package and
+therefore absent from the image.
 
 **That a writer is present in the image and unreachable is not the guarantee
 being relied on**, and §6.5 says so at length where the split runs through one
@@ -1219,6 +1221,21 @@ and letting it POST to the internal one over HTTP — were both rejected on this
 paragraph. The second is the one worth naming: re-obtaining over the network a
 privilege the database refuses is a boundary made of care again, which is what
 this whole section is about not doing.
+
+**And it has since decided one the other way round** (§8.16, [XIV-120]). An
+operator's notice to customers is written on this side and only *read* on
+theirs, so it can live in the control-plane database and be read straight out of
+it — no collector, no interval, no copy. What the grant decides there is the
+**namespace**: the readable list is derived by asking the mapping for
+`App\Registry\Entity` and nothing else, so a `Notice` filed with the
+administration surface's entities would be withheld and every customer's
+dashboard would meet a permission error. The sharper consequence is that the
+recipients of an addressed notice are an *entity* rather than a `ManyToMany`,
+because a join table is not a class, has no metadata, and is therefore invisible
+to the generator — a grant that would have been produced, run, and been wrong.
+Anything that is a table and not an entity is outside `readableTables()`;
+`doctrine_migration_versions` is the only other member of that set and is named
+explicitly for the same reason.
 
 **`bin/console deploy:registry-grants` prints the SQL**, and it prints rather
 than executes for a reason: a running instance that could grant privileges to
@@ -10033,6 +10050,293 @@ smaller absences worth naming rather than leaving to be discovered:
 - **The operator cannot decline one on the screen.** They get in touch, which is
   what the page tells the customer will happen; a declined request is a
   conversation rather than a state.
+
+---
+
+### 8.16 An operator can say something, and it lands where the work is (XIV-120)
+
+The previous iteration had `LicenseClientNotification` — a title, a summary, a
+body, a date, the client it was for and a status. This one had nothing, which
+meant **whoever runs an installation could see every customer and tell them
+nothing**. Three sentences an operator knows and a customer needs:
+
+* *"This installation will be unavailable on Sunday morning while we upgrade."*
+* *"The invoice module gained payment terms; your existing invoices are
+  unchanged."*
+* *"Your trial ends in a week."*
+
+All three were an email somebody sent by hand from their own client, if they
+remembered.
+
+#### Where it appears, and why not by mail
+
+**On the customer's own dashboard**, as a widget (§8.3.1). Mail is a second
+channel with its own deliverability problems, and §8.7 is a whole section about
+how much has to be true before a customer's installation sends a message
+reliably; none of that should stand between an operator and *"we are upgrading on
+Sunday"*. This is information that belongs where the work is.
+
+It is a widget rather than a banner welded into the layout because [XIV-66] had
+just built the seam that makes a card a class and a template, and inventing a
+second mechanism for the same job a week later is exactly what that seam exists
+to prevent. `NoticeWidget` sits above the follow-ups, which is the only widget
+with a real claim to the top of the page: a maintenance window on Sunday is
+information about whether the work below it can be done at all.
+
+#### Which database it lives in, and why this is [XIV-102] in the easy direction
+
+**In the control plane, in the registry half, read directly by every instance
+that has to show it.** No collector, no interval, no copy.
+
+§8.15 met this boundary from the other side and had no such luxury. A purchase
+request is a **write** made by a customer's own request, §4.4 gives the
+customer-facing instance's role `SELECT` on the registry tables and no write
+privilege anywhere in that database, so that row had exactly one home — the
+customer's own — and an operator sees it only because `tenant:purchase:collect`
+copies it back. A notice is written by an operator on the instance that owns the
+schema and is only **read** by a customer, and reading the registry is precisely
+what the grant already permits. **The constraint that made that ticket expensive
+makes this one cheap**, and neither is a workaround.
+
+That was confirmed against the grant rather than assumed, and the confirmation
+turned out to have teeth.
+
+**The namespace is the grant.** `App\Deployment\RegistryGrants` derives the
+readable list by walking the `control` entity manager's mapping and taking the
+table name of every class under `App\Registry\Entity\`, and nothing else. So a
+`Notice` declared in `Xivi\ControlPlane\Entity` — which is where an operator's
+feature would naturally be filed — would land on the *withheld* list beside
+`operator` and `signup_request`, and the first customer dashboard to render would
+meet a permission error. `Notice` and `NoticeRecipient` are therefore
+`App\Registry\Entity` classes in `src/`, exactly as §3.1 requires of anything a
+tenant's own request reads.
+
+**And the recipients are an entity rather than a `ManyToMany`, which is the
+finding worth keeping.** A many-to-many's join table is not a class, has no
+metadata, and is therefore *invisible to the grant generator*. The grant would
+have been generated, run, and been wrong — and the failure would have appeared
+only on the deployment that matters, only for notices addressed to named
+customers, and never in a suite that runs as an account holding everything. The
+general form: **anything that is a table but not an entity is outside
+`readableTables()`**, and the only other member of that set today is
+`doctrine_migration_versions`, which is named explicitly for that reason. Nothing
+enforces this in general — a test would have to know what tables a future feature
+means to read — so it is written down here and asserted for these two tables by
+name.
+
+**The proof is a role, not an argument.**
+`tests/Functional/Deployment/NoticeGrantsTest.php` creates the role, runs
+`RegistryGrants`'s own statements, opens a connection **as that role**, builds an
+entity manager on it and runs `LiveNotices` — the same class the dashboard runs —
+through it. That is why `LiveNotices` takes its entity manager as a constructor
+argument instead of being a `ServiceEntityRepository`: a repository resolves its
+own connection out of the `ManagerRegistry`, so the test could only ever have
+exercised it as the suite's own privileged account, which is a test that proves
+nothing while passing. The same class asserts the role still cannot `INSERT`,
+`DELETE` or address anything.
+
+**The cost of that arrangement lands on a deploy, and it is worth stating.** A
+release that adds a registry table means `deploy:registry-grants` has to be run
+again — that is why the command derives its list from the mapping rather than
+maintaining a script (§4.4) — and an installation that skips it gets a
+customer-facing instance whose role cannot read `notice`. The widget asks on
+every dashboard render, so the failure is immediate, loud and total for that
+instance rather than latent: the landing page 500s, which §8.3.1 already decided
+is the right behaviour for a widget that throws. That is the honest reading of
+the trade this feature makes. A `deploy:check-grants` beside
+`deploy:check-hosts` and `deploy:check-secrets` — asking the database whether the
+role can read what this build intends to read — is the obvious next move and is
+not built here; it is a bigger thing than a notice board and would deserve
+deciding on its own.
+
+**The author is a copy, and the reason is stronger than the usual one.**
+`notice.author_label` is the operator's name as it was when they published, not a
+foreign key to `operator` — because the reader the column exists for is a
+customer, and §4.4 gives their instance no access to that table at all. A join
+would be unreadable by the only party that needs the value. The ordinary reason
+holds too: an operator later revoked or renamed must not rewrite the authorship
+of something already published.
+
+#### Everybody, or named customers
+
+Both, as the ticket asked. `notice.every_tenant` is the switch and
+`notice_recipient` is the list.
+
+**They are not folded into one.** "No recipient rows" and "everybody" would look
+identical on the screen and mean different things in fact: recipient rows cascade
+away with a deprovisioned customer, so an announcement addressed to three
+companies would silently become an announcement to the *entire installation* on
+the day the last of them left. A boolean says which of the two somebody meant and
+no cascade can change it.
+
+**A third case — "every customer who has module X" — was considered and is not
+here.** It is a different kind of question. The registry knows which modules are
+*enabled* for a tenant; what a customer has actually installed is their own
+metadata (§6.1), one boundary and one database away, and answering it for every
+customer is a collector's job. That is a feature, not a case in an enum.
+
+**Addressing is all-or-nothing.** A notice naming a customer who is not there is
+refused entirely, with the name in the message, rather than published to the ones
+that resolved — because reaching three of four companies while reporting success
+is this feature's characteristic failure wearing a different hat. So is a notice
+addressed to named customers and naming none, which is refused for the same
+reason: *the operator would believe they had told somebody.*
+
+#### Who inside a tenant sees it, decided per notice
+
+`NoticeAudience` is `Everyone` or `Administrators`, on the notice.
+
+A maintenance window is for everybody who might sit down to work on Sunday; a
+trial ending is for whoever pays, and putting it on the screen of a colleague who
+cannot act on it is either noise or an awkward conversation somebody did not
+choose to start. A global rule would have to pick one and be wrong about the
+other every time, which is why the ticket asked for this and why the answer is a
+column rather than a setting.
+
+**The second case is coarse and says so.** A tenant's own authority model is
+§8.4's grants — per person, per module, per verb — and none of it describes "the
+person who pays", because nothing in the product has ever needed to. `ROLE_ADMIN`
+is the nearest true thing an installation knows. That is honest for a trial
+ending and would be dishonest dressed up as anything finer.
+
+**A permission was considered and refused.** A `@notices` area on §8.4.3's second
+axis would let a customer decide who reads announcements — and therefore let a
+customer switch off a channel the operator is relied upon to have. The addressing
+belongs to the sender here, which is the one place in this product where that is
+true, and it is true because the sender is the party running the installation.
+
+#### Dismissing, and where that write goes
+
+**A customer can dismiss a notice, per person, and the row lands in their own
+database** — `notice_dismissal`, in `src/Tenant/Entity`.
+
+This is §8.15's shape reused rather than a new one, and again §4.4 decides it
+rather than a preference: the customer-facing instance may read the control plane
+and may write nothing there, so a dismissal has exactly one database available to
+it. **The feature reads across the boundary and writes on this side of it**,
+which is the arrangement the grant was built to force.
+
+**Per person, not per tenant.** Dismissing is *"I have read this"*. A
+tenant-wide dismissal would let whoever opened the dashboard first take a
+maintenance window off everybody else's screen, which is the silence the whole
+ticket is against.
+
+**`notice_id` is an integer with nothing to point at**, since the row it names is
+in another database. That makes it the same kind of value as a saved dashboard
+layout's widget key (§8.3.1) or a stale `reference` (§7.6): data referring to
+something outside this database, resolved where it is read and dropped when it
+resolves to nothing. A dismissal of a deleted notice hides a notice that does not
+exist, which is correct and needs no repair — and there is deliberately no
+process hunting orphans, because a cross-database garbage collector is a much
+worse thing to own than a few bytes.
+
+#### Stopping one, and what an operator can see
+
+**A notice is live between `published_at` and `expires_at`, and withdrawing is
+the second of those being set to now.** One concept rather than two: a
+`withdrawn` boolean beside an expiry would be two ways of saying *stop showing
+this*, free to disagree, with every reader having to remember both. The cost is
+that an operator cannot afterwards tell whether something ran out or was pulled,
+which is a fact about the past nobody has asked for.
+
+**Withdrawing is not deleting.** The row stays on the operator's screen, marked
+ended, because *"what did we tell them in March"* is a question somebody asks and
+a list that answered it by having no row would answer it wrongly. That is the
+purchase screen's argument for keeping fulfilled requests, reused.
+
+**The operator's screen leads with what is live and states who each notice went
+to.** Those are the two facts an operator's belief rests on, and both are the
+kind that fail silently — a count that included ended notices, or a row that
+printed another notice's customers, would leave the page looking exactly as it
+does when it is right. So the count is asserted against a page holding both live
+and ended notices, and the addressing is asserted with two notices addressed to
+*different* customers, which is the only shape in which a query that ignores its
+scope can be caught.
+
+#### The widget costs a query in `panel()`, which is a departure
+
+`DashboardWidget::panel()` is documented as cheap by contract (§8.3.1): it is
+asked of every widget on every render, before the reader's layout is applied, so
+a widget that counts rows there charges the page for a card somebody may have
+hidden. `NoticeWidget` asks the registry whether anything is live for this
+customer, which is a database read. **That is deliberate, and the alternative is
+worse.**
+
+"Does this apply to you" is answerable for the follow-ups from a per-request
+metadata cache and for the module tiles from the navigation. For a notice it *is*
+the question the database holds. A widget that returned a panel unconditionally
+would put a permanent, usually-empty "Notices" card on every dashboard in every
+installation — furniture, which §8.10 and the purchase screen both refuse — and
+would make the one week it says something the week nobody notices it.
+
+The cost is bounded rather than hand-waved: one indexed `SELECT` on the control
+connection, which is already open because resolving the tenant needed it, and a
+second query against the customer's own database **only when the first found
+something**. An installation that announces nothing — most of them, most weeks —
+pays one read. `defer` is false for the same reason: by the time the panel
+exists, its contents are already in memory, so deferring would buy a round trip
+to render text we have.
+
+#### [XIV-108] revisited, and the answer is no
+
+The ticket asked whether this is the mechanism [XIV-108] was waiting for — a
+signup that never provisions leaves somebody waiting in silence, and §8.14's own
+honest gap is that nothing is mailed to the person waiting. **It is not, and the
+reason is structural rather than a matter of effort.**
+
+A notice appears in an installation, addressed to a tenant, on the dashboard of a
+user. A stranded signup has **none of those three**: provisioning is precisely
+what has not happened, so there is no tenant row to address, no database to hold
+a dismissal, and no user account to sign in and read anything. The person is
+waiting *outside* the product. Reaching them needs a channel that works before
+they are a customer, which is the mail §8.12 already sends them their
+confirmation on, and the thing genuinely blocking it is what §8.14 said: a
+decision about what such a mail may honestly say.
+
+So [XIV-108] is unblocked by nothing here and keeps its own ticket. What this
+does give it is one thing: the moment a stranded signup *does* become a customer,
+an operator has a way to tell them what happened.
+
+#### What is deliberately not built
+
+**No read receipts.** An operator can see that a notice is live and what it was
+addressed to; they cannot see that anybody read it. Knowing that would mean
+collecting a fact out of every customer's database — [XIV-102]'s collector
+pointed the other way — and it is a feature rather than a column: a walk over
+every tenant, a table of collected counts, and a page that says how old the
+figures are. **This is the honest gap in this ticket**, it is the half of *"not
+silent"* that is not answered, and the operator's screen says so on the screen
+rather than leaving somebody to assume the number is somewhere. Reusing
+dismissals as receipts was considered and refused: a dismissal is a button
+somebody pressed, and reporting it as "read" would over-claim on exactly the
+screen an operator uses to decide whether they have communicated.
+
+**No scheduling.** Publishing is immediate. A notice dated for Friday is a real
+thing to want and needs a third state on the operator's screen — live, ended, and
+*pending* — which is more page than the feature has earned. The column is
+compared against `now` rather than assumed, so the day it lands is a form field.
+
+**No severity, no colour, no icon per notice.** Every notice is drawn the same
+way, so nothing competes for attention by claiming to be urgent. The day a
+genuine emergency channel is wanted it should look different from this one rather
+than being this one with a flag set.
+
+**No links, no markdown, no HTML, no image.** The body is plain text rendered as
+plain text. The moment a notice can carry a link it is a channel somebody can be
+phished through, on the one screen in the product a customer has no reason to
+distrust — and an operator writing to every customer of an ERP they depend on is
+a serious act that should not look like a campaign.
+
+**No translation.** A notice is written once, in the language the operator wrote
+it in, and shown to everybody exactly as written — including a customer reading
+the rest of the interface in German (§8.4.2). Every other string in this product
+comes out of a catalogue, and this one cannot: it is somebody's sentence, not a
+key. The alternative is a form with one box per language, which is a real answer
+for a deployment that needs it and is not this one.
+
+**No summary.** The previous iteration had a title, a summary and a body; a
+summary is a second thing to write that can disagree with the first. A title and
+a body is what an announcement is.
 
 ---
 

@@ -1,0 +1,274 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'control_plane.notices'|trans }}{% endblock %}
+
+{#
+	**What this installation is telling its customers** (XIV-120, §8.16).
+
+	The screen the ticket exists for: whoever runs an installation could see every
+	customer and had no way to say anything to them. Everything an operator knew
+	that a customer needed — a maintenance window, a module that gained a field, a
+	trial about to end — was an email somebody sent by hand if they remembered.
+
+	**A notice is written here and read in the customer's own installation**, and
+	nothing copies it between the two. That is the opposite of the purchase screen
+	next door, where the row is written by a customer and collected: §4.4 gives a
+	customer-facing instance `SELECT` on the registry and no write privilege
+	anywhere, so reading is free and writing is impossible. Every row on this page
+	is therefore current rather than "as of the last collection", which is why —
+	unlike the purchase screen — there is no time printed beside each one.
+
+	**The page is built around what the operator has to be able to believe.** A
+	notice nobody sees is worse than none, because the sender believes they have
+	told somebody; so the two facts stated everywhere here are *what is live* and
+	*who it went to*. What is deliberately absent is whether anybody has read one —
+	that needs a fact out of every customer's database, which is XIV-102's
+	collector pointed the other way, and §8.16 names it as a gap rather than
+	implying it is coming.
+
+	**And it is not a marketing tool.** No image upload, no rich text, no preview
+	styled like a campaign. A title, a body, who it is for and when it stops.
+#}
+{% block body %}
+	<main class="container page-shell py-4">
+		{{ include('@XiviControlPlane/_nav.html.twig', {current: 'control_plane_notices'}) }}
+
+		{{ include('_flashes.html.twig') }}
+
+		{#
+			The line to read before anything else, and only when there is
+			something to read: this installation is currently saying something to
+			its customers. Absent at zero, because a banner that always says "0
+			live" is furniture and furniture is what the eye learns to skip —
+			the tenant list's argument, two pages over.
+		#}
+		{% if live is not empty %}
+			<div class="alert alert-info d-flex align-items-start gap-2" role="alert">
+				<i class="bi bi-megaphone" aria-hidden="true"></i>
+				<div>
+					<strong>{{ 'control_plane.notices_live'|trans({'%count%': live|length}) }}</strong>
+					<div class="small">{{ 'control_plane.notices_live_hint'|trans }}</div>
+				</div>
+			</div>
+		{% endif %}
+
+		<div class="card mb-4">
+			<div class="card-body">
+				<h2 class="h6">{{ 'control_plane.notice_write'|trans }}</h2>
+
+				<form method="post" action="{{ path('control_plane_notice_publish') }}">
+					<input type="hidden" name="_token" value="{{ csrf_token('notice') }}">
+
+					<div class="mb-3">
+						<label class="form-label" for="notice-title">{{ 'control_plane.notice_title'|trans }}</label>
+						<input class="form-control" id="notice-title" name="title" maxlength="200" required>
+					</div>
+
+					<div class="mb-3">
+						<label class="form-label" for="notice-body">{{ 'control_plane.notice_body'|trans }}</label>
+						{#
+							Plain text, and the field says so. No editor, no
+							markdown, no link: the moment a notice can carry a link
+							it is a channel somebody can be phished through, on the
+							one screen in the product a customer has no reason to
+							distrust.
+						#}
+						<textarea class="form-control" id="notice-body" name="body" rows="4" required></textarea>
+						<div class="form-text">{{ 'control_plane.notice_body_hint'|trans }}</div>
+					</div>
+
+					<div class="row g-3">
+						<div class="col-md-6">
+							<fieldset>
+								{#
+									Who inside a customer's installation reads it,
+									per notice rather than per installation: a
+									maintenance window is everybody and a trial
+									ending is whoever pays. §8.16 has why the second
+									case is `ROLE_ADMIN` and why that coarseness is
+									stated rather than dressed up.
+								#}
+								<legend class="form-label">{{ 'control_plane.notice_audience'|trans }}</legend>
+								<div class="form-check">
+									<input class="form-check-input" type="radio" name="audience" id="audience-everyone"
+									       value="everyone" checked>
+									<label class="form-check-label" for="audience-everyone">
+										{{ 'notice.audience.everyone'|trans }}
+									</label>
+								</div>
+								<div class="form-check">
+									<input class="form-check-input" type="radio" name="audience" id="audience-admins"
+									       value="administrators">
+									<label class="form-check-label" for="audience-admins">
+										{{ 'notice.audience.administrators'|trans }}
+									</label>
+								</div>
+							</fieldset>
+						</div>
+
+						<div class="col-md-6">
+							<label class="form-label" for="notice-expires">
+								{{ 'control_plane.notice_expires'|trans }}
+							</label>
+							<input class="form-control" type="datetime-local" id="notice-expires" name="expires_at">
+							{#
+								Read as UTC, said out loud, because a
+								`datetime-local` carries no zone and guessing the
+								operator's would make the stored moment depend on
+								where somebody was sitting. Customers see it in
+								their own zone regardless (§8.4.4).
+							#}
+							<div class="form-text">{{ 'control_plane.notice_expires_hint'|trans }}</div>
+						</div>
+					</div>
+
+					<fieldset class="mt-3">
+						{#
+							Everybody, or named customers. Two states rather than
+							"leave the boxes empty for everybody": an addressed
+							notice whose recipients had all been deprovisioned
+							would otherwise become an announcement to the entire
+							installation, silently.
+						#}
+						<legend class="form-label">{{ 'control_plane.notice_addressed'|trans }}</legend>
+						<div class="form-check">
+							<input class="form-check-input" type="radio" name="every_tenant" id="scope-all"
+							       value="1" checked>
+							<label class="form-check-label" for="scope-all">
+								{{ 'control_plane.notice_every_tenant'|trans }}
+							</label>
+						</div>
+						<div class="form-check">
+							<input class="form-check-input" type="radio" name="every_tenant" id="scope-named"
+							       value="0">
+							<label class="form-check-label" for="scope-named">
+								{{ 'control_plane.notice_named_tenants'|trans }}
+							</label>
+						</div>
+
+						{% if tenants is empty %}
+							<p class="text-body-secondary small mb-0 mt-2">
+								{{ 'control_plane.notice_no_tenants'|trans }}
+							</p>
+						{% else %}
+							<div class="row row-cols-1 row-cols-md-3 g-1 mt-1">
+								{% for tenant in tenants %}
+									<div class="col">
+										<div class="form-check">
+											<input class="form-check-input" type="checkbox" name="tenants[]"
+											       id="tenant-{{ tenant.slug }}" value="{{ tenant.slug }}">
+											<label class="form-check-label" for="tenant-{{ tenant.slug }}">
+												{{ tenant.name }}
+												<span class="small text-body-secondary font-monospace">{{ tenant.slug }}</span>
+											</label>
+										</div>
+									</div>
+								{% endfor %}
+							</div>
+						{% endif %}
+					</fieldset>
+
+					<button class="btn btn-primary mt-3" type="submit">
+						{{ 'control_plane.notice_publish'|trans }}
+					</button>
+				</form>
+			</div>
+		</div>
+
+		{% if notices is empty %}
+			<div class="card">
+				<div class="card-body">
+					<h2 class="h6">{{ 'control_plane.no_notices'|trans }}</h2>
+					<p class="text-body-secondary mb-0">{{ 'control_plane.no_notices_hint'|trans }}</p>
+				</div>
+			</div>
+		{% else %}
+			<div class="table-responsive">
+				<table class="table align-middle">
+					<thead>
+						<tr>
+							<th scope="col">{{ 'control_plane.notice_title'|trans }}</th>
+							<th scope="col">{{ 'control_plane.notice_addressed'|trans }}</th>
+							<th scope="col">{{ 'control_plane.notice_audience'|trans }}</th>
+							<th scope="col">{{ 'control_plane.notice_published_at'|trans }}</th>
+							<th scope="col">{{ 'control_plane.notice_state'|trans }}</th>
+						</tr>
+					</thead>
+					<tbody>
+						{% for notice in notices %}
+							{#
+								An expired notice is dimmed rather than removed.
+								"What did we tell them in March" is a question
+								somebody asks, and a list that answered it by
+								having no row would answer it wrongly.
+							#}
+							<tr class="{{ notice.live ? '' : 'opacity-75' }}">
+								<td>
+									<div>{{ notice.title }}</div>
+									<div class="small text-body-secondary">{{ notice.body|slice(0, 120) }}{{ notice.body|length > 120 ? '…' }}</div>
+								</td>
+								<td>
+									{#
+										**Who it went to**, which is half of what
+										this screen is for. Named customers are
+										listed rather than counted — a number would
+										make an operator open something else to find
+										out whether the right four companies were on
+										it.
+									#}
+									{% if notice.everyTenant %}
+										<span class="badge text-bg-secondary">{{ 'control_plane.notice_every_tenant'|trans }}</span>
+									{% else %}
+										<div class="small">
+											{{ 'control_plane.notice_addressed_count'|trans({'%count%': notice.recipients|length}) }}
+										</div>
+										<div class="small text-body-secondary font-monospace">
+											{{- notice.recipients|map(recipient => recipient.slug)|join(', ') -}}
+										</div>
+									{% endif %}
+								</td>
+								<td class="small">{{ notice.audienceKey|trans }}</td>
+								<td>
+									<div>{{ notice.publishedAt|date('Y-m-d H:i') }}</div>
+									<div class="small text-body-secondary">{{ notice.authorLabel }}</div>
+								</td>
+								<td>
+									{# Colour and the word, never colour alone — the tenant list's rule. #}
+									{% if notice.live %}
+										<span class="badge text-bg-success">{{ 'control_plane.notice_live'|trans }}</span>
+									{% else %}
+										<span class="badge text-bg-secondary">{{ 'control_plane.notice_ended'|trans }}</span>
+									{% endif %}
+
+									{% if notice.expiresAt %}
+										<div class="small text-body-secondary">
+											{{- 'control_plane.notice_until'|trans({'%time%': notice.expiresAt|date('Y-m-d H:i')}) -}}
+										</div>
+									{% endif %}
+
+									{% if notice.live %}
+										<form method="post" class="mt-1"
+										      action="{{ path('control_plane_notice_withdraw', {id: notice.id}) }}">
+											<input type="hidden" name="_token" value="{{ csrf_token('notice') }}">
+											<button class="btn btn-sm btn-outline-secondary" type="submit">
+												{{ 'control_plane.notice_withdraw'|trans }}
+											</button>
+										</form>
+									{% endif %}
+								</td>
+							</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+			</div>
+
+			{#
+				What this page cannot tell you, written on it rather than left to
+				be assumed. An operator reading a list of live notices will want to
+				know who has seen them, and the honest answer is that nothing here
+				knows — see §8.16.
+			#}
+			<p class="text-body-secondary small">{{ 'control_plane.notices_no_receipts'|trans }}</p>
+		{% endif %}
+	</main>
+{% endblock %}
