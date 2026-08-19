@@ -85,7 +85,8 @@ Worth knowing:
   the memory limit in Symfony's profiler collectors, since the whole rebuild is
   one process; they are emptied as it goes now.
 - **Development only.** It is excluded from the production image in
-  `config/services.yaml`, beside the demo commands.
+  `packages/control-plane/config/services.php`, which is where the exclusion
+  moved with the package (XIV-96).
 
 To remove a tenant without building it again — including on a production
 installation, where `tenant:reset` does not exist:
@@ -99,9 +100,12 @@ then asks; pressing return is *no*. An unattended run needs `--force` — `-n` o
 its own is refused rather than answered with a default. It drops the database and
 the role and deletes the row, and there is no undo: take the dump first.
 
-**Do not seed, edit or delete records in a tenant you did not create.** The
-development tenants are somebody's working state; the suite provisions and drops
-its own.
+**The development tenants are throwaway.** Reset them, drop them, rebuild them.
+Nothing in them is worth preserving and no plan here has to protect their data.
+The one reason to make your own instead is other people, not safety: several
+checkouts and several agents share one Postgres cluster, so working in a tenant
+somebody else is using costs them a confusing failure. The suite provisions and
+drops its own for exactly that reason.
 
 ## Looking at a tenant's database
 

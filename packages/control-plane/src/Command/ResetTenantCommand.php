@@ -41,8 +41,9 @@ use Xivi\Core\Module\ModuleRegistry;
  * Six commands and a password to copy, done as one — which is what was actually
  * typed by hand the afternoon this was written down, and got typed wrong.
  *
- * **Registered in dev and test only** — see `config/services.yaml`, beside the
- * demo commands. It is not excluded because it is dangerous (`tenant:deprovision`
+ * **Registered in dev and test only** — see this package's own
+ * `config/services.php`, where the exclusion moved with the package (XIV-96).
+ * It is not excluded because it is dangerous (`tenant:deprovision`
  * is more dangerous and ships); it is excluded because it is *meaningless* in
  * production. A command whose second act is to generate three hundred fictional
  * contacts has no business existing where the contacts are real, and not existing
