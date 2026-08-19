@@ -60,15 +60,19 @@ exports that move you (XIV-86). They do not move you automatically: an address
 you can bookmark is the point of deriving one. Export what they print and carry
 on.
 
-## The brief is authoritative
+## Where a decision goes
 
-`docs/architecture.md` holds the design reasoning and is where decisions live.
-**Read the relevant sections before designing anything** — most questions that
-look open have been answered there, with the argument attached.
+The brief, and the brief only. Most questions that look open have been answered
+there with the argument attached, so **read the sections your work touches before
+designing anything** (the intro says where they are).
 
-`CHANGELOG.md` records *what changed*, one bullet per ticket. It is not where a
-decision goes. If a decision is worth keeping and is not in the brief yet, put it
-in the brief first.
+`CHANGELOG.md` records *what changed*, one bullet per ticket. A decision that is
+worth keeping goes in the brief first, and the entry then points at it.
+
+A docblock is the other half of the same rule. The brief carries what a reader
+cannot learn by opening the code: the constraints, the rejected alternatives, the
+rules that span several classes. Everything else belongs beside the thing it
+describes, and **where the two disagree, the code is right.**
 
 ## Conventions that are enforced socially, not mechanically
 
@@ -195,9 +199,11 @@ before it builds and cannot do otherwise, so a failure part-way costs the tenant
 — when that happens it prints what is gone, what is standing and the line to type
 next (XIV-74). No flag is needed at any record count.
 
-**Do not seed, edit or delete records in a tenant you did not create.** The dev
-tenants are somebody's working state. The test suite provisions and drops its
-own.
+**Work in a tenant you made.** The dev tenants are throwaway and nothing in them
+needs preserving, so the reason is other people rather than their data: several
+checkouts and several agents share one Postgres cluster, and a tenant somebody
+else is using hands them a confusing failure. `tenant:reset` gives you one in a
+command, and the suite provisions and drops its own for the same reason.
 
 ## Two things that will mislead you
 

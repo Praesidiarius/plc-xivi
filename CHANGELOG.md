@@ -607,6 +607,11 @@ lands in `Unreleased` here.
   `docs/architecture/decisions.md` now and keeps its number, so every `§9.2` still
   resolves. The map also stopped printing each file's line count, which was a copy
   of `wc -l` and went stale the same day it was written.
+- **`AGENTS.md` said the dev tenants were somebody's working state** ([XIV-149]) —
+  they are throwaway, and the rule now says what to do instead of what not to:
+  work in a tenant you made, because several checkouts share one Postgres cluster,
+  not because anything in the others is worth keeping. It also pointed at the brief
+  twice, once describing it as holding the reasoning it no longer holds.
 - **§4 *Deployment topology* is shorter, and decides the same things** ([XIV-149])
   — 1,539 lines down to 1,287, by deleting what the code already carries and
   pointing at it instead: the deploy ordering and the entrypoint argument that

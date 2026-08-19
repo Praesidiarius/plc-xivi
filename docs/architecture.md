@@ -60,16 +60,14 @@ repos was that cross-module imports were physically impossible. That is recovere
 
 Boundaries are a CI check, not a distribution decision.
 
-**And the check has to be checked** (XIV-60). Every layer in `deptrac.yaml` was collected by
-`type: directory` with a pattern anchored as `^src/…`, and deptrac matches those against the
-file's *absolute* path — `/app/src/…` in the container CI runs in. So no file was ever in
-any layer, and `composer deptrac` had been reporting no violations for the same reason an
-empty configuration would. It was found by planting a deliberately illegal import and
-watching nothing happen. The collectors are `classLike` on the namespace now, which is the
-same statement in the language the layers were always about, and turning the check on for
-the first time found zero real violations across seven layers — the good outcome, and not
-the one to have assumed. **Plant a violation whenever a layer is added here.** A boundary
-check is the one kind of test that passes just as convincingly when it is not running.
+**And the check has to be checked** (XIV-60). Every layer collected nothing for four
+months, so `composer deptrac` reported no violations for the reason an empty
+configuration would. **Plant a violation whenever a layer is added.** A boundary check
+is the one kind of test that passes just as convincingly when it is not running.
+
+The full account, the standing instruction and two worked examples of somebody
+following it are in `deptrac.yaml`'s own header, which is the file you are in when
+the instruction applies.
 
 **If external distribution is ever needed**, use the `symfony/symfony` model: monorepo
 with automated read-only subtree splits. Add it later; do not pay for it now.
