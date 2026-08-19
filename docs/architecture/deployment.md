@@ -46,23 +46,22 @@ never a fork.
 Provisioning being a console command is only half a lifecycle. Until XIV-72,
 undoing one meant reading `TenantProvisioner::deprovision()` and reimplementing
 it by hand in `psql` — which gets the details wrong in exactly the ways that
-method exists to get right: it clears the tenant switcher first, so our own open
-connection cannot block the `DROP DATABASE`, and it resolves the database and the
-role **out of the stored DSN** rather than assuming they follow the slug. A DSN
-that disagrees with the slug is not exotic; it is what the `--dsn` option on
+method exists to get right, the sharpest being that it resolves the database and
+the role **out of the stored DSN** rather than assuming they follow the slug. A
+DSN that disagrees with the slug is not exotic; it is what the `--dsn` option on
 `tenant:provision` is for.
 
 So there is a `tenant:deprovision`, and it **ships** — it is not excluded from the
-production image the way the demo commands are. That is the decision, and it is
-not the comfortable one. The argument is that an operator who cannot remove a
-customer from the console will remove them from `psql` instead, and the `psql`
-version is the failure this replaces rather than a fallback it can afford to push
-people towards. What ships is therefore made hard to do *by accident*, not hard to
-do: it names the database, the role, the hostnames and how many records are in
-there before it asks, the interactive default is *no*, and an unattended run is
-**refused outright** unless `--force` was typed. `--no-interaction` on its own is
-specifically not enough, because Symfony answers an unanswered question with its
-default and a default is not consent.
+production image the way the development-only commands are. That is the decision,
+and it is not the comfortable one. The argument is that an operator who cannot
+remove a customer from the console will remove them from `psql` instead, and the
+`psql` version is the failure this replaces rather than a fallback it can afford
+to push people towards. What ships is therefore made hard to do *by accident*,
+not hard to do: the confirmation names the database, the role, the hostnames and
+how many records are in there before it asks, the interactive default is *no*,
+and an unattended run is **refused outright** unless `--force` was typed.
+`--no-interaction` on its own is specifically not enough, because Symfony answers
+an unanswered question with its default and a default is not consent.
 
 **Rejected: requiring `TenantStatus::Suspended` before a tenant may be removed.**
 The idea is sound in shape — removal as two deliberate acts, with a state in the
@@ -96,92 +95,54 @@ to enforce it.
 The argument above has a consequence nobody wrote down until it broke something.
 If `suspended` is not a prerequisite, then the tenant most likely to be removed
 is one that is still serving requests — and a tenant serving requests is, from
-the cluster's side, a database with sessions open to it. Postgres refuses
-`DROP DATABASE` while any session is attached, `IF EXISTS` and all:
-
-```
-SQLSTATE[55006]: Object in use: 7 ERROR:  database "tenant1_test_permissions"
-is being accessed by other users
-DETAIL:  There is 1 other session using the database.
-```
-
-It was reported from the test suite, where deprovisioning happens constantly and
-a connection from a previous test had not closed yet, and it would have been easy
-to file as a test-suite problem. It is not one. The statement that failed is the
-statement a real deprovision runs, `deprovision()` clearing the tenant switcher
-settles only *our own* end of it, and the operator's version of the same failure
-is worse than the suite's — because the control-plane row was removed and flushed
-**before** the drop, so the failure left a database and a role that nothing knows
-about. Every tool in this project starts from the registry: `tenant:list`,
-`tenant:inspect`, the control-plane pages, the deprovision command's own lookup.
-An orphan out there is invisible to all of them, and the row that named it is the
-thing that was just deleted.
+the cluster's side, a database with sessions open to it, which Postgres refuses
+to drop, `IF EXISTS` and all. It was reported from the test suite, where
+deprovisioning happens constantly, and it would have been easy to file as a
+test-suite problem. It is not one: the statement that failed is the statement a
+real deprovision runs, and the operator's version of the same failure was worse
+than the suite's, because the control-plane row was removed and flushed
+**before** the drop.
 
 **So the order was turned around: database, role, registry row.** The two
 orderings do not fail equally. Dropping first and failing leaves a row pointing
-at nothing, which every one of those tools can show and which running the same
-command again repairs — both drops are `IF EXISTS`, so a second run steps over
-whatever is already gone and finishes by removing the row. Removing the row first
-and failing leaves wreckage that needs `psql` and somebody who happens to
-remember the database name. That is the whole argument; it is not a preference
-about which half is more likely to fail.
+at nothing, which every tool in this project can show — `tenant:list`,
+`tenant:inspect`, the control-plane pages and the deprovision command's own
+lookup all start from the registry — and which running the same command again
+repairs, both drops being `IF EXISTS`. Removing the row first and failing leaves
+a database and a role that nothing knows about, invisible to all of those and
+clearable only with `psql` and somebody who happens to remember the database
+name. That is the whole argument; it is not a preference about which half is more
+likely to fail, and it is written out where it is performed, on
+`TenantProvisioner::deprovision()`.
 
 **Disconnecting people is written out as a step, not spelled `WITH (FORCE)`.**
-Postgres 13 and later accept `DROP DATABASE … WITH (FORCE)`, which terminates the
-sessions and drops in one word, and it would have been a one-character change.
-What that word does is throw a customer's users out mid-request. That is the
-correct behaviour here — it is the direct consequence of refusing to require
-`suspended` — but it is a decision, and a decision that arrives as a keyword on
-the end of an unrelated statement is one nobody reads. `pg_terminate_backend`
-over `pg_stat_activity` is therefore its own named step with its own argument
-attached, and the drop still carries `WITH (FORCE)` in the belt-and-braces
-arrangement `bin/ci`'s test-database reclaim already uses (§9.2): the statement
-handles every session that exists now, the keyword handles the client that
-reconnects in between. Only one of the two is the reason the drop succeeds.
+Postgres 13 and later would do it in one keyword, and what that keyword does is
+throw a customer's users out mid-request. That is the correct behaviour here — it
+is the direct consequence of refusing to require `suspended` — but it is a
+decision, and a decision that arrives as a keyword on the end of an unrelated
+statement is one nobody reads. So `pg_terminate_backend` over `pg_stat_activity`
+is its own named step with its own argument attached, and the drop still carries
+`WITH (FORCE)` in the belt-and-braces arrangement `bin/ci`'s test-database
+reclaim already uses (§9.2): the statement handles every session that exists now,
+the keyword handles the client that reconnects in between. Only one of the two is
+the reason the drop succeeds.
 
 **`pg_terminate_backend` requests a termination; it does not perform one**
-(XIV-142). It sends SIGTERM and returns true when the signal was delivered. The
-backend acts on it at its next interrupt check, detaches from shared memory, and
-only then leaves `pg_stat_activity` — so between the statement returning and the
-session actually being gone there is a window, short and machine-dependent, in
-which the cluster will still tell you somebody is connected. Measured here:
-descheduled backends clear in under three milliseconds, and a backend held under
-SIGSTOP never clears at all while it is held.
+(XIV-142). Between the statement returning and the session actually being gone
+there is a window, short and machine-dependent, in which the cluster will still
+say somebody is connected. That window changed no behaviour here, because
+`WITH (FORCE)` covers it by *waiting* — the half of that keyword nobody had
+written down. What it changed instead was
+`TenantRemovalFailed::sessionsCameBack()`'s docblock, which now names a stuck
+backend as the second thing an operator might be looking at rather than only a
+client reconnecting, and one test, which polls to the same five-second deadline
+the drop keeps rather than asking the cluster in the statement immediately after
+the terminate. Both carry the measurements.
 
-That window is not a problem for the removal, because the `WITH (FORCE)` on the
-drop covers it — and covers it by *waiting*, which is the half of that keyword
-nobody had written down. Postgres signals whatever is left and then polls for up
-to five seconds for those backends to detach, raising the same
-`55006 … is being accessed by other users` if they do not. Measured on this
-cluster with one backend under SIGSTOP: the drop failed after 5005 ms, into the
-`TenantRemovalFailed::databaseSurvived` path that already exists for it. So the
-ordering above is unaffected and XIV-142 changed no behaviour — only
-`TenantRemovalFailed::sessionsCameBack()`'s docblock, which used to say the only
-thing left after a terminate was a client reconnecting, and now names the stuck
-backend as the second thing an operator might be looking at. What the window
-does break is anything that asks *the cluster* about sessions in the statement
-immediately after the terminate, which is what
-`TenantDeprovisionCommandTest::testTheProvisioningCredentialsMayEndATenantSession`
-was doing and what made it fail about one run in ten under eight parallel
-workers. That test now polls to the same five-second deadline the drop keeps, so
-it fails exactly where a real deprovision would rather than wherever the
-scheduler happened to land.
-
-**Two guards keep it from terminating itself.** `pid <> pg_backend_pid()`
-excludes the connection issuing the statement, which would matter if a
-provisioning DSN were ever pointed at a tenant's own database; `datname = ?` is
-the one that matters in practice, since the admin connection is opened against
-the maintenance database and the control plane's is a third database again.
-`RecordCounter` is the one thing that deliberately opens a *tenant* connection
-just before a deprovision — it counts what is about to be destroyed, for the
-confirmation — and its docblock has always worried about being the session that
-blocks the drop. It closes on the way out, so it is not; and if it ever failed
-to, the terminate would now close it for it. The two concerns agree rather than
-fight.
-
-**Whether the provisioning credentials may do this was measured, not assumed.**
+**Whether the provisioning credentials may do this at all was measured, not
+assumed**, and this is the part a deployment has to know before it narrows them.
 Terminating another role's backend is not implied by `CREATE DATABASE` and
-`CREATE ROLE`. Postgres allows it to a superuser, to a member of
+`CREATE ROLE`: Postgres allows it to a superuser, to a member of
 `pg_signal_backend`, or to a role that *inherits* the privileges of the connected
 role — and that last clause is a trap, because since Postgres 16 a `CREATEROLE`
 role's grant on the roles it creates carries `ADMIN` without `INHERIT` or `SET`.
@@ -191,25 +152,17 @@ tenant role it had created itself, and succeeding once granted
 `pg_signal_backend`. Development and test run as the cluster superuser and never
 meet it, which is precisely why it had to be measured rather than inferred from a
 green suite. The privilege error is caught by name and answered with the grant
-that fixes it; `TenantRemovalFailed` carries the sentence.
+that fixes it.
 
 The same experiment turned up two things about a narrowed provisioning role that
 are **not** fixed here and are worth knowing before anyone tries one in
 production: `CREATE DATABASE … OWNER <tenant role>` fails for it with "must be
 able to SET ROLE", and `DROP DATABASE` fails with "must be owner of database",
-both for the same Postgres 16 change to what `CREATEROLE` confers. A deployment
-that wants provisioning credentials short of superuser needs a `GRANT … WITH SET
-TRUE, INHERIT TRUE` on every tenant role as well, which is a design question for
-the provisioning half rather than the removal half and is left open.
-
-**And the operator is told a sentence.** The failure used to surface as a DBAL
-driver exception with a SQLSTATE in it and no statement at all about what had
-happened to the customer. `tenant:deprovision` now catches the four states a
-removal can stop in, and prints what XIV-74 taught `tenant:reset` to print: what
-went wrong in one sentence, what exists right now — database, role and row, each
-named — and the line to type next, which is the same line, because the order was
-chosen so that it always is. The driver's own words are kept, underneath, in the
-same place the unreadable-database note goes.
+both for the same Postgres 16 change to what `CREATEROLE` confers. So a
+deployment that wants provisioning credentials short of superuser needs
+`pg_signal_backend` **and** a `GRANT … WITH SET TRUE, INHERIT TRUE` on every
+tenant role — which is a design question for the provisioning half rather than
+the removal half, and is left open.
 
 **What the ticket deliberately did not touch:** what the command asks before it
 acts. The confirmation, the interactive default of *no*, and the outright refusal
@@ -217,14 +170,14 @@ of an unattended run without `--force` are all settled above and were left alone
 
 
 `tenant:reset` — deprovision, provision, install modules, generate demo records,
-print the admin password — is the development counterpart and is **excluded from
-the production image** in `config/services.yaml`, beside the demo commands. Note
-that the two exclusions are not the same argument: the demo commands are excluded
-because generating fiction into a customer's database is dangerous, while
-`tenant:reset` is excluded because it is *meaningless* where the records are
-real. Neither is "it is destructive" — the destructive one of the pair is the one
-that ships. It resolves module install order from each blueprint's own `requires`
-(§6, `Xivi\Core\Module\ModuleInstallOrder`) rather than from the order somebody
+print the admin password — is the development counterpart and is **not registered
+outside `dev` and `test`**. Note that the two exclusions in that neighbourhood
+are not the same argument: the demo commands are excluded because generating
+fiction into a customer's database is dangerous, while `tenant:reset` is excluded
+because it is *meaningless* where the records are real. Neither is "it is
+destructive" — the destructive one of the pair is the one that ships. It resolves
+module install order from each blueprint's own `requires` (§6,
+`Xivi\Core\Module\ModuleInstallOrder`) rather than from the order somebody
 typed, and every refusal it can make it makes **before** the existing tenant is
 touched: an unknown module, a requirement missing from the requested set, a
 hostname another tenant owns. A reset that destroys a database and then discovers
@@ -259,38 +212,25 @@ was meant to buy.
 that dies after the drop prints what is gone for good, what is standing right now
 — read back out of the control plane rather than inferred from how far it got,
 because provisioning persists its row before it creates the database and the two
-can disagree — which modules were installed, which were filled, which were never
-reached, and the command line that starts over. The confirmation says the same
-thing before the drop, in one sentence, so nobody learns it from the wreckage.
-The exception itself is re-thrown rather than turned into a tidy message: how an
-unexpected error is rendered is Symfony's business, and swallowing it would cost
-the stack trace `-v` exists to show.
+can disagree — and the command line that starts over. The confirmation says the
+same thing before the drop, so nobody learns it from the wreckage.
+`ResetProgress` is that report and carries the rest, including why the exception
+itself is re-thrown rather than turned into a tidy message.
 
 #### The memory itself: one process, three accumulators
 
 The failure was not the generator. `tenant:demo:generate` had never hit it at
 5,000 records because each module was a process of its own; folding six commands
 into one leaves every debug collector in the process filling for the whole run.
-Two of them do it expensively — Doctrine's profiler query log, which keeps each
-statement with its parameters *and* a backtrace, and Monolog's debug processor,
-which keeps a record for every one of the same statements logged to the `doctrine`
-channel. Both are emptied at every seam of the reset and after every generated
-batch, which makes their cost a function of the batch size rather than of
-`--records`. Emptying only the first merely moved the wall: with the limit halved
-the same run then died inside Monolog.
-
-**Not turned off, because there is no supported way to turn it off** from inside a
-running command — the middleware is composed into the DBAL driver when the
-connection is built, and `reset()` is the only lever the holder exposes. A
-subclass registered over `doctrine.debug_data_holder` with a mute switch would be
-a service whose purpose is to lie to the profiler, and it would buy nothing:
-resetting at every seam is already flat in `--records`. The third collector, the
-profiler's stopwatch, is deliberately left alone: its only lever throws the
-sections away wholesale while `ConsoleProfilerListener` holds one open across the
-whole command, so resetting it would trade slow growth for a reliable explosion
-after the work had succeeded. It costs about a quarter of a kilobyte per
-statement, which puts the remaining ceiling tens of thousands of records past the
-count that broke it.
+Two of them do it expensively — Doctrine's profiler query log and Monolog's debug
+processor, each keeping a record per statement — and emptying only the first
+merely moved the wall. Both are emptied at every seam of the reset and after
+every generated batch, which makes their cost a function of the batch size rather
+than of `--records`; the third accumulator, the profiler's stopwatch, is
+deliberately left growing. `ResetTenantCommand::forgetQueries()` has the
+measurements, the reason there is no supported way to turn any of this off from
+inside a running command, and why resetting the stopwatch would trade slow growth
+for a reliable explosion after the work had succeeded.
 
 ### 4.2 What a deploy has to do, and where each part of it runs (XIV-61)
 
@@ -310,12 +250,10 @@ eventually wins, and it is the part that was actually missing.
 `tenant:migrate` — which **nothing invoked anywhere**. Not the entrypoint, not a
 script, not a cron, not a runbook. §4 has said since it was written that every
 schema change lands for every tenant; what it did not say is who makes that
-happen, and the answer was nobody.
-
-The consequence is not subtle. Shipping an entity change meant new code serving
-every customer against the old schema, indefinitely, and the first sign of it
-would be a query failing in production for a customer who had done nothing
-unusual. It is the single most important thing this ticket fixes.
+happen, and the answer was nobody. Shipping an entity change therefore meant new
+code serving every customer against the old schema, indefinitely, and the first
+sign of it would be a query failing in production for a customer who had done
+nothing unusual. It is the single most important thing this ticket fixes.
 
 #### The tenant migrations are a one-shot deploy step, not an entrypoint step
 
@@ -334,31 +272,17 @@ is what makes a non-zero exit cheap rather than an outage. Everything a deploy
 can discover for free, it discovers there.
 
 Putting the tenant loop in the entrypoint beside the control-plane migration is
-the obvious alternative and was rejected for three reasons that compound.
-
-1. **The entrypoint runs on every container start, which is not once per
-   deploy.** An OOM restart, a health-check flap, a node draining, somebody
-   typing `docker compose restart` — each would walk the whole registry. That is
-   not merely wasteful. It makes a routine restart of one container into an
-   operation across every customer's database, taken at whatever moment the
-   restart happened to occur, which is precisely the sort of thing nobody has
-   booked a maintenance window for.
-2. **It would put work proportional to the customer count in the startup path.**
-   The control-plane migration is one database and one transaction, and the
-   container cannot serve a single request without it. The tenant loop is N
-   connections, N metadata reads and N migration runs, with the container not
-   serving for the duration. At fifty customers a restart stops being a restart.
-3. **Concurrent starts would race.** Each tenant database tracks its own
-   versions, so two containers starting together would compute the same plan for
-   the same databases and both begin applying it. `all_or_nothing` protects a run
-   from itself, not from another run. The topology is a single instance today
-   (§4), which makes this the cheapest of the three to dismiss and the most
-   expensive to have dismissed wrongly later.
-
-A one-shot step has none of those properties. Its honest cost is that it has to
-be *called*, and an entrypoint cannot be forgotten while a script can — that cost
-is paid in the deploy definition this ticket still has open, rather than by
-making every container start do something it has no business doing.
+the obvious alternative and was rejected for three reasons that compound: the
+entrypoint runs on every container start, which is not once per deploy; the loop
+is work proportional to the customer count, in the startup path, with the
+container not serving for its duration; and two containers starting together
+would compute the same plan for the same databases and both begin applying it.
+`bin/deploy` makes that argument in full and `frankenphp/docker-entrypoint.sh`
+makes it from the other end — read both before moving the step. A one-shot step
+has none of those properties. Its honest cost is that it has to be *called*, and
+an entrypoint cannot be forgotten while a script can — that cost is paid in the
+deploy definition this ticket still has open, rather than by making every
+container start do something it has no business doing.
 
 **The entrypoint keeps its control-plane migration**, and running it in both
 places is deliberate rather than sloppy: it is idempotent, so the second run
@@ -370,10 +294,10 @@ two properties a runbook does not have. It ships inside the image it deploys, so
 the sequence being run is the sequence that release was written against — a
 runbook lives elsewhere and is edited by somebody who is not looking at this
 branch, which is how a deploy comes to run last month's steps against this
-month's migrations. And it cannot be half-run: the ordering matters, because the
-tenant loop reads the registry and a release that adds a control-plane column
-that query needs must move the control plane first. Typed by a person, that
-ordering is a convention; written down, it is a property.
+month's migrations. And it cannot be half-run: the ordering above matters,
+because the tenant loop reads the registry and a release that adds a
+control-plane column that query needs must move the control plane first. Typed by
+a person, that ordering is a convention; written down, it is a property.
 
 #### The migration window: additive only, and the instance stays up
 
@@ -402,36 +326,16 @@ this release; contract in a later one, once every customer is past the first.
 ordering safe in that direction: old code meets a schema that has only gained
 things.
 
-**What that forbids, in a tenant migration's `up()`:**
-
-- `DROP TABLE` and `DROP COLUMN`. Code still running reads and writes those, and
-  Doctrine names every column in its `INSERT`s rather than relying on defaults.
-- `RENAME TO` and `RENAME COLUMN`, on a table or a column. A rename is a drop and
-  an add in one statement and breaks old code exactly as a drop does. Add the new
-  name, write both for a release, drop the old one later.
-- `SET NOT NULL` on an existing column. Code still running does not know it has
-  to write that column, so its inserts start failing the moment the migration
-  lands. Backfill first, constrain in a later release.
-- Narrowing a type or a length, and adding a `UNIQUE` constraint that code still
-  running can violate. Both are destructive across the window and neither is
-  mechanically checked — see below.
+**What that forbids, in a tenant migration's `up()`:** `DROP TABLE`,
+`DROP COLUMN`, `RENAME TO` and `RENAME COLUMN`, and `SET NOT NULL` on an existing
+column. Add the new name, write both for a release, drop the old one later;
+backfill first, constrain in a later release.
+`tests/Unit/TenantMigrationsAreAdditiveTest.php` refuses all four and carries, as
+its failure message, what code still running does when it meets each one.
 
 `down()` is not constrained by any of this. A rollback is a deliberate act by
 somebody who has decided to go backwards, and forbidding a `down()` from removing
 what its `up()` added would forbid reversibility itself.
-
-**Something checks it**, because this rule had already been written down four
-times — AGENTS.md, `config/migrations/tenant.php`, `TenantMigrator`, §4 — and
-checked zero times, which is the exact shape of the two failures this project has
-already had (`deptrac` green for four months because its layers were empty, and
-`SERIAL` in eleven migrations because nothing but prose objected).
-`tests/Unit/TenantMigrationsAreAdditiveTest.php` reads each tenant migration's
-`up()` with PHP's own lexer, strips the comments — these files argue with
-themselves, and a migration explaining why it is *not* dropping a column must not
-fail on its own docblock — and refuses the four statements above. One migration
-predates the rule and is exempt by name, `Version20260814084512`, the rename that
-turned `module_definition` into `shape_definition` three weeks before this
-installation had a customer to break.
 
 **The check is deliberately blunt and deliberately incomplete.** A type narrowed
 from `varchar(255)` to `varchar(64)`, a `UNIQUE` constraint old code can still
@@ -450,13 +354,14 @@ serving new code against the old schema — the situation the command exists to
 end.
 
 What was wrong is what it told its caller afterwards. Measured before this
-ticket, an empty registry exited 1, an unknown `--slug` exited 1, and a run in
-which tenants failed exited 1. A deploy could not tell "there is nothing to do"
-from "one of your customers is on the wrong schema and the new code is already
-serving them", and the safest thing it could do with that was treat a healthy
-installation with no customers as a failed deploy.
+ticket, an empty registry, an unknown `--slug` and a run in which tenants failed
+all exited 1, so a deploy could not tell "there is nothing to do" from "one of
+your customers is on the wrong schema and the new code is already serving them",
+and the safest thing it could do with that was treat a healthy installation with
+no customers as a failed deploy.
 
-There are three codes now, and they are the command's published contract:
+There are three codes now, and they are the command's published contract — the
+one every other check in a deploy has since borrowed (§4.3, §4.4, §4.5):
 
 | code | meaning |
 | --- | --- |
@@ -470,33 +375,27 @@ refused a connection" would make the number lie to the first tool that read it
 generically. A deploy stops on anything non-zero either way — what the
 distinction buys is what it can *say* afterwards, and that a partial failure can
 be retried with `--slug` for the tenants that failed rather than by re-running
-the whole registry and hoping. The failure output names them and prints the line
-to type.
+the whole registry and hoping.
 
 #### A container refuses to start on a secret anybody can read
 
 `.env` is committed and public, and it carries working values for everything the
 application needs so that a fresh checkout starts with nothing configured. Two of
-those values are secrets. The production image compiles `.env` into
-`.env.local.php` during the build (`composer dump-env prod`), so a freshly built
-image contains, verbatim:
+those values are secrets — `APP_SECRET` and `TENANT_SECRET_KEYS` — and the
+production image compiles `.env` into `.env.local.php` during the build
+(`composer dump-env prod`), so a freshly built image contains working copies of
+both, verbatim.
 
-```php
-'APP_SECRET' => 'dev-only-not-a-real-secret',
-```
-
-A real environment variable still overrides it, so a deployment that supplies
+A real environment variable still overrides them, so a deployment that supplies
 `APP_SECRET` is fine. **A deployment that forgets is also fine, and that is the
 problem**: there is no error, no warning and no degraded behaviour. Cookies are
 signed, invitation links verify, the instance is healthy. It is simply signing
 them with a value published on the internet, and the way that surfaces is not a
-log line — it is somebody forging one.
-
-`TENANT_SECRET_KEYS` is the same shape with worse consequences. Its dev keyring
-is committed in `.env` a few lines further down and it encrypts every tenant's
-database password and every tenant's outgoing-mail password at rest in the
-control-plane database. §8.9's cipher is honest that it defends against a *copy*
-of that database, which is exactly the defence a public key removes.
+log line — it is somebody forging one. `TENANT_SECRET_KEYS` is the same shape
+with worse consequences: it encrypts every tenant's database password and every
+tenant's outgoing-mail password at rest in the control-plane database, and §8.9's
+cipher is honest that it defends against a *copy* of that database, which is
+exactly the defence a public key removes.
 
 **The rule is not a list of bad strings.** `App\Deployment\PlaceholderSecretGuard`
 reads `.env` at the moment of the check and refuses any secret whose live value
@@ -510,30 +409,18 @@ An unreadable `.env` is a refusal rather than a pass: "cannot tell whether this
 instance is running on a public secret" is not a question to resolve in favour of
 starting.
 
-**Where the check runs, and the three places it deliberately does not:**
-
-- *Not a compiler pass, and not `Kernel::boot()`.* Both would refuse the **image
-  build**, which runs `composer dump-env prod` and then `cache:clear` — booting
-  the production kernel, in the production environment, on the placeholders, as a
-  normal part of building an image. It has to: nobody supplies a customer's
-  `APP_SECRET` to a build, and the same image is what every deployment runs. A
-  check there would make the image unbuildable, which is a fine way to have the
-  check deleted within a day.
-- *Not a `kernel.request` listener.* That is a container that starts, reports
-  healthy, binds its port and then answers everything with a 500. The failure
-  being guarded against is a deployment that looks healthy; a different kind of
-  looking-healthy is no answer.
-- *Not only in `bin/deploy`.* A deploy can be skipped, replayed from an older
-  revision, or walked past by restarting a container by hand, and the container
-  that comes back from any of those is the one serving customers.
-
-So it is `deploy:check-secrets`, run by the entrypoint before the database wait
-and before any migration. `set -e` means a refusal never reaches `frankenphp
-run`, and the failure presents as a container that will not come up — which is
-loud — rather than as a service that is fine. `bin/deploy` runs it too, because
-that is the earliest a deploy can find out, and failing there costs a one-shot
-container rather than whatever the orchestrator does with a service that will not
-start.
+**So it is `deploy:check-secrets`, run by the container entrypoint** before the
+database wait and before any migration. `set -e` means a refusal never reaches
+`frankenphp run`, and the failure presents as a container that will not come up —
+which is loud — rather than as a service that is fine. `bin/deploy` runs it too,
+because that is the earliest a deploy can find out, and failing there costs a
+one-shot container rather than whatever the orchestrator does with a service that
+will not start. The three earlier homes it deliberately does not take — a
+compiler pass, `Kernel::boot()`, and a `kernel.request` listener — are argued on
+the command itself: the first two would refuse the **image build**, which boots
+the production kernel in the production environment on the placeholders as a
+normal part of building an image, and a check that makes the image unbuildable is
+a check that gets deleted within a day.
 
 **It stands down entirely outside `APP_ENV=prod`.** `bin/ci`, the test suite and
 `bin/compose up` all run on the placeholders on purpose — that is what lets a
@@ -543,10 +430,6 @@ case. The environment decides rather than the debug flag, for the same reason
 while debug is something production can legitimately be run with while somebody
 diagnoses a problem, and an instance being diagnosed is still an instance serving
 customers.
-
-The refusal names the variable, shows enough of the value to recognise it without
-printing the whole thing, says what that secret protects, and prints the command
-that generates a real one.
 
 #### Still open on XIV-61
 
@@ -611,49 +494,34 @@ than none.
 
 #### The half that is fixed: what goes into a generated link
 
-Absolute URLs generated during a web request take their host from the request.
-Invitations ([XIV-1]) go out as Symfony login links — absolute URLs in an email —
-so a request arriving on a host this installation does not serve would put that
-host into a link somebody is invited to click. `config/packages/routing.yaml`
-already sets `default_uri`, and it does **not** cover this: a request context
-wins over it, so `default_uri` is the console's answer and only the console's.
-
-Tenancy's 404 kept that theoretical while every served host resolved a tenant.
-It stopped being theoretical the moment something was served on a host that is
-not tenant-resolved, which is now true of the control plane and of [XIV-64]'s
-public signup endpoint. A trusted-host pattern is what closes it, for every host,
-before routing.
+Absolute URLs generated during a web request take their host from the request, so
+a request arriving on a host this installation does not serve would put that host
+into a link somebody is invited to click — invitations ([XIV-1]) go out as
+Symfony login links, which are absolute URLs in an email.
+`config/packages/routing.yaml` already sets `default_uri`, and it does **not**
+cover this: a request context wins over it, so `default_uri` is the console's
+answer and only the console's.
 
 #### Why this is a composed pattern and not a configuration line
 
 `trusted_hosts` is a list of **regular expressions**, and this application's
-hostnames are a wildcard by design: every customer gets their own (§4). So the
-pattern has to admit `*.<deployment domain>` plus the control-plane host plus
-whatever else a deployment serves.
-
-The two ways of getting that wrong are not symmetrical:
-
-- **Too wide is the same as not setting it.** An unanchored `xivi\.app` also
-  matches `xivi.app.evil.example`. That is the status quo with extra steps.
-- **Too narrow takes a paying customer's installation off the air**, and the
-  symptom is an empty 400 — no page, no header named, nothing in the body. The
-  person who finds out is the customer.
-
-A hand-written regular expression puts that asymmetry in the hands of whoever is
-editing an environment file at the time, and both failures are one keystroke
-away. A forgotten backslash makes every dot a wildcard, which is the exact
-mistake §8.9 already declined to make when it refused to host-scope the
-control-plane firewall with Symfony's `host:` key and compared normalised strings
-instead.
+hostnames are a wildcard by design: every customer gets their own (§4). The two
+ways of getting that wrong are not symmetrical. Too wide is the same as not
+setting it — an unanchored `xivi\.app` also matches `xivi.app.evil.example`.
+**Too narrow takes a paying customer's installation off the air**, and the
+symptom is an empty 400: no page, no header named, nothing in the body, and the
+person who finds out is the customer. A hand-written regular expression puts that
+asymmetry in the hands of whoever is editing an environment file at the time, and
+both failures are one keystroke away — a forgotten backslash makes every dot a
+wildcard, which is the exact mistake §8.9 already declined to make when it refused
+to host-scope the control-plane firewall with Symfony's `host:` key.
 
 **So a deployment names domains and the application writes the expressions.**
 `XIVI_TRUSTED_DOMAINS=xivi.app,1plc.ch` is a fact an operator knows;
 `App\Deployment\TrustedHosts` turns each entry into a pattern anchored at both
-ends that admits the domain and any name under it. It accepts `*.xivi.app`,
-`.xivi.app` and `xivi.app.` as the same thing, because each is what somebody
-writes when they are thinking about DNS, and refuses an entry that is not a
-hostname at all — a URL, a port, a regular expression — rather than compiling it
-into something that matches nothing.
+ends that admits the domain and any name under it, accepts the several spellings
+somebody thinking about DNS writes, and refuses an entry that is not a hostname
+at all rather than compiling it into something that matches nothing.
 
 **The system hosts are added rather than asked for.** Every entry of
 `app.system_hosts` is admitted as an exact literal, so the control-plane host,
@@ -697,15 +565,15 @@ addresses, and CIDR ranges and Symfony's `REMOTE_ADDR` and `private_ranges`
 shorthands all work.
 
 **The header set is decided in the repository rather than by the deployment**,
-and the omissions are the decision:
-
-| Header | Trusted | Why |
-| --- | --- | --- |
-| `x-forwarded-for` | yes | The client's address. Without it, everything this application ever logs or rate-limits by is the balancer |
-| `x-forwarded-proto` | yes | Not optional in front of a TLS-terminating balancer: without it every absolute URL generated during a request — the invitation link above all — comes out as `http://` |
-| `x-forwarded-port` | yes | The other half of the same sentence |
-| `x-forwarded-host` | **no** | Tenant routing *is* the `Host` header. Most proxies append rather than replace, so believing this would let a caller pick the tenant and pick the host in a mailed link. DNS already decided the host; there is no case here where a proxy legitimately renames it |
-| `x-forwarded-prefix` | **no** | Nothing here is served under a path prefix, and trusting it would let a proxy rewrite the paths in those same links |
+and the omissions are the decision. `x-forwarded-for`, `x-forwarded-proto` and
+`x-forwarded-port` are trusted — the second is not optional in front of a
+TLS-terminating balancer, or every absolute URL generated during a request, the
+invitation link above all, comes out as `http://`. `x-forwarded-host` and
+`x-forwarded-prefix` are **not**: tenant routing *is* the `Host` header, most
+proxies append rather than replace, and believing a forwarded host would let a
+caller pick the tenant and pick the host in a mailed link. DNS already decided
+the host, and nothing here is served under a path prefix. The list and the
+argument sit on the setting itself, in `config/packages/framework.yaml`.
 
 #### A too-narrow pattern has to be findable, not merely correct
 
@@ -732,11 +600,11 @@ operator is, in three places, in the order they occur:
    either way, and a release held up by a customer suspended in March is how a
    gate comes to be run with `|| true`.
 3. **A refused request explains itself in the log.**
-   `App\Deployment\EventListener\UntrustedHostListener` writes one `error` line naming the host
-   as sent, the variable, what it currently admits, and the command that lists
-   who is affected. It matches on the throwable chain and on whether the raw
-   header is admitted, rather than on the framework's message text, so a reworded
-   Symfony string cannot turn it off quietly.
+   `App\Deployment\EventListener\UntrustedHostListener` writes one `error` line
+   naming the host as sent, the variable, what it currently admits, and the
+   command that lists who is affected. It matches on facts — the throwable chain,
+   and whether the raw header is admitted — rather than on the framework's
+   message text, so a reworded Symfony string cannot turn it off quietly.
 
 **The container entrypoint runs `deploy:check-hosts` too and ignores its exit
 code**, which looks like a check nobody enforces and is deliberately the opposite
@@ -815,11 +683,9 @@ that stops matching. [XIV-56] is the live precedent rather than a hypothetical:
 line added and did not get one. It was inert on the day and it was still in
 there for weeks.
 
-**Two build targets from one repository** costs a second build in CI and gives
-an image that genuinely does not contain the administration code. Adopted. The
-`Dockerfile` already had multiple targets, and the second build is nearly free
-because it starts from the first's finished builder stage: an autoload dump and
-a cache warm-up, seconds against the internal image's minutes.
+**Two build targets from one repository** costs a second build in CI — cheap,
+because the stage starts from the first's finished builder — and gives an image
+that genuinely does not contain the administration code. Adopted.
 
 **A separate repository** would give real isolation and real drift, plus a
 shared control-plane schema owned by two repositories with no single migration
@@ -829,45 +695,36 @@ already isolated by a package boundary deptrac enforces.
 #### The obstacle that mattered: the application's security configuration
 
 Dropping the Composer requirement was **not** sufficient, and finding out why is
-most of what this ticket was. `config/packages/security.yaml` named
-`Xivi\ControlPlane\Security\ControlPlaneHost` as the control-plane firewall's
-request matcher, `ActiveOperatorChecker` as its user checker,
-`Xivi\ControlPlane\Entity\Operator` as its provider's class and
-`Xivi\ControlPlane\Signup\SignupHost` as the signup firewall's matcher. So the
-container did not compile without the package — the build failed before
-anything was served, in the security configuration.
-
-Three more of the same kind were behind it, and each would have failed the build
-on its own: `doctrine.yaml` named the package's entity directory (DoctrineBundle
-checks that a mapping's directory exists while the container is built, so this
-one fails with a message about a path rather than a class); `routes.yaml` named a
-route *type* only the package registers; and `config/services.yaml` registered
-three of its classes under `when@dev` and `when@test`.
+most of what this ticket was. Four of the application's own configuration files
+named control-plane classes or directories, and each would have failed the build
+on its own, before anything was served: `security.yaml` (the control-plane
+firewall's request matcher, its user checker, its provider's class, and the
+signup firewall's matcher), `doctrine.yaml` (the package's entity directory —
+DoctrineBundle checks that a mapping's directory exists while the container is
+built, so this one fails with a message about a path rather than a class),
+`routes.yaml` (a route *type* only the package registers) and
+`config/services.yaml` (three of its classes under `when@dev` and `when@test`).
 
 **Everything the package can declare, the package declares now**, contributed
-from `XiviControlPlaneBundle::prependExtension()`: the `operators` provider, the
-`Xivi\ControlPlane\Entity` mapping, and its own dev-and-test service
-registrations. The application says nothing about any of it.
+from `XiviControlPlaneBundle`, whose docblock carries the argument for each and
+for why prepending rather than loading is what keeps the merge order safe. The
+application says nothing about any of it.
 
 **Two things could not move, and both are Symfony's decision rather than ours.**
-
-- `security.firewalls` is declared `disallowNewKeysInSubsequentConfigs()`, so
-  every firewall in the installation has to be named by one configuration
-  source. The application therefore names all four — in
-  `config/packages/security_firewalls.php`, which is PHP precisely because it has
-  a question to ask — and *splices* the administration surface's two between
-  `dev` and `main` by requiring `packages/control-plane/config/firewalls.php`
-  when the package is present. So the application carries the seam and the
-  package carries the surface: a build without it has no operator firewall
-  because the file describing one is not in the image either.
-- `security.access_control` is `cannotBeOverwritten()`, which is the same
-  restriction one notch stricter: a second configuration source contributing to
-  it throws while the container is built. The two `^/control` rules therefore
-  stay in the application's `security.yaml`. What is left behind is two path
-  patterns and a role name — no class, no service, nothing that stops a build —
-  and it is the harmless direction to be wrong in: a customer-facing image where
-  `^/control` still demands `ROLE_OPERATOR` carries one refusal it will never
-  need, on paths it has no routes for.
+`security.firewalls` is declared `disallowNewKeysInSubsequentConfigs()`, so every
+firewall in the installation has to be named by one configuration source: the
+application names all four — in `config/packages/security_firewalls.php`, which
+is PHP precisely because it has a question to ask — and *splices* the
+administration surface's two in from the package when the package is present. So
+the application carries the seam and the package carries the surface: a build
+without it has no operator firewall because the file describing one is not in the
+image either. `security.access_control` is `cannotBeOverwritten()`, the same
+restriction one notch stricter, so the two `^/control` rules stay in the
+application's `security.yaml`. What is left behind there is two path patterns and
+a role name — no class, no service, nothing that stops a build — and it is the
+harmless direction to be wrong in: a customer-facing image where `^/control`
+still demands `ROLE_OPERATOR` carries one refusal it will never need, on paths it
+has no routes for.
 
 **Three seams remain and each asks whether the class is *in this build***, which
 is a question about what was compiled rather than about what somebody configured
@@ -900,69 +757,33 @@ leave `config/bundles.php` alone, and treating it as one is the mistake.
 **The guard was also a general rule dressed as a special case.** *Do not
 instantiate a bundle whose class is not in this image* has nothing to do with
 the control plane, and nothing about it belongs in a generated file. So it moved:
+`config/bundles.php` is now a plain declarative array naming
+`Xivi\ControlPlane\XiviControlPlaneBundle` unconditionally — **exactly the line
+Flex would write anyway** — and `App\Kernel` does the skipping, from the explicit
+list in `config/optional_bundles.php`. The property that makes this the right
+answer rather than a tidier one: **a Flex rewrite of `config/bundles.php` stops
+being a hazard**, because the file it produces is the file we want. That is
+strictly better than detecting the rewrite, which was the other option and which
+would have needed somebody to react to an alarm instead of needing nothing to
+happen at all.
 
-- `config/bundles.php` is now a plain declarative array. It names
-  `Xivi\ControlPlane\XiviControlPlaneBundle` unconditionally — **exactly the
-  line Flex would write anyway**.
-- `App\Kernel` does the skipping, from the explicit list in
-  `config/optional_bundles.php`.
-
-The property that makes this the right answer rather than a tidier one: **a Flex
-rewrite of `config/bundles.php` stops being a hazard**, because the file it
-produces is the file we want. That is strictly better than detecting the
-rewrite, which was the other option and which would have needed somebody to
-react to an alarm instead of needing nothing to happen at all. `src/Kernel.php`
-is not regenerated when a package is added.
-
-**Overriding `registerBundles()` without reimplementing it.**
-`MicroKernelTrait::registerBundles()` is a generator that reads the bundle
-definition, applies the per-environment filter and yields `new $class()`.
-Wrapping it is useless — the instantiation happens *inside* the generator, so a
-filter over what it yields runs after the fatal, and a generator that has thrown
-cannot be resumed. Copying its four lines would mean owning Symfony's
-environment-matching semantics for ever. The seam that avoids both is
-`getBundlesDefinition()`, the private method the trait reads the array from,
-which `MicroKernelTrait` already aliases to `doGetBundlesDefinition` for exactly
-this kind of decoration; a method declared on the class takes precedence over
-the one a trait imports. So the kernel removes entries from the array and
-Symfony still does the reading, the `#[RequiredBundle]` resolution and the
-environment matching. It filters the `.kernel.bundles_definition` container
-parameter for free, which is built from the same method — and that matters,
-because the `frankenphp_public` stage refuses to finish if anything under
-`var/cache/` still names `Xivi\ControlPlane`.
-
-**The list is explicit and short, because the risk this introduces is silence.**
-A bundle skipped for being absent from the image looks exactly like a bundle
-skipped because somebody's `composer install` did not finish. "Skip anything
-missing" would turn a half-installed checkout into an application that boots,
-serves and is quietly missing a module — and would pass every test here while
-doing it. So anything *not* on the list that goes missing still fatals, loudly,
-exactly as before, and
+The rest of the decision lives on the code that makes it, and every part of it is
+an argument rather than a mechanism. `App\Kernel` has why the list is explicit
+rather than "skip anything missing" — a bundle absent from the image looks
+exactly like a `composer install` that did not finish, so anything *not* on the
+list that goes missing still fatals; why the list is read from `config/` rather
+than written as a constant there, which was decided by measurement (`deptrac`
+collects a `::class` in `src/Kernel.php` as a dependency on the package, and
+spelling it as a quoted string would evade the check rather than satisfy it) and
+which leaves **the kernel holding the rule and the configuration holding the
+datum**; how `getBundlesDefinition()` is decorated without reimplementing
+Symfony's environment matching, and why that also keeps the class name out of the
+compiled container the `frankenphp_public` build greps; and why an absent
+optional bundle warns outside `prod`, which is the mirror image of [XIV-61]'s
+guard standing down there. `config/optional_bundles.php` has why the control
+plane is on the list at all, and
 `tests/Unit/Deployment/OnlyOptionalBundlesAreSkippedTest.php` plants both halves
 side by side.
-
-**The list lives in `config/` rather than as a constant on the kernel**, and
-that was decided by measurement rather than taste. `deptrac.yaml` says the
-application may not depend on `Xivi\ControlPlane`; a
-`XiviControlPlaneBundle::class` written into `src/Kernel.php` is collected as a
-dependency and reports *"App\Kernel must not depend on
-Xivi\ControlPlane\XiviControlPlaneBundle"*. Spelling it as a quoted string
-would have slipped past the collector, and that is the reason not to — a
-boundary evaded with a string is a boundary that has stopped being checked.
-`config/` is where the application is already allowed to name the package, it is
-the directory `ControlPlaneIsOptionalAtBuildTimeTest` reads, and it puts the
-declaration beside the `bundles.php` whose reader is looking for it. **The
-kernel holds the rule; the configuration holds the datum.**
-
-**An absent optional bundle complains outside `prod`, which inverts [XIV-61].**
-`PlaceholderSecretGuard` stands down outside production because the risk it
-covers is production-only. This is the mirror image: the *legitimate* absence is
-production-only, since `frankenphp_public` is the only build that removes a
-package, so a `dev` or `test` checkout missing one is a broken install rather
-than a deployment choice. It is an `E_USER_WARNING` naming the command that
-fixes it, not an exception — the application genuinely works without the
-administration surface, and `phpunit.dist.xml` sets `failOnWarning`, so in the
-test environment it is effectively fatal anyway.
 
 **What is still a Flex hazard, said plainly.** `importmap.php` is regenerated
 the same way and is guarded by nothing. The stakes are much lower — a stylesheet
@@ -973,12 +794,9 @@ and `assets/controllers.json` included. What no longer depends on a recipe
 behaving is the customer-facing image.
 
 **[XIV-57]'s ordering invariant survives the move and is asserted the same way.**
-`ControlPlaneFirewallTest` used to read the declared order out of
-`security.yaml`; it reads the container's own `security.firewalls` parameter now,
-which is the merged, compiled order and is a better question than the one it was
-asking. The "host-scoped by a matcher, not by `host:`" assertions became
-behavioural at the same time: a request to the hostname an unescaped regular
-expression would also accept must land in `main`.
+`ControlPlaneFirewallTest` reads the container's own `security.firewalls`
+parameter rather than the declared order in `security.yaml`, which is the merged,
+compiled order and a better question than the one it was asking.
 
 #### `app.control_plane_host` stays in the application, and so does `app.system_hosts`
 
@@ -1023,15 +841,10 @@ genuinely awkward to retrofit once there are customers, which is the argument fo
 settling it here rather than leaving it as a note.
 
 Nothing on a customer's request path writes to that database, and that was
-checked rather than assumed: `App\Registry` reads, and the writers in `src/` are
-`ModuleCatalog::moveTo()` and — since [XIV-101] — `ModuleCatalog::priceAt()`,
-whose only callers are the `module:*` commands and the operator pricing screen;
-`TenantSecretRotator` is driven from `tenant:rotate-secrets`; and — since
-[XIV-120] — `Registry\Notice\NoticeBoard`, whose only caller is the operator's
-notices screen (§8.16); and — since [XIV-123] — `Registry\Support\SupportDesk`,
-whose only caller is the operator's support screen (§8.17), plus
-`Support\SupportTicketCollector` in the package itself. Every one of those
-callers is in the package and therefore absent from the image.
+checked rather than assumed: `App\Registry` reads, and every writer of it in
+`src/` is driven from a `module:*` or `tenant:*` command or from an operator
+screen — that is, from a caller that lives in the package and is therefore absent
+from the customer-facing image.
 
 **That a writer is present in the image and unreachable is not the guarantee
 being relied on**, and §6.5 says so at length where the split runs through one
@@ -1090,11 +903,9 @@ table nobody remembered, in production, at a moment nobody chose.
 
 **It is proved against a real database rather than asserted about a string.**
 `tests/Functional/Deployment/RegistryGrantsTest.php` creates the role, runs the
-generated statements, opens a second connection *as that role*, and asks
-PostgreSQL: `SELECT` on `tenant` and `tenant_domain` succeeds, `INSERT`, `UPDATE`
-and `DELETE` on `tenant` are refused, and `operator` is not readable at all. The
-string-matching version of that test would pass for a script that names the wrong
-tables, one that forgets its `REVOKE`, or one that is never run.
+generated statements, opens a second connection *as that role* and asks
+PostgreSQL. The string-matching version of that test would pass for a script that
+names the wrong tables, one that forgets its `REVOKE`, or one that is never run.
 
 #### Nothing checked that it had been run (XIV-143)
 
@@ -1120,35 +931,18 @@ answer: `deploy:check-hosts` exists so that a deploy discovers a too-narrow
 trusted-host pattern before a browser does. `deploy:check-grants` is the same
 shape, one table over.
 
-**It derives its expectations from `RegistryGrants`, not from a list.** The same
-`readableTables()` that writes the `GRANT`s decides what is checked, and the same
-`withheldTables()` decides what must be unreachable — so adding a registry entity
-cannot make the check and the grant disagree, which is the only property that
-makes a check like this worth having at all. Asserted from both ends:
-`CheckRegistryGrantsTest` proves against a real cluster that what is reported
-missing is exactly what the generator names, and
-`RegistryPrivilegeExpectationsTest` invents an eighth entity in the mapping and
-requires it to appear in the query and in the finding, which is what a hardcoded
-list of today's seven tables would fail.
-
-**It asks `has_table_privilege` rather than reading the ACL**, and the difference
-decides real cases. An ACL comparison answers "was this statement run", which is
-a question about history; `has_table_privilege(role, table, privilege)` answers
-"can this role do it", which is the question a customer's request is about to
-ask. A privilege reached through `GRANT`ed role membership, or held by `PUBLIC`,
-is invisible in the first answer. A **superuser** is the sharp end of that: it
-passes every privilege check there is, so a `DATABASE_URL` still carrying the
-administrator's credentials undoes the whole of this section while every page
-works — and it is reported on its own line rather than as one finding per table,
-because it is not a grant that went wrong.
-
-**Excess is a finding, not only absence.** A role missing `SELECT` is an outage
-somebody will report within the hour; a role holding `INSERT` on a registry table
-is this section's guarantee not holding while everything looks healthy, which is
-worse. The same query answers both. [XIV-120] and [XIV-123] each asserted the
-refusal for their own two tables against the *generated statements*; this asserts
-it for every registry table against the **privileges the cluster is actually
-holding**, at deploy time.
+`App\Deployment\RegistryPrivileges` carries the rest of it and is worth reading
+before changing any of it: why its expectations are derived from the same
+`readableTables()` and `withheldTables()` that write the `GRANT`s rather than
+from a list, which is the only property that makes a check like this worth having
+at all; why it asks `has_table_privilege` — "can this role do it" — rather than
+reading the ACL, which answers only "was this statement run" and is blind to a
+privilege reached through role membership or held by `PUBLIC`; why a **superuser**
+is therefore reported on its own line, a `DATABASE_URL` still carrying the
+administrator's credentials being a one-line mistake that undoes the whole of
+§4.4 while every page works; and why **excess is a finding, not only absence**, a
+role holding `INSERT` on a registry table being this section's guarantee not
+holding while everything looks healthy.
 
 **It checks and does not repair**, decided rather than left to emerge. Re-running
 `deploy:registry-grants` is idempotent, so the two are one line apart — but the
@@ -1188,21 +982,18 @@ The container entrypoint has always run the control-plane migrations on start, s
 that a container can never serve against a schema older than itself (§4.2). The
 customer-facing image cannot: its role has no DDL. So it **asks** instead —
 `doctrine:migrations:up-to-date`, which is a `SELECT` on the one administration
-table it is granted — and **refuses to start** if the answer is no.
-
-Fatal rather than advisory, which puts it beside `deploy:check-secrets` rather
-than beside `deploy:check-hosts`, and the asymmetry is the one those two already
-draw: a schema behind the code is a property of the *instance*, so every customer
-it would serve is served by code expecting columns that are not there. It is not
-a race with the deploy, because `bin/deploy` moves the schema before the serving
-containers are replaced; and it does not refuse a rollback, because
-`--fail-on-unregistered` is deliberately not passed and a schema *ahead* of the
-image is exactly what going backwards looks like under §4.2's additive-only rule.
+table it is granted — and **refuses to start** if the answer is no. Fatal rather
+than advisory, which puts it beside `deploy:check-secrets` rather than beside
+`deploy:check-hosts`, and the asymmetry is the one those two already draw: a
+schema behind the code is a property of the *instance*, so every customer it
+would serve is served by code expecting columns that are not there.
 
 `bin/deploy` itself refuses to run out of the customer-facing image, with a
 message naming the internal one. It would fail anyway, on a permission error,
 partway through — and "it cannot work" is not a good enough reason to let a
-deploy start.
+deploy start. Both refusals are argued where they are performed, in
+`frankenphp/docker-entrypoint.sh` and in `bin/deploy`, including why neither of
+them refuses a rollback.
 
 Each of these tests the *package's presence on disk* rather than an environment
 variable, and that is the same choice the bundle seam makes — in `App\Kernel`
@@ -1252,24 +1043,22 @@ no route under `/control` and no signup route at all.
 
 `bin/ci` runs a single PHPUnit suite over both halves, exactly as §3.1 said, and
 the dev stack is still one `bin/compose up` against the complete image. What
-changed is that `bin/ci` builds both production targets, in that order, because
-the customer-facing one is assembled from the internal one's builder stage.
-
-The reason the second build is not optional is that the failure it catches is
-invisible to everything else here: one `user_checker:` added to the application's
-`security.yaml` because that is where the other firewall's is, and the container
-stops compiling without the package. The unit test above catches most of that in
-a second by reading the configuration; only the build compiles a container with
-the package genuinely gone.
+changed is that `bin/ci` builds **both** production targets, in that order,
+because the customer-facing one is assembled from the internal one's builder
+stage. The second build is not optional and `bin/ci` says why at that step: the
+unit test above catches most of what it catches in a second by reading the
+configuration, but only the build compiles a container with the package genuinely
+gone.
 
 ### 4.5 Nothing noticed when a scheduled job stopped (XIV-126)
 
-Three commands have to be on a schedule for this installation to behave the way
-its screens claim: `signup:provision`, `tenant:purchase:collect` and
-`tenant:usage:collect`. They are cron entries rather than workers because §8.7
-settled that a long time ago and for the whole runtime — FrankenPHP in classic
-mode with no worker block on purpose, so nothing in this deployment runs between
-requests and a queue with nothing draining it is worse than a slow request.
+The commands that have to be on a schedule for this installation to behave the
+way its screens claim are `App\Monitoring\ScheduledJobs` — four of them today,
+each carrying the sentence that says what is wrong while it is not running. They
+are cron entries rather than workers because §8.7 settled that a long time ago
+and for the whole runtime — FrankenPHP in classic mode with no worker block on
+purpose, so nothing in this deployment runs between requests and a queue with
+nothing draining it is worse than a slow request.
 
 **Every screen built on those jobs is honest about staleness, and that is not
 monitoring.** A usage figure carries the moment it was taken; a customer nobody
@@ -1282,14 +1071,6 @@ customer who confirmed a signup and then heard nothing is *precisely* what a
 stopped `signup:provision` produces — the intake row is fine, the confirmation
 was recorded, the mail is not late, it is not coming. That was written up as a
 messaging problem, and half of it is this.
-
-It had already happened in the smallest possible way, too. `tenant:purchase:collect`
-shipped with [XIV-102] and reached **no** list of cron entries: not the
-documentation site's page, which said "the two cron entries an installation
-needs", and therefore not anybody's crontab. A job nobody scheduled cannot be
-observed to have stopped, because it never started, and there is no state
-anywhere that differs from a healthy installation nobody has asked to buy
-anything from.
 
 #### Rejected: an internal checker, which is what v1 had
 
@@ -1367,17 +1148,12 @@ project's taste is to decide instead.
 
 #### The exit code is the payload
 
-`tenant:migrate` publishes three codes on purpose (§4.2): **0** every tenant is
-current, **1** the run could not happen at all, **3** the run happened and at
-least one tenant is behind while the rest are fine. A monitor told only "it
-failed" flattens 1 and 3 into each other — a deploy that did nothing, and a
-deploy that left four customers on last week's schema while the new code serves
-them. Those wake different people and require different actions.
-
-So the outcome is reported as `<url>/<exit code>` rather than as `<url>/fail`.
-The monitor treats 3 as a failure, which is right, **and shows *3***, which is
-what somebody woken by it needs before they open a terminal. The collectors
-publish 0 and 1 today and read identically.
+`tenant:migrate` publishes three codes on purpose (§4.2), and a monitor told only
+"it failed" flattens them: a deploy that did nothing, and a deploy that left four
+customers on last week's schema while the new code serves them, wake different
+people and require different actions. So the outcome is reported as
+`<url>/<exit code>` rather than as `<url>/fail`, and that is why the protocol
+column above rather than the price column decides the recommendation.
 
 And there is a fourth state, which is the whole point of the arrangement:
 **nothing at all**. A job that was never scheduled, whose cron died, whose
@@ -1394,17 +1170,12 @@ leaves nothing.
 
 #### What a ping contains, and what it deliberately does not
 
-The fact that it happened, and a number. A `GET`, no body, no query string.
-
-**No tenant slug, no customer name, no email address, no counts, no hostname, no
-version.** A ping URL goes to a third party, possibly a hosted one, and §8.11's
-line — *counts, not contents* — is drawn a great deal further back here:
-`tenant:usage:collect` holds every customer's slug and every one of their figures
-by the time it terminates, and *"the job ran"* is the entire payload. The
-`User-Agent` is the bare word `Xivi`, so that an operator reading the request log
-of their **own** self-hosted instance can tell what pinged it; a version there
-would turn every ping into a report of which release this installation is behind
-on, sent to whoever runs the monitor.
+The fact that it happened, and a number. A `GET`, no body, no query string, and
+**no tenant slug, no customer name, no email address, no counts, no hostname, no
+version** — §8.11's *counts, not contents* drawn a great deal further back,
+because a ping URL goes to a third party and possibly a hosted one.
+`App\Monitoring\JobMonitor` carries the reasoning omission by omission,
+including why the `User-Agent` is the bare word `Xivi`.
 
 What cannot be hidden is the source address, because a monitor by construction
 receives a request from you. An installation for which that matters self-hosts,
@@ -1418,52 +1189,29 @@ prints the address, because a crontab is world-readable on most machines.
 #### Optional, and off by default
 
 `XIVI_MONITOR_PINGS` is empty in the committed `.env`, and empty means **no pings
-and no behaviour change of any kind** — the shape [XIV-93]'s trusted domains and
-[XIV-61]'s secret guard already have. `App\Monitoring\JobMonitor` returns on an
-array lookup before it constructs a URL, so an installation that configures
-nothing never touches the HTTP client, never opens a socket and never pays a
-timeout. That is asserted rather than claimed: `JobMonitorTest` checks that *no
-request is made at all*.
+and no behaviour change of any kind** — no HTTP client, no socket, no timeout.
+That is the shape [XIV-93]'s trusted domains and [XIV-61]'s secret guard already
+have, and it is asserted rather than claimed.
 
-A **failed ping never fails the job.** It is logged at warning and changes
-nothing — not the exit code, not the output. Swallowing an error is usually wrong
-in this codebase, and §8.7 is emphatic that a failed mail send is never
-swallowed; the difference is that the consequence of a lost ping is *a monitor
-reporting a missing ping*, so the failure announces itself at the far end. The
-opposite policy is the harmful one: a monitoring feature that can turn a
-five-second network problem at a third party into a failed deploy is a monitoring
-feature somebody removes.
-
-A **malformed entry is refused rather than skipped**, at the first console
-command run after it is set. A skipped entry is a job nobody is watching on an
-installation whose operator believes they configured watching, which is this
-section's own failure mode wearing a defensive `continue`. Refused: no `=`, an
-empty half, a scheme that is not HTTP, a duplicate command, and a URL with a
-query string or a fragment — the last because the outcome is reported by
-appending a path segment, and appending one to `…?key=abc` addresses something
-nobody meant.
+A **failed ping never fails the job**, and a **malformed entry is refused rather
+than skipped**. Both are decided against this section's own failure mode: a
+monitoring feature that can turn a five-second network problem at a third party
+into a failed deploy is a monitoring feature somebody removes, and an entry
+silently skipped is a job nobody is watching on an installation whose operator
+believes they configured watching. `App\Monitoring\JobMonitor` argues the first —
+including why swallowing is right here and wrong for a mail (§8.7) — and
+`App\Monitoring\PingTargets` argues the second and lists what is refused.
 
 #### One place, and a list that is in the build
 
 The pings are sent by **one console event listener**,
-`App\Monitoring\EventListener\JobMonitorSubscriber`, on `ConsoleEvents::COMMAND`
-and `ConsoleEvents::TERMINATE`. Three lines at the top and bottom of each command
-was the obvious alternative and is wrong for the reason this whole ticket
-exists: **the fourth scheduled command would not have them, and nothing would say
-so.** Watching the ninth command is adding an entry to `XIVI_MONITOR_PINGS`;
-nothing is edited and nothing is remembered.
-
-`TERMINATE` rather than the value a command returns, because it fires for every
-ending a command has — a returned code, an uncaught throwable, a command an
-earlier listener disabled — and the one ending it does *not* fire for is the
-process being killed outright, which is exactly the case that should produce a
-start with no end. The listener reads `getExitCode()` and never writes it: §4.2's
-codes are a published contract and a monitoring listener is not a party to it.
-
-The map may name any command, not only the three. `tenant:migrate` is not a cron
-entry — `bin/deploy` runs it once per release — and a deploy that quietly stopped
-being run is the same class of silence, so restricting the map would have refused
-that for a tidiness nobody asked for.
+`App\Monitoring\EventListener\JobMonitorSubscriber`, rather than by three lines at
+the top and bottom of each command — and that is the reason this whole ticket
+exists, one level down: **the next scheduled command would not have them, and
+nothing would say so.** Watching one more command is adding an entry to
+`XIVI_MONITOR_PINGS`; nothing is edited and nothing is remembered. The map may
+name any command, not only the scheduled ones, because a `bin/deploy` that
+quietly stopped being run is the same class of silence.
 
 **What jobs exist is a property of the build, not of the deployment.**
 `App\Monitoring\ScheduledJobs` is that list, in code, with each entry carrying its
@@ -1480,10 +1228,10 @@ every job this image has is watched *or* when none is (monitoring switched off i
 a choice, and a check that fails on a fresh installation is a check that ends up
 being run with `|| true`), and **3** for the inconsistent state — some watched and
 some not, or a watched name that is not a command here. Three rather than two for
-`tenant:migrate`'s reason. The customer-facing image prints an empty crontab and
-says why, because all three of today's jobs are control-plane commands and §4.4
-compiles them out; the list holds command *names* rather than class names
-precisely so that it costs that image nothing.
+`tenant:migrate`'s reason. Every one of today's jobs is a control-plane command,
+so the customer-facing image prints an empty crontab and says why; the list holds
+command *names* rather than class names precisely so that it costs that image
+nothing.
 
 #### Rejected: symfony/scheduler
 
