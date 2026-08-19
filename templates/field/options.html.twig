@@ -1,0 +1,100 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'field.options.title'|trans({'%field%': field.label}) }}{% endblock %}
+
+{#
+	The list a `choice` field is a choice between (XIV-144).
+
+	A page rather than a cell in the field table, on numbering's argument (§5.4):
+	everything in that table is instantaneous and reversible, and this is a row
+	per option, a rename that must not move a single record, and a removal that
+	can be refused with a paragraph. In a cell, the change with the most
+	consequences on the page would look like the cheapest one on the row.
+
+	Three things are said here that a customer would otherwise find out by being
+	surprised: what every record actually holds is the code on the left and not
+	the words they typed; how many records hold each one, which is why a removal
+	will or will not be allowed; and that a module's own field's options may be
+	added to and renamed but not taken away, because the module's own code names
+	some of them.
+#}
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<div class="d-flex align-items-center justify-content-between mb-3">
+			<div>
+				<h1 class="h3 mb-0">{{ 'field.options.title'|trans({'%field%': field.label}) }}</h1>
+				<p class="text-body-secondary small mb-0">{{ 'field.options.intro'|trans }}</p>
+			</div>
+			<a class="btn btn-link" href="{{ path('field_index', {module: module.key}) }}">{{ 'field.options.back'|trans }}</a>
+		</div>
+
+		<form method="post" action="{{ path('field_options_save', {module: module.key, field: field.id}) }}">
+			<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
+
+			<div class="card mb-3">
+				<div class="card-body">
+					{% if choices is empty %}
+						{# The state this whole ticket is about, and the only way to be in it
+						   now is to have been in it before the rule existed. #}
+						<p class="text-body-secondary mb-0">{{ 'field.options.none'|trans }}</p>
+					{% else %}
+						<div class="table-responsive">
+							<table class="table table-sm align-middle mb-0">
+								<thead>
+									<tr>
+										<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.options.stored'|trans }}</th>
+										<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.label'|trans }}</th>
+										<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.options.held'|trans }}</th>
+										<th scope="col"></th>
+									</tr>
+								</thead>
+								<tbody>
+									{% for value, label in choices %}
+										<tr>
+											<td><code>{{ value }}</code></td>
+											<td>
+												<input class="form-control form-control-sm" name="label[{{ value }}]"
+													   value="{{ label }}" style="min-width: 14rem">
+											</td>
+											{# The number that decides whether this option can go, read
+											   before anybody tries rather than in the refusal afterwards. #}
+											<td class="text-body-secondary small">
+												{{ held[value] is defined ? 'field.options.held_count'|trans({'%count%': held[value]}) : 'field.options.held_none'|trans }}
+											</td>
+											<td class="text-end">
+												{% if not field.system %}
+													<label class="form-check-label small text-danger">
+														<input type="checkbox" name="remove[{{ value }}]" value="1"> {{ 'common.remove'|trans }}
+													</label>
+												{% endif %}
+											</td>
+										</tr>
+									{% endfor %}
+								</tbody>
+							</table>
+						</div>
+					{% endif %}
+				</div>
+			</div>
+
+			<div class="card mb-3">
+				<div class="card-body">
+					<label class="form-label small mb-1" for="choices">{{ 'field.options.add_label'|trans }}</label>
+					<textarea id="choices" class="form-control form-control-sm" name="choices" rows="3"
+							  placeholder="{{ 'field.options.add_placeholder'|trans }}"></textarea>
+					<p class="text-body-secondary small mb-0 mt-2">{{ 'field.options.add_help'|trans }}</p>
+				</div>
+			</div>
+
+			<p class="text-body-secondary small">
+				{{ field.system ? 'field.options.module_field'|trans : 'field.options.removal_note'|trans }}
+			</p>
+
+			<button class="btn btn-primary" type="submit">{{ 'common.save'|trans }}</button>
+		</form>
+	</main>
+{% endblock %}

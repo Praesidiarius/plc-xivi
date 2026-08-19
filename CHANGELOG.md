@@ -391,6 +391,31 @@ lands in `Unreleased` here.
 
 ### Fixed
 
+- **A choice field you add now has choices, and a reference has something to
+  point at** ([XIV-144]) — the field editor offered both types and drew no
+  control for either, so adding one gave you a dropdown with nothing in it, or a
+  link that showed `#41` instead of a name. Nothing said so: an empty choice list
+  meant the field accepted *anything*. Adding a **Choice** field now asks for its
+  options, one per line, and adding a **Reference** asks which module it points
+  at — and neither can be created without an answer. §5.4 has the reasoning.
+- **Your own options, on a module's own fields** ([XIV-144]) — the wholesaler
+  who sells by the pallet can add it to Article's *Unit*, and the workshop can
+  add a topic to Knowledge. Options can be added and renamed on any choice field;
+  **renaming one changes what the page says and moves no record**, because what
+  is stored is a short code derived from the first label you give and it never
+  changes again.
+- **Action: an option your records hold cannot be removed** ([XIV-144]) — it
+  would leave those records holding a value that is no longer on the list, and
+  they could not be saved again until somebody fixed them. The refusal names the
+  option and how many records hold it, and the options page shows that count
+  beside each one before you try. Options on a module's *own* fields cannot be
+  removed at all — an order's states are what its lifecycle moves records
+  between.
+- **Action: a reference cannot be repointed once records point through it**
+  ([XIV-144]) — an id only means something in the module it came from, so moving
+  the target would leave every stored link naming the wrong record, silently.
+  Empty the field first. A field that came with a module cannot be repointed at
+  all.
 - **`importmap.php` is a generated file again**
   ([XIV-111](https://xivi.youtrack.cloud/issue/XIV-111)). It carried a comment
   explaining why only one of Tom Select's four stylesheets is pulled in — real
@@ -503,6 +528,7 @@ lands in `Unreleased` here.
 [XIV-104]: https://xivi.youtrack.cloud/issue/XIV-104
 [XIV-123]: https://xivi.youtrack.cloud/issue/XIV-123
 [XIV-143]: https://xivi.youtrack.cloud/issue/XIV-143
+[XIV-144]: https://xivi.youtrack.cloud/issue/XIV-144
 
 ## Releases
 

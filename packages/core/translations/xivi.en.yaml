@@ -150,6 +150,16 @@ metadata:
     # Refusing to make a field unique, with the values to go and fix (XIV-109).
     # No plural to handle: a value cannot be *shared* by fewer than two records.
     values_are_shared: '%count% records already share a value in "%key%", so it cannot be made unique. On more than one record: %values%. Fix those records first, or leave "%key%" as it is.'
+    # The five refusals a mandatory per-type option can meet (XIV-144). Every one
+    # of them is about something that would otherwise be silent: a field that is
+    # drawn and saved and does nothing, an option removed from under the records
+    # holding it, ids that go on rendering as the wrong records' names.
+    option_unanswered: 'A "%type%" field does nothing until "%option%" is set, so "%key%" was not saved. A choice field with no options offers nothing to pick and accepts anything; a reference with no target has nowhere to look a record up.'
+    options_are_held: '%count% existing records hold an option you are removing from "%key%": %values%. They would be left with a value that is no longer on the list and could not be saved again until somebody fixed them. Change those records first, or keep the option.'
+    options_are_the_modules: 'The field "%key%" came with the module, and its options are part of what the module does — the states it moves records between, the kinds of record it knows. You can add options and rename them; removing one is not offered.'
+    target_is_held: '%count% existing records point through "%key%" at records in "%from%". An id only means anything in the module it was chosen from, so pointing this field at "%to%" would leave every one of them naming the wrong record, or none. Empty those records first, or leave it pointing at "%from%".'
+    target_is_the_modules: 'The field "%key%" came with the module and points at "%module%" because the module''s own forms, documents and totals expect it to. Fields you added yourself can be pointed wherever you like.'
+    unknown_target: 'No module named "%module%" is installed here, so "%key%" cannot point at it.'
 
 query:
     unknown_field: 'There is nothing called "%path%" on "%shape%" to filter or sort by.'

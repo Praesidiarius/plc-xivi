@@ -5,10 +5,11 @@
 # das, was am ehesten anders heissen soll — eine Werkstatt will „Maschine“, eine
 # Praxis will „Patient“.
 #
-# Nur: bis [XIV-127] da ist, geht das noch nicht. Der Feld-Editor kennt keine
-# Bedienung für die Auswahlwerte eines Choice-Felds (§5.4), also sind diese sechs
-# genau diese sechs — dieselbe offene Stelle, die §5.20 für die Einheiten
-# beschreibt. Darum steht „Sonstiges“ mit auf der Liste.
+# Und ein eigenes Thema geht jetzt auch (XIV-144): Der Feld-Editor hat eine
+# Bedienung für die Auswahlwerte eines Choice-Felds, eine Werkstatt ergänzt also
+# „Maschine“. Was nicht geht, ist eines der sechs *weg*zunehmen — dieses Feld kam
+# mit dem Modul (§5.4). „Sonstiges“ bleibt trotzdem nützlich: Da landet ein
+# Eintrag, solange jemand noch überlegt, ob er ein eigenes Thema will.
 
 module: Wissen
 

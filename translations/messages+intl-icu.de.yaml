@@ -34,6 +34,8 @@ mail:
 
 field:
     remove_holding: '{count, plural, one {<strong>#</strong> Datensatz hat zurzeit einen Wert dafür.} other {<strong>#</strong> Datensätze haben zurzeit einen Wert dafür.}}'
+    options:
+        held_count: '{count, plural, one {# Datensatz} other {# Datensätze}}'
 
 document:
     unknown_placeholders: '{count, plural, one {{placeholders} wird genau so gedruckt, wie es dasteht — einen Platzhalter mit diesem Namen gibt es nicht.} other {{placeholders} werden genau so gedruckt, wie sie dastehen — Platzhalter mit diesen Namen gibt es nicht.}}'

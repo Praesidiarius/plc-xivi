@@ -28,9 +28,14 @@ use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\AssumesACountry;
 use Xivi\Core\Field\Autocomplete;
 use Xivi\Core\Field\Autocompletes;
+use Xivi\Core\Field\Enumerates;
 use Xivi\Core\Field\FieldType;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Field\NeedsAnAnswer;
 use Xivi\Core\Field\Numbers;
+use Xivi\Core\Field\PointsAtAModule;
+use Xivi\Core\Field\Type\ChoiceFieldType;
+use Xivi\Core\Field\Type\ReferenceFieldType;
 use Xivi\Core\Field\UnknownFieldType;
 use Xivi\Core\Metadata\MetadataChangeRefused;
 use Xivi\Core\Metadata\MetadataEditor;
@@ -112,9 +117,26 @@ final class FieldController extends AbstractController
      * as well would be inventing a widget description language to save two
      * `{% if %}`s.
      *
+     * **The fourth and fifth are different in one way, and it is the way that
+     * mattered** (XIV-144). Every entry above describes an option a field *may*
+     * have, and every one of them has a good answer for a field that says
+     * nothing. A `choice` field's options and a `reference`'s target have none:
+     * without them the field is drawn, saved, validated and useless. So those two
+     * types declare {@see NeedsAnAnswer} as well as their capability, this class
+     * offers no type in its add-field select whose needs it cannot draw
+     * ({@see self::configurable()}), and the engine refuses to write a definition
+     * that leaves one unanswered. The list below is still the only place a
+     * control is wired to a type.
+     *
+     * **Public, and that is the point rather than an oversight.** What makes this
+     * defect recur is a field type registered with no control anywhere, and the
+     * only way to notice that is to compare this list against the registry — so
+     * {@see \App\Tests\Functional\Engine\EditorConfiguresEveryTypeTest} reads it
+     * and goes red when the two disagree.
+     *
      * @var array<string, class-string<FieldType>>
      */
-    private const array PER_TYPE = [
+    public const array PER_TYPE = [
         Autocomplete::OPTION => Autocompletes::class,
         NumberFormat::OPTION => Numbers::class,
         // The third, and the one that proves the list was worth declaring
@@ -122,6 +144,14 @@ final class FieldController extends AbstractController
         // installation's, and adding that was this line, a capability interface
         // and one control in the template. No branch through this class.
         PhoneRegion::OPTION => AssumesACountry::class,
+        // The fourth and fifth (XIV-144). The list a `choice` field is a choice
+        // between, and the module a `reference` points at — the two options the
+        // editor offered a type for and then never asked about. Same cost as the
+        // third: a line here and a control in the template. The options control
+        // is a page rather than a cell, on the same terms as numbering's, so it
+        // is named on the save that draws it and on no other.
+        ChoiceFieldType::CHOICES => Enumerates::class,
+        ReferenceFieldType::MODULE => PointsAtAModule::class,
     ];
 
     public function __construct(
@@ -142,7 +172,15 @@ final class FieldController extends AbstractController
         return $this->render('field/index.html.twig', [
             'module' => $definition,
             'shapes' => self::shapesOf($definition),
+            // Every registered type, because this is what the *table* names a
+            // field's type from and a field of a type this editor cannot
+            // configure still has to say what it is.
             'types' => $this->fieldTypes->all(),
+            // What may be *added*, which since XIV-144 is not the same list. A
+            // type whose needs this form draws no control for cannot be
+            // configured here, so offering it would be offering a field that
+            // cannot be finished — the defect this ticket is named after.
+            'addable' => $this->addableTypes(),
             // Which types offer which per-type control, as lists of type keys
             // (XIV-36, XIV-27). Resolved here rather than in the template
             // because Twig has no `instanceof`, and giving it one so a page
@@ -155,6 +193,19 @@ final class FieldController extends AbstractController
             // currency and timezone pickers give: a copy of the country list
             // maintained by hand is a copy that is wrong.
             'regionChoices' => Countries::getNames($request->getLocale()),
+            // And every module this customer has, for the one option whose
+            // answer is another module (XIV-144). Their own labels rather than
+            // the blueprints' — §6.1 says the installed definition is the truth,
+            // and a customer who renamed Contacts to Kunden should be choosing
+            // "Kunden" here.
+            'moduleChoices' => $this->installedModules(),
+            // Which fields are drawn, saved, validated and useless: a choice
+            // field with no options, a reference with nothing to point at
+            // (XIV-144). Nothing new can reach this state — the engine refuses
+            // it — so what this marks is a field that predates the rule or one a
+            // module wrote itself, and it is marked rather than left because
+            // §8.3.1's whole argument is that silence is the worse failure.
+            'unfinished' => $this->unfinishedIn($definition),
             // And which *fields* are actually numbered, which the type cannot
             // answer: the link to the numbering page appears on those, and the
             // page itself refuses everything else on the same test.
@@ -477,6 +528,166 @@ final class FieldController extends AbstractController
     }
 
     /**
+     * The list a `choice` field is a choice between, on a page of its own
+     * (XIV-144).
+     *
+     * **A page for the same reason numbering is one**, and the argument is
+     * §5.4's rather than a new one: every control in the field table is a cell,
+     * instantaneous and reversible — tick "on list", untick it, nothing
+     * happened. A list is neither. It has a row per option and it needs one, it
+     * has a rename that must not move a record and a removal that may not
+     * happen at all, and the sentence explaining why an option cannot go is
+     * three lines long. Putting that in a table cell would make the change with
+     * the most consequences look like the cheapest one on the row.
+     *
+     * The **value** is shown and not editable, which is the one thing on this
+     * page somebody has to be told rather than shown: it is what every record
+     * holds, the label beside it is what everybody reads, and renaming the label
+     * is free precisely because the two are different things.
+     *
+     * The add form asks for the same list in a textarea, because a choice field
+     * with no options is not something the engine will write — so the customer
+     * meets the question once when the field is created and comes back here to
+     * change the answer.
+     */
+    #[Route('/{field}/options', name: 'field_options', requirements: ['field' => Requirement::POSITIVE_INT], methods: ['GET'])]
+    public function options(string $module, int $field): Response
+    {
+        $definition = $this->definition($module);
+        $target = $this->choiceField($definition, $field);
+
+        return $this->render('field/options.html.twig', [
+            'module' => $definition,
+            'field' => $target,
+            'choices' => ChoiceFieldType::choicesOf($target),
+            // How many records hold each option, beside the option. The count is
+            // why a removal will be refused, and reading it here rather than in
+            // the refusal is the difference between somebody planning a change
+            // and somebody being told no after trying it.
+            'held' => $this->editor->valuesHeldBy($target),
+        ]);
+    }
+
+    /**
+     * Saving it: what was renamed, what was added, and what somebody ticked to
+     * remove (XIV-144).
+     *
+     * Every option the page drew is named on the way back, which is the same
+     * contract every other control in this editor has — the list that arrives is
+     * the list the field ends up with, and an option missing from it is an
+     * option removed rather than one left alone. That is what lets a removal be
+     * refused at all: a merge that only ever added could not tell the difference
+     * between "take this away" and "I did not mention it".
+     *
+     * Nothing about *whether* a removal is allowed is decided here.
+     * {@see MetadataEditor} counts the records holding it and refuses with the
+     * number, on the write path, where the importer and the console meet the
+     * same rule.
+     */
+    #[Route('/{field}/options', name: 'field_options_save', requirements: ['field' => Requirement::POSITIVE_INT], methods: ['POST'])]
+    public function saveOptions(string $module, int $field, Request $request): Response
+    {
+        $definition = $this->definition($module);
+
+        if ($this->isCsrfTokenValid('edit-fields', (string) $request->request->get('_token'))) {
+            $target = $this->choiceField($definition, $field);
+
+            try {
+                $this->editor->updateField(
+                    field: $target,
+                    label: $target->getLabel(),
+                    required: $target->isRequired(),
+                    unique: $target->isUnique(),
+                    filterable: $target->isFilterable(),
+                    listed: $target->isListed(),
+                    title: $target->isTitle(),
+                    position: $target->getPosition(),
+                    // The one thing this page changes, and everything else about
+                    // the field is handed back as it already is — including every
+                    // option this form has never heard of, which the merge leaves
+                    // alone (XIV-26).
+                    options: $this->choicesFrom($request, $target->getType(), self::keptFrom($request, $target)),
+                    width: $target->getWidth(),
+                );
+
+                $this->addFlash('success', $this->translator->trans('flash.options_saved', [
+                    '%field%' => $target->getLabel(),
+                ]));
+            } catch (MetadataChangeRefused $e) {
+                $this->addFlash('warning', $e->translatable()->trans($this->translator));
+
+                // Back to the page it was decided on rather than to the list: a
+                // refusal about an option is only actionable next to the options.
+                return $this->redirectToRoute('field_options', ['module' => $module, 'field' => $field]);
+            }
+        }
+
+        return $this->redirectToRoute('field_index', ['module' => $module]);
+    }
+
+    /**
+     * The options that survive this save, with whatever they have been renamed
+     * to.
+     *
+     * A removal is an option the page sent back with its box ticked, and a
+     * rename is a label that arrived different from the one that went out. Both
+     * are read against the field's *current* list rather than against the form,
+     * so a value invented in a hand-edited form adds nothing: what is not
+     * already an option cannot be kept.
+     *
+     * A label emptied out keeps the old one. A blank label would render as a
+     * blank line in a dropdown, which is indistinguishable from the placeholder
+     * and is nobody's intention — and the option cannot simply be dropped
+     * either, because dropping it is the operation with a conversation attached.
+     *
+     * @return array<string, string> value => label
+     */
+    private static function keptFrom(Request $request, FieldDefinition $field): array
+    {
+        /** @var array<string, mixed> $labels */
+        $labels = $request->request->all('label');
+        /** @var array<string, mixed> $remove */
+        $remove = $request->request->all('remove');
+
+        $kept = [];
+
+        foreach (ChoiceFieldType::choicesOf($field) as $value => $label) {
+            if (\array_key_exists($value, $remove)) {
+                continue;
+            }
+
+            $renamed = trim((string) ($labels[$value] ?? ''));
+            $kept[$value] = $renamed === '' ? $label : $renamed;
+        }
+
+        return $kept;
+    }
+
+    /**
+     * A field whose options a customer may edit, by id, or a 404.
+     *
+     * The type is asked rather than named, exactly as the numbering page asks:
+     * this URL is not found for a date field because a date field has no list,
+     * and it will be found for whatever type declares {@see Enumerates} next
+     * without this method being edited.
+     */
+    private function choiceField(ModuleDefinition $module, int $id): FieldDefinition
+    {
+        $field = $this->field($module, $id);
+
+        if (!$this->offers(ChoiceFieldType::CHOICES, $field->getType())) {
+            throw $this->createNotFoundException(sprintf(
+                'Field %d of "%s" is a "%s", which has no list of options to edit.',
+                $id,
+                $module->getKey(),
+                $field->getType(),
+            ));
+        }
+
+        return $field;
+    }
+
+    /**
      * What a customer calls one of their own shapes (XIV-8).
      *
      * Their module arrived named by whatever language it was installed in, and
@@ -524,7 +735,15 @@ final class FieldController extends AbstractController
                     filterable: $request->request->getBoolean('filterable'),
                     listed: $request->request->getBoolean('listed'),
                     title: $request->request->getBoolean('title'),
-                    options: $this->optionsFrom($request, (string) $request->request->get('type')),
+                    options: [
+                        ...$this->optionsFrom($request, (string) $request->request->get('type')),
+                        // The list a choice field is added with (XIV-144). Here
+                        // and not in optionsFrom() because this is one of the two
+                        // forms that draws it; the row in the table is the one
+                        // that does not, and a form that does not draw a setting
+                        // does not name it.
+                        ...$this->choicesFrom($request, (string) $request->request->get('type')),
+                    ],
                 );
 
                 $this->addFlash('success', $this->translator->trans('flash.field_added', ['%field%' => $field->getLabel()]));
@@ -697,7 +916,185 @@ final class FieldController extends AbstractController
             $options[PhoneRegion::OPTION] = Countries::exists($chosen) ? $chosen : null;
         }
 
+        if ($this->offers(ReferenceFieldType::MODULE, $type) && $request->request->has(ReferenceFieldType::MODULE)) {
+            // A select of this customer's own modules — and the one control here
+            // whose absence is read differently from its emptiness (XIV-144).
+            //
+            // Every other setting on this form is "named on every save, cleared
+            // when blank", because every other setting has a meaningful empty
+            // state: no maximum, no country, decide the search box from the
+            // count. A reference's target has none. Blank is not a way of
+            // pointing a field somewhere, it is a field that does nothing — so
+            // there is no clearing to do, and a request that does not carry the
+            // control at all is a form that did not draw one rather than
+            // somebody emptying it. A blank that *is* sent still goes through as
+            // null and is refused by the engine, which is the add form's empty
+            // option and the sentence it earns.
+            //
+            // Not checked against the installed list here: that check is on the
+            // write path, where the console and the importer meet it too, and a
+            // second copy in a controller is the copy that gets forgotten.
+            $target = trim((string) $request->request->get(ReferenceFieldType::MODULE, ''));
+            $options[ReferenceFieldType::MODULE] = $target === '' ? null : $target;
+        }
+
         return $options;
+    }
+
+    /**
+     * The options a `choice` field is a choice between, as the form sends them
+     * (XIV-144).
+     *
+     * **Separate from {@see self::optionsFrom()} because it is drawn in two
+     * places and not in the third**, which is the same shape numbering has: the
+     * add form asks for the list, its own page edits it, and the row in the
+     * field table draws no control for it at all. A form that does not draw it
+     * must not name it — naming it would clear the list on the first save of an
+     * unrelated checkbox, which is precisely the accident XIV-26 was about.
+     *
+     * Labels in, keys derived. Somebody adding "Pallet" to a list of units is
+     * not deciding what the database calls it, and asking them to would be
+     * asking them to understand a distinction that only matters when it is too
+     * late to change ({@see ChoiceFieldType::valueFor()}).
+     *
+     * @param array<string, string> $existing what the field already has, so a key derived
+     *                                        now cannot collide with one records hold
+     *
+     * @return array<string, mixed> either the one option, or nothing at all
+     */
+    private function choicesFrom(Request $request, string $type, array $existing = []): array
+    {
+        if (!$this->offers(ChoiceFieldType::CHOICES, $type)) {
+            return [];
+        }
+
+        $choices = $existing;
+
+        foreach (preg_split('/\R/', (string) $request->request->get(ChoiceFieldType::CHOICES, '')) ?: [] as $line) {
+            $label = trim($line);
+
+            if ($label === '') {
+                // Blank lines are how a textarea is typed in, not an option
+                // called nothing.
+                continue;
+            }
+
+            $choices[ChoiceFieldType::valueFor($label, $choices)] = $label;
+        }
+
+        // Named even when it is empty, so that a save which was *asked* to set
+        // the list and given nothing is refused by the engine rather than
+        // quietly leaving the field as it was.
+        return [ChoiceFieldType::CHOICES => $choices];
+    }
+
+    /**
+     * The types the add-field select offers, which is not every registered one
+     * (XIV-144).
+     *
+     * **The acceptance criterion this ticket turns on**, and it is a statement
+     * about the registry rather than about today's list of types: a type this
+     * form cannot ask the customer's question for is not offered, whatever it
+     * is. Today every registered type passes and the list is the whole registry
+     * again; the day somebody writes a type that needs an answer nobody has
+     * built a control for, it disappears from the select instead of being
+     * offered broken, and
+     * {@see \App\Tests\Functional\Engine\EditorConfiguresEveryTypeTest} says so
+     * out loud before anybody ships it.
+     *
+     * @return array<string, FieldType>
+     */
+    private function addableTypes(): array
+    {
+        return array_filter($this->fieldTypes->all(), self::configurable(...));
+    }
+
+    /**
+     * Whether this form can ask everything a type cannot work without.
+     *
+     * Static and public so that the test can plant a violation against it — a
+     * hypothetical type needing something nobody drew — without a container, a
+     * tenant or a request. The rule is one line of arithmetic over two
+     * declarations that live in different layers: what the type says it needs,
+     * and what {@see self::PER_TYPE} says this form draws for it. A need that is
+     * not in that list, or is in it under a capability this type does not
+     * declare, is a question the editor has no way of asking.
+     */
+    public static function configurable(FieldType $type): bool
+    {
+        if (!$type instanceof NeedsAnAnswer) {
+            return true;
+        }
+
+        foreach ($type->needs() as $option) {
+            $capability = self::PER_TYPE[$option] ?? null;
+
+            if ($capability === null || !$type instanceof $capability) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Every module this customer has, as key => their own label for it.
+     *
+     * What a reference may point at. Sorted by label rather than by key, because
+     * it is read as a list of words; the module's own key is what is stored and
+     * is not what anybody is choosing between.
+     *
+     * @return array<string, string>
+     */
+    private function installedModules(): array
+    {
+        $modules = [];
+
+        foreach ($this->metadata->all() as $module) {
+            $modules[$module->getKey()] = $module->getLabel();
+        }
+
+        asort($modules);
+
+        return $modules;
+    }
+
+    /**
+     * The ids of the fields whose type needs something this one has not got
+     * (XIV-144).
+     *
+     * Read off the type rather than listed here, so it covers whatever the next
+     * {@see NeedsAnAnswer} turns out to be without this method learning what a
+     * choice is.
+     *
+     * @return list<int>
+     */
+    private function unfinishedIn(ModuleDefinition $module): array
+    {
+        $unfinished = [];
+
+        foreach (self::shapesOf($module) as $shape) {
+            foreach ($shape->getFields() as $field) {
+                $id = $field->getId();
+                $type = $this->fieldTypes->has($field->getType()) ? $this->fieldTypes->get($field->getType()) : null;
+
+                if ($id === null || !$type instanceof NeedsAnAnswer) {
+                    continue;
+                }
+
+                foreach ($type->needs() as $option) {
+                    $answer = $field->getOption($option);
+
+                    if ($answer === null || $answer === '' || $answer === []) {
+                        $unfinished[] = $id;
+
+                        break;
+                    }
+                }
+            }
+        }
+
+        return $unfinished;
     }
 
     /**

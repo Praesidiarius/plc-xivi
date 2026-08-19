@@ -14,10 +14,12 @@ declare(strict_types=1);
 namespace Xivi\Core\Field\Type;
 
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
+use Symfony\Component\String\Slugger\AsciiSlugger;
 use Symfony\Component\Validator\Constraints as Assert;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Field\Autocomplete;
 use Xivi\Core\Field\Autocompletes;
+use Xivi\Core\Field\Enumerates;
 use Xivi\Core\Query\Operator;
 
 /**
@@ -38,12 +40,36 @@ use Xivi\Core\Query\Operator;
  * them is filtering something that is present. No endpoint, no permission
  * question, no ceiling, and nothing about the value changes.
  *
+ * **And somebody may write them** (XIV-144), which is {@see Enumerates} and is
+ * why this is the first type to say it cannot work without one of its options.
+ * Until that landed the editor offered this type in its add-field select and
+ * drew no control for the list, so a customer could add a choice field and never
+ * be offered a choice: the constraint below skipped itself, the select rendered
+ * empty, and nothing anywhere said so.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
-final class ChoiceFieldType implements Autocompletes
+final class ChoiceFieldType implements Autocompletes, Enumerates
 {
     /** Stored value => label, in `options['choices']`. */
     public const string CHOICES = 'choices';
+
+    /**
+     * How a label is turned into the key records hold, and why German.
+     *
+     * The same argument and the same constant as
+     * {@see \Xivi\ControlPlane\Signup\SelfServiceSlug}: this product is sold into
+     * a German-speaking market, and `ä ö ü ß` expanding to `ae oe ue ss` is what
+     * those customers write when something has to be ASCII. A `Paletten größe`
+     * becomes `paletten_groesse` rather than `paletten_grosse`, which is the
+     * spelling somebody recognises if they ever see it — in an export column
+     * header, in a filter URL, in an API payload.
+     *
+     * It is pinned rather than taken from the request for the reason that ticket
+     * spells out at length: the value is permanent and the locale somebody
+     * happened to have the page open in is not.
+     */
+    private const string TRANSLITERATION_LOCALE = 'de';
 
     public function key(): string
     {
@@ -63,8 +89,28 @@ final class ChoiceFieldType implements Autocompletes
             new Assert\Type('string'),
             // An empty option list would otherwise reject everything, including
             // the empty value, which is a confusing way to say "misconfigured".
+            //
+            // **Still true, and no longer the way anybody gets here** (XIV-144).
+            // This used to be the whole of the engine's answer to a choice field
+            // with no options, and it is an answer about a *record* being saved
+            // — much too late, and on the wrong screen, for something that went
+            // wrong when the field was created. The refusal is where the field is
+            // written now ({@see Enumerates}), so what is left below is the
+            // behaviour of a definition that predates that rule or that a module
+            // wrote itself: render, save, and do not pretend to check a list
+            // there isn't one of.
             ...($choices === [] ? [] : [new Assert\Choice(choices: $choices)]),
         ];
+    }
+
+    /**
+     * The one option a choice field is not a choice field without (XIV-144).
+     *
+     * @return list<string>
+     */
+    public function needs(): array
+    {
+        return [self::CHOICES];
     }
 
     /**
@@ -147,8 +193,29 @@ final class ChoiceFieldType implements Autocompletes
     /** @return array<string, string> value => label */
     public static function choicesOf(FieldDefinition $field): array
     {
-        $choices = $field->getOption(self::CHOICES, []);
+        return self::clean($field->getOption(self::CHOICES, []));
+    }
 
+    /**
+     * The same list read out of a raw options value rather than a definition
+     * (XIV-144).
+     *
+     * Split out because the editor has to compare the list a field *has* with
+     * the list a save is *about to give it*, and the second one is an array in a
+     * request rather than anything a `FieldDefinition` can be asked for. One
+     * reading of what a stored `choices` means, used by both, so "which options
+     * are being removed" cannot be answered differently from "which options
+     * exist".
+     *
+     * Tolerant in the same way it has always been: anything that is not an array
+     * is no options at all, and a label that is not scalar falls back to the
+     * value, because a definition that has been hand-edited into nonsense should
+     * still render.
+     *
+     * @return array<string, string> value => label
+     */
+    public static function clean(mixed $choices): array
+    {
         if (!\is_array($choices)) {
             return [];
         }
@@ -159,6 +226,66 @@ final class ChoiceFieldType implements Autocompletes
         }
 
         return $clean;
+    }
+
+    /**
+     * The key a new option's records will hold, derived from the label somebody
+     * typed (XIV-144).
+     *
+     * **Derived once and then frozen**, which is the whole of the value/label
+     * split made operational. The customer types "Pallet"; every record from
+     * then on holds `pallet`; renaming the option to "Palette", or to "Palette
+     * (EUR)", changes what the page says and touches no record at all. Asking
+     * for the key as well would be asking somebody who wants a seventh unit to
+     * understand what a key is, and the honest way to phrase that question —
+     * "this cannot be changed afterwards" — is a sentence the shipped options
+     * never had to make anybody read.
+     *
+     * The trade is that a *typo* in a label is permanent in the key. It is the
+     * right trade: nobody but an export column ever sees a key, the label is
+     * fixable in the editor, and the alternative is a rename that silently
+     * orphans records — which is the one outcome §5.4 has refused everywhere
+     * else.
+     *
+     * Boring by construction, the same way a field key is
+     * ({@see \Xivi\Core\Metadata\MetadataEditor::KEY_PATTERN}): lowercase ASCII,
+     * digits and underscores, starting with a letter. Anything that transliterates
+     * to nothing at all — a label written entirely in an alphabet ASCII has no
+     * answer for — falls back to `option`, and the uniquifier below turns the
+     * second of those into `option_2`. A fallback rather than a refusal, because
+     * a customer naming their options in Greek is doing nothing wrong and the
+     * key is not the part they read.
+     *
+     * @param array<string, mixed> $taken the options that already exist, so two
+     *                                    labels that slug the same way do not
+     *                                    become one option
+     */
+    public static function valueFor(string $label, array $taken = []): string
+    {
+        $value = new AsciiSlugger(self::TRANSLITERATION_LOCALE)->slug($label, '_')->lower()->toString();
+        // The slugger keeps a few characters that are legal in a URL and not in
+        // an identifier — a dot in "3.5 m", a plus in "A+" — so the pattern the
+        // rest of the engine uses is applied rather than assumed.
+        $value = trim((string) preg_replace('/[^a-z0-9_]+/', '_', $value), '_');
+
+        if ($value === '' || ctype_digit($value[0])) {
+            // A key has to start with a letter, and "2 pieces" is a perfectly
+            // ordinary label. Prefixing beats dropping the digits, which would
+            // turn "2 pieces" and "3 pieces" into one option.
+            $value = $value === '' ? 'option' : 'option_' . $value;
+        }
+
+        if (!\array_key_exists($value, $taken)) {
+            return $value;
+        }
+
+        $suffix = 2;
+
+        while (\array_key_exists($value . '_' . $suffix, $taken)) {
+            ++$suffix;
+        }
+
+        return $value . '_' . $suffix;
     }
 
     /**

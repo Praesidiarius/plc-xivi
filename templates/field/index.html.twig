@@ -73,6 +73,7 @@
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.width'|trans }}</th>
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.autocomplete'|trans }}</th>
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.region'|trans }}</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.points_at'|trans }}</th>
 									<th scope="col"></th>
 								</tr>
 							</thead>
@@ -162,7 +163,45 @@
 												</select>
 											{% endif %}
 										</td>
+										{# Which module a reference points at (XIV-144). Only for the types
+										   whose values are ids in another module — today that is `reference`
+										   and nothing else. Unlike every other per-type control here this
+										   one has no useful blank: a reference pointing nowhere offers an
+										   empty picker and renders `#41` where a name belongs, so the
+										   engine refuses to save one, and the select has no empty option to
+										   choose.
+
+										   A module's own reference is drawn as what it is rather than as a
+										   control, because its target is what the module's own forms,
+										   documents and totals expect — the same reason its type is text
+										   and not a select. The hidden input is what keeps the save honest:
+										   this form names every setting it draws, so the one it deliberately
+										   does not draw still has to arrive unchanged. #}
+										<td>
+											{% if field.type in settable.module %}
+												{% if field.system %}
+													<span class="text-body-secondary small">{{ moduleChoices[field.getOption('module', '')]|default(field.getOption('module', '—')) }}</span>
+													<input form="f{{ field.id }}" type="hidden" name="module" value="{{ field.getOption('module', '') }}">
+												{% else %}
+													<select form="f{{ field.id }}" class="form-select form-select-sm"
+															name="module" style="width: 9rem" required>
+														{% for key, label in moduleChoices %}
+															<option value="{{ key }}" {{ field.getOption('module', '') == key ? 'selected' : '' }}>{{ label }}</option>
+														{% endfor %}
+													</select>
+												{% endif %}
+											{% endif %}
+										</td>
 										<td class="text-end text-nowrap">
+											{# Drawn, saved, validated and useless (XIV-144): a choice field
+											   with no options accepts anything and offers nothing, a
+											   reference with no target names no record. Nothing added here
+											   can reach that state any more, so what this marks is a field
+											   older than the rule — said out loud rather than left to be
+											   discovered, which is §8.3.1's whole argument. #}
+											{% if field.id in unfinished %}
+												<span class="badge text-bg-warning">{{ 'field.unfinished'|trans }}</span>
+											{% endif %}
 											<form id="f{{ field.id }}" method="post"
 												  action="{{ path('field_update', {module: module.key, field: field.id}) }}">
 												<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
@@ -171,6 +210,17 @@
 												{% endif %}
 												<button class="btn btn-sm btn-outline-secondary" type="submit">{{ 'common.save'|trans }}</button>
 											</form>
+											{#
+												The list a choice field is a choice between, on a page of
+												its own (XIV-144) — the second control here that does not
+												fit in a cell, and for numbering's reason: it is a row per
+												option, a rename that must not move a record and a removal
+												that may be refused with a paragraph.
+											#}
+											{% if field.type in settable.choices %}
+												<a class="btn btn-sm btn-outline-secondary"
+												   href="{{ path('field_options', {module: module.key, field: field.id}) }}">{{ 'field.options.link'|trans({'%count%': field.getOption('choices', {})|length}) }}</a>
+											{% endif %}
 											{#
 												Numbering is a page rather than a cell (XIV-27): what is
 												decided there is a pattern, the number it produces and the
@@ -236,8 +286,13 @@
 							</div>
 							<div class="col-sm-2">
 								<label class="form-label small mb-1" for="type{{ shape.id }}">{{ 'field.type'|trans }}</label>
+								{# Every type this editor can *configure*, which since XIV-144 is
+								   not the same as every type there is: offering one whose question
+								   this form cannot ask is offering a field that cannot be
+								   finished. Today they all pass, and the day one does not it
+								   disappears from here rather than being added broken. #}
 								<select id="type{{ shape.id }}" class="form-select form-select-sm" name="type">
-									{% for key, type in types %}
+									{% for key, type in addable %}
 										<option value="{{ key }}">{{ type.label }}</option>
 									{% endfor %}
 								</select>
@@ -265,8 +320,42 @@
 								<button class="btn btn-sm btn-primary" type="submit">{{ 'common.add'|trans }}</button>
 							</div>
 						</div>
+						{#
+							The two answers a type may not be able to do without (XIV-144).
+
+							Drawn for every add rather than shown when the type that needs them
+							is chosen, because choosing happens in the select above and this
+							page has no JavaScript deciding what is on it. That is honest
+							rather than merely cheap: the controller names a setting only for
+							a type that offers it, so a text field added with words in the
+							options box is a text field with no options — nothing is stored,
+							nothing is silently invented — and the label on each box says
+							which type it is for.
+
+							They are the reason a choice field is worth offering at all. The
+							engine refuses to write one with an empty list, so without a
+							control here the honest thing to do would have been to stop
+							offering the type.
+						#}
+						<div class="row g-2 align-items-end mt-1">
+							<div class="col-sm-6">
+								<label class="form-label small mb-1" for="choices{{ shape.id }}">{{ 'field.options.add_label'|trans }}</label>
+								<textarea id="choices{{ shape.id }}" class="form-control form-control-sm" name="choices"
+										  rows="2" placeholder="{{ 'field.options.add_placeholder'|trans }}"></textarea>
+							</div>
+							<div class="col-sm-3">
+								<label class="form-label small mb-1" for="module{{ shape.id }}">{{ 'field.points_at_label'|trans }}</label>
+								<select id="module{{ shape.id }}" class="form-select form-select-sm" name="module">
+									<option value="">—</option>
+									{% for key, label in moduleChoices %}
+										<option value="{{ key }}">{{ label }}</option>
+									{% endfor %}
+								</select>
+							</div>
+						</div>
 						<p class="text-body-secondary small mb-0 mt-2">
 							The name is where the value is stored and cannot be changed later; the label can.
+							{{ 'field.options.add_help'|trans }}
 						</p>
 					</form>
 				</div>
