@@ -144,6 +144,15 @@ final class TenantMigrationsAreAdditiveTest extends TestCase
         foreach (glob(\dirname(__DIR__, 2) . '/migrations/tenant/*.php') ?: [] as $file) {
             $name = basename($file);
 
+            // PHPStan is right that this cannot match: `EXEMPT` is empty, because
+            // XIV-151's squash removed its only entry. The mechanism is kept
+            // rather than deleted because the next author needs it on the day
+            // they are about to ship a destructive migration on purpose, and a
+            // mechanism they have to invent at that moment is one they skip
+            // instead. Deleting these three lines and re-deriving them later is
+            // the same code with the argument for it lost.
+            //
+            // @phpstan-ignore function.impossibleType (EXEMPT is empty; see above)
             if (\in_array($name, self::EXEMPT, true)) {
                 continue;
             }
