@@ -344,6 +344,38 @@ final class TenantProfileTest extends WebTestCase
         self::assertNull($this->profile()->getPaymentTermsDays());
     }
 
+    /**
+     * Whether this installation's prices already have the VAT in them is set here
+     * too (XIV-116), for the same reason the payment term above is: it is
+     * something the *business* says about itself once, rather than something a
+     * person restates on every document.
+     *
+     * What it does to the arithmetic is `VatIncludedPricesTest`'s; this is the
+     * page carrying it, and the third answer — blank — is the one worth a test,
+     * because blank has to stay distinguishable from "excluded". Both produce a
+     * net-priced document, and only blank leaves the field empty on the records it
+     * creates, which is what keeps a tenant that has never been asked producing
+     * documents shaped exactly as they were before this existed.
+     */
+    public function testTheVatModeIsSetOnThisPageAndBlankIsAnAnswer(): void
+    {
+        $this->signIn(self::ADMIN);
+        $this->client->request('GET', $this->url(self::PATH));
+
+        $this->client->submitForm('Save', [
+            'company_name' => 'Acme AG',
+            'currency' => 'CHF',
+            'vat_mode' => 'included',
+        ]);
+
+        self::assertSame('included', $this->profile()->getVatMode());
+
+        $this->client->request('GET', $this->url(self::PATH));
+        $this->client->submitForm('Save', ['company_name' => 'Acme AG', 'vat_mode' => '']);
+
+        self::assertNull($this->profile()->getVatMode(), 'nobody has said, which is not the same as "excluded"');
+    }
+
     // -- helpers ------------------------------------------------------------
 
     private function profile(): TenantProfile

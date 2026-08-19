@@ -330,6 +330,15 @@ services:
     # deriver that writes a due date has no business knowing what a tenant is.
     Xivi\Core\Payment\DefaultPaymentTerms: '@App\Tenant\Settings\ProfilePaymentTerms'
 
+    # And whether the prices somebody types already have the VAT in them
+    # (XIV-116). The third of the same seam, and the one whose *caller* is
+    # unusual: this is not read by a deriver at all, because a document's totals
+    # are a fact about that document (§5.9) and a deriver consulting a live
+    # setting would reprice every draft in the building the day it changed. It is
+    # asked once, when a blank form is built, and the answer is written onto the
+    # record — which is where the arithmetic reads it from ever after.
+    Xivi\Core\Money\DefaultVatMode: '@App\Tenant\Settings\ProfileVatMode'
+
     # Documents (XIV-4). Core fills a .docx template and asks for a PDF through
     # Xivi\Core\Document\PdfConverter; the application answers with Gotenberg,
     # a service on the compose network. Same seam as the currency above.

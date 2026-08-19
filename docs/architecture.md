@@ -3399,6 +3399,139 @@ thing asked about by kind, because a subtotal is defined by being one.
 argument to a date: an invoice's due date is derived and then stored, because
 payment terms that change must not restate a deadline somebody was already given.
 
+#### A price that already has the VAT in it (XIV-116)
+
+The four decisions above all assume the price typed is a **net** price and the
+tax goes on top. That is one of the two ways prices are quoted, and for a large
+part of this product's market it is the wrong one. A shop in Zurich, Vienna or
+Munich prices a lamp at 19.95 *including* 8.1%, because that is the number on
+the shelf and, for anything sold to a consumer, the number the law says has to be
+shown.
+
+Until this ticket such a shop could not enter that number. They had to divide by
+1.081 themselves, type 18.46, and hope the arithmetic came back — and at 19.95 it
+does not: 18.46 plus 8.1% of 18.46 is **19.96**. A rappen above the shelf price,
+on the customer's own document, and nobody in the building can explain it. That
+rappen is not a rounding bug to be tightened away; it is what happens when a
+number is derived from a derived number, and the only fix is to stop deriving the
+one the customer typed.
+
+**The mode is a value on the document, defaulted from the tenant.** Three shapes
+were on the table and the argument is the one §5.16 already made about a date:
+
+- **Per line** is wrong, and it is worth saying why rather than assuming it. Every
+  *other* money decision here is per line, including the rate — a document mixing
+  8.1% and 2.6% is an ordinary week. But a rate genuinely differs line by line,
+  and how to read a price does not: a document with some lines quoted gross and
+  some quoted net has a price column whose meaning changes halfway down it, and no
+  recipient can check such a column at all.
+- **Per tenant alone** is where the answer *comes from* — a shop is a shop, a
+  consultancy is a consultancy, and it is what makes an article's `price` field
+  unambiguous, since the catalogue is priced in whatever the installation says.
+  What it cannot be is the thing the arithmetic reads. The day somebody changes
+  the setting, every draft in the building would silently reprice, and every
+  document ever saved would recompute differently the next time anybody touched
+  it. That is the exact failure §5.9's first decision and §5.16's whole argument
+  exist to prevent: **what was agreed is a fact about that document.**
+- **Per document, materialised from the tenant's setting when the document is
+  created** — which is both. The setting seeds the field once, on a blank form;
+  the field is what `DerivesTotals` reads from then on; and a business that does
+  both is covered by the one document that differs. The chain is the one
+  [XIV-50], [XIV-67] and [XIV-83] already walk (`ProfileVatMode` implements
+  `DefaultVatMode`, beside `ProfileCurrency` and `ProfilePaymentTerms`), and
+  deliberately not a fourth variation of it.
+
+**Null at the top, for the third time on that row.** An installation nobody has
+asked writes nothing onto a new document, which is *not* the same as answering
+"excluded" even though both produce a net-priced document: only the first leaves
+an existing customer's records shaped exactly as they were. It is the same call
+§8.6 makes about the currency and §5.16 about the payment term, and it lands in
+the safe direction.
+
+**An invoice takes the mode from the order it was seeded from**, not from the
+settings page it happens to be saved on. §5.12's rule again: an invoice quotes
+what was agreed on the day, and a price column that changed meaning because
+somebody edited a setting afterwards would be the one figure on a sent document
+that kept moving.
+
+##### The arithmetic, and where the remainder lands
+
+**Inclusive is not a second deriver.** It is `DerivesTotals` — still the only
+thing computing any of this ([XIV-73]) — running the same loop the other way.
+Everything before the last three lines is shared: a line total is quantity times
+price rounded to two places, a comment line contributes nothing, a subtotal
+restates the block above it, and the VAT table has one row per rate with a rate of
+nothing getting no row. What the mode changes is which total the lines gave you:
+
+| | exclusive | inclusive |
+| --- | --- | --- |
+| the lines sum to | the **net** total | the **gross** total |
+| per rate | tax = `net × rate`, rounded once | net = `gross ÷ (1 + rate)`, rounded once |
+| | | tax = **`gross − net`**, the remainder |
+| the other total | gross = net + tax | net = gross − tax |
+
+**The gross the customer typed is the gross that prints**, and the whole design
+is in service of that one sentence. Deriving a net and then re-deriving a gross
+from it is precisely the mistake that produces the rappen, so the gross is never
+recomputed: it is the sum of a line-total column that was already rounded, and
+the tax is whatever is left of it once the net has come out.
+
+**So the remainder lands on the tax, and the rule generalises: the figure
+somebody typed is exact, and the derived figure absorbs what is left over.**
+[XIV-104] is deciding the same question for discounts and this is the answer to
+agree with.
+
+**There is no remainder to place *across* rates**, which is the other half of the
+question and it turns out to have been answered in 2026 by the third decision
+above. VAT is grouped per rate before it is rounded, so each rate's gross is split
+into a net and a tax that add back to exactly that rate's gross; a document at
+8.1% and 2.6% is two exact splits summed, and neither of them ever produces a
+leftover rappen for the other to absorb. Nothing had to be decided about which
+rate wins, because no rate ever loses.
+
+`Amount` gained one operation for this, `withoutPercent()`, and it is the first
+one on that class that rounds inside itself. That is not an inconsistency: every
+other operation there is exact and can honestly defer the decision, and division
+cannot — 19.95 ÷ 1.081 goes on forever. brick/math says the same thing in its
+signature, since `dividedBy()` demands a scale and a rounding mode and throws
+without them, so what happens here is the framework's own operation with §5.9's
+rule applied to it rather than a division helper invented for the occasion.
+
+##### What did not move
+
+**No stored total in any existing record can read differently.** Totals are
+stored rather than recomputed on read, so a record nobody saves is untouched by
+construction; the migration adds one nullable column to `tenant_profile` and
+writes into no document at all; and a record that *is* re-saved derives the same
+figures, because an empty `vat_mode` reads as excluded and the tenant's setting is
+never consulted while deriving. `VatMode::of()` is the single place that mapping
+lives, and it maps *every* way of saying nothing — a null, an empty string, a key
+that is not in the values at all, a value nobody could have meant — onto excluded
+rather than throwing, because this runs inside a save's transaction.
+
+**Existing tenants take the field deliberately**, through §7.2.1's offer, exactly
+as [XIV-118] did with the unit. A customer who never takes it has a shape
+identical to the one they had before this ticket and derives identically; a
+customer who takes it and answers nothing is in the same position with a blank
+field.
+
+**Two values and not three.** "No VAT" was already representable and always has
+been — it is a *rate* of nothing, which the third decision above settled. A third
+mode here would be a second way to say something the rate already says, free to
+disagree with it.
+
+**What the recipient reads.** The mode is an ordinary header field, so it is an
+ordinary document marker (§5.7) and appears in the reference list beside
+`[gross_total]` with nothing added. Its shipped labels are therefore **whole
+sentences** — "Prices include VAT", not "included" — because a template prints
+`[vat_mode]` and gets the *option's* label with no field name beside it, and a
+recipient reading one word next to a totals block is being asked to work out
+included in what. Like every label it becomes the customer's on install (§6.1),
+which is the point: "exkl. MWST" against "zzgl. MwSt." is house style as much as
+translation. A template written before this ticket is unchanged and prints
+nothing new, which is correct, because every document it can print is net-priced;
+a shop that switches adds one marker.
+
 ---
 
 ### 5.10 Document numbers (XIV-15, XIV-27)

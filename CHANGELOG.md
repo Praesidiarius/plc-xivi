@@ -103,6 +103,38 @@ lands in `Unreleased` here.
   been there. It exists because a knowledge entry that is quietly three years out
   of date is worse than one that is missing, and it is useful on every other list
   for the same reason.
+- **A price can already include VAT** ([XIV-116]) — an order and an invoice now
+  say how to read their own prices: *Prices exclude VAT*, which is what every
+  document has always been, or *Prices include VAT*, which is how a shop quotes
+  a lamp at 19.95 on the shelf. Type 19.95, and 19.95 is the total that prints —
+  the net and the VAT are worked out backwards out of it and the VAT takes the
+  remainder, so the figure the customer checks against your price list can never
+  come out a rappen off. Dividing by 1.081 yourself and typing 18.46 gave 19.96.
+  The VAT breakdown reads the same in both modes and still adds up to the totals,
+  including on a document carrying 8.1% and 2.6% at once. §5.9 has the argument
+  and the exact arithmetic.
+- **Set what your prices mean once** ([XIV-116]) — *Company profile* has a new
+  *Prices* setting beside the currency, and every new order and invoice starts on
+  it. It is copied onto the document rather than consulted afterwards, so a
+  business doing both changes it on the one document that differs, and an invoice
+  is priced like the order it was made from even if you switch in between.
+- **Nothing already stored changes, and no document you have sent reads
+  differently** ([XIV-116]) — every existing order and invoice keeps its stored
+  totals to the rappen, and a blank setting means exactly what it always meant:
+  prices exclude VAT. Changing the setting later never restates a document,
+  including a draft you go back and edit.
+- **On upgrade:** an existing installation does not gain the field until somebody
+  takes it. *Price basis* appears in *what your module has grown* on Orders and
+  on Invoices (§7.2.1) — two separate offers, because they are two modules — and
+  until it is taken those modules price exactly as they do today. The *Prices*
+  setting on the profile is there either way and has no effect on a module that
+  has not taken the field.
+- **Action if you switch a document to inclusive prices and print it:** a Word
+  template written before this ticket says nothing about which mode a document is
+  in, while its unit-price and line-total columns now show gross figures. Add the
+  new `[vat_mode]` marker to the template — it is in the reference list beside
+  `[gross_total]` — so the recipient reads *Prices include VAT* on the page. A
+  document left on *Prices exclude VAT* needs no change.
 - **A field can hold formatted text** ([XIV-131]) — a new field type, *Formatted
   text*, written as Markdown: headings, bold, italic, lists, links and tables. Add
   one in the field editor like any other. The form is a plain textarea with a
@@ -281,6 +313,7 @@ lands in `Unreleased` here.
 [XIV-18]: https://xivi.youtrack.cloud/issue/XIV-18
 [XIV-66]: https://xivi.youtrack.cloud/issue/XIV-66
 [XIV-102]: https://xivi.youtrack.cloud/issue/XIV-102
+[XIV-116]: https://xivi.youtrack.cloud/issue/XIV-116
 [XIV-118]: https://xivi.youtrack.cloud/issue/XIV-118
 [XIV-121]: https://xivi.youtrack.cloud/issue/XIV-121
 [XIV-124]: https://xivi.youtrack.cloud/issue/XIV-124

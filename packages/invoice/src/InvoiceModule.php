@@ -23,6 +23,7 @@ use Xivi\Core\Module\FieldBlueprint;
 use Xivi\Core\Module\ModuleBlueprint;
 use Xivi\Core\Module\ModuleProvider;
 use Xivi\Core\Money\LineTotals;
+use Xivi\Core\Money\VatMode;
 use Xivi\Core\Numbering\NumberFormat;
 use Xivi\Core\Payment\PaymentTerms;
 use Xivi\Core\Seed\Seed;
@@ -58,6 +59,9 @@ final class InvoiceModule implements ModuleProvider
     public const string NET_TOTAL = 'net_total';
     public const string TAX_TOTAL = 'tax_total';
     public const string GROSS_TOTAL = 'gross_total';
+
+    /** Whether the prices on this invoice already have the VAT in them (XIV-116). */
+    public const string VAT_MODE = 'vat_mode';
 
     public const string LINES = 'lines';
     public const string TAXES = 'taxes';
@@ -199,6 +203,39 @@ final class InvoiceModule implements ModuleProvider
                     type: 'textarea',
                     listed: false,
                     position: 50,
+                ),
+                // **How to read every price on this document** (XIV-116), and on
+                // an invoice it is emphatically not a live setting: it arrives by
+                // the seed below, from the order this bill was made from.
+                //
+                // That is this module following itself rather than disagreeing
+                // with itself. *Nothing* on an invoice line is read through
+                // anything — an invoice quotes what was agreed on the day (§5.12)
+                // — and a document whose price column changed meaning because
+                // somebody edited a settings page afterwards would be the one
+                // field on a sent bill that kept moving. The order was priced
+                // some way; the invoice for it is priced the same way; and the
+                // customer holding the paper can check the column against the
+                // one they signed.
+                //
+                // Optional, like the order's, and for the same load-bearing
+                // reason: every invoice that existed before this field carries
+                // nothing here, and nothing is what "prices exclude VAT" looks
+                // like — which is exactly what those invoices are.
+                new FieldBlueprint(
+                    key: self::VAT_MODE,
+                    label: 'field.vat_mode',
+                    type: 'choice',
+                    filterable: true,
+                    listed: false,
+                    position: 55,
+                    // Core's values, this module's labels — see the order's field
+                    // for the argument. The two must agree on the values or the
+                    // seed would copy a word this field has never heard of.
+                    options: [
+                        'samples' => VatMode::samples(),
+                        ...VatMode::shipped(),
+                    ],
                 ),
                 new FieldBlueprint(
                     key: self::NET_TOTAL,
@@ -445,6 +482,7 @@ final class InvoiceModule implements ModuleProvider
                 taxableNet: self::TAXABLE_NET,
                 taxAmount: self::TAX_AMOUNT,
                 subtotalKind: self::SUBTOTAL_LINE,
+                vatMode: self::VAT_MODE,
             ),
             // **Made from an order.** The customer comes along so the invoice can
             // be addressed and filtered without a second hop; the lines come
@@ -459,7 +497,13 @@ final class InvoiceModule implements ModuleProvider
             seed: new Seed(
                 from: self::ORDER_MODULE,
                 link: self::ORDER,
-                fields: [self::CONTACT => 'contact'],
+                // The customer, and how the order's prices were quoted
+                // (XIV-116). The second one is what makes an invoice for a
+                // shelf-priced order come out shelf-priced without anybody being
+                // asked again — and copying it, rather than reading the
+                // installation's setting when the invoice is saved, is what keeps
+                // a bill saying what the order it came from said.
+                fields: [self::CONTACT => 'contact', self::VAT_MODE => 'vat_mode'],
                 rows: new SeedRows(
                     from: 'lines',
                     to: self::LINES,

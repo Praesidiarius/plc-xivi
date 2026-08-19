@@ -144,6 +144,32 @@
 					<div class="form-text">{{ 'profile.payment_terms_help'|trans }}</div>
 				</div>
 
+				{# Whether the numbers this customer types into a price field
+				   already have the VAT in them (XIV-116). Directly under the
+				   currency's neighbours because it is the second half of "what a
+				   price here means": the currency says which money, this says
+				   whether the tax is inside it.
+
+				   Empty is a real answer and the one every installation starts
+				   on — it writes nothing onto a new document, and a document with
+				   nothing on it is priced net, which is what every record in
+				   every tenant already is. Choosing either option explicitly is
+				   different: the choice is copied onto each new document, and the
+				   document is what the arithmetic reads, so changing this later
+				   cannot restate anything already sent. #}
+				<div class="mb-3">
+					<label class="form-label" for="vat_mode">{{ 'profile.vat_mode'|trans }}</label>
+					<select class="form-select" id="vat_mode" name="vat_mode" {{ editable ? '' : 'disabled' }}>
+						<option value="">{{ 'profile.vat_mode_none'|trans }}</option>
+						{% for value, label in vatModes %}
+							<option value="{{ value }}" {{ profile.vatMode == value ? 'selected' : '' }}>
+								{{ label|trans }}
+							</option>
+						{% endfor %}
+					</select>
+					<div class="form-text">{{ 'profile.vat_mode_help'|trans }}</div>
+				</div>
+
 				{#
 					Who this installation's mail comes from, and which server it
 					leaves through (XIV-37). The two are one decision — see

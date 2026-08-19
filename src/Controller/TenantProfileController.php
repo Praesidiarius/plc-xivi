@@ -161,6 +161,7 @@ final class TenantProfileController extends AbstractController
             (string) $request->request->get('region'),
             $this->paymentTermsDays($request),
             (string) $request->request->get('timezone'),
+            (string) $request->request->get('vat_mode'),
         );
 
         $this->addFlash('success', $this->translator->trans('flash.profile_saved'));
@@ -256,6 +257,11 @@ final class TenantProfileController extends AbstractController
             'regions' => $this->profile->regionChoices($request->getLocale()),
             'timezones' => $this->timezones->choices($request->getLocale()),
             'timezoneDerived' => $this->timezones->name($derived, $request->getLocale()),
+            // Whether prices here already have the VAT in them (XIV-116). Off the
+            // enum rather than written out in the template, so the day a third
+            // mode exists the form cannot go on offering two — the same reason
+            // the logo's accepted formats below come off theirs.
+            'vatModes' => TenantProfileManager::vatModeChoices(),
             // What the upload will take, said in the two places it has to be said
             // (XIV-49): the `accept` attribute, which is a hint the file picker
             // uses and a browser is free to ignore, and the help text, which is

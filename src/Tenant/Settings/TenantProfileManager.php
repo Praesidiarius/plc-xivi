@@ -23,6 +23,7 @@ use Symfony\Component\Intl\Countries;
 use Symfony\Component\Intl\Currencies;
 use Symfony\Component\Intl\Timezones;
 use Symfony\Component\Mime\Address;
+use Xivi\Core\Money\VatMode;
 
 /**
  * The write side of the tenant profile (XIV-12).
@@ -77,6 +78,33 @@ final readonly class TenantProfileManager
     }
 
     /**
+     * The two ways a price can be quoted, as value => translation key
+     * (XIV-116).
+     *
+     * Built from the enum rather than written out on the page, so a third mode
+     * could never leave the form offering two — the same rule `LogoFormat` sets
+     * for the accepted upload types. **Keys rather than sentences**, because this
+     * is a settings page and the sentence has to be in the reader's own language;
+     * the template translates them.
+     *
+     * Static because it asks nothing of a tenant: which modes exist is a fact
+     * about the code, unlike the currency and country lists above, which need a
+     * locale to be named in.
+     *
+     * @return array<string, string>
+     */
+    public static function vatModeChoices(): array
+    {
+        $choices = [];
+
+        foreach (VatMode::cases() as $mode) {
+            $choices[$mode->value] = 'profile.vat_mode_' . $mode->value;
+        }
+
+        return $choices;
+    }
+
+    /**
      * Applies what the form said.
      *
      * An unknown currency code leaves the stored one alone rather than throwing.
@@ -91,6 +119,7 @@ final readonly class TenantProfileManager
         ?string $region = null,
         ?int $paymentTermsDays = null,
         ?string $timezone = null,
+        ?string $vatMode = null,
     ): TenantProfile {
         $profile = $this->profiles->current();
         $profile->setCompanyName($companyName);
@@ -129,6 +158,24 @@ final readonly class TenantProfileManager
         // zero is "on receipt" and null is "this installation does not put due
         // dates on anything", and both are answers somebody may mean.
         $profile->setPaymentTermsDays($paymentTermsDays);
+
+        // Whether this customer's prices already have the VAT in them (XIV-116).
+        // Empty clears it, and clearing is not the same as choosing "excluded":
+        // an unanswered question writes nothing onto the next document, where an
+        // explicit answer writes it down — which is what lets a document say, to
+        // whoever receives it, how to read its price column. Anything that is not
+        // one of the two modes came from a hand-edited request and changes
+        // nothing, the same call the currency, the region and the zone above all
+        // make.
+        //
+        // Nothing already stored moves either way. This is the default a *new*
+        // record starts with; every order and invoice that exists carries its own
+        // copy and is derived from that (§5.9).
+        if ($vatMode === '' || $vatMode === null) {
+            $profile->setVatMode(null);
+        } elseif (VatMode::tryFrom($vatMode) !== null) {
+            $profile->setVatMode($vatMode);
+        }
 
         // Persisted every time rather than only when new: the entity is already
         // managed on the normal path, and persist() on a managed entity is a

@@ -36,6 +36,11 @@ use Xivi\Core\Field\Type\CurrencyFieldType;
  *   before they round.
  * - **Half away from zero.** Ordinary commercial rounding, and symmetric, so a
  *   credit of 0.005 and a charge of 0.005 round to the same size.
+ * - **A price with the VAT already in it rounds the *derived* half and lets it
+ *   absorb the remainder** (XIV-116). The gross is the figure somebody typed and
+ *   the figure the recipient will check against a shelf, so it is never adjusted;
+ *   the net is the rounded quotient and the tax is what is left over. See
+ *   {@see self::withoutPercent()} for the arithmetic and §5.9 for the argument.
  *
  * Deliberately *not* rounding to five rappen: that is a rule about paying cash
  * in Switzerland, not about what an invoice says, and applying it here would
@@ -112,6 +117,53 @@ final readonly class Amount implements \Stringable
     public function percent(self $rate): self
     {
         return new self($this->value->multipliedBy($rate->value)->multipliedBy('0.01'));
+    }
+
+    /**
+     * The other direction: what this amount was before that percentage was added
+     * to it — 19.95 at 8.1 is 18.46 (XIV-116).
+     *
+     * Read it as the inverse of {@see self::percent()} and not as a second way of
+     * computing tax: `$gross->withoutPercent($rate)` answers "which net, plus
+     * that rate of itself, comes to this gross". Which is why the *tax* is
+     * deliberately not returned from here — see below.
+     *
+     * **Rounded inside, and that is the difference from every other operation on
+     * this class.** `times()`, `plus()` and `percent()` are exact and leave
+     * rounding to the caller to spell out, because they can be: multiplying two
+     * decimals has an exact decimal answer. Division does not. 19.95 ÷ 1.081 is
+     * 18.454209… and goes on forever, so there is no unrounded value to hand back
+     * and no honest way to defer the decision. brick/math says the same thing in
+     * its signature — `dividedBy()` demands a scale and a rounding mode and
+     * throws without them — and rather than invent a division helper of our own
+     * (there was none here before this ticket) the rule §5.9 already wrote down
+     * is applied to the framework's own operation: two places, halves away from
+     * zero.
+     *
+     * **The remainder is not this method's business, and that is the decision.**
+     * The obvious next line is `$gross->minus($gross->withoutPercent($rate))`,
+     * and that is exactly what {@see DerivesTotals} does: the tax is whatever is
+     * left of the gross once the net has been taken out of it, never
+     * `$net->percent($rate)` computed afresh. The two differ by a rappen on
+     * amounts like 19.95, and computing the tax here would have offered a caller
+     * the wrong one of them next to the right one. A rate of exactly nothing
+     * divides by one and returns the amount unchanged, which is the correct
+     * reading of "no VAT" rather than a special case.
+     *
+     * A rate of −100% or below would divide by zero or flip the sign, which is
+     * not a VAT rate anybody has ever set; the field type's own `min` keeps it
+     * from being typed, and this returns the amount untouched for whatever an
+     * import wrote, because a save must not die on one bad row.
+     */
+    public function withoutPercent(self $rate): self
+    {
+        $divisor = BigDecimal::one()->plus($rate->value->multipliedBy('0.01'));
+
+        if (!$divisor->isPositive()) {
+            return $this;
+        }
+
+        return new self($this->value->dividedBy($divisor, self::SCALE, RoundingMode::HalfUp));
     }
 
     /** @see self the class comment, which is where the rule lives */

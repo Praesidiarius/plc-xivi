@@ -34,6 +34,8 @@ use Xivi\Core\Form\ModuleRecordType;
 use Xivi\Core\Lifecycle\Lifecycles;
 use Xivi\Core\Metadata\AvailableVariants;
 use Xivi\Core\Metadata\MetadataRepository;
+use Xivi\Core\Module\ModuleRegistry;
+use Xivi\Core\Money\DefaultVatMode;
 use Xivi\Core\Permission\ModuleAction;
 use Xivi\Core\Record\CollectionLimit;
 use Xivi\Core\Record\DerivedValues;
@@ -120,6 +122,13 @@ final class RecordForm extends AbstractController
         private readonly AvailableVariants $variants,
         private readonly Lifecycles $lifecycles,
         private readonly TranslatorInterface $translator,
+        // Which of its own fields a module says holds the VAT mode, and what this
+        // installation prices in (XIV-116) — see applyVatMode(), which is the
+        // only thing either of them is for. The registry rather than the
+        // metadata, because a `LineTotals` declaration is part of what the module
+        // *is* and a customer's definitions are what they have made of it.
+        private readonly ModuleRegistry $modules,
+        private readonly DefaultVatMode $vatMode,
     ) {
     }
 
@@ -535,10 +544,53 @@ final class RecordForm extends AbstractController
                 $record->set((string) $definition->getVariantField(), $this->variant);
             }
 
+            $this->applyVatMode($definition, $record);
+
             return $record;
         }
 
         return $this->records->find($definition, $this->recordId) ?? throw $this->createNotFoundException();
+    }
+
+    /**
+     * A new document starts out priced the way the installation prices things
+     * (XIV-116).
+     *
+     * **Here, and not in a deriver, which is the whole design.** A shop's
+     * catalogue is priced on the shelf, so a new order should read it that way
+     * without somebody restating it on every document — but a *stored* document
+     * is a fact (§5.9), and a deriver consulting the setting on every save would
+     * silently reprice every draft in the building the day somebody changed it.
+     * So the setting seeds the field once, at the moment a blank form is built,
+     * and the field is what {@see \Xivi\Core\Money\DerivesTotals} reads from then
+     * on. That is exactly the relationship §5.16 gives a payment term and a due
+     * date: the rule applies when the document is made, and what the document
+     * keeps is the answer rather than the rule.
+     *
+     * **Three things stop this writing anything**, and each of them is a case
+     * that has to keep working:
+     *
+     * - the module declares no mode field at all, or the customer has deleted it
+     *   or never taken it from the upgrade offer (§6.1, §7.2.1) — in which case
+     *   there is nowhere to put an answer and no arithmetic reading one;
+     * - the seed already brought one along, which is how an invoice comes out
+     *   priced like the order it was made from (§5.12) rather than like today's
+     *   settings page;
+     * - nobody has answered the question on the profile, which is the state every
+     *   installation is in until they do. Nothing is written, the record stays
+     *   empty, and an empty value is read as "prices exclude VAT" — which is what
+     *   every document in every tenant already is.
+     */
+    private function applyVatMode(ModuleDefinition $definition, Record $record): void
+    {
+        $key = $definition->getKey();
+        $field = $this->modules->has($key) ? $this->modules->get($key)->lineTotals?->vatMode : null;
+
+        if ($field === null || $definition->getField($field) === null || $record->get($field) !== null) {
+            return;
+        }
+
+        $record->set($field, $this->vatMode->mode()?->value);
     }
 
     private function offers(string $collection, string $kind): bool

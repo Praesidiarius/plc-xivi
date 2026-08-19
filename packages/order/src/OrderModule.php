@@ -23,6 +23,7 @@ use Xivi\Core\Module\FieldBlueprint;
 use Xivi\Core\Module\ModuleBlueprint;
 use Xivi\Core\Module\ModuleProvider;
 use Xivi\Core\Money\LineTotals;
+use Xivi\Core\Money\VatMode;
 use Xivi\Core\Numbering\NumberFormat;
 use Xivi\Core\Record\InheritedValue;
 use Xivi\Order\Lifecycle\OrderNeedsALine;
@@ -63,6 +64,9 @@ final class OrderModule implements ModuleProvider
     public const string NET_TOTAL = 'net_total';
     public const string TAX_TOTAL = 'tax_total';
     public const string GROSS_TOTAL = 'gross_total';
+
+    /** Whether the prices on this order already have the VAT in them (XIV-116). */
+    public const string VAT_MODE = 'vat_mode';
 
     /** And the fields of one row of the VAT table. */
     public const string RATE = 'rate';
@@ -182,6 +186,64 @@ final class OrderModule implements ModuleProvider
                     type: 'textarea',
                     listed: false,
                     position: 40,
+                ),
+                // **How to read every price on this document** (XIV-116).
+                //
+                // A shop in Zurich prices a lamp at 19.95 *including* 8.1%,
+                // because that is the number on the shelf and, for anything sold
+                // to a consumer, the number the law says has to be shown. Until
+                // this field the engine could only be told a net price, so that
+                // shop had to divide by 1.081 themselves, type 18.46, and hope it
+                // came back — and at 19.95 it does not, because 18.46 plus 8.1%
+                // of itself is 19.96. The rappen lands on the customer's own
+                // document and nobody can explain it. The arithmetic that fixes
+                // that is in `DerivesTotals` and nowhere else.
+                //
+                // **On the document, and not on the line.** A document with some
+                // lines quoted gross and some quoted net is a document nobody can
+                // read; no recipient could check a column whose meaning changed
+                // halfway down it. The *rate* genuinely differs line by line and
+                // is on the line for that reason — how to read a price does not.
+                //
+                // **And not only on the tenant**, though the tenant is where the
+                // default comes from (§8.6): a value copied onto the document
+                // means a shop that switches to inclusive pricing has not
+                // silently restated every draft in the building, which is §5.9's
+                // rule that a stored total is a fact and §5.16's about a date.
+                // It also covers the business that does both, in the one place
+                // that can: the document that differs.
+                //
+                // **Optional, and that is the load-bearing part.** Every order
+                // that existed before this field carries nothing here, and an
+                // empty value reads as "prices exclude VAT" — which is exactly
+                // what those orders are. A required field would have made this a
+                // migration of somebody's order book instead of an addition to
+                // it, and §7.2.1 still retro-fits nobody: an existing customer
+                // takes the field from the upgrade offer, and until they do their
+                // orders derive precisely as they always did.
+                new FieldBlueprint(
+                    key: self::VAT_MODE,
+                    label: 'field.vat_mode',
+                    type: 'choice',
+                    // Worth a filter: "which of our orders are shelf-priced" is a
+                    // question a shop that has just switched will ask once and
+                    // then never again, and it is the cheapest possible way to
+                    // answer it. Not a list column, because a phrase repeated
+                    // down every row of a page of orders is noise.
+                    filterable: true,
+                    listed: false,
+                    position: 45,
+                    // The values are core's, spread into this module's own
+                    // options, exactly as the unit above is (§5.20): an invoice
+                    // seeded from an order copies this across, and a value the
+                    // invoice's field had never heard of would print as its own
+                    // key on somebody's bill. The *labels* stay this module's,
+                    // because a module that borrowed another's vocabulary would
+                    // be a module that cannot be installed on its own.
+                    options: [
+                        'samples' => VatMode::samples(),
+                        ...VatMode::shipped(),
+                    ],
                 ),
                 // **Stored, not worked out when read** (XIV-16). Three reasons,
                 // and the first two are the ones that matter: "orders over 5000"
@@ -498,6 +560,7 @@ final class OrderModule implements ModuleProvider
                 taxableNet: self::TAXABLE_NET,
                 taxAmount: self::TAX_AMOUNT,
                 subtotalKind: self::SUBTOTAL_LINE,
+                vatMode: self::VAT_MODE,
             ),
             // And an order that sells only custom lines is an ordinary order, so
             // this one is: without it, the article line kind is simply not

@@ -149,6 +149,40 @@ class TenantProfile
     private ?int $paymentTermsDays = null;
 
     /**
+     * Whether this installation quotes prices with the VAT already in them
+     * (XIV-116).
+     *
+     * A shop is a shop: a retailer's whole catalogue is priced on the shelf and
+     * a consultancy's whole catalogue is priced net, so this is a property of the
+     * *business* rather than of one document — which is also what makes an
+     * article's `price` field unambiguous, since the catalogue is priced in
+     * whatever this says.
+     *
+     * **What it is not is the thing the arithmetic reads.** A new order copies
+     * this onto itself and the copy is what {@see \Xivi\Core\Money\DerivesTotals}
+     * works from, so switching this setting cannot restate a document somebody
+     * has already been sent — the same relationship the payment term above has
+     * with an invoice's due date, and §5.9's rule that a stored total is a fact.
+     * A business doing both is covered by changing it on the one document that
+     * differs.
+     *
+     * **Null rather than "excluded"**, for the third time on this row and for the
+     * same reason as the currency and the term: an unanswered question and an
+     * answer that happens to match the old behaviour are different states, and
+     * only the first one leaves an existing installation's documents shaped
+     * exactly as they were. Null writes nothing onto a new record; a record with
+     * nothing on it is priced net, which is what every record in every tenant
+     * already is.
+     *
+     * A `VatMode` case's value, or null. Stored as text rather than as a boolean
+     * because "is inclusive" is a question with three answers here and a boolean
+     * has two — and because a third mode, if one is ever needed, should not be a
+     * migration of everybody's column type.
+     */
+    #[ORM\Column(name: 'vat_mode', length: 16, nullable: true)]
+    private ?string $vatMode = null;
+
+    /**
      * The address this customer's mail claims to come from (XIV-37).
      *
      * Empty until somebody fills it in, like the company name above and for the
@@ -371,6 +405,25 @@ class TenantProfile
         // a year is longer than any term anybody negotiates and short enough
         // that a stray keypress does not become a deadline in 2098.
         $this->paymentTermsDays = $days !== null && $days >= 0 && $days <= 365 ? $days : null;
+    }
+
+    /** A {@see \Xivi\Core\Money\VatMode} value, or null when nobody has said (XIV-116). */
+    public function getVatMode(): ?string
+    {
+        return $this->vatMode;
+    }
+
+    /**
+     * @param string|null $mode a `VatMode` value; the caller checks it is one
+     *
+     * The check is the caller's for the reason the currency's is: the entity is
+     * the store and the manager is where a submission is turned away, and
+     * splitting that differently for one column would be a second convention on
+     * one row
+     */
+    public function setVatMode(?string $mode): void
+    {
+        $this->vatMode = $mode === '' ? null : $mode;
     }
 
     public function getMailSenderAddress(): string
