@@ -74,6 +74,16 @@ upgrade:
     review_agree: '{count, plural, one {Ja, das zu {module} hinzufügen.} other {Ja, alle # zu {module} hinzufügen.}}'
 
 flash:
+    list_merged: '{count, plural, =0 {Zusammengeführt. Kein Datensatz trug ihn.} one {Zusammengeführt, # Datensatz wurde umgeschrieben.} other {Zusammengeführt, # Datensätze wurden umgeschrieben.}}'
     upgrade_taken: '{count, plural, one {# Teil zu {module} hinzugefügt. Es steht jetzt in der Feldliste und lässt sich umbenennen und umsortieren wie jedes andere.} other {# Teile zu {module} hinzugefügt. Sie stehen jetzt in der Feldliste und lassen sich umbenennen und umsortieren wie alle anderen.}}'
     password_too_short: '{count, plural, one {Verwende mindestens # Zeichen.} other {Verwende mindestens # Zeichen.}}'
     imported: 'Importiert. {module}: {added, plural, other {# hinzugefügt}}, {updated, plural, other {# geändert}}.'
+
+value_list:
+    merge:
+        writes: '{count, plural, one {<strong>#</strong> Datensatz wird umgeschrieben.} other {<strong>#</strong> Datensätze werden umgeschrieben.}}'
+        children: '{count, plural, one {# Eintrag darunter rückt unter den Eintrag, der bleibt.} other {# Einträge darunter rücken unter den Eintrag, der bleibt.}}'
+        agree: '{count, plural, one {Ja: diesen # Datensatz umschreiben und den Eintrag aus der Liste nehmen.} other {Ja: diese # Datensätze umschreiben und den Eintrag aus der Liste nehmen.}}'
+    delete:
+        what: '{count, plural, =0 {Die Liste hat keine Einträge — verloren geht nur die Liste selbst.} one {Die Liste und ihr # Eintrag verschwinden, samt Farben und Reihenfolge.} other {Die Liste und alle # Einträge verschwinden, samt Farben und Reihenfolge.}}'
+        orphans: '{count, plural, one {# Datensatz trägt noch einen ihrer Einträge und zeigt künftig den gespeicherten Code statt einer Beschriftung.} other {# Datensätze tragen noch Einträge daraus und zeigen künftig die gespeicherten Codes statt Beschriftungen.}}'

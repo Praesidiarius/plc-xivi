@@ -565,6 +565,125 @@ final readonly class RecordRepository
     }
 
     /**
+     * The other way round: which values live records hold that are **not** on a
+     * given list ([XIV-127]).
+     *
+     * {@see self::valueCountsAmong()} answers "is anything in the way of taking
+     * these away"; this answers "is anything in the way of only allowing
+     * these", which is the question a field acquires the moment its values start
+     * coming from somewhere else. Pointing a populated `choice` field at a
+     * shared list is exactly that question, and answering it is what let a
+     * shared list be an option on `choice` rather than a field type of its own
+     * (§5.4).
+     *
+     * **The empty list is a real question here, and that is the difference from
+     * the method above.** Asking "what does this column hold that is not among
+     * *nothing*" is asking what the column holds at all, and it has a perfectly
+     * good answer — so an empty `$values` runs the query without the `NOT IN`
+     * rather than short-circuiting. The other method's guard exists because
+     * `IN ()` is invalid SQL; here there is nothing to put in the parentheses in
+     * the first place.
+     *
+     * Capped, because the reader is a refusal. A field somebody points at the
+     * wrong list may hold four hundred distinct values that are not on it, and a
+     * sentence listing four hundred is a sentence nobody reads; the caller asks
+     * for one more than it means to print, which is how the message can tell
+     * "these five" from "at least these five" without a second query — the same
+     * trick {@see self::duplicateValues()} plays for the unique refusal.
+     *
+     * Empty and null are not "a value" and are excluded: a record with nothing
+     * in the field is not a record holding something the list has not got, and
+     * whether it may be empty at all is `required`'s question rather than this
+     * one.
+     *
+     * @param list<string> $values what the field's values will be allowed to be
+     *
+     * @return array<string, int> value => how many live records hold it, worst first
+     */
+    public function valueCountsExcept(
+        ShapeDefinition $shape,
+        FieldDefinition $field,
+        array $values,
+        int $limit = 6,
+    ): array {
+        $rows = $this->connection->fetchAllAssociative(
+            // The same subquery-and-group-by-the-output-column shape as
+            // `valueCountsAmong()`, and for the same reason: one named parameter
+            // written twice is two positional parameters by the time Postgres
+            // sees it, and two expressions it will not group.
+            sprintf(
+                "SELECT held_value, COUNT(*) AS held FROM (
+                     SELECT data->>:field AS held_value FROM %s WHERE deleted_at IS NULL
+                 ) AS values_held
+                 WHERE held_value IS NOT NULL AND held_value <> ''%s
+                 GROUP BY held_value
+                 ORDER BY COUNT(*) DESC, held_value ASC
+                 LIMIT %d",
+                $this->table($shape),
+                $values === [] ? '' : ' AND held_value NOT IN (:values)',
+                $limit,
+            ),
+            $values === []
+                ? ['field' => $field->getKey()]
+                : ['field' => $field->getKey(), 'values' => $values],
+            $values === [] ? [] : ['values' => ArrayParameterType::STRING],
+        );
+
+        $held = [];
+
+        foreach ($rows as $row) {
+            $held[(string) $row['held_value']] = (int) $row['held'];
+        }
+
+        return $held;
+    }
+
+    /**
+     * Rewrite one value into another, in one statement, across a whole shape
+     * ([XIV-127]).
+     *
+     * **@internal to {@see \Xivi\Core\ValueList\ValueListEditor::merge()}**, on
+     * exactly the terms {@see self::setValues()} is internal to the numbering
+     * backfill — and the reasoning transfers word for word, which is why it is
+     * worth naming rather than repeating in full. A merge is **one
+     * administrative act against a column**, not several hundred edits to
+     * several hundred records: putting it through RecordWriter would mean a
+     * transaction and a history entry per record, every deriver on the module
+     * re-run against records nobody touched, and `updated_at` bumped to today on
+     * every row. That last one decides it. "Zurich" and "Zürich" being the same
+     * region is not news about any particular order, and stamping four hundred
+     * orders as changed today in the act of saying so is precisely the confusion
+     * §5.10 objected to.
+     *
+     * What replaces the history entry is the confirmation page, which says what
+     * will happen and to how many records **before** it happens, rather than
+     * describing it four hundred times afterwards.
+     *
+     * One statement rather than the loop the backfill uses, and the difference
+     * is the shape of the work: a backfill computes a different value per row
+     * and this writes one value everywhere it finds another, which is a `WHERE`
+     * clause. Cheaper, and — the part that matters — atomic without depending on
+     * the caller's transaction to make it so.
+     *
+     * @return int how many rows were rewritten
+     */
+    public function replaceValue(
+        ShapeDefinition $shape,
+        FieldDefinition $field,
+        string $from,
+        string $to,
+    ): int {
+        return (int) $this->connection->executeStatement(
+            sprintf(
+                'UPDATE %s SET data = jsonb_set(data, ARRAY[:field], to_jsonb(:to::text))
+                 WHERE deleted_at IS NULL AND data->>:field = :from',
+                $this->table($shape),
+            ),
+            ['field' => $field->getKey(), 'to' => $to, 'from' => $from],
+        );
+    }
+
+    /**
      * Write one field's value into a set of records, and touch nothing else
      * (XIV-91).
      *

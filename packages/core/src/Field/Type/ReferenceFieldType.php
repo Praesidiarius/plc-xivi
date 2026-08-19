@@ -292,17 +292,24 @@ final class ReferenceFieldType implements Autocompletes, LinksToRecord, PointsAt
     }
 
     /**
-     * The one option a reference is not a reference without (XIV-144).
+     * The one question a reference is not a reference without, and its one
+     * answer (XIV-144).
      *
      * The variant is deliberately not here: a reference that says nothing about
      * it offers every record of its target module, which is a working field
      * rather than a broken one.
      *
-     * @return list<string>
+     * The nesting is [XIV-127]'s and costs this type nothing — one question,
+     * still exactly one way of answering it. Where a `choice` field acquired a
+     * second answer to *its* question, a reference has none in prospect: an id
+     * is only meaningful in the module it came from, so "which module" cannot be
+     * answered by anything but naming one.
+     *
+     * @return list<non-empty-list<string>>
      */
     public function needs(): array
     {
-        return [self::MODULE];
+        return [[self::MODULE]];
     }
 
     public static function targetModule(FieldDefinition $field): string

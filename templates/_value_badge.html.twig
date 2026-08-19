@@ -1,0 +1,30 @@
+{#
+	One value drawn as a chip: its colour, its picture and its label (XIV-127).
+
+	**Composed here rather than returned as markup**, which is the decision
+	`ValueBadge` records: the label is a customer's own typing and has to be
+	escaped by Twig like every other value on the page, and markup built in PHP is
+	markup a template cannot escape.
+
+	**Why these three classes and not `text-bg-{tone}`.** `text-bg-*` picks a
+	readable foreground against a *fixed* brand colour, and Bootstrap 5.3 does not
+	redefine those under `[data-bs-theme=dark]` — a chip built from them looks the
+	same on a dark page as on a light one, which is legible and wrong. The subtle
+	trio *is* redefined there, all three of it, so a chip built from these follows
+	the theme without this file knowing there are two. That is the whole of
+	`ValueTone`'s argument for a bounded palette, cashed out in one line of
+	classes.
+
+	The icon takes `currentColor`, so it arrives in the emphasis colour without a
+	second decision, and is `aria-hidden` because it is the label beside it drawn
+	a second way — a screen reader announcing "star, Preferred" reads the same
+	thing twice.
+
+	A badge with no tone still gets the border and the neutral emphasis, because a
+	value carrying only a picture is still a value somebody marked out.
+#}
+{% set tone = badge.tone ? badge.tone.value : 'secondary' %}
+<span class="badge rounded-pill bg-{{ tone }}-subtle text-{{ tone }}-emphasis border border-{{ tone }}-subtle">
+	{%- if badge.icon %}<i class="bi bi-{{ badge.icon.value }} me-1" aria-hidden="true"></i>{% endif -%}
+	{{ badge.label }}
+</span>

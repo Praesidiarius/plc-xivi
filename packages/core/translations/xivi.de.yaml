@@ -138,7 +138,7 @@ metadata:
     # das gezeichnet und gespeichert wird und nichts tut; eine Option, die unter
     # den Datensätzen weggenommen wird, die sie tragen; IDs, die weiterhin die
     # Namen der falschen Datensätze anzeigen.
-    option_unanswered: 'Ein Feld vom Typ „%type%“ tut nichts, solange „%option%“ nicht gesetzt ist — „%key%“ wurde nicht gespeichert. Ein Auswahlfeld ohne Optionen bietet nichts zur Auswahl und nimmt alles an; eine Referenz ohne Ziel hat nichts, worin sie einen Datensatz nachschlagen könnte.'
+    option_unanswered: 'Ein Feld vom Typ „%type%“ tut nichts, solange %option% nicht gesetzt ist — „%key%“ wurde nicht gespeichert. Ein Auswahlfeld ohne Optionen bietet nichts zur Auswahl und nimmt alles an; eine Referenz ohne Ziel hat nichts, worin sie einen Datensatz nachschlagen könnte.'
     options_are_held: '%count% vorhandene Datensätze tragen eine Option, die du aus „%key%“ entfernst: %values%. Sie stünden mit einem Wert da, den es in der Liste nicht mehr gibt, und ließen sich erst wieder speichern, wenn jemand sie in Ordnung bringt. Ändere diese Datensätze zuerst, oder behalte die Option.'
     options_are_the_modules: 'Das Feld „%key%“ kam mit dem Modul, und seine Optionen gehören zu dem, was das Modul tut — die Zustände, zwischen denen es Datensätze bewegt, die Arten von Datensatz, die es kennt. Ergänzen und umbenennen kannst du sie; entfernen wird nicht angeboten.'
     target_is_held: '%count% vorhandene Datensätze zeigen über „%key%“ auf Datensätze in „%from%“. Eine ID bedeutet nur in dem Modul etwas, aus dem sie gewählt wurde — zeigte dieses Feld auf „%to%“, würde jede einzelne davon den falschen Datensatz benennen oder gar keinen. Leere diese Datensätze zuerst, oder lass es auf „%from%“ zeigen.'
@@ -150,6 +150,16 @@ metadata:
     unknown_section: 'Auf diesem Modul gibt es keinen Abschnitt namens „%section%“, deshalb kann „%key%“ nicht hinein. Lege ihn zuerst auf der Abschnittsseite an.'
     section_needs_a_name: Ein Abschnitt ist eine Überschrift im Formular und braucht deshalb einen Namen — mehr sagt er nicht.
     sections_are_for_modules: '„%shape%“ ist eine Zeilenliste innerhalb eines Datensatzes und kein eigenes Formular, hat also keine Abschnitte, in die Felder passen.'
+    entries_are_held: '%count% vorhandene Datensätze tragen einen Eintrag, den du aus „%list%“ entfernst: %values%. Sie liegen in %where%. Diese Datensätze stünden mit einem Wert da, den es in der Liste nicht mehr gibt, und ließen sich erst wieder speichern, wenn jemand sie in Ordnung bringt. Ändere diese Datensätze zuerst, oder behalte den Eintrag.'
+    entry_has_children: '%count% Einträge stehen unter „%label%“, es lässt sich deshalb nicht entfernen. Verschiebe sie zuerst oder mache sie zu Einträgen der obersten Ebene.'
+    list_is_in_use: '„%list%“ lässt sich nicht löschen: %count% Felder beziehen ihre Werte daraus — %fields%. Zeige diese Felder zuerst woanders hin, dann kann die Liste weg.'
+    list_is_the_modules: 'Das Feld „%key%“ kam mit dem Modul, und seine Optionen gehören zu dem, was das Modul tut — die Zustände, zwischen denen es Datensätze bewegt, die Arten von Datensatz, die es kennt. Es kann sie nicht aus einer Liste beziehen, die du pflegst. Lege stattdessen ein eigenes Feld an und zeige dieses auf die Liste.'
+    list_key_taken: 'Eine gemeinsame Liste namens „%key%“ gibt es bereits.'
+    empty_list_label: 'Eine Liste braucht einen Namen: Er ist das, was der Feldeditor anbietet, wenn jemand ein Feld darauf zeigen lässt.'
+    cannot_merge_that: 'Eine Zusammenführung muss zwei verschiedene Einträge von „%list%“ benennen. Wähle den Eintrag, der bleibt, und den, der darin aufgeht.'
+    unknown_list: 'Hier gibt es keine gemeinsame Liste namens „%list%“, deshalb kann „%key%“ ihre Werte nicht beziehen.'
+    values_are_not_on_the_list: '%count% vorhandene Datensätze tragen in „%key%“ einen Wert, den es in der Liste „%list%“ nicht gibt: %values%. Zeigte das Feld auf diese Liste, stünden sie mit etwas da, das sie nicht enthält, und ließen sich erst wieder speichern, wenn jemand sie in Ordnung bringt. Ergänze diese Werte zuerst in der Liste, oder ändere die Datensätze.'
+    values_are_not_among_its_options: '%count% vorhandene Datensätze tragen in „%key%“ einen Wert, der keine der eigenen Optionen des Feldes ist: %values%. Nähme man das Feld von der gemeinsamen Liste, stünden sie mit etwas da, das das Feld nicht anbietet. Ergänze diese Optionen zuerst am Feld, oder lass es auf der Liste.'
 
 query:
     unknown_field: 'Auf „%shape%“ gibt es nichts namens „%path%“, wonach sich filtern oder sortieren ließe.'
@@ -173,3 +183,27 @@ markdown:
 phone:
     help_country: 'Ohne Landesvorwahl getippt, wird das als Nummer aus %country% gelesen.'
     help_no_country: 'Diese Installation hat kein Land hinterlegt — schreib Nummern deshalb vollständig, mit Landesvorwahl.'
+
+value_list:
+    tone:
+        primary: Akzent
+        secondary: Gedämpft
+        success: Grün
+        danger: Rot
+        warning: Bernstein
+        info: Blau
+        light: Blass
+        dark: Anthrazit
+    icon:
+        Circle: Punkt
+        Square: Quadrat
+        Star: Stern
+        Flag: Fahne
+        Place: Ort
+        Building: Gebäude
+        Person: Person
+        Box: Karton
+        Delivery: Lieferung
+        Tools: Werkzeug
+        Done: Haken
+        Attention: Warnung

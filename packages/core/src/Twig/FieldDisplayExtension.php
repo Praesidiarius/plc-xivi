@@ -22,6 +22,8 @@ use Xivi\Core\Field\FieldTypeRegistry;
 use Xivi\Core\Field\HoldsFormattedText;
 use Xivi\Core\Field\LinksToRecord;
 use Xivi\Core\Field\RecordLink;
+use Xivi\Core\Field\ShowsABadge;
+use Xivi\Core\Field\ValueBadge;
 use Xivi\Core\Markdown\MarkdownRenderer;
 
 /**
@@ -51,6 +53,7 @@ final class FieldDisplayExtension extends AbstractExtension
             // this one may hand back something already safe and `display()`
             // never can.
             new TwigFunction('formatted', $this->formatted(...)),
+            new TwigFunction('value_badge', $this->valueBadge(...)),
             new TwigFunction('display_stored', $this->displayStored(...)),
             new TwigFunction('in_field_order', $this->inFieldOrder(...)),
             new TwigFunction('record_title', $this->recordTitle(...)),
@@ -172,6 +175,28 @@ final class FieldDisplayExtension extends AbstractExtension
         return $type instanceof HoldsFormattedText
             ? new Markup($this->markdown->toHtml($type->source($value, $field)), 'UTF-8')
             : null;
+    }
+
+    /**
+     * The colour and the picture a value carries, when it carries any
+     * (XIV-127).
+     *
+     * The third function on this class with exactly this shape, after
+     * `record_link()` and `formatted()`, and the third one written this way for
+     * the reason the first two give: **the template asks the field, not the type
+     * key.** A page that wrote `field.type == 'choice'` would be a page to edit
+     * the next time something has a colour, and it would still be wrong today —
+     * a `choice` field keeping its own options has no colours, so the answer
+     * depends on the field rather than on its type.
+     *
+     * Null means "draw this the way you always did", which is what every field
+     * in every tenant returns until somebody points one at a shared list.
+     */
+    public function valueBadge(FieldDefinition $field, mixed $value): ?ValueBadge
+    {
+        $type = $this->fieldTypes->get($field->getType());
+
+        return $type instanceof ShowsABadge ? $type->badgeOf($value, $field) : null;
     }
 
     /**

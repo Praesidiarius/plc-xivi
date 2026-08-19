@@ -57,17 +57,34 @@ namespace Xivi\Core\Field;
 interface NeedsAnAnswer extends FieldType
 {
     /**
-     * The options a field of this type is not finished without, by name.
+     * The questions a field of this type is not finished without, and the
+     * options that answer each.
      *
-     * The names are the ones stored in the definition's own options — the same
-     * strings the editor's per-type list is keyed by — so that "the type needs
-     * this" and "the editor draws this" are two statements about one thing and
-     * can be compared. That comparison is a test
+     * One entry per *question*; the strings inside it are the ways of answering
+     * that one question, and **any one of them finishes it**. The names are the
+     * ones stored in the definition's own options — the same strings the
+     * editor's per-type list is keyed by — so that "the type needs this" and
+     * "the editor draws this" are two statements about one thing and can be
+     * compared. That comparison is a test
      * ({@see \App\Tests\Functional\Engine\EditorConfiguresEveryTypeTest}), and it
      * is what stops this defect coming back the next time somebody writes a
      * field type.
      *
-     * @return list<string>
+     * **It was a flat list until [XIV-127], and the nesting is that ticket's
+     * evidence rather than its speculation.** XIV-144 wrote this with one answer
+     * per question because both of its questions had exactly one: a reference's
+     * target is the target, and a choice field's options were the options. Then
+     * a shared list arrived — *take your values from "our regions"* — and a
+     * choice field acquired a second, equally complete answer to the same
+     * question, "where do this field's values come from". Flattening that back
+     * into two independent needs would say a choice field needs both, which is
+     * false and would refuse every definition in every tenant; leaving the list
+     * out of `needs()` altogether would say a field pointing at one is
+     * unfinished, which is the badge XIV-144 added and the wrong thing to show.
+     * So the shape grew the one axis it was missing, and the rule it encodes is
+     * still one sentence: **every question answered, by something.**
+     *
+     * @return list<non-empty-list<string>>
      */
     public function needs(): array;
 }

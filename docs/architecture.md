@@ -2785,6 +2785,16 @@ Two things read it, in different layers, and the split is the design:
   holds for the importer, the console and the form posted around the page — the
   same division `assertNumbersSomething()` already made, for the same reason.
 
+**A sixth entry followed, and it is a different shape** ([XIV-127], §5.26). Every
+entry so far names one option answering one question. A `choice` field's values
+may now come from its own options *or* from a shared list, which is two complete
+answers to one question — so `needs()` is a list of *questions*, each carrying the
+options that answer it, and the rule is still "every question answered, by
+something". The editor's side of it got stricter rather than looser: **every** way
+of answering has to be drawable, because a type offering two answers of which
+this form can ask only one is finishable *and* has a setting unreachable from the
+only screen there is.
+
 **A test over the registry is the part that stops this recurring**, and it is
 deliberately not a test about `choice` and `reference`. The defect was never that
 two types were forgotten; it was that nothing anywhere compared what a type needs
@@ -2832,6 +2842,16 @@ they point into it, whether the list lives in the field or beside it**, and if
 [XIV-127] wants a friendlier answer than a refusal, the friendlier answer is
 retirement and it has to arrive for both at once.
 
+**[XIV-127] landed and followed it** (§5.26). A shared list refuses a removal
+with the same sentence reached the same way, and names the *fields* as well as
+the values and counts, because its records are in modules the person removing the
+entry is not looking at. It did **not** build retirement, and said so plainly:
+the condition above is what stopped it — a third state per entry that has to
+arrive for `choices` and for a list at once, or a customer meets one picker that
+can retire and one that cannot. What it did instead was remove the commonest
+reason for asking: `Zurich` and `Zürich` become one entry rather than a dead one
+somebody wants hidden.
+
 ##### A module's own field's options may be added to and never taken from
 
 This section's oldest rule, one level down. A module's own **fields** cannot be
@@ -2866,6 +2886,21 @@ customer's own eighth unit from the seven the installer wrote. Refusing all of
 them costs somebody a dead entry in a dropdown they added by mistake; allowing
 all of them costs somebody their order lifecycle. Provenance per option is
 [XIV-127]'s to model, and it is the right place for it.
+
+**It was not the right place, and [XIV-127] says why** (§5.26). A shared list
+models entries as rows and *could* record who added each one — and does not,
+because on a shared list the question never arises: nothing seeds a list, so
+every entry in one is the customer's and a provenance column would hold a single
+value. Narrowing the refusal above is therefore still open and is still a problem
+about options inside a *field definition*, which is this section's shape rather
+than something a list can hand it.
+
+**And a module's own `choice` field cannot be pointed at a shared list either**,
+which is this rule holding against the longer route: a list the customer
+maintains is a list the customer can take entries out of, so allowing it would
+let a table cell somewhere else do exactly what the paragraph above refuses. A
+customer who wants their own vocabulary on a module's field adds a field of their
+own and points that at the list.
 
 ##### The value is derived from the label, once
 
@@ -2930,7 +2965,8 @@ Deliberately **not** in this:
 - **the `variant` narrowing**, which still has no control and is still cleared
   rather than migrated when a target moves;
 - **provenance per option**, which is what would let a module's own field give up
-  an option the customer added to it;
+  an option the customer added to it — still open after [XIV-127], and still this
+  section's problem rather than a shared list's;
 - **changing a field's type**, which is §7.2's open half and is not made any
   easier by any of this.
 
@@ -5919,6 +5955,15 @@ argument for closing it once rather than a second time by hand. It was closed in
 the field they already had, and a shared list is still the right home for "our
 units" when it arrives.
 
+*It has arrived* (§5.26), **and the unit field is deliberately not moved onto
+one.** A shared list is now buildable and a customer may make one; the article's
+`unit` is a module's own `choice` field and stays that way, because §5.4 refuses
+to point a module's own field at a list the customer maintains — the order line
+and the invoice line compare against these *values*, so an entry taken out of a
+list would break an inherited unit rather than a picker. "Our units" as a shared
+list is a thing a customer can now build for a field of their own; the seven the
+catalogue ships remain the catalogue's.
+
 #### The values are keys; the labels are the customer's
 
 The **value** is what every record holds and what an inherited copy is compared
@@ -6266,6 +6311,15 @@ strings, a shared list will also store strings, and the field's *type* changes
 while the values do not — the cheapest thing §7.2 has to do. **This module is
 recorded here as [XIV-127]'s first consumer**, so that whoever builds it has a
 caller to design against rather than a hypothesis.
+
+**It landed, and this module still ships a plain `choice`** (§5.26). Being the
+recorded consumer is what shaped the design — a shared list stores the same
+strings a `choice` field does, precisely so that this module's six topics could
+one day be a list without moving a record — and it is also why `topic` was left
+alone: §5.4 refuses to point a *module's own* field at a customer's list, since
+the customer could then take an entry out of one and change what the module
+declares. A workshop that wants its own vocabulary adds a field of its own and
+points that at a list, which is the shape this section was asking for.
 
 **The honest limit was §5.20's, word for word, arriving at a second module — and
 finding it twice is what closed it** ([XIV-144]). A customer can add a seventh
@@ -7186,6 +7240,290 @@ which is one module's internals living in the engine — and §5.4 already gives
 better answer, since the field editor removes a field somebody does not want. It
 is asserted in `OrderWithoutVouchersTest` so that it stays a decision rather than
 becoming a discovery.
+
+---
+
+### 5.26 A list a customer keeps, beside the fields that use it (XIV-127)
+
+Found by reading `OnePlc/PLC_X_Tag`, which is richer than its name: three tables
+holding a *dimension a customer invents*, its values — each with a colour, an
+icon and a parent — and a link onto any entity. What it solved that Xivi did not
+is one thing said three ways.
+
+A `choice` field owns its own options (§5.4), which is right for a closed set
+belonging to one field — an order's status, a contact's kind — and has three
+consequences for a set that belongs to the *business*:
+
+- **options are bare strings.** A status is text in a column and nothing is
+  visible at a glance;
+- **each field's list is its own.** *Region* on a contact and *Region* on an
+  order are unrelated strings that drift apart the moment somebody edits one, and
+  nothing anywhere can tell they were meant to be the same list;
+- **nothing tidies them.** The editor makes it easy to accumulate `Zürich`,
+  `Zurich` and `zurich`, and there was no operation that turned them back into
+  one.
+
+#### Not a module, and the reason is §3 rather than taste
+
+The obvious alternative was a module — the unit a customer installs, with a store
+entry, a price, permissions and records people browse. It loses on two counts and
+the second is structural.
+
+**Nobody browses a region.** A list has no record page, no follow-ups, no export
+and no history; everything in §6.3's shape would have been a field left empty.
+
+**A module may not depend on another module** (§3). A list that *contact*,
+*order* and *invoice* fields all point at can therefore only live where all three
+can see it, which is core. A "lists" module would have been a module every other
+module secretly required — precisely the shape deptrac exists to refuse. This is
+§5.20's argument for putting the seven units in `Xivi\Core\Field\Units` rather
+than in the article module, one level up and with rows instead of a constant.
+
+So: **a core concept beside field definitions**, two tables in the customer's own
+database, edited on a screen of its own under `/lists` and reached from the menu
+under somebody's own name rather than from any module's tab. Admin only, on
+§5.4's reasoning: changing the vocabulary several modules share is the same kind
+of change as changing what a module *is*.
+
+#### An option on `choice`, not a field type — and §5.21's objection is answered
+
+§5.21 argues, at length and correctly, that an option is the wrong shape when
+ticking it *reinterprets* everything already stored: a checkbox that turns a
+`textarea` into Markdown changes what every value already in the column means, at
+once, with no migration and nothing on any screen to say it happened. [XIV-113]
+is told there to follow that answer. This ticket does not, and the difference is
+not special pleading:
+
+- **nothing about the value changes.** A shared list stores the same kind of
+  string in the same column that a `choice` field's own options do. There is no
+  storage shape to reinterpret and no escaping decision anywhere near it — which
+  is the escape clause §5.21 wrote for itself: *a case where the option changes
+  neither what the value is nor how it must be escaped*;
+- **almost nothing that follows differs.** §5.21's test is how many things
+  diverge, and for `markdown` it counted four. Here the widget is the same
+  select, the operators are the same, the filter is the same and the storage is
+  the same. What differs is where the labels come from and whether a value can
+  carry a colour, and both are answered inside `ChoiceFieldType` without a caller
+  learning anything;
+- **the retroactivity that *is* real is refused rather than allowed.** Pointing a
+  populated field at a list whose entries do not include what its records hold
+  would leave those records failing their own field's validation — §5.4's trap.
+  So it is counted first and refused with the values named
+  (`valuesAreNotOnTheList`), in both directions, and what survives that check is a
+  change that reinterprets nothing, because every value still means what it
+  meant.
+
+A field type would also have cost the thing this ticket is for. A customer with
+three modules each carrying a "Region" choice field wants to **unify** them; with
+a new type that is three fields recreated and three columns moved by hand.
+§5.21 accepted exactly that cost for `markdown` because there was no safe path
+from a `textarea`. Here there is one, so it is built.
+
+**It fits XIV-144's shape rather than sitting beside it.** `ChoiceFieldType`
+gains `PointsAtAList` — the sixth capability, and the first that adds an *answer*
+rather than a question — one line in `FieldController::PER_TYPE` and one
+`<select>` in the field table. Nothing else in that class learned that lists
+exist.
+
+#### One question, two answers
+
+XIV-144 gave a type a way to say what it cannot work without: `needs()`, a flat
+list of options, every one required. A `choice` field's values may now come from
+its own options *or* from a list, and both are complete answers to one question —
+so `needs()` became a list of *questions*, each carrying the options that answer
+it, and the rule is still one sentence: **every question answered, by
+something.**
+
+Flattening was considered and is wrong in both directions. Naming both as
+separate needs says a choice field needs both, which would refuse every
+definition in every tenant. Naming only `choices` says a field pointing at a list
+is unfinished, which is the badge XIV-144 added and the wrong thing to show. The
+nesting is one axis, and it is the axis that was missing.
+
+`configurable()` reads it strictly: **every** way of answering must be drawable.
+A type offering two answers of which the editor can ask for only one *is*
+finishable through the form, so a laxer reading would pass — and the second
+answer would be unreachable from the only screen there is, which is XIV-144's
+silent gap one level in.
+
+#### Colour: eight, and the boundary is not aesthetic
+
+A hex per entry was the obvious answer and it fails on one fact about §8.3: every
+page is Bootstrap 5.3, which has **two themes**, and a colour a customer picked
+against a white page is a colour the dark one still has to read. `#f5f5f5` for
+"archived" is invisible at night, and nothing would report it — the customer who
+picked it is not the customer who reads it.
+
+So the palette is exactly **the colours the theme has a dark answer for**.
+Bootstrap defines, for its eight theme colours and for nothing else, the trio a
+chip needs — `--bs-{tone}-bg-subtle`, `--bs-{tone}-text-emphasis` and
+`--bs-{tone}-border-subtle` — and **redefines all three under
+`[data-bs-theme=dark]`**. A badge composed of those three follows the theme
+without anything in the codebase knowing there are two, which is the trick
+`.follow-up-priority` already plays with `--bs-danger` (XIV-84). Eight is
+therefore an answer rather than a round number: a ninth would be a colour with no
+dark counterpart, which is the thing being avoided.
+
+Two things follow that are worth naming. `text-bg-{tone}` is **not** used, though
+it is the obvious Bootstrap badge class: it computes a readable foreground
+against a *fixed* brand colour, and the brand colours are not redefined in dark
+mode — so a chip built from it is legible and identical in both themes, which is
+not what "survives dark mode" means. And the icons are a **bounded set of
+twelve**, for the same two reasons plus one: the name is interpolated into
+`class="bi bi-…"`, so a free string would be a customer's typing in the page's
+markup, and a *wrong* free string renders nothing at all, because Bootstrap Icons
+has no fallback glyph. Icons take `currentColor`, so they follow the tone with no
+second decision.
+
+The chip is drawn through `value_badge(field, value)`, which asks the **field**
+rather than its type — the third function on `FieldDisplayExtension` with that
+shape, after `record_link()` and `formatted()`, and written that way for their
+reason: a page switching on `field.type == 'choice'` is a page to edit the next
+time something has a colour. Null means "draw this the way you always did", which
+is what every field in every tenant answers until somebody colours an entry.
+
+#### Hierarchy: one level, and it changes the picker and nothing else
+
+A parent gives "category and sub-category", which is what a customer means by one
+and what the previous system's lists were used for. It is **one level deep**:
+arbitrary depth buys a tree widget, a cycle check and a recursive query, and a
+parent that must itself be a root makes cycles impossible by construction rather
+than by a guard.
+
+**What a hierarchy does to a filter is nothing, and that is the decision.**
+Filtering on "Switzerland" matches records holding Switzerland, not records
+holding Zürich. The argument is not about SQL: the count printed beside an entry,
+the refusal that reads that count and the merge that acts on it all count the
+value *exactly*, and a filter that counted differently would be a second notion
+of "records holding this" free to disagree with the first — which is the drift
+this codebase refuses everywhere else. If "including everything under it" is ever
+wanted, it is an **operator of its own** (§5.3), not a change to what `=` means
+depending on which field it is applied to.
+
+So a hierarchy is read rather than queried: the picker indents a child under its
+parent, and the list page shows the tree.
+
+#### Merge, which is XIV-91's backfill wearing a different hat
+
+Merging "Zurich" into "Zürich" rewrites a value on **every record holding it**,
+across every module and every collection whose fields point at the list, and
+there is no way back — afterwards nothing anywhere remembers which records used
+to say the other thing. That is §5.10's backfill exactly, and its answer
+transfers rather than being re-derived: **say what will happen, how many records
+it touches, and that it cannot be undone, before doing it.**
+
+Four things it inherits, and each was decided once:
+
+- **a page of its own.** Everything else on the list screen is instantaneous and
+  reversible; in a row of that table the change with the most consequences would
+  look like the cheapest one on the page;
+- **the plan is per field, and keeps the fields with nothing in them.** "Orders →
+  Region: none" says this reaches orders too and that today there is nothing
+  there, which is a fact about the *change*; dropping it would let the page be
+  read as "this only touches contacts", which is a fact about this afternoon;
+- **the confirmation is required in the controller**, not only as a `required`
+  attribute. An attribute is a courtesy to somebody using the page and nothing at
+  all to a form posted around it;
+- **no history entry, and `updated_at` is left alone.** A merge is one
+  administrative act against a column, not four hundred edits to four hundred
+  records; stamping every order as changed today in the act of saying two regions
+  were always one is the confusion §5.10 objected to. `replaceValue()` is
+  `@internal` to the merge on exactly `setValues()`'s terms.
+
+**Collections are in it** (§5.1), and that is not a nicety: a merge that rewrote
+the module's rows and skipped the order lines would leave half of somebody's data
+saying "Zurich" for ever, with nothing anywhere to say so.
+
+The figures reported afterwards come from the statements rather than from the
+plan, because a record saved between the two is one more record rewritten and the
+sentence somebody reads afterwards should be about what happened — XIV-91's split
+again, for its reason.
+
+#### Removing an entry records hold: refused, as §5.4 requires
+
+§5.4 states the rule in a form that reaches both mechanisms — *a list somebody's
+records point into cannot lose an entry while they point into it, whether the
+list lives in the field or beside it* — and this is the "beside it" half,
+implemented as the same refusal reached the same way. What is different is the
+**reach**, and it is why the message names the fields as well as the values and
+the counts: removing an option from a field's own list breaks records in that
+field, and removing an entry from a shared list breaks records in modules the
+person doing it is not looking at.
+
+The same rule one level up: **a list cannot be deleted while any field points at
+it**, with those fields named. And one this ticket adds: **an entry that other
+entries sit under cannot be removed** while they do, because a customer removing
+"Switzerland" has said nothing at all about what should become of "Zürich" and
+"Bern", and choosing for them would be a structural change arriving as a side
+effect of a different one.
+
+**Retirement is not built, and here is the plain answer §5.4 asked for.** Keeping
+an entry valid for the records that have it and out of the picker is still the
+genuinely better answer for the wholesaler with four hundred old orders. It is
+not built because §5.4 set the condition — *it has to arrive for both mechanisms
+at once* — and meeting that condition is a change to `choices` handling, to this
+list, to every reader of both, to two pickers, to two refusals and to the export:
+a third state per entry that every reader has to understand. Building it here
+would have shipped half of it and left a customer to find out which half they
+were using. What this ticket does instead is remove the *commonest* reason people
+ask for it: `Zurich` and `Zürich` become one entry rather than a dead one
+somebody wants hidden.
+
+**Per-option provenance stays undone, and the reason turned out to be better than
+"not yet".** XIV-144 refuses *any* removal from a module's own `choice` field
+because the definition records which **fields** came with the module and not
+which **options**, so a customer's own eighth unit is indistinguishable from the
+seven the installer wrote. Modelling entries as rows *would* let a shared list
+record who added each one — and it does not, because on a shared list the
+question does not arise: **nothing seeds a list.** Every list and every entry in
+one is the customer's, so a provenance column would hold one value. Narrowing
+XIV-144's refusal is therefore still open and is still XIV-144's shape of problem
+— options inside a field definition — rather than something this ticket can hand
+it.
+
+#### The relationship to [XIV-113], settled
+
+[XIV-113] asks whether a field may hold **several** values. The previous system
+answered it in the same breath as this one, through a many-to-many link table,
+and that is the half deliberately left here: **one answer to that question, in
+one place.**
+
+The settlement is that **a shared list is what a multi-value field points at.**
+This ticket builds no link table and no multi-value anything; a field takes one
+value out of a list exactly as a `choice` field always has. Whatever [XIV-113]
+builds — and §5.21 tells it to build a **type**, because a `multiple` option
+would change the storage shape of the value, which is the retroactivity argument
+at its strongest — points at the same `value_list` rows through the same `list`
+option, declares the same `PointsAtAList` capability, and inherits every refusal
+here for free: `ValueListUsage` finds a field by its type's capability rather
+than by its type's name, so the counts, the removal refusal and the merge follow
+without being written again.
+
+`ValueListReachesEveryTypeTest` is what keeps that promise honest. It asserts,
+over the container's own registry, that every type declaring `PointsAtAList`
+names `list` among its answers — because the scan reads exactly that option, and
+a second type keeping its key anywhere else would be invisible to the counts, to
+the refusal and to the merge, silently. It plants the violation too, on XIV-60's
+lesson.
+
+#### What is deliberately not here
+
+- **retirement**, argued above, and with it any way to remove an entry that
+  history holds;
+- **a list a module can seed.** A blueprint writes a customer's *definitions*
+  (§6.1) and a shared list is not one, which keeps that rule intact and keeps
+  provenance a non-question. A module wanting a vocabulary still ships a `choice`
+  field with options, as §5.20 and §5.22 do;
+- **a module's own `choice` field pointed at a list**, refused outright: an
+  order's `status` options are the states its lifecycle moves records between,
+  and a list the customer maintains is a list the customer can take entries out
+  of, so allowing it would be `optionsAreTheModules()` defeated by a longer
+  route. A customer wanting their own vocabulary on a module's field adds a field
+  of their own and points that at the list;
+- **more than one level of nesting**, and any operator that reads one;
+- **colour and icon anywhere but the record list and the record page.** A
+  document and an export get `display()`, which is the label — the same decision
+  §5.21 made about a formatted field in a table cell.
 
 ---
 

@@ -103,6 +103,7 @@
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.autocomplete'|trans }}</th>
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.region'|trans }}</th>
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.points_at'|trans }}</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.takes_from'|trans }}</th>
 									<th scope="col"></th>
 								</tr>
 							</thead>
@@ -249,6 +250,40 @@
 															name="module" style="width: 9rem" required>
 														{% for key, label in moduleChoices %}
 															<option value="{{ key }}" {{ field.getOption('module', '') == key ? 'selected' : '' }}>{{ label }}</option>
+														{% endfor %}
+													</select>
+												{% endif %}
+											{% endif %}
+										</td>
+										{#
+											Which shared list a choice field takes its values from
+											(XIV-127). Only for the types that can — today `choice` and
+											nothing else — and **blank is a real answer here**, unlike
+											the reference target beside it: it means the field keeps its
+											own options, which is what every choice field in every
+											tenant does and carries on doing without anybody touching
+											this control.
+
+											A module's own choice field is drawn as text rather than as
+											a select, on the same terms as its reference target: an
+											order's `status` options are the states its lifecycle moves
+											records between, and a list the customer maintains is a list
+											the customer can take entries out of. The hidden input keeps
+											the save honest — this form names every setting it draws, so
+											the one it deliberately does not draw still has to arrive
+											unchanged.
+										#}
+										<td>
+											{% if field.type in settable.list %}
+												{% if field.system %}
+													<span class="text-body-secondary small">{{ 'field.takes_from_own'|trans }}</span>
+													<input form="f{{ field.id }}" type="hidden" name="list" value="{{ field.getOption('list', '') }}">
+												{% else %}
+													<select form="f{{ field.id }}" class="form-select form-select-sm"
+															name="list" style="width: 9rem">
+														<option value="">{{ 'field.takes_from_own'|trans }}</option>
+														{% for key, label in listChoices %}
+															<option value="{{ key }}" {{ field.getOption('list', '') == key ? 'selected' : '' }}>{{ label }}</option>
 														{% endfor %}
 													</select>
 												{% endif %}
@@ -410,6 +445,22 @@
 								<select id="module{{ shape.id }}" class="form-select form-select-sm" name="module">
 									<option value="">—</option>
 									{% for key, label in moduleChoices %}
+										<option value="{{ key }}">{{ label }}</option>
+									{% endfor %}
+								</select>
+							</div>
+							{#
+								The other way of answering the same question as the box on the
+								left (XIV-127): a choice field's values may be its own options or
+								a list kept beside it, and either finishes the field. Which is why
+								neither control is `required` and the engine refuses a choice
+								field that arrives with neither, naming both in the sentence.
+							#}
+							<div class="col-sm-3">
+								<label class="form-label small mb-1" for="list{{ shape.id }}">{{ 'field.takes_from_label'|trans }}</label>
+								<select id="list{{ shape.id }}" class="form-select form-select-sm" name="list">
+									<option value="">—</option>
+									{% for key, label in listChoices %}
 										<option value="{{ key }}">{{ label }}</option>
 									{% endfor %}
 								</select>

@@ -123,6 +123,24 @@
 					label: 'nav.users'|trans,
 					current: on_users,
 				}]) %}
+
+				{#
+					The lists a customer keeps once and several fields point at
+					(XIV-127). **In this menu rather than on a module's tab**, and that
+					is the ticket's decision showing up in the navigation: a list belongs
+					to no module, and Kunden → Region and Aufträge → Region being the
+					same list is precisely the thing a per-module page cannot say.
+
+					Admin only, on the metadata editor's reasoning: changing the
+					vocabulary several modules share is the same kind of change as
+					changing what a module *is*.
+				#}
+				{% set items = items|merge([{
+					route: 'value_list_index',
+					icon: 'list-ul',
+					label: 'nav.lists'|trans,
+					current: route starts with 'value_list_',
+				}]) %}
 			{% endif %}
 
 			{#

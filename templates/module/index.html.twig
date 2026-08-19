@@ -229,7 +229,24 @@
 										{% endif %}
 									</td>
 									{% for field in columns %}
-										<td>{{ link.linked(field, record.get(field.key), display(field, record.get(field.key))) }}</td>
+										{#
+											A value the customer gave a colour to is drawn as a chip
+											(XIV-127). The template asks the *field* rather than its
+											type — `value_badge()` is the third function on
+											`FieldDisplayExtension` with that shape, after
+											`record_link()` and `formatted()`, and for the same
+											reason: a page that switched on `field.type == 'choice'`
+											is a page to edit the next time something has a colour.
+
+											Null is the answer for every field in every tenant until
+											somebody points one at a shared list and colours an
+											entry, so this row looks exactly as it did.
+										#}
+										{% set badge = value_badge(field, record.get(field.key)) %}
+										<td>
+											{%- if badge %}{{ include('_value_badge.html.twig', {badge: badge}) }}
+											{%- else %}{{ link.linked(field, record.get(field.key), display(field, record.get(field.key))) }}{% endif -%}
+										</td>
 									{% endfor %}
 									{# owner_id is a system column; the name is resolved by the
 									   application, since the engine does not know what a user is. #}

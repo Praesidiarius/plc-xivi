@@ -1,0 +1,103 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'value_list.title'|trans }}{% endblock %}
+
+{#
+	The lists a customer keeps once and several fields point at (XIV-127).
+
+	Its own page rather than a section of the field editor, because it belongs to
+	no module: a field editor is opened for *one* module, and the whole point of a
+	list is that Kunden → Region and Aufträge → Region are the same list. §5.4 has
+	the argument for it being a core concept beside field definitions rather than
+	a module of its own.
+
+	What each row says is where the list *reaches*, not how many entries it has.
+	The entry count is on the next page; what somebody needs here is the answer to
+	"may I delete this", which is a question about fields in modules they are not
+	looking at — and reading it now beats meeting it as a refusal later (§5.4).
+#}
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<div class="d-flex align-items-center justify-content-between mb-3">
+			<div>
+				<h1 class="h3 mb-0">{{ 'value_list.title'|trans }}</h1>
+				<p class="text-body-secondary small mb-0">{{ 'value_list.intro'|trans }}</p>
+			</div>
+		</div>
+
+		<div class="card mb-3">
+			<div class="card-body">
+				{% if lists is empty %}
+					<p class="text-body-secondary mb-0">{{ 'value_list.none'|trans }}</p>
+				{% else %}
+					<div class="table-responsive">
+						<table class="table table-sm align-middle mb-0">
+							<thead>
+								<tr>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'value_list.name'|trans }}</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'value_list.stored'|trans }}</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'value_list.entries'|trans }}</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'value_list.used_by'|trans }}</th>
+									<th scope="col"></th>
+								</tr>
+							</thead>
+							<tbody>
+								{% for list in lists %}
+									<tr>
+										<td>
+											<a href="{{ path('value_list_show', {list: list.key}) }}">{{ list.label }}</a>
+										</td>
+										<td><code>{{ list.key }}</code></td>
+										<td class="text-body-secondary small">{{ list.entries|length }}</td>
+										{#
+											Where this list reaches. A list nothing points at can be
+											deleted and one that something points at cannot, so this
+											column is the delete button's answer written out before
+											anybody presses it.
+										#}
+										<td class="text-body-secondary small">
+											{{ uses[list.key] is not empty ? uses[list.key]|join(', ') : 'value_list.used_by_nothing'|trans }}
+										</td>
+										<td class="text-end">
+											<a class="btn btn-sm btn-outline-danger"
+											   href="{{ path('value_list_confirm_delete', {list: list.key}) }}">{{ 'common.remove'|trans }}</a>
+										</td>
+									</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+				{% endif %}
+			</div>
+		</div>
+
+		{#
+			Adding one asks for a name and nothing else. The key is derived from it
+			once and then frozen, exactly as an option's value is (§5.4), because
+			asking somebody who wants a list of regions to also decide what the
+			database calls it is asking them to make a decision that only matters when
+			it is too late to change it.
+		#}
+		<div class="card">
+			<div class="card-body">
+				<form method="post" action="{{ path('value_list_create') }}" class="row g-2 align-items-end">
+					<input type="hidden" name="_token" value="{{ csrf_token('edit-lists') }}">
+
+					<div class="col-sm-6">
+						<label class="form-label small mb-1" for="list-label">{{ 'value_list.new_label'|trans }}</label>
+						<input id="list-label" class="form-control form-control-sm" name="label"
+						       placeholder="{{ 'value_list.new_placeholder'|trans }}" required>
+					</div>
+					<div class="col-sm-3">
+						<button class="btn btn-sm btn-primary" type="submit">{{ 'common.add'|trans }}</button>
+					</div>
+				</form>
+				<p class="text-body-secondary small mb-0 mt-2">{{ 'value_list.new_help'|trans }}</p>
+			</div>
+		</div>
+	</main>
+{% endblock %}

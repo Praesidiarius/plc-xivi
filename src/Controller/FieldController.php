@@ -33,6 +33,7 @@ use Xivi\Core\Field\FieldType;
 use Xivi\Core\Field\FieldTypeRegistry;
 use Xivi\Core\Field\NeedsAnAnswer;
 use Xivi\Core\Field\Numbers;
+use Xivi\Core\Field\PointsAtAList;
 use Xivi\Core\Field\PointsAtAModule;
 use Xivi\Core\Field\Type\ChoiceFieldType;
 use Xivi\Core\Field\Type\ReferenceFieldType;
@@ -47,6 +48,7 @@ use Xivi\Core\Numbering\AssignsNumbers;
 use Xivi\Core\Numbering\CounterRefused;
 use Xivi\Core\Numbering\NumberFormat;
 use Xivi\Core\Phone\PhoneRegion;
+use Xivi\Core\ValueList\ValueLists;
 
 /**
  * The metadata editor: a customer changing the shape of their own module.
@@ -152,6 +154,14 @@ final class FieldController extends AbstractController
         // is named on the save that draws it and on no other.
         ChoiceFieldType::CHOICES => Enumerates::class,
         ReferenceFieldType::MODULE => PointsAtAModule::class,
+        // The sixth, and the first that is a **second answer to a question
+        // already on this list** rather than a question of its own (XIV-127). A
+        // `choice` field's values may come from its own options or from a list
+        // the customer keeps beside it, and `needs()` says so by naming both in
+        // one entry — so this line is what makes the second one drawable, and
+        // `configurable()` below is what refuses a type that declared it and
+        // could not be asked.
+        ChoiceFieldType::LIST => PointsAtAList::class,
     ];
 
     public function __construct(
@@ -161,6 +171,10 @@ final class FieldController extends AbstractController
         private readonly TranslatorInterface $translator,
         private readonly NumberingChange $numbering,
         private readonly ModuleUpgrade $upgrade,
+        // The shared lists a choice field may take its values from (XIV-127).
+        // Read-only here: what a list *is* is edited on its own screens
+        // ({@see ValueListController}), and this page only ever offers one.
+        private readonly ValueLists $lists,
     ) {
     }
 
@@ -199,6 +213,11 @@ final class FieldController extends AbstractController
             // and a customer who renamed Contacts to Kunden should be choosing
             // "Kunden" here.
             'moduleChoices' => $this->installedModules(),
+            // And every shared list this customer keeps, for the option whose
+            // answer names one (XIV-127). Blank is a real answer here and not a
+            // broken field — it means the field keeps its own options, which is
+            // what every `choice` field in every tenant does today.
+            'listChoices' => $this->lists->asChoices(),
             // Which fields are drawn, saved, validated and useless: a choice
             // field with no options, a reference with nothing to point at
             // (XIV-144). Nothing new can reach this state — the engine refuses
@@ -569,6 +588,20 @@ final class FieldController extends AbstractController
             'module' => $definition,
             'field' => $target,
             'choices' => ChoiceFieldType::choicesOf($target),
+            // The shared list this field takes its values from, if it does
+            // (XIV-127) — in which case the options below are the field's *own*
+            // and are dormant.
+            //
+            // **This page stays reachable for such a field, deliberately.** A
+            // 404 was the tidier answer and it is a dead end: taking a field back
+            // off a list is only allowed when its own options cover what records
+            // hold, so somebody who wants to leave has to be able to edit those
+            // options first, and this is the only page that edits them. The
+            // banner says which of the two lists is actually in use, because a
+            // page of options that do nothing, unlabelled, is §8.3.1's failure.
+            'takesFrom' => ChoiceFieldType::listKeyOf($target) === ''
+                ? null
+                : $this->lists->find(ChoiceFieldType::listKeyOf($target)),
             // How many records hold each option, beside the option. The count is
             // why a removal will be refused, and reading it here rather than in
             // the refusal is the difference between somebody planning a change
@@ -1175,6 +1208,32 @@ final class FieldController extends AbstractController
             $options[ReferenceFieldType::MODULE] = $target === '' ? null : $target;
         }
 
+        if ($this->offers(ChoiceFieldType::LIST, $type) && $request->request->has(ChoiceFieldType::LIST)) {
+            // Which shared list a choice field takes its values from, or none
+            // (XIV-127) — and this one **does** have a meaningful empty, unlike
+            // the reference target above.
+            //
+            // Blank here is not "a field that does nothing", it is a field
+            // keeping its own options, which is what every `choice` field in
+            // every tenant already does and will carry on doing without anybody
+            // touching this control. So blank goes through as null, the merge
+            // clears the option, and the engine then judges whether the field is
+            // left with anything to be a choice between — which for a field that
+            // never had its own options is a refusal, and for one that did is
+            // the way back.
+            //
+            // Guarded by `has()` for the same reason the target is: a form that
+            // did not draw the control must not be read as somebody emptying it.
+            // The row form draws it for every choice field; the numbering and
+            // options pages draw neither and say nothing.
+            //
+            // Not checked against the lists that exist here — that check is on
+            // the write path, where the console and the importer meet it too,
+            // and a second copy in a controller is the copy that gets forgotten.
+            $list = trim((string) $request->request->get(ChoiceFieldType::LIST, ''));
+            $options[ChoiceFieldType::LIST] = $list === '' ? null : $list;
+        }
+
         return $options;
     }
 
@@ -1263,11 +1322,21 @@ final class FieldController extends AbstractController
             return true;
         }
 
-        foreach ($type->needs() as $option) {
-            $capability = self::PER_TYPE[$option] ?? null;
+        foreach ($type->needs() as $answers) {
+            foreach ($answers as $option) {
+                $capability = self::PER_TYPE[$option] ?? null;
 
-            if ($capability === null || !$type instanceof $capability) {
-                return false;
+                if ($capability === null || !$type instanceof $capability) {
+                    // **Every** way of answering, not merely one of them
+                    // (XIV-127). A type offering two answers of which the editor
+                    // can only ask for one is a type this form can finish, and
+                    // it is also a type whose second answer is unreachable from
+                    // the only screen there is — which is the same silent gap
+                    // XIV-144 closed, one level in. The stricter reading costs
+                    // nothing today and is the one that keeps going red for the
+                    // right reason.
+                    return false;
+                }
             }
         }
 
@@ -1319,14 +1388,23 @@ final class FieldController extends AbstractController
                     continue;
                 }
 
-                foreach ($type->needs() as $option) {
-                    $answer = $field->getOption($option);
+                foreach ($type->needs() as $answers) {
+                    // A question is unanswered only when *none* of its answers
+                    // is given (XIV-127) — a choice field pointing at a shared
+                    // list has no options of its own and is finished, and
+                    // marking it would be the badge saying the opposite of the
+                    // truth.
+                    foreach ($answers as $option) {
+                        $answer = $field->getOption($option);
 
-                    if ($answer === null || $answer === '' || $answer === []) {
-                        $unfinished[] = $id;
-
-                        break;
+                        if ($answer !== null && $answer !== '' && $answer !== []) {
+                            continue 2;
+                        }
                     }
+
+                    $unfinished[] = $id;
+
+                    break;
                 }
             }
         }

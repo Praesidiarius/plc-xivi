@@ -14,15 +14,13 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Engine;
 
 use App\Controller\FieldController;
+use App\Tests\Support\UnaskableType;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Component\Form\Extension\Core\Type\TextType;
-use Symfony\Component\Validator\Constraints as Assert;
-use Xivi\Core\Entity\FieldDefinition;
+use Xivi\Core\Field\FieldType;
 use Xivi\Core\Field\FieldTypeRegistry;
 use Xivi\Core\Field\NeedsAnAnswer;
 use Xivi\Core\Field\Type\ChoiceFieldType;
 use Xivi\Core\Field\Type\ReferenceFieldType;
-use Xivi\Core\Query\Operator;
 
 /**
  * The editor does not offer a field type it cannot configure (XIV-144).
@@ -75,9 +73,9 @@ final class EditorConfiguresEveryTypeTest extends KernelTestCase
                 . 'it, and a control to templates/field/index.html.twig — or the type cannot be added by a '
                 . 'customer at all (docs/architecture.md §5.4).',
                 $key,
-                implode(', ', $type instanceof NeedsAnAnswer ? $type->needs() : []),
+                implode(', ', self::optionsOf($type)),
                 implode(', ', array_diff(
-                    $type instanceof NeedsAnAnswer ? $type->needs() : [],
+                    self::optionsOf($type),
                     array_keys(FieldController::PER_TYPE),
                 )) ?: 'one of them',
             ));
@@ -107,8 +105,47 @@ final class EditorConfiguresEveryTypeTest extends KernelTestCase
 
         self::assertInstanceOf(NeedsAnAnswer::class, $choice);
         self::assertInstanceOf(NeedsAnAnswer::class, $reference);
-        self::assertSame([ChoiceFieldType::CHOICES], $choice->needs());
-        self::assertSame([ReferenceFieldType::MODULE], $reference->needs());
+        // One question each, and the choice field's has **two** answers since
+        // [XIV-127]: its own options, or a shared list it is pointed at. Written
+        // out rather than flattened, because the nesting is the statement — a
+        // flat list would say a choice field needs both, which would refuse every
+        // definition in every tenant.
+        self::assertSame([[ChoiceFieldType::CHOICES, ChoiceFieldType::LIST]], $choice->needs());
+        self::assertSame([[ReferenceFieldType::MODULE]], $reference->needs());
+    }
+
+    /**
+     * Every way of answering is drawable, not merely one of them ([XIV-127]).
+     *
+     * The planted violation for the alternation itself, and it is the one this
+     * ticket could most plausibly have broken: a type offering two answers of
+     * which the editor can only ask for one *is* finishable through the form, so
+     * a laxer rule would pass — and the second answer would be unreachable from
+     * the only screen there is, which is XIV-144's silent gap one level in.
+     */
+    public function testATypeWhoseSecondAnswerNobodyDrewIsNotOfferedForAdding(): void
+    {
+        self::assertFalse(
+            FieldController::configurable(new class extends UnaskableType {
+                public function needs(): array
+                {
+                    // The first answer is drawn and the second is not, which is
+                    // exactly the shape a `choice` field would have had if
+                    // PER_TYPE had never learned about shared lists.
+                    return [[ChoiceFieldType::CHOICES, 'bucket']];
+                }
+            }),
+        );
+    }
+
+    /**
+     * Every option any type names, flattened, for the message above.
+     *
+     * @return list<string>
+     */
+    private static function optionsOf(FieldType $type): array
+    {
+        return $type instanceof NeedsAnAnswer ? array_merge(...$type->needs()) : [];
     }
 
     /**
@@ -123,73 +160,13 @@ final class EditorConfiguresEveryTypeTest extends KernelTestCase
     public function testATypeNeedingSomethingNobodyDrewIsNotOfferedForAdding(): void
     {
         self::assertFalse(
-            FieldController::configurable(new class implements NeedsAnAnswer {
+            FieldController::configurable(new class extends UnaskableType {
                 public function needs(): array
                 {
                     // An option no capability in PER_TYPE is keyed by, which is
                     // what "somebody wrote a field type and no control for it"
                     // looks like from here.
-                    return ['bucket'];
-                }
-
-                public function key(): string
-                {
-                    return 'attachment';
-                }
-
-                public function label(): string
-                {
-                    return 'Attachment';
-                }
-
-                public function constraints(FieldDefinition $field): array
-                {
-                    return [new Assert\Type('string')];
-                }
-
-                public function sample(FieldDefinition $field, int $sequence): mixed
-                {
-                    return null;
-                }
-
-                public function toStorage(mixed $value, FieldDefinition $field): mixed
-                {
-                    return $value;
-                }
-
-                public function fromStorage(mixed $value, FieldDefinition $field): mixed
-                {
-                    return $value;
-                }
-
-                public function formType(): string
-                {
-                    return TextType::class;
-                }
-
-                public function formOptions(FieldDefinition $field): array
-                {
-                    return [];
-                }
-
-                public function display(mixed $value, FieldDefinition $field): string
-                {
-                    return (string) $value;
-                }
-
-                public function operators(): array
-                {
-                    return [Operator::Equals];
-                }
-
-                public function comparableSql(string $accessor): string
-                {
-                    return $accessor;
-                }
-
-                public function defaultWidth(): int
-                {
-                    return 6;
+                    return [['bucket']];
                 }
             }),
             'a type whose need nothing draws must not be offered in the add-field select',

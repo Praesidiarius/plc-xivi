@@ -154,12 +154,17 @@ final class TopbarMenuTest extends WebTestCase
      * installation's, and **Support** last (XIV-123): it is what somebody hunts
      * for when the rest of the product has already disappointed them, so it
      * belongs at the end rather than competing with what they came to do.
+     *
+     * **Lists** sits beside Users and behind the same role ([XIV-127]). It is in
+     * this menu rather than on a module's tab because a shared list belongs to no
+     * module — *Kunden → Region* and *Aufträge → Region* being one list is
+     * precisely what a per-module page cannot say (§5.26).
      */
     public function testAnAdministratorSeesTheWholeMenu(): void
     {
         $this->signIn(self::ADMIN);
 
-        self::assertSame(['Account', 'Company', 'Store', 'Users', 'Support'], $this->menuItems());
+        self::assertSame(['Account', 'Company', 'Store', 'Users', 'Lists', 'Support'], $this->menuItems());
     }
 
     // -- what the redesign could have lost -----------------------------------

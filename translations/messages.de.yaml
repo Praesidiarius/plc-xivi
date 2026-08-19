@@ -36,6 +36,7 @@ nav:
     store: Store
     account: Konto
     support: Support
+    lists: Listen
     sign_out: Abmelden
 
 login:
@@ -375,6 +376,9 @@ field:
     # dass eine Bestellung einen Kontakt benennt.
     points_at: Zeigt auf
     points_at_label: 'Zeigt auf (Referenzfelder)'
+    takes_from: Werte aus
+    takes_from_label: 'Werte aus (Auswahlfelder)'
+    takes_from_own: Eigene Optionen
     unfinished: unfertig
     back_to: Zurück zu %module%
     rule_required: Pflichtfeld
@@ -462,6 +466,11 @@ field:
             Dieses Feld kam mit dem Modul, und seine Optionen gehören zu dem, was das Modul tut —
             die Zustände, zwischen denen es Datensätze bewegt, die Arten von Datensatz, die es
             kennt. Ergänzen und umbenennen kannst du sie; entfernen wird nicht angeboten.
+        on_a_list: >-
+            Dieses Feld bezieht seine Werte aus der gemeinsamen Liste „%list%“ — die Optionen unten
+            gehören dem Feld selbst und sind gerade nicht in Gebrauch. Sie sind das, worauf es
+            zurückfällt, wenn du es von der Liste nimmst.
+        on_a_list_link: Diese Liste öffnen
     # Die Nummerierungsseite (XIV-27). Diese Sätze leisten mehr als die üblichen
     # Beschriftungen: Der Hilfetext muss die Syntax beibringen, und die beiden
     # Hinweise müssen das sagen, was niemand errät — dass ein Muster nichts
@@ -574,6 +583,72 @@ field:
 # wird eine Änderung an der Form jedes Datensatzes eines Moduls, und das
 # Wichtigste ist nicht, was passiert, sondern was *nicht* — eigene Änderungen
 # werden nicht überschrieben, nichts wird entfernt, kein Feldtyp ändert sich.
+value_list:
+    title: Listen
+    intro: >-
+        Eine Liste, die du einmal pflegst und aus mehreren Feldern verwendest. „Region“ am
+        Kontakt und „Region“ am Auftrag können dieselbe Liste sein und laufen so nicht
+        auseinander.
+    none: Noch keine Listen. Lege unten eine an und zeige dann im Feldeditor ein Auswahlfeld darauf.
+    name: Name
+    stored: Gespeichert als
+    entries: Einträge
+    used_by: Verwendet von
+    used_by_nothing: noch nichts
+    back: Zurück zu den Listen
+    new_label: Name der neuen Liste
+    new_placeholder: Regionen
+    new_help: >-
+        Gespeichert wird in jedem Datensatz ein kurzer Code, der aus dem ersten Namen entsteht —
+        <code>regionen</code> — und der ändert sich nie wieder. Die Liste später umzubenennen
+        kostet also nichts.
+    no_entries: Diese Liste ist leer. Füge unten Einträge hinzu, einen pro Zeile.
+    colour: Farbe
+    icon: Symbol
+    under: Unter
+    no_colour: keine
+    no_icon: keins
+    no_parent: '—'
+    add_label: Einträge hinzufügen, einen pro Zeile
+    removal_note: >-
+        Ein Eintrag, den kein Datensatz trägt, lässt sich entfernen. Einer, den Datensätze
+        tragen, nicht — irgendwo in der Installation, nicht nur im gerade geöffneten Modul —
+        denn diese Datensätze stünden mit einem Wert da, den es in der Liste nicht mehr gibt.
+    merge:
+        title: Zwei Einträge zusammenführen
+        intro: >-
+            Zwei Einträge, die dasselbe meinen — „Zurich“ und „Zürich“. Jeder Datensatz mit dem
+            einen wird auf den anderen umgeschrieben, und der erste Eintrag verschwindet.
+        from: Diesen Eintrag
+        into: in diesen
+        review: Zusammenführung prüfen
+        confirm_title: '„%from%“ in „%into%“ zusammenführen?'
+        what: >-
+            Jeder Datensatz mit <strong>%from%</strong> trägt danach <strong>%into%</strong> —
+            überall in dieser Installation — und <strong>%from%</strong> wird aus „%list%“
+            entfernt.
+        irreversible: Das lässt sich nicht rückgängig machen. Danach hält nichts mehr fest, welchen der beiden ein Datensatz vorher trug.
+        writes_none: Kein Datensatz trägt diesen Eintrag heute, es wird also nichts umgeschrieben — der Eintrag wird nur aus der Liste genommen.
+        where: Wo
+        records: Datensätze
+        no_fields: Noch kein Feld bezieht seine Werte aus dieser Liste, es wird also nichts umgeschrieben.
+        note: >-
+            In die Datensatz-Historie wird nichts geschrieben: Dies ist eine Änderung an einer
+            Liste und keine Bearbeitung jedes einzelnen Datensatzes — deren Datumsangaben
+            bleiben, wie sie waren.
+        agree_none: 'Ja: diesen Eintrag aus der Liste nehmen.'
+        do: Zusammenführen
+    delete:
+        title: „%list%“ löschen?
+        in_use: >-
+            Diese Liste lässt sich nicht löschen, solange Felder ihre Werte daraus beziehen:
+            %fields%. Zeige diese Felder zuerst woanders hin.
+        records_keep: >-
+            <strong>In deinen Datensätzen wird nichts gelöscht.</strong> Ein Datensatz behält den
+            Code, mit dem er gespeichert wurde, und zeigt dann diesen Code statt der
+            Beschriftung.
+        do: Liste löschen
+
 upgrade:
     title: Was dieses Modul dazubekommen hat
     subtitle: '%module% — Teile des Moduls, die deine Kopie nicht hat.'
@@ -1099,6 +1174,9 @@ mail:
 
 flash:
     saved: Gespeichert.
+    list_created: '„%list%“ angelegt. Füge unten die Einträge hinzu.'
+    list_saved: '„%list%“ gespeichert.'
+    list_deleted: '„%list%“ gelöscht. Datensätze, die Einträge daraus trugen, behalten die gespeicherten Codes.'
     transitioned: 'Jetzt %state%.'
     # Wiedervorlagen (XIV-82). Die Erfolgsmeldung sagt, wohin es gegangen ist —
     # es steht nicht in der Mitte der Seite, und wer nicht hochschaut, hält es
