@@ -601,6 +601,21 @@ lands in `Unreleased` here.
   an issue still names exactly what it named before. References that carried the
   file path were rewritten to the file the section now lives in (166 of them, plus
   18 anchor links). Condensing the content is separate and still to come.
+- **§4 *Deployment topology* is shorter, and decides the same things** ([XIV-149])
+  — 1,539 lines down to 1,287, by deleting what the code already carries and
+  pointing at it instead: the deploy ordering and the entrypoint argument that
+  `bin/deploy` and `frankenphp/docker-entrypoint.sh` make in their own headers,
+  the trusted-host composition on `App\Deployment\TrustedHosts`, the grant check
+  on `App\Deployment\RegistryPrivileges`, the optional-bundle rule on
+  `App\Kernel`. Every rejected alternative stays, and so does everything an
+  operator needs before a script has run — the customer-facing role's grant list,
+  what a narrowed provisioning role must be granted, the additive-only rule for
+  tenant migrations. No heading text and no section number moved.
+- **Two stale facts in §4 were corrected against the code** ([XIV-149]) — §4.5
+  said three commands have to be on a schedule where `App\Monitoring\ScheduledJobs`
+  has four (`tenant:support:collect` was missing), and §4.1 said `tenant:reset` is
+  kept out of the production image by `config/services.yaml`, which stopped being
+  true when the exclusion moved into the control-plane package in XIV-96.
 - **Markdown is rendered in one place now** ([XIV-131]) — the converter, the
   raw-HTML escaping and the sanitizer policy moved out of the email renderer into
   a single core service that email and formatted fields share. **No behaviour
