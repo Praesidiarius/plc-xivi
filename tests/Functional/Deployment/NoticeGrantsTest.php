@@ -259,15 +259,20 @@ final class NoticeGrantsTest extends KernelTestCase
     public function testTheRestrictedRoleCannotAddressANotice(): void
     {
         $alpha = $this->tenant(self::ALPHA);
+        $beta = $this->tenant(self::BETA);
         $notice = $this->publish('For alpha only', everyTenant: false, recipients: [$alpha]);
 
         $public = $this->connectAsTheRestrictedRole();
 
         $this->expectException(DbalException::class);
 
+        // Deliberately a pair this notice does **not** already have. Addressing it
+        // to `$alpha` again would violate `uniq_notice_recipient` and throw for a
+        // privileged role too, so the test would pass with `INSERT` granted --
+        // which is the one thing it exists to detect.
         $public->executeStatement(
             'INSERT INTO notice_recipient (notice_id, tenant_id) VALUES (?, ?)',
-            [$notice->getId(), $alpha->getId()],
+            [$notice->getId(), $beta->getId()],
         );
     }
 
