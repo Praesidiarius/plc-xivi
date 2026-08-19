@@ -148,6 +148,17 @@ lands in `Unreleased` here.
   screen on an installation that followed the instructions. **Action:** if you
   set your crontab up before today, add it.
 
+### Fixed
+
+- **`importmap.php` is a generated file again**
+  ([XIV-111](https://xivi.youtrack.cloud/issue/XIV-111)). It carried a comment
+  explaining why only one of Tom Select's four stylesheets is pulled in — real
+  reasoning, in a file Symfony Flex regenerates from a template whenever a
+  package is added. It was dropped twice in two days and caught both times only
+  because somebody read the diff. The reasoning moved to `docs/architecture.md`
+  §5.4, and a test now holds the fact, so a recipe that adds the other three
+  fails `bin/ci` instead of shipping three stylesheets served to nobody.
+
 ### Changed
 
 - **`README.md` is 84 lines instead of 962**

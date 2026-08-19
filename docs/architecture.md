@@ -1627,6 +1627,22 @@ autocomplete is client-side filtering: no endpoint, no permission question, no
 ceiling. On `reference` it is the half that was actually broken at scale, and it
 needed a server round trip — see §7.6.
 
+**The stylesheet it brings, and why only one of four** (XIV-36, moved here by
+XIV-143). Tom Select is what the autocomplete controller attaches to a select,
+and it arrives with two JavaScript dependencies and a *choice* of four
+stylesheets — default, Bootstrap 4, Bootstrap 5, and a bare one. This
+application can use exactly one, and which one is settled by
+`assets/controllers.json`; the other three would be downloaded into
+`assets/vendor/` and served to nobody.
+
+**That decision used to be a comment in `importmap.php`, which is the wrong file
+to keep it in.** Flex regenerates that file when a package is added, and it has
+already dropped the comment twice — during XIV-103 and again during XIV-126 —
+each time caught by somebody reading a diff rather than by anything that would
+notice reliably. An absence that looks like an oversight is one somebody
+helpfully corrects, so the reasoning lives here, where nothing rewrites it. The
+same argument XIV-111 makes about `config/bundles.php`, one file along.
+
 **A type may need an answer only the application has** (XIV-11). `currency` shows
 the price in the currency this installation works in, which lives in the tenant
 profile (§8.6) — and core is handed a connection without ever learning whose it
