@@ -1,0 +1,34 @@
+# Deutsch, per „du“ — dieselbe Anrede wie überall sonst (XIV-8).
+#
+# Wird einmal bei der Installation gelesen und in die Definitionen dieser Kundin
+# geschrieben; danach gehören die Bezeichnungen ihr. Gerade die Themen unten sind
+# das, was am ehesten anders heissen soll — eine Werkstatt will „Maschine“, eine
+# Praxis will „Patient“.
+#
+# Nur: bis [XIV-127] da ist, geht das noch nicht. Der Feld-Editor kennt keine
+# Bedienung für die Auswahlwerte eines Choice-Felds (§5.4), also sind diese sechs
+# genau diese sechs — dieselbe offene Stelle, die §5.20 für die Einheiten
+# beschreibt. Darum steht „Sonstiges“ mit auf der Liste.
+
+module: Wissen
+
+field:
+    title: Titel
+    topic: Thema
+    body: Eintrag
+
+# Bewusst wenige: eine Einteilung mit zwanzig Einträgen wendet niemand
+# einheitlich an, und uneinheitliche Themen sind schlimmer als gar keine, weil
+# sie wie ein Register aussehen und keines sind.
+topic:
+    # Wie wir etwas machen — die Schritte, der Reihe nach.
+    process: Ablauf
+    # Was wir entschieden haben — die Regel und ihre Grenzen.
+    policy: Regel
+    # Was mit jemandem vereinbart wurde, der bei uns kauft.
+    customer: Kundschaft
+    # Was wir über die wissen, bei denen wir einkaufen.
+    supplier: Lieferant
+    # Was wir über die Sache selbst wissen.
+    product: Produkt
+    other: Sonstiges

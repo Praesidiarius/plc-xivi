@@ -5227,6 +5227,12 @@ proposes — a list *referenced* by a field, leaving an unattached choice field
 exactly as it is — is the one that answers units and regions and everything else
 at once.
 
+*Met again by §5.22 ([XIV-132]).* The knowledge module's topics run into this
+same wall from a second direction — a workshop that wants "machine" cannot have
+it — which is worth recording because two modules hitting one gap is the
+strongest available argument that it should be closed once, in [XIV-127], rather
+than a second time by hand.
+
 #### The values are keys; the labels are the customer's
 
 The **value** is what every record holds and what an inherited copy is compared
@@ -5496,6 +5502,213 @@ editor offers it; no shipped module changed its own fields to use it, because
 installing does not retro-fit (§6.1) and a blueprint change would have meant new
 tenants and existing ones disagreeing about what an article description is for no
 gain this ticket needed.
+
+*Answered by §5.22 ([XIV-132]).* One does now, and it is a new module rather than
+a changed one — which is the same rule arriving from the other side. Nothing
+retro-fitted, nobody's article description changed, and the first blueprint to
+declare a `markdown` field is one whose customers are choosing it by installing
+it.
+
+---
+
+### 5.22 An internal knowledge base, and how much of it was already here (XIV-132)
+
+Every business runs on knowledge that lives in one person's head. *How do we
+handle a refund past thirty days? Which supplier when the usual one is out? What
+did we agree with this customer in 2023?* When that person is on holiday nobody
+else can answer, because the answer has never had anywhere to live.
+
+So: a module where experienced staff write entries and everybody else reads them.
+**A very simple wiki, and the emphasis is on simple.**
+
+This section is short on purpose, and its shortness is the finding.
+
+#### The engine work this needed was none
+
+An entry is a record with a title and a body. That makes this ticket a test of
+the claim §1 has been making since the first module — *the engine describes
+modules, it was not built around one* — and the test came back clean in a way the
+earlier modules could not demonstrate. Contact proved a module could be
+described. Article brought two field types. Order and invoice brought line
+totals, seeding, numbering and payment terms. Voucher brought a field type and a
+counter. **This one brought a blueprint, a translation file and a bundle**, and
+`packages/knowledge` contains nothing else: no controller, no entity, no form
+type, no template, no service, no migration, no field type.
+
+Four things a knowledge base needs that were already there, and none of them was
+asked for:
+
+- **Who wrote it and who changed it** is §5.2's record history, on every record
+  of every module, plus the `owner_id`, `created_at` and `updated_at` the
+  installer puts on every module's table. The module therefore declares **no**
+  `author` field and no `written_on` field, and their absence is the decision
+  rather than an omission: a date field is a date somebody has to remember to
+  set, and one they forgot is a record that is confidently wrong about itself.
+- **Write versus read** is the per-module permission axis (§8.4), which already
+  splits `add` and `edit` from `view` and `list`. No new permission concept, no
+  "editor" role, nothing seeded at install.
+- **Searching** is `Operator::Contains` over a field flagged `filterable`, which
+  compiles to a case-insensitive `ILIKE` (§5.3). The whole feature is one boolean
+  in the declaration. Its ceiling is real and is written down two headings below.
+- **A formatted body** is [XIV-131]'s `markdown` type, merged the day before
+  this one and naming a knowledge-base entry in its own docblock as the thing it
+  was for. §5.21 closed by saying no shipped module declared one; this is the
+  module that does, and it is a *new* module for exactly the reason that section
+  gives — nothing about anybody's existing data changed.
+
+One thing was added outside the package and it is a shared template rather than
+the engine: the module list grew a **Changed** column, argued under *staleness*
+below. That is the honest total.
+
+#### Categorising: a plain `choice`, and a note for [XIV-127]
+
+Six topics — process, policy, customer, supplier, product, other — as an ordinary
+`choice` field, seeded into the customer's definitions at install like every
+other label (§6.1). The stored value is `supplier` for ever; what is shown is a
+row in their database from the moment they install it.
+
+**[XIV-127] is the right answer and is unbuilt.** It proposes shared lists a
+customer maintains once and uses across modules, which is where "our topics"
+belongs — next to "our units" (§5.20) and "our payment terms" (§5.16). The choice
+in front of this ticket was therefore between a plain choice field and building
+half of [XIV-127] inside one module, and half of it is the worse option by some
+distance: a half-shared list is a second mechanism [XIV-127] would have to
+migrate customers off, and the customer would be the one who met the migration.
+
+A choice field costs nothing to give up when it lands. The stored values are
+strings, a shared list will also store strings, and the field's *type* changes
+while the values do not — the cheapest thing §7.2 has to do. **This module is
+recorded here as [XIV-127]'s first consumer**, so that whoever builds it has a
+caller to design against rather than a hypothesis.
+
+**The honest limit is §5.20's, word for word, arriving at a second module.** A
+customer cannot add a seventh topic today: the field editor draws no control for
+a choice field's options (§5.4 edits the label, the rules and the position, and
+deliberately leaves alone what it does not draw), so the six shipped here are the
+six, exactly as the seven units are the seven. That is the same gap, and finding
+it again from a different direction is an argument for closing it once in
+[XIV-127] rather than twice by hand. `other` is on the list because of it — it is
+what somebody files an entry under when the topic they wanted does not exist yet,
+and it is the difference between a gap and a wall.
+
+Deliberately **not required**. Somebody writing down what they know at half past
+five should not be stopped by a dropdown they have no opinion about, and an entry
+filed under nothing still answers the question it was written to answer.
+
+#### Linking: no, and "no" is the whole decision
+
+§7.6's references would do it, and a reference into a module the customer has not
+installed matches nothing and reads harmlessly (§5.19) — so *"this entry is about
+the invoice module"* or *"about this customer"* would have been safe to build.
+It was still refused for the first slice.
+
+The reason is that a link has to earn its way in from **both** ends, and only one
+end was on offer. Pointing an entry at a contact costs a field and buys a filter.
+Reading it back from the *contact's* page is the half people actually want —
+"what do we know about this customer" — and that is §7.6's linked-records panel,
+which would then put a knowledge card on every contact, article and invoice page
+in the system. That is a much larger change than a `reference` field, and it is
+one nobody asked for.
+
+The consequence is worth having on its own: this module declares no `requires`,
+no `uses` and no `reference`, which makes it **the first module that installs
+into a completely empty tenant**. Somebody who signed up an hour ago can write
+down what they know before they have a single contact.
+
+If linking is ever wanted, an entry gaining a `reference` field is additive and
+retro-fits nobody (§6.1, §7.2.1). Nothing here forecloses it.
+
+#### Keeping it current: showing the age, not scheduling a review
+
+**A knowledge base's failure mode is not being empty — it is being confidently
+wrong.** An entry written in 2023 describing a process that changed in 2024,
+which somebody reads and follows. Empty is obvious and harmless; stale looks
+exactly like current.
+
+A review date is the machinery this invites and it was refused. It is a field
+somebody has to set, a second one somebody has to answer, and a notification
+somewhere for when it passes — and an entry whose review date has lapsed is
+still, on the page, indistinguishable from one that has not. What actually
+defends against the failure is that **the age is on the screen next to the
+entry**, and §5.2 has recorded it all along.
+
+The record page already showed *Created* and *Changed* in its right-hand card.
+That is the right place to find the answer and the wrong place to *notice* it: by
+the time somebody is reading the page they have decided this is what they came
+for. So the module list grew a **Changed** column, beside the *Owner* column that
+has been there since the list existed.
+
+**Both are system columns and that is the argument.** `owner_id` and `updated_at`
+are written by the engine on every record of every module, neither is a field
+anybody declared, and drawing the second next to the first is completing a pair
+rather than introducing an idea. Neither sorts, for the same reason: a
+`RecordQuery` orders on the customer's own definitions and these are not among
+them. The date shows without the time, because a list is scanned rather than
+read.
+
+It lands on **every** module's list, which is deliberate rather than collateral.
+"Which of these did somebody touch today" is asked of a list of orders as often
+as of a list of entries, and a column the engine can fill for nothing on every
+module is not a knowledge-base feature that leaked out — it is the generic thing
+this ticket happened to be the first to need.
+
+#### The search ceiling, stated rather than discovered
+
+`contains` is `ILIKE '%word%'`. What that gives is case-insensitive substring
+matching over the stored source (§5.21 decided that it matches the source rather
+than the rendering). What it is **not**:
+
+- **No stemming.** "Lieferanten" does not find "Lieferant"; the substring runs
+  one way only.
+- **No ranking.** Ten matches come back in whatever order the list is sorted by,
+  not best first, so the most relevant entry is wherever the alphabet puts it.
+- **No phrases or proximity** beyond the literal substring.
+- **No index.** The query cannot use an ordinary btree, so the cost grows with
+  the number of entries.
+
+At a few dozen entries nobody can tell the difference. At a few thousand somebody
+will want the difference badly, and giving it to them means `tsvector`, a GIN
+index and a field type in the engine that knows about both — which is a ticket,
+not a paragraph. **It is deliberately not a reason to hold this back**: a
+knowledge base with substring search in it beats one that does not exist, and the
+upgrade is invisible to the data because the stored value does not change.
+
+`KnowledgeModuleTest` asserts the ceiling as well as the feature — the plural
+failing to find the singular is a test rather than a sentence — so the day
+somebody builds full text there is a red line pointing at exactly what changed.
+
+#### Who may write, and what the default is
+
+The permission axis covers this with nothing added. What was worth deciding is
+the **default**, and there were two candidates: everybody who can read can write,
+or writing is granted deliberately.
+
+**Writing is granted deliberately.** For knowledge people will *act* on, an entry
+somebody wrote in passing and got wrong is worse than an entry nobody wrote, and
+"who may put something in here" is a question a business should have answered on
+purpose. It can be relaxed by a grant on the day a customer decides otherwise;
+the other direction — noticing afterwards that everybody has been editing the
+refund policy — cannot be undone by a setting.
+
+**And it needed nothing built, because §8.4's platform default is already deny.**
+Nothing is granted at install, so a customer who does nothing gets exactly this.
+`view` and `list` on Knowledge make a reader; `add` and `edit` make a writer.
+
+#### What this must not become
+
+**Not a wiki.** No page trees, no `[[cross-link]]` syntax, no namespaces, no
+revisions-with-diffs beyond what §5.2 already records. Each of those is what
+turns a wiki into a product somebody has to administer; this is a list of entries
+with a search box.
+
+**Not customer-facing**, and the declaration keeps that rather than anybody's
+care. Nothing here is published, shared with a contact or attached to a document.
+The module names no contact and declares no `mailRecipient`, so §5.14's *send
+this record* path has nothing to resolve an address through and the button is not
+drawn — an entry cannot be mailed to somebody by accident because there is
+nowhere for the address to come from. If publishing a subset is ever wanted it is
+a different feature with a different security argument, and it should arrive as
+one.
 
 ---
 

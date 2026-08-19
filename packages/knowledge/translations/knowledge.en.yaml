@@ -1,0 +1,41 @@
+# What the Knowledge module calls itself, its fields and its topics (XIV-8).
+#
+# Read **once, at install time**, and written into that customer's definitions —
+# see contact.en.yaml, which says why at length. A label is the customer's data
+# from the moment the module is installed, and this file stops having a say.
+#
+# That matters more here than in most modules, because the topics below are the
+# part a customer is most likely to disagree with — a workshop wants "machine", a
+# practice wants "patient". What is *stored* stays `process` and `supplier`
+# whatever the labels become, which is what keeps a rename from rewriting
+# anybody's entries, and what will make the move to the shared lists of
+# [XIV-127] a change of field type rather than a migration of data.
+#
+# **And until [XIV-127] lands they cannot in fact change them**, which is §5.20's
+# honest limit arriving at a second module: the field editor draws no control for
+# a choice field's options (§5.4), so these six are these six. `other` is on the
+# list because of it — it is what somebody files an entry under when the topic
+# they wanted is not here yet.
+
+module: Knowledge
+
+field:
+    title: Title
+    topic: Topic
+    body: Entry
+
+# The six an entry can be filed under. Deliberately few: a categorisation with
+# twenty options in it is one nobody applies consistently, and inconsistent
+# categories are worse than none because they look like an index and are not.
+topic:
+    # How we do something — the steps, in order.
+    process: Process
+    # What we have decided — the rule, and where it stops applying.
+    policy: Policy
+    # What was agreed with somebody who buys from us.
+    customer: Customer
+    # What we know about the people we buy from.
+    supplier: Supplier
+    # What we know about the thing itself.
+    product: Product
+    other: Other

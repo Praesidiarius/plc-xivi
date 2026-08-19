@@ -391,6 +391,9 @@
     "xivi/invoice": {
         "version": "1.0.0"
     },
+    "xivi/knowledge": {
+        "version": "1.0.0"
+    },
     "xivi/order": {
         "version": "1.0.0"
     },

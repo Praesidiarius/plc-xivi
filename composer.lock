@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "07394abb0805e255aa289c2bf40d3df4",
+    "content-hash": "565ada477b07698a1bf87325becb9564",
     "packages": [
         {
             "name": "anourvalar/office",
@@ -8481,6 +8481,33 @@
                 }
             },
             "description": "Invoice module: what a customer is asked to pay, made from an order",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "xivi/knowledge",
+            "version": "1.0.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/knowledge",
+                "reference": "02d49729461ee41de40d7ecc49799a2cbaa0b062"
+            },
+            "require": {
+                "php": ">=8.4",
+                "symfony/framework-bundle": "8.1.*",
+                "xivi/core": "^1.0"
+            },
+            "type": "symfony-bundle",
+            "autoload": {
+                "psr-4": {
+                    "Xivi\\Knowledge\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Knowledge module: what a customer's experienced staff know, written down",
             "transport-options": {
                 "relative": true
             }
