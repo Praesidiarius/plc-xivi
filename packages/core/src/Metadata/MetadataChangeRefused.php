@@ -373,6 +373,64 @@ final class MetadataChangeRefused extends \RuntimeException
         );
     }
 
+    /**
+     * A field put into a heading that is not on this module (XIV-119).
+     *
+     * **Refused rather than read as "no section",** and the difference matters
+     * exactly once: the control is a select whose blank option *does* mean
+     * ungrouped, so treating an unknown key as blank would make a hand-edited
+     * form move a field out of its section and report success. Everywhere else
+     * in this editor nonsense from a tampered form is quietly ignored — a width
+     * of 40, a country that does not exist — because there the honest response
+     * to nonsense is to change nothing. Here changing nothing means saying no.
+     */
+    public static function unknownSection(string $key, string $section): self
+    {
+        return self::of(
+            sprintf('There is no section named "%s" on this module, so "%s" cannot be put in it.', $section, $key),
+            'metadata.unknown_section',
+            ['%section%' => $section, '%key%' => $key],
+        );
+    }
+
+    /**
+     * A heading with nothing written on it (XIV-119).
+     *
+     * The name is the entire content of a section — there is nothing else to
+     * decide about one — and a blank heading on a form is a horizontal rule with
+     * a mystery over it. The key is derived from the name as well, so a nameless
+     * section would not even have a stable identity.
+     */
+    public static function sectionNeedsAName(): self
+    {
+        return self::of(
+            'A section is a heading on the form, so it needs a name: it is the only thing it says.',
+            'metadata.section_needs_a_name',
+            [],
+        );
+    }
+
+    /**
+     * Sections offered on something that is not a module (XIV-119).
+     *
+     * A collection's fields are drawn as one row inside a form and as a row of a
+     * *table* on the record page, and a table row has nowhere to put a heading.
+     * The editor draws no control for this on a collection; this is the same
+     * rule on the write path, where a posted form meets it too.
+     */
+    public static function sectionsAreForModules(string $shape): self
+    {
+        return self::of(
+            sprintf(
+                '"%s" is a list of rows inside a record rather than a form of its own, so it has no sections '
+                . 'to put fields in.',
+                $shape,
+            ),
+            'metadata.sections_are_for_modules',
+            ['%shape%' => $shape],
+        );
+    }
+
     public static function wouldInvalidateRecords(string $key, int $records): self
     {
         return self::of(

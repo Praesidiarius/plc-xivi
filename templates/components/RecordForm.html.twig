@@ -24,14 +24,56 @@
 
 	<div class="card">
 		<div class="card-body">
-			{# Every field here came from a definition row — including any the
-			   customer added themselves, which is the point.
+			{#
+				Every field here came from a definition row — including any the
+				customer added themselves, which is the point.
 
-			   Each field carries its own `col-*` (XIV-43) and the container this
-			   renders *is* the grid row — see RecordType, which puts the class
-			   there rather than here, so it holds for a collection row's fields
-			   too. Nothing here knows what a field is. #}
-			{{ form_widget(form.fields) }}
+				Each field carries its own `col-*` (XIV-43) and the container it sits
+				in *is* the grid row — see RecordType, which puts the class on the
+				form's own container rather than here, so it holds for a collection
+				row's fields too. Nothing here knows what a field is.
+
+				**Two calls, and the first one is the one that matters** (XIV-119). A
+				module with no sections — which is every module in every tenant until
+				somebody makes one — takes the branch this form has always taken,
+				`form_widget(form.fields)`, unchanged and unconditional. That is not
+				an optimisation and it is not a coincidence of output: "an existing
+				definition draws exactly as it does today" is a promise, and the way
+				to keep a promise like that is to run the same line of code rather
+				than a second one believed to produce the same bytes.
+
+				The other branch draws the runs `ModuleDefinition::getFieldGroupsFor()`
+				hands over — the ungrouped fields first, then a heading and its fields
+				for each section. The record page reads the same method, which is what
+				stops the two disagreeing.
+			#}
+			{% set groups = this.fieldGroups %}
+
+			{% if groups|filter(g => g.section is not null) is empty %}
+				{{ form_widget(form.fields) }}
+			{% else %}
+				{% for group in groups %}
+					{% if group.section %}
+						{# The customer's own word, not a translation key — the same
+						   thing a field's label is, and handled the same way (§5.4). #}
+						<h2 class="h6 text-uppercase text-body-secondary {{ loop.first ? '' : 'border-top pt-3 mt-4' }}">{{ group.section.label }}</h2>
+					{% endif %}
+					<div class="row">
+						{% for field in group.fields %}
+							{% if form.fields.children[field.key] is defined %}
+								{{ form_row(form.fields.children[field.key]) }}
+							{% endif %}
+						{% endfor %}
+					</div>
+				{% endfor %}
+				{# Nothing, on every request this has ever served: the groups are built
+				   from the very method the form's fields are, so the two sets are the
+				   same set. It is here because the failure if they ever stopped being
+				   the same set is a control that silently vanishes and takes its value
+				   with it on the next save, and a stray row is a far better way to
+				   find that out. #}
+				{{ form_rest(form.fields) }}
+			{% endif %}
 		</div>
 	</div>
 

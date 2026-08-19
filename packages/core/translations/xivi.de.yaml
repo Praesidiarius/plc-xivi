@@ -144,6 +144,12 @@ metadata:
     target_is_held: '%count% vorhandene Datensätze zeigen über „%key%“ auf Datensätze in „%from%“. Eine ID bedeutet nur in dem Modul etwas, aus dem sie gewählt wurde — zeigte dieses Feld auf „%to%“, würde jede einzelne davon den falschen Datensatz benennen oder gar keinen. Leere diese Datensätze zuerst, oder lass es auf „%from%“ zeigen.'
     target_is_the_modules: 'Das Feld „%key%“ kam mit dem Modul und zeigt auf „%module%“, weil die Formulare, Dokumente und Summen des Moduls das erwarten. Felder, die du selbst angelegt hast, dürfen zeigen, wohin du willst.'
     unknown_target: 'Hier ist kein Modul namens „%module%“ installiert, deshalb kann „%key%“ nicht darauf zeigen.'
+    # Abschnitte (XIV-119). Abweisungen statt Achselzucken, anders als bei Breite
+    # und Land: Die leere Antwort ist hier eine echte — „in keinem Abschnitt“ —,
+    # also würde Unsinn als leer zu lesen ein Feld verschieben und Erfolg melden.
+    unknown_section: 'Auf diesem Modul gibt es keinen Abschnitt namens „%section%“, deshalb kann „%key%“ nicht hinein. Lege ihn zuerst auf der Abschnittsseite an.'
+    section_needs_a_name: Ein Abschnitt ist eine Überschrift im Formular und braucht deshalb einen Namen — mehr sagt er nicht.
+    sections_are_for_modules: '„%shape%“ ist eine Zeilenliste innerhalb eines Datensatzes und kein eigenes Formular, hat also keine Abschnitte, in die Felder passen.'
 
 query:
     unknown_field: 'Auf „%shape%“ gibt es nichts namens „%path%“, wonach sich filtern oder sortieren ließe.'

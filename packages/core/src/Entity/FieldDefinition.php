@@ -125,6 +125,31 @@ class FieldDefinition
          */
         #[ORM\Column(type: 'smallint', nullable: true)]
         private ?int $width = null,
+        /**
+         * Which heading this field is drawn under, or null for none (XIV-119).
+         *
+         * **The membership is a property of the field, and it had to be.** A
+         * field already carries its own order and its own width — everything
+         * about where it lands on the page — so a container holding a list of
+         * fields would be a second place deciding the same thing, free to
+         * disagree with the first. Naming the section from here means an
+         * ungrouped field is simply one that names none, which is every field in
+         * every tenant on the day this arrived: null is both the default and the
+         * whole of the migration.
+         *
+         * What is *not* here is the section itself. Its name and its order live
+         * on {@see ModuleDefinition::$sections}, because a section has to be
+         * able to exist while it is still empty and neither of those two facts
+         * can be stored on a field that does not exist yet.
+         *
+         * **This is presentation and reaches nothing else.** The value is stored
+         * under the same key, validated by the same rules, filtered by the same
+         * query and named by the same document marker whatever this says. A
+         * `field_definition` row is the single source of truth for all of that
+         * (§5), and this column is the single source of truth for none of it.
+         */
+        #[ORM\Column(name: 'section_key', length: 63, nullable: true)]
+        private ?string $section = null,
     ) {
         $shape->addField($this);
     }
@@ -272,6 +297,29 @@ class FieldDefinition
     public function setWidth(?int $width): void
     {
         $this->width = $width === null ? null : max(1, min(12, $width));
+    }
+
+    /** The heading this field is drawn under, or null for none; see the constructor. */
+    public function getSection(): ?string
+    {
+        return $this->section;
+    }
+
+    /**
+     * Deliberately unvalidated here.
+     *
+     * Whether a section exists on this field's shape is a question about the
+     * shape, and this entity is data rather than something that looks things up
+     * — the same reason {@see self::getWidth()} does not resolve the type's
+     * default. {@see \Xivi\Core\Metadata\MetadataEditor::updateField()} refuses a
+     * key the shape has never heard of, on the write path, where the console and
+     * an import meet the same rule.
+     */
+    public function setSection(?string $section): void
+    {
+        $section = $section === null ? null : trim($section);
+
+        $this->section = $section === '' ? null : $section;
     }
 
     public function isSystem(): bool

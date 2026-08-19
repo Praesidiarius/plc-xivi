@@ -173,11 +173,30 @@
 			<div class="col-lg-8">
 				<div class="card">
 					<div class="card-body">
-						{# The customer's own definitions, in their order — the same rows
-						   that built the form, read instead of edited. Each pair takes
-						   half the row, so two sit side by side on a wide screen. #}
+						{#
+							The customer's own definitions, in their order — the same rows
+							that built the form, read instead of edited. Each pair takes
+							half the row, so two sit side by side on a wide screen.
+
+							**In the same runs the form draws them in** (XIV-119), from
+							the same method: `getFieldGroupsFor()`. A page that showed the
+							sections and a form that did not, or the other way round,
+							would be worse than neither doing it — so neither template
+							decides, and both are handed the answer.
+
+							With no sections this is one run and one `<dl>` with no
+							heading over it, which is character for character the page
+							that was here before this existed. A heading is only ever
+							drawn for a section that has fields under it.
+						#}
+						{% for group in groups %}
+						{% if group.section %}
+							{# The customer's own word, never a translation key — the same
+							   thing a field's label is, and the same reason (§5.4). #}
+							<h2 class="h6 text-uppercase text-body-secondary {{ loop.first ? 'mb-3' : 'border-top pt-3 mt-4 mb-3' }}">{{ group.section.label }}</h2>
+						{% endif %}
 						<dl class="row mb-0">
-							{% for field in fields %}
+							{% for field in group.fields %}
 								{#
 									A field that holds formatted text is the one thing here that
 									is not a value on a line (XIV-131). `formatted()` asks the
@@ -226,6 +245,7 @@
 								{% endif %}
 							{% endfor %}
 						</dl>
+						{% endfor %}
 
 						{# A section of the record, not a card beside it: an address belongs
 						   to this contact rather than sitting next to it (§5.1). #}

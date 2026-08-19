@@ -2934,6 +2934,165 @@ Deliberately **not** in this:
 - **changing a field's type**, which is §7.2's open half and is not made any
   easier by any of this.
 
+#### Sections: a form of twenty-five you can read (XIV-119)
+
+A field carried `position` and `width` and nothing else, so a module's form was
+**one flat run of inputs**, however many there were. That is fine for Contact's
+eight. It stops being fine the moment somebody does the thing this product exists
+to let them do: a contact with billing details, delivery details, three custom
+references and six fields of their own is twenty-five inputs in one column, and
+nobody can find anything. The order module's own form got busier the day before
+this was written (XIV-122), which is the same argument arriving without being
+asked for.
+
+A **section** is a heading and the fields under it — *Contact details*,
+*Billing*, *Notes* — with the fields keeping their order and their width inside
+it.
+
+##### A section is not a collection, and that has to be said out loud
+
+The two will look similar to whoever arrives next, and they are not similar at
+all. §5.1's **collection** is a second way of grouping *records*: it has a table,
+rows, field definitions of its own, a foreign key back to the record that owns
+it, its own validation and its own history. A **section** has a word and a
+number. A field in a section is the same field, in the same record, under the
+same key of the same JSON payload; it is stored the same way, validated by the
+same rules, found by the same filter, and named by the same document marker —
+§5.7 addresses fields by key and has never heard of any of this. Only the form
+and the record page draw it differently.
+
+**Everything below follows from keeping that true**, and the moment any of it
+stops being true a section has quietly become a second collection, which is a
+feature this product already has and does not need twice.
+
+That is why a section is **a value rather than a row**: it has no table, no id
+and nothing that can point at it but a string on a field, so there is nothing for
+a query to join to. Giving it a table would be handing somebody the join, and the
+first join is the moment it stops being presentation. It is also why the grouping
+never enters the **form tree**. Symfony's own way to group controls is
+`inherit_data`, and it would work — but it moves the grouping into the form,
+which is where the submitted array is shaped, where the `data-model` paths are
+built, and where `RecordSubmission::mapViolations()` finds a field by key among
+the direct children of `fields`. A presentation decision able to reach any of
+those is no longer only a presentation decision. So the form tree stays flat and
+the *template* draws the runs, which is Symfony's other answer to this and the
+right one here.
+
+##### Where a section lives: the membership on the field, the section on the module
+
+The **membership is a property of the field** — `field_definition.section_key`,
+null for none. A container holding a list of fields was rejected: a field already
+carries its own order and its own width, so a container would be a second place
+deciding the same thing, free to disagree with the first. Naming it from the
+field also means an ungrouped field is simply one that names none, which is every
+field in every tenant on the day this arrived — so the migration is two nullable
+columns, no backfill, and every existing definition is untouched by construction
+rather than by care.
+
+The **section itself lives on the module** — `shape_definition.sections`, a JSON
+map of key to label and position — because a section has to be able to exist
+while it is still empty, and neither its name nor its order can be stored on a
+field that is not in it yet. On the row rather than in a table of its own is
+`followUpsEnabled`'s argument unchanged: "what this customer has, and how it is
+set up" is one question with one answer, and the lifetime comes free — uninstalling
+a module takes its headings with it.
+
+**Not on `ShapeDefinition`**, and this is the one place the feature is narrower
+than the editor. A collection's fields are drawn as a row inside the form and as
+a row of a *table* on the record page, and a table row has nowhere to put a
+heading. A section offered on a collection would be a control that did nothing on
+half the pages it appeared on, which is precisely the defect XIV-144 is named
+after — so the select is drawn on the module's own shape only, and the engine
+refuses a section on anything else for the request that arrives without a page.
+
+##### Ordering is a number the customer sets
+
+Not the position of its first field, and the deciding case is the empty one: a
+section is empty for exactly as long as it takes somebody to make one and then
+move a field into it, and a heading that vanished between those two clicks would
+be a control that appeared not to work. So a section carries a `position` exactly
+as a field does, in tens, on the same numeric control — type 15 to put something
+between. Inferring it would also mean that reordering a *field* silently
+reordered a *section*, which is the same accident §5.4 already refused when a
+record's name was guessed from field order.
+
+**The ungrouped fields are drawn first**, before any section, under no heading.
+That is the decision that costs an existing customer nothing: every field in
+every tenant is ungrouped, so a shape with no sections yields one run holding
+every field in its own order — the flat run that has always been drawn — and the
+first section somebody creates appends a heading *below* what they already had
+rather than pushing twenty-two fields down the page. A field naming a section
+that no longer exists reads as ungrouped rather than disappearing; nothing here
+can produce that state, but an import can, and a control that silently vanishes
+takes its value with it on the next save. A section with no fields draws no
+heading at all — it is kept in the editor, which is what lets somebody make one
+before filling it.
+
+##### The record page groups too, from the same method
+
+**Showing a form in sections and a record as a flat list would be worse than not
+grouping at all**, so the record page groups, and the grouping is decided exactly
+once — `ModuleDefinition::getFieldGroupsFor()`. Both templates are handed the
+answer rather than the ingredients, because two templates reading the same
+definitions is the place grouping quietly diverges, and six months later somebody
+is looking at a form in four sections beside a record page in one list. The test
+asserts the two pages against *each other* rather than against two expectations
+that could both be edited to match a bug.
+
+The form keeps one thing the record page does not need: when there are no
+sections it renders through `form_widget(form.fields)`, the same call it always
+made, unconditionally. "An existing definition draws exactly as it does today" is
+a promise, and the way to keep a promise like that is to run the same line of
+code rather than a second one believed to produce the same bytes.
+
+##### The controls, and the name is the customer's word
+
+Making, naming, ordering and removing a section is a **page of its own**, for the
+third time in this section and for numbering's reason: the field table is a
+control per field, and a section is not a fact about a field. What *is* in the
+table is one `<select>` per row saying which heading that field is under, which
+is instantaneous and reversible — pick one, pick the blank again, nothing
+happened — and therefore fits a cell.
+
+The blank option is a real answer and the common one, which makes this the one
+control on that row where nonsense is **refused rather than shrugged off**. A
+width of 40 and a country that does not exist are read as "no opinion", because
+there the honest response to a tampered form is to change nothing; here changing
+nothing means saying no, since reading an unknown section key as blank would move
+somebody's field and report success.
+
+A section's **name is the customer's word, not a translation key**, and that is
+not a new decision — a field's label and a shape's label are the same kind of
+thing and are stored strings that go to the page as they are (§8.4.2). The key is
+derived from the first name given and never touched again, which is XIV-144's
+split for a choice field's options one level up: renaming a section changes what
+the page says and moves no field, so renaming is free by construction. The trade
+is the same one, and it is the right one: a typo is permanent in a key nobody
+ever sees.
+
+**Removing a section removes the heading and nothing else** — §5.4's oldest rule
+one level up. The fields keep their values, their order, their widths and their
+rules, and are drawn at the top of the form again; the confirmation says so, and
+says how many, because a section *looks* like a container and "3 fields come back
+to the top" is a different decision from "31 do". The fields are cleared in the
+same transaction as the heading rather than left pointing at nothing: a
+definition that is merely interpreted correctly is not the same as one that is
+right.
+
+Deliberately **not** in this:
+
+- **collapsing a section**, which is a nice thing and a state to keep somewhere —
+  per person, or per module, or in the browser — and every one of those answers is
+  a decision this ticket did not need to make. Half-building it would mean a
+  control that folds and forgets;
+- **a module declaring its own sections** in its blueprint, with everything §7.2.1
+  would then have to answer about offering one to a customer who has already
+  arranged their own form;
+- **tabs, wizards and conditional visibility.** The last is genuinely wanted and
+  is a different feature: it is a rule about a *record* rather than a fact about a
+  form, and XIV-88 has already written down why a rule a customer authors is not
+  an expression language.
+
 **Numbering is the one that does not fit in the table** (XIV-27). Its control is a
 page of its own, because what a customer is deciding there is a pattern, the
 number that pattern will produce and the counter it will come out of — and the
