@@ -72,7 +72,12 @@ lands in `Unreleased` here.
 
 ## [Unreleased]
 
-*Nothing yet.*
+- **The architecture brief is a summary again** ([XIV-159]): §4–§8 and the
+  entry file were distilled from ~12,500 lines to ~3,500. Every section number
+  and every rule survives at its old address; the issue-by-issue narratives now
+  live only in the tracker and in git history.
+
+[XIV-159]: https://xivi.youtrack.cloud/issue/XIV-159
 
 
 ## Releases
