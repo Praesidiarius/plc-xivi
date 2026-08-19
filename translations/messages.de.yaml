@@ -370,6 +370,12 @@ field:
     autocomplete: Suchfeld
     region: Land
     region_default: Das der Installation
+    # Auf welches Modul ein Referenzfeld zeigt (XIV-144). „Zeigt auf“ und nicht
+    # „Ziel“ oder „Modul“: Gelesen wird die Spalte von jemandem, der entscheidet,
+    # dass eine Bestellung einen Kontakt benennt.
+    points_at: Zeigt auf
+    points_at_label: 'Zeigt auf (Referenzfelder)'
+    unfinished: unfertig
     back_to: Zurück zu %module%
     rule_required: Pflichtfeld
     rule_unique: eindeutig
@@ -387,6 +393,35 @@ field:
         Hier wird nichts gelöscht. Die Werte endgültig zu entfernen ist ein eigener
         Vorgang und existiert noch nicht — siehe docs/architecture.md §7.2.
     remove_confirm: Feld entfernen
+    # Die Optionsseite (XIV-144). Ihre Sätze tragen die beiden Tatsachen, die man
+    # sonst durch eine Überraschung lernt: Gespeichert wird der Code und nicht das
+    # Wort, und eine Option, die Datensätze tragen, lässt sich nicht entfernen —
+    # mit der Anzahl daneben, damit das lesbar ist, bevor es abgelehnt wird.
+    options:
+        link: 'Optionen (%count%)'
+        title: 'Optionen von „%field%“'
+        intro: Woraus in diesem Feld ausgewählt wird. Eine Ergänzung wirkt sofort.
+        back: Zurück zu den Feldern
+        stored: Gespeichert als
+        held: Datensätze
+        held_none: keine
+        none: Dieses Feld hat noch keine Optionen — es bietet nichts zur Auswahl und nimmt alles an, was daran vorbeikommt. Ergänze unten welche.
+        add_label: Optionen ergänzen, eine pro Zeile
+        add_placeholder: |-
+            Palette
+            Kiste
+        add_help: >-
+            Eine Bezeichnung pro Zeile. Gespeichert wird in jedem Datensatz ein kurzer Code aus
+            der ersten Bezeichnung — <code>palette</code> — und der ändert sich nie wieder.
+            Eine Option später umzubenennen kostet deshalb nichts.
+        removal_note: >-
+            Eine Option, die kein Datensatz trägt, lässt sich entfernen. Eine, die Datensätze
+            tragen, nicht: Sie stünden mit einem Wert da, den es in der Liste nicht mehr gibt,
+            und ließen sich erst wieder speichern, wenn jemand sie in Ordnung bringt.
+        module_field: >-
+            Dieses Feld kam mit dem Modul, und seine Optionen gehören zu dem, was das Modul tut —
+            die Zustände, zwischen denen es Datensätze bewegt, die Arten von Datensatz, die es
+            kennt. Ergänzen und umbenennen kannst du sie; entfernen wird nicht angeboten.
     # Die Nummerierungsseite (XIV-27). Diese Sätze leisten mehr als die üblichen
     # Beschriftungen: Der Hilfetext muss die Syntax beibringen, und die beiden
     # Hinweise müssen das sagen, was niemand errät — dass ein Muster nichts
@@ -1045,6 +1080,7 @@ flash:
     field_added: '„%field%“ hinzugefügt.'
     field_saved: '„%field%“ gespeichert.'
     field_removed: '„%field%“ entfernt. Die Werte bleiben gespeichert.'
+    options_saved: 'Optionen von „%field%“ gespeichert. Datensätze, die eine davon tragen, bleiben unverändert.'
     # Nummerierung (XIV-27). Der zweite Satz ist der wichtige: Wer gerade ein
     # Nummernmuster geändert hat, denkt zuerst an die bereits vergebenen Nummern
     # — und die Antwort lautet, dass sich daran nichts ändert.

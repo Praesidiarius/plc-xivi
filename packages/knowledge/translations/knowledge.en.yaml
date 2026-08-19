@@ -11,11 +11,11 @@
 # anybody's entries, and what will make the move to the shared lists of
 # [XIV-127] a change of field type rather than a migration of data.
 #
-# **And until [XIV-127] lands they cannot in fact change them**, which is §5.20's
-# honest limit arriving at a second module: the field editor draws no control for
-# a choice field's options (§5.4), so these six are these six. `other` is on the
-# list because of it — it is what somebody files an entry under when the topic
-# they wanted is not here yet.
+# **And they can add one of their own** (XIV-144): the field editor draws a
+# control for a choice field's options, so a workshop adds "machine" to these six.
+# What it refuses is *removing* one of the six, because this field came with the
+# module (§5.4). `other` stays useful all the same — it is where an entry goes
+# while somebody decides whether they want a topic of their own.
 
 module: Knowledge
 

@@ -187,6 +187,192 @@ final class MetadataChangeRefused extends \RuntimeException
         );
     }
 
+    /**
+     * A field of a type that cannot work until something is set, arriving with
+     * it unset (XIV-144).
+     *
+     * **On the write path, and that is what makes it the fix rather than a
+     * second opinion.** The editor's form now draws a control for both of these
+     * — a choice field's options and a reference's target — so somebody using
+     * the page meets a required box rather than this sentence. What this covers
+     * is every other way a definition gets written: a form posted around the
+     * page, an import, a console command, and whatever the next caller turns out
+     * to be. The defect this exists for was precisely a rule that lived nowhere:
+     * the type knew it needed a list, and nothing anywhere asked it.
+     *
+     * The option is named as it is stored rather than translated into whatever
+     * the control happens to be labelled. It is the string in the definition, it
+     * is what an importer's column would be called, and a reader who has hit
+     * this from something other than the form is a reader who needs the exact
+     * name.
+     */
+    public static function optionUnanswered(string $type, string $option, string $key): self
+    {
+        return self::of(
+            sprintf(
+                'A "%s" field does nothing until "%s" is set, so "%s" was not saved. A choice field with no '
+                . 'options offers nothing to pick and accepts anything; a reference with no target has nowhere '
+                . 'to look a record up.',
+                $type,
+                $option,
+                $key,
+            ),
+            'metadata.option_unanswered',
+            ['%type%' => $type, '%option%' => $option, '%key%' => $key],
+        );
+    }
+
+    /**
+     * Taking an option away from under the records that hold it (XIV-144).
+     *
+     * **The same decision as {@see self::valuesAreShared()}, reached the same
+     * way**: refuse, and name what has to be dealt with. Removing an option a
+     * record holds does not delete anything — the value stays in the JSON, and
+     * `display()` falls back to printing it raw — but it leaves that record
+     * failing its own field's validation, so the next person to open it and
+     * press Save is told their record is invalid for a reason that has nothing
+     * to do with what they were doing. That is exactly the trap §5.4 refuses
+     * when a rule is switched on, and a list somebody edits is the same trap
+     * with a friendlier control in front of it.
+     *
+     * The alternatives were both worse. Rewriting the affected records to some
+     * other option is data loss on a click. Keeping the option alive but hidden
+     * — retiring rather than removing it — is the genuinely better answer for
+     * the customer who has stopped selling by the pallet and has four hundred
+     * old orders that were, and it is deliberately **not** built here: it is a
+     * third state per option, it has to be understood by every reader of
+     * `choices`, and §5.4 says why that decision belongs with [XIV-127] rather
+     * than in front of it.
+     *
+     * @param array<string, int> $held value => how many live records hold it
+     */
+    public static function optionsAreHeld(string $key, array $held): self
+    {
+        $records = array_sum($held);
+
+        $values = implode(', ', array_map(
+            static fn (string $value, int $count): string => sprintf('"%s" (%d)', $value, $count),
+            array_keys($held),
+            array_values($held),
+        ));
+
+        return self::of(
+            sprintf(
+                '%d existing records hold an option you are removing from "%s": %s. They would be left with a '
+                . 'value that is no longer on the list and could not be saved again until somebody fixed them. '
+                . 'Change those records first, or keep the option.',
+                $records,
+                $key,
+                $values,
+            ),
+            'metadata.options_are_held',
+            ['%count%' => $records, '%key%' => $key, '%values%' => $values],
+        );
+    }
+
+    /**
+     * Taking an option away from a field the module declared (XIV-144).
+     *
+     * §5.4's oldest rule, one level down. A module's own *fields* cannot be
+     * removed because the module's code is written against them; a module's own
+     * field's *options* are the same statement about the same code — an order's
+     * `status` list is the states its lifecycle moves records between, a
+     * contact's `kind` list is the variants the module ships forms for, and
+     * either one losing an entry breaks the module rather than the record.
+     *
+     * **Adding and renaming stay open**, which is the half that matters: the
+     * wholesaler who wants "pallet" beside the seven shipped units and the
+     * workshop that wants "machine" beside the six shipped topics are the two
+     * customers this whole ticket was written for (§5.20, §5.22), and both of
+     * them are adding.
+     *
+     * The refusal is blunt on purpose — *any* removal, not only the ones the
+     * module names. The definition records which *fields* came with the module
+     * and does not record which *options* did, so there is no way to tell the
+     * customer's own seventh unit from the six the installer wrote. Refusing all
+     * of them costs somebody a dead entry in a dropdown they added by mistake;
+     * allowing all of them costs somebody their order lifecycle. [XIV-127] is
+     * where provenance gets modelled properly, and it is the right place for it.
+     */
+    public static function optionsAreTheModules(string $key): self
+    {
+        return self::of(
+            sprintf(
+                'The field "%s" came with the module, and its options are part of what the module does — the '
+                . 'states it moves records between, the kinds of record it knows. You can add options and '
+                . 'rename them; removing one is not offered (docs/architecture.md §5.4).',
+                $key,
+            ),
+            'metadata.options_are_the_modules',
+            ['%key%' => $key],
+        );
+    }
+
+    /**
+     * Repointing a reference that records already point through (XIV-144).
+     *
+     * The quietest of all of these if it were allowed, which is why it is the
+     * one refused with a count rather than warned about. A stored reference is a
+     * plain integer, so every one of them is still a *valid* id after the target
+     * moves — it simply addresses a different record, in a different module, and
+     * every page carries on rendering a name. Nothing is broken in any way
+     * anything can detect; the data is just wrong now, and there is no way back,
+     * because "which record did this mean" was only ever answerable by knowing
+     * which module the id came from.
+     */
+    public static function targetIsHeld(string $key, string $from, string $to, int $records): self
+    {
+        return self::of(
+            sprintf(
+                '%d existing records point through "%s" at records in "%s". An id only means anything in the '
+                . 'module it was chosen from, so pointing this field at "%s" would leave every one of them '
+                . 'naming the wrong record, or none. Empty those records first, or leave it pointing at "%s".',
+                $records,
+                $key,
+                $from,
+                $to,
+                $from,
+            ),
+            'metadata.target_is_held',
+            ['%count%' => $records, '%key%' => $key, '%from%' => $from, '%to%' => $to],
+        );
+    }
+
+    /** A module's own reference points where the module's own code expects (XIV-144). */
+    public static function targetIsTheModules(string $key, string $module): self
+    {
+        return self::of(
+            sprintf(
+                'The field "%s" came with the module and points at "%s" because the module\'s own forms, '
+                . 'documents and totals expect it to. Fields you added yourself can be pointed wherever you '
+                . 'like.',
+                $key,
+                $module,
+            ),
+            'metadata.target_is_the_modules',
+            ['%key%' => $key, '%module%' => $module],
+        );
+    }
+
+    /**
+     * A target this customer has not got (XIV-144).
+     *
+     * Separate from {@see ModuleNotInstalled} because the reader is different:
+     * that one answers "this URL names a module you do not have", and this one
+     * is a field that would silently look up records in a table that is not
+     * there. The select on the page is built from what *is* installed, so
+     * arriving here means a form posted around it — or a module uninstalled
+     * between the page and the save.
+     */
+    public static function unknownTarget(string $key, string $module): self
+    {
+        return self::of(
+            sprintf('No module named "%s" is installed here, so "%s" cannot point at it.', $module, $key),
+            'metadata.unknown_target',
+            ['%module%' => $module, '%key%' => $key],
+        );
+    }
+
     public static function wouldInvalidateRecords(string $key, int $records): self
     {
         return self::of(

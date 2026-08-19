@@ -529,6 +529,15 @@ field:
     # somebody choosing Germany, not by somebody thinking about ISO 3166.
     region: Country
     region_default: This installation's
+    # Which module a reference field's values are ids in (XIV-144). "Points at"
+    # rather than "target" or "module", because the column is read by somebody
+    # deciding that an Order names a Contact.
+    points_at: Points at
+    points_at_label: 'Points at (reference fields)'
+    # A field of a type that cannot work until something is set, with it unset:
+    # a choice with no options, a reference with no target. Nothing new can get
+    # here, so this marks what predates the rule.
+    unfinished: needs setting up
     back_to: Back to %module%
     rule_required: required
     rule_unique: unique
@@ -546,6 +555,36 @@ field:
         Nothing here deletes data. Permanently removing the values is a separate
         operation and does not exist yet — see docs/architecture.md §7.2.
     remove_confirm: Remove the field
+    # The options page (XIV-144). Its sentences carry the two facts a customer
+    # would otherwise learn by being surprised: what a record actually holds is
+    # the code and not the words, and an option somebody's records hold is not
+    # removable — with the count beside each one so that is readable before it
+    # is refused.
+    options:
+        link: 'Options (%count%)'
+        title: 'Options for “%field%”'
+        intro: What somebody picks from in this field. Adding one takes effect immediately.
+        back: Back to the fields
+        stored: Stored as
+        held: Records
+        held_none: none
+        none: This field has no options yet, so it offers nothing to pick and accepts anything typed past it. Add some below.
+        add_label: Add options, one per line
+        add_placeholder: |-
+            Pallet
+            Crate
+        add_help: >-
+            One label per line. What every record stores is a short code made from the first
+            label you give — <code>pallet</code> — and it never changes again, so renaming an
+            option later is free.
+        removal_note: >-
+            An option no record holds can be removed. One that records hold cannot: they would
+            be left with a value that is not on the list and could not be saved again until
+            somebody fixed them.
+        module_field: >-
+            This field came with the module, and its options are part of what the module does —
+            the states it moves records between, the kinds of record it knows. You can add
+            options and rename them; removing one is not offered.
     # The numbering page (XIV-27). Its sentences do more work than most labels
     # here, because what a customer is deciding is a small language with quiet
     # failure modes: the help text has to teach the syntax, and the two notices
@@ -1202,6 +1241,10 @@ flash:
     field_added: 'Added "%field%".'
     field_saved: 'Saved "%field%".'
     field_removed: 'Removed "%field%". Its values are still stored.'
+    # The options list (XIV-144). The second sentence is the one worth flashing:
+    # records already holding one of these keep the value they have, because the
+    # value is a key and renaming an option is a change to what the page says.
+    options_saved: 'Saved the options for "%field%". Records already holding one are unchanged.'
     # Numbering (XIV-27). The second sentence is the one worth flashing: the
     # first thought of anybody who has just changed a numbering pattern is what
     # it did to the numbers already out there, and the answer is nothing.

@@ -45,15 +45,14 @@ use Xivi\Core\Field\Type\ChoiceFieldType;
  * other label, and from that moment they are the customer's own options rather
  * than this class's.
  *
- * **The honest limit, stated rather than implied:** the metadata editor draws
- * no control for a choice field's options today (§5.4 — it draws three settings
- * and deliberately leaves alone what it does not draw), so a wholesaler who
- * sells by the pallet cannot add one *yet*. That gap is not units-shaped and
- * must not be closed unit-shaped: every variant field and every lifecycle's
- * status field is a `choice` field too, and their options are load-bearing —
- * an editor that let somebody delete `confirmed` would break the order
- * lifecycle from a table cell. Whoever closes it decides that first, and
- * [XIV-127] is where it is being decided.
+ * **The wholesaler who sells by the pallet can add one** (XIV-144). This said
+ * the opposite for as long as the field existed — the metadata editor drew no
+ * control for a choice field's options — and the gap was closed without being
+ * closed unit-shaped, which was the condition: every variant field and every
+ * lifecycle's status field is a `choice` field too, so a module's own field's
+ * options may be added to and renamed and **never removed**. Nobody deletes
+ * `confirmed` from a table cell; the seven below stay seven and an eighth is
+ * the customer's to add. §5.4 has the argument.
  *
  * ### Why the values are ASCII and the labels are not
  *

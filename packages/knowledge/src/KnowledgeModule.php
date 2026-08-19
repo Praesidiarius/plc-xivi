@@ -169,16 +169,15 @@ final class KnowledgeModule implements ModuleProvider
                 // consumer of [XIV-127] when it arrives** and is written down as
                 // one in §5.22 so that whoever builds it has a first caller.
                 //
-                // **The honest limit, and it is §5.20's word for word.** A topic
-                // we did not ship — a workshop's "machine", a practice's
-                // "patient" — cannot be added today, because the metadata editor
-                // draws no control for a choice field's options (§5.4 edits the
-                // label, the rules and the position, and deliberately leaves
-                // alone what it does not draw). So the six below are the six
-                // until [XIV-127] lands, exactly as the seven units are the
-                // seven. That is the same gap seen from a second module rather
-                // than a new one, and the reason `other` is on the list: it is
-                // what somebody has instead of the topic they wanted.
+                // **That limit was §5.20's word for word, and finding it here
+                // is what closed it** (XIV-144). A topic we did not ship — a
+                // workshop's "machine", a practice's "patient" — can be added in
+                // the field editor now, which draws a control for a choice
+                // field's options. The six below cannot be taken *away*: this
+                // field came with the module, and §5.4 refuses that for every
+                // module's own field. `other` stays useful all the same — it is
+                // where an entry goes while somebody decides whether they want a
+                // topic of their own.
                 //
                 // **Not required**, deliberately. Somebody writing down what they
                 // know at half past five should not be stopped by a dropdown

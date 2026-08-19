@@ -2748,6 +2748,192 @@ not offer it is not named at all — so a `text` field's save says nothing about
 autocomplete and could not clear one even if something had put it there. A
 setting a form does not mention is one it can neither wipe nor invent.
 
+#### The two the editor offered and could not configure (XIV-144)
+
+The list above had three entries and the add-field select had every registered
+type in it, and nothing compared the two. So a customer could add a **`choice`
+field and never be offered its `choices`**, and a **`reference` field and never
+be offered its target module** — both on this section's own "the form must not
+touch these" list, neither excluded from the select.
+
+Nothing failed. `ChoiceFieldType::constraints()` skips its `Assert\Choice` when
+the option list is empty, on the argument that an empty list would otherwise
+reject the empty value too and "misconfigured" is not what a record should be
+told; so the field validated everything, offered nothing, and said so nowhere. A
+reference with no target rendered `#41` where a name belongs. **A control that
+appears to work and does nothing** is exactly what §8.3.1 exists to prevent, and
+it had been sitting in the middle of the editor since the editor was built,
+written down twice as an honest limit (§5.20, §5.22) and diagnosed neither time.
+
+**The fix is the fourth and fifth entries in that list, and one new idea.** The
+three that were there describe an option a field *may* have, and every one has a
+good answer for a field that says nothing: decide the search box from the count,
+do not number this field, follow the installation's country. These two have
+none. So a capability may now say that it is **not optional** — `NeedsAnAnswer`,
+which `Enumerates` and `PointsAtAModule` extend, and whose one method is the list
+of options a field of that type is not finished without.
+
+Two things read it, in different layers, and the split is the design:
+
+- **the editor will not offer a type it cannot ask the question for.** The
+  add-field select is built from the types whose every need this form draws a
+  control for, rather than from the registry. Today that is every type and the
+  two lists are the same list again; the day somebody writes a type needing
+  something nobody has built a control for, it is absent from the select instead
+  of being offered broken.
+- **the engine will not write a definition that leaves one unanswered**, which
+  holds for the importer, the console and the form posted around the page — the
+  same division `assertNumbersSomething()` already made, for the same reason.
+
+**A test over the registry is the part that stops this recurring**, and it is
+deliberately not a test about `choice` and `reference`. The defect was never that
+two types were forgotten; it was that nothing anywhere compared what a type needs
+with what the editor can ask, so they drifted apart in silence and the twelfth
+type would have drifted the same way. `EditorConfiguresEveryTypeTest` walks the
+container's own registry and asserts the comparison, and — because an invariant
+nobody has watched fail is an invariant nobody knows is connected to anything,
+which is what deptrac taught this project in XIV-60 — it also plants the
+violation: a type declaring a need no control exists for, refused by the same
+function the select is built from.
+
+##### Removing an option that records hold: refused, and [XIV-127] follows this
+
+A list is the first of these settings that somebody **edits** rather than
+answers, and editing has a direction the others do not: taking an entry away.
+
+The decision is **refuse, with the values named and counted**, and it is the same
+decision as making a field unique, reached the same way. Removing an option a
+record holds destroys nothing — the value stays in the JSON and `display()` falls
+back to printing it raw — but it leaves that record failing its own field's
+validation, so the next person to open it and press Save is told their record is
+invalid for a reason that has nothing to do with what they were doing. That is
+the trap this section already refuses in general terms. Rewriting the affected
+records to some other option is data loss on a click; leaving them broken is the
+trap; so the answer is no, with enough in the sentence to make it a yes next
+time. The options page prints the count beside every option, because a rule
+somebody meets as a refusal is a rule they learn one failure at a time.
+
+**Retiring an option — keeping it valid for the records that have it and taking
+it out of the picker — is the genuinely better answer for the customer who has
+stopped selling by the pallet and has four hundred old orders that were, and it
+is deliberately not built.** It is a third state per option, every reader of
+`choices` has to understand it, and it is the same question [XIV-127] has to
+answer for a shared list. Building it here would be building a third of that
+feature early and unbuilding it later, which is precisely the argument §5.20 used
+to keep units out of a table of their own.
+
+**[XIV-127] must follow this answer rather than inventing its own.** It proposes
+lists a customer maintains once and several fields across several modules point
+at — "our units", "our topics", "our payment terms" — and the removal question
+there is this question with more records behind it. A shared list that quietly
+lost an entry would break records in modules the person removing it was not
+looking at. So: **a list somebody's records point into cannot lose an entry while
+they point into it, whether the list lives in the field or beside it**, and if
+[XIV-127] wants a friendlier answer than a refusal, the friendlier answer is
+retirement and it has to arrive for both at once.
+
+##### A module's own field's options may be added to and never taken from
+
+This section's oldest rule, one level down. A module's own **fields** cannot be
+removed because the module's code is written against them; a module's own
+`choice` field's **options** are that same code's expectations written into the
+definition — an order's `status` list is the states its lifecycle moves records
+between, a contact's `kind` list is the variants the module ships forms for.
+Either one losing an entry breaks the module rather than the record, and from a
+table cell.
+
+So on a module's own field: **add and rename, never remove.** The half that
+matters is the first: the wholesaler who wants "pallet" beside the seven shipped
+units (§5.20) and the workshop that wants "machine" beside the six shipped topics
+(§5.22) are the two customers this whole change was written for, and both of them
+are adding. Renaming is free by construction — see below.
+
+**Adding to one has consequences worth naming**, and they are the engine working
+as designed rather than a hole in this rule. The variants of a shape *are* its
+variant field's options (§5.5) — "no second list to keep in step" — so a customer
+who adds an option to Contact's `kind` has added a third kind of contact, which
+appears in the picker, the filter bar and the record form with the module's own
+two. A state added to an order's `status` is a state the lifecycle has no
+transition into or out of, so records can be filtered by it and nothing can move
+them there. Both are legible, neither breaks anything, and both are what the same
+customer would have got by adding their own `choice` field — which is the test
+this rule is really applying.
+
+The refusal is blunt on purpose: *any* removal, not only of the options the
+module happens to name. The definition records which **fields** came with the
+module and does not record which **options** did, so there is no way to tell a
+customer's own eighth unit from the seven the installer wrote. Refusing all of
+them costs somebody a dead entry in a dropdown they added by mistake; allowing
+all of them costs somebody their order lifecycle. Provenance per option is
+[XIV-127]'s to model, and it is the right place for it.
+
+##### The value is derived from the label, once
+
+What every record holds is a **key**; what the page shows is a **label the
+customer may rename**. That split already existed (§5.20) and had never been
+exposed to anybody, because until now the only way to write an option was a
+module's installer.
+
+The editor asks for labels and derives the key from the first one it is given,
+then never touches it again: "Pallet" becomes `pallet`, and renaming the option
+to "Palette (EUR)" afterwards changes what the page says and moves no record.
+Asking for the key as well would mean asking somebody who wants a seventh unit to
+understand a distinction that only matters when it is too late to change it. The
+derivation is `AsciiSlugger` pinned to `de`, with the argument [XIV-100] makes at
+length about the self-service slug: the value is permanent and the language
+somebody happened to have the page open in is not.
+
+The trade is that a **typo in a label is permanent in the key**. It is the right
+trade — nobody but an export column ever sees a key, the label is fixable in the
+editor, and the alternative is a rename that silently orphans records.
+
+##### A reference's target: refused once anything points through it
+
+An id is only meaningful in the module it was chosen from. Repointing a populated
+reference leaves every stored id addressing a row that is either somebody else's
+record or nothing at all, and **nothing would report it**: the ids are valid
+integers and every page would carry on naming records, the wrong ones. That is
+the quietest failure in this section, so it is the one refused with a count
+rather than warned about — the field may be repointed while it is empty, and not
+once records point through it. A module's own reference is refused outright, on
+the rule above: its target is what the module's own forms, documents and totals
+expect.
+
+Two smaller decisions go with it. The target must name a module **this customer
+has installed**, checked on the write path rather than in the select, because a
+target that is not installed is exactly as broken as no target. And moving a
+target **clears the `variant`** beside it — a variant is a value of the old
+module's variant field and narrows nothing in the new one, which would be an
+empty picker arrived at from the other direction. The variant itself still has no
+control; a reference that says nothing about it offers every record of its target
+module, which makes it an optional setting of the ordinary kind.
+
+##### Where the controls are, and what is still missing
+
+The target is a `<select>` in the field table's row and in the add form, on the
+same terms as the country and the search box. The **list is a page of its own**,
+for numbering's reason: it is a row per option, a rename that must not move a
+record and a removal that may be refused with a paragraph, and in a table cell
+the change with the most consequences would look like the cheapest one on the
+row. The add form asks for the list in a textarea, one label per line, because
+the engine will not write a choice field without one — the question has to be
+asked before the field exists.
+
+Deliberately **not** in this:
+
+- **retiring an option**, argued above, and with it any way to remove an option
+  that history holds;
+- **repairing an unfinished field** other than by pointing it somewhere or giving
+  it options — a `choice` field with no list that predates this rule is *marked*
+  in the editor and is otherwise left exactly as it was, because nothing new can
+  reach that state;
+- **the `variant` narrowing**, which still has no control and is still cleared
+  rather than migrated when a target moves;
+- **provenance per option**, which is what would let a module's own field give up
+  an option the customer added to it;
+- **changing a field's type**, which is §7.2's open half and is not made any
+  easier by any of this.
+
 **Numbering is the one that does not fit in the table** (XIV-27). Its control is a
 page of its own, because what a customer is deciding there is a pattern, the
 number that pattern will produce and the counter it will come out of — and the
@@ -5541,24 +5727,26 @@ Three shapes were on the table and §6.1 decides between them.
 **The third**, because it is the only one that gives a new customer something
 sensible on day one.
 
-**The honest limit, and it is stated rather than implied: they cannot add
-"pallet" yet.** The metadata editor draws no control for a choice field's
-options (§5.4 draws three settings and deliberately leaves alone what it does not
-draw), so today the shipped seven are the seven. That gap is not units-shaped and
-must not be closed unit-shaped — **every variant field and every lifecycle's
-status field is a `choice` field too**, and their options are load-bearing: an
-editor that let an administrator delete `confirmed` from a table cell would break
-the order lifecycle and every record sitting in that state. Whoever closes it
-decides that first. [XIV-127] is where it is being decided, and the shape it
-proposes — a list *referenced* by a field, leaving an unattached choice field
-exactly as it is — is the one that answers units and regions and everything else
-at once.
+**They can add "pallet" now** ([XIV-144]). This was the honest limit here for as
+long as this field has existed: the metadata editor drew no control for a choice
+field's options, so the shipped seven were the seven. It was closed as the defect
+it always was rather than as a feature — the editor *offered* the `choice` type
+and could not configure it, which §5.4 has the argument for — and it was closed
+without being closed unit-shaped, which was the condition this section put on
+whoever got there. **Every variant field and every lifecycle's status field is a
+`choice` field too**, and their options are load-bearing: so a module's own
+field's options may be **added to and renamed, never removed**. Nobody deletes
+`confirmed` from a table cell; a wholesaler adds "pallet" to the seven. Which
+options a module itself named is not recorded anywhere, which is why the refusal
+covers all of them and why per-option provenance is still [XIV-127]'s to model.
 
-*Met again by §5.22 ([XIV-132]).* The knowledge module's topics run into this
-same wall from a second direction — a workshop that wants "machine" cannot have
-it — which is worth recording because two modules hitting one gap is the
-strongest available argument that it should be closed once, in [XIV-127], rather
-than a second time by hand.
+*Met again by §5.22 ([XIV-132]), and that is what closed it.* The knowledge
+module's topics ran into this same wall from a second direction — a workshop that
+wants "machine" could not have it — and two modules hitting one gap was the
+argument for closing it once rather than a second time by hand. It was closed in
+§5.4 rather than in [XIV-127]: what those two customers needed was a control on
+the field they already had, and a shared list is still the right home for "our
+units" when it arrives.
 
 #### The values are keys; the labels are the customer's
 
@@ -5908,15 +6096,15 @@ while the values do not — the cheapest thing §7.2 has to do. **This module is
 recorded here as [XIV-127]'s first consumer**, so that whoever builds it has a
 caller to design against rather than a hypothesis.
 
-**The honest limit is §5.20's, word for word, arriving at a second module.** A
-customer cannot add a seventh topic today: the field editor draws no control for
-a choice field's options (§5.4 edits the label, the rules and the position, and
-deliberately leaves alone what it does not draw), so the six shipped here are the
-six, exactly as the seven units are the seven. That is the same gap, and finding
-it again from a different direction is an argument for closing it once in
-[XIV-127] rather than twice by hand. `other` is on the list because of it — it is
-what somebody files an entry under when the topic they wanted does not exist yet,
-and it is the difference between a gap and a wall.
+**The honest limit was §5.20's, word for word, arriving at a second module — and
+finding it twice is what closed it** ([XIV-144]). A customer can add a seventh
+topic: the field editor draws a control for a choice field's options now, on this
+module's own `topic` field like any other. What it will not do is take one of the
+six away, because this field came with the module and §5.4 refuses that for every
+module's own field. `other` therefore stays useful for the reason it was put
+there — it is what somebody files an entry under while they are deciding whether
+they want a topic of their own — and it is no longer the difference between a gap
+and a wall.
 
 Deliberately **not required**. Somebody writing down what they know at half past
 five should not be stopped by a dropdown they have no opinion about, and an entry

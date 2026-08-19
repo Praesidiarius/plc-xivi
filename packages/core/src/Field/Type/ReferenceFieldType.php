@@ -19,6 +19,7 @@ use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Field\Autocomplete;
 use Xivi\Core\Field\Autocompletes;
 use Xivi\Core\Field\LinksToRecord;
+use Xivi\Core\Field\PointsAtAModule;
 use Xivi\Core\Field\PrimesFromRecords;
 use Xivi\Core\Field\RecordLink;
 use Xivi\Core\Form\RecordReferenceType;
@@ -70,9 +71,17 @@ use Xivi\Core\Record\ReferenceTargets;
  * the display are what a reference *means*, and none of them can tell which
  * widget was used to pick the id.
  *
+ * **The target is the customer's to set** (XIV-144), which is
+ * {@see PointsAtAModule}. Before that it was a `module` key that only a module's
+ * own blueprint could write, so the editor's add-field select offered this type
+ * and a customer choosing it got a field pointing nowhere: an empty picker, and
+ * `#41` where a record's name belongs. Moving it afterwards is the one answer
+ * here that is refused rather than drawn — an id means nothing outside the
+ * module it came from.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
-final class ReferenceFieldType implements Autocompletes, LinksToRecord, PrimesFromRecords, ResetInterface
+final class ReferenceFieldType implements Autocompletes, LinksToRecord, PointsAtAModule, PrimesFromRecords, ResetInterface
 {
     public const string MODULE = 'module';
     public const string VARIANT = 'variant';
@@ -280,6 +289,20 @@ final class ReferenceFieldType implements Autocompletes, LinksToRecord, PrimesFr
     public function comparableSql(string $accessor): string
     {
         return $accessor;
+    }
+
+    /**
+     * The one option a reference is not a reference without (XIV-144).
+     *
+     * The variant is deliberately not here: a reference that says nothing about
+     * it offers every record of its target module, which is a working field
+     * rather than a broken one.
+     *
+     * @return list<string>
+     */
+    public function needs(): array
+    {
+        return [self::MODULE];
     }
 
     public static function targetModule(FieldDefinition $field): string

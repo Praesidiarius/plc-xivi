@@ -16,7 +16,13 @@ namespace Xivi\Core\Metadata;
 use Doctrine\ORM\EntityManagerInterface;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
+use Xivi\Core\Field\Enumerates;
+use Xivi\Core\Field\FieldType;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Field\NeedsAnAnswer;
+use Xivi\Core\Field\PointsAtAModule;
+use Xivi\Core\Field\Type\ChoiceFieldType;
+use Xivi\Core\Field\Type\ReferenceFieldType;
 use Xivi\Core\Module\AdditionKind;
 use Xivi\Core\Numbering\NumberFormat;
 use Xivi\Core\Record\RecordRepository;
@@ -56,6 +62,11 @@ final readonly class MetadataEditor
         private FieldTypeRegistry $fieldTypes,
         private RecordRepository $records,
         private MetadataCache $cache,
+        // What this customer actually has installed, for the one option whose
+        // answer names another module (XIV-144). Read-only and through the same
+        // cache every page reads, so checking a reference's target costs the
+        // query the request had already made.
+        private MetadataRepository $modules,
         // The index that makes `unique` true rather than checked (XIV-109). It
         // has to be written by whatever writes the flag, or a definition and a
         // database disagree about a promise a customer is relying on.
@@ -116,8 +127,16 @@ final readonly class MetadataEditor
         self::assertNumbersSomething($options);
         // Through the same merge as an edit, so a setting somebody left blank is
         // an absent option rather than a null stored in the JSON.
-        $field->setOptions(self::withOptions([], $options));
+        $merged = self::withOptions([], $options);
+        $field->setOptions($merged);
 
+        // Every one of them, because there is nothing to leave alone yet
+        // (XIV-144). A field arriving without the answer its type cannot work
+        // without is the defect this ticket is about, and the moment to refuse it
+        // is before it exists — after it exists there is a control in a form that
+        // looks like it works.
+        $this->assertNeedsAreAnswered($this->fieldTypes->get($type), $key, $merged);
+        $this->assertTargetExists($this->fieldTypes->get($type), $key, $merged);
         $this->assertRecordsSurvive($shape, $field, $required, $unique);
 
         $this->asOneChange(function () use ($shape, $field): void {
@@ -162,6 +181,26 @@ final readonly class MetadataEditor
         ?int $width = null,
     ): void {
         self::assertNumbersSomething($options);
+
+        // Everything a change to a per-type option has to answer for before any
+        // of it is written (XIV-144). Ahead of the flags on purpose: these are
+        // the refusals that are about records nobody is looking at, and a save
+        // that had already relabelled the field before refusing the list would
+        // be the half-done state XIV-27 spent an ordering argument avoiding.
+        $type = $this->fieldTypes->get($field->getType());
+        $merged = self::withOptions($field->getOptions(), $options);
+        // What the change would do to records and to the module, before whether
+        // it leaves the field usable at all. The order decides which sentence
+        // somebody reads when a save is both — ticking every option's remove box
+        // is a list emptied *and* a list somebody's records are in, and "3
+        // records are Pallet" is the one that says what to do about it.
+        $this->assertOptionsSurvive($field, $type, $merged, $options);
+        // The merge again, because the guard above may have cleared a setting
+        // that no longer means anything — a variant belonging to the module this
+        // field has just stopped pointing at.
+        $merged = self::withOptions($field->getOptions(), $options);
+        $this->assertNeedsAreAnswered($type, $field->getKey(), $merged, $options);
+
         $this->assertRecordsSurvive(
             $field->getShape(),
             $field,
@@ -182,7 +221,7 @@ final readonly class MetadataEditor
         // editor always draws this control, so what it sends is always what the
         // customer meant, including empty.
         $field->setWidth($width);
-        $field->setOptions(self::withOptions($field->getOptions(), $options));
+        $field->setOptions($merged);
 
         $this->asOneChange(function () use ($field): void {
             $this->entityManager->flush();
@@ -318,6 +357,166 @@ final readonly class MetadataEditor
         if (!\is_string($pattern) || NumberFormat::parse($pattern) === null) {
             throw MetadataChangeRefused::patternNumbersNothing(\is_string($pattern) ? $pattern : '');
         }
+    }
+
+    /**
+     * A type that cannot work without something, arriving without it (XIV-144).
+     *
+     * The engine's half of this ticket, and it is deliberately not the same
+     * check the editor's form makes. The form draws a control and marks it
+     * required, which is a promise to somebody using the page; this is the rule,
+     * and it holds for the import, the console command and the form posted
+     * around the page — the same division {@see self::assertNumbersSomething()}
+     * makes and for the same reason.
+     *
+     * **On an edit it only judges what the caller named**, which is XIV-26's
+     * contract holding even here: a row form that draws no options control says
+     * nothing about options, and must be able to relabel a choice field whose
+     * list is empty for reasons that predate this rule. What it will not let
+     * anybody do is *empty* one — naming the option as null is a deliberate
+     * clear, and clearing this particular option is what leaves the field
+     * looking like it works.
+     *
+     * On an add there is nothing to leave alone, so every need is checked and an
+     * option nobody mentioned is a missing answer rather than an absent opinion.
+     *
+     * @param array<string, mixed>  $merged the options the field will end up with
+     * @param ?array<string, mixed> $named  what this caller mentioned, or null for "all of them"
+     *
+     * @throws MetadataChangeRefused
+     */
+    private function assertNeedsAreAnswered(FieldType $type, string $key, array $merged, ?array $named = null): void
+    {
+        if (!$type instanceof NeedsAnAnswer) {
+            return;
+        }
+
+        foreach ($type->needs() as $option) {
+            if ($named !== null && !\array_key_exists($option, $named)) {
+                continue;
+            }
+
+            $answer = $merged[$option] ?? null;
+
+            if ($answer === null || $answer === '' || $answer === []) {
+                throw MetadataChangeRefused::optionUnanswered($type->key(), $option, $key);
+            }
+        }
+    }
+
+    /**
+     * A reference pointed at a module this customer has not got (XIV-144).
+     *
+     * Checked where the definition is written rather than where the select is
+     * drawn, because a target that is not installed is exactly as broken as no
+     * target at all: the picker finds nothing, every stored id renders as `#41`,
+     * and nothing reports it. The select on the page is built from what is
+     * installed, so this is the case that arrives by some other road.
+     *
+     * @param array<string, mixed> $merged
+     *
+     * @throws MetadataChangeRefused
+     */
+    private function assertTargetExists(FieldType $type, string $key, array $merged): void
+    {
+        if (!$type instanceof PointsAtAModule) {
+            return;
+        }
+
+        $target = $merged[ReferenceFieldType::MODULE] ?? null;
+
+        if (!\is_string($target) || $target === '' || $this->modules->isInstalled($target)) {
+            return;
+        }
+
+        throw MetadataChangeRefused::unknownTarget($key, $target);
+    }
+
+    /**
+     * What a change to a mandatory option would do to the records that already
+     * depend on the answer (XIV-144).
+     *
+     * The two capabilities are asked separately because they are two different
+     * questions, and generalising them would be inventing a language for
+     * "changes to a list" to save one `if` — §5.4's argument about drawing
+     * controls, applied to guarding them. What they have in common is only the
+     * shape of the answer: **count first, refuse with the number, never fix
+     * anything.**
+     *
+     * A module's own field is refused outright in both, which is §5.4's oldest
+     * rule one level down: a module's fields are not the customer's to remove
+     * because its code is written against them, and its `choice` field's options
+     * and its reference's target are that same code's expectations written in
+     * the definition.
+     *
+     * @param array<string, mixed> $merged  the options the field would end up with
+     * @param array<string, mixed> $options what the caller named, which this may add to
+     *
+     * @throws MetadataChangeRefused
+     */
+    private function assertOptionsSurvive(FieldDefinition $field, FieldType $type, array $merged, array &$options): void
+    {
+        if ($type instanceof Enumerates && \array_key_exists(ChoiceFieldType::CHOICES, $options)) {
+            $removed = array_values(array_diff(
+                array_keys(ChoiceFieldType::choicesOf($field)),
+                array_keys(ChoiceFieldType::clean($merged[ChoiceFieldType::CHOICES] ?? [])),
+            ));
+
+            if ($removed !== []) {
+                if ($field->isSystem()) {
+                    throw MetadataChangeRefused::optionsAreTheModules($field->getKey());
+                }
+
+                $held = $this->records->valueCountsAmong($field->getShape(), $field, $removed);
+
+                if ($held !== []) {
+                    throw MetadataChangeRefused::optionsAreHeld($field->getKey(), $held);
+                }
+            }
+        }
+
+        if (!$type instanceof PointsAtAModule || !\array_key_exists(ReferenceFieldType::MODULE, $options)) {
+            return;
+        }
+
+        $from = ReferenceFieldType::targetModule($field);
+        $to = $merged[ReferenceFieldType::MODULE] ?? '';
+        $to = \is_string($to) ? $to : '';
+
+        if ($from === $to || $from === '' || $to === '') {
+            // Three ways of not being a move. Unchanged is the ordinary case —
+            // the row form sends the target on every save, exactly as it sends
+            // the label. A field that pointed nowhere has no records that could
+            // be pointing anywhere either, so setting a target on one is
+            // finishing it rather than moving it. And an *emptied* target is not
+            // a field pointed somewhere worse, it is a field pointed nowhere:
+            // {@see self::assertNeedsAreAnswered()} refuses it a few lines later
+            // with the sentence that says so, where a refusal from here would
+            // have to name the module it was moving to and there is not one.
+            return;
+        }
+
+        if ($field->isSystem()) {
+            // Before the target is checked for existing, because "this field's
+            // target is not yours to change" is true whatever it was going to be
+            // changed to, and being told the other module is missing would send
+            // somebody off to install it for nothing.
+            throw MetadataChangeRefused::targetIsTheModules($field->getKey(), $from);
+        }
+
+        $this->assertTargetExists($type, $field->getKey(), $merged);
+
+        $held = $this->records->countWithValue($field->getShape(), $field);
+
+        if ($held > 0) {
+            throw MetadataChangeRefused::targetIsHeld($field->getKey(), $from, $to, $held);
+        }
+
+        // The variant goes with the module it was a value of. Named as null
+        // rather than left, because "not mentioned" would keep a narrowing that
+        // now names a variant of a module this field no longer points at — which
+        // is a picker that finds nothing, arrived at from the other direction.
+        $options[ReferenceFieldType::VARIANT] = null;
     }
 
     /**
@@ -520,6 +719,30 @@ final readonly class MetadataEditor
     public function recordsHolding(FieldDefinition $field): int
     {
         return $this->records->countWithValue($field->getShape(), $field);
+    }
+
+    /**
+     * How many records hold each of a choice field's own options (XIV-144).
+     *
+     * Beside the options on the page that edits them, because the count is the
+     * whole of what makes one of them removable and the other not. Somebody
+     * looking at "Pallet — 3 records" and "Crate — none" can plan the change;
+     * somebody who has to try it and read a refusal is being taught the rule one
+     * failure at a time.
+     *
+     * Options nothing holds are absent rather than zero, which is the shape
+     * {@see RecordRepository::valueCountsAmong()} answers in and the shape a
+     * template wants: `held[value] ?? 0`.
+     *
+     * @return array<string, int> value => how many live records hold it
+     */
+    public function valuesHeldBy(FieldDefinition $field): array
+    {
+        return $this->records->valueCountsAmong(
+            $field->getShape(),
+            $field,
+            array_map(strval(...), array_keys(ChoiceFieldType::choicesOf($field))),
+        );
     }
 
     /**

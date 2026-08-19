@@ -488,6 +488,73 @@ final readonly class RecordRepository
     }
 
     /**
+     * Which of these values live records still hold, and how many hold each
+     * (XIV-144).
+     *
+     * What the editor asks before letting an option out of a `choice` field's
+     * list. The question is deliberately the narrow one — *these* values, not
+     * every value in the column — because the answer is used in a refusal
+     * somebody has to act on: "3 records are Pallet" names the option to put
+     * back or the records to change, where "the column has values in it" names
+     * nothing.
+     *
+     * Values that nothing holds are simply absent from the result, so an empty
+     * array is the whole of "nothing stands in the way" and the caller needs no
+     * second query to find that out.
+     *
+     * An empty list of values asks nothing and returns nothing rather than
+     * being sent to the database at all: `IN ()` is not valid SQL, so the guard
+     * is load-bearing rather than an optimisation, and it makes "the customer
+     * removed nothing" a case this method describes rather than one the caller
+     * has to remember.
+     *
+     * `IN (:values)` and {@see ArrayParameterType}, not `= ANY(:values)`: DBAL
+     * expands a list parameter into one placeholder per value, which is a list
+     * of scalars rather than the array literal `ANY` wants. The two look
+     * interchangeable in Postgres and are not interchangeable here.
+     *
+     * Live rows only, like every other count the editor refuses on: a record in
+     * the recycle bin holding a removed option is not a record anybody is
+     * looking at.
+     *
+     * @param list<string> $values
+     *
+     * @return array<string, int> value => how many live records hold it, worst first
+     */
+    public function valueCountsAmong(ShapeDefinition $shape, FieldDefinition $field, array $values): array
+    {
+        if ($values === []) {
+            return [];
+        }
+
+        $rows = $this->connection->fetchAllAssociative(
+            // Named once inside a subquery and grouped by the output column, for
+            // the reason {@see self::duplicateValues()} sets out at length: the
+            // same named parameter written twice is two positional parameters by
+            // the time Postgres sees it, and two expressions it will not group.
+            sprintf(
+                'SELECT held_value, COUNT(*) AS held FROM (
+                     SELECT data->>:field AS held_value FROM %s WHERE deleted_at IS NULL
+                 ) AS values_held
+                 WHERE held_value IN (:values)
+                 GROUP BY held_value
+                 ORDER BY COUNT(*) DESC, held_value ASC',
+                $this->table($shape),
+            ),
+            ['field' => $field->getKey(), 'values' => $values],
+            ['values' => ArrayParameterType::STRING],
+        );
+
+        $held = [];
+
+        foreach ($rows as $row) {
+            $held[(string) $row['held_value']] = (int) $row['held'];
+        }
+
+        return $held;
+    }
+
+    /**
      * Write one field's value into a set of records, and touch nothing else
      * (XIV-91).
      *

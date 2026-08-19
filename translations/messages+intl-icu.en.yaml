@@ -50,6 +50,11 @@ mail:
 
 field:
     remove_holding: '{count, plural, one {<strong>#</strong> record currently holds a value for it.} other {<strong>#</strong> records currently hold a value for it.}}'
+    # How many records hold one option of a choice field (XIV-144). Read beside
+    # the option, because it is what decides whether that option can be removed —
+    # and finding that out before trying beats being refused afterwards.
+    options:
+        held_count: '{count, plural, one {# record} other {# records}}'
 
 document:
     # A placeholder nothing will fill in (XIV-25). Counted rather than worded
