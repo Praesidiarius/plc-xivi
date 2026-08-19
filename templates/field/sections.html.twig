@@ -1,0 +1,116 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'field.sections.title'|trans({'%module%': module.label}) }}{% endblock %}
+
+{#
+	The headings on a module's form (XIV-119).
+
+	A page rather than a column in the field table, for the reason numbering and a
+	choice field's options are pages (§5.4): everything in that table is a control
+	per field, and a section is not a fact about a field. It has a name and a
+	place of its own, it can exist while it is still empty, and it has a removal
+	with something to say first.
+
+	Three things are said here that a customer would otherwise find out by being
+	surprised: that the order is theirs to set rather than worked out from the
+	fields, that a heading with nothing under it is not drawn on the form yet, and
+	that taking a heading away is not taking anything else away.
+#}
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<div class="d-flex align-items-center justify-content-between mb-3">
+			<div>
+				<h1 class="h3 mb-0">{{ 'field.sections.title'|trans({'%module%': module.label}) }}</h1>
+				<p class="text-body-secondary small mb-0">{{ 'field.sections.intro'|trans }}</p>
+			</div>
+			<a class="btn btn-link" href="{{ path('field_index', {module: module.key}) }}">{{ 'field.options.back'|trans }}</a>
+		</div>
+
+		<form method="post" action="{{ path('field_sections_save', {module: module.key}) }}">
+			<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
+
+			<div class="card mb-3">
+				<div class="card-body">
+					{% if sections is empty %}
+						<p class="text-body-secondary mb-0">{{ 'field.sections.none_yet'|trans }}</p>
+					{% else %}
+						<div class="table-responsive">
+							<table class="table table-sm align-middle mb-0">
+								<thead>
+									<tr>
+										<th scope="col" class="text-body-secondary small text-uppercase">{{ 'common.name'|trans }}</th>
+										<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.order'|trans }}</th>
+										<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.sections.fields'|trans }}</th>
+										<th scope="col"></th>
+									</tr>
+								</thead>
+								<tbody>
+									{% for section in sections %}
+										<tr>
+											<td>
+												{# The customer's own word, never a translation key — the
+												   same thing a field's label is, handled the same way. #}
+												<input class="form-control form-control-sm" name="label[{{ section.key }}]"
+													   value="{{ section.label }}" style="min-width: 14rem"
+													   aria-label="{{ 'common.name'|trans }}">
+											</td>
+											<td>
+												{# A number the customer sets, not the position of the first
+												   field in it: a section is empty for as long as it takes to
+												   make one and then move a field into it, and an order
+												   inferred from fields would leave that heading with nowhere
+												   to be. Tens, exactly like a field's, so 15 goes between. #}
+												<input type="number" class="form-control form-control-sm"
+													   name="position[{{ section.key }}]" value="{{ section.position }}"
+													   style="width: 5.5rem" aria-label="{{ 'field.order'|trans }}">
+											</td>
+											<td class="text-body-secondary small">
+												{% set held = counts[section.key]|default(0) %}
+												{{ held == 0
+													? 'field.sections.fields_none'|trans
+													: 'field.sections.fields_count'|trans({'%count%': held}) }}
+											</td>
+											<td class="text-end">
+												<a class="btn btn-sm btn-outline-danger"
+												   href="{{ path('field_section_confirm_delete', {module: module.key, section: section.key}) }}">{{ 'common.remove'|trans }}</a>
+											</td>
+										</tr>
+									{% endfor %}
+								</tbody>
+							</table>
+						</div>
+					{% endif %}
+				</div>
+			</div>
+
+			<p class="text-body-secondary small">{{ 'field.sections.note'|trans }}</p>
+
+			<button class="btn btn-primary" type="submit">{{ 'common.save'|trans }}</button>
+		</form>
+
+		{#
+			Making one, on a form of its own — the arrangement the field table has,
+			for the same reason. On the save above an untouched box would be the
+			ordinary state of every rename, so "blank" would have to mean "nothing to
+			add" and the engine's refusal of a nameless section would be a rule no
+			page could reach. Here blank means somebody pressed Add with nothing
+			typed, and gets told so.
+		#}
+		<form method="post" action="{{ path('field_section_add', {module: module.key}) }}" class="card mt-3">
+			<div class="card-body">
+				<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
+				<label class="form-label small mb-1" for="name">{{ 'field.sections.add_label'|trans }}</label>
+				<div class="d-flex align-items-center gap-2">
+					<input id="name" class="form-control form-control-sm" name="name"
+						   placeholder="{{ 'field.sections.add_placeholder'|trans }}" style="max-width: 22rem">
+					<button class="btn btn-sm btn-primary" type="submit">{{ 'common.add'|trans }}</button>
+				</div>
+				<p class="text-body-secondary small mb-0 mt-2">{{ 'field.sections.add_help'|trans }}</p>
+			</div>
+		</form>
+	</main>
+{% endblock %}

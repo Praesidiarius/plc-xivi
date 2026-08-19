@@ -205,6 +205,11 @@ final class FieldController extends AbstractController
             // it — so what this marks is a field that predates the rule or one a
             // module wrote itself, and it is marked rather than left because
             // §8.3.1's whole argument is that silence is the worse failure.
+            // The headings this customer has made, for the one select on the row
+            // that says which of them a field is drawn under (XIV-119). On the
+            // module's own shape only: a collection's rows are a table, and a
+            // heading in the middle of a table row is nothing at all.
+            'sections' => $definition->getSections(),
             'unfinished' => $this->unfinishedIn($definition),
             // And which *fields* are actually numbered, which the type cannot
             // answer: the link to the numbering page appears on those, and the
@@ -457,6 +462,10 @@ final class FieldController extends AbstractController
                     listed: $target->isListed(),
                     title: $target->isTitle(),
                     position: $target->getPosition(),
+                    // Which heading it is under, handed back as it already is
+                    // (XIV-119): this page draws no control for it, and a page
+                    // that does not draw a setting must not decide it.
+                    section: $target->getSection(),
                     // The one thing this page changes. Everything else is the
                     // field as it already is, and everything the page has never
                     // heard of is left alone by the merge (XIV-26) — this form
@@ -602,6 +611,10 @@ final class FieldController extends AbstractController
                     listed: $target->isListed(),
                     title: $target->isTitle(),
                     position: $target->getPosition(),
+                    // Which heading it is under, handed back as it already is
+                    // (XIV-119): this page draws no control for it, and a page
+                    // that does not draw a setting must not decide it.
+                    section: $target->getSection(),
                     // The one thing this page changes, and everything else about
                     // the field is handed back as it already is — including every
                     // option this form has never heard of, which the merge leaves
@@ -780,6 +793,7 @@ final class FieldController extends AbstractController
                     // Blank means "however wide this kind of field usually is"
                     // (XIV-43), which is a real answer and not a missing one.
                     width: self::widthFrom($request),
+                    section: self::sectionFrom($request, $target),
                 );
 
                 $this->addFlash('success', $this->translator->trans('flash.field_saved', ['%field%' => $target->getLabel()]));
@@ -811,6 +825,229 @@ final class FieldController extends AbstractController
         $width = (int) $width;
 
         return $width >= 1 && $width <= 12 ? $width : null;
+    }
+
+    /**
+     * Which heading a field is drawn under, as the row sent it (XIV-119).
+     *
+     * **Absent and empty are read differently here**, which is the reference
+     * target's rule rather than the width's, and for the reference's reason: the
+     * select is drawn only on a module's own shape, because a collection's rows
+     * are a table and a table row has nowhere for a heading to go. So a request
+     * that does not carry the control at all is a form that never drew one, and
+     * the field keeps whatever it had; a blank that *is* sent is somebody
+     * choosing the empty option, which means "in no section" and is a real
+     * answer.
+     *
+     * Nothing is checked against the module's own list here. That check is on
+     * the write path, where the console and an import meet it too — and unlike
+     * every other control on this row it is a refusal rather than a shrug, for
+     * the reason {@see MetadataChangeRefused::unknownSection()} gives.
+     */
+    private static function sectionFrom(Request $request, FieldDefinition $field): ?string
+    {
+        if (!$request->request->has('section')) {
+            return $field->getSection();
+        }
+
+        $section = trim((string) $request->request->get('section', ''));
+
+        return $section === '' ? null : $section;
+    }
+
+    /**
+     * The headings on a module's form: making them, naming them, ordering them
+     * (XIV-119).
+     *
+     * **A page rather than a column in the field table**, and it is the third
+     * time §5.4 has reached for that argument — numbering and a choice field's
+     * options were the first two. Everything in that table is a control per
+     * field: a label, a checkbox, a width. A section is not a fact about a
+     * field, it is a thing of its own with a name and a place, and there has to
+     * be somewhere to *make* one before any field can be put in it. The field
+     * table's job here is one select per row saying which heading that field is
+     * under, which is instantaneous and reversible and therefore fits a cell.
+     *
+     * The count beside each one is what makes the delete link legible before it
+     * is followed, on the options page's principle: a number somebody reads
+     * while planning beats the same number in a sentence after they tried.
+     */
+    #[Route('/sections', name: 'field_sections', methods: ['GET'])]
+    public function sections(string $module): Response
+    {
+        $definition = $this->definition($module);
+
+        return $this->render('field/sections.html.twig', [
+            'module' => $definition,
+            'sections' => $definition->getSections(),
+            'counts' => $this->fieldsPerSection($definition),
+        ]);
+    }
+
+    /**
+     * Renaming and reordering, in one save, because they are one list.
+     *
+     * **A section missing from what arrives is left where it is**, which is the
+     * opposite contract to a choice field's options and is deliberate: there,
+     * absence had to mean removal or a removal could never be expressed at all;
+     * here removal is its own page with a sentence about the fields, so absence
+     * can safely mean "not mentioned".
+     */
+    #[Route('/sections', name: 'field_sections_save', methods: ['POST'])]
+    public function saveSections(string $module, Request $request): Response
+    {
+        $definition = $this->definition($module);
+
+        if ($this->isCsrfTokenValid('edit-fields', (string) $request->request->get('_token'))) {
+            /** @var array<string, mixed> $labels */
+            $labels = $request->request->all('label');
+            /** @var array<string, mixed> $positions */
+            $positions = $request->request->all('position');
+
+            $this->editor->updateSections(
+                $definition,
+                array_map(static fn (mixed $label): string => trim((string) $label), $labels),
+                self::positionsFrom($positions),
+            );
+
+            $this->addFlash('success', $this->translator->trans('flash.sections_saved'));
+        }
+
+        return $this->redirectToRoute('field_sections', ['module' => $module]);
+    }
+
+    /**
+     * Making one, on a form of its own beside the list.
+     *
+     * **Its own form rather than a box on the save above**, and the deciding
+     * argument is what an empty one has to mean. On a combined form, an untouched
+     * "add" box is the ordinary state of every save that only renames something,
+     * so blank would have to mean "nothing to add" — and the engine's refusal of
+     * a nameless section would then be a rule no page could ever reach, which is
+     * the sort of protection that is discovered to be broken years later. Here
+     * blank means somebody pressed Add with nothing typed, and gets the sentence.
+     *
+     * The field table below has exactly this arrangement for exactly this
+     * reason: a row per thing, and one form under it that makes another.
+     */
+    #[Route('/sections/add', name: 'field_section_add', methods: ['POST'])]
+    public function addSection(string $module, Request $request): Response
+    {
+        $definition = $this->definition($module);
+
+        if ($this->isCsrfTokenValid('edit-fields', (string) $request->request->get('_token'))) {
+            try {
+                $section = $this->editor->addSection($definition, (string) $request->request->get('name'));
+
+                $this->addFlash('success', $this->translator->trans('flash.section_added', [
+                    '%section%' => $section->label,
+                ]));
+            } catch (MetadataChangeRefused $e) {
+                $this->addFlash('warning', $e->translatable()->trans($this->translator));
+            }
+        }
+
+        return $this->redirectToRoute('field_sections', ['module' => $module]);
+    }
+
+    /**
+     * What deleting a heading does, said before it happens.
+     *
+     * The one thing somebody would otherwise assume wrongly, and they would
+     * assume it in the direction that costs them: a section looks like a
+     * container, so deleting one looks like deleting what is inside it. It is
+     * not — the fields keep their values, their order, their widths and their
+     * rules, and go back to being drawn at the top of the form, exactly as every
+     * field in this product was drawn before this feature existed. The
+     * confirmation says the number as well as the sentence, because "3 fields
+     * come back to the top" is a different decision from "31 do".
+     */
+    #[Route('/sections/{section}/delete', name: 'field_section_confirm_delete', requirements: ['section' => '[a-z][a-z0-9_]*'], methods: ['GET'])]
+    public function confirmDeleteSection(string $module, string $section): Response
+    {
+        $definition = $this->definition($module);
+
+        if (!$definition->hasSection($section)) {
+            throw $this->createNotFoundException(sprintf('No section "%s" on "%s".', $section, $module));
+        }
+
+        return $this->render('field/section_delete.html.twig', [
+            'module' => $definition,
+            'section' => $definition->getSection($section),
+            'holding' => $this->editor->fieldsIn($definition, $section),
+        ]);
+    }
+
+    #[Route('/sections/{section}/delete', name: 'field_section_delete', requirements: ['section' => '[a-z][a-z0-9_]*'], methods: ['POST'])]
+    public function deleteSection(string $module, string $section, Request $request): Response
+    {
+        $definition = $this->definition($module);
+
+        if ($this->isCsrfTokenValid('edit-fields', (string) $request->request->get('_token'))) {
+            try {
+                // Read before it is gone, because the flash names it: an
+                // unknown key falls back to the key itself, and is then refused
+                // on the next line with a sentence of its own.
+                $existing = $definition->getSection($section);
+                $label = $existing === null ? $section : $existing->label;
+                $this->editor->removeSection($definition, $section);
+
+                $this->addFlash('success', $this->translator->trans('flash.section_removed', [
+                    '%section%' => $label,
+                ]));
+            } catch (MetadataChangeRefused $e) {
+                $this->addFlash('warning', $e->translatable()->trans($this->translator));
+            }
+        }
+
+        return $this->redirectToRoute('field_sections', ['module' => $module]);
+    }
+
+    /**
+     * The positions the sections page sent, as numbers.
+     *
+     * Anything that is not digits is a number control edited by hand, and is
+     * dropped rather than clamped — the width's rule, for the width's reason: a
+     * form that quietly turns nonsense into a value tells somebody they got what
+     * they asked for. A dropped key means that section keeps the place it had.
+     *
+     * @param array<string, mixed> $positions
+     *
+     * @return array<string, int>
+     */
+    private static function positionsFrom(array $positions): array
+    {
+        $clean = [];
+
+        foreach ($positions as $key => $value) {
+            $value = trim((string) $value);
+
+            if ($value !== '' && ctype_digit($value)) {
+                $clean[(string) $key] = (int) $value;
+            }
+        }
+
+        return $clean;
+    }
+
+    /**
+     * How many fields sit under each heading, keyed by section (XIV-119).
+     *
+     * Counted off the definition that is already in hand rather than queried:
+     * this is a fact about the module's own fields, which the metadata cache has
+     * already loaded whole (XIV-53).
+     *
+     * @return array<string, int>
+     */
+    private function fieldsPerSection(ModuleDefinition $module): array
+    {
+        $counts = [];
+
+        foreach ($module->getSections() as $section) {
+            $counts[$section->key] = $this->editor->fieldsIn($module, $section->key);
+        }
+
+        return $counts;
     }
 
     /**

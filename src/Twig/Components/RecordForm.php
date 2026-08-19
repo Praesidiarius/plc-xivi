@@ -33,6 +33,7 @@ use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Form\ModuleRecordType;
 use Xivi\Core\Lifecycle\Lifecycles;
 use Xivi\Core\Metadata\AvailableVariants;
+use Xivi\Core\Metadata\FieldGroup;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleRegistry;
 use Xivi\Core\Money\DefaultVatMode;
@@ -364,6 +365,42 @@ final class RecordForm extends AbstractController
     public function moduleDefinition(): ModuleDefinition
     {
         return $this->definition();
+    }
+
+    /**
+     * The record's own fields, in the runs the customer put them in (XIV-119).
+     *
+     * **Asked here rather than in the template**, for one reason: the variant.
+     * This component builds its form for the variant of the record it is
+     * holding, and a template working that out for itself would be a second
+     * place deciding which fields exist — the first time somebody edited a
+     * company, the grouping would be a person's. So the component answers with
+     * the same variant it built the form with, and the template draws what it is
+     * given.
+     *
+     * The grouping itself is {@see ModuleDefinition::getFieldGroupsFor()}'s and
+     * is deliberately not this class's: the record page calls the very same
+     * method, which is what stops a form in four sections sitting beside a
+     * record page in one flat list.
+     *
+     * **It does not touch the form tree**, and that is the design rather than
+     * convenience. Symfony's own way to group controls is `inherit_data`, and it
+     * would work — but it moves the grouping into the form, and the form is
+     * where the submitted array is shaped, where `data-model` paths are built
+     * and where {@see RecordSubmission::mapViolations()} looks a field up by key
+     * among the direct children of `fields`. A presentation
+     * decision that can reach any of those is no longer only presentation, which
+     * is the one thing a section must never become. So the tree stays flat, the
+     * template draws the runs, and a record saved with sections is byte for byte
+     * a record saved without them.
+     *
+     * @return list<FieldGroup>
+     */
+    public function fieldGroups(): array
+    {
+        $definition = $this->definition();
+
+        return $definition->getFieldGroupsFor($definition->variantOf($this->recordFor($definition)->data));
     }
 
     public function record(): Record

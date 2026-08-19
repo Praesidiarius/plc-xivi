@@ -16,7 +16,23 @@
 					immediately.
 				</p>
 			</div>
-			<a class="btn btn-link" href="{{ path('module_index', {module: module.key}) }}">{{ 'field.back_to'|trans({'%module%': module.label|lower}) }}</a>
+			<div class="d-flex align-items-center gap-2">
+				{#
+					The headings on this module's form, on a page of their own (XIV-119).
+
+					Here rather than as a column in the table below for §5.4's usual
+					reason: the table is a control per field, and a section is not a
+					fact about a field — it is a thing with a name and a place, and
+					something has to be able to make one before any field can be put
+					in it. What the table does draw is the select saying which heading
+					each field is under, which is instantaneous and reversible and
+					therefore fits a cell.
+				#}
+				<a class="btn btn-outline-secondary btn-sm" href="{{ path('field_sections', {module: module.key}) }}">
+					{{ 'field.sections.link'|trans({'%count%': module.sections|length}) }}
+				</a>
+				<a class="btn btn-link" href="{{ path('module_index', {module: module.key}) }}">{{ 'field.back_to'|trans({'%module%': module.label|lower}) }}</a>
+			</div>
 		</div>
 
 		{#
@@ -41,7 +57,15 @@
 			</div>
 		{% endif %}
 
+		{#
+			The first shape is the module itself and the rest are its collections
+			(§5.1) — captured here because the row loop below shadows `loop`, and
+			because only a module has sections: a collection's rows are drawn as a
+			table on the record page, and a table row has nowhere to put a heading
+			(XIV-119).
+		#}
 		{% for shape in shapes %}
+			{% set groupable = loop.first %}
 			<div class="card mb-3">
 				<div class="card-body">
 					{#
@@ -71,6 +95,11 @@
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.rules'|trans }}</th>
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.order'|trans }}</th>
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.width'|trans }}</th>
+									{# Only where a heading can be drawn at all (XIV-119) — see the
+									   select below, and the argument on ModuleDefinition::$sections. #}
+									{% if groupable %}
+										<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.sections.column'|trans }}</th>
+									{% endif %}
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.autocomplete'|trans }}</th>
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.region'|trans }}</th>
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.points_at'|trans }}</th>
@@ -127,6 +156,39 @@
 												{% endfor %}
 											</select>
 										</td>
+										{#
+											Which heading this field is drawn under (XIV-119).
+
+											A cell rather than a page, unlike the two links at the end of
+											this row, and that is the test §5.4 applies to everything in
+											this table: choosing a section is instantaneous and reversible
+											— pick one, pick the blank again, nothing happened, no record
+											moved, nothing was written but this word. The page it points
+											at is where a section is *made*.
+
+											Drawn only on the module's own shape. A control here on a
+											collection would be one that appeared to work and did nothing,
+											which is the defect XIV-144 is named after — and the save
+											reads an absent control as "leave it alone" rather than as
+											"none", so a collection's row form cannot clear what it never
+											drew.
+
+											Blank is a real answer and the common one: a field in no
+											section is drawn at the top of the form, exactly where every
+											field in this product was drawn before sections existed.
+										#}
+										{% if groupable %}
+											<td>
+												<select form="f{{ field.id }}" class="form-select form-select-sm"
+														name="section" style="width: 10rem"
+														aria-label="{{ 'field.sections.column'|trans }}">
+													<option value="">{{ 'field.sections.none'|trans }}</option>
+													{% for section in sections %}
+														<option value="{{ section.key }}" {{ field.section == section.key ? 'selected' : '' }}>{{ section.label }}</option>
+													{% endfor %}
+												</select>
+											</td>
+										{% endif %}
 										{# Whether somebody types to narrow this field, or scrolls it
 										   (XIV-36). Only for the types that have candidates to narrow —
 										   a select beside a date would be a control that does nothing.

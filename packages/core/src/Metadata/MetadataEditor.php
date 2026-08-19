@@ -15,6 +15,7 @@ namespace Xivi\Core\Metadata;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Xivi\Core\Entity\FieldDefinition;
+use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\Enumerates;
 use Xivi\Core\Field\FieldType;
@@ -164,6 +165,15 @@ final readonly class MetadataEditor
      * lives, so renaming one would orphan every value it names. Renaming is
      * `label`, which is the part people actually read.
      *
+     * **Every argument here is the value the field ends up with**, including the
+     * ones a particular page did not draw a control for — the numbering page and
+     * the options page both hand back the field as it already is and change one
+     * thing. `$section` joins `$width` on those terms (XIV-119): null means
+     * "in no section", not "leave it where it was", so a caller that forgets it
+     * moves the field to the top of the form. That is the same trap `$width` has
+     * had since XIV-43 and it is kept deliberately — a partial update would mean
+     * this method could no longer be read as "the row of the form, applied".
+     *
      * @param array<string, mixed> $options
      *
      * @throws MetadataChangeRefused
@@ -179,8 +189,10 @@ final readonly class MetadataEditor
         int $position,
         array $options = [],
         ?int $width = null,
+        ?string $section = null,
     ): void {
         self::assertNumbersSomething($options);
+        $this->assertSectionExists($field->getShape(), $field->getKey(), $section);
 
         // Everything a change to a per-type option has to answer for before any
         // of it is written (XIV-144). Ahead of the flags on purpose: these are
@@ -221,6 +233,10 @@ final readonly class MetadataEditor
         // editor always draws this control, so what it sends is always what the
         // customer meant, including empty.
         $field->setWidth($width);
+        // Which heading it is drawn under (XIV-119), on exactly the width's
+        // terms above: null is "none" rather than "unchanged", and the key was
+        // checked against this shape's own sections before anything was written.
+        $field->setSection($section);
         $field->setOptions($merged);
 
         $this->asOneChange(function () use ($field): void {
@@ -551,6 +567,162 @@ final readonly class MetadataEditor
         $shape->setLabel($label);
         $this->entityManager->flush();
         $this->cache->clear();
+    }
+
+    /**
+     * A heading on a module's form, named by the customer (XIV-119).
+     *
+     * The key is derived from the name once and never again, which is XIV-144's
+     * decision for a choice field's options one level up ({@see Section::keyFor()}):
+     * the fields carry the key, everybody reads the label, and renaming is
+     * therefore free by construction. The derivation is fed what the module
+     * already has, so a second "Billing" gets its own key rather than absorbing
+     * the first one's fields.
+     *
+     * It lands at the end, in tens, because that is where a new field lands and
+     * for the same reason — something added should appear where it was added.
+     *
+     * @throws MetadataChangeRefused
+     */
+    public function addSection(ModuleDefinition $module, string $label): Section
+    {
+        $label = trim($label);
+
+        if ($label === '') {
+            throw MetadataChangeRefused::sectionNeedsAName();
+        }
+
+        $taken = [];
+
+        foreach ($module->getSections() as $existing) {
+            $taken[$existing->key] = $existing;
+        }
+
+        $section = new Section(Section::keyFor($label, $taken), $label, $module->nextSectionPosition());
+        $module->setSections([...array_values($taken), $section]);
+
+        $this->entityManager->flush();
+        $this->cache->clear();
+
+        return $section;
+    }
+
+    /**
+     * Renaming and reordering them, which is one save because it is one page.
+     *
+     * **Only sections the module already has are touched, and a section missing
+     * from the list is left exactly where it is** — the opposite contract to a
+     * choice field's options, deliberately. There, absence had to mean removal
+     * or a removal could never be expressed; here removal is
+     * {@see self::removeSection()}, a page of its own with a sentence about what
+     * happens to the fields, so absence can safely mean "not mentioned". A key
+     * that is not on this module is ignored rather than invented: a section made
+     * by a hand-edited form would be a heading nobody asked for.
+     *
+     * @param array<string, string> $labels    key => the name it should now have
+     * @param array<string, int>    $positions key => where it should sit
+     */
+    public function updateSections(ModuleDefinition $module, array $labels, array $positions): void
+    {
+        $sections = [];
+
+        foreach ($module->getSections() as $section) {
+            $label = trim((string) ($labels[$section->key] ?? ''));
+            // A name emptied out keeps the old one, which is what a field's label
+            // already does: a blank heading is a rule nobody meant to write, and
+            // the operation with consequences attached is on another page.
+            $section = $label === '' ? $section : $section->renamedTo($label);
+            $sections[] = \array_key_exists($section->key, $positions)
+                ? $section->movedTo($positions[$section->key])
+                : $section;
+        }
+
+        $module->setSections($sections);
+
+        $this->entityManager->flush();
+        $this->cache->clear();
+    }
+
+    /**
+     * Taking a heading away, and leaving every field that was under it
+     * (XIV-119).
+     *
+     * **This is §5.4's removal rule one level up.** Removing a field takes the
+     * definition and leaves the values; removing a section takes the heading and
+     * leaves the fields, with their order, their widths, their rules and their
+     * data untouched. They are drawn at the top of the form again, where they
+     * were before anybody made a section, and putting them back is one select
+     * per field. Nothing about any record changes, because nothing about any
+     * record ever depended on this.
+     *
+     * The fields are cleared **in the same transaction** as the heading. Leaving
+     * them naming a section that no longer exists would read as ungrouped
+     * anyway — {@see ModuleDefinition::getFieldGroupsFor()} is deliberate about
+     * that — but a definition that is merely interpreted correctly is not the
+     * same as a definition that is right, and an export of one would carry a
+     * word with nothing behind it.
+     */
+    public function removeSection(ModuleDefinition $module, string $key): void
+    {
+        if (!$module->hasSection($key)) {
+            throw MetadataChangeRefused::unknownSection($module->getKey(), $key);
+        }
+
+        $module->setSections(array_values(array_filter(
+            $module->getSections(),
+            static fn (Section $section): bool => $section->key !== $key,
+        )));
+
+        foreach ($module->getFields() as $field) {
+            if ($field->getSection() === $key) {
+                $field->setSection(null);
+            }
+        }
+
+        $this->asOneChange(function (): void {
+            $this->entityManager->flush();
+        });
+
+        $this->cache->clear();
+    }
+
+    /** How many fields would come out of a section if it went (XIV-119). */
+    public function fieldsIn(ModuleDefinition $module, string $key): int
+    {
+        $count = 0;
+
+        foreach ($module->getFields() as $field) {
+            if ($field->getSection() === $key) {
+                ++$count;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * A field may only be put in a heading its own shape has (XIV-119).
+     *
+     * On the write path rather than in the controller, so the console and an
+     * import meet it too — the rule every other refusal in this class follows,
+     * and the reason a second copy in a controller is the copy that gets
+     * forgotten.
+     *
+     * @throws MetadataChangeRefused
+     */
+    private function assertSectionExists(ShapeDefinition $shape, string $field, ?string $section): void
+    {
+        if ($section === null || trim($section) === '') {
+            return;
+        }
+
+        if (!$shape instanceof ModuleDefinition) {
+            throw MetadataChangeRefused::sectionsAreForModules($shape->getLabel());
+        }
+
+        if (!$shape->hasSection(trim($section))) {
+            throw MetadataChangeRefused::unknownSection($field, trim($section));
+        }
     }
 
     public function removeField(FieldDefinition $field): void

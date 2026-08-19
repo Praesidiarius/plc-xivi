@@ -1,0 +1,51 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'field.sections.remove_title'|trans({'%section%': section.label}) }}{% endblock %}
+
+{#
+	What deleting a heading does, said before it happens (XIV-119).
+
+	The whole reason this page exists is that a section *looks* like a container,
+	so deleting one looks like deleting what is inside it — and that assumption
+	fails in the direction that costs somebody their fields. It does not delete
+	anything: the fields keep their values, their order, their widths and their
+	rules, and go back to being drawn at the top of the form, which is exactly
+	where every field in this product was drawn before this feature existed.
+
+	§5.4's confirmation in front of removing a field is the same page making the
+	same promise one level down, and the count is here for the same reason it is
+	there: "3 fields come back to the top" is a different decision from "31 do".
+#}
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<h1 class="h3 mb-3">{{ 'field.sections.remove_title'|trans({'%section%': section.label}) }}</h1>
+
+		<div class="card">
+			<div class="card-body">
+				<p>{{ 'field.sections.remove_body'|trans }}</p>
+
+				<p class="mb-0">
+					{% if holding == 0 %}
+						{{ 'field.sections.remove_none'|trans }}
+					{% else %}
+						{{ 'field.sections.remove_holding'|trans({'%count%': holding}) }}
+					{% endif %}
+				</p>
+
+				<p class="text-body-secondary small mt-3 mb-0">{{ 'field.sections.remove_note'|trans }}</p>
+			</div>
+		</div>
+
+		<div class="d-flex align-items-center gap-2 mt-3">
+			<a class="btn btn-link" href="{{ path('field_sections', {module: module.key}) }}">{{ 'common.cancel'|trans }}</a>
+			<form method="post" action="{{ path('field_section_delete', {module: module.key, section: section.key}) }}">
+				<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
+				<button class="btn btn-danger" type="submit">{{ 'field.sections.remove_confirm'|trans }}</button>
+			</form>
+		</div>
+	</main>
+{% endblock %}

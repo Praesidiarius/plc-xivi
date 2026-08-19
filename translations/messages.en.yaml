@@ -555,6 +555,46 @@ field:
         Nothing here deletes data. Permanently removing the values is a separate
         operation and does not exist yet — see docs/architecture.md §7.2.
     remove_confirm: Remove the field
+    # Sections (XIV-119). A form with twenty-five fields in one column is a form
+    # nobody can find anything in, and these sentences carry the two facts
+    # somebody would otherwise learn by being surprised: a section is a heading
+    # and nothing else, and deleting one deletes nothing.
+    sections:
+        link: 'Sections (%count%)'
+        column: Section
+        none: '— none —'
+        title: 'Sections of “%module%”'
+        intro: >-
+            Headings on the form. A section groups fields on the record form and on the record
+            page and changes nothing else — the values are stored, validated, filtered and put
+            on documents exactly as they were.
+        none_yet: No sections yet, so every field is drawn in one run. Make one below and put fields in it from the fields page.
+        fields: Fields
+        fields_none: none yet
+        fields_count: '%count% fields'
+        add_label: Add a section
+        add_placeholder: Billing
+        add_help: >-
+            The name is yours and can be changed at any time. Nothing moves when you rename
+            one, because what a field carries is a short code made from the first name you
+            give it.
+        note: >-
+            The order is yours to set and is not worked out from the fields: leave gaps of ten
+            and type 15 to put something between. A section with no fields in it is kept here
+            and is not drawn on the form until something is in it.
+        remove_title: 'Remove the section “%section%”?'
+        remove_body: >-
+            This removes the heading and nothing else. A section is not a container — it does
+            not hold anything, and no record has ever depended on one.
+        remove_none: Nothing is in it, so nothing moves.
+        remove_holding: >-
+            %count% fields are in it. They keep their values, their order, their widths and
+            their rules, and go back to being drawn at the top of the form. Putting them
+            somewhere else again is one select each.
+        remove_note: >-
+            Nothing here deletes data, and nothing here changes how a record is stored or
+            found. Only what the form and the record page look like.
+        remove_confirm: Remove the section
     # The options page (XIV-144). Its sentences carry the two facts a customer
     # would otherwise learn by being surprised: what a record actually holds is
     # the code and not the words, and an option somebody's records hold is not
@@ -1245,6 +1285,12 @@ flash:
     # records already holding one of these keep the value they have, because the
     # value is a key and renaming an option is a change to what the page says.
     options_saved: 'Saved the options for "%field%". Records already holding one are unchanged.'
+    # Sections (XIV-119). Every one of these says the same thing in a different
+    # place, because it is the thing somebody assumes wrongly: a section is a
+    # heading on the form, and nothing about a record depends on it.
+    sections_saved: Saved. The form and the record page draw the sections in this order.
+    section_added: 'Added the section "%section%". Put fields in it from the fields page.'
+    section_removed: 'Removed the section "%section%". Its fields are still here, at the top of the form.'
     # Numbering (XIV-27). The second sentence is the one worth flashing: the
     # first thought of anybody who has just changed a numbering pattern is what
     # it did to the numbers already out there, and the answer is nothing.

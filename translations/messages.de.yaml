@@ -393,6 +393,46 @@ field:
         Hier wird nichts gelöscht. Die Werte endgültig zu entfernen ist ein eigener
         Vorgang und existiert noch nicht — siehe docs/architecture.md §7.2.
     remove_confirm: Feld entfernen
+    # Abschnitte (XIV-119). Ein Formular mit fünfundzwanzig Feldern in einer
+    # Spalte ist ein Formular, in dem niemand etwas findet. Diese Sätze tragen
+    # die zwei Tatsachen, die man sonst durch Überraschung lernt: Ein Abschnitt
+    # ist eine Überschrift und sonst nichts, und ihn zu entfernen entfernt nichts.
+    sections:
+        link: 'Abschnitte (%count%)'
+        column: Abschnitt
+        none: '— keiner —'
+        title: 'Abschnitte von „%module%“'
+        intro: >-
+            Überschriften im Formular. Ein Abschnitt gruppiert Felder im Datensatzformular und
+            auf der Datensatzseite und ändert sonst nichts — die Werte werden gespeichert,
+            geprüft, gefiltert und auf Dokumente geschrieben wie zuvor.
+        none_yet: Noch keine Abschnitte, alle Felder stehen also in einem Zug. Lege unten einen an und stelle auf der Felderseite Felder hinein.
+        fields: Felder
+        fields_none: noch keine
+        fields_count: '%count% Felder'
+        add_label: Abschnitt anlegen
+        add_placeholder: Rechnungsdaten
+        add_help: >-
+            Der Name gehört dir und lässt sich jederzeit ändern. Beim Umbenennen verschiebt
+            sich nichts, denn was ein Feld trägt, ist ein kurzer Code aus dem zuerst
+            vergebenen Namen.
+        note: >-
+            Die Reihenfolge setzt du selbst, sie wird nicht aus den Feldern abgeleitet: Lass
+            Zehnerschritte und tippe 15, um etwas dazwischenzuschieben. Ein Abschnitt ohne
+            Felder bleibt hier stehen und wird im Formular erst gezeichnet, wenn etwas darin ist.
+        remove_title: 'Abschnitt „%section%“ entfernen?'
+        remove_body: >-
+            Das entfernt die Überschrift und sonst nichts. Ein Abschnitt ist kein Behälter — er
+            enthält nichts, und kein Datensatz hat je von einem abgehangen.
+        remove_none: Es ist nichts darin, es verschiebt sich also nichts.
+        remove_holding: >-
+            %count% Felder sind darin. Sie behalten ihre Werte, ihre Reihenfolge, ihre Breiten
+            und ihre Regeln und werden wieder oben im Formular gezeichnet. Sie woanders
+            hinzustellen kostet je ein Auswahlfeld.
+        remove_note: >-
+            Hier wird nichts gelöscht, und hier ändert sich nichts daran, wie ein Datensatz
+            gespeichert oder gefunden wird. Nur, wie Formular und Datensatzseite aussehen.
+        remove_confirm: Abschnitt entfernen
     # Die Optionsseite (XIV-144). Ihre Sätze tragen die beiden Tatsachen, die man
     # sonst durch eine Überraschung lernt: Gespeichert wird der Code und nicht das
     # Wort, und eine Option, die Datensätze tragen, lässt sich nicht entfernen —
@@ -1081,6 +1121,12 @@ flash:
     field_saved: '„%field%“ gespeichert.'
     field_removed: '„%field%“ entfernt. Die Werte bleiben gespeichert.'
     options_saved: 'Optionen von „%field%“ gespeichert. Datensätze, die eine davon tragen, bleiben unverändert.'
+    # Abschnitte (XIV-119). Alle drei sagen dasselbe an verschiedenen Stellen,
+    # weil genau das falsch angenommen wird: Ein Abschnitt ist eine Überschrift
+    # im Formular, und kein Datensatz hängt davon ab.
+    sections_saved: Gespeichert. Formular und Datensatzseite zeichnen die Abschnitte in dieser Reihenfolge.
+    section_added: 'Abschnitt „%section%“ angelegt. Felder kommen auf der Felderseite hinein.'
+    section_removed: 'Abschnitt „%section%“ entfernt. Seine Felder sind weiterhin da, oben im Formular.'
     # Nummerierung (XIV-27). Der zweite Satz ist der wichtige: Wer gerade ein
     # Nummernmuster geändert hat, denkt zuerst an die bereits vergebenen Nummern
     # — und die Antwort lautet, dass sich daran nichts ändert.

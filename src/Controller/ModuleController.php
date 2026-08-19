@@ -336,7 +336,15 @@ final class ModuleController extends AbstractController
         return $this->render('module/show.html.twig', [
             'module' => $definition,
             'record' => $record,
-            'fields' => $definition->getFieldsFor($definition->variantOf($record->data)),
+            // The record's own fields, in the runs the customer put them in
+            // (XIV-119). **The very method the record form calls**, which is the
+            // point rather than a tidy-up: two templates reading the same
+            // definitions is exactly where grouping quietly diverges, and a form
+            // in four sections beside a record page in one flat list would be
+            // worse than not grouping at all. With no sections it yields one run
+            // holding every field in its own order, which is what this page has
+            // always drawn.
+            'groups' => $definition->getFieldGroupsFor($definition->variantOf($record->data)),
             'children' => $children,
             // Which of a row's inherited values no longer match what they came
             // from (XIV-18) — a negotiated price and a stale copy look the same

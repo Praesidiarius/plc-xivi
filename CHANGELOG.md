@@ -74,6 +74,20 @@ lands in `Unreleased` here.
 
 ### Added
 
+- **Sections, so a form of twenty-five fields is readable** ([XIV-119]) — group
+  fields under headings of your own: *Contact details*, *Billing*, *Notes*. Make
+  and order them on *Sections* beside the field editor, then pick one per field
+  in the *Section* column. The record page groups the same way, so the form and
+  the page agree. Nothing about a record changes — a section is a heading and
+  nothing else. §5.4 has the reasoning, including why it is not a collection.
+- **A field in no section works exactly as before** ([XIV-119]) — which is every
+  field in every installation until you make one. Nothing moves, nothing is
+  rewritten, and there is no upgrade step: fields with no section are drawn first,
+  in their own order, above whatever you group afterwards.
+- **Deleting a section deletes no fields** ([XIV-119]) — it takes the heading and
+  leaves everything under it, which the confirmation says before it happens,
+  together with how many fields come back to the top of the form. Collapsing a
+  section is deliberately not in this.
 - **A phone field, so one number is one value** ([XIV-114]) — `+41 79 123 45 67`,
   `0791234567` and `079 123 45 67` are one number, and until now they were three
   values in a text box: the filter found one of them, a duplicate check found
@@ -587,6 +601,7 @@ lands in `Unreleased` here.
 [XIV-123]: https://xivi.youtrack.cloud/issue/XIV-123
 [XIV-143]: https://xivi.youtrack.cloud/issue/XIV-143
 [XIV-144]: https://xivi.youtrack.cloud/issue/XIV-144
+[XIV-119]: https://xivi.youtrack.cloud/issue/XIV-119
 
 ## Releases
 
