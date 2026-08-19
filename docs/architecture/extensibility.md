@@ -162,6 +162,17 @@ does not chain-install, and the reason is the paragraph above: each chained modu
 carries its own permanent preset choice, so a chain makes two irreversible
 decisions on somebody's behalf while they think they are making one.
 
+*Sharpened 2026-08-20.* Checked first, but **shown anyway**. A module whose
+requirements this tenant lacks stays on the shelf, with the missing piece named
+and the way there stated: install Contact first, or take the upgrade that adds
+what it needs (§7.2.1). Hiding it was considered and rejected, because hiding
+turns the store into a different catalogue per tenant, and the customer who would
+want the module is exactly the one who never learns it exists. Withholding by
+*deployment* decision is a different axis and stays as it is: §6.2's state and
+§6.5's `unpriced` and `not_for_sale` are the operator saying "not offered here",
+which is theirs to say. "You cannot have this *yet*" is a sentence that must
+always come with directions.
+
 **Nothing about a module is written here.** Presets, requirements, collections and
 labels all come off the blueprint, so a module added to a future build appears in
 the store complete. Whether it appears at all is its state (§6.2), which is a row

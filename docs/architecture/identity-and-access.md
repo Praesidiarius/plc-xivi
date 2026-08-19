@@ -3491,5 +3491,37 @@ one §8.10 gives for the tenant list: a search box, and the ordering reaching SQ
 **Nothing withdraws a ticket.** A customer who solves it themselves says so, in
 the ticket, which is what a person does anyway.
 
+### 8.18 Support enters a tenant only through a door the customer opens (2026-08-20)
+
+Decided ahead of being built, because this is the kind of capability that gets
+built the wrong way the day a support case is urgent enough to need it.
+
+An operator will eventually have to see what a customer sees: subscription tiers
+that differ in support level (§9.4) mean support cases, §8.17 gives those cases a
+channel, and the fastest diagnosis of "my form is broken" is the form. §8.9 keeps
+operators structurally outside tenants, and a database per tenant makes the back
+door, `psql` into the customer's own database, permanently available and
+permanently tempting. So the rule is written down before the temptation has a
+deadline:
+
+**Impersonation is requested by the operator and granted by the tenant's own
+administrator, per incident.** The shape is remote-control software: support asks
+to connect, the customer accepts, and only then is there a session. The grant is
+an act in the tenant's own UI by somebody who is already an administrator there;
+it is bounded rather than standing (a grant that outlives its incident is a
+standing credential wearing a consent's clothes); and the request, the grant or
+refusal, and everything done during the session land in the same history
+customers already have for their records. What §8.10 and §8.11 established for
+the operator surface, counts rather than contents, stays true up to the moment
+the customer says otherwise, and becomes true again when the session ends.
+
+**The back door stays what it is: an emergency, not a workflow.** Nothing makes
+`psql` impossible for whoever runs the machine, and pretending otherwise would be
+a guarantee this brief refuses to fake elsewhere (§8.9 on hostnames). What the
+front door buys is that the honest path is also the convenient one, is visible to
+the customer, and leaves a trail the back door never will, and a contract clause
+can then say the honest path is the only one used, which is a sentence worth
+being able to sign.
+
 ---
 

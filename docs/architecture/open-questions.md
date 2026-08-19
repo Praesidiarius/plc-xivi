@@ -80,6 +80,24 @@ Not yet decided. Decide deliberately rather than by accident.
    still refuses outright: unique across the whole table and unique within one parent are
    different rules, and the engine will not guess which was meant. The index would be one
    line either way; the question is not a technical one and is still open.
+
+   *The type-change half, decided on paper 2026-08-20; XIV-146 is the build.*
+   **Legality is the tenant's data's to decide, not a table of type pairs.** A type
+   change is a per-row conversion through the new type's own reading (`toStorage()`,
+   the seam XIV-114 built), preceded by a dry run, and the same change can be legal
+   for one tenant and refused for another because their data differs. A change every
+   row survives simply happens. A change any row fails is **refused with the §5.4
+   report**, a count and the offending values named, never a guess. Emptying the
+   failing rows is available only as the customer's explicit second choice, made
+   with that report in front of them, and every value the run converts or empties is
+   written to the record's history first, so even a lossy conversion leaves the road
+   back readable. Whether the door is one-way is said before it closes: a conversion
+   whose reverse is lossless says so, and the rest are offered as final. A converted
+   field that something derives from re-derives, or the change is refused while the
+   derivation exists (§5.9). Purging a removed field's values stays open, and stays
+   deliberately beside this rather than inside it: one is data loss somebody asked
+   for and the other is data loss nobody did, and the pairing is the reason a purge
+   must never ride along on a conversion.
 3. **Query layer.** Filtering, sorting, and pagination across mixed real-column and JSONB
    storage, without degenerating into concatenated SQL. This is the highest-risk
    component in the system.

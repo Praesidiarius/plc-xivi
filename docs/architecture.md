@@ -20,6 +20,13 @@ Two deliverables, built together, in this order:
 The engine is not allowed to grow features that no module actually needs. Earn the
 abstraction: a second concrete use case before a generalization.
 
+That rule gained its second half on 2026-08-20: **once a second module needs it,
+it is the engine's.** A capability two modules carry copies of is an abstraction
+already earned and not yet collected; only what is unique to one module belongs in
+one. The first real test of this half will be recurrence, because memberships and
+recurring invoices both want a thing done on a clock inside a tenant, and neither
+module may own the clock (§4.5 is where the clock's outside half already lives).
+
 ---
 
 ## 2. Lessons from v1 (hard constraints, not preferences)
@@ -336,6 +343,12 @@ The two halves of §7.2 still open are a field changing type, and purging a remo
 field's values. They are opposites and probably want deciding together: one is
 data loss nobody asked for, the other is data loss somebody explicitly asked for.
 
+*Half decided on paper, 2026-08-20.* A field changing type now has a written rule
+in §7.2 (the note citing [XIV-146]), unbuilt on purpose: legality is decided by the
+tenant's own data through a dry run, refusal-with-a-report is the default, and
+emptying a failing row is only ever the customer's explicit second choice. Purge
+stays open, and stays deliberately separate.
+
 Deliberately still missing, and each one needs a decision rather than an
 implementation: column promotion, the remaining half of links between modules
 (§7.6), and §7.2 — what happens to stored data when a field changes type or is
@@ -353,3 +366,50 @@ answered rather than not at all. Document templates (§5.7) are the first featur
 that keeps a file, and they keep it in the tenant's own database — a bounded
 answer for something small, few and unmistakably one customer's. Attachments are
 many, large and long-lived, and will still want a real one.
+
+### 9.4 What this project is testing, and the order of the verticals (2026-08-20)
+
+This repository is an architecture test with a company as its exit option, and
+the two are deliberately not the same decision. Whether the software holds is
+*evidence*; whether to take responsibility for paying customers is a judgement,
+made when it is made and not by a gate. What this section fixes is the evidence,
+so that the judgement is made looking at something.
+
+**The claim under test:** one installation serves Swiss SMBs of five to fifty
+people, from genuinely different verticals, with **no code per customer**. A new
+vertical may cost a module, because modules are closed and only we write them
+(§3.2, §6.6); an onboarded customer may never require a commit. Every time a
+customer's need turns into a commit anyway, that is the test speaking, and it is
+worth a written note naming what the engine could not say.
+
+**The evidence to gather before the verdict, three pieces:**
+
+1. **Tenant zero.** Our own operation on a production tenant, invoicing its real
+   subscriptions, is what `17.1` means: the changelog reserves MINOR for a
+   release worth naming, and this is the one it has been waiting for. Payment
+   collection can sit on an external provider; what has to be ours is the tenant
+   lifecycle, the invoices and the QR-bill ([XIV-152]), carrying production
+   traffic for a first customer who forgives.
+2. **One genuinely different vertical.** Contact through voucher is a single
+   vertical: selling things. The claim needs a second shape, services-on-time or
+   memberships first, expressed without the engine growing a feature per
+   customer. **Health-adjacent verticals wait as a named later wave.** Physio
+   and care homes put patient and resident data into tenants, which raises nFADP
+   special categories, contract work and hosting questions that are a cost of
+   their own, and not the wave to learn on. Gym, software companies and case
+   management carry ordinary personal data and come first.
+3. **The fleet rehearsal** ([XIV-154]). The claim is thousands of tenants and
+   the fleet today is three. A thousand throwaway tenants, one real migration
+   walked across them, one run killed mid-flight, and numbers instead of
+   impressions.
+
+**The business model, recorded so features can aim at it:** a signup fee by
+vertical, subscription tiers that differ in support level, and some modules
+carrying a one-time price on top; §6.5 built exactly that price and stopped,
+deliberately, before recurring. What a lapsed subscription means is §4.6; what
+support may see inside a tenant is §8.18.
+
+**Hosting is decided in two steps, and jurisdiction is the second** (recorded on
+[XIV-61] too): the first test deployment goes to Germany because it is cheap and
+nothing on it is real; **a Swiss datacenter is a hard precondition for onboarding
+any paying customer**, and for the health wave it is not even a discussion.

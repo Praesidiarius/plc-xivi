@@ -1357,5 +1357,31 @@ and the state that otherwise looks exactly like being covered.
 Nothing here schedules anything either. The crontab is still an operator's file
 on an operator's machine, and this repository can print it, not install it.
 
+### 4.6 A lapsed customer reads, exports, and pays nothing (2026-08-20)
+
+Nothing bills anybody yet (§6.5 built a one-off module price and deliberately
+stopped before recurring), but the lifecycle a subscription implies is decided
+now, because tenant states are cheap to write down and expensive to retrofit into
+screens that assumed there were two.
+
+**Lapse is a grace period, then read-only, and the export never closes.** A
+customer whose subscription lapses keeps signing in, keeps reading their records,
+and keeps the export the engine already gives them; what stops, after the grace
+period, is writing. Read-only is a registry fact about the tenant on the same
+axis as `suspended`, enforced by the application; how it is enforced is the
+implementing ticket's problem, and the length of the grace period is a term of
+the contract rather than of this section.
+
+**Nothing is deleted by lapsing.** Removal stays §4.1's separate, deliberate act,
+performed by an operator with the confirmation in front of them, and no billing
+state may ever trigger it on its own. A billing system that can destroy a
+database is the blast radius of §4 handed to a webhook.
+
+**The export artifact is the per-module CSV**, decided against also offering a
+raw `pg_dump`: a dump is complete and unreadable anywhere else, which is not
+portability, and a second export path is a second thing to keep true. The CSVs
+are what the next system can actually ingest, they already exist per module, and
+"you can always leave" has to name a format the customer can open.
+
 ---
 

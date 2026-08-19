@@ -12,13 +12,13 @@ the engine honest. **One installation serves many customers**, each with their o
 PostgreSQL database and their own hostname, and each deciding for themselves what
 a contact or an invoice looks like.
 
-> **Status: early, but no longer a skeleton.** Multi-tenancy, sign-in and the
-> metadata engine are built and tested. A customer can list, filter, create, edit,
-> delete, export and import records, change their own fields, and read what
-> happened to a record — every page of it built from definitions in their own
-> database. An administrator can manage the people who sign in and decide, per
-> module and per action, what each of them may do. What is missing is templates
-> deciding which modules a customer is given, and a second module.
+> **Status: early, but no longer a skeleton.** The engine is built and tested:
+> multi-tenancy, sign-in, the metadata layer and per-action permissions. Six
+> modules run on it, from contacts through articles, orders, invoices and
+> vouchers to a knowledge base, every page of them built from definitions in the
+> customer's own database, and a store installs them without a shell. What is
+> still assembled by hand is the customer themselves: templates deciding which
+> modules and fields a signup receives are the missing half of provisioning.
 >
 > The full inventory is
 > [What exists today](https://praesidiarius.github.io/plc-xivi-docs/what-exists/).
