@@ -106,31 +106,32 @@ final class TenantMigrationsAreAdditiveTest extends TestCase
     ];
 
     /**
-     * Migrations written before the rule was checked, left exactly as they are.
+     * Migrations shipped destructive on purpose, left exactly as they are.
      *
-     * One file, and it is a rename: `module_definition` became
-     * `shape_definition` on 2026-08-14, three weeks before this installation had
-     * a customer to break. Rewriting it would change only what a *fresh*
-     * database gets while making the migration a no-op everywhere the suite can
-     * see it, which is the argument {@see MigrationsUseIdentityColumnsTest}
-     * makes at length about the eleven `SERIAL` columns it left alone: a
-     * migration is a record of what was run.
+     * **Empty, and it was not always.** It carried
+     * `Version20260814084512.php` — the rename of `module_definition` to
+     * `shape_definition` on 2026-08-14, exempt because a migration is a record
+     * of what was run and rewriting one changes only what a *fresh* database
+     * gets. XIV-151 squashed the whole set to a baseline while nothing was
+     * deployed (§4.2), which removed the file and with it the only thing this
+     * list was for: there is no longer a run to be a record of, and the baseline
+     * creates `shape_definition` under its own name in one `CREATE TABLE`.
+     *
+     * The list stays rather than being deleted, because the next author to need
+     * it needs it on the day they are about to break the rule, and a mechanism
+     * that has to be invented at that moment is one that gets skipped instead.
      *
      * **Listed by name rather than cut off at a version number**, which is the
      * one place this differs from its sibling. A version cut-off would make this
-     * check depend on how migrations are numbered, and that is a convention
-     * being worked on elsewhere (XIV-106, XIV-107); a name list depends on
+     * check depend on how migrations are numbered; a name list depends on
      * nothing and — the part that matters — a *new* migration is checked by
      * default rather than by being numbered high enough. Adding to this list is
-     * possible and is meant to feel like what it is: writing down that a
-     * destructive migration was shipped on purpose, in a file somebody will
-     * read.
+     * meant to feel like what it is: writing down that a destructive migration
+     * was shipped on purpose, in a file somebody will read.
      *
      * @var list<string>
      */
-    private const array EXEMPT = [
-        'Version20260814084512.php',
-    ];
+    private const array EXEMPT = [];
 
     /**
      * Every tenant migration the rule applies to, named by file so a failure says
@@ -143,6 +144,15 @@ final class TenantMigrationsAreAdditiveTest extends TestCase
         foreach (glob(\dirname(__DIR__, 2) . '/migrations/tenant/*.php') ?: [] as $file) {
             $name = basename($file);
 
+            // PHPStan is right that this cannot match: `EXEMPT` is empty, because
+            // XIV-151's squash removed its only entry. The mechanism is kept
+            // rather than deleted because the next author needs it on the day
+            // they are about to ship a destructive migration on purpose, and a
+            // mechanism they have to invent at that moment is one they skip
+            // instead. Deleting these three lines and re-deriving them later is
+            // the same code with the argument for it lost.
+            //
+            // @phpstan-ignore function.impossibleType (EXEMPT is empty; see above)
             if (\in_array($name, self::EXEMPT, true)) {
                 continue;
             }
@@ -158,10 +168,16 @@ final class TenantMigrationsAreAdditiveTest extends TestCase
      * directory would empty the provider and leave every assertion below passing
      * by describing nothing. A green that means "not looked" is the failure this
      * whole family of tests exists because of.
+     *
+     * **It asked for more than one file until XIV-151 and now asks for at least
+     * one**, because the squash to a baseline left exactly one — and a threshold
+     * that a correct repository fails is a threshold that gets edited rather than
+     * read. One is the honest floor here: `migrations/tenant` is never legitimately
+     * empty, because a tenant database has to be built by something.
      */
     public function testThereAreTenantMigrationsToCheck(): void
     {
-        self::assertGreaterThan(1, iterator_count(self::tenantMigrations()));
+        self::assertGreaterThan(0, iterator_count(self::tenantMigrations()));
     }
 
     #[DataProvider('tenantMigrations')]

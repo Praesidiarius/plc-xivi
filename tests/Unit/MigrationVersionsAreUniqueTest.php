@@ -127,10 +127,34 @@ final class MigrationVersionsAreUniqueTest extends TestCase
      * above, would empty the map and leave every assertion below passing by
      * describing nothing. A green that means "not checked" is worse than a red
      * one — `deptrac` spent four months proving it (XIV-60).
+     *
+     * **It used to demand more than twenty migrations and now demands one from
+     * each set, and the change is XIV-151 rather than a relaxation.** Both
+     * directories were squashed to a single baseline while nothing was deployed
+     * (§4.2), so a count threshold would now be a threshold on how many
+     * migrations have been written *since* the squash — a number that is two
+     * today, is zero the day after the next one, and says nothing about whether
+     * this file is looking at anything.
+     *
+     * What is asserted instead is the property that actually fails when the glob
+     * breaks: **each set contributes at least one file**. That is true one commit
+     * after a squash and true a thousand migrations later, and it catches every
+     * way of emptying the map — a renamed directory, an edited file-name pattern,
+     * a set that stopped being globbed — while a count catches only some of them
+     * and only while the repository happens to be large.
      */
     public function testThereAreMigrationsToCheck(): void
     {
-        self::assertGreaterThan(20, \count(self::versions()));
+        $bySet = ['control' => 0, 'tenant' => 0];
+
+        foreach (self::versions() as $files) {
+            foreach ($files as $file) {
+                ++$bySet[explode('/', $file)[0]];
+            }
+        }
+
+        self::assertGreaterThan(0, $bySet['control'], 'no migration found in migrations/control');
+        self::assertGreaterThan(0, $bySet['tenant'], 'no migration found in migrations/tenant');
     }
 
     public function testNoVersionIsClaimedTwice(): void

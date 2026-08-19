@@ -345,6 +345,80 @@ the author's to apply; the test catches the cases the rule is most often broken
 by accident in, and saying so here is better than implying a guarantee it does
 not give.
 
+#### Fifty-one migrations became two, and that door is now shut (XIV-151)
+
+On 2026-08-19 `migrations/tenant` held 37 files and `migrations/control` held 14,
+written over six days — fifteen tenant migrations on the last of those days
+alone. They are now one baseline each.
+
+**The whole justification is one sentence: nothing had been deployed anywhere.**
+A migration does two jobs. It builds a schema, and it walks an installation that
+already exists from one version of that schema to the next. Only the first job
+had ever been done. XIV-61's deploy definition was still open, no instance had
+been stood up, and every database the fifty-one had ever touched was a
+development tenant that could be dropped and rebuilt — which is what was done.
+With the second job serving nobody, fifty-one files were fifty-one ways of
+saying what one file says, and the cost of keeping them was paid on every
+provision, every test run and every reading.
+
+**The window is closed, and closing it is the point of writing this down.** From
+the first real deployment onwards, squashing means telling a live database that a
+version it never ran is already applied — `doctrine:migrations:version --add`,
+once per customer database, with no check that the schema underneath actually
+matches what the baseline claims to have built. That is a manual step against
+production data whose failure mode is a tenant silently skipping a future
+migration, and it is not worth what it saves. So: **this was a one-off, it
+happened before the first deploy, and there is not a second one.** A migration
+written after this commit is history, and is kept.
+
+Three things make the difference between a squash that is safe and one that
+merely looks it, and all three are in the two baselines rather than here:
+
+- **A baseline generated from the Doctrine mapping would have been wrong.** The
+  mapping describes tables. It does not describe `btree_gist`, the two
+  `IMMUTABLE` SQL functions XIV-136 installs, or the fact that
+  `EXCLUDE USING gist` cannot exist without them — so a generated baseline would
+  have built every table correctly and quietly dropped overlap prevention. It was
+  written against a `pg_dump` of a fully migrated database instead, and verified
+  by diffing that dump against one taken from a database built by the baseline
+  alone.
+- **Several of the fifty-one were retro-fits and are no-ops on a fresh
+  database** — XIV-109's index build over each customer's existing unique fields,
+  XIV-21's `position` backfill, XIV-97's `SERIAL`-to-identity conversion. They
+  read rows that do not exist yet on a new tenant, so their absence from the
+  baseline is a fact rather than a loss. Their *conclusions* are in it: every
+  `id` is an identity column, and `UniqueIndex` builds the expression indexes at
+  runtime as it always did.
+- **A migration set is a schema plus the rows the schema is meaningless
+  without**, and that is the part a schema diff structurally cannot check. One
+  statement in the fifty-one seeded data: `tenant_profile`'s singleton row.
+  Every setting on that table is written by `UPDATE … WHERE id = 1`, so without
+  the row an administrator saves the company name or the installation's dashboard
+  layout, is told it worked, and nothing changes — no error anywhere, because an
+  `UPDATE` matching no rows is not one. `pg_dump --schema-only` was identical with
+  and without it. **The suite is what caught it**, which is the argument for
+  treating a green `bin/ci` as the real gate and the schema diff as the
+  supporting evidence rather than the other way round.
+- **What is genuinely lost is the argument, not the schema.** A diff proves the
+  schema; nothing proves the reasoning, and fifty-one files of it collapsing into
+  two is exactly the failure XIV-149 spent the same day guarding this brief
+  against. So each baseline carries the per-column reasoning inline, cites the
+  ticket and section behind each group, and says in its own docblock that git
+  holds the originals and how to read them.
+
+The measurable half is small and worth stating precisely, because XIV-150 (a
+template database) is decided on it. `tenant:provision` end to end, ten runs of
+each set back to back on one machine: a median of **592 ms before and 481 ms
+after**, against a console-boot floor of about 115 ms. So roughly 477 ms of
+actual work became roughly 366 ms — **a quarter off, not an order of magnitude**.
+
+That is the number XIV-150 has to beat, and squashing does not make its case for
+it either way. What is left is not migration time: it is `CREATE DATABASE`, the
+role, the grants and the connection, none of which a smaller migration set
+touches and all of which a template database would. **XIV-150 stays open**, and
+whoever picks it up should measure against 366 ms of work rather than the 480 it
+would have been arguing with last week.
+
 #### "Migrated 49 of 50" is not success
 
 `tenant:migrate` catches per tenant and carries on, which is correct and is not

@@ -72,18 +72,21 @@ final class MigrationsUseIdentityColumnsTest extends TestCase
     /**
      * The version this rule starts at — XIV-97's own conversion, inclusive.
      *
-     * **The eleven `SERIAL` columns written before it are left exactly as they
-     * are, and that is deliberate.** A migration is a record of what was run, and
-     * every installation in existence has already run those. Rewriting them would
-     * change only what a *fresh* database gets, and would do it at a cost worth
-     * more than the tidiness: the conversion migration would then be a no-op
-     * everywhere the test suite can see it, since every tenant the suite
-     * provisions is fresh. Leaving history alone is what keeps `up()` exercised
-     * on every run against tables that really were `SERIAL`.
+     * **Nothing in the repository is below this line any more, and the line
+     * stays anyway.** It was drawn because the eleven `SERIAL` columns written
+     * before XIV-97 were a record of what every installation had actually run,
+     * and rewriting them would have made the conversion migration a no-op
+     * everywhere the suite could see it. XIV-151 then squashed both sets to a
+     * single baseline each — possible only because nothing was deployed, §4.2 —
+     * and the argument that protected those eleven files went with them: there
+     * is no installation whose history they describe, and the baselines create
+     * every `id` as identity in the first place.
      *
-     * So the line is drawn rather than the past edited, and this is where. There
-     * is nothing to add here when the next migration is written; a version
-     * greater than this one is checked by being newer.
+     * Keeping the constant costs nothing and removing it would cost the next
+     * reader the explanation above. What matters is that it no longer excuses
+     * anything: every migration in the tree is newer than this and every one of
+     * them is checked, which is the state this test always wanted and now
+     * trivially has.
      */
     private const string FROM_VERSION = '20260818090000';
 

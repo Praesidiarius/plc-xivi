@@ -19,8 +19,6 @@ use App\Tenant\Security\UserCreator;
 use App\Tests\Support\SavesRecords;
 use App\Tests\Support\SharesATenant;
 use Doctrine\DBAL\Connection;
-use DoctrineMigrations\Tenant\Version20260818150002;
-use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
@@ -275,89 +273,27 @@ final class UniqueValueRefusalTest extends WebTestCase
         self::assertNotNull($this->indexOn($field), 'so nobody can type a number that is already on a document');
     }
 
-    /**
-     * A tenant that predates this release gets the indexes its own definitions
-     * imply, without anybody editing a field (XIV-109).
+    /*
+     * Two tests stood here until XIV-151 and are deliberately gone: they ran
+     * `Version20260818150002`'s `up()` against a tenant put back into the state
+     * the XIV-109 release found an existing customer in, and asserted that the
+     * retro-fit built the indexes their own definitions implied.
      *
-     * The migration is the only part of this change that existing customers meet,
-     * and the suite provisions fresh databases whose `field_definition` table is
-     * empty at migration time — so run as it normally is, it proves nothing. This
-     * puts a tenant back into the state the release finds them in (indexes gone,
-     * a numbered field not marked unique) and runs the migration object against
-     * it, statement for statement.
+     * **The migration they tested no longer exists.** It was one of the
+     * thirty-seven squashed into a baseline while nothing was deployed (§4.2),
+     * and it was squashed away rather than carried over because on an empty
+     * database it is a no-op: it reads `field_definition` rows, and a fresh
+     * tenant has none at migration time. There is no installation it could still
+     * run against, so a test of it would be a test of code that runs nowhere.
      *
-     * Reading `is_unique` back through SQL rather than through the metadata
-     * repository, because the migration writes behind the entity manager's back —
-     * as a migration must — and the question here is what is in the table.
+     * Nothing else went with them. What that migration was catching up *to* is
+     * the runtime behaviour, and that is what the rest of this class and
+     * {@see UniqueValueRaceTest} check: the index is built when a field is marked
+     * unique, dropped when it is unmarked, and built by numbering without anybody
+     * ticking anything. Those are the assertions that keep mattering.
      */
-    public function testTheMigrationGivesAnExistingTenantTheIndexesItsDefinitionsImply(): void
-    {
-        $reference = $this->aNumberedReferenceField();
-        $email = $this->inTenant(fn (): string => UniqueIndex::nameFor(
-            self::service(MetadataRepository::class)->get(ContactModule::KEY)->getTableName(),
-            'email',
-        ));
-
-        // Back to how a customer's database looks on the release before this one:
-        // the flag they ticked by hand is still ticked, the numbered field is not
-        // unique because nothing ever said it should be, and nothing is indexed.
-        $this->inTenant(function () use ($reference, $email): void {
-            $connection = $this->tenantConnection();
-            $connection->executeStatement(sprintf('DROP INDEX %s', $reference));
-            $connection->executeStatement(sprintf('DROP INDEX %s', $email));
-            $connection->executeStatement("UPDATE field_definition SET is_unique = FALSE WHERE field_key = 'reference'");
-        });
-
-        self::assertNull($this->indexOn($reference), 'the tenant starts with none');
-        self::assertNull($this->indexOn($email));
-
-        $this->runTheMigration();
-
-        self::assertNotNull($this->indexOn($email), 'the field the customer marked unique');
-        self::assertNotNull($this->indexOn($reference), 'and the one numbering made unique');
-        self::assertTrue($this->uniqueFlagOf('reference'), 'whose definition now says so');
-    }
-
-    /** And running it twice changes nothing, because a deploy can be replayed. */
-    public function testTheMigrationCanBeRunTwice(): void
-    {
-        $this->aNumberedReferenceField();
-
-        $this->runTheMigration();
-        $this->runTheMigration();
-
-        self::assertTrue($this->uniqueFlagOf('reference'));
-    }
 
     // -- helpers ------------------------------------------------------------
-
-    /**
-     * The migration's own `up()`, executed against this tenant.
-     *
-     * The class rather than `tenant:migrate`, because Doctrine records what it
-     * has already run against this database — and what is under test is the SQL,
-     * not the bookkeeping around it.
-     */
-    private function runTheMigration(): void
-    {
-        $this->inTenant(function (): void {
-            $connection = $this->tenantConnection();
-            $migration = new Version20260818150002($connection, new NullLogger());
-            $migration->up($connection->createSchemaManager()->introspectSchema());
-
-            foreach ($migration->getSql() as $query) {
-                $connection->executeStatement($query->getStatement(), $query->getParameters(), $query->getTypes());
-            }
-        });
-    }
-
-    private function uniqueFlagOf(string $key): bool
-    {
-        return (bool) $this->inTenant(fn () => $this->tenantConnection()->fetchOne(
-            'SELECT is_unique FROM field_definition WHERE field_key = :key',
-            ['key' => $key],
-        ));
-    }
 
     /** A plain text field of the customer's own, the way they add one. */
     private function aPlainReferenceField(): string

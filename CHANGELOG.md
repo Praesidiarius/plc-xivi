@@ -678,6 +678,27 @@ lands in `Unreleased` here.
 
 ### Decided
 
+- **One migration instead of fifty-one, because nothing is deployed yet — and
+  never again after this** ([XIV-151],
+  [§4.2](docs/architecture/deployment.md#42-what-a-deploy-has-to-do-and-where-each-part-of-it-runs-xiv-61)).
+  `migrations/tenant` (37 files) and `migrations/control` (14) are now one
+  baseline each. **Nothing to do for anyone, because there is nobody to do it
+  for**: no instance has been deployed, so no schema had to be walked forward,
+  which is the only reason this was allowed. Squashing after the first deploy
+  would mean marking a version as applied on live customer databases by hand, so
+  §4.2 now records that the window is shut and every migration written from here
+  is kept. The two baselines carry the per-column reasoning the fifty-one held,
+  cite the ticket behind each group, and say where in git the originals are.
+  Verified by diffing a `pg_dump` of a database built from the old set against
+  one built from the baseline — identical for the control plane, and for tenants
+  identical but for two rename leftovers deliberately not carried forward
+  (`module_definition_pkey` and its sequence, which `shape_definition` had kept
+  since 2026-08-14).
+- **A development tenant must be rebuilt after this lands** ([XIV-151]) — the
+  only thing anybody has to act on. An existing dev tenant's
+  `doctrine_migration_versions` names 37 classes that no longer exist, so
+  `tenant:reset <slug>` it, or `tenant:deprovision` and provision again. The test
+  suite builds its own and needs nothing.
 - **Only we publish modules** ([XIV-141],
   [§3.2](docs/architecture.md#32-only-we-publish-modules-xiv-141)). There is no
   third-party module and no plugin registry, and the brief now says so where the
@@ -730,6 +751,7 @@ lands in `Unreleased` here.
 [XIV-127]: https://xivi.youtrack.cloud/issue/XIV-127
 [XIV-136]: https://xivi.youtrack.cloud/issue/XIV-136
 [XIV-149]: https://xivi.youtrack.cloud/issue/XIV-149
+[XIV-151]: https://xivi.youtrack.cloud/issue/XIV-151
 
 ## Releases
 
