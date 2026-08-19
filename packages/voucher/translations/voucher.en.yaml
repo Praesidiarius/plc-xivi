@@ -29,3 +29,21 @@ kind:
     absolute: Amount off
     relative: Percentage off
     free_article: Free article
+
+# **Why a voucher was refused when a document tried to use it** (XIV-104).
+#
+# Read at the moment somebody presses save rather than seeded into a customer's
+# definitions like the labels above — the same distinction the order module's
+# `guard:` block makes. There is nothing here for a customer to rename, and the
+# sentence has to be the one this build actually enforces.
+#
+# **Four, and not one.** "This voucher cannot be used" is of no use to whoever is
+# standing at the till: a code that has been used up, a promotion that starts next
+# month and a voucher somebody deleted are three different situations with three
+# different things to do about them, and the fourth — a limit reached — is the
+# only one where the answer is to stop asking.
+refusal:
+    expired: The voucher %voucher% has expired and cannot be used.
+    not_yet_valid: The voucher %voucher% is not valid yet.
+    exhausted: The voucher %voucher% has already been used as many times as it allows.
+    unavailable: The voucher %voucher% is no longer available.

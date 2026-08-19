@@ -68,6 +68,9 @@ final class OrderModule implements ModuleProvider
     /** Whether the prices on this order already have the VAT in them (XIV-116). */
     public const string VAT_MODE = 'vat_mode';
 
+    /** Which voucher was used on it, where the customer has vouchers at all (XIV-104). */
+    public const string VOUCHER = 'voucher';
+
     /** And the fields of one row of the VAT table. */
     public const string RATE = 'rate';
     public const string TAXABLE_NET = 'net';
@@ -79,6 +82,13 @@ final class OrderModule implements ModuleProvider
     public const string COMMENT_LINE = 'comment';
     public const string SUBTOTAL_LINE = 'subtotal';
 
+    /**
+     * And the one nobody types (XIV-104): what the voucher above took off, as a
+     * line of its own. Generated on every save, one per VAT rate it comes off,
+     * and not offered as a kind anybody can add.
+     */
+    public const string DISCOUNT_LINE = 'discount';
+
     public const string DRAFT = 'draft';
     public const string CONFIRMED = 'confirmed';
     public const string DELIVERED = 'delivered';
@@ -86,6 +96,9 @@ final class OrderModule implements ModuleProvider
 
     /** Which module a line's article points at. Its key, not its package. */
     private const string ARTICLE_MODULE = 'article';
+
+    /** And which one the voucher above names. A key again, and no import (§3). */
+    private const string VOUCHER_MODULE = 'voucher';
 
     public function blueprint(): ModuleBlueprint
     {
@@ -245,6 +258,52 @@ final class OrderModule implements ModuleProvider
                         ...VatMode::shipped(),
                     ],
                 ),
+                // **Which voucher was used on this order** (XIV-104).
+                //
+                // A link into another module, exactly like the customer above and
+                // the article on a line — a key in a declaration, and this package
+                // imports nothing from the voucher package (§3, XIV-13).
+                //
+                // **It is only here where the customer has both modules**, which
+                // is a fact about their installation rather than about this
+                // declaration: `uses` below says the order module installs
+                // perfectly well without vouchers, and
+                // {@see \Xivi\Core\Module\AvailableFields} is what then leaves
+                // this field out of that customer's definitions rather than
+                // giving them a picker with nothing in it. Somebody who buys
+                // vouchers later is offered the field by the upgrade screen
+                // (§7.2.1) — asked, not retro-fitted.
+                //
+                // **What it does is not stored here.** The discount is a line
+                // (§5.9), worked out on every save by the engine's own deriver
+                // and written into the lines below as one row per VAT rate. A
+                // percentage on the header would be guessing which rate it came
+                // off on any document carrying two, which is the argument the
+                // unit price on a line has made since XIV-16.
+                //
+                // Filterable, because "which orders used GIVE-10" is the one
+                // question a shop running a promotion asks about it. Not listed:
+                // a column that is empty on nearly every row is a column that
+                // costs every row its width.
+                new FieldBlueprint(
+                    key: self::VOUCHER,
+                    label: 'field.voucher',
+                    type: 'reference',
+                    filterable: true,
+                    listed: false,
+                    position: 46,
+                    options: [
+                        ReferenceFieldType::MODULE => self::VOUCHER_MODULE,
+                        // **A generated order names no voucher** (§5.17,
+                        // XIV-73). A reference otherwise samples a real record,
+                        // which here would take real uses off real vouchers
+                        // while a demo tenant is being built — and a voucher good
+                        // once, drawn twice, would *refuse the second order* and
+                        // take the whole `tenant:reset` down with it. A list of
+                        // one empty value is how a field says "not this one".
+                        'samples' => [null],
+                    ],
+                ),
                 // **Stored, not worked out when read** (XIV-16). Three reasons,
                 // and the first two are the ones that matter: "orders over 5000"
                 // has to be a WHERE clause rather than twenty-five records
@@ -294,12 +353,44 @@ final class OrderModule implements ModuleProvider
                             type: 'choice',
                             required: true,
                             position: 5,
-                            options: ['choices' => [
-                                self::ARTICLE_LINE => 'line.article',
-                                self::CUSTOM_LINE => 'line.custom',
-                                self::COMMENT_LINE => 'line.comment',
-                                self::SUBTOTAL_LINE => 'line.subtotal',
-                            ]],
+                            // **Five kinds, and one of them has no button**
+                            // (XIV-104). A discount line is written by the engine
+                            // from the voucher this order names, so it is an
+                            // ordinary option here — rows of it exist and have to
+                            // render, and §5.5 is explicit that the variants *are*
+                            // this field's options with no second list anywhere —
+                            // and {@see \Xivi\Core\Metadata\AvailableVariants}
+                            // is what keeps it out of the "add a line" buttons.
+                            options: [
+                                'choices' => [
+                                    self::ARTICLE_LINE => 'line.article',
+                                    self::CUSTOM_LINE => 'line.custom',
+                                    self::COMMENT_LINE => 'line.comment',
+                                    self::SUBTOTAL_LINE => 'line.subtotal',
+                                    self::DISCOUNT_LINE => 'line.discount',
+                                ],
+                            // **What a generated order's lines are, which is
+                            // now four of five kinds** (§5.17, XIV-73, XIV-104).
+                            // Without this the draw is uniform over the whole
+                            // list, so a fifth of every demo order would carry a
+                            // discount line the engine did not write — a row that
+                            // says a voucher took money off, on an order that
+                            // names no voucher. The generated kinds are the
+                            // engine's and the generator says nothing about them,
+                            // which is exactly XIV-73's rule about a derived
+                            // field applied one level up.
+                            //
+                            // The four that are here are listed once each, so the
+                            // distribution is the one this module has produced
+                            // since XIV-24 rather than a new opinion smuggled in
+                            // beside a fix.
+                            'samples' => [
+                                self::ARTICLE_LINE,
+                                self::CUSTOM_LINE,
+                                self::COMMENT_LINE,
+                                self::SUBTOTAL_LINE,
+                            ],
+                            ],
                         ),
                         // The article this line sells, on the one kind of line
                         // that sells one.
@@ -350,7 +441,7 @@ final class OrderModule implements ModuleProvider
                             label: 'field.quantity',
                             type: 'decimal',
                             required: true,
-                            variants: [self::ARTICLE_LINE, self::CUSTOM_LINE],
+                            variants: [self::ARTICLE_LINE, self::CUSTOM_LINE, self::DISCOUNT_LINE],
                             position: 30,
                             options: ['min' => 0, 'scale' => 2],
                         ),
@@ -418,7 +509,7 @@ final class OrderModule implements ModuleProvider
                             label: 'field.unit_price',
                             type: 'currency',
                             required: true,
-                            variants: [self::ARTICLE_LINE, self::CUSTOM_LINE],
+                            variants: [self::ARTICLE_LINE, self::CUSTOM_LINE, self::DISCOUNT_LINE],
                             position: 40,
                             options: InheritedValue::from('article', 'price'),
                         ),
@@ -430,7 +521,7 @@ final class OrderModule implements ModuleProvider
                             width: 1,
                             label: 'field.tax_rate',
                             type: 'decimal',
-                            variants: [self::ARTICLE_LINE, self::CUSTOM_LINE],
+                            variants: [self::ARTICLE_LINE, self::CUSTOM_LINE, self::DISCOUNT_LINE],
                             position: 45,
                             options: [
                                 'min' => 0,
@@ -459,7 +550,7 @@ final class OrderModule implements ModuleProvider
                             width: 2,
                             label: 'field.line_total',
                             type: 'currency',
-                            variants: [self::ARTICLE_LINE, self::CUSTOM_LINE, self::SUBTOTAL_LINE],
+                            variants: [self::ARTICLE_LINE, self::CUSTOM_LINE, self::SUBTOTAL_LINE, self::DISCOUNT_LINE],
                             position: 50,
                             derived: true,
                         ),
@@ -560,6 +651,13 @@ final class OrderModule implements ModuleProvider
                 taxableNet: self::TAXABLE_NET,
                 taxAmount: self::TAX_AMOUNT,
                 subtotalKind: self::SUBTOTAL_LINE,
+                // What a discount looks like on this module (XIV-104): the kind
+                // of row the engine writes, and the field such a row says itself
+                // in. Naming them is the whole of what this module has to do
+                // about vouchers — how much comes off is the voucher's business
+                // and where it lands is the engine's.
+                discountKind: self::DISCOUNT_LINE,
+                description: 'description',
                 vatMode: self::VAT_MODE,
             ),
             // And an order that sells only custom lines is an ordinary order, so
@@ -569,7 +667,12 @@ final class OrderModule implements ModuleProvider
             // Where the money is (XIV-16, declared rather than coded since
             // XIV-19). The arithmetic belongs to the engine; what this module
             // knows is which of its own fields mean what.
-            uses: [self::ARTICLE_MODULE],
+            // A catalogue and a promotion, and an order book works without
+            // either (XIV-23, XIV-104). Both are `uses` rather than `requires`
+            // for the same reason and with different consequences: no articles
+            // means the article line kind is not offered, and no vouchers means
+            // the voucher field above is not installed at all.
+            uses: [self::ARTICLE_MODULE, self::VOUCHER_MODULE],
             // An order confirmation goes to whoever ordered, and an order holds
             // no address of its own (XIV-39). One hop through the contact it
             // already names — the very link `requires` above is about, doing a

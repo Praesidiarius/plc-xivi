@@ -193,6 +193,61 @@ final readonly class VoucherRedemptions
     }
 
     /**
+     * Give a use back, because the document that took it stopped naming the
+     * voucher (XIV-104).
+     *
+     * ### Why this exists at all, since it is not symmetrical with the guard
+     *
+     * [XIV-103] built one statement and said it should stay the only way a use is
+     * *taken*, which it is: both callers of this feature go through
+     * {@see redeem()}. Releasing is a different act and needs a statement of its
+     * own, and the question worth answering is whether it should happen rather
+     * than what it looks like.
+     *
+     * It should, and the argument is what the count is *for*. It answers "how
+     * many times has this voucher been used", and a use is a document that
+     * carries it — so a draft order that named `GIVE-10`, was saved, and then had
+     * the voucher taken off again is not a use of it. Leaving the count up would
+     * burn a single-use voucher on somebody's mistake, with no way for anybody in
+     * the building to put it right: the count is engine bookkeeping and is
+     * deliberately not a field a customer can edit (§5.19).
+     *
+     * So the invariant is stated once here and is worth holding onto: **the count
+     * is the number of documents that carry the voucher.** Naming it adds one,
+     * un-naming it takes one away, and deleting the document that named it takes
+     * one away. A cancelled order is deliberately *not* one of those: it still
+     * carries the voucher, it is a record of what happened (§5.8), and the
+     * lifecycle has locked it so nobody can take the voucher off it either.
+     *
+     * ### The guard, which is smaller than the other one and for a smaller reason
+     *
+     * `redeemed_count > 0` and nothing else. There is no ceiling to check on the
+     * way down and no `ON CONFLICT` to arrange: the row either exists, in which
+     * case Postgres locks it exactly as it does for a redemption and two callers
+     * take turns, or it does not, in which case there is nothing to give back and
+     * no row is touched. The floor is there because a count below zero is a
+     * number that could only be read as a lie about the future, and because a
+     * caller releasing twice — a save that both changed the voucher and was
+     * retried, say — must not be able to *create* uses.
+     *
+     * **Inside the caller's transaction**, like {@see redeem()}: a save that fails
+     * after releasing keeps the use, because the row lock and the decrement both
+     * belong to the transaction that failed.
+     */
+    public function release(int $voucherId): void
+    {
+        $this->connection->executeStatement(
+            <<<'SQL'
+                UPDATE voucher_redemption
+                SET redeemed_count = redeemed_count - 1
+                WHERE voucher_id = :voucher
+                  AND redeemed_count > 0
+                SQL,
+            ['voucher' => $voucherId],
+        );
+    }
+
+    /**
      * How many times this voucher has been used, without using it.
      *
      * A plain read, so it is a snapshot and not a promise: somebody redeeming in

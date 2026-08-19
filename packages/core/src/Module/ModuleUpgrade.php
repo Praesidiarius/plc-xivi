@@ -126,6 +126,10 @@ final readonly class ModuleUpgrade
          * that config/services.yaml is what actually guarantees.
          */
         private Connection $connection,
+        // Whether a field can point at anything in this customer's installation
+        // (XIV-104) — the same class the installer asks, so an offer and an
+        // install cannot disagree about what a customer may have.
+        private AvailableFields $available,
     ) {
     }
 
@@ -346,6 +350,15 @@ final readonly class ModuleUpgrade
         $found = [];
 
         foreach ($blueprint->fields as $field) {
+            // A field pointing at a module this customer has not got is not an
+            // offer (XIV-104). The same rule the installer applies, in the other
+            // place a definition can be born — and the reason a customer who
+            // buys vouchers later *is* offered the order's voucher field: the
+            // answer changes the day the module they lacked arrives.
+            if (!$this->available->has($field)) {
+                continue;
+            }
+
             if ($module->getField($field->key) !== null) {
                 // Theirs already, whatever it has since been renamed, narrowed or
                 // relabelled to. This is the whole of the protection a customised

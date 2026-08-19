@@ -75,18 +75,29 @@ final class CollectionRowType extends AbstractType
             return;
         }
 
+        $generated = $options['generated_kind'];
+
         // **A row's kind decides its fields, and the kind is in the row's own
         // data** (XIV-20) — which the form only learns when the data arrives.
         // Events are the framework's answer to exactly that, and using them is
         // what lets a collection hold an article line and a comment line in one
         // list without the two knowing about each other.
-        $fields = static function (FormInterface $form, mixed $data) use ($collection): void {
+        $fields = static function (FormInterface $form, mixed $data) use ($collection, $generated): void {
             $values = \is_array($data) && \is_array($data['fields'] ?? null) ? $data['fields'] : [];
+            $variant = $collection->variantOf($values);
 
             $form->add('fields', RecordType::class, [
                 'shape' => $collection,
-                'variant' => $collection->variantOf($values),
+                'variant' => $variant,
                 'lock_variant' => true,
+                // **A row of the generated kind is read-only, whole** (XIV-104).
+                // It is the same argument the line above makes about the kind, one
+                // step further: a discount line is worked out from the voucher the
+                // document names on every save, so every control on it would be a
+                // control that reverts. The enforcement is `disabled` and not the
+                // template, because a template is a request away from being
+                // bypassed and a disabled field ignores what is submitted.
+                'lock_fields' => $variant !== null && $variant === $generated,
                 'label' => false,
             ]);
         };
@@ -122,6 +133,11 @@ final class CollectionRowType extends AbstractType
         $resolver
             ->setRequired('shape')
             ->setAllowedTypes('shape', CollectionDefinition::class)
+            // Which kind of row this collection's own module generates, if any
+            // (XIV-104) — resolved once by {@see ModuleRecordType}, which is the
+            // only thing here holding the module rather than the collection.
+            ->setDefault('generated_kind', null)
+            ->setAllowedTypes('generated_kind', ['null', 'string'])
             ->setDefaults([
                 'data_class' => null,
                 'validation_groups' => false,

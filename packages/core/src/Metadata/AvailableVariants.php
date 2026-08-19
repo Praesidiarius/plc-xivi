@@ -13,9 +13,11 @@ declare(strict_types=1);
 
 namespace Xivi\Core\Metadata;
 
+use Xivi\Core\Entity\CollectionDefinition;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\Type\ReferenceFieldType;
+use Xivi\Core\Module\ModuleRegistry;
 
 /**
  * Which kinds a customer can actually create (XIV-23).
@@ -33,12 +35,37 @@ use Xivi\Core\Field\Type\ReferenceFieldType;
  * whose module exists and whose record was deleted is §7.6's stale link and
  * already reads as one.
  *
+ * ### And a kind the engine writes for itself (XIV-104)
+ *
+ * There is a second reason a kind is not offered, and it is a different kind of
+ * reason: a discount line is **generated**. It is worked out on every save from
+ * the voucher the document names ({@see \Xivi\Core\Money\DerivesTotals}), so a
+ * row of that kind added by hand is a row the next save takes straight back out
+ * again — and a button that adds one is a button that promises something the
+ * engine then quietly undoes.
+ *
+ * It is answered here rather than in the form for the reason this class exists at
+ * all: "which kinds can be created" is one question, the record form and the
+ * kind chooser both ask it, and a second list drawn somewhere else would be a
+ * second answer. The kind itself stays a perfectly ordinary option on the
+ * customer's own variant field — it has to, because rows of it exist and have to
+ * render, and because §5.5 is explicit that the variants *are* the field's
+ * options and there is no second list anywhere that could disagree with it.
+ * What is filtered is only what somebody is offered.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class AvailableVariants
 {
-    public function __construct(private MetadataRepository $metadata)
-    {
+    public function __construct(
+        private MetadataRepository $metadata,
+        // Which kind of row a module says the engine writes for itself. The
+        // registry rather than the customer's definitions, and deliberately so:
+        // a `LineTotals` declaration is part of what the *module* is, whereas the
+        // definitions are what this customer has made of it (§6.1). A customer
+        // renaming the "Discount" label does not stop the engine owning the rows.
+        private ModuleRegistry $modules,
+    ) {
     }
 
     /**
@@ -50,8 +77,10 @@ final readonly class AvailableVariants
     {
         $available = [];
 
+        $generated = $this->generatedKindOf($shape);
+
         foreach ($shape->getVariants() as $variant => $label) {
-            if ($this->canBeFilledIn($shape, $variant)) {
+            if ($variant !== $generated && $this->canBeFilledIn($shape, $variant)) {
                 $available[$variant] = $label;
             }
         }
@@ -68,6 +97,26 @@ final readonly class AvailableVariants
         }
 
         return true;
+    }
+
+    /**
+     * The kind of row this shape's own module says the engine generates, if it
+     * says so at all (XIV-104).
+     *
+     * Only ever a collection's, because only a collection has lines: a module's
+     * variants are what a record *is* — a person or a company — and nothing
+     * generates one of those.
+     */
+    private function generatedKindOf(ShapeDefinition $shape): ?string
+    {
+        if (!$shape instanceof CollectionDefinition) {
+            return null;
+        }
+
+        $key = $shape->getParent()->getKey();
+        $totals = $this->modules->has($key) ? $this->modules->get($key)->lineTotals : null;
+
+        return $totals !== null && $totals->collection === $shape->getKey() ? $totals->discountKind : null;
     }
 
     private function isReachable(FieldDefinition $field): bool

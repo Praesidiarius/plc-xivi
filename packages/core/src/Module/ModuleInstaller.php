@@ -51,6 +51,12 @@ final readonly class ModuleInstaller
         private MetadataCache $cache,
         // What makes a blueprint's `unique` true rather than checked (XIV-109).
         private UniqueIndex $uniqueIndexes,
+        // Which of the blueprint's fields point at a module this customer has
+        // (XIV-104). A link into a module they never bought is a control with an
+        // empty picker behind it, and the only way to not offer a *field* is to
+        // not install it — see the class, which is also where the argument for
+        // deciding it once lives.
+        private AvailableFields $available,
     ) {
     }
 
@@ -150,7 +156,7 @@ final readonly class ModuleInstaller
         $preset ??= $blueprint->defaultPreset;
 
         if ($preset === null) {
-            return $blueprint->fields;
+            return $this->available->of($blueprint->fields);
         }
 
         $chosen = $blueprint->preset($preset) ?? throw new \RuntimeException(sprintf(
@@ -182,7 +188,11 @@ final readonly class ModuleInstaller
             ));
         }
 
-        return $fields;
+        // **After the check above and not before it**, so that a preset naming a
+        // field the module has never had is still the typo it is, while a preset
+        // naming one this customer cannot point at is quietly the shorter list —
+        // two different things that filtering first would have made one.
+        return $this->available->of($fields);
     }
 
     /**

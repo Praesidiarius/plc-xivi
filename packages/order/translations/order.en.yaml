@@ -25,6 +25,7 @@ field:
     line_total: Line total
     tax_rate: VAT rate (%)
     vat_mode: Price basis
+    voucher: Voucher
     net_total: Net total
     tax_total: VAT
     gross_total: Total
@@ -73,6 +74,11 @@ line:
     custom: Custom line
     comment: Comment
     subtotal: Subtotal
+    # The kind nobody adds (XIV-104). It is a label rather than a button: the
+    # engine writes these rows from the voucher the order names, one per VAT
+    # rate, and this is what the row is headed on the form and printed as on the
+    # document.
+    discount: Discount
 
 transition:
     confirm: Confirm

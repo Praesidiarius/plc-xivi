@@ -87,6 +87,25 @@ final class InvoiceModule implements ModuleProvider
     public const string COMMENT_LINE = 'comment';
     public const string SUBTOTAL_LINE = 'subtotal';
 
+    /**
+     * What the order's voucher took off, copied down with the rest of the lines
+     * (XIV-104).
+     *
+     * **An ordinary kind here, and that is the decision.** On an order a row of
+     * this kind is the engine's — worked out from the voucher the order names on
+     * every save, and neither editable nor deletable by hand. An invoice names no
+     * voucher and never will (applying one directly is a different question), so
+     * nothing generates one here and nothing owns it: it arrives as a copy, like
+     * every other line §5.12 brings across, and from that moment it is a line
+     * with a negative price and a label saying what it is — which is exactly what
+     * XIV-16 has called a discount since before vouchers existed.
+     *
+     * It has to exist even so. The seed copies the *kind* along with the figures,
+     * and a value this field had never heard of would fail the choice constraint
+     * and refuse to bill a discounted order at all.
+     */
+    public const string DISCOUNT_LINE = 'discount';
+
     public const string DRAFT = 'draft';
     public const string SENT = 'sent';
     public const string PAID = 'paid';
@@ -276,12 +295,29 @@ final class InvoiceModule implements ModuleProvider
                             type: 'choice',
                             required: true,
                             position: 5,
-                            options: ['choices' => [
-                                self::ARTICLE_LINE => 'line.article',
-                                self::CUSTOM_LINE => 'line.custom',
-                                self::COMMENT_LINE => 'line.comment',
-                                self::SUBTOTAL_LINE => 'line.subtotal',
-                            ]],
+                            options: [
+                                'choices' => [
+                                    self::ARTICLE_LINE => 'line.article',
+                                    self::CUSTOM_LINE => 'line.custom',
+                                    self::COMMENT_LINE => 'line.comment',
+                                    self::SUBTOTAL_LINE => 'line.subtotal',
+                                    self::DISCOUNT_LINE => 'line.discount',
+                                ],
+                                // The same list the order module draws from, and
+                                // for the same reason (§5.17, XIV-104): a
+                                // discount line arrives here by being *copied*
+                                // from an order (§5.12), never by being invented,
+                                // so a generated bill should not carry one out of
+                                // nowhere. The other four are listed once each,
+                                // which is the distribution this module has had
+                                // since it was written.
+                                'samples' => [
+                                    self::ARTICLE_LINE,
+                                    self::CUSTOM_LINE,
+                                    self::COMMENT_LINE,
+                                    self::SUBTOTAL_LINE,
+                                ],
+                            ],
                         ),
                         // Which order line this one bills, so a second invoice
                         // knows what is left (XIV-19). A number rather than a
@@ -331,7 +367,7 @@ final class InvoiceModule implements ModuleProvider
                             label: 'field.quantity',
                             type: 'decimal',
                             required: true,
-                            variants: [self::ARTICLE_LINE, self::CUSTOM_LINE],
+                            variants: [self::ARTICLE_LINE, self::CUSTOM_LINE, self::DISCOUNT_LINE],
                             position: 30,
                             options: ['min' => 0, 'scale' => 2],
                         ),
@@ -376,7 +412,7 @@ final class InvoiceModule implements ModuleProvider
                             label: 'field.unit_price',
                             type: 'currency',
                             required: true,
-                            variants: [self::ARTICLE_LINE, self::CUSTOM_LINE],
+                            variants: [self::ARTICLE_LINE, self::CUSTOM_LINE, self::DISCOUNT_LINE],
                             position: 40,
                         ),
                         new FieldBlueprint(
@@ -384,7 +420,7 @@ final class InvoiceModule implements ModuleProvider
                             width: 1,
                             label: 'field.tax_rate',
                             type: 'decimal',
-                            variants: [self::ARTICLE_LINE, self::CUSTOM_LINE],
+                            variants: [self::ARTICLE_LINE, self::CUSTOM_LINE, self::DISCOUNT_LINE],
                             position: 45,
                             options: [
                                 'min' => 0,
@@ -405,7 +441,7 @@ final class InvoiceModule implements ModuleProvider
                             width: 2,
                             label: 'field.line_total',
                             type: 'currency',
-                            variants: [self::ARTICLE_LINE, self::CUSTOM_LINE, self::SUBTOTAL_LINE],
+                            variants: [self::ARTICLE_LINE, self::CUSTOM_LINE, self::SUBTOTAL_LINE, self::DISCOUNT_LINE],
                             position: 50,
                             derived: true,
                         ),

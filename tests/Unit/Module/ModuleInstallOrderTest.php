@@ -122,13 +122,82 @@ final class ModuleInstallOrderTest extends TestCase
         self::assertSame([], $this->orderOf(['contact' => []])->of([]));
     }
 
-    /** @param array<string, list<string>> $modules key => what it requires */
-    private function orderOf(array $modules): ModuleInstallOrder
+    /**
+     * **A module it merely `uses` comes first too, when both were asked for**
+     * (XIV-104).
+     *
+     * The reason is not tidiness: what one module takes from another is decided
+     * at install time and never revisited (§6.1), so an order installed before
+     * vouchers is an order with no voucher field on it — and nothing goes back
+     * and adds one, because §7.2.1 is an offer somebody accepts rather than a
+     * retro-fit. Both orderings are asked here, because a sort that only works
+     * when the list was already nearly right is not a sort.
+     */
+    public function testAnOptionalModuleIsInstalledBeforeTheOneThatUsesIt(): void
+    {
+        $order = $this->orderOf(['contact' => [], 'order' => ['contact'], 'voucher' => []], [
+            'order' => ['voucher'],
+        ]);
+
+        foreach ([['order', 'voucher', 'contact'], ['contact', 'voucher', 'order']] as $asked) {
+            $sorted = $order->of($asked);
+
+            self::assertLessThan(
+                array_search('order', $sorted, true),
+                array_search('voucher', $sorted, true),
+                'whichever way round they were asked for',
+            );
+            self::assertCount(3, $sorted);
+        }
+    }
+
+    /**
+     * And it is **only** an ordering, never a reason to install something nobody
+     * asked for.
+     *
+     * That is the whole distinction between `uses` and `requires`: a missing
+     * requirement is a refusal, and a missing optional module is a customer who
+     * did not buy it. A sort that quietly widened the set would install a module
+     * — a table, a navigation entry, a licence — that nobody chose.
+     */
+    public function testAnOptionalModuleIsNeverPulledIn(): void
+    {
+        $order = $this->orderOf(['contact' => [], 'order' => ['contact'], 'voucher' => []], [
+            'order' => ['voucher'],
+        ]);
+
+        self::assertSame(['contact', 'order'], $order->of(['order', 'contact']));
+        self::assertSame(['contact', 'order'], $order->closureOf(['order']));
+    }
+
+    /**
+     * Two modules that use each other are installable in either order, so the
+     * cycle a `requires` loop is refused for is not one here.
+     */
+    public function testModulesThatMerelyUseEachOtherAreNotACircle(): void
+    {
+        $order = $this->orderOf(['left' => [], 'right' => []], ['left' => ['right'], 'right' => ['left']]);
+
+        self::assertCount(2, $order->of(['left', 'right']));
+    }
+
+    /**
+     * @param array<string, list<string>> $modules key => what it requires
+     * @param array<string, list<string>> $uses    and what it merely uses
+     */
+    private function orderOf(array $modules, array $uses = []): ModuleInstallOrder
     {
         $providers = [];
 
         foreach ($modules as $key => $requires) {
-            $blueprint = new ModuleBlueprint($key, ucfirst($key), $key, [], requires: $requires);
+            $blueprint = new ModuleBlueprint(
+                $key,
+                ucfirst($key),
+                $key,
+                [],
+                requires: $requires,
+                uses: $uses[$key] ?? [],
+            );
 
             $providers[] = new class($blueprint) implements ModuleProvider {
                 public function __construct(private readonly ModuleBlueprint $blueprint)

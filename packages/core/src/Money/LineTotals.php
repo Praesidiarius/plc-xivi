@@ -68,6 +68,39 @@ final readonly class LineTotals
          */
         public ?string $subtotalKind = null,
         /**
+         * Which kind of row the engine generates when something discounts this
+         * document (XIV-104), and the line field such a row says itself in.
+         *
+         * Null for a module nothing can discount, which is every module that has
+         * not asked — an invoice today, and a customer's order module before they
+         * had vouchers. It is what {@see DerivesTotals} asks a
+         * {@see DocumentDiscounts} about, and it is also what tells the engine
+         * which of the rows it has been handed are **its own**: a row of this
+         * kind is worked out on every save from whatever granted the discount,
+         * never typed, and the metadata editor does not offer it as a kind
+         * somebody can add (§5.5, {@see \Xivi\Core\Metadata\AvailableVariants}).
+         *
+         * `subtotalKind` above is the precedent and it is worth saying how far it
+         * goes: a subtotal's *figure* is the engine's and the row is the
+         * customer's — they add it, move it and delete it, and only the number in
+         * it is computed. A discount row is the engine's **whole**, because it is
+         * a fact about a voucher somebody redeemed rather than a heading somebody
+         * wanted, and a customer who could delete it would have an order that
+         * quietly disagreed with the use it consumed.
+         */
+        public ?string $discountKind = null,
+        /**
+         * The line's own text — what an article line is called, what a comment
+         * says, and what a generated discount line has to be able to fill in.
+         *
+         * Null for a collection whose rows say nothing, in which case a discount
+         * line is emitted without one; a module that can carry a discount and
+         * whose lines have a required description will want it set, because a
+         * generated row that leaves a required field empty is a row the next save
+         * refuses.
+         */
+        public ?string $description = null,
+        /**
          * The record's own field saying whether its prices already include VAT
          * (XIV-116), holding one of {@see VatMode}'s values.
          *

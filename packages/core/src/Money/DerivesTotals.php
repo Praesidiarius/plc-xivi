@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Xivi\Core\Money;
 
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Module\ModuleRegistry;
 use Xivi\Core\Record\Derivation;
@@ -81,16 +82,48 @@ use Xivi\Core\Record\ValueDeriver;
  * rate absorbs a leftover rappen, because neither of them ever produces one. The
  * remainder that does exist is *within* a rate, and it lands on the tax — the
  * derived figure — never on the gross, which is the figure somebody typed.
- * [XIV-104] is deciding the same question for discounts and this is the answer to
- * agree with: **the typed figure is exact and the derived figure absorbs what is
- * left over.**
+ * [XIV-104] decided the same question for discounts and agreed with it: **the
+ * typed figure is exact and the derived figure absorbs what is left over.**
+ *
+ * ## Something outside the document may take money off it (XIV-104)
+ *
+ * A voucher, today. The document names one and the amount comes off before VAT,
+ * which means it has to be *inside* the grouping below rather than subtracted
+ * from the total afterwards — a discount outside the VAT table is a document
+ * whose tax was computed on nets nobody was charged.
+ *
+ * **A discount is one or more lines**, generated here and belonging to the engine
+ * (`LineTotals::$discountKind`). One per rate, because a line has to carry a rate
+ * to join the grouping and no single rate is right on a document with two; each
+ * takes its share pro rata and **the last one takes the balance**, which is where
+ * a rappen that will not divide lands. See {@see self::discountRows()}, which is
+ * where that is spelled out, and §5.24 for the argument.
+ *
+ * **How much comes off is not decided here.** {@see DocumentDiscounts} is asked,
+ * and its answer is an amount and some lines — never a rate, never a share and
+ * never a row of its own. That split is what keeps the voucher module out of the
+ * arithmetic and this class out of the promotions business, and it is why there
+ * is still exactly one deriver for a document's money: the ordering between "what
+ * did the lines come to", "what is the voucher worth" and "what is the tax" is
+ * strict in both directions, and derivers have no order (§5.9).
+ *
+ * The rows of that kind that are already on the document are taken **out of the
+ * sums** before the question is asked, and put back only if nobody claims them.
+ * That is not tidiness: a relative voucher is a tenth of what the lines came to,
+ * and counting last save's discount line in that would take a tenth off a total
+ * that already had a tenth off it, once per save, for as long as somebody kept
+ * editing the order.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class DerivesTotals implements ValueDeriver, SafeToPreview
 {
-    public function __construct(private ModuleRegistry $modules)
-    {
+    /** @param iterable<DocumentDiscounts> $discounts */
+    public function __construct(
+        private ModuleRegistry $modules,
+        #[AutowireIterator(DocumentDiscounts::TAG)]
+        private iterable $discounts = [],
+    ) {
     }
 
     public function supports(ModuleDefinition $module): bool
@@ -139,6 +172,11 @@ final readonly class DerivesTotals implements ValueDeriver, SafeToPreview
         // The priced lines since the last subtotal, which is what the next one
         // will say.
         $block = Amount::zero();
+        // The discount lines a previous save wrote, by their index in `$lines`,
+        // so that they can be taken back out of it if this save is going to
+        // write them again (XIV-104).
+        /** @var array<int, array{id: int|null, amount: Amount, rate: string}> $carried */
+        $carried = [];
 
         // `['data' => …] + $line` below rather than a fresh pair, so whatever
         // else the caller put on a row survives being derived. The live form
@@ -172,12 +210,69 @@ final readonly class DerivesTotals implements ValueDeriver, SafeToPreview
             $data[$totals->lineTotal] = (string) $amount;
             $lines[] = ['data' => $data] + $line;
 
-            $lineSum = $lineSum->plus($amount);
             $block = $block->plus($amount);
 
             $rate = ($totals->taxRate === null ? null : Amount::of($data[$totals->taxRate] ?? null)) ?? Amount::zero();
             $key = (string) $rate;
+
+            // **A row the engine wrote last time is kept out of the sum until it
+            // is known whether it is going to be written again** (XIV-104). It
+            // matters for exactly one figure and that figure is the whole
+            // feature: a *relative* voucher is a tenth of what the lines came
+            // to, and counting last save's discount line in that would take a
+            // tenth off a total that already had a tenth off it, once per save,
+            // for as long as somebody kept editing the order.
+            if ($kindField !== null && $totals->discountKind !== null
+                && ($data[$kindField] ?? null) === $totals->discountKind) {
+                $carried[\count($lines) - 1] = ['id' => $line['id'] ?? null, 'amount' => $amount, 'rate' => $key];
+
+                continue;
+            }
+
+            $lineSum = $lineSum->plus($amount);
             $byRate[$key] = ($byRate[$key] ?? Amount::zero())->plus($amount);
+        }
+
+        // **What discounts this document, if anything does** — and the three
+        // answers are all different (§5.9, {@see Discount}). Nothing to say
+        // leaves every row exactly where it was, which is what keeps the discount
+        // lines an invoice copied down from its order (§5.12) from being taken
+        // off it by a module that has never heard of vouchers. An answer, even an
+        // empty one, makes the rows of that kind the engine's: the ones that were
+        // there are dropped, and whatever is granted now is written in their
+        // place, reusing their ids so that editing an order does not churn a row
+        // per save.
+        // **And only where the module said where such a line would go.** A
+        // discount is a *row of a stated kind* (`discountKind`), so a module that
+        // has not named one has nowhere to put a discount and is not asked
+        // whether it has one — an invoice, today. Without this the answer to a
+        // question nobody could act on would be written out as rows with no kind
+        // on them, which is a shape §5.5 has no reading for.
+        $discount = $totals->discountKind === null
+            ? null
+            : $this->discountOn($module, $derivation->fields, $lineSum);
+
+        if ($discount === null) {
+            foreach ($carried as $row) {
+                $lineSum = $lineSum->plus($row['amount']);
+                $byRate[$row['rate']] = ($byRate[$row['rate']] ?? Amount::zero())->plus($row['amount']);
+            }
+        } else {
+            foreach (array_keys($carried) as $index) {
+                unset($lines[$index]);
+            }
+
+            $lines = array_values($lines);
+
+            foreach (self::discountRows($discount, $byRate, $totals, $kindField, array_column($carried, 'id')) as $row) {
+                $amount = self::amountOf($row['data'], $totals) ?? Amount::zero();
+                $row['data'][$totals->lineTotal] = (string) $amount;
+                $lines[] = $row;
+
+                $lineSum = $lineSum->plus($amount);
+                $key = (string) (($totals->taxRate === null ? null : Amount::of($row['data'][$totals->taxRate] ?? null)) ?? Amount::zero());
+                $byRate[$key] = ($byRate[$key] ?? Amount::zero())->plus($amount);
+            }
         }
 
         $derivation->setRows($totals->collection, $lines);
@@ -233,6 +328,185 @@ final readonly class DerivesTotals implements ValueDeriver, SafeToPreview
         $price = Amount::of($data[$totals->unitPrice] ?? null);
 
         return $quantity === null || $price === null ? null : $quantity->times($price)->rounded();
+    }
+
+    /**
+     * What takes something off this document, asked of everything that might
+     * (XIV-104).
+     *
+     * **The first source that claims the document owns it.** Two of them wanting
+     * the same lines is an argument between modules and the engine is not where
+     * it gets settled — the same sentence {@see ValueDeriver} already writes
+     * about two derivers wanting one field. Today there is one implementation and
+     * one field it can be reached through; the loop is here so that [XIV-122]'s
+     * line voucher can be a second one without this method changing.
+     *
+     * @param array<string, mixed> $fields
+     */
+    private function discountOn(ModuleDefinition $module, array $fields, Amount $lineSum): ?Discount
+    {
+        foreach ($this->discounts as $source) {
+            $discount = $source->on($module, $fields, $lineSum);
+
+            if ($discount !== null) {
+                return $discount;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The lines a discount puts on the document, one per rate it comes off.
+     *
+     * ### Why it is one line per rate rather than one line
+     *
+     * A discount line has to carry a VAT rate or it falls out of the grouping
+     * below entirely — and a discount outside the VAT table is a document whose
+     * tax was computed on nets nobody was charged. On a single-rate order there
+     * is one answer and therefore one line. On a document mixing 8.1% and 2.6%
+     * there is no single right rate for one line to carry, so the discount
+     * becomes **one line per rate**, each with that rate and its share of the
+     * money. The distribution is then something the reader can add up, in the
+     * column it belongs in, instead of a division hidden inside a deriver.
+     *
+     * ### Pro rata, and the last line absorbs the remainder
+     *
+     * Each rate's share is the discount in the proportion that rate's own lines
+     * bear to all of them, rounded to two places ({@see Amount::shareOf()}).
+     * Rounded shares do not have to add back: ten francs over three rates that
+     * sold equal amounts is 3.33 three times, which is 9.99, and a voucher for
+     * ten francs that took 9.99 off is a voucher that lied by a rappen.
+     *
+     * So **the last line is not computed, it is what is left**: the shares before
+     * it are worked out and subtracted, and the final line takes the balance.
+     * That is XIV-116's rule for VAT within a rate applied to a discount across
+     * them — *the figure somebody stated is exact and the derived figure absorbs
+     * what is left over* — with the voucher's own worth as the stated figure.
+     * The lines come out **sorted by rate**, the same order the VAT table below
+     * is in, so "the last one" is the highest rate on the document and a reader
+     * checking the column meets the odd rappen where the same reader meets it in
+     * every other table on the page.
+     *
+     * **Only rates that sold something positive take a share**, and the discount
+     * is capped at what they came to. A rate whose own lines already net to
+     * nothing has nothing to come off, and a voucher worth more than the order it
+     * is used on must not turn into money owed back — the voucher module's
+     * percentage stops at 100 for the same reason (§5.19).
+     *
+     * The ids of the rows this replaces come back in with it, matched by
+     * position, so an order edited twice keeps the same discount rows rather than
+     * deleting and re-inserting one on every save — which is the argument
+     * {@see \Xivi\Core\Form\CollectionRowType} makes about a row's id, and the
+     * same match by position the writer makes for a derived collection.
+     *
+     * @param array<string, Amount> $byRate what each rate sold, before the discount
+     * @param list<int|null>        $ids    the rows this is replacing, in the order they were in
+     *
+     * @return list<array{id: int|null, data: array<string, mixed>}>
+     */
+    private static function discountRows(
+        Discount $discount,
+        array $byRate,
+        LineTotals $totals,
+        ?string $kindField,
+        array $ids,
+    ): array {
+        $rows = [];
+        $off = $discount->off;
+
+        if ($off !== null && $off->isPositive()) {
+            $bases = array_filter($byRate, static fn (Amount $sold): bool => $sold->isPositive());
+            uksort($bases, static fn (string $a, string $b): int => (float) $a <=> (float) $b);
+
+            $whole = Amount::zero();
+
+            foreach ($bases as $sold) {
+                $whole = $whole->plus($sold);
+            }
+
+            // Capped at what the document actually charges, so a fifty-franc
+            // voucher on a twenty-franc order comes to twenty rather than to a
+            // total somebody is owed. Compared by subtraction because that is
+            // what `Amount` offers, and a comparison method invented for one
+            // caller would be one more way to ask the same question.
+            if ($off->minus($whole)->isPositive()) {
+                $off = $whole;
+            }
+
+            $left = $off;
+            $remaining = \count($bases);
+
+            foreach ($bases as $rate => $sold) {
+                --$remaining;
+                // The last line is the balance rather than its own division. See
+                // above: this is where the leftover rappen lands, on purpose and
+                // in one place.
+                $share = $remaining === 0 ? $left : $off->shareOf($sold, $whole);
+                $left = $left->minus($share);
+
+                if ($share->isZero()) {
+                    continue;
+                }
+
+                $rows[] = self::discountRow(
+                    $totals,
+                    $kindField,
+                    $discount->label,
+                    Amount::of('1') ?? Amount::zero(),
+                    Amount::zero()->minus($share),
+                    (string) $rate,
+                );
+            }
+        }
+
+        // And whatever the discount hands over as a line in its own right — a
+        // free article, which is a line at a quantity and a price of nothing
+        // rather than a subtraction, because that is what receiving one is.
+        foreach ($discount->lines as $line) {
+            $rows[] = self::discountRow($totals, $kindField, $line->description, $line->quantity, $line->price, null);
+        }
+
+        foreach ($rows as $index => $row) {
+            $rows[$index]['id'] = $ids[$index] ?? null;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * One generated line, in the shape a row of the lines collection is stored
+     * in.
+     *
+     * Every field it fills is one the module named in its own {@see LineTotals} —
+     * this knows no key of its own, which is what lets an order module and an
+     * invoice module with differently spelled columns share it.
+     *
+     * @return array{id: int|null, data: array<string, mixed>}
+     */
+    private static function discountRow(
+        LineTotals $totals,
+        ?string $kindField,
+        string $description,
+        Amount $quantity,
+        Amount $price,
+        ?string $rate,
+    ): array {
+        $data = [$totals->quantity => (string) $quantity, $totals->unitPrice => (string) $price];
+
+        if ($kindField !== null && $totals->discountKind !== null) {
+            $data[$kindField] = $totals->discountKind;
+        }
+
+        if ($totals->description !== null) {
+            $data[$totals->description] = $description;
+        }
+
+        if ($totals->taxRate !== null && $rate !== null) {
+            $data[$totals->taxRate] = $rate;
+        }
+
+        return ['id' => null, 'data' => $data];
     }
 
     /**

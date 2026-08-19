@@ -107,7 +107,39 @@ lands in `Unreleased` here.
   for an extension and would drop it silently, filing a switchboard and everybody
   behind it under one number. The message says to put the extension in a field of
   its own, which the field editor can add without a deploy.
-
+- **A voucher can be used on an order** ([XIV-104]) — pick one on the order and
+  what the customer owes changes: money off, a percentage off, or a free article.
+  The discount is **its own line**, so the lines you quoted still say what you
+  quoted and the document shows the discount separately, named after the voucher's
+  own code. It comes off **before VAT**, so the tax is worked out on what is
+  actually being charged. On an order carrying more than one VAT rate the discount
+  becomes one line per rate, each with its share, and the rappen that will not
+  divide goes on the last of them — so the VAT breakdown still adds up to the
+  total. §5.24 has the whole argument.
+- **The discount line is the engine's, not yours** ([XIV-104]) — it is written on
+  every save from the voucher the order names, so it cannot be typed over or
+  deleted by hand and there is no button offering to add one. A *subtotal* line
+  stays exactly as it was: you add, move and delete those, and only the figure in
+  them is computed.
+- **A use is counted when the order is saved** ([XIV-104]) — not when the code is
+  typed, so a code entered and then abandoned costs nothing, and an order that
+  fails to save consumes nothing. **Taking the voucher off a draft gives the use
+  back**, and so does deleting the order: the count says how many documents carry
+  the voucher. A cancelled order still carries it, so it still counts.
+- **A voucher that cannot be used says which way** ([XIV-104]) — expired, not yet
+  valid, or already used as many times as it allows: the sentence names which, on
+  the field, with everything you typed still in the form. The limit is checked at
+  the moment of saving, so two people checking out at once cannot both take the
+  last use.
+- **An invoice made from a discounted order is discounted too** ([XIV-104]) — the
+  discount comes across as a line like every other. On the invoice it is an
+  ordinary line you can edit or remove, because what to bill is decided there.
+- **The Voucher field appears only if you have both modules** ([XIV-104]) — an
+  installation with orders and no vouchers gets no voucher field, no discount
+  line kind and no trace of any of this. **If you buy vouchers later**, the field
+  is offered on the order module's *upgrade* screen rather than appearing on its
+  own — take it there when you want it. Installing several modules at once now
+  orders them so that an optional one lands before the module that uses it.
 - **A Knowledge module, for what your experienced people know** ([XIV-132]) — a
   very simple place to write down the answers that currently live in one person's
   head: how a refund past thirty days is handled, which supplier to call when the
@@ -416,6 +448,7 @@ lands in `Unreleased` here.
 [XIV-120]: https://xivi.youtrack.cloud/issue/XIV-120
 [XIV-141]: https://xivi.youtrack.cloud/issue/XIV-141
 [XIV-114]: https://xivi.youtrack.cloud/issue/XIV-114
+[XIV-104]: https://xivi.youtrack.cloud/issue/XIV-104
 
 ## Releases
 

@@ -35,6 +35,15 @@
 		</div>
 	</div>
 
+	{# Which kind of row the engine writes for itself (XIV-104), so that the two
+	   things a person could do to one are not offered: its controls are drawn
+	   disabled by the form itself, and the button below that would delete it is
+	   not drawn at all. Neither is the enforcement — the deriver writes these rows
+	   from the voucher on every save, so a request that edits or deletes one
+	   changes nothing — but a button that promises something the save undoes is
+	   worse than no button. #}
+	{% set generated = this.generatedKind(this.moduleDefinition) %}
+
 	{% for collection in this.moduleDefinition.collections|filter(c => not c.derived) %}
 		{% set entries = form.collections[collection.key] %}
 
@@ -43,6 +52,7 @@
 				<h2 class="h5 mb-3">{{ collection.label }}</h2>
 
 				{% for entry in entries %}
+					{% set kind = collection.hasVariants ? entry.vars.data.fields[collection.variantField]|default(null) : null %}
 					<div class="row-of-collection border-top pt-3 mt-3">
 						{# Where the row sits (XIV-21): type 15 to put something between
 						   10 and 20, and the save renumbers everything in tens again. #}
@@ -51,21 +61,20 @@
 						</div>
 						{# A row's kind is fixed once it exists (XIV-20), so it is a
 						   heading rather than a control. #}
-						{% if collection.hasVariants %}
-							{% set kind = entry.vars.data.fields[collection.variantField]|default(null) %}
-							{% if kind %}
-								<h3 class="h6 text-body-secondary">{{ collection.getVariants[kind]|default(kind) }}</h3>
-							{% endif %}
+						{% if kind %}
+							<h3 class="h6 text-body-secondary">{{ collection.getVariants[kind]|default(kind) }}</h3>
 						{% endif %}
 						{{ form_widget(entry) }}
 
-						<button type="button" class="btn btn-outline-danger btn-sm"
-						        data-action="live#action"
-						        data-live-action-param="removeRow"
-						        data-live-collection-param="{{ collection.key }}"
-						        data-live-index-param="{{ loop.index0 }}">
-							{{ 'common.remove'|trans }}
-						</button>
+						{% if kind is null or kind != generated %}
+							<button type="button" class="btn btn-outline-danger btn-sm"
+							        data-action="live#action"
+							        data-live-action-param="removeRow"
+							        data-live-collection-param="{{ collection.key }}"
+							        data-live-index-param="{{ loop.index0 }}">
+								{{ 'common.remove'|trans }}
+							</button>
+						{% endif %}
 					</div>
 				{% endfor %}
 

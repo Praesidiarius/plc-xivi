@@ -166,6 +166,37 @@ final readonly class Amount implements \Stringable
         return new self($this->value->dividedBy($divisor, self::SCALE, RoundingMode::HalfUp));
     }
 
+    /**
+     * This amount's share of a whole, in the proportion one part bears to it —
+     * ten francs split over a rate that sold 33.33 of 100.00 is 3.33 (XIV-104).
+     *
+     * **Rounded here, for the same reason {@see self::withoutPercent()} is:**
+     * division has no exact decimal answer and there is no unrounded value to
+     * hand back. Two places, halves away from zero, which is the rule §5.9 wrote
+     * down once.
+     *
+     * **What is deliberately not here is the leftover.** Three equal shares of
+     * ten francs are 3.33 each and come to 9.99, and the rappen that is missing
+     * has to land somewhere; where it lands is a decision about a *document*
+     * rather than about arithmetic, so it is made in {@see DerivesTotals} — the
+     * last share is whatever is left, which is the same shape XIV-116's answer
+     * takes for VAT within a rate. A helper that quietly adjusted the last call
+     * would make the rule invisible to whoever reads the four calls that produced
+     * four numbers.
+     *
+     * A whole of nothing gives nothing back rather than dividing by zero: a rate
+     * that sold nothing has no share of anything, and a caller has no better
+     * answer to that than this one.
+     */
+    public function shareOf(self $part, self $whole): self
+    {
+        if ($whole->value->isZero()) {
+            return self::zero();
+        }
+
+        return new self($this->value->multipliedBy($part->value)->dividedBy($whole->value, self::SCALE, RoundingMode::HalfUp));
+    }
+
     /** @see self the class comment, which is where the rule lives */
     public function rounded(): self
     {
