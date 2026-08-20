@@ -84,6 +84,14 @@ always lands in `Unreleased` here.
   built-in signup page, and the store's refusal of requirement chains are now
   described as they behave.
 
+- **The thousand-tenant fleet is rehearsed, not extrapolated** ([XIV-154]):
+  `bin/rehearse-fleet` provisions a throwaway fleet of 1,000 tenants on this
+  checkout's own stack, walks a generated additive migration across it, breaks
+  tenants behind the registry, kills the walk mid-flight, checks the §4.5
+  monitoring pings, and cleans up after itself with a verified count. It only
+  touches `rehearsal_*` tenants and refuses foreign fleets and non-dev stacks.
+  The measured numbers are on XIV-154 and XIV-61.
+
 - **`bin/ci --coverage` no longer renders the HTML report** ([XIV-161]): the
   renderer outgrew the 512M limit at ~89k lines and was killing CI, and nothing
   in CI reads it. The floor gate and Codecov keep their Clover file; the
@@ -102,6 +110,7 @@ always lands in `Unreleased` here.
   into a red run. Reasoning in the brief, decisions §9.2.
 
 [XIV-148]: https://xivi.youtrack.cloud/issue/XIV-148
+[XIV-154]: https://xivi.youtrack.cloud/issue/XIV-154
 [XIV-159]: https://xivi.youtrack.cloud/issue/XIV-159
 [XIV-160]: https://xivi.youtrack.cloud/issue/XIV-160
 [XIV-161]: https://xivi.youtrack.cloud/issue/XIV-161
