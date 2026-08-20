@@ -106,7 +106,7 @@ than kept beside these: two editors drift with every option added after today.
 
 **The refusals are the feature:**
 
-- no type change (§7.2; XIV-146 builds the conversion), and no key change;
+- no key change, because a key is where the value lives;
 - the editor refuses a rule existing records would fail, counting first and
   naming the values for `unique`; ticking `unique` builds the index in the
   same transaction, and relaxing is always allowed;
@@ -148,6 +148,18 @@ Ordering is set, not inferred; ungrouped fields draw first, so existing shapes
 render unchanged; the record page groups from the same method, tested against
 the form. Removing a section removes the heading and nothing else. Not built:
 collapsing, blueprint-declared sections, conditional visibility.
+
+**A field's type can change, on a page of its own** (XIV-146, §7.2). Every value
+is read by the type moving in, behind a dry run over the whole column: all rows
+survive and it happens, one fails and the whole change is refused with the values
+named, and emptying those rows is the customer's explicit second choice. Each
+converted or emptied value is written to the record's history first, so the old
+spelling outlives the column. Reversibility is stated before it runs, computed by
+reading the value back. A `unique` breach is reported rather than attempted; a
+`derived` field is refused; a module that derives re-derives what was touched. A
+shipped module may not request one, because §7.2.1's every write is an insert and
+this restates what somebody typed. Not offered: converting *into* a type that has
+to be told what its values mean, `choice` and `reference`.
 
 Also here: **numbering is a page of its own** (§5.10). A field can be the
 record's **title** (a flag; the required-order guess is only the fallback). A

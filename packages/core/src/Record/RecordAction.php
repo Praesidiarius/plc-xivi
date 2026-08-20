@@ -65,4 +65,24 @@ enum RecordAction: string
      * {@see self::Transitioned} its own verb rather than an update.
      */
     case EmailFailed = 'email_failed';
+
+    /**
+     * A field this record has changed type, and this value was restated in the
+     * new type's spelling ([XIV-146]).
+     *
+     * **Its own verb because it is the only thing left of the old value.** A
+     * conversion is one administrative act against a column, and §7.2's whole
+     * promise about it is that even a lossy one leaves the road back readable:
+     * `+41 79 123 45 67` becoming `+41791234567`, and `ask reception` becoming
+     * nothing at all, are facts about somebody's contact that exist nowhere else
+     * once the column has been rewritten. Calling it an update would put it in
+     * the timeline as something a person typed, beside the edits they really did
+     * make, and the one entry anybody would ever go looking for is the one they
+     * would then be unable to find.
+     *
+     * Nobody typed it, and the entry still names who caused it: the
+     * administrator who agreed to the conversion, through the same listener that
+     * names the author of any other change (§5.2).
+     */
+    case Converted = 'converted';
 }

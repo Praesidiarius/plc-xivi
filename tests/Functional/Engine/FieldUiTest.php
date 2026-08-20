@@ -52,6 +52,12 @@ final class FieldUiTest extends WebTestCase
     private const string MEMBER = 'member@fieldui.test';
     private const string PASSWORD = 'field-password';
 
+    /** A number with its country code in it, so no tenant profile is needed to read it. */
+    private const string INTERNATIONAL = '+41 79 123 45 67';
+
+    /** And what a real address book has in it beside the numbers ([XIV-146]). */
+    private const string NOT_A_NUMBER = 'ask reception';
+
     private KernelBrowser $client;
     private Tenant $tenant;
 
@@ -334,6 +340,119 @@ final class FieldUiTest extends WebTestCase
         $own = $this->client->request('GET', $this->url(sprintf('/m/contact/fields/%d', $this->fieldId('first_name'))));
 
         self::assertCount(0, $own->filter('a:contains("Remove")'));
+    }
+
+    /**
+     * The type change, through the three pages a customer actually walks
+     * ([XIV-146], §7.2).
+     *
+     * Deliberately not a service call with a browser wrapped round it. What
+     * XIV-146 promises is that nobody meets a surprise: the report is on the
+     * screen *before* the button, the refusal names the value that caused it,
+     * and emptying is a second box rather than something that rides along with
+     * agreeing. None of that is provable from the engine, because all three are
+     * about which page says what and in what order.
+     */
+    public function testTheDryRunIsOnScreenBeforeAnythingIsWritten(): void
+    {
+        $this->signIn(self::ADMIN);
+        $this->addField(['key' => 'mobile', 'label' => 'Mobile']);
+        $this->addContactWithMobile('Ada', self::INTERNATIONAL);
+        $this->addContactWithMobile('Grace', self::NOT_A_NUMBER);
+
+        // The link is on the field's own page, beside the other changes that
+        // are a page rather than a control.
+        $field = $this->client->request('GET', $this->url(sprintf('/m/contact/fields/%d', $this->fieldId('mobile'))));
+
+        self::assertCount(1, $field->filter('a:contains("Change the type")'));
+
+        $types = $this->client->click($field->selectLink('Change the type')->link());
+
+        self::assertResponseIsSuccessful();
+        // Counted, on the first page, before any type has been picked.
+        self::assertStringContainsString('2 records hold a value here', $types->filter('main')->text());
+
+        $report = $this->client->submit($types->filter('form[action*="/type/phone"] button')->form());
+
+        self::assertResponseIsSuccessful();
+        $text = $report->filter('main')->text();
+
+        // All four things the page exists to say, and the value that caused the
+        // refusal among them, because a count on its own is not something
+        // anybody can act on.
+        self::assertStringContainsString('1 records convert', $text);
+        self::assertStringContainsString('1 records hold something', $text);
+        self::assertStringContainsString(self::NOT_A_NUMBER, $text);
+        self::assertStringContainsString('cannot be undone', $text);
+
+        // And nothing has happened yet.
+        self::assertSame('text', $this->fieldType('mobile'));
+    }
+
+    /**
+     * Emptying the rows that cannot be read is a second box, and the change is
+     * refused without it (§7.2).
+     */
+    public function testEmptyingIsASecondBoxAndTheChangeIsRefusedWithoutIt(): void
+    {
+        $this->signIn(self::ADMIN);
+        $this->addField(['key' => 'mobile', 'label' => 'Mobile']);
+        $this->addContactWithMobile('Ada', self::INTERNATIONAL);
+        $this->addContactWithMobile('Grace', self::NOT_A_NUMBER);
+
+        $apply = $this->url(sprintf('/m/contact/fields/%d/type/phone/apply', $this->fieldId('mobile')));
+
+        // Agreeing to the conversion and saying nothing about the failing rows
+        // is refused, which is what makes the second box a decision rather than
+        // a formality.
+        $this->client->request('POST', $apply, ['_token' => $this->token(), 'confirm' => '1']);
+        $refused = $this->client->followRedirect();
+
+        self::assertStringContainsString(self::NOT_A_NUMBER, $refused->filter('main')->text());
+        self::assertSame('text', $this->fieldType('mobile'));
+
+        // And with it, the same call goes through.
+        $this->client->request('POST', $apply, ['_token' => $this->token(), 'confirm' => '1', 'empty' => '1']);
+        $this->client->followRedirect();
+
+        self::assertSame('phone', $this->fieldType('mobile'));
+    }
+
+    /** A contact with something typed into the text field being converted. */
+    private function addContactWithMobile(string $first, string $mobile): void
+    {
+        $this->saveRecord(
+            ContactModule::KEY,
+            ['kind' => 'person', 'first_name' => $first, 'last_name' => 'Tester', 'mobile' => $mobile],
+            variant: 'person',
+        );
+    }
+
+    /** What the tenant's own definitions say this field is now. */
+    private function fieldType(string $key): string
+    {
+        return self::service(TenantSwitcher::class)->runFor($this->tenant, function () use ($key): string {
+            $field = self::service(MetadataRepository::class)->get(ContactModule::KEY)->getField($key);
+            \assert($field instanceof FieldDefinition);
+
+            return $field->getType();
+        });
+    }
+
+    /**
+     * The editor's CSRF token, read off a page that draws one.
+     *
+     * The two posts above are made by hand rather than through a form, because
+     * what is being tested is what the *controller* requires: a form posted
+     * around the page is exactly the caller the confirmation has to hold for,
+     * and submitting the real form could only ever prove that the real form
+     * works.
+     */
+    private function token(): string
+    {
+        $page = $this->client->request('GET', $this->url(sprintf('/m/contact/fields/%d', $this->fieldId('mobile'))));
+
+        return (string) $page->filter('input[name="_token"]')->first()->attr('value');
     }
 
     /** The list only renders a table when there is something in it. */

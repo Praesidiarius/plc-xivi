@@ -844,6 +844,183 @@ final class MetadataChangeRefused extends \RuntimeException
         );
     }
 
+    /**
+     * A field the engine fills, offered a new type ([XIV-146]).
+     *
+     * The first of type change's own two refusals, and it is about the field
+     * rather than about anything stored in it. A `derived` field is filled on
+     * save by something that is not a person (§5.9): a document number by a
+     * counter, an order's total by the money model. Converting one would leave
+     * the deriver writing values into a field that can no longer hold them, and
+     * the customer with no way of noticing except a save that fails on a field
+     * they are not allowed to type in.
+     *
+     * The sentence names the way out, because there usually is one: numbering
+     * can be stopped, which makes the field ordinary text again (§5.10), and the
+     * conversion is then an ordinary conversion.
+     */
+    public static function typeOfADerivedField(string $key): self
+    {
+        return self::of(
+            sprintf(
+                'The engine fills "%s" rather than anybody typing into it, so its type is not something to '
+                . 'change underneath it. If it is numbered, stop numbering it first: that makes it an '
+                . 'ordinary field again, and this is then an ordinary change.',
+                $key,
+            ),
+            'metadata.type_of_a_derived_field',
+            ['%key%' => $key],
+        );
+    }
+
+    /**
+     * The same type it already has ([XIV-146]).
+     *
+     * Refused rather than quietly done, on the terms every no-op in this class
+     * is decided by: a conversion rewrites every value in a column and writes a
+     * history entry for each of them, so doing one to no purpose would fill a
+     * few hundred timelines with an entry that says nothing happened. There is
+     * nothing to fix and nothing to warn about, so the message is a statement of
+     * fact rather than an instruction.
+     */
+    public static function typeUnchanged(string $key, string $type): self
+    {
+        return self::of(
+            sprintf('"%s" is already a "%s" field, so there is nothing to convert.', $key, $type),
+            'metadata.type_unchanged',
+            ['%key%' => $key, '%type%' => $type],
+        );
+    }
+
+    /**
+     * Values the type they are moving to cannot read ([XIV-146], §7.2).
+     *
+     * **This is the refusal the whole feature is shaped around.** Legality is
+     * the tenant's data's to decide rather than a table of type pairs, so this
+     * is not "text cannot become a phone number": it is "on this database, on
+     * this day, four contacts hold something that is not a phone number", and
+     * the same change on the customer next door goes through without a word.
+     * Which is why the values are named. A count on its own sends somebody
+     * looking for four records among six hundred with nothing to search for, and
+     * `ask reception` is a thing they will recognise the moment they read it.
+     *
+     * It also names the second choice rather than leaving it to be discovered,
+     * because §7.2 is explicit that emptying those rows is the customer's to
+     * take and never a default: the report is in front of them, the button is
+     * beside it, and nothing takes it on their behalf.
+     *
+     * @param array<string, int> $values the values the new type cannot read => how many
+     *                                   records hold each. The caller is expected to have
+     *                                   asked for one more than it wants shown, which is how
+     *                                   this can tell "these five" from "at least these five"
+     *                                   without a second pass over the column
+     * @param int                $shown  how many of them the message lists
+     */
+    public static function valuesCannotBeRead(string $key, string $type, int $records, array $values, int $shown): self
+    {
+        $named = \array_slice(array_keys($values), 0, $shown);
+
+        $listed = implode(', ', array_map(
+            static fn (string $value): string => sprintf('"%s"', $value),
+            $named,
+        ));
+
+        if (\count($values) > $shown) {
+            $listed .= ' …';
+        }
+
+        return self::of(
+            sprintf(
+                '%d existing record%s hold%s something "%s" cannot read as a "%s" value, so nothing was '
+                . 'changed: %s. Fix those records first, or say explicitly that they should be emptied.',
+                $records,
+                $records === 1 ? '' : 's',
+                $records === 1 ? 's' : '',
+                $key,
+                $type,
+                $listed,
+            ),
+            'metadata.values_cannot_be_read',
+            ['%count%' => $records, '%key%' => $key, '%type%' => $type, '%values%' => $listed],
+        );
+    }
+
+    /**
+     * A conversion that would put one value on two records of a `unique` field
+     * ([XIV-146], §7.2).
+     *
+     * **Reported rather than attempted.** The index would refuse this anyway,
+     * somewhere in the middle of rewriting a column, and what the customer would
+     * get is a rollback and a driver error naming an index. So the dry run
+     * groups the values it computed and finds the collision before a single row
+     * is written, which is the difference between "this is what your data does"
+     * and "something went wrong".
+     *
+     * It is also the one refusal here that emptying does not answer, and the
+     * message deliberately does not offer it: the rows are perfectly readable,
+     * they simply turn out to be the same number written three ways, which is
+     * usually the true state of affairs and exactly what `unique` was ticked to
+     * find out.
+     *
+     * @param array<string, int> $shared the converted value => how many records would then
+     *                                   hold it, one more than the message shows
+     * @param int                $shown  how many of them the message lists
+     */
+    public static function conversionWouldShareValues(string $key, string $type, array $shared, int $shown): self
+    {
+        $named = \array_slice(array_keys($shared), 0, $shown);
+
+        $listed = implode(', ', array_map(
+            static fn (string $value): string => sprintf('"%s"', $value),
+            $named,
+        ));
+
+        if (\count($shared) > $shown) {
+            $listed .= ' …';
+        }
+
+        return self::of(
+            sprintf(
+                'Read as "%s" values, several records in "%s" turn out to hold the same one, and "%s" is '
+                . 'marked unique: %s. Nothing was changed. Sort those records out, or take the unique rule '
+                . 'off "%s" first.',
+                $type,
+                $key,
+                $key,
+                $listed,
+                $key,
+            ),
+            'metadata.conversion_would_share_values',
+            ['%key%' => $key, '%type%' => $type, '%values%' => $listed],
+        );
+    }
+
+    /**
+     * Emptying asked for on a field that may not be empty ([XIV-146]).
+     *
+     * The second choice §7.2 gives a customer is to empty the rows the new type
+     * cannot read. On a `required` field that is not a choice at all: it would
+     * leave records that the next save of an unrelated field refuses, for a
+     * reason nobody would connect to a conversion done last month. So it is
+     * refused here rather than half-done, and the way out is the ordinary one,
+     * because relaxing a rule is always allowed (§5.4).
+     */
+    public static function cannotEmptyARequiredField(string $key, int $records): self
+    {
+        return self::of(
+            sprintf(
+                '"%s" is required, so %d record%s cannot simply be emptied: they would be records nobody '
+                . 'could save again. Fix those values, or take the required rule off "%s" first.',
+                $key,
+                $records,
+                $records === 1 ? '' : 's',
+                $key,
+            ),
+            'metadata.cannot_empty_a_required_field',
+            ['%count%' => $records, '%key%' => $key],
+        );
+    }
+
     public static function wouldInvalidateRecords(string $key, int $records): self
     {
         return self::of(

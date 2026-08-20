@@ -1,0 +1,83 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'field.convert.title'|trans({'%field%': field.label}) }}{% endblock %}
+
+{#
+	Which type this field would become ([XIV-146]).
+
+	The same page as the one that asks for a new field's type and deliberately so
+	([XIV-163]): the type is the question every other question depends on, so it
+	is asked alone. What is different is the sentence above the list, because
+	this field is not new. It has values in it, somebody's values, and the number
+	of them is the first thing that has to be on screen.
+
+	Nothing here is a warning. What is refused, what is rewritten and whether it
+	can be undone are all decided by the data rather than by the pair of types
+	(§7.2), so this page cannot say any of it and does not try. The next one
+	reads the column and says all four.
+#}
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<div class="d-flex align-items-center justify-content-between mb-3">
+			<div>
+				<h1 class="h3 mb-0">{{ 'field.convert.title'|trans({'%field%': field.label}) }}</h1>
+				<p class="text-body-secondary small mb-0">
+					<code>{{ field.key }}</code>, {{ fieldType ? fieldType.label : field.type }}
+				</p>
+			</div>
+			<a class="btn btn-link" href="{{ path('field_edit', {module: module.key, field: field.id}) }}">{{ 'common.cancel'|trans }}</a>
+		</div>
+
+		<div class="card mb-3">
+			<div class="card-body">
+				<p class="mb-1">
+					{% if held > 0 %}
+						{{ 'field.convert.held'|trans({'%count%': held})|raw }}
+					{% else %}
+						{{ 'field.convert.held_none'|trans }}
+					{% endif %}
+				</p>
+				<p class="text-body-secondary small mb-0">{{ 'field.convert.settings_note'|trans }}</p>
+			</div>
+		</div>
+
+		<div class="row g-3">
+			{% for key, type in convertible %}
+				<div class="col-md-4">
+					{#
+						A form rather than a link, because the next page scans the whole
+						records table and a link that does that is one somebody can put
+						in a crawler. The card is the button, so it still reads as a
+						list of choices.
+					#}
+					<form method="post" class="h-100"
+					      action="{{ path('field_type_check', {module: module.key, field: field.id, type: key}) }}">
+						<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
+						<button class="card h-100 w-100 text-start border-0 bg-transparent p-0" type="submit">
+							<span class="card-body d-block">
+								<span class="h6 d-block mb-1">{{ type.label }}</span>
+								<span class="text-body-secondary small d-block"><code>{{ key }}</code></span>
+							</span>
+						</button>
+					</form>
+				</div>
+			{% else %}
+				<div class="col-12">
+					<p class="text-body-secondary">{{ 'field.convert.none'|trans }}</p>
+				</div>
+			{% endfor %}
+		</div>
+
+		{#
+			Why `choice` and `reference` are not on the list, said rather than left
+			as a gap somebody counts. Both need to be told what the values *mean*
+			before they can read one, and that is a decision of its own rather than
+			part of this one.
+		#}
+		<p class="text-body-secondary small mt-3 mb-0">{{ 'field.convert.not_offered'|trans }}</p>
+	</main>
+{% endblock %}

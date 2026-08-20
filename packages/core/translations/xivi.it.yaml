@@ -142,6 +142,15 @@ metadata:
     scope_on_a_collection: '“%key%” è un campo della collezione “%shape%”, e lì un periodo non si può rendere esclusivo: entro uno stesso record padre e su tutta la tabella sono due regole diverse, e il motore non indovinerà quale si intendeva.'
     periods_already_overlap: 'Dei record si sovrappongono già in “%key%”, quindi non può ancora diventare esclusivo entro “%scope%”: %pairs%. Separa prima quei record, oppure lascia “%key%” com’è.'
 
+    # I due rifiuti propri di un cambio di tipo ([XIV-146], §7.2), e quello in
+    # cui il suo risultato può incorrere. I primi due riguardano il campo: il
+    # motore lo riempie, oppure è già quel che gli si chiede di diventare. Il
+    # terzo riguarda quel che la conversione lascerebbe, ed è l’unico qui a cui
+    # svuotare non risponde.
+    type_of_a_derived_field: 'Il motore riempie “%key%” invece che qualcuno ci scriva dentro, quindi il suo tipo non è qualcosa da cambiare al di sotto. Se è numerato, fermi prima la numerazione: così torna un campo ordinario, e questo diventa un cambiamento ordinario.'
+    type_unchanged: '“%key%” è già un campo “%type%”, quindi non c’è niente da convertire.'
+    conversion_would_share_values: 'Letti come valori “%type%”, più record in “%key%” risultano avere lo stesso, e “%key%” è marcato univoco: %values%. Non è stato cambiato nulla. Sistemi quei record, oppure tolga prima la regola di univocità da “%key%”.'
+
 query:
     unknown_field: 'Non c’è nulla chiamato “%path%” su “%shape%” per filtrare o ordinare.'
     unknown_collection: '“%module%” non ha una collezione chiamata “%collection%”.'

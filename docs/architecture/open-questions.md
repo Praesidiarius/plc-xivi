@@ -30,22 +30,38 @@ keeps its slot and gains a one-line answer rather than being removed.
      within-one-parent are different rules and the engine will not guess. That
      half is still open.
    - **Additive upgrades** are §7.2.1, built.
-   - **A field changing type** is decided on paper (below); XIV-146 builds it.
+   - **A field changing type** is built, below.
    - **Purging a removed field's values** stays open, deliberately beside type
      change and never inside it. One is data loss somebody asked for, the
      other is data loss nobody did, and a purge must never ride along on a
      conversion.
 
-   *Type change, on paper (2026-08-20, XIV-146).* Legality is the tenant's
-   data's to decide, not a table of type pairs. The conversion runs per row,
-   through the new type's own reading (`toStorage()`), behind a dry run. A
-   change every row survives simply happens; a change any row fails is refused
-   with the count and the values. Emptying the failing rows is only ever the
-   customer's explicit second choice, made with the report in front of them,
-   and the run writes every value it converts or empties to the record's
-   history first. Whether the door is one-way is said before it closes. A
-   field something derives from re-derives, or the change is refused while the
-   derivation exists (§5.9).
+   *Type change (XIV-146).* **Legality is the tenant's data's to decide, not
+   a table of type pairs.** Every value is converted through the new type's
+   own reading (`toStorage()`) and judged by its own constraints, behind a
+   dry run that reads the whole column rather than a sample. A change every
+   row survives happens; a change any row fails is refused with the count and
+   the values named. Emptying the failing rows is the customer's explicit
+   second choice, taken with the report in front of them, and refused
+   outright on a `required` field. **Whether the door is one-way is said
+   before it closes**, computed the same way legality is: the converted value
+   is read back through the old type, and the change is reversible exactly
+   when every row lands on what it holds today. A `unique` breach is reported
+   from the converted values, never attempted and rolled back; the index
+   comes down for the rewrite and back up with the definition, because a row
+   converted early can collide with one not converted yet. **Every value the
+   run converts or empties goes to the record's history first**, under a verb
+   of its own, which is the condition on which a lossy conversion happens at
+   all; that is the one place the old spelling survives. It is not
+   `RecordWriter`'s diff, because that reads both sides with the type as it is
+   now and a type change is exactly a change to what that is. A **derived**
+   field is refused, since the engine fills it. A module that derives has
+   every touched record re-derived afterwards, at module granularity, because
+   §5.9 never says which fields a deriver read. A **shipped module may not
+   request a conversion**: every write in §7.2.1 is an insert, and a
+   conversion restates values somebody typed. The module may make it obvious;
+   the customer is who makes it happen. `contact.phone` is the worked example
+   (§5.23).
 
 3. **Query layer.** Built, see §5.3. Still open, and narrower than the question
    was: `OR` between conditions, and keyset paging.
@@ -104,7 +120,10 @@ definitions are the truth. This is the explicit way to say yes afterwards.
 - **An offer, at `/m/{module}/upgrade`.** It shows what this copy of the
   module is missing relative to the blueprint, chosen per item, because
   fifteen additions are fifteen decisions. Fields and collections only; every
-  write is an insert. Removal, type change and purge are not here. Nothing
+  write is an insert. Removal, type change and purge are not here, and since
+  XIV-146 the middle one is a decision rather than an absence: a conversion
+  restates values somebody typed, so a module may make one obvious and only a
+  customer may make it happen. Nothing
   records that a module is "upgraded", because a tenant holding an arbitrary
   subset of the blueprint is the normal state, not a partial one.
 - **A key the shape already has is never offered**, whatever it looks like

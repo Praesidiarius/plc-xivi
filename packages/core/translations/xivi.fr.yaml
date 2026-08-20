@@ -142,6 +142,15 @@ metadata:
     scope_on_a_collection: '«%key%» est un champ de la collection «%shape%», et là une période ne peut pas être rendue exclusive : au sein d’un même enregistrement parent et sur toute la table sont deux règles différentes, et le moteur ne devinera pas laquelle était voulue.'
     periods_already_overlap: 'Des enregistrements se chevauchent déjà dans «%key%» ; il ne peut donc pas encore devenir exclusif au sein de «%scope%» : %pairs%. Écartez d’abord ces enregistrements, ou laissez «%key%» tel quel.'
 
+    # Les deux refus propres à un changement de type ([XIV-146], §7.2), et celui
+    # que son résultat peut rencontrer. Les deux premiers portent sur le champ :
+    # le moteur le remplit, ou il est déjà ce qu’on lui demande de devenir. Le
+    # troisième porte sur ce que la conversion laisserait, et c’est le seul ici
+    # auquel vider ne répond pas.
+    type_of_a_derived_field: 'Le moteur remplit «%key%» au lieu que quiconque y écrive ; son type n’est donc pas quelque chose à changer par-dessous. S’il est numéroté, arrêtez d’abord la numérotation : il redevient un champ ordinaire, et ceci devient un changement ordinaire.'
+    type_unchanged: '«%key%» est déjà un champ «%type%» : il n’y a rien à convertir.'
+    conversion_would_share_values: 'Lus comme des valeurs «%type%», plusieurs enregistrements de «%key%» se révèlent avoir la même, et «%key%» est marqué unique : %values%. Rien n’a été changé. Réglez ces enregistrements, ou retirez d’abord la règle d’unicité de «%key%».'
+
 query:
     unknown_field: 'Rien ne s’appelle «%path%» sur «%shape%» pour filtrer ou trier.'
     unknown_collection: '«%module%» n’a pas de collection nommée «%collection%».'

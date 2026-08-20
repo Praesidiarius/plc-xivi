@@ -12,11 +12,14 @@
 	type.
 
 	Two differences from the add form, both because the field already exists.
-	Its **key** and its **type** are text rather than controls: §5.4 refuses to
-	change either, and a sentence saying why is a better answer than a disabled
-	box. And the settings that have pages of their own are links here rather
-	than boxes, because those pages can be opened once there is a field for them
-	to be about.
+	Its **key** and its **type** are text rather than controls, and the two are
+	no longer the same kind of fact ([XIV-146]). A key is where the value lives
+	and cannot move without orphaning every value it names; a type can now
+	change, but only on a page that has read the column first, so it is a link
+	beside the others below rather than a select in the middle of this form. And
+	the settings that have pages of their own are links here rather than boxes,
+	because those pages can be opened once there is a field for them to be
+	about.
 #}
 {% block body %}
 	{{ include('_topbar.html.twig') }}
@@ -138,6 +141,19 @@
 				{% elseif field.id in numberable %}
 					<a class="btn btn-sm btn-outline-secondary"
 					   href="{{ path('field_numbering', {module: module.key, field: field.id}) }}">{{ 'field.numbering.start_link'|trans }}</a>
+				{% endif %}
+				{#
+					And the type ([XIV-146]). The largest of the changes reached from
+					here: it rewrites every value in the column, it can be refused by
+					the customer's own data, and half the conversions worth doing
+					cannot be undone. Not offered on a field the engine fills, because
+					its type is not the customer's to restate underneath the thing
+					filling it (§5.9); the page refuses it too, and this is simply the
+					link not being there.
+				#}
+				{% if not field.derived %}
+					<a class="btn btn-sm btn-outline-secondary"
+					   href="{{ path('field_type', {module: module.key, field: field.id}) }}">{{ 'field.convert.link'|trans }}</a>
 				{% endif %}
 				{% if not field.system %}
 					<a class="btn btn-sm btn-outline-danger ms-auto"

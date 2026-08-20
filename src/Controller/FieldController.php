@@ -41,6 +41,8 @@ use Xivi\Core\Field\PointsAtAModule;
 use Xivi\Core\Field\Type\ChoiceFieldType;
 use Xivi\Core\Field\Type\ReferenceFieldType;
 use Xivi\Core\Field\UnknownFieldType;
+use Xivi\Core\Metadata\ConversionPlan;
+use Xivi\Core\Metadata\FieldTypeConversion;
 use Xivi\Core\Metadata\MetadataChangeRefused;
 use Xivi\Core\Metadata\MetadataEditor;
 use Xivi\Core\Metadata\MetadataRepository;
@@ -252,6 +254,11 @@ final class FieldController extends AbstractController
         private readonly FieldTypeRegistry $fieldTypes,
         private readonly TranslatorInterface $translator,
         private readonly NumberingChange $numbering,
+        // Changing a field's type on a tenant that already has records
+        // ([XIV-146]). Beside the numbering change and for the same reason: it
+        // is a plan and a run, the plan is what the confirmation page is drawn
+        // from, and neither half belongs in a controller.
+        private readonly FieldTypeConversion $conversion,
         private readonly ModuleUpgrade $upgrade,
         // The shared lists a choice field may take its values from (XIV-127).
         // Read-only here: what a list *is* is edited on its own screens
@@ -697,6 +704,147 @@ final class FieldController extends AbstractController
         }
 
         $this->numbering->windForward($module, $field, $format, (int) $next, new \DateTimeImmutable());
+    }
+
+    /**
+     * Changing this field's type, on a page of its own ([XIV-146], §7.2).
+     *
+     * **The fourth page to earn one, on the argument the other three made.**
+     * §5.4 has now said three times that a change which writes into records
+     * already there is a paragraph and a confirmation rather than a control on a
+     * row: numbering's backfill, a choice field's options, removing a field. A
+     * type change is the largest of the four. It rewrites every value in a
+     * column, it can be refused by the customer's own data, and half the
+     * conversions worth doing cannot be undone. A `<select>` beside the label
+     * would make it look like relabelling.
+     *
+     * This first page only asks which type, and asks nothing else, which is
+     * [XIV-163]'s shape read one door along: the type is the question every other
+     * question depends on, so it is asked alone and the next page is built from
+     * the answer.
+     *
+     * The list is {@see self::convertibleTypes()}, so a type registered tomorrow
+     * is offered here with nothing changed in this class.
+     */
+    #[Route('/{field}/type', name: 'field_type', requirements: ['field' => Requirement::POSITIVE_INT], methods: ['GET'])]
+    public function fieldType(string $module, int $field): Response
+    {
+        $definition = $this->definition($module);
+        $target = $this->field($definition, $field);
+
+        if ($target->isDerived()) {
+            // The engine fills it, so its type is not the customer's to restate
+            // (§5.9). Refused on the write path too; this is the page simply not
+            // opening, with the sentence that write path would have used.
+            $this->addFlash('warning', MetadataChangeRefused::typeOfADerivedField($target->getKey())
+                ->translatable()
+                ->trans($this->translator));
+
+            return $this->redirectToRoute('field_edit', ['module' => $module, 'field' => $field]);
+        }
+
+        return $this->render('field/convert_types.html.twig', [
+            'module' => $definition,
+            'shape' => $target->getShape(),
+            'field' => $target,
+            'fieldType' => $this->fieldTypes->has($target->getType()) ? $this->fieldTypes->get($target->getType()) : null,
+            'convertible' => $this->convertibleTypes($target),
+            'held' => $this->editor->recordsHolding($target),
+        ]);
+    }
+
+    /**
+     * What the change would do, before anything is written ([XIV-146]).
+     *
+     * The dry run §7.2 asks for, and it is the same computation the real run
+     * makes: every value in the column read by the type it is moving to, counted
+     * rather than estimated. What comes back says how many rows convert, what
+     * they become, how many the new type cannot read and what those say, whether
+     * a `unique` promise would be broken by the result, and whether converting
+     * straight back would give every record what it holds today.
+     *
+     * A POST rather than a GET, on numbering's terms: this scans a customer's
+     * whole records table, and a link that does that is a link somebody can put
+     * in a crawler.
+     */
+    #[Route('/{field}/type/{type}', name: 'field_type_check', requirements: ['field' => Requirement::POSITIVE_INT, 'type' => '[a-z][a-z0-9_]*'], methods: ['POST'])]
+    public function checkTypeChange(string $module, int $field, string $type, Request $request): Response
+    {
+        $definition = $this->definition($module);
+        $target = $this->field($definition, $field);
+        $convertible = $this->convertibleTypes($target);
+
+        if (!$this->isCsrfTokenValid('edit-fields', (string) $request->request->get('_token'))
+            || !isset($convertible[$type])
+        ) {
+            // Either a type this field cannot be converted to or a form posted
+            // around the page that says which ones it can. Back to that page,
+            // because it is the thing that says which answers are honest.
+            $this->addFlash('warning', $this->translator->trans('flash.type_not_convertible', ['%type%' => $type]));
+
+            return $this->redirectToRoute('field_type', ['module' => $module, 'field' => $field]);
+        }
+
+        return $this->render('field/convert_check.html.twig', [
+            'module' => $definition,
+            'shape' => $target->getShape(),
+            'field' => $target,
+            'type' => $type,
+            'fieldType' => $convertible[$type],
+            'plan' => $this->conversion->plan($target, $type),
+            'shown' => ConversionPlan::VALUES_NAMED,
+        ]);
+    }
+
+    /**
+     * And doing it, once somebody has said the word ([XIV-146]).
+     *
+     * The confirmation is required here rather than only in the template, for
+     * the reason the numbering backfill gives: a `required` attribute is a
+     * courtesy to somebody using the page and nothing at all to a form posted
+     * around it, and on the other side of this call is a rewrite of every value
+     * in a column that half the time cannot be undone.
+     *
+     * **`empty` is read as a separate word from `confirm`, and that is §7.2's
+     * rule rather than a form detail.** Emptying the rows the new type cannot
+     * read is the customer's second choice, taken with the report in front of
+     * them; it is a box of its own, unticked, and there is no path through this
+     * controller that reaches the engine with it true unless somebody ticked it.
+     *
+     * Everything else is {@see FieldTypeConversion::convert()}'s, in one
+     * transaction: a refusal, a browser closing or a column too large to finish
+     * leaves every value spelled the way it was spelled this morning.
+     */
+    #[Route('/{field}/type/{type}/apply', name: 'field_type_convert', requirements: ['field' => Requirement::POSITIVE_INT, 'type' => '[a-z][a-z0-9_]*'], methods: ['POST'])]
+    public function convertField(string $module, int $field, string $type, Request $request): Response
+    {
+        $definition = $this->definition($module);
+
+        if ($this->isCsrfTokenValid('edit-fields', (string) $request->request->get('_token'))
+            && $request->request->getBoolean('confirm')
+        ) {
+            $target = $this->field($definition, $field);
+
+            try {
+                $done = $this->conversion->convert($target, $type, $request->request->getBoolean('empty'));
+
+                // The figures come back from the run rather than from the page
+                // that was agreed to: a record saved between the two is one more
+                // record converted, and the sentence somebody reads afterwards
+                // should be about what happened.
+                $this->addFlash('success', $this->translator->trans('flash.field_converted', [
+                    '%field%' => $target->getLabel(),
+                    '%count%' => $done->converts,
+                    '%emptied%' => $done->refuses,
+                ]));
+            } catch (MetadataChangeRefused $e) {
+                $this->addFlash('warning', $e->translatable()->trans($this->translator));
+
+                return $this->redirectToRoute('field_type', ['module' => $module, 'field' => $field]);
+            }
+        }
+
+        return $this->redirectToRoute('field_edit', ['module' => $module, 'field' => $field]);
     }
 
     /**
@@ -1701,6 +1849,46 @@ final class FieldController extends AbstractController
     private function addableTypes(): array
     {
         return array_filter($this->fieldTypes->all(), self::configurable(...));
+    }
+
+    /**
+     * The types this field could become ([XIV-146]).
+     *
+     * {@see self::addableTypes()} minus two things, and both subtractions are
+     * decisions rather than plumbing.
+     *
+     * **The type it already has**, because there is nothing to convert and the
+     * engine refuses it anyway; offering it would be offering a rewrite of a
+     * whole column to no purpose.
+     *
+     * **Every type that {@see NeedsAnAnswer}**, which today is `choice` and
+     * `reference`. Not because the engine could not convert into one: it could,
+     * and the refusal it would meet is the ordinary one about an unanswered
+     * option. It is that a conversion decides **what values are**, and those two
+     * types need to be told what the values *mean* before they can decide
+     * anything: which list this is a choice between, which module this points
+     * at. That is a decision of its own, asked on the add form where the field
+     * is being made, and asking it here would put two unrelated decisions on one
+     * page where the report underneath is about only one of them. A field can
+     * still become a `choice`: add one, convert nothing, and move the values
+     * across with the importer.
+     *
+     * Everything the conversion page does *not* ask about follows from the same
+     * rule, and it is worth saying out loud because it looks like an omission.
+     * The new type's own settings, a maximum length, a country to read numbers
+     * against, are not on any of these pages. A conversion changes the type and
+     * nothing else, and the field's own form draws those the moment it is done,
+     * which is where they are edited every other day of the week.
+     *
+     * @return array<string, FieldType>
+     */
+    private function convertibleTypes(FieldDefinition $field): array
+    {
+        return array_filter(
+            $this->addableTypes(),
+            static fn (FieldType $type): bool => $type->key() !== $field->getType()
+                && !$type instanceof NeedsAnAnswer,
+        );
     }
 
     /**

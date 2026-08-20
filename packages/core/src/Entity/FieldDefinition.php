@@ -179,17 +179,37 @@ class FieldDefinition
         $this->label = $label;
     }
 
-    /**
-     * There is deliberately no setType().
-     *
-     * Changing a field's type is the hard half of §7.2 — stored values may not
-     * survive the new one, and "convert what you can" is data loss on a click.
-     * Refusing it structurally beats a setter that throws: the editor cannot
-     * offer a control it has no way to honour.
-     */
     public function getType(): string
     {
         return $this->type;
+    }
+
+    /**
+     * The hard half of §7.2, and for four generations of this entity it was not
+     * here at all ([XIV-146]).
+     *
+     * What used to stand in this place was a docblock explaining that there is
+     * deliberately no setter, because stored values may not survive a new type
+     * and "convert what you can" is data loss on a click. The first half of that
+     * is still true and is the reason this one is written the way it is; the
+     * second half was the thing XIV-146 had to stop being the only answer.
+     * Legality is the tenant's data's to decide rather than a table of type
+     * pairs, so the engine now converts every row through the new type's own
+     * reading, behind a dry run, and refuses the whole change when any row fails
+     * it.
+     *
+     * **So the guarantee moved rather than went away.** It used to be that no
+     * code anywhere could change this column; it is now that
+     * {@see \Xivi\Core\Metadata\FieldTypeConversion} is the only thing that
+     * calls this, and it does so inside the transaction that has already
+     * rewritten every value the change reaches. A caller that reaches for this
+     * setter on its own has changed what a column *means* and left every record
+     * in it spelled the old way, which is the state the missing setter existed
+     * to prevent and is still not a state anything may produce.
+     */
+    public function setType(string $type): void
+    {
+        $this->type = $type;
     }
 
     public function isRequired(): bool

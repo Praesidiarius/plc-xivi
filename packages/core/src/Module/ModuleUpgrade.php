@@ -107,6 +107,27 @@ use Xivi\Core\Record\RecordRepository;
  * deriver fills it the next time each record is saved, and the confirmation page
  * says so in as many words rather than letting somebody discover it.
  *
+ * ### A module may not ask for a type change here, and that is now a decision
+ *
+ * §7.2 left one question open until [XIV-146] built the conversion: whether a
+ * shipped module may request one for tenants that already have the field. It
+ * may not, and the reason is the same rule this whole class is built on read
+ * one step further. **Every write here is an insert.** An addition offers a
+ * customer something they do not have, and declining costs them nothing they
+ * had; a conversion restates values they typed, sometimes without a way back.
+ * Those are different kinds of act and only one of them belongs on a screen
+ * whose whole promise is that nothing already there is touched.
+ *
+ * The case for allowing it is real and is why it needed deciding rather than
+ * assuming: `contact.phone` became a `phone` field in the blueprint (§5.23), so
+ * a tenant installed before that is one conversion away from the shape a new
+ * one has, and the module is what knows it. The answer is that the module may
+ * make it *obvious* and may not make it *happen*. A customer reaches the
+ * conversion from their own field, reads a report computed from their own data,
+ * and agrees to it or does not. What is refused is an upgrade that carries one
+ * along, and an operator's console doing it for them, which is §6.1's refused
+ * retro-fit in the same hat this class already turned away once.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class ModuleUpgrade

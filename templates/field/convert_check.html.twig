@@ -1,0 +1,161 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'field.convert.check_title'|trans({'%field%': field.label}) }}{% endblock %}
+
+{#
+	The dry run, on the page between deciding and living with it ([XIV-146],
+	§7.2).
+
+	§4.1 argues the shape of this for removing a tenant, XIV-91 copied it for the
+	numbering backfill, and this is the third: name what is about to happen, name
+	how much of it there is, and default to no. Everything below is counted. The
+	engine read every value in the column with the type it is moving to, so
+	"3 records convert" is three records it actually converted and threw away
+	again, and `ask reception` is a string somebody can search for rather than an
+	example.
+
+	The four things this page exists to say, in the order somebody needs them:
+
+	 1. how many rows convert, and what two of them turn into;
+	 2. how many rows the new type cannot read, and what they say, because that
+	    is the half where a decision is being asked for;
+	 3. whether the `unique` promise survives the result, which is the one
+	    refusal nothing on this page can offer a way around;
+	 4. whether the door swings both ways, said before it closes.
+
+	Cancel is the plain link on the left, the thing that does it is the button on
+	the right in danger colours, and emptying is a second box that starts
+	unticked. Never a default, never something that rides along (§7.2).
+#}
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<h1 class="h3 mb-3">{{ 'field.convert.check_title'|trans({'%field%': field.label}) }}</h1>
+
+		<div class="card">
+			<div class="card-body">
+				<p>{{ 'field.convert.check_intro'|trans({'%from%': plan.from, '%to%': plan.to})|raw }}</p>
+
+				{% if plan.records == 0 %}
+					<p class="text-body-secondary mb-0">{{ 'field.convert.check_no_records'|trans }}</p>
+				{% else %}
+					{# What converts, and what two of them become. #}
+					<p class="mb-1">{{ 'field.convert.check_converts'|trans({'%count%': plan.converts, '%changes%': plan.changes})|raw }}</p>
+
+					{% if plan.rewritten is not empty %}
+						<ul class="small text-body-secondary">
+							{% for was, becomes in plan.rewritten|slice(0, shown) %}
+								<li><code>{{ was }}</code> → <code>{{ becomes }}</code></li>
+							{% endfor %}
+							{% if plan.rewritten|length > shown %}
+								<li>…</li>
+							{% endif %}
+						</ul>
+					{% endif %}
+				{% endif %}
+
+				{#
+					The half a decision is being asked about. In danger colours because
+					the only way past it is to let go of what those rows say, and the
+					values are named because a count on its own sends somebody looking
+					for four records among six hundred with nothing to search for.
+				#}
+				{% if plan.refused %}
+					<div class="alert alert-danger" role="alert">
+						<p class="mb-1">{{ 'field.convert.check_refused'|trans({'%count%': plan.refuses, '%to%': plan.to})|raw }}</p>
+						<ul class="mb-1">
+							{% for value, held in plan.refusing|slice(0, shown) %}
+								<li><code>{{ value }}</code>, {{ 'field.convert.check_held_by'|trans({'%count%': held}) }}</li>
+							{% endfor %}
+							{% if plan.refusing|length > shown %}
+								<li>…</li>
+							{% endif %}
+						</ul>
+						<p class="mb-0">{{ 'field.convert.check_refused_choice'|trans }}</p>
+					</div>
+				{% endif %}
+
+				{#
+					And the one refusal nothing here can offer a way around: the rows
+					are perfectly readable, they simply turn out to be one value written
+					several ways, which is exactly what `unique` was ticked to find out.
+				#}
+				{% if plan.blocked %}
+					<div class="alert alert-danger" role="alert">
+						<p class="mb-1">{{ 'field.convert.check_shared'|trans({'%to%': plan.to})|raw }}</p>
+						<ul class="mb-1">
+							{% for value, held in plan.shared|slice(0, shown) %}
+								<li><code>{{ value }}</code>, {{ 'field.convert.check_held_by'|trans({'%count%': held}) }}</li>
+							{% endfor %}
+							{% if plan.shared|length > shown %}
+								<li>…</li>
+							{% endif %}
+						</ul>
+						<p class="mb-0">{{ 'field.convert.check_shared_fix'|trans({'%field%': field.label}) }}</p>
+					</div>
+				{% endif %}
+
+				{# Whether the door is one-way, said before it closes (§7.2). #}
+				<p class="mb-0">
+					{% if plan.reversible %}
+						{{ 'field.convert.check_reversible'|trans }}
+					{% else %}
+						<strong>{{ 'field.convert.check_final'|trans }}</strong>
+						{{ 'field.convert.check_final_history'|trans }}
+					{% endif %}
+				</p>
+			</div>
+		</div>
+
+		{% if not plan.blocked %}
+			<form method="post" class="mt-3"
+			      action="{{ path('field_type_convert', {module: module.key, field: field.id, type: type}) }}">
+				<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
+
+				{#
+					The second choice, and it is a box of its own on purpose (§7.2):
+					emptying the rows the new type cannot read is never a default and
+					never something that rides along with agreeing to the conversion.
+					Unticked on arrival, and the engine refuses the whole change
+					without it.
+				#}
+				{% if plan.refused %}
+					<div class="form-check mb-2">
+						<input class="form-check-input" type="checkbox" name="empty" value="1" id="convert-empty" required>
+						<label class="form-check-label" for="convert-empty">
+							{{ 'field.convert.check_empty'|trans({'%count%': plan.refuses}) }}
+						</label>
+					</div>
+				{% endif %}
+
+				{#
+					A tick before a write that half the time cannot be undone, and the
+					controller requires it too: `required` is a courtesy to somebody
+					using the page and nothing at all to a form posted around it.
+				#}
+				<div class="form-check mb-3">
+					<input class="form-check-input" type="checkbox" name="confirm" value="1" id="convert-confirm" required>
+					<label class="form-check-label" for="convert-confirm">
+						{% if plan.reversible %}
+							{{ 'field.convert.check_agree'|trans({'%count%': plan.converts, '%to%': plan.to}) }}
+						{% else %}
+							{{ 'field.convert.check_agree_final'|trans({'%count%': plan.converts, '%to%': plan.to}) }}
+						{% endif %}
+					</label>
+				</div>
+
+				<div class="d-flex align-items-center gap-2">
+					<a class="btn btn-link" href="{{ path('field_type', {module: module.key, field: field.id}) }}">{{ 'common.cancel'|trans }}</a>
+					<button class="btn btn-danger" type="submit">{{ 'field.convert.check_do'|trans({'%to%': fieldType.label}) }}</button>
+				</div>
+			</form>
+		{% else %}
+			<div class="mt-3">
+				<a class="btn btn-link" href="{{ path('field_type', {module: module.key, field: field.id}) }}">{{ 'common.cancel'|trans }}</a>
+			</div>
+		{% endif %}
+	</main>
+{% endblock %}

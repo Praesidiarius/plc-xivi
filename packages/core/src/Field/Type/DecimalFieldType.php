@@ -88,7 +88,17 @@ final class DecimalFieldType implements BoundsItsValues
         return $this->round(mt_rand((int) ($min * $steps), (int) (max($min, $max) * $steps)) / $steps, $field);
     }
 
-    public function toStorage(mixed $value, FieldDefinition $field): ?string
+    /**
+     * `mixed` rather than `?string`, for the reason
+     * {@see IntegerFieldType::toStorage()} spells out ([XIV-146]).
+     *
+     * The same contradiction, one type along: the line below hands back what it
+     * could not read, and the return type promised that whatever it handed back
+     * was a string. It usually is, which is why this never bit, and a value
+     * arriving as anything else is precisely the case a type conversion exists
+     * to put in front of the validator rather than in front of PHP.
+     */
+    public function toStorage(mixed $value, FieldDefinition $field): mixed
     {
         if ($value === null || $value === '') {
             return null;
