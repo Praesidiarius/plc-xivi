@@ -31,17 +31,19 @@ use Xivi\ControlPlane\Entity\SignupStatus;
  * None of them lists, counts or searches, because nothing on the public side has
  * any business enumerating who else has signed up.
  *
- * {@see findConfirmed()} is the fourth and it enumerates outright. It is added
- * here rather than in a repository of its own because a second
+ * {@see findConfirmed()} is the fourth and it enumerates outright, and
+ * {@see findAbandonedPending()} is the fifth (XIV-125). Both are added here
+ * rather than in a repository of their own because a second
  * `ServiceEntityRepository` over one entity is two objects that can disagree
  * about what a `SignupRequest` is, which is a worse trade than the one it would
- * buy. What keeps the rule above true is not that the method is absent but that
- * **nothing on the public side calls it**: its one caller is
- * {@see \Xivi\ControlPlane\Provisioning\SignupProvisioner}, reached only from
- * a console command, and `SignupEndpointTest` already asserts that the
- * provisioner is not in either public controller's constructor graph. The
- * boundary is where it always was; this is the non-public half of the feature
- * asking the question only it is entitled to ask.
+ * buy. What keeps the rule above true is not that the methods are absent but
+ * that **nothing on the public side calls them**: their callers are
+ * {@see \Xivi\ControlPlane\Provisioning\SignupProvisioner} and
+ * {@see \Xivi\ControlPlane\Command\PruneSignupsCommand}, both reached only from
+ * a console, and `SignupEndpointTest` already asserts that the provisioner is
+ * not in either public controller's constructor graph. The boundary is where it
+ * always was; this is the non-public half of the feature asking the questions
+ * only it is entitled to ask.
  *
  * @extends ServiceEntityRepository<SignupRequest>
  *
@@ -124,6 +126,42 @@ class SignupRequestRepository extends ServiceEntityRepository
             ->andWhere('s.status = :confirmed')
             ->setParameter('confirmed', SignupStatus::Confirmed)
             ->orderBy('s.confirmedAt', 'ASC')
+            ->addOrderBy('s.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Signups whose address never answered, long enough ago that nothing is
+     * waiting on them (XIV-125).
+     *
+     * **`Pending` is half the filter and it is the important half.** A confirmed
+     * row is holding a name and is on its way to being a customer; it is removed
+     * by provisioning and by nothing else. A pending row holds nothing at all,
+     * `reserved_slug` being NULL is how the schema says so, so removing one
+     * releases nothing and races with nothing.
+     *
+     * The other half is the confirmation window, not the creation date, because
+     * the window is what makes a row dead: `confirmation_expires_at` has already
+     * passed for every row this returns, so the link in that person's inbox
+     * stopped working before the caller's cutoff was even applied. Ordered by it
+     * for the same reason, oldest first, so that a run reads as a queue draining
+     * rather than as a set.
+     *
+     * @param \DateTimeImmutable $expiredBefore the cutoff, which is well past the
+     *                                          window rather than at it: see
+     *                                          {@see \Xivi\ControlPlane\Command\PruneSignupsCommand}
+     *
+     * @return list<SignupRequest>
+     */
+    public function findAbandonedPending(\DateTimeImmutable $expiredBefore): array
+    {
+        return $this->createQueryBuilder('s')
+            ->andWhere('s.status = :pending')
+            ->andWhere('s.confirmationExpiresAt < :cutoff')
+            ->setParameter('pending', SignupStatus::Pending)
+            ->setParameter('cutoff', $expiredBefore)
+            ->orderBy('s.confirmationExpiresAt', 'ASC')
             ->addOrderBy('s.id', 'ASC')
             ->getQuery()
             ->getResult();

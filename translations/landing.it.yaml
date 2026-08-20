@@ -33,7 +33,7 @@ landing:
             Per questo indirizzo e-mail c’è già un’installazione in arrivo. Cerca la conferma
             nella tua casella di posta, oppure scrivici se non è mai arrivata.
         rate_limited: 'Troppi tentativi da qui. Riprova tra circa %minutes% minuti.'
-        invalid_email: Questo non sembra un indirizzo e-mail.
+        invalid_email: Non possiamo usare questo indirizzo e-mail. Provane un altro.
         invalid_slug: Un indirizzo può contenere solo lettere minuscole, cifre e trattini.
         unknown_plan: Questo piano non è tra quelli che offriamo.
         mail_failed: Non siamo riusciti a inviare la conferma in questo momento. Riprova per favore.

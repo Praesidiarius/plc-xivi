@@ -94,6 +94,27 @@ always lands in `Unreleased` here.
   field type like every other setting now, so `max_length` appears on text
   fields and `min`/`max` on number fields, and on nothing else.
 
+- **A signup from a throwaway address provider is refused** ([XIV-125], §8.12):
+  a confirmed signup becomes a real database and a real Postgres role, so the
+  intake now turns away addresses at the services whose product is a mailbox
+  nobody keeps. The list is short, shipped in `DisposableEmailDomains` and kept
+  by hand; **free-mail providers are deliberately not on it**, since a great
+  many small businesses sign up from Gmail, GMX or Bluewin. The refusal happens
+  before anything is written or sent, and answers `invalid_email` rather than a
+  code of its own, so the list cannot be read back one address at a time.
+- **Refusals are counted for the operator**: the tenant list gained a section
+  naming each provider that has been turned away, how often and when it last
+  happened. **Act on it if a domain you recognise appears there**: that is a
+  real customer being refused and never told why, and the fix is a line out of
+  the list.
+- **Unconfirmed signups are now discarded** by `signup:prune`, thirty days after
+  their confirmation window closes. **Add it to your crontab**:
+  `bin/console deploy:crontab` prints the line, nightly. It removes rows and
+  never a tenant.
+- **Abandoned tenants are reported and never removed**: `tenant:usage:collect`
+  now ends by naming the customers nobody has ever signed in to, with the date
+  each was provisioned, and points at `tenant:deprovision`. Nothing on a
+  schedule in this repository deletes a customer's database (§4.1, §4.6).
 - **The architecture brief is a summary again** ([XIV-159]): §4 to §8 and the
   entry file were distilled from ~12,500 lines to ~2,700 and unslopped. Every
   section number and every rule survives at its old address; the issue-by-issue
@@ -160,6 +181,7 @@ always lands in `Unreleased` here.
   tenants. What was running out of memory was the rehearsal and a developer's
   own fleet commands.
 
+[XIV-125]: https://xivi.youtrack.cloud/issue/XIV-125
 [XIV-148]: https://xivi.youtrack.cloud/issue/XIV-148
 [XIV-152]: https://xivi.youtrack.cloud/issue/XIV-152
 [XIV-153]: https://xivi.youtrack.cloud/issue/XIV-153

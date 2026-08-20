@@ -86,6 +86,30 @@ final class SignupRefused extends \RuntimeException
         return new self(SignupError::InvalidEmail, sprintf('"%s" is not an email address.', $email));
     }
 
+    /**
+     * A well-formed address at a provider that hands out mailboxes nobody keeps
+     * (XIV-125).
+     *
+     * `invalid_email` rather than a code of its own, and the argument is
+     * {@see unprovisionableSlug()}'s one noun along. Within v1 a code may be
+     * added, so a new one would break nobody. It would simply tell a caller
+     * something about the inside of this installation for no benefit, and here
+     * the benefit is negative: a distinguishable answer is a list of throwaway
+     * providers that can be read back one address at a time, which is a map of
+     * which ones still work. The visitor's action is the same in both cases,
+     * which is to use another address.
+     *
+     * The message names the domain and never the address, matching what is
+     * counted for the operator, and it goes to a log rather than to the caller.
+     */
+    public static function disposableAddress(string $domain): self
+    {
+        return new self(SignupError::InvalidEmail, sprintf(
+            '"%s" is a provider of throwaway addresses (Xivi\ControlPlane\Signup\DisposableEmailDomains).',
+            $domain,
+        ));
+    }
+
     public static function invalidSlug(string $slug): self
     {
         return new self(SignupError::InvalidSlug, sprintf(

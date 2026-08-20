@@ -72,6 +72,14 @@ control_plane:
     status_suspended: Gesperrt
     no_tenants: Noch keine Kunden
     no_tenants_hint: 'Lege den ersten an mit'
+    refusals: Am Anmeldeformular abgewiesen
+    refusals_hint: >-
+        Anmeldungen, die abgelehnt wurden, weil die Adresse von einem Anbieter für Wegwerf-Postfächer
+        stammt. Ein Name, den du hier wiedererkennst, gehört aus dieser Liste gestrichen.
+    refusals_domain: Anbieter
+    refusals_attempts: Abgewiesen
+    refusals_first: Zuerst
+    refusals_last: Zuletzt
     module_state: Status
     module_price: Preis
     module_in_store: Im Store

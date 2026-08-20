@@ -134,6 +134,26 @@ control_plane:
     # answer is one command and the person reading is the person who runs it.
     no_tenants: No customers yet
     no_tenants_hint: 'Provision the first one with'
+    # Signups the endpoint refused because the address is at a provider of
+    # throwaway mailboxes (XIV-125). The section is drawn only when there is
+    # something in it, so there is no empty-state string here.
+    #
+    # The heading says what happened rather than naming the mechanism: an
+    # operator reading "throwaway address list" has to know what that is, and
+    # every one of them knows what turning somebody away at a form means.
+    refusals: Turned away at the signup form
+    # The hint is the whole reason the section exists, said in one sentence: this
+    # is a judgement made by a list, and a domain an operator recognises is the
+    # signal that the list is refusing somebody real. Nothing here can be acted
+    # on from this page, and it does not pretend otherwise: the fix is a change
+    # to the shipped list, so the sentence names it.
+    refusals_hint: >-
+        Signups refused because the address comes from a provider of throwaway mailboxes. A name you
+        recognise here is a line to take out of that list.
+    refusals_domain: Provider
+    refusals_attempts: Refused
+    refusals_first: First
+    refusals_last: Most recent
     # The module pricing screen (XIV-101). What this deployment charges for each
     # module, which is a fact about *this company's business* and not about the
     # code — hence a control-plane row an operator edits, rather than a field on a

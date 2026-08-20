@@ -26,7 +26,9 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Response;
 use Xivi\ControlPlane\Entity\Operator;
+use Xivi\ControlPlane\Entity\SignupRefusal;
 use Xivi\ControlPlane\Repository\OperatorRepository;
+use Xivi\ControlPlane\Repository\SignupRefusalRepository;
 use Xivi\ControlPlane\Security\ControlPlaneHost;
 use Xivi\ControlPlane\Security\OperatorCreator;
 
@@ -79,6 +81,15 @@ use Xivi\ControlPlane\Security\OperatorCreator;
  */
 final class TenantListTest extends WebTestCase
 {
+    /**
+     * A provider on the throwaway list, for the refusals section (XIV-125).
+     *
+     * A real entry rather than an invented domain, because the section is about
+     * whether an operator can review the shipped list and an invented name would
+     * be reviewing nothing.
+     */
+    private const string REFUSED_DOMAIN = 'mailinator.com';
+
     private const string EMAIL = 'tenant-list@example.test';
     private const string PASSWORD = 'operator-password-58';
     private const string OPERATOR_NAME = 'The Operator';
@@ -241,6 +252,47 @@ final class TenantListTest extends WebTestCase
                 $slug . ' is being served and should not be called out.',
             );
         }
+    }
+
+    /**
+     * **A signup refused as a throwaway address is visible to an operator**
+     * (XIV-125), which is the requirement that keeps the list reviewable.
+     *
+     * The list of throwaway providers is a judgement somebody made, and the
+     * expensive way for it to be wrong is a real business being turned away and
+     * never told why. That mistake is invisible unless the refusals are drawn
+     * somewhere a person looks, so this asserts the provider, the count and the
+     * heading, the count because "somebody was refused once" and "a script has
+     * been refused forty times" are different findings drawn identically without
+     * it.
+     */
+    public function testASignupRefusedAsAThrowawayAddressIsVisibleToAnOperator(): void
+    {
+        $refusals = self::service(SignupRefusalRepository::class);
+        $refusals->record(self::REFUSED_DOMAIN);
+        $refusals->record(self::REFUSED_DOMAIN);
+
+        $text = $this->listPageText();
+
+        self::assertStringContainsString('Turned away at the signup form', $text);
+        self::assertStringContainsString(self::REFUSED_DOMAIN, $text, 'the provider that was refused');
+        self::assertMatchesRegularExpression(
+            '{' . preg_quote(self::REFUSED_DOMAIN, '}') . '\s+2\b}',
+            $text,
+            'both refusals counted onto one row, which is what the upsert is for',
+        );
+    }
+
+    /**
+     * And it is absent when nobody has been turned away, like the banner above.
+     *
+     * A section permanently reading "nobody has been refused" is furniture, and
+     * furniture is what the eye learns to skip. It is §8.10's argument for the
+     * not-being-served banner, applied to the other end of the same page.
+     */
+    public function testTheRefusalSectionIsAbsentWhenNobodyHasBeenTurnedAway(): void
+    {
+        self::assertStringNotContainsString('Turned away at the signup form', $this->listPageText());
     }
 
     /**
@@ -449,6 +501,15 @@ final class TenantListTest extends WebTestCase
         if ($operator instanceof Operator) {
             $entityManager->remove($operator);
         }
+
+        // Every refusal, not only this class's (XIV-125). The table is a tally
+        // rather than a record of anything anybody did, this is the worker's own
+        // control-plane database, and one of the tests above asserts that the
+        // section is *absent*, which nothing can be sure of while a row another
+        // class left behind may still be there. Test classes do not interleave
+        // inside a worker, so this cannot empty a table another one is mid-way
+        // through asserting on.
+        $entityManager->createQuery('DELETE FROM ' . SignupRefusal::class . ' r')->execute();
 
         $entityManager->flush();
     }

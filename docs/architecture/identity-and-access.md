@@ -373,6 +373,14 @@ failing tenant and carries on, but exits non-zero. Counting is shared with
   one thing the cell must never report. Drift is drawn as information, never
   error: *not recorded* and *not installed*. Reconciling the lists is a
   different feature with a higher bar.
+- **The run names the customers nobody has ever signed in to** (XIV-125), each
+  with the date it began existing and **no threshold**: §8.10's argument, that a
+  tenant unused for twenty-three days is exactly as unused as one at
+  twenty-five, and a line drawn between them teaches the reader that everything
+  under it is fine. It is a report and stays one. Nothing on a schedule may
+  remove a customer's database (§4.1, §4.6), so the run names the manual command
+  instead. It does not touch the exit code, which is reserved for a customer who
+  could not be read.
 
 ### 8.12 A public surface that provisions nothing (XIV-64)
 
@@ -430,6 +438,36 @@ boundary, and saying so is part of the claim.
   **the assertion is against the compiled router, not the loader**.
 - Two `SignupStatus` cases, not three. A `provisioned` state would duplicate
   `tenant.slug`, free to disagree silently. One secret, one caller.
+- **Throwaway providers are refused; free-mail providers are not** (XIV-125).
+  §8.14 turns a confirmed signup into a database and a role, so who signs up
+  became worth a check. Confusing *free* with *disposable* is the mistake that
+  matters: a business on a wrongly-listed domain is a customer who never finds
+  out why, and plenty of them read their post at `gmail.com` or `bluewin.ch`.
+  So the list is short, hand-kept in `DisposableEmailDomains`, and every entry
+  is a diff somebody read. **Rejected: vendoring a public list** (thousands of
+  entries nobody here has read, taking pull requests from strangers, failing as
+  a silent refusal of a real company) **and fetching one at run time** (the same
+  supply chain, no diff, a network call on an anonymous path, and no good answer
+  when the fetch fails). No environment variable extends it, or the reviewed
+  diff stops being the argument.
+- **The refusal wears `invalid_email`**, one word for two situations, because a
+  code of its own is the list read back one address at a time. `slug_taken`'s
+  rule, one field along. The visitor's sentence says what to do and confirms
+  nothing about what would have worked.
+- **Every refusal is counted by domain** (`signup_refusal`, one
+  `INSERT … ON CONFLICT`) and drawn on the tenant list. A judgement nobody can
+  see is one nobody can review, and a domain an operator recognises appearing
+  there is the only way a wrong entry is ever noticed. Counts, not contents: no
+  address is stored, and the table is bounded by the shipped list rather than by
+  the traffic.
+- **This sits beside the limiters and not instead of them.** They bound how fast
+  signups arrive and say nothing about who is making them; this is the opposite.
+- **An unconfirmed signup is discarded thirty days after its window closes**
+  (`signup:prune`, nightly, §4.5). It holds no name and no database, so the
+  delete has no consequences anywhere; thirty days rather than one because a late
+  click should still read "expired" rather than "unknown". A confirmed signup is
+  removed by provisioning and by nothing else, and no scheduled job in this
+  repository may remove a tenant (§4.1, §4.6).
 
 ### 8.13 A landing page, and the scope is the decision (XIV-65)
 

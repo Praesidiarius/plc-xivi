@@ -32,7 +32,7 @@ landing:
             Für diese E-Mail-Adresse ist bereits eine Installation unterwegs. Schau in deinem
             Posteingang nach der Bestätigung, oder schreib uns, falls sie nie angekommen ist.
         rate_limited: 'Zu viele Versuche von hier. Versuch es in etwa %minutes% Minuten noch einmal.'
-        invalid_email: Das sieht nicht nach einer E-Mail-Adresse aus.
+        invalid_email: Diese E-Mail-Adresse können wir nicht verwenden. Nimm eine andere.
         invalid_slug: Eine Adresse darf nur Kleinbuchstaben, Ziffern und Bindestriche enthalten.
         unknown_plan: Diesen Tarif bieten wir nicht an.
         mail_failed: Die Bestätigung konnte gerade nicht verschickt werden. Bitte versuch es noch einmal.

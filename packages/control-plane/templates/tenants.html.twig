@@ -371,5 +371,60 @@
 				</table>
 			</div>
 		{% endif %}
+
+		{#
+			**Who did not get as far as being a customer** (XIV-125, §8.12).
+
+			The signup form refuses an address whose provider hands out mailboxes
+			nobody keeps, because [XIV-98] turns an accepted signup into a real
+			database and a real Postgres role. That refusal is a judgement made by
+			a list somebody wrote, and the expensive way for it to be wrong is a
+			real business being turned away without ever being told why. This
+			section is what makes that reviewable: the provider, how often, and
+			when it last happened.
+
+			**Under the table rather than above it, and never as a warning.** The
+			banner at the top is about customers who are not being served, which
+			is somebody's problem right now. This is a tally an operator reads
+			when they wonder whether the list is right, and drawing it in yellow
+			would put it in competition with the sentence that is not optional.
+
+			Drawn only when there is something in it, like the banner, and for the
+			same reason: a card permanently reading "nobody has been turned away"
+			is furniture.
+
+			**No addresses**, because none are stored: see
+			`Xivi\ControlPlane\Entity\SignupRefusal`. Counts and a domain, which is
+			§8.11's line held one degree further back: this person is not a
+			customer and was never going to become one.
+		#}
+		{% if refusals is not empty %}
+			<section class="mt-4">
+				<h2 class="h6">{{ 'control_plane.refusals'|trans }}</h2>
+				<p class="small text-body-secondary">{{ 'control_plane.refusals_hint'|trans }}</p>
+				<div class="table-responsive">
+					<table class="table table-sm align-middle">
+						<thead>
+							<tr>
+								<th scope="col">{{ 'control_plane.refusals_domain'|trans }}</th>
+								<th scope="col">{{ 'control_plane.refusals_attempts'|trans }}</th>
+								<th scope="col">{{ 'control_plane.refusals_first'|trans }}</th>
+								<th scope="col">{{ 'control_plane.refusals_last'|trans }}</th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for refusal in refusals %}
+								<tr>
+									<td class="font-monospace">{{ refusal.domain }}</td>
+									<td>{{ refusal.attempts }}</td>
+									<td class="text-body-secondary">{{ refusal.firstSeenAt|date('Y-m-d H:i') }}</td>
+									<td>{{ refusal.lastSeenAt|date('Y-m-d H:i') }}</td>
+								</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+			</section>
+		{% endif %}
 	</main>
 {% endblock %}
