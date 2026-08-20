@@ -339,6 +339,7 @@ module:
         email_sent: E-mail envoyé
         email_failed: E-mail non envoyé
         transitioned: Statut changé
+        converted: Type converti
     row_action:
         added: ajoutée
         updated: mise à jour
@@ -381,9 +382,9 @@ field:
         back_to_field: 'Retour au champ'
         module_field: 'est venu avec le module'
         fixed: >-
-            Le nom et le type de champ ne peuvent pas changer. Le nom est l’endroit où chaque
-            valeur est stockée, un autre nom les laisserait toutes orphelines ; et aucun type de
-            champ ne sait confier ses valeurs stockées à un autre.
+            Le nom ne peut pas changer : c’est l’endroit où chaque valeur est stockée, un autre les
+            laisserait toutes orphelines. Le type de champ, lui, peut changer, sur une page à part
+            qui lit d’abord ce que le champ contient et dit ce que la conversion lui ferait.
         unfinished: >-
             Ce type de champ ne fait rien tant qu’un des réglages ci-dessous n’est pas renseigné.
             Celui-ci a été créé avant que cela soit refusé : il est affiché, enregistré et validé,
@@ -501,6 +502,57 @@ field:
             sont donc les siennes propres et ne servent pas. C’est là-dessus qu’il retomberait si
             vous le retiriez de la liste.
         on_a_list_link: Ouvrir cette liste
+    # Changer le type d’un champ sur un client qui a déjà des enregistrements
+    # ([XIV-146], §7.2). Ces phrases pèsent plus lourd que toutes les autres de
+    # ce fichier : ce qui est accepté réécrit chaque valeur d’une colonne, la
+    # moitié ne se défait pas, et une partie est la proposition de jeter des
+    # valeurs. Chaque chiffre y est compté et non deviné, et chaque valeur
+    # nommée est une chaîne que l’on peut aller chercher.
+    convert:
+        link: Changer le type
+        title: 'Quel type de champ est «%field%» ?'
+        held: >-
+            <strong>%count% enregistrements ont une valeur ici.</strong> Chacun est relu par le
+            type choisi, et la page suivante dit ce que cela leur fait avant que quoi que ce soit
+            soit écrit.
+        held_none: >-
+            Rien n’a encore de valeur dans ce champ, il n’y a donc rien à réécrire : choisir un
+            type change seulement ce que le champ est.
+        settings_note: >-
+            Une conversion change le type de champ et rien d’autre. Ce que le nouveau type accepte
+            qu’on lui dise, une longueur maximale, un pays pour lire les numéros, se règle ensuite
+            sur la page du champ.
+        none: Il n’y a pas d’autre type de champ que celui-ci pourrait devenir.
+        not_offered: >-
+            Une liste d’options et un lien vers un autre module ne sont pas proposés ici. Il faut
+            d’abord dire aux deux ce que les valeurs veulent dire avant qu’ils puissent en lire
+            une, et c’est une décision à part : ajoutez un champ de ce type et déplacez-y les
+            valeurs.
+        check_title: 'Convertir «%field%» ?'
+        check_intro: 'Chaque valeur de ce champ est relue comme une valeur <code>%to%</code> et non <code>%from%</code>.'
+        check_no_records: 'Aucun enregistrement n’a de valeur ici, rien n’est donc réécrit. Seul le champ change.'
+        check_converts: '<strong>%count% enregistrements se convertissent</strong>, et %changes% d’entre eux finissent avec autre chose que ce qu’ils ont aujourd’hui.'
+        check_refused: '<strong>%count% enregistrements ont quelque chose qu’un champ <code>%to%</code> ne sait pas lire.</strong>'
+        check_held_by: 'sur %count% enregistrements'
+        check_refused_choice: >-
+            Rien ne change tant que vous n’avez pas dit ce qu’il advient de ceux-là. Allez les
+            corriger d’abord, ou videz-les ici, ce qui jette ce qu’ils disent.
+        check_shared: 'Lus comme des valeurs <code>%to%</code>, plusieurs enregistrements se révèlent avoir la même, et ce champ est marqué unique.'
+        check_shared_fix: >-
+            Cela ne peut pas passer : ces enregistrements briseraient une promesse que «%field%»
+            tient. Réglez-les, ou retirez d’abord la règle d’unicité du champ.
+        check_reversible: >-
+            Reconvertir dans l’autre sens rendrait à chaque enregistrement exactement ce qu’il a
+            aujourd’hui : cela peut donc se défaire.
+        check_final: Cela ne peut pas se défaire.
+        check_final_history: >-
+            Ce que chaque enregistrement a aujourd’hui est écrit dans son historique avant d’être
+            remplacé, l’ancienne valeur reste donc lisible sur l’enregistrement même quand rien ne
+            peut la remettre.
+        check_empty: 'Oui, vider les %count% enregistrements illisibles. Je comprends que ce qu’ils disent est jeté.'
+        check_agree: 'Oui, convertir %count% enregistrements en %to%.'
+        check_agree_final: 'Oui, convertir %count% enregistrements en %to%. Je comprends que cela ne se défait pas.'
+        check_do: 'Convertir en %to%'
     numbering:
         title: Numérotation
         pattern: Motif
@@ -1174,6 +1226,7 @@ mail:
 flash:
     fields_arranged: Le formulaire a été redisposé.
     type_not_addable: 'Il n’y a pas de type de champ «%type%» à ajouter ici.'
+    type_not_convertible: 'Il n’y a pas de type de champ «%type%» que celui-ci pourrait devenir.'
     saved: Enregistré.
     list_created: '«%list%» créée. Ajoutez ses entrées ci-dessous.'
     list_saved: '«%list%» enregistrée.'
@@ -1193,6 +1246,7 @@ flash:
     password_changed: Votre mot de passe a été changé.
     field_added: '«%field%» ajouté.'
     field_saved: '«%field%» enregistré.'
+    field_converted: '«%field%» converti. %count% valeurs ont été réécrites et %emptied% vidées.'
     field_removed: '«%field%» retiré. Ses valeurs sont toujours stockées.'
     options_saved: 'Options de «%field%» enregistrées. Les enregistrements qui en portent déjà une ne changent pas.'
     sections_saved: Enregistré. Le formulaire et la page de l’enregistrement dessinent les sections dans cet ordre.

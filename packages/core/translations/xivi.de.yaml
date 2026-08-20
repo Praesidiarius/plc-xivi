@@ -181,6 +181,15 @@ metadata:
     scope_on_a_collection: '„%key%“ ist ein Feld der Unterliste „%shape%“, und Zeiträume dort können nicht exklusiv gemacht werden: innerhalb eines übergeordneten Datensatzes und über die ganze Tabelle sind zwei verschiedene Regeln, und die Engine rät nicht, welche gemeint war.'
     periods_already_overlap: 'In „%key%“ überschneiden sich bereits Datensätze, deshalb kann es noch nicht exklusiv innerhalb „%scope%“ sein: %pairs%. Trenne diese Datensätze zuerst, oder lass „%key%“ wie es ist.'
 
+    # Die zwei Verweigerungen, die eine Typänderung selbst hat ([XIV-146],
+    # §7.2), und die eine, auf die ihr Ergebnis stoßen kann. Die ersten beiden
+    # betreffen das Feld: die Engine füllt es, oder es ist schon das, was es
+    # werden soll. Die dritte betrifft, was die Umwandlung hinterließe, und ist
+    # die einzige hier, auf die Leeren keine Antwort ist.
+    type_of_a_derived_field: 'Die Engine füllt „%key%“, statt dass jemand hineinschreibt, deshalb ist seine Art nichts, was darunter geändert wird. Wenn es nummeriert ist, beende zuerst die Nummerierung: dann ist es wieder ein gewöhnliches Feld, und dies ist eine gewöhnliche Änderung.'
+    type_unchanged: '„%key%“ ist bereits ein Feld vom Typ „%type%“, es gibt also nichts umzuwandeln.'
+    conversion_would_share_values: 'Als „%type%“-Werte gelesen halten mehrere Datensätze in „%key%“ denselben, und „%key%“ ist als eindeutig markiert: %values%. Es wurde nichts geändert. Bring diese Datensätze in Ordnung, oder nimm zuerst die Eindeutigkeit von „%key%“.'
+
 query:
     unknown_field: 'Auf „%shape%“ gibt es nichts namens „%path%“, wonach sich filtern oder sortieren ließe.'
     unknown_collection: '„%module%“ hat keine Sammlung namens „%collection%“.'

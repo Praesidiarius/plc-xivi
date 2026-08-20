@@ -52,10 +52,14 @@ use Xivi\Core\Query\Operator;
  *    refusals now instead of as strings. That is correct and it is still a
  *    surprise, so the refusal names the value *and* the country it was read
  *    against — see {@see DiallablePhoneNumber}.
- *  * **Nothing rewrites what is already stored.** Changing a `text` field to this
- *    type is not possible (§5.4: a type cannot be changed, because stored values
- *    may not survive it), and a customer whose `phone` is a text field has made
- *    that decision (§6.1). What this type governs is fields created as this type.
+ *  * **Nothing rewrites what is already stored, and nothing ever will without
+ *    being asked.** When this type shipped, changing a `text` field to it was
+ *    not possible at all (§5.4), so a customer whose `phone` was a text field
+ *    kept one. [XIV-146] built the conversion and did not weaken that: the
+ *    customer asks for it, on their own field, having read what every value in
+ *    the column turns into and which of them this type refuses. Nothing on an
+ *    upgrade and nothing on a deploy converts anybody. What this type governs is
+ *    still fields that are of this type, however they came to be.
  *
  * ### Extensions are refused, and that is a decision
  *

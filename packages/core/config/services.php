@@ -31,7 +31,7 @@ return static function (ContainerConfigurator $container): void {
                 // constraint that reports it (XIV-114). Both are values the
                 // container would otherwise try to autowire a `?string` into.
                 __DIR__ . '/../src/Phone/{PhoneReading,DiallablePhoneNumber}.php',
-                __DIR__ . '/../src/Metadata/NumberingPlan.php',
+                __DIR__ . '/../src/Metadata/{NumberingPlan,ConversionPlan}.php',
                 __DIR__ . '/../src/Numbering/{NumberFormat,NumbersFound}.php',
                 __DIR__ . '/../src/Record/{Record,Derivation}.php',
                 __DIR__ . '/../src/Validation/UniqueFieldValue.php',

@@ -339,6 +339,7 @@ module:
         email_sent: E-mail inviata
         email_failed: E-mail non inviata
         transitioned: Stato cambiato
+        converted: Tipo convertito
     row_action:
         added: aggiunta
         updated: aggiornata
@@ -381,9 +382,9 @@ field:
         back_to_field: 'Torna al campo'
         module_field: 'è arrivato con il modulo'
         fixed: >-
-            Il nome e il tipo di campo non si possono cambiare. Il nome è il posto in cui ogni
-            valore è salvato, un altro nome li lascerebbe tutti orfani; e nessun tipo di campo sa
-            affidare i suoi valori salvati a un altro.
+            Il nome non si può cambiare: è il posto in cui ogni valore è salvato, un altro li
+            lascerebbe tutti orfani. Il tipo di campo si può cambiare, su una pagina a sé che prima
+            legge che cosa c’è nel campo e dice che cosa gli farebbe la conversione.
         unfinished: >-
             Questo tipo di campo non fa nulla finché una delle impostazioni qui sotto non è
             compilata. Questo campo è nato prima che ciò venisse rifiutato: viene disegnato,
@@ -499,6 +500,56 @@ field:
             sotto sono le sue proprie e non sono in uso. Sono ciò su cui ricadrebbe se lo
             togliessi dalla lista.
         on_a_list_link: Apri quella lista
+    # Cambiare il tipo di un campo su un cliente che ha già dei record
+    # ([XIV-146], §7.2). Queste frasi pesano più di ogni altra in questo file:
+    # quel che si accetta riscrive ogni valore di una colonna, metà non si torna
+    # indietro, e una parte è la proposta di buttare via dei valori. Ogni
+    # numero qui è contato e non stimato, e ogni valore nominato è una stringa
+    # che si può andare a cercare.
+    convert:
+        link: Cambia il tipo
+        title: 'Che tipo di campo è “%field%”?'
+        held: >-
+            <strong>%count% record hanno un valore qui.</strong> Ognuno viene riletto dal tipo che
+            sceglie, e la pagina successiva dice che cosa comporta per loro prima che venga scritto
+            qualcosa.
+        held_none: >-
+            In questo campo non c’è ancora nessun valore, quindi non c’è niente da riscrivere:
+            scegliere un tipo cambia solo che cosa è il campo.
+        settings_note: >-
+            Una conversione cambia il tipo di campo e nient’altro. Quel che si può dire al nuovo
+            tipo, una lunghezza massima, un paese con cui leggere i numeri, si imposta dopo sulla
+            pagina del campo.
+        none: Non c’è nessun altro tipo di campo che questo possa diventare.
+        not_offered: >-
+            Un elenco di opzioni e un collegamento a un altro modulo non sono offerti qui. A
+            entrambi va prima detto che cosa significano i valori prima che possano leggerne uno, e
+            questa è una decisione a sé: aggiunga un campo di quel tipo e ci sposti i valori.
+        check_title: 'Convertire “%field%”?'
+        check_intro: 'Ogni valore di questo campo viene riletto come valore <code>%to%</code> invece che <code>%from%</code>.'
+        check_no_records: 'Nessun record ha un valore qui, quindi non si riscrive nulla. Cambia solo il campo.'
+        check_converts: '<strong>%count% record si convertono</strong>, e %changes% di loro finiscono con qualcosa di diverso da quel che hanno adesso.'
+        check_refused: '<strong>%count% record hanno qualcosa che un campo <code>%to%</code> non sa leggere.</strong>'
+        check_held_by: 'su %count% record'
+        check_refused_choice: >-
+            Non cambia nulla finché non dice che cosa deve succedere a quelli. Vada a sistemarli
+            prima, oppure li svuoti qui, il che butta via quel che dicono.
+        check_shared: 'Letti come valori <code>%to%</code>, più record risultano avere lo stesso, e questo campo è marcato univoco.'
+        check_shared_fix: >-
+            Così non può andare avanti: quei record romperebbero una promessa che “%field%” sta
+            facendo. Li sistemi, oppure tolga prima la regola di univocità dal campo.
+        check_reversible: >-
+            Riconvertire all’indietro darebbe a ogni record esattamente quel che ha oggi, quindi si
+            può tornare indietro.
+        check_final: Questo non si può annullare.
+        check_final_history: >-
+            Quel che ogni record ha adesso viene scritto nella sua cronologia prima di essere
+            sostituito, così il vecchio valore resta leggibile sul record anche quando nulla può
+            rimetterlo.
+        check_empty: 'Sì, svuota i %count% record che non si possono leggere. Capisco che quel che dicono viene buttato via.'
+        check_agree: 'Sì, converti %count% record in %to%.'
+        check_agree_final: 'Sì, converti %count% record in %to%. Capisco che questo non si può annullare.'
+        check_do: 'Converti in %to%'
     numbering:
         title: Numerazione
         pattern: Schema
@@ -1163,6 +1214,7 @@ mail:
 flash:
     fields_arranged: Il modulo è stato ridisposto.
     type_not_addable: 'Non c’è nessun tipo di campo “%type%” da aggiungere qui.'
+    type_not_convertible: 'Non c’è nessun tipo di campo “%type%” che questo possa diventare.'
     saved: Salvato.
     list_created: 'Creata “%list%”. Aggiungi le sue voci qui sotto.'
     list_saved: 'Salvata “%list%”.'
@@ -1182,6 +1234,7 @@ flash:
     password_changed: La tua password è stata cambiata.
     field_added: 'Aggiunto “%field%”.'
     field_saved: 'Salvato “%field%”.'
+    field_converted: '“%field%” convertito. %count% valori sono stati riscritti e %emptied% svuotati.'
     field_removed: 'Tolto “%field%”. I suoi valori sono ancora salvati.'
     options_saved: 'Salvate le opzioni di “%field%”. I record che già ne portano una non cambiano.'
     sections_saved: Salvato. Il modulo di inserimento e la pagina del record disegnano le sezioni in questo ordine.

@@ -40,10 +40,19 @@ use Xivi\Core\ValueList\ValueLists;
  * a field to their copy of a module and it appears in the form, the list, the
  * validation and the filter bar, because all four read the same rows.
  *
- * What it will not do is anything §7.2 has no answer for. There is no way to
- * change a field's type here, because there is no honest way to carry stored
- * values across one. Removing a field takes the definition and leaves the
- * values, which is the version of "delete" that cannot destroy anything.
+ * What it will not do is anything §7.2 has no answer for. Removing a field takes
+ * the definition and leaves the values, which is the version of "delete" that
+ * cannot destroy anything.
+ *
+ * **Changing a field's type used to be on that list and no longer is**
+ * ([XIV-146]). The old sentence said there was no honest way to carry stored
+ * values across a type, and the honest way turned out to be to stop asking the
+ * question in the abstract: {@see FieldTypeConversion} reads every value in the
+ * column with the type it is moving to, refuses the whole change when any of
+ * them cannot be read, and writes what it took away to each record's history
+ * before the definition moves. {@see self::changeType()} is the half of that
+ * which lives here, and it is the conversion's to call rather than anybody
+ * else's.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
@@ -280,6 +289,92 @@ final readonly class MetadataEditor
             // from one field to another is a drop and a build — which is why
             // `follow()` always drops first.
             $this->exclusions->follow($field->getShape(), $field);
+        });
+
+        $this->cache->clear();
+    }
+
+    /**
+     * The definition half of a type change ([XIV-146], §7.2).
+     *
+     * **@internal to {@see FieldTypeConversion}, and that is a rule about data
+     * rather than about layering.** By the time this runs, every value in the
+     * column has already been rewritten in the new type's spelling, inside the
+     * same transaction, and the record histories that say so have already been
+     * written. On its own this method is the one thing §5.4 spent four
+     * generations refusing: a column that means something new, full of values
+     * spelled the old way, with nothing anywhere recording what they used to be.
+     * The conversion is what makes it honest, so the conversion is what calls
+     * it.
+     *
+     * **The options are replaced rather than merged**, which is the one place a
+     * write in this class deliberately breaks XIV-26's rule that what a form
+     * does not mention it does not touch. That rule is about an *edit*, where a
+     * setting the page never drew is a setting somebody still means to have. A
+     * type change is not an edit: `max_length` belongs to `text` and means
+     * nothing to `phone`, a numbering pattern belongs to a field the engine
+     * fills, and carrying either across would leave a definition holding answers
+     * to questions its type does not ask. So the field arrives with the new
+     * type's defaults, and the type's own settings are edited afterwards on the
+     * field's own form, which is where they are edited every other day of the
+     * week.
+     *
+     * The refusals are §5.4's existing ones, asked again because the field is
+     * effectively a new one: a type that needs an answer nobody gave, a target
+     * or a list that does not exist, a scope that cannot be honoured. What is
+     * added is the two this change has of its own, and both are about the field
+     * rather than about the data. A **derived** field is refused because the
+     * engine fills it and its type is not the customer's to restate (§5.9,
+     * §5.10): a numbered text field turned into a date would be a counter
+     * writing values its own field cannot hold. And a change to the type the
+     * field already has is refused rather than quietly done, because it would
+     * rewrite a whole column to no purpose and the honest report of it is
+     * "nothing to change".
+     *
+     * @param array<string, mixed> $options the options the field ends up with, in full
+     *
+     * @throws MetadataChangeRefused
+     */
+    public function changeType(FieldDefinition $field, string $type, array $options = []): void
+    {
+        if ($field->isDerived()) {
+            throw MetadataChangeRefused::typeOfADerivedField($field->getKey());
+        }
+
+        if ($type === $field->getType()) {
+            throw MetadataChangeRefused::typeUnchanged($field->getKey(), $type);
+        }
+
+        // Before anything is written, so an unknown type is a refusal rather
+        // than a definition nothing can read.
+        $target = $this->fieldTypes->get($type);
+        $merged = self::withOptions([], $options);
+
+        $shape = $field->getShape();
+        $field->setType($type);
+        $field->setOptions($merged);
+
+        $this->assertNeedsAreAnswered($target, $field->getKey(), $merged);
+        $this->assertTargetExists($target, $field->getKey(), $merged);
+        $this->assertListExists($target, $field->getKey(), $merged);
+        $this->assertScopeIsUsable($shape, $field, $merged);
+
+        $this->asOneChange(function () use ($shape, $field): void {
+            $this->entityManager->flush();
+            // The index is over `data ->> 'key'` and knows nothing about types,
+            // so nothing here changes what it would enforce. What makes this
+            // call necessary is the conversion above: it takes the index down
+            // before rewriting the column, because a row converted early can
+            // collide with a row not converted yet even when the state both of
+            // them end up in is perfectly unique. This is where the promise
+            // comes back, over values that have already been checked for
+            // duplicates and refused if they had any.
+            $this->uniqueIndexes->follow($shape, $field);
+            // And the period constraint, one direction down and for the same
+            // reason: a field that has just stopped being a period has no
+            // business keeping the exclusion that made two of them refuse to
+            // overlap.
+            $this->exclusions->follow($shape, $field);
         });
 
         $this->cache->clear();

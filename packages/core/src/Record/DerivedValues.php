@@ -83,6 +83,37 @@ final readonly class DerivedValues
     }
 
     /**
+     * Whether anything derives on this module at all, asked without values
+     * ([XIV-146]).
+     *
+     * The one question §5.9 can answer about a module rather than about a save,
+     * and the reason it is worth a method is that a type conversion has to know
+     * it. Converting a field rewrites values other values may follow from: an
+     * order whose `quantity` stops being text and starts being a number has a
+     * total that was worked out from the old spelling. So the conversion asks
+     * this, and re-runs the derivers over every record it touched when the
+     * answer is yes.
+     *
+     * **It is a question about the module and never about the field**, and that
+     * is a property of §5.9 rather than a shortcut taken here. A deriver is
+     * handed the whole record and asked for nothing back; nothing in the
+     * interface says which fields it read, and inventing a declaration so that
+     * this could be narrower would be inventing it for one caller. Re-deriving a
+     * touched record costs a save it would have got anyway the next time
+     * somebody opened it, and gets the arithmetic right without guessing.
+     */
+    public function derivesOn(ModuleDefinition $module): bool
+    {
+        foreach ($this->derivers as $deriver) {
+            if ($deriver->supports($module)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @param array<string, mixed>                                                 $fields
      * @param array<string, list<array{id: int|null, data: array<string, mixed>}>> $rows
      */

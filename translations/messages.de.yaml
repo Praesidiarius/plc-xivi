@@ -360,6 +360,7 @@ module:
         email_sent: E-Mail gesendet
         email_failed: E-Mail nicht gesendet
         transitioned: Status geändert
+        converted: Feldart umgewandelt
     row_action:
         added: hinzugefügt
         updated: geändert
@@ -402,9 +403,9 @@ field:
         back_to_field: 'Zurück zum Feld'
         module_field: 'kam mit dem Modul'
         fixed: >-
-            Name und Feldart lassen sich nicht ändern. Der Name ist der Ort, an dem jeder Wert
-            gespeichert ist, ein neuer würde alle verwaisen lassen; und keine Feldart kann ihre
-            gespeicherten Werte an eine andere übergeben.
+            Der Name lässt sich nicht ändern: er ist der Ort, an dem jeder Wert gespeichert ist,
+            ein neuer würde alle verwaisen lassen. Die Feldart lässt sich ändern, auf einer eigenen
+            Seite, die erst liest, was im Feld steht, und sagt, was die Änderung damit macht.
         unfinished: >-
             Diese Feldart tut nichts, solange keine der Einstellungen unten ausgefüllt ist. Dieses
             Feld entstand, bevor das verweigert wurde: es wird gezeichnet, gespeichert und geprüft
@@ -538,6 +539,57 @@ field:
     # Beschriftungen: Der Hilfetext muss die Syntax beibringen, und die beiden
     # Hinweise müssen das sagen, was niemand errät — dass ein Muster nichts
     # umnummeriert und dass {year} auf einen eigenen Zähler wechselt.
+    # Die Feldart ändern, auf einem Mandanten, der schon Datensätze hat
+    # ([XIV-146], §7.2). Diese Sätze wiegen schwerer als alle anderen in dieser
+    # Datei: zugestimmt wird dem Neuschreiben jedes Werts einer Spalte, die
+    # Hälfte davon lässt sich nicht rückgängig machen, und ein Teil ist das
+    # Angebot, Werte wegzuwerfen. Jede Zahl darin ist gezählt und nicht
+    # geschätzt, und jeder genannte Wert ist eine Zeichenfolge, nach der man
+    # suchen kann.
+    convert:
+        link: Feldart ändern
+        title: 'Welche Art Feld ist „%field%“?'
+        held: >-
+            <strong>%count% Datensätze halten hier einen Wert.</strong> Jeder davon wird von der
+            gewählten Art neu gelesen, und die nächste Seite sagt, was das mit ihnen macht, bevor
+            irgendetwas geschrieben wird.
+        held_none: >-
+            In diesem Feld hält noch nichts einen Wert, also gibt es nichts neu zu schreiben: eine
+            Art zu wählen ändert nur, was das Feld ist.
+        settings_note: >-
+            Eine Umwandlung ändert die Feldart und sonst nichts. Was der neuen Art gesagt werden
+            kann, eine Höchstlänge, ein Land, gegen das Nummern gelesen werden, wird danach auf der
+            Seite des Feldes eingestellt.
+        none: Es gibt keine andere Feldart, die dieses Feld werden könnte.
+        not_offered: >-
+            Eine Optionsliste und ein Verweis auf ein anderes Modul werden hier nicht angeboten.
+            Beiden muss erst gesagt werden, was die Werte bedeuten, bevor sie einen lesen können,
+            und das ist eine eigene Entscheidung: legen Sie ein Feld dieser Art an und schieben Sie
+            die Werte hinüber.
+        check_title: '„%field%“ umwandeln?'
+        check_intro: 'Jeder Wert in diesem Feld wird neu gelesen, als <code>%to%</code>-Wert statt als <code>%from%</code>-Wert.'
+        check_no_records: 'Kein Datensatz hält hier einen Wert, also wird nichts neu geschrieben. Nur das Feld ändert sich.'
+        check_converts: '<strong>%count% Datensätze werden umgewandelt</strong>, und %changes% davon halten danach etwas anderes als jetzt.'
+        check_refused: '<strong>%count% Datensätze halten etwas, das ein <code>%to%</code>-Feld nicht lesen kann.</strong>'
+        check_held_by: 'auf %count% Datensätzen'
+        check_refused_choice: >-
+            Es ändert sich gar nichts, solange Sie nicht sagen, was mit diesen geschehen soll.
+            Bringen Sie sie vorher in Ordnung, oder leeren Sie sie hier, was das Gesagte wegwirft.
+        check_shared: 'Als <code>%to%</code>-Werte gelesen halten mehrere Datensätze denselben, und dieses Feld ist als eindeutig markiert.'
+        check_shared_fix: >-
+            Das geht so nicht: diese Datensätze würden ein Versprechen brechen, das „%field%“ gibt.
+            Bringen Sie sie in Ordnung, oder nehmen Sie die Eindeutigkeit vorher vom Feld.
+        check_reversible: >-
+            Ein Zurückwandeln gäbe jedem Datensatz genau das, was er heute hält, also lässt sich
+            das rückgängig machen.
+        check_final: Das lässt sich nicht rückgängig machen.
+        check_final_history: >-
+            Was jeder Datensatz jetzt hält, wird vor dem Ersetzen in seine Historie geschrieben, so
+            bleibt der alte Wert am Datensatz lesbar, auch wenn nichts ihn zurückholen kann.
+        check_empty: 'Ja, die %count% nicht lesbaren Datensätze leeren. Mir ist klar, dass das Gesagte weggeworfen wird.'
+        check_agree: 'Ja, %count% Datensätze nach %to% umwandeln.'
+        check_agree_final: 'Ja, %count% Datensätze nach %to% umwandeln. Mir ist klar, dass sich das nicht rückgängig machen lässt.'
+        check_do: 'Nach %to% umwandeln'
     numbering:
         title: Nummerierung
         pattern: Muster
@@ -1272,6 +1324,7 @@ mail:
 flash:
     fields_arranged: Das Formular wurde neu angeordnet.
     type_not_addable: 'Eine Feldart namens „%type%“ gibt es hier nicht zum Hinzufügen.'
+    type_not_convertible: 'Eine Feldart namens „%type%“, die dieses Feld werden könnte, gibt es nicht.'
     saved: Gespeichert.
     list_created: '„%list%“ angelegt. Füge unten die Einträge hinzu.'
     list_saved: '„%list%“ gespeichert.'
@@ -1296,6 +1349,7 @@ flash:
     password_changed: Dein Passwort wurde geändert.
     field_added: '„%field%“ hinzugefügt.'
     field_saved: '„%field%“ gespeichert.'
+    field_converted: '„%field%“ umgewandelt. %count% Werte wurden neu geschrieben und %emptied% geleert.'
     field_removed: '„%field%“ entfernt. Die Werte bleiben gespeichert.'
     options_saved: 'Optionen von „%field%“ gespeichert. Datensätze, die eine davon tragen, bleiben unverändert.'
     # Abschnitte (XIV-119). Alle drei sagen dasselbe an verschiedenen Stellen,

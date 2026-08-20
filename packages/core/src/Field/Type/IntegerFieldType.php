@@ -73,7 +73,19 @@ final class IntegerFieldType implements BoundsItsValues
         return mt_rand(\is_int($min) ? $min : 1, \is_int($max) ? $max : 1000);
     }
 
-    public function toStorage(mixed $value, FieldDefinition $field): ?int
+    /**
+     * `mixed` rather than `?int`, and the narrower one was a bug ([XIV-146]).
+     *
+     * The comment below has always said that anything which is not a whole
+     * number is handed back as it came, and the return type said that could not
+     * happen: `"12abc"` went in, `"12abc"` came out, and PHP raised a TypeError
+     * before the validator this class is deferring to ever saw it. Nothing
+     * reached it, because a form coerces and an importer refuses first, and then
+     * XIV-146 sent a whole column of somebody's text through here to find out
+     * whether it could be read as numbers. The interface says `mixed` for
+     * exactly this reason and this is the type agreeing with it.
+     */
+    public function toStorage(mixed $value, FieldDefinition $field): mixed
     {
         if ($value === null || $value === '') {
             return null;

@@ -73,6 +73,26 @@ always lands in `Unreleased` here.
 
 ## [Unreleased]
 
+- **An administrator can now change a field's type on a tenant that already has
+  records** ([XIV-146], §7.2, §5.4). The field's own page has a **Change the
+  type** link. Picking a kind shows a report first: how many values convert and
+  what two of them become, how many the new kind cannot read and what those say,
+  whether the change can be undone, and whether a `unique` field would end up
+  with two records holding one value. Nothing is written until that report has
+  been agreed to.
+- **A conversion the data refuses is refused whole, and emptying is a second,
+  separate tick** ([XIV-146]). One unreadable value stops the change and names
+  itself; emptying those rows is an extra box that starts unticked, and is
+  refused outright on a required field. Every value a run rewrites or empties
+  goes into the record's own history first, under a new **Type converted** entry,
+  so the old spelling stays readable even when nothing can put it back.
+- **A tenant whose `phone` is still a text field can reach the shape a new
+  installation has** ([XIV-146], §5.23). That is the worked example: the three
+  ways people write one Swiss mobile become one stored number, and the rows that
+  say "ask reception" are named rather than silently dropped. Nothing converts
+  anybody automatically. A shipped module may not request a conversion on
+  upgrade, which is now written down rather than merely absent.
+
 - **The field editor asks the type first, and is three pages instead of one**
   ([XIV-163], §5.4). Clicking **Fields** on a module now offers a choice per
   shape: add a field, edit one, or arrange the form. Adding asks which kind of
@@ -182,6 +202,7 @@ always lands in `Unreleased` here.
   own fleet commands.
 
 [XIV-125]: https://xivi.youtrack.cloud/issue/XIV-125
+[XIV-146]: https://xivi.youtrack.cloud/issue/XIV-146
 [XIV-148]: https://xivi.youtrack.cloud/issue/XIV-148
 [XIV-152]: https://xivi.youtrack.cloud/issue/XIV-152
 [XIV-153]: https://xivi.youtrack.cloud/issue/XIV-153

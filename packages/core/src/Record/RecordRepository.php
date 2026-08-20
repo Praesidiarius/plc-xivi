@@ -739,6 +739,109 @@ final readonly class RecordRepository
     }
 
     /**
+     * Every live value in one field, with the row holding it ([XIV-146]).
+     *
+     * **@internal to {@see \Xivi\Core\Metadata\FieldTypeConversion}**, on the
+     * same terms as the two methods above are internal to the numbering backfill
+     * and to a list merge, and unlike either of them this one is *unbounded on
+     * purpose*.
+     *
+     * Everything else in this class that reads a column reads a sample: the
+     * duplicate check names five values, the option counts take a limit, and the
+     * refusals they feed are messages somebody reads rather than proofs. A
+     * conversion cannot be built on a sample. It rewrites every one of these
+     * rows, so a dry run that looked at the first hundred would be promising
+     * something about the other four hundred that it had not checked, and the
+     * first value it had not seen would be a refusal arriving *after* the
+     * customer agreed. The plan is exhaustive or it is a guess with a
+     * confirmation button under it.
+     *
+     * The size that costs is therefore the size the operation was always going
+     * to walk, and the values come back as text because that is the form the
+     * `unique` index compares in (`data ->> 'key'`) and the form a message
+     * prints.
+     *
+     * The parent is here for the collection case and null everywhere else. A
+     * collection's events go in its parent's table (§5.2), so the conversion
+     * needs to know which record a row belongs to before it can write the entry
+     * that says what happened to it.
+     *
+     * @return list<array{id: int, parent: int|null, value: string}> oldest first, so that
+     *                                                               two runs over unchanged data touch the rows in the same order
+     */
+    public function valueHolders(ShapeDefinition $shape, FieldDefinition $field): array
+    {
+        $parent = $shape instanceof CollectionDefinition
+            ? CollectionDefinition::PARENT_COLUMN
+            : 'NULL';
+
+        $rows = $this->connection->fetchAllAssociative(
+            sprintf(
+                "SELECT id, %s AS parent_id, data->>:field AS held_value FROM %s
+                 WHERE deleted_at IS NULL AND data->>:field IS NOT NULL AND data->>:field <> ''
+                 ORDER BY id ASC",
+                $parent,
+                $this->table($shape),
+            ),
+            ['field' => $field->getKey()],
+        );
+
+        return array_map(static fn (array $row): array => [
+            'id' => (int) $row['id'],
+            'parent' => $row['parent_id'] === null ? null : (int) $row['parent_id'],
+            'value' => (string) $row['held_value'],
+        ], $rows);
+    }
+
+    /**
+     * Put one stored value into one row, exactly as given ([XIV-146]).
+     *
+     * **@internal to {@see \Xivi\Core\Metadata\FieldTypeConversion}**, and the
+     * word doing the work is *exactly*. Every other write in this class goes
+     * through {@see self::encode()}, which runs the whole payload back through
+     * the field types before it stores it, and that is right for every caller
+     * that has a record in hand: the type owns what its values look like on
+     * disk. A conversion is the one caller for which it is wrong. The value it
+     * has computed came out of the *new* type's reading while the definition
+     * still says the old one, so re-encoding it here would hand the new type's
+     * answer to the old type and store whatever came back, which is a third
+     * spelling neither of them asked for.
+     *
+     * So the JSON is written as it stands, and the definition changes afterwards
+     * in the same transaction, at which point the value on disk is what the new
+     * type reads.
+     *
+     * Null removes the key rather than storing a JSON null, which is the same
+     * emptiness {@see self::encode()} means by dropping it: "absent" and "set to
+     * nothing" are one state here and always have been (§5).
+     *
+     * `updated_at` is deliberately not touched, and this is the one write in the
+     * class where that needs saying rather than assuming. The conversion is an
+     * administrative act, not an edit: it writes the record's history itself,
+     * with the value it took away, and a column of four hundred contacts all
+     * changed at 14:02 on a Tuesday would say nothing true about any of them.
+     */
+    public function writeStoredValue(ShapeDefinition $shape, FieldDefinition $field, int $id, mixed $value): void
+    {
+        $this->connection->executeStatement(
+            sprintf(
+                $value === null
+                    ? 'UPDATE %s SET data = data - :field WHERE id = :id'
+                    : 'UPDATE %s SET data = jsonb_set(data, ARRAY[:field], :value::jsonb) WHERE id = :id',
+                $this->table($shape),
+            ),
+            $value === null
+                ? ['field' => $field->getKey(), 'id' => $id]
+                : [
+                    'field' => $field->getKey(),
+                    'value' => json_encode($value, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE),
+                    'id' => $id,
+                ],
+            ['id' => ParameterType::INTEGER],
+        );
+    }
+
+    /**
      * How many live records hold a value for this field.
      *
      * What the metadata editor puts in front of somebody about to remove a field

@@ -531,6 +531,7 @@ module:
         email_sent: Email sent
         email_failed: Email not sent
         transitioned: Status changed
+        converted: Type converted
     row_action:
         added: added
         updated: updated
@@ -580,9 +581,9 @@ field:
         back_to_field: 'Back to the field'
         module_field: 'came with the module'
         fixed: >-
-            The name and the kind of field cannot be changed. The name is where every value is
-            stored, so a new one would orphan the lot; and no kind of field can hand its stored
-            values to another.
+            The name cannot be changed: it is where every value is stored, so a new one would
+            orphan the lot. The kind of field can, on a page of its own that reads what is in the
+            field first and says what the change would do to it.
         unfinished: >-
             This kind of field does nothing until one of the settings below is filled in. This one
             was made before that was refused, so it is drawn, saved and validated, and offers
@@ -735,6 +736,55 @@ field:
     # failure modes: the help text has to teach the syntax, and the two notices
     # have to say the parts nobody would guess — that a pattern is not a
     # renumbering, and that adding {year} moves to a counter of its own.
+    # Changing a field's type on a tenant that already has records ([XIV-146],
+    # §7.2). These sentences carry more weight than any others in this file:
+    # what is agreed to rewrites every value in a column, half of it cannot be
+    # undone, and part of it may be an offer to throw values away. So every
+    # figure in them was counted rather than guessed, and every value named is a
+    # string somebody can go and search for.
+    convert:
+        link: Change the type
+        title: 'What kind of field is "%field%"?'
+        held: >-
+            <strong>%count% records hold a value here.</strong> Every one of them is read again by
+            whichever kind you pick, and the next page says what that does to them before anything
+            is written.
+        held_none: >-
+            Nothing holds a value in this field yet, so there is nothing to rewrite: picking a kind
+            simply changes what the field is.
+        settings_note: >-
+            A conversion changes the kind of field and nothing else. Whatever the new one can be
+            told, a maximum length, a country to read numbers against, is set afterwards on the
+            field's own page.
+        none: There is no other kind of field this one could become.
+        not_offered: >-
+            A list of options and a link to another module are not offered here. Both have to be
+            told what the values mean before they can read one, which is a decision of its own: add
+            a field of that kind and move the values across.
+        check_title: 'Convert "%field%"?'
+        check_intro: 'Every value in this field is read again as a <code>%to%</code> value instead of a <code>%from%</code> one.'
+        check_no_records: 'No record holds a value here, so nothing is rewritten. Only the field changes.'
+        check_converts: '<strong>%count% records convert</strong>, and %changes% of them end up holding something other than what they hold now.'
+        check_refused: '<strong>%count% records hold something a <code>%to%</code> field cannot read.</strong>'
+        check_held_by: 'on %count% records'
+        check_refused_choice: >-
+            Nothing changes at all until you say what should happen to those. Go and fix them
+            first, or empty them here, which throws away what they say.
+        check_shared: 'Read as <code>%to%</code> values, several records turn out to hold the same one, and this field is marked unique.'
+        check_shared_fix: >-
+            This cannot go ahead: those records would break a promise "%field%" is making. Sort them
+            out, or take the unique rule off the field first.
+        check_reversible: >-
+            Converting straight back would give every record exactly what it holds today, so this
+            can be undone.
+        check_final: This cannot be undone.
+        check_final_history: >-
+            What each record holds now is written to its history before it is replaced, so the old
+            value stays readable on the record even when nothing can put it back.
+        check_empty: 'Yes, empty the %count% records that cannot be read. I understand what they say is thrown away.'
+        check_agree: 'Yes, convert %count% records to %to%.'
+        check_agree_final: 'Yes, convert %count% records to %to%. I understand this cannot be undone.'
+        check_do: 'Convert to %to%'
     numbering:
         title: Numbering
         pattern: Pattern
@@ -1478,6 +1528,7 @@ mail:
 flash:
     fields_arranged: The form was rearranged.
     type_not_addable: 'There is no kind of field called "%type%" to add here.'
+    type_not_convertible: 'There is no kind of field called "%type%" for this one to become.'
     saved: Saved.
     # The shared lists (XIV-127). "Merged" is the one with a count in it and
     # lives in the ICU catalogue instead; these three do not count anything.
@@ -1504,6 +1555,7 @@ flash:
     password_changed: Your password has been changed.
     field_added: 'Added "%field%".'
     field_saved: 'Saved "%field%".'
+    field_converted: 'Converted "%field%". %count% values were rewritten and %emptied% emptied.'
     field_removed: 'Removed "%field%". Its values are still stored.'
     # The options list (XIV-144). The second sentence is the one worth flashing:
     # records already holding one of these keep the value they have, because the

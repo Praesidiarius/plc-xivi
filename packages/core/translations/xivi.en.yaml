@@ -210,6 +210,15 @@ metadata:
     scope_on_a_collection: '"%key%" is a field of the collection "%shape%", and periods there cannot be made exclusive: within one parent record and across the whole table are different rules, and the engine will not guess which was meant.'
     periods_already_overlap: 'Records already overlap in "%key%", so it cannot be made exclusive within "%scope%" yet: %pairs%. Move those records apart first, or leave "%key%" as it is.'
 
+    # The two refusals a type change has of its own ([XIV-146], §7.2), and the
+    # one its result can meet. The first two are about the field: the engine
+    # fills it, or it is already what it is being asked to become. The third is
+    # about what the conversion would leave behind, which is the only refusal
+    # here that emptying does not answer.
+    type_of_a_derived_field: 'The engine fills "%key%" rather than anybody typing into it, so its type is not something to change underneath it. If it is numbered, stop numbering it first: that makes it an ordinary field again, and this is then an ordinary change.'
+    type_unchanged: '"%key%" is already a "%type%" field, so there is nothing to convert.'
+    conversion_would_share_values: 'Read as "%type%" values, several records in "%key%" turn out to hold the same one, and "%key%" is marked unique: %values%. Nothing was changed. Sort those records out, or take the unique rule off "%key%" first.'
+
 query:
     unknown_field: 'There is nothing called "%path%" on "%shape%" to filter or sort by.'
     unknown_collection: '"%module%" has no collection called "%collection%".'
