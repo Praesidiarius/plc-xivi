@@ -1,0 +1,735 @@
+#!/usr/bin/env bash
+#
+# Rehearse a thousand-tenant fleet on this checkout's own stack (XIV-154).
+#
+#   bin/rehearse-fleet provision [count]      make the fleet, timed, memory watched
+#   bin/rehearse-fleet migrate [--tuned]      one additive migration across everyone, timed
+#   bin/rehearse-fleet kill [after]           SIGKILL the walk partway, inspect, retry
+#   bin/rehearse-fleet failure [count]        break tenants behind the registry, read the report
+#   bin/rehearse-fleet ping                   prove the monitoring pings on a fleet-sized walk
+#   bin/rehearse-fleet status                 what the rehearsal currently occupies
+#   bin/rehearse-fleet cleanup                remove everything the rehearsal made, and verify
+#
+# The full rehearsal is those subcommands in that order, and `cleanup` at the
+# end. Each one prints its numbers; the full logs land in
+# ${TMPDIR:-/tmp}/xivi-rehearsal-<checkout>/.
+#
+#
+# ## Why this exists
+#
+# The product claim is thousands of tenants on one installation; the fleet that
+# had ever existed was three dev tenants. Database-per-tenant makes the untested
+# curve tenants × everything: disk, connections, the serial `tenant:migrate`
+# walk, the failure report, the monitoring ping. Every one of those was
+# designed on paper at N=3. XIV-61 measured ~10 MB per tenant at rest and named
+# the walk as serial on purpose; nothing had ever watched either at fleet size.
+# Dev tenants are throwaway by rule, so rehearsing is cheap, and a rehearsal
+# that is a committed script instead of an afternoon can be run again the day
+# the fleet design changes.
+#
+#
+# ## Safe by construction, which here means three specific things
+#
+# **It only ever operates on tenants it created.** Every slug it provisions
+# starts with `rehearsal_`, every database and role it touches directly is
+# matched against `tenant_rehearsal_` before any SQL is issued, and `cleanup`
+# deprovisions by that prefix and nothing else.
+#
+# **It only ever reaches this checkout's stack.** Every container command goes
+# through `bin/compose`, which derives the compose project from the checkout
+# directory (XIV-51, XIV-55). A bare `docker compose` here could land on the
+# main checkout's cluster, which is exactly the accident §9.2's isolation rules
+# exist to prevent. If `bin/compose` refuses because two checkouts derived the
+# same ports, export the variables the refusal prints and run this again from
+# that shell; the tuned run restarts the database container and needs them too.
+#
+# **The walk-wide subcommands refuse a fleet they did not make.** `tenant:migrate`
+# has no way to walk a subset, and that whole-registry walk is the behaviour
+# under rehearsal, so `migrate`, `kill`, `failure` and `ping` would drag any pre-existing tenant
+# through a throwaway migration. Rather than document that as a side effect,
+# they refuse when the registry holds any non-rehearsal slug. Dev tenants are
+# throwaway (deleting them is allowed and `tenant:reset` rebuilds one in a
+# command), so the cost of the strict refusal is one command per dev tenant,
+# and what it buys is a guarantee instead of a caveat.
+#
+# It also refuses outside APP_ENV=dev, for the same reason `tenant:reset` is
+# not registered in prod: a fleet of fictional customers is meaningless where
+# customers are real, and this script drops databases.
+#
+#
+# ## The throwaway migration, and why it is generated at run time
+#
+# With the squashed baseline (XIV-151) a fresh fleet has nothing pending, so a
+# timed `tenant:migrate` would measure 1,000 no-ops. Each measuring subcommand
+# therefore generates a real additive migration via `bin/new-migration`, walks
+# it, and deletes the file again. The migration is one nullable column on
+# `tenant_profile`, named after its own version so repeated runs never collide. The file must
+# never be committed: it would put a meaningless column into every real tenant
+# at the next deploy, and migrations here are history that is kept (XIV-151).
+# Deletion is a trap, so it survives a failing run; `cleanup` also sweeps any
+# file carrying the marker, so even a SIGKILL of this script cannot leave one
+# behind for longer than the next cleanup.
+#
+# What deleting the file leaves behind is a recorded version in each walked
+# tenant's `doctrine_migration_versions` that no file in the tree matches.
+# Doctrine's plan calculator ignores executed-but-unavailable versions, so
+# later walks are unaffected, and the rehearsal databases are dropped by
+# `cleanup` anyway, which is why the walk-wide subcommands insist the fleet is
+# all rehearsal tenants in the first place.
+#
+#
+# ## Why provisioning loops inside one PHP process
+#
+# Two reasons, one honest and one practical. The honest one: "does provisioning
+# leak across a thousand iterations" can only be observed in a process that
+# lives a thousand iterations, and the real batch provisioner
+# (`signup:provision`, a cron job) is exactly such a process. The practical
+# one: a thousand `docker compose exec` round trips would spend most of the
+# wall clock booting kernels, and the number being validated is the cost of
+# provisioning, not the cost of exec. The loop runs the real console commands
+# through one `Application`, the same code path as typing them, container and
+# all, and reports its own memory every 25 tenants. The helper is generated
+# next to this script at run time and deleted by the same trap as the
+# migration, for the same reason: it is scaffolding, not code to keep.
+
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+# shellcheck source=lib/stack-env.sh
+. bin/lib/stack-env.sh
+
+readonly SLUG_PREFIX='rehearsal_'
+# TenantProvisioner::OBJECT_PREFIX ('tenant_') plus the slug prefix: what every
+# database and role this script may touch directly is required to start with.
+readonly DB_PREFIX='tenant_rehearsal_'
+readonly MARKER='XIV-154 fleet rehearsal throwaway (generated at run time, deleted by the same run; never commit)'
+# Not var/: on the host that directory is the root-owned stub under the
+# container's anonymous volume, and logs do not belong in the working tree
+# anyway. Per checkout for the same reason bin/ci's lock is.
+readonly RUN_DIR="${TMPDIR:-/tmp}/xivi-rehearsal-${XIVI_CHECKOUT}"
+readonly RUNNER='.rehearsal-runner.php'
+readonly PING_ROUTER='.rehearsal-ping-router.php'
+readonly PING_LOG='/tmp/xivi-rehearsal-pings.log'
+readonly PG_USER="${POSTGRES_USER:-app}"
+readonly CONTROL_DB="${POSTGRES_DB:-app}"
+
+if [ -t 1 ]; then
+	step() { printf '\n\033[1;34m==> %s\033[0m\n' "$1"; }
+else
+	step() { printf '\n==> %s\n' "$1"; }
+fi
+
+# psql against the persistent `database` service, the dev cluster this
+# checkout owns. Never the tmpfs test server and never another checkout's,
+# because bin/compose resolves the project. -qAt so results are parseable;
+# ON_ERROR_STOP so a failed statement fails the script instead of scrolling by.
+sql() {
+	bin/compose exec -T database psql -v ON_ERROR_STOP=1 -qAt -U "$PG_USER" -d "${2:-postgres}" -c "$1"
+}
+
+console() {
+	bin/compose exec -T php bin/console "$@"
+}
+
+# Every subcommand that touches anything starts here. The checks are cheap and
+# each one has cost somebody an afternoon somewhere: a stack that is not up
+# fails with a docker error that says nothing about `up`; a non-dev environment
+# must never meet a script that drops databases.
+guard() {
+	if ! sql 'SELECT 1' >/dev/null 2>&1; then
+		printf 'This checkout'"'"'s stack is not answering. Start it first:\n\n' >&2
+		printf '  bin/compose up -d --wait\n\n' >&2
+		printf 'If that refuses over a port collision, export what it prints, retry,\n' >&2
+		printf 'and run this script from that same shell.\n' >&2
+		exit 1
+	fi
+
+	local app_env
+	app_env="$(bin/compose exec -T php sh -c 'printf %s "$APP_ENV"')"
+	if [ "$app_env" != 'dev' ]; then
+		printf 'Refusing: the php container runs APP_ENV=%s, and a rehearsal that drops\n' "$app_env" >&2
+		printf 'databases is only meaningful against a development stack.\n' >&2
+		exit 1
+	fi
+}
+
+# The walk-wide subcommands cannot scope `tenant:migrate` to the rehearsal
+# fleet, because walking the whole registry is the behaviour under test, so they demand
+# that the whole registry is the rehearsal fleet. See the header for why this
+# is a refusal rather than a documented side effect.
+refuse_foreign_tenants() {
+	local foreign
+	foreign="$(sql "SELECT string_agg(slug, ', ' ORDER BY slug) FROM tenant WHERE slug NOT LIKE 'rehearsal\\_%'" "$CONTROL_DB")"
+	if [ -n "$foreign" ]; then
+		printf 'Refusing: the registry holds tenants this rehearsal did not create:\n\n' >&2
+		printf '  %s\n\n' "$foreign" >&2
+		printf 'tenant:migrate walks the whole registry (the thing being measured),\n' >&2
+		printf 'so it would drag these through a throwaway migration. Dev tenants are\n' >&2
+		printf 'throwaway by rule: deprovision them first, and rebuild afterwards with\n' >&2
+		printf 'tenant:reset. Then run this again.\n' >&2
+		exit 1
+	fi
+}
+
+# A database or role name is checked against the prefix immediately before any
+# direct SQL names it. The registry query already filters by prefix, so this
+# firing means something upstream is broken, which is exactly when a guard on
+# destructive SQL earns its keep.
+assert_ours() {
+	case "$1" in
+		"$DB_PREFIX"*) ;;
+		*)
+			printf 'Refusing to touch "%s": not a %s* object.\n' "$1" "$DB_PREFIX" >&2
+			exit 1
+			;;
+	esac
+}
+
+# --- scratch files -----------------------------------------------------------
+
+# Everything generated at run time is removed however the run ends. The
+# migration sweep matches on the marker, never on "newest file", so a real
+# migration sitting in the tree while this runs is never at risk.
+cleanup_scratch() {
+	rm -f "$RUNNER" "$PING_ROUTER"
+	remove_marker_migrations
+}
+trap cleanup_scratch EXIT
+
+remove_marker_migrations() {
+	local file
+	for file in migrations/tenant/Version*.php; do
+		[ -e "$file" ] || continue
+		if grep -q 'XIV-154 fleet rehearsal throwaway' "$file"; then
+			rm -f "$file"
+			printf 'removed throwaway migration %s\n' "$file"
+		fi
+	done
+}
+
+# One real, additive tenant migration, made through the same door a person
+# would use (bin/new-migration picks a version free in both sets), then given
+# its SQL: one nullable column, named after the version so a second run's
+# migration never collides with the first's column. Prints the path.
+new_temp_migration() {
+	local file version
+	file="$(bin/new-migration tenant "$MARKER" 2>/dev/null)"
+	version="$(basename "$file" .php)"
+	version="${version#Version}"
+
+	# The generator leaves one commented addSql() in up(); make it the real
+	# statement. Additive only, like every tenant migration (§4.2): the walk
+	# happens with the instance serving, so this rehearses exactly what a
+	# deploy is allowed to do.
+	sed -i "s|// \\\$this->addSql(.*|\\\$this->addSql('ALTER TABLE tenant_profile ADD COLUMN r${version} INT DEFAULT NULL');|" "$file"
+
+	printf '%s\n' "$file"
+}
+
+write_runner() {
+	cat > "$RUNNER" <<'PHP'
+<?php
+
+/*
+ * Generated by bin/rehearse-fleet and deleted by it; never commit (XIV-154).
+ *
+ * Runs the real console commands (tenant:provision, tenant:deprovision)
+ * through one long-lived Application, so a thousand iterations share a kernel
+ * the way signup:provision's batch does, and a leak has somewhere to show.
+ */
+
+declare(strict_types=1);
+
+use App\Kernel;
+use Symfony\Bundle\FrameworkBundle\Console\Application;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\Dotenv\Dotenv;
+
+require '/app/vendor/autoload.php';
+(new Dotenv())->bootEnv('/app/.env');
+
+$mode = $argv[1] ?? '';
+$prefix = $argv[2] ?? '';
+
+if (!\in_array($mode, ['provision', 'deprovision'], true) || $prefix === '') {
+    fwrite(STDERR, "usage: (provision <prefix> <count> | deprovision <prefix>)\n");
+    exit(64);
+}
+
+$kernel = new Kernel($_SERVER['APP_ENV'], (bool) $_SERVER['APP_DEBUG']);
+$app = new Application($kernel);
+$app->setAutoExit(false);
+$app->setCatchExceptions(true);
+
+$rss = static function (): int {
+    foreach (file('/proc/self/status') as $line) {
+        if (str_starts_with($line, 'VmRSS:')) {
+            return (int) filter_var($line, FILTER_SANITIZE_NUMBER_INT);
+        }
+    }
+
+    return 0;
+};
+
+$run = static function (array $input) use ($app): array {
+    $out = new BufferedOutput();
+    $t0 = hrtime(true);
+    $code = $app->run(new ArrayInput($input), $out);
+
+    return [$code, (hrtime(true) - $t0) / 1e6, $out->fetch()];
+};
+
+$t0 = hrtime(true);
+$i = 0;
+
+if ($mode === 'provision') {
+    $count = (int) ($argv[3] ?? 0);
+
+    for ($i = 1; $i <= $count; ++$i) {
+        $slug = \sprintf('%s%04d', $prefix, $i);
+        $host = str_replace('_', '-', $slug) . '.localhost';
+        [$code, $ms, $output] = $run([
+            'command' => 'tenant:provision',
+            'slug' => $slug,
+            'hostnames' => [$host],
+            '--no-interaction' => true,
+        ]);
+
+        // Re-runnable: a slug the registry already has is skipped, anything
+        // else non-zero aborts loudly with the command's own words.
+        if ($code !== 0 && str_contains($output, 'already')) {
+            printf("skip,%d,%s\n", $i, $slug);
+            continue;
+        }
+
+        if ($code !== 0) {
+            fwrite(STDERR, \sprintf("%s exited %d:\n%s\n", $slug, $code, $output));
+            exit(1);
+        }
+
+        printf("tenant,%d,%s,%.1f\n", $i, $slug, $ms);
+
+        if ($i % 25 === 0 || $i === $count) {
+            printf("memory,%d,%d,%d\n", $i, memory_get_usage(true), $rss());
+        }
+    }
+} else {
+    // Slugs arrive on stdin, one per line, already filtered by the caller;
+    // the prefix check repeats here because this loop destroys things.
+    while (($slug = fgets(STDIN)) !== false) {
+        $slug = trim($slug);
+        if ($slug === '' || !str_starts_with($slug, $prefix)) {
+            continue;
+        }
+
+        [$code, $ms, $output] = $run([
+            'command' => 'tenant:deprovision',
+            'slug' => $slug,
+            '--force' => true,
+            '--no-interaction' => true,
+        ]);
+
+        if ($code !== 0) {
+            fwrite(STDERR, \sprintf("%s exited %d:\n%s\n", $slug, $code, $output));
+            exit(1);
+        }
+
+        ++$i;
+        printf("dropped,%d,%s,%.1f\n", $i, $slug, $ms);
+
+        if ($i % 25 === 0) {
+            printf("memory,%d,%d,%d\n", $i, memory_get_usage(true), $rss());
+        }
+    }
+}
+
+printf("done,%d,%.1f\n", $i, (hrtime(true) - $t0) / 1e6);
+PHP
+}
+
+write_ping_router() {
+	cat > "$PING_ROUTER" <<PHP
+<?php
+
+/* Generated by bin/rehearse-fleet and deleted by it; never commit (XIV-154). */
+
+file_put_contents('$PING_LOG', date('c') . ' ' . \$_SERVER['REQUEST_URI'] . "\n", FILE_APPEND);
+http_response_code(200);
+PHP
+}
+
+# --- number crunching --------------------------------------------------------
+
+median_of() {
+	sort -n | awk '
+		{ a[NR] = $1 }
+		END {
+			if (NR == 0) { print "n/a"; exit }
+			if (NR % 2)  { printf "%.1f", a[(NR + 1) / 2] }
+			else         { printf "%.1f", (a[NR / 2] + a[NR / 2 + 1]) / 2 }
+		}'
+}
+
+fleet_disk() {
+	sql "SELECT count(*) || ' databases, ' || COALESCE(pg_size_pretty(sum(pg_database_size(datname))), '0') || ' total, ' || COALESCE(pg_size_pretty((sum(pg_database_size(datname)) / GREATEST(count(*), 1))::bigint), '0') || ' per tenant' FROM pg_database WHERE datname LIKE 'tenant\\_rehearsal\\_%'"
+}
+
+fleet_count() {
+	sql "SELECT count(*) FROM tenant WHERE slug LIKE 'rehearsal\\_%'" "$CONTROL_DB"
+}
+
+report_memory() {
+	# memory,<i>,<php bytes>,<rss kB> lines from the runner, first and last.
+	awk -F, '/^memory,/ { if (!first) { first = $0 } last = $0 }
+		END {
+			if (!first) { exit }
+			split(first, a); split(last, b)
+			printf "  memory: php %.1f MB -> %.1f MB, rss %.1f MB -> %.1f MB (iteration %s -> %s)\n",
+				a[3] / 1048576, b[3] / 1048576, a[4] / 1024, b[4] / 1024, a[2], b[2]
+		}' "$1"
+}
+
+# --- postgres tuning ---------------------------------------------------------
+
+# ALTER SYSTEM writes postgresql.auto.conf inside this checkout's own volume
+# and a restart applies it, so the comparison never edits a committed file and
+# never outlives `tuning_reset`. The values are a modest "somebody read the
+# manual" posture, not a benchmark special: shared_buffers to 512MB (initdb
+# leaves 128MB) and max_connections to 500 (from 100), the two knobs XIV-61
+# names for a fleet this shape.
+tuning_apply() {
+	sql "ALTER SYSTEM SET shared_buffers = '512MB'"
+	sql "ALTER SYSTEM SET max_connections = 500"
+	restart_database
+}
+
+tuning_reset() {
+	sql 'ALTER SYSTEM RESET ALL'
+	restart_database
+}
+
+restart_database() {
+	bin/compose restart database >/dev/null
+	local i
+	for i in $(seq 1 60); do
+		if sql 'SELECT 1' >/dev/null 2>&1; then
+			printf '  postgres back up: shared_buffers=%s max_connections=%s\n' \
+				"$(sql 'SHOW shared_buffers')" "$(sql 'SHOW max_connections')"
+			return
+		fi
+		sleep 1
+	done
+	printf 'database did not come back after restart\n' >&2
+	exit 1
+}
+
+# --- the timed walk ----------------------------------------------------------
+
+# One tenant:migrate across the whole registry, timed, with the process RSS
+# sampled from inside the container every few seconds. Log and samples land in
+# var/rehearsal/ under the given label. Sets WALK_RC and WALK_SECONDS rather
+# than exiting, because `failure` wants the 3 and `migrate` wants the 0.
+timed_walk() {
+	local label="$1" env_args=() log="$RUN_DIR/migrate-$1.log" rss="$RUN_DIR/migrate-$1.rss"
+	shift
+	[ "$#" -gt 0 ] && env_args=("$@")
+
+	: > "$rss"
+	(
+		while sleep 5; do
+			bin/compose exec -T php sh -c \
+				'pid=$(pgrep -f "bin/console tenant:migrate" | head -1); [ -n "$pid" ] && awk "/VmRSS/ { print \$2 }" "/proc/$pid/status"' \
+				2>/dev/null || true
+		done >> "$rss"
+	) &
+	local sampler=$!
+
+	local t0 t1
+	t0=$(date +%s)
+	WALK_RC=0
+	bin/compose exec -T "${env_args[@]}" php bin/console tenant:migrate > "$log" 2>&1 || WALK_RC=$?
+	t1=$(date +%s)
+	WALK_SECONDS=$((t1 - t0))
+
+	kill "$sampler" 2>/dev/null || true
+	wait "$sampler" 2>/dev/null || true
+
+	local walked applied current failed
+	applied=$(grep -c 'migration(s) applied' "$log" || true)
+	current=$(grep -c 'already up to date' "$log" || true)
+	failed=$(grep -c 'tenant:migrate --slug=' "$log" || true)
+	walked=$((applied + current + failed))
+
+	printf '  %s walk: %d tenants in %ds (%d applied, %d already current, %d failed), exit %d\n' \
+		"$label" "$walked" "$WALK_SECONDS" "$applied" "$current" "$failed" "$WALK_RC"
+	if [ "$walked" -gt 0 ]; then
+		printf '  per tenant: %s ms mean\n' "$(awk -v s="$WALK_SECONDS" -v n="$walked" 'BEGIN { printf "%.0f", s * 1000 / n }')"
+	fi
+	if [ -s "$rss" ]; then
+		printf '  walk process rss: %s MB min -> %s MB max\n' \
+			"$(sort -n "$rss" | head -1 | awk '{ printf "%.1f", $1 / 1024 }')" \
+			"$(sort -n "$rss" | tail -1 | awk '{ printf "%.1f", $1 / 1024 }')"
+	fi
+}
+
+# --- subcommands -------------------------------------------------------------
+
+cmd_provision() {
+	local count="${1:-1000}"
+	guard
+	mkdir -p "$RUN_DIR"
+	write_runner
+
+	step "Provisioning $count tenants ($SLUG_PREFIX<n>) in one process"
+
+	# APP_DEBUG=0 so the memory being watched is the application's, not the
+	# profiler's: dev debug keeps every query in memory by design, and a
+	# rehearsal reporting that as a provisioning leak would be crying wolf.
+	local log="$RUN_DIR/provision.log"
+	bin/compose exec -T -e APP_DEBUG=0 php php "/app/$RUNNER" provision "$SLUG_PREFIX" "$count" > "$log"
+
+	local made total_ms
+	made=$(grep -c '^tenant,' "$log" || true)
+	total_ms=$(awk -F, '/^done,/ { print $3 }' "$log")
+
+	printf '  provisioned: %s (skipped as existing: %s)\n' "$made" "$(grep -c '^skip,' "$log" || true)"
+	printf '  wall: %ss total, %s ms median per tenant, %s ms slowest\n' \
+		"$(awk -v ms="$total_ms" 'BEGIN { printf "%.0f", ms / 1000 }')" \
+		"$(awk -F, '/^tenant,/ { print $4 }' "$log" | median_of)" \
+		"$(awk -F, '/^tenant,/ { print $4 }' "$log" | sort -n | tail -1)"
+	report_memory "$log"
+	printf '  disk: %s\n' "$(fleet_disk)"
+}
+
+cmd_migrate() {
+	local tuned=false
+	[ "${1:-}" = '--tuned' ] && tuned=true
+	guard
+	refuse_foreign_tenants
+	mkdir -p "$RUN_DIR"
+
+	local label='stock'
+	if $tuned; then
+		label='tuned'
+		step 'Tuning postgres (ALTER SYSTEM, applied only to this checkout, reset afterwards)'
+		tuning_apply
+	else
+		printf '  postgres settings: shared_buffers=%s max_connections=%s\n' \
+			"$(sql 'SHOW shared_buffers')" "$(sql 'SHOW max_connections')"
+	fi
+
+	step "One additive migration across the fleet ($label settings)"
+	local migration
+	migration="$(new_temp_migration)"
+	printf '  throwaway migration: %s\n' "$migration"
+
+	timed_walk "$label"
+
+	rm -f "$migration"
+	printf '  throwaway migration removed\n'
+
+	if $tuned; then
+		step 'Resetting postgres to stock'
+		tuning_reset
+	fi
+
+	[ "$WALK_RC" -eq 0 ] || { printf 'walk exited %d, expected 0; read %s\n' "$WALK_RC" "$RUN_DIR/migrate-$label.log" >&2; exit 1; }
+}
+
+cmd_kill() {
+	local after="${1:-400}"
+	guard
+	refuse_foreign_tenants
+	mkdir -p "$RUN_DIR"
+
+	step "Killing tenant:migrate after ~$after tenants (SIGKILL, no goodbye)"
+	local migration log="$RUN_DIR/migrate-killed.log"
+	migration="$(new_temp_migration)"
+	printf '  throwaway migration: %s\n' "$migration"
+
+	bin/compose exec -T php bin/console tenant:migrate > "$log" 2>&1 &
+	local walker=$!
+
+	local i lines=0
+	for i in $(seq 1 600); do
+		lines=$(grep -c ':' "$log" 2>/dev/null || true)
+		[ "$lines" -ge "$after" ] && break
+		sleep 1
+	done
+
+	# SIGKILL the console process inside the container. Killing the host-side
+	# `docker exec` client would leave the walk running; the point is the
+	# process dying mid-fleet, the way an OOM kill or a lost node would do it.
+	bin/compose exec -T php pkill -9 -f 'bin/console tenant:migrate' || true
+	local rc=0
+	wait "$walker" 2>/dev/null || rc=$?
+	printf '  killed after %s tenants; the exec returned %d\n' "$(grep -c ':' "$log" || true)" "$rc"
+
+	step 'What an operator can see now'
+	local done_slug next_n next_slug
+	done_slug=$(tail -1 "$log" | sed 's/:.*//; s/\x1b\[[0-9;]*m//g')
+	next_n=$(( $(grep -c ':' "$log") + 1 ))
+	next_slug=$(printf '%s%04d' "$SLUG_PREFIX" "$next_n")
+	printf '  last tenant the log shows migrated: %s\n' "$done_slug"
+	printf '  registry status of both sides of the cut (tenant:list knows no schema):\n'
+	sql "SELECT '    ' || slug || ': status=' || status FROM tenant WHERE slug IN ('$done_slug', '$next_slug') ORDER BY slug" "$CONTROL_DB" || true
+	printf '  per database, doctrine_migration_versions tells the truth:\n'
+	local db version
+	version="$(basename "$migration" .php)"; version="${version#Version}"
+	for db in "tenant_${done_slug}" "tenant_${next_slug}"; do
+		assert_ours "$db"
+		printf '    %s: %s row(s) for version %s\n' "$db" \
+			"$(sql "SELECT count(*) FROM doctrine_migration_versions WHERE version LIKE '%${version}'" "$db")" "$version"
+	done
+
+	step 'Re-running the walk to completion'
+	timed_walk 'retry'
+
+	rm -f "$migration"
+	printf '  throwaway migration removed\n'
+
+	[ "$WALK_RC" -eq 0 ] || { printf 'retry exited %d, expected 0; read %s\n' "$WALK_RC" "$RUN_DIR/migrate-retry.log" >&2; exit 1; }
+}
+
+cmd_failure() {
+	local count="${1:-40}"
+	guard
+	refuse_foreign_tenants
+	mkdir -p "$RUN_DIR"
+
+	step "Dropping $count tenant databases behind the registry's back"
+	# Evenly spread through the fleet rather than a contiguous block, so the
+	# report interleaves failures with successes the way a real outage would.
+	local total stride
+	total=$(fleet_count)
+	[ "$total" -ge "$count" ] || { printf 'only %s rehearsal tenants exist, cannot break %s\n' "$total" "$count" >&2; exit 1; }
+	stride=$((total / count))
+
+	# `sql` runs `bin/compose exec -T`, which reads stdin; inside a while-read
+	# loop that stdin is the list being read, and docker eats the rest of it
+	# after the first row. Found exactly that way: the first run of this
+	# subcommand dropped one database out of forty. Hence < /dev/null.
+	local dropped=0 slug db
+	while read -r slug; do
+		db="tenant_${slug}"
+		assert_ours "$db"
+		sql "DROP DATABASE IF EXISTS \"$db\" WITH (FORCE)" < /dev/null
+		dropped=$((dropped + 1))
+	done < <(sql "SELECT slug FROM tenant WHERE slug LIKE 'rehearsal\\_%' ORDER BY slug" "$CONTROL_DB" | awk -v s="$stride" -v n="$count" 'NR % s == 0 && c < n { print; c++ }')
+	printf '  dropped %d databases; their registry rows still say active\n' "$dropped"
+
+	step 'Walking the fleet into the failure report'
+	local migration
+	migration="$(new_temp_migration)"
+	timed_walk 'failure'
+	rm -f "$migration"
+	printf '  throwaway migration removed\n'
+
+	step "The report, as a deploy would capture it (full log: $RUN_DIR/migrate-failure.log)"
+	# The summary plus the start of the retry list: the part an operator is
+	# expected to act on. Judging its usefulness at this length is the point.
+	grep -n -A 4 '\[ERROR\]' "$RUN_DIR/migrate-failure.log" | head -12 || true
+	printf '  ...\n'
+	grep 'tenant:migrate --slug=' "$RUN_DIR/migrate-failure.log" | head -5
+	printf '  (%s retry lines in all)\n' "$(grep -c 'tenant:migrate --slug=' "$RUN_DIR/migrate-failure.log")"
+
+	[ "$WALK_RC" -eq 3 ] || { printf 'expected exit 3 from a partial failure, got %d\n' "$WALK_RC" >&2; exit 1; }
+	printf '  exit code was 3, as §4.2 promises\n'
+}
+
+cmd_ping() {
+	guard
+	refuse_foreign_tenants
+	mkdir -p "$RUN_DIR"
+	write_ping_router
+
+	step 'Monitoring pings (§4.5) against a listener inside the php container'
+	bin/compose exec -T php rm -f "$PING_LOG"
+	bin/compose exec -T php php -S 127.0.0.1:8929 "/app/$PING_ROUTER" >/dev/null 2>&1 &
+	local server=$!
+	sleep 2
+
+	# The walk is watched exactly the way production would watch it: one entry
+	# in XIVI_MONITOR_PINGS mapping the command to a URL. Healthchecks' bytes,
+	# local socket. Whatever the walk exits with should arrive as /ping/<code>.
+	timed_walk 'ping' -e "XIVI_MONITOR_PINGS=tenant:migrate=http://127.0.0.1:8929/ping"
+
+	bin/compose exec -T php pkill -f 'php -S 127.0.0.1:8929' || true
+	wait "$server" 2>/dev/null || true
+
+	printf '  the listener received:\n'
+	bin/compose exec -T php cat "$PING_LOG" | sed 's/^/    /' || printf '    (nothing arrived; that is a finding)\n'
+	bin/compose exec -T php rm -f "$PING_LOG"
+}
+
+cmd_status() {
+	guard
+	printf 'registry: %s rehearsal tenants\n' "$(fleet_count)"
+	printf 'disk:     %s\n' "$(fleet_disk)"
+	printf 'roles:    %s\n' "$(sql "SELECT count(*) FROM pg_roles WHERE rolname LIKE 'tenant\\_rehearsal\\_%'")"
+	printf 'postgres: shared_buffers=%s max_connections=%s\n' "$(sql 'SHOW shared_buffers')" "$(sql 'SHOW max_connections')"
+}
+
+cmd_cleanup() {
+	guard
+	mkdir -p "$RUN_DIR"
+	write_runner
+
+	step 'Removing every tenant the rehearsal created'
+	# Through tenant:deprovision, not raw SQL: it resolves database and role
+	# from the stored DSN, terminates sessions, and removes in the order whose
+	# failure mode is recoverable (database, then role, then row; §4.1). Slugs stream
+	# from the registry; the prefix filters here and again inside the runner.
+	local log="$RUN_DIR/cleanup.log"
+	sql "SELECT slug FROM tenant WHERE slug LIKE 'rehearsal\\_%' ORDER BY slug" "$CONTROL_DB" \
+		| bin/compose exec -T -e APP_DEBUG=0 -i php php "/app/$RUNNER" deprovision "$SLUG_PREFIX" > "$log"
+	printf '  deprovisioned %s tenants in %ss\n' \
+		"$(awk -F, '/^done,/ { print $2 }' "$log")" \
+		"$(awk -F, '/^done,/ { printf "%.0f", $3 / 1000 }' "$log")"
+
+	# Belt and braces: anything left carrying the prefix, an orphan from a run
+	# that died between drop and registry row, goes now, name-checked first.
+	# < /dev/null for the same reason as in cmd_failure: `bin/compose exec -T`
+	# would otherwise swallow the very list the loop is reading.
+	local leftover
+	while read -r leftover; do
+		[ -n "$leftover" ] || continue
+		assert_ours "$leftover"
+		sql "DROP DATABASE IF EXISTS \"$leftover\" WITH (FORCE)" < /dev/null
+		printf '  dropped orphan database %s\n' "$leftover"
+	done < <(sql "SELECT datname FROM pg_database WHERE datname LIKE 'tenant\\_rehearsal\\_%'")
+	while read -r leftover; do
+		[ -n "$leftover" ] || continue
+		assert_ours "$leftover"
+		sql "DROP ROLE IF EXISTS \"$leftover\"" < /dev/null
+		printf '  dropped orphan role %s\n' "$leftover"
+	done < <(sql "SELECT rolname FROM pg_roles WHERE rolname LIKE 'tenant\\_rehearsal\\_%'")
+
+	remove_marker_migrations
+
+	step 'Verifying the cleanup, by count'
+	local rows dbs roles
+	rows=$(fleet_count)
+	dbs=$(sql "SELECT count(*) FROM pg_database WHERE datname LIKE 'tenant\\_rehearsal\\_%'")
+	roles=$(sql "SELECT count(*) FROM pg_roles WHERE rolname LIKE 'tenant\\_rehearsal\\_%'")
+	printf '  registry rows: %s, databases: %s, roles: %s\n' "$rows" "$dbs" "$roles"
+	if [ "$rows" != '0' ] || [ "$dbs" != '0' ] || [ "$roles" != '0' ]; then
+		printf 'cleanup left something behind; see the counts above\n' >&2
+		exit 1
+	fi
+	printf '  clean\n'
+}
+
+case "${1:-}" in
+	provision) shift; cmd_provision "$@" ;;
+	migrate)   shift; cmd_migrate "$@" ;;
+	kill)      shift; cmd_kill "$@" ;;
+	failure)   shift; cmd_failure "$@" ;;
+	ping)      shift; cmd_ping "$@" ;;
+	status)    shift; cmd_status "$@" ;;
+	cleanup)   shift; cmd_cleanup "$@" ;;
+	''|-h|--help) sed -n '3,15p' "${BASH_SOURCE[0]}" | cut -c 3- ;;
+	*) printf 'unknown subcommand: %s (try --help)\n' "$1" >&2; exit 64 ;;
+esac
