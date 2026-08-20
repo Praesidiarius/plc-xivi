@@ -979,6 +979,12 @@ are not like that.
   XIV-35's cap, its apology and XIV-36's search box are the same code rather
   than the same decision taken twice; `symfony/ux-autocomplete`'s controller
   reads `select.multiple` and configures Tom Select from it.
+- **Records sharing a title are told apart by one rule, and both of a pair carry
+  the id** (XIV-167). The dropdown and the box above it fill from different
+  ends, a page ordered `id DESC` against a stored set sorted ascending, so a
+  rule that spelled only the *second* one gave the two halves of one field
+  opposite answers about which record is "the" one. Scoped to what is shown
+  beside it: alone, a record keeps its plain name.
 - Not here: a relationship carrying fields of its own, which is a collection
   (§5.1); an anchor per name, since the door exists on the other side; a shared
   list as the target (§5.26); and any ordering somebody arranges.

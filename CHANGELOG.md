@@ -73,6 +73,24 @@ always lands in `Unreleased` here.
 
 ## [Unreleased]
 
+- **An edit form on a field naming several records now shows every one of them,
+  even where two are called the same thing** ([XIV-167], §5.29). Two links
+  sharing a title used to collapse into one option, and saving dropped whichever
+  had lost: the picker's own guard against that ran only when it read a *page*
+  of candidates, and an edit form reads its links one id at a time. Only the
+  autocompleting picker was affected, so it took a catalogue past twenty records
+  to see it.
+- **Two records that share a title now both carry their id, in the picker and in
+  the form alike** ([XIV-167], §5.29). Where one of the pair used to keep its
+  plain name, both are now written `Aktenregal Basis (#47)`. The plain name is
+  back the moment there is nothing beside it to confuse it with, so nothing
+  changes on a form where no two names clash.
+- **A reference picker no longer refuses a set it suggested itself**
+  ([XIV-167]). The choice list answered under the wrong keys, so a submission
+  holding one id the reader may not have, or one written by the page as a list
+  that does not start at zero, came back as "The selected choice is invalid"
+  about records that were perfectly valid. An id the reader may not have still
+  drops out of the submission, silently, exactly as before.
 - **An operator's notice can now go on every page instead of only the dashboard,
   and can say what kind of thing it is** ([XIV-166], §8.16). The publish form
   gained **Where it appears**, dashboard or every page, and **Kind**, one of four
@@ -352,6 +370,7 @@ always lands in `Unreleased` here.
 [XIV-164]: https://xivi.youtrack.cloud/issue/XIV-164
 [XIV-165]: https://xivi.youtrack.cloud/issue/XIV-165
 [XIV-166]: https://xivi.youtrack.cloud/issue/XIV-166
+[XIV-167]: https://xivi.youtrack.cloud/issue/XIV-167
 
 
 ## Releases

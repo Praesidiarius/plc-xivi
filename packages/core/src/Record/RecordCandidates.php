@@ -217,10 +217,23 @@ final readonly class RecordCandidates
     /**
      * Labels for a page of records, made distinguishable within it.
      *
-     * Two records called the same thing are two options a reader cannot tell
-     * apart — and in the select they were worse than that, because an array
-     * keyed by label collapsed them and the second became unpickable. The id is
-     * ugly and is the only thing guaranteed to differ.
+     * **The rule moved out of here** (XIV-167) and is now
+     * {@see DistinctLabels}, unchanged in what it is for and changed in one
+     * thing it decides. It lived here because this was the only place that
+     * needed it, and that stopped being true: an edit form fills its choice list
+     * through {@see \Xivi\Core\Form\RecordChoiceLoader} instead, which reads one
+     * stored id at a time through {@see self::byId()} and therefore had nothing
+     * to disambiguate anything against. Two links sharing a title collapsed
+     * there exactly the way they used to collapse in the select. Making that
+     * path guard itself would have been a second rule for one question, and two
+     * rules is how the picker and the form it belongs to come to spell the same
+     * pair of records differently.
+     *
+     * The changed decision is the asymmetry: both of a colliding pair now carry
+     * the id, where the first of them used to keep its plain label. The argument
+     * is in {@see DistinctLabels}, and it turns on this class ordering by
+     * `id DESC` while a stored set of links is sorted ascending, which gave the
+     * two callers opposite answers about which of two records is "the" one.
      *
      * @param list<Record> $records
      *
@@ -228,18 +241,18 @@ final readonly class RecordCandidates
      */
     private static function named(ModuleDefinition $module, array $records): array
     {
-        $seen = [];
+        $titles = [];
+
+        foreach ($records as $record) {
+            $titles[(int) $record->id] = RecordTitle::of($module, $record);
+        }
+
+        $labels = DistinctLabels::among($titles);
         $candidates = [];
 
         foreach ($records as $record) {
-            $label = RecordTitle::of($module, $record);
-
-            if (isset($seen[$label])) {
-                $label = sprintf('%s (#%d)', $label, (int) $record->id);
-            }
-
-            $seen[$label] = true;
-            $candidates[] = new Candidate((int) $record->id, $label);
+            $id = (int) $record->id;
+            $candidates[] = new Candidate($id, $labels[$id]);
         }
 
         return $candidates;
