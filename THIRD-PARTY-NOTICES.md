@@ -27,10 +27,39 @@ the list with:
 
     composer licenses --no-dev
 
-**Checked on each addition, and the last one was
-`giggsey/libphonenumber-for-php-lite`** (XIV-114). It is **Apache-2.0**, which is
-the first time a *runtime PHP* dependency of this project has been anything but
-MIT or BSD, so it has an entry of its own rather than a line: see
+**Checked on each addition, and the last one was `sprain/swiss-qr-bill`**
+(XIV-152), the library behind the QR-bill payment part on invoices (brief
+§5.28). It is **MIT**, Copyright (c) 2018–2025 Manuel Reinhard, licence file in
+the package. Four packages arrive with it, each checked in the installed tree
+rather than off its badge:
+
+- **`endroid/qr-code`**: MIT, Copyright (c) Jeroen van den Enden, licence file
+  in the package. Draws the Swiss QR Code itself.
+- **`bacon/bacon-qr-code`** and **`dasprid/enum`**: both **BSD-2-Clause**,
+  Copyright (c) Ben Scholzen 'DASPRiD', licence files in the packages. The QR
+  encoder under endroid, and its enum shim.
+- **`kmukku/php-iso11649`**: declared **MIT** in its `composer.json`, and that
+  declaration is the whole of it: the package ships *no licence text*, neither
+  as a file nor in its README, in the installed copy or in the upstream
+  repository (checked 2026-08-20). The `composer.json` `"license": "MIT"` field
+  is the author's own machine-readable grant and Packagist distributes it on
+  those terms, so it is relied on here. But MIT's one obligation is to keep
+  the permission notice with copies, and there is no notice to keep, so this
+  entry is where the attribution lives instead: Copyright (c) Keijo Mukku,
+  <https://github.com/kmukku/php-iso11649>. It computes the ISO 11649 creditor
+  reference (`RF…`) that SCOR-type payment parts carry. If upstream ever adds a
+  licence file, prefer its wording to this paragraph.
+
+Everything else the library needs (`symfony/intl`, `symfony/validator`, the
+intl-icu and mbstring polyfills, `ext-bcmath`, `ext-dom`) was already installed
+or is PHP itself; `bcmath` and `gd` joined the image's extension list for it:
+check-digit arithmetic on numbers longer than 64 bits, and the pixel work
+behind the QR PNG.
+
+The addition before that was `giggsey/libphonenumber-for-php-lite` (XIV-114).
+It is **Apache-2.0**, which is the first time a *runtime PHP* dependency of
+this project has been anything but MIT or BSD, so it has an entry of its own
+rather than a line: see
 [Apache-2.0 in the production image](#apache-20-in-the-production-image) below.
 Nothing arrives with it — its only requirement is `symfony/polyfill-mbstring`,
 which was already installed; the lock diff that added it adds exactly one

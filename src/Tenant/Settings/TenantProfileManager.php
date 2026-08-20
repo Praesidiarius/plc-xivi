@@ -16,6 +16,7 @@ namespace App\Tenant\Settings;
 use App\Tenancy\Security\TenantSecretCipher;
 use App\Tenant\Entity\TenantProfile;
 use App\Tenant\Mail\MailSettingsRefused;
+use App\Tenant\Payment\PaymentSettings;
 use App\Tenant\Repository\TenantProfileRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -181,6 +182,34 @@ final readonly class TenantProfileManager
         // managed on the normal path, and persist() on a managed entity is a
         // no-op — which is cheaper than asking, and correct on the path where the
         // row was missing.
+        $this->entityManager->persist($profile);
+        $this->entityManager->flush();
+
+        return $profile;
+    }
+
+    /**
+     * The account a QR-bill pays into, its reference type, and the company's
+     * structured address (XIV-152).
+     *
+     * **A method of its own for the reason applyMail() is one, resolved the way
+     * the logo resolved it**: these settings can be nonsense worth refusing,
+     * an IBAN that is not one or a QRR type on an ordinary account, and the
+     * page's promise is that a refused submission saved nothing. So nothing in
+     * here refuses: a PaymentSettings only exists because its factory already
+     * proved the submission, the controller constructs it before the first
+     * flush of the request, and by the time this runs there is nothing left to
+     * object to. See PaymentSettings for what is proved and what deliberately
+     * is not.
+     */
+    public function applyPayment(PaymentSettings $settings): TenantProfile
+    {
+        $profile = $this->profiles->current();
+
+        $profile->setPaymentIban($settings->iban);
+        $profile->setPaymentReferenceType($settings->referenceType->value);
+        $profile->setAddress($settings->street, $settings->buildingNumber, $settings->postalCode, $settings->city);
+
         $this->entityManager->persist($profile);
         $this->entityManager->flush();
 

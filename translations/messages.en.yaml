@@ -1063,6 +1063,26 @@ profile:
     mail_smtp_password: SMTP password
     mail_smtp_password_help: Stored encrypted, and never shown again.
     mail_smtp_password_set: A password is stored. Leave this empty to keep it.
+    payment: Getting paid
+    payment_intro: >-
+        What an invoice's QR payment part says: the account it pays into, and your address as
+        the payee. Leave the IBAN empty and invoices go out without a payment part.
+    address_street: Street
+    address_building_number: 'No.'
+    address_postal_code: Postal code
+    address_city: City
+    payment_iban: IBAN
+    payment_iban_help: >-
+        The Swiss or Liechtenstein account your invoices are paid into. A QR-IBAN works too,
+        together with the QR reference below.
+    reference_type: Payment reference
+    reference_type_help: >-
+        How a payment finds its invoice on your bank statement. The creditor reference works
+        with any IBAN and is the default. The QR reference needs the QR-IBAN your bank issues
+        for it. No reference sends the invoice number as free text only.
+    reference_type_qrr: QR reference (needs a QR-IBAN)
+    reference_type_scor: Creditor reference (any IBAN)
+    reference_type_non: No reference
 
 document:
     documents: Documents
@@ -1266,6 +1286,19 @@ refusal:
     follow_up_not_your_note: 'A note can only be changed by whoever wrote it.'
     follow_up_empty_note: 'A note needs something in it.'
     follow_up_already_done: 'This follow-up is done. Reopen it before changing anything on it.'
+    payment_not_an_iban: '"%iban%" is not an IBAN.'
+    payment_not_swiss: '"%iban%" is not a Swiss or Liechtenstein IBAN, and only those can receive a QR-bill payment.'
+    payment_qrr_needs_qr_iban: 'The QR reference needs a QR-IBAN, the kind your bank issues specifically for it. With an ordinary IBAN, choose the creditor reference.'
+    payment_qr_iban_needs_qrr: 'That is a QR-IBAN, and payments to it must carry a QR reference. Choose the QR reference, or enter your ordinary IBAN.'
+
+# Why an invoice went out without its QR-bill payment part (XIV-152). Warnings
+# beside a finished document, not errors: the invoice itself is fine.
+payment_part:
+    skipped_missing: 'The invoice was generated without a QR payment part. The company profile is missing: %fields%.'
+    skipped_currency: 'The invoice was generated without a QR payment part: QR-bills exist only for CHF and EUR, and this installation works in %currency%.'
+    skipped_no_currency: 'The invoice was generated without a QR payment part: choose a currency (CHF or EUR) in the company profile first.'
+    skipped_reference: 'The invoice was generated without a QR payment part: the invoice number "%number%" cannot be turned into a %type% reference.'
+    skipped_invalid: 'The invoice was generated without a QR payment part: the payment data did not validate. Check the payment section of the company profile.'
 
 # Follow-ups (XIV-80). The words are the application's rather than a module's:
 # every module shares one pair of tables, so there is nobody else to own them.

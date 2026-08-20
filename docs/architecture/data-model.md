@@ -830,4 +830,48 @@ booking cannot be prevented at all.
   fields is a §7.2 type change. Demo data places each record in its own week
   and never generates an open end on an exclusive field.
 
+### 5.28 The Swiss QR-bill on an invoice (XIV-152)
+
+Since 2022 the QR-bill is Switzerland's payment slip; an invoice PDF without
+one is retyped into e-banking by hand. The library is `sprain/swiss-qr-bill`
+(MIT; its tree is MIT and BSD-2-Clause, checked in THIRD-PARTY-NOTICES.md,
+including the one package that declares MIT but ships no licence text). It
+brought `bcmath` and `gd` into the image.
+
+- **Composed onto the PDF, not a template marker.** Core gained a third
+  application-answered seam beside `PdfConverter` and `DocumentContext`:
+  `PdfDecorator`, applied after conversion inside the generator, so the
+  download and the mailed copy carry the same payment part. A marker was
+  rejected because the payment part's geometry is normative to the millimetre
+  and a customer-editable .docx cannot promise it; the .docx goes out
+  undecorated on purpose. The slip is rendered from the library's own HTML by
+  the Gotenberg container already in the stack (Chromium for the page, the
+  merge endpoint for the stapling), because every PHP library that can stamp
+  an existing PDF was rejected on licence. The payment part is therefore an
+  additional last page, which the guidelines allow.
+- **The tenant is the creditor, never the platform** (§8.6). The profile
+  gained the IBAN, a reference type, and a structured address whose column
+  widths are the payload's own field widths; the country is the existing
+  `region`. IBAN and type pairing are refused at save time (QRR needs a
+  QR-IBAN, a QR-IBAN forces QRR, CH/LI only); address gaps are reported at
+  generation time, listing the missing fields, and the invoice still ships,
+  without a payment part.
+- **Reference type is a tenant setting, SCOR by default**: the ISO 11649
+  reference works on every ordinary IBAN, so it is the one default that
+  cannot be quietly wrong. QRR is offered for tenants whose bank issued a
+  QR-IBAN; NON exists because the standard has it. The invoice number carries
+  the reference (digits only under QRR) and rides along as free text besides.
+- **CHF and EUR only**, the standard's own bound. Any other currency produces
+  the invoice without a payment part plus a flash and a log line saying why;
+  never an invalid QR. The library's `isValid()` is the last gate before
+  anything renders.
+- **The debtor is left open** (a standard-blessed variant: the payer's app
+  fills it). Reading the contact's address was rejected on §6.1 (the fields
+  may not exist as shipped) and on the free-text street a structured payload
+  cannot honestly split.
+- The one float on a money path is the hand-off into the library's own
+  `float` API, argued at the call site: converted once at the edge, exact for
+  every two-decimal value under the standard's ceiling, nothing computed from
+  it.
+
 ---

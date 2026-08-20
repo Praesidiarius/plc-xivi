@@ -386,6 +386,11 @@ services:
     # installation is, and who is generating it (XIV-4).
     Xivi\Core\Document\DocumentContext: '@App\Tenant\Document\InstanceContext'
 
+    # And what the application adds to a finished PDF that no template can
+    # carry: the Swiss QR-bill payment part on an invoice (XIV-152, §5.28).
+    # Third answer on the same seam.
+    Xivi\Core\Document\PdfDecorator: '@App\Tenant\Payment\InvoicePaymentPart'
+
     Xivi\Core\Document\DocumentTemplateRepository:
         arguments:
             $entityManager: '@doctrine.orm.tenant_entity_manager'

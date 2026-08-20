@@ -183,6 +183,69 @@ class TenantProfile
     private ?string $vatMode = null;
 
     /**
+     * The account a QR-bill pays into (XIV-152), normalised: no spaces, upper
+     * case.
+     *
+     * Empty until somebody fills it in, like the company name above and for the
+     * same reason. Empty is also the switch: an installation with no IBAN
+     * here gets invoices without a payment part, because a payment slip that
+     * directs money to no account is not a document, it is a prop. A CH or LI
+     * IBAN, possibly a QR-IBAN; which of the two it must be depends on the
+     * reference type below, and PaymentSettings is where that pairing is
+     * enforced; this entity stores what was proved, the same division of
+     * labour the currency above has with its manager.
+     */
+    #[ORM\Column(name: 'payment_iban', length: 34, options: ['default' => ''])]
+    private string $paymentIban = '';
+
+    /**
+     * Which of the QR-bill's three reference types this installation's bank
+     * relationship supports (XIV-152). A {@see \App\Tenant\Payment\ReferenceType}
+     * value.
+     *
+     * **Defaulted rather than null, which is the fourth nullable-by-default
+     * question on this row answered the other way, deliberately.** The
+     * currency, the term and the VAT mode are null because any guess would be
+     * *wrong for somebody* and quietly so. SCOR is different: it works on every
+     * ordinary IBAN that can receive a QR-bill at all, so there is no
+     * installation for which the default misdirects anything; see
+     * ReferenceType::DEFAULT, where that argument lives. An unanswered question
+     * whose one safe answer is known is a question not worth asking.
+     */
+    #[ORM\Column(name: 'payment_reference_type', length: 4, options: ['default' => 'SCOR'])]
+    private string $paymentReferenceType = 'SCOR';
+
+    /**
+     * The company's postal address, structured the way the QR-bill demands it
+     * (XIV-152): street and building number apart, because the payload carries
+     * them in separate fields and the guidelines dropped the combined form in
+     * November 2025. Structured here rather than split by code later, because parsing
+     * "Musterstrasse 7a" is easy, parsing the world's addresses is not, and a
+     * wrong split would print on a payment slip.
+     *
+     * The *country* is deliberately not a fifth field: the region above already
+     * answers it (§8.6), and a second country column could only agree with it
+     * or be wrong.
+     *
+     * All four empty until filled in, like every other string on this row.
+     * Emptiness is reported, not refused: the profile saves fine without them,
+     * and the invoice that needs them says which are missing (XIV-152's own
+     * acceptance rule: told what is missing before a broken payment part
+     * ships).
+     */
+    #[ORM\Column(name: 'address_street', length: 70, options: ['default' => ''])]
+    private string $addressStreet = '';
+
+    #[ORM\Column(name: 'address_building_number', length: 16, options: ['default' => ''])]
+    private string $addressBuildingNumber = '';
+
+    #[ORM\Column(name: 'address_postal_code', length: 16, options: ['default' => ''])]
+    private string $addressPostalCode = '';
+
+    #[ORM\Column(name: 'address_city', length: 35, options: ['default' => ''])]
+    private string $addressCity = '';
+
+    /**
      * The address this customer's mail claims to come from (XIV-37).
      *
      * Empty until somebody fills it in, like the company name above and for the
@@ -424,6 +487,62 @@ class TenantProfile
     public function setVatMode(?string $mode): void
     {
         $this->vatMode = $mode === '' ? null : $mode;
+    }
+
+    public function getPaymentIban(): string
+    {
+        return $this->paymentIban;
+    }
+
+    /** @param string $iban already normalised and proved; see PaymentSettings */
+    public function setPaymentIban(string $iban): void
+    {
+        $this->paymentIban = mb_substr($iban, 0, 34);
+    }
+
+    /** A {@see \App\Tenant\Payment\ReferenceType} value; never empty. */
+    public function getPaymentReferenceType(): string
+    {
+        return $this->paymentReferenceType;
+    }
+
+    /** @param string $type a ReferenceType value; the caller checks it is one */
+    public function setPaymentReferenceType(string $type): void
+    {
+        $this->paymentReferenceType = $type;
+    }
+
+    public function getAddressStreet(): string
+    {
+        return $this->addressStreet;
+    }
+
+    public function getAddressBuildingNumber(): string
+    {
+        return $this->addressBuildingNumber;
+    }
+
+    public function getAddressPostalCode(): string
+    {
+        return $this->addressPostalCode;
+    }
+
+    public function getAddressCity(): string
+    {
+        return $this->addressCity;
+    }
+
+    /**
+     * The ceilings are the QR payload's own field widths, 70, 16, 16 and 35, rather
+     * than a generous 255, so nothing storable here can later be
+     * refused by the payment part for length alone.
+     */
+    public function setAddress(string $street, string $buildingNumber, string $postalCode, string $city): void
+    {
+        $this->addressStreet = mb_substr(trim($street), 0, 70);
+        $this->addressBuildingNumber = mb_substr(trim($buildingNumber), 0, 16);
+        $this->addressPostalCode = mb_substr(trim($postalCode), 0, 16);
+        $this->addressCity = mb_substr(trim($city), 0, 35);
     }
 
     public function getMailSenderAddress(): string

@@ -879,6 +879,26 @@ profile:
     mail_smtp_password: SMTP-Passwort
     mail_smtp_password_help: Wird verschlüsselt gespeichert und nie wieder angezeigt.
     mail_smtp_password_set: Ein Passwort ist gespeichert. Leer lassen, um es zu behalten.
+    payment: Bezahlt werden
+    payment_intro: >-
+        Was der QR-Zahlteil einer Rechnung sagt: das Konto, auf das sie bezahlt wird, und eure
+        Adresse als Zahlungsempfänger. Lässt du die IBAN leer, gehen Rechnungen ohne Zahlteil raus.
+    address_street: Straße
+    address_building_number: 'Nr.'
+    address_postal_code: PLZ
+    address_city: Ort
+    payment_iban: IBAN
+    payment_iban_help: >-
+        Das Schweizer oder Liechtensteiner Konto, auf das eure Rechnungen bezahlt werden. Eine
+        QR-IBAN geht auch, zusammen mit der QR-Referenz unten.
+    reference_type: Zahlungsreferenz
+    reference_type_help: >-
+        Wie eine Zahlung auf dem Kontoauszug zu ihrer Rechnung findet. Die Creditor Reference
+        funktioniert mit jeder IBAN und ist der Standard. Die QR-Referenz braucht die QR-IBAN,
+        die deine Bank dafür ausgibt. Ohne Referenz reist die Rechnungsnummer nur als Freitext mit.
+    reference_type_qrr: QR-Referenz (braucht eine QR-IBAN)
+    reference_type_scor: Creditor Reference (jede IBAN)
+    reference_type_non: Keine Referenz
 
 document:
     documents: Dokumente
@@ -1079,6 +1099,20 @@ refusal:
     follow_up_not_your_note: 'Eine Notiz kann nur ändern, wer sie geschrieben hat.'
     follow_up_empty_note: 'Eine Notiz braucht einen Inhalt.'
     follow_up_already_done: 'Diese Wiedervorlage ist erledigt. Öffne sie wieder, bevor du etwas daran änderst.'
+    payment_not_an_iban: '„%iban%“ ist keine IBAN.'
+    payment_not_swiss: '„%iban%“ ist keine Schweizer oder Liechtensteiner IBAN, und nur solche können eine QR-Rechnung empfangen.'
+    payment_qrr_needs_qr_iban: 'Die QR-Referenz braucht eine QR-IBAN, die Sorte, die deine Bank eigens dafür ausgibt. Mit einer gewöhnlichen IBAN wähl die Creditor Reference.'
+    payment_qr_iban_needs_qrr: 'Das ist eine QR-IBAN, und Zahlungen darauf müssen eine QR-Referenz tragen. Wähl die QR-Referenz, oder trag deine gewöhnliche IBAN ein.'
+
+# Warum eine Rechnung ohne ihren QR-Zahlteil rausgegangen ist (XIV-152).
+# Warnungen neben einem fertigen Dokument, keine Fehler: die Rechnung selbst ist
+# in Ordnung.
+payment_part:
+    skipped_missing: 'Die Rechnung wurde ohne QR-Zahlteil erzeugt. Im Firmenprofil fehlt: %fields%.'
+    skipped_currency: 'Die Rechnung wurde ohne QR-Zahlteil erzeugt: QR-Rechnungen gibt es nur für CHF und EUR, diese Installation rechnet in %currency%.'
+    skipped_no_currency: 'Die Rechnung wurde ohne QR-Zahlteil erzeugt: Wähl zuerst im Firmenprofil eine Währung (CHF oder EUR).'
+    skipped_reference: 'Die Rechnung wurde ohne QR-Zahlteil erzeugt: Aus der Rechnungsnummer „%number%“ lässt sich keine %type%-Referenz machen.'
+    skipped_invalid: 'Die Rechnung wurde ohne QR-Zahlteil erzeugt: Die Zahlungsdaten haben die Prüfung nicht bestanden. Prüf den Zahlungs-Abschnitt im Firmenprofil.'
 
 # Wiedervorlagen (XIV-80). Die Wörter gehören der Anwendung und keinem Modul:
 # alle Module teilen sich ein Tabellenpaar, es gibt also niemanden sonst, dem sie

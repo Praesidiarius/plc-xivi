@@ -16,6 +16,9 @@ namespace App\Controller;
 use App\Dashboard\Dashboard;
 use App\Dashboard\SubmittedLayout;
 use App\Tenant\Mail\MailSettingsRefused;
+use App\Tenant\Payment\PaymentSettings;
+use App\Tenant\Payment\PaymentSettingsRefused;
+use App\Tenant\Payment\ReferenceType;
 use App\Tenant\Security\PermissionArea;
 use App\Tenant\Settings\DisplayTimezone;
 use App\Tenant\Settings\LogoFormat;
@@ -124,6 +127,14 @@ final class TenantProfileController extends AbstractController
             // left to object to.
             $logo = $this->uploadedLogo($request);
 
+            // The payment settings are proved here for the same reason the logo
+            // is (XIV-152): they can refuse (an IBAN that is not one, a
+            // reference type the account cannot carry), and the ordering rule
+            // has three halves to satisfy now. Constructing the value object is
+            // where the refusing happens; the write is further down with the
+            // logo's, after everything that can object has had its chance.
+            $payment = $this->submittedPaymentSettings($request);
+
             // Mail second, because it is the other half that can refuse (XIV-37).
             // Doing it after the name and the currency would leave those saved and
             // the page reporting a failure, which reads as "nothing was saved" and
@@ -138,11 +149,12 @@ final class TenantProfileController extends AbstractController
                 // never sent back to a browser. Clearing the server clears it.
                 $this->submittedPassword($request),
             );
-        } catch (MailSettingsRefused|LogoRefused $refused) {
-            // Two exception types, one sentence to show. They are separate classes
-            // because they are about separate things and a caller may one day want
-            // to tell them apart; what this caller does with either is identical,
-            // so catching them together is honest rather than lazy.
+        } catch (MailSettingsRefused|LogoRefused|PaymentSettingsRefused $refused) {
+            // Three exception types, one sentence to show. They are separate
+            // classes because they are about separate things and a caller may
+            // one day want to tell them apart; what this caller does with any
+            // of them is identical, so catching them together is honest rather
+            // than lazy.
             $this->addFlash('error', $this->translator->trans(
                 $refused->translatable()->getMessage(),
                 $refused->translatable()->getParameters(),
@@ -151,9 +163,10 @@ final class TenantProfileController extends AbstractController
             return $this->page($request);
         }
 
-        // Nothing here can refuse any more, so the order of the last two is a
+        // Nothing here can refuse any more, so the order of the last three is a
         // matter of taste rather than of correctness.
         $this->profile->applyLogo($logo, $request->request->getBoolean('logo_remove'));
+        $this->profile->applyPayment($payment);
 
         $this->profile->apply(
             (string) $request->request->get('company_name'),
@@ -228,6 +241,31 @@ final class TenantProfileController extends AbstractController
         );
     }
 
+    /**
+     * The payment half of the form, proved (XIV-152).
+     *
+     * An unknown reference type came from a hand-edited request and falls back
+     * to what is stored, the same "changes nothing" call the currency and the
+     * region make about their selects, expressed as a fallback because the
+     * value object wants an answer either way.
+     *
+     * @throws PaymentSettingsRefused
+     */
+    private function submittedPaymentSettings(Request $request): PaymentSettings
+    {
+        $stored = ReferenceType::tryFrom($this->profile->current()->getPaymentReferenceType())
+            ?? ReferenceType::DEFAULT;
+
+        return PaymentSettings::from(
+            (string) $request->request->get('payment_iban'),
+            ReferenceType::tryFrom((string) $request->request->get('payment_reference_type')) ?? $stored,
+            (string) $request->request->get('address_street'),
+            (string) $request->request->get('address_building_number'),
+            (string) $request->request->get('address_postal_code'),
+            (string) $request->request->get('address_city'),
+        );
+    }
+
     /** Blank means "leave the stored one alone"; see TenantProfileManager::applyMail(). */
     private function submittedPassword(Request $request): ?string
     {
@@ -262,6 +300,9 @@ final class TenantProfileController extends AbstractController
             // mode exists the form cannot go on offering two — the same reason
             // the logo's accepted formats below come off theirs.
             'vatModes' => TenantProfileManager::vatModeChoices(),
+            // The QR-bill's three reference types (XIV-152), off the enum for
+            // the reason the VAT modes are off theirs.
+            'referenceTypes' => ReferenceType::choices(),
             // What the upload will take, said in the two places it has to be said
             // (XIV-49): the `accept` attribute, which is a hint the file picker
             // uses and a browser is free to ignore, and the help text, which is

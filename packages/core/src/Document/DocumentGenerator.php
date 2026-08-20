@@ -45,6 +45,7 @@ final readonly class DocumentGenerator
         private RepeatingBlocks $blocks,
         private DocumentImages $images,
         private PdfConverter $converter,
+        private PdfDecorator $decorator,
         private EventDispatcherInterface $events,
     ) {
     }
@@ -108,9 +109,20 @@ final readonly class DocumentGenerator
     ): string {
         $document = $this->fill($template, $module, $record);
 
-        return $format === DocumentFormat::Pdf
-            ? $this->converter->toPdf($document, self::filename($template, $record, DocumentFormat::Docx))
-            : $document;
+        if ($format !== DocumentFormat::Pdf) {
+            return $document;
+        }
+
+        $pdf = $this->converter->toPdf($document, self::filename($template, $record, DocumentFormat::Docx));
+
+        // After the conversion, because what the decorator adds is a fact about
+        // the PDF rather than about the template; see PdfDecorator for why the
+        // QR-bill that motivated this is not a marker. Here in `contents()`
+        // rather than in the two announcing verbs above, so the mailed copy of
+        // an invoice carries the same payment part the downloaded one does; a
+        // slip that appeared on the download and not on the email would be
+        // missing from precisely the copy the customer pays from.
+        return $this->decorator->decorate($module, $record, $pdf);
     }
 
     /**
