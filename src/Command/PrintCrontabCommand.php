@@ -121,6 +121,10 @@ final readonly class PrintCrontabCommand
         SymfonyStyle $io,
         #[Option(description: 'The directory the cron entries should cd into, if not this one')]
         ?string $directory = null,
+        #[Option(description: 'Run each job through this instead of "cd <dir> && bin/console", for a host with no PHP on it')]
+        ?string $wrapper = null,
+        #[Option(description: 'The user column /etc/cron.d requires and a user crontab must not have')]
+        ?string $user = null,
     ): int {
         $directory ??= $this->projectDir;
 
@@ -162,11 +166,26 @@ final readonly class PrintCrontabCommand
                     $job->command,
                     PingTargets::VARIABLE,
                 ));
+            /*
+             * **Two shapes, because the file has two possible homes** (XIV-61,
+             * §4.8). Printed for a human to read, the entry assumes it is run
+             * where the console is, which is inside the container. Installed on
+             * the target by a deploy, it is not: the host has Docker and no PHP,
+             * so `bin/console` there is a line that fails silently every five
+             * minutes into mail nobody reads. `--wrapper` is what the deploy
+             * passes to make the entry reach into the container instead.
+             *
+             * The user column is separate because it is about the *file* rather
+             * than the command: `/etc/cron.d` requires one and a user crontab
+             * refuses one, and getting that wrong is another silent failure.
+             */
             $io->writeln(sprintf(
-                '%s cd %s && bin/console %s',
+                '%s %s%s',
                 $job->schedule,
-                $directory,
-                $job->command,
+                $user !== null ? $user.' ' : '',
+                $wrapper !== null
+                    ? $wrapper.' '.$job->command
+                    : sprintf('cd %s && bin/console %s', $directory, $job->command),
             ));
         }
 

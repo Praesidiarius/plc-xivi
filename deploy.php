@@ -413,6 +413,102 @@ task('deploy:verify', function (): void {
     );
 });
 
+desc('Install the cron entries this build needs');
+task('deploy:cron', function (): void {
+    /*
+     * **Generated out of the image being deployed, never from a file in the
+     * repository** (XIV-61, §4.5, §4.8).
+     *
+     * The jobs are `App\Monitoring\ScheduledJobs`, in code, each carrying its
+     * cadence and the sentence saying what is wrong while it is not running.
+     * `deploy:crontab` prints them, so what lands on the target is what *this
+     * release* needs rather than what a runbook remembers. A committed
+     * `.cron-table` would be a second list, and the way you would find out it had
+     * drifted is a job that quietly stopped being scheduled.
+     *
+     * **Run from the new image, before the containers are replaced**, which is
+     * the same argument `bin/deploy` makes about itself: a schedule that is one
+     * release behind its commands is a cron entry naming something that no longer
+     * exists.
+     *
+     * `--wrapper` is not decoration. The host has Docker and no PHP, so the
+     * printed `cd /app && bin/console` would fail every five minutes into mail
+     * nobody reads. `--user root` is what `/etc/cron.d` requires and what a user
+     * crontab refuses.
+     */
+    /*
+     * **`--entrypoint php`, because the entrypoint talks.** It prints the
+     * Symfony banner, the secrets check, the cache clear, the database wait and
+     * "PHP app ready!", all to stdout, and the first version of this task wrote
+     * every one of those lines into `/etc/cron.d/xivi` above the real entries.
+     * Cron does not ignore what it cannot parse; a malformed file is a cron that
+     * complains once a minute or stops reading. None of what the entrypoint does
+     * is wanted here anyway: this prints a list and touches no database.
+     */
+    $crontab = run(sprintf(
+        '{{compose}} run --rm --no-deps --entrypoint php php bin/console deploy:crontab --user=root --wrapper=%s',
+        escapeshellarg(get('compose').' run --rm php bin/console'),
+    ), nothrow: true);
+
+    /*
+     * **Refuse to write something that is not a crontab.** Writing junk into
+     * `/etc/cron.d` is worse than not writing at all: it is the one directory on
+     * the box where a bad file costs somebody else's scheduled jobs too. Every
+     * line has to be blank, a comment, or an entry starting with a schedule
+     * field, which is what the entrypoint's chatter fails.
+     */
+    $offending = array_values(array_filter(
+        explode("\n", $crontab),
+        static fn (string $line): bool => trim($line) !== ''
+            && !str_starts_with(ltrim($line), '#')
+            && preg_match('/^[\d*]\S*(\s+\S+){4}\s/', $line) !== 1,
+    ));
+
+    if ($offending !== []) {
+        throw new \RuntimeException(sprintf(
+            "deploy:crontab printed %d line(s) that are not cron entries, so nothing was installed. First: %s",
+            \count($offending),
+            trim($offending[0]),
+        ));
+    }
+
+    /*
+     * **Exit 3 is a real answer here and is not a failure to install.** The
+     * command exits 3 when some jobs are watched by a monitoring service and
+     * others are not, which is the state worth noticing (§4.5) and not a reason
+     * to refuse a release. `nothrow` above, and the inconsistency is repeated
+     * where the operator will see it.
+     */
+    if (str_contains($crontab, 'NOT WATCHED') && str_contains($crontab, '# Watched:')) {
+        writeln('<comment>Some scheduled jobs are watched and some are not. See XIVI_MONITOR_PINGS.</comment>');
+    }
+
+    // Cron ignores a file in /etc/cron.d whose name has a dot in it, and refuses
+    // one that is group or world writable. Both failures are silent.
+    $path = '/etc/cron.d/xivi';
+
+    /*
+     * **The trailing newline is not tidiness.** Cron refuses a file in
+     * `/etc/cron.d` that does not end in one, with `Missing newline before EOF,
+     * this crontab file will be ignored`, and it refuses the *whole file*. That
+     * is a total failure that looks like a complete success from every angle
+     * except the one that matters: the file is present, its permissions are
+     * right, every line in it is a valid entry, and running any of those lines
+     * by hand works. `run()` returns the command's output trimmed, so the
+     * newline has to be put back here.
+     */
+    run(sprintf('echo %s | base64 -d > %s', escapeshellarg(base64_encode($crontab."\n")), $path));
+    run('chown root:root '.$path);
+    run('chmod 644 '.$path);
+
+    // Entries rather than lines: the file is mostly comments, and the first
+    // version of this counted them and reported seventeen scheduled jobs where
+    // there are five.
+    $count = (int) run('grep -cE "^[0-9*]" '.$path.' || true');
+
+    writeln(sprintf('<info>%d scheduled job(s)</info> installed in %s.', $count, $path));
+});
+
 desc('Remove images no longer referenced, so a 38 GB disk stays a 38 GB disk');
 task('deploy:prune', function (): void {
     run('docker image prune -f');
@@ -429,6 +525,7 @@ task('deploy', [
     'deploy:migrate',
     'deploy:up',
     'deploy:verify',
+    'deploy:cron',
     'deploy:prune',
 ]);
 
@@ -446,6 +543,7 @@ task('deploy:to', [
     'deploy:migrate',
     'deploy:up',
     'deploy:verify',
+    'deploy:cron',
 ]);
 
 // A failed deploy leaves the previous containers running, because nothing is

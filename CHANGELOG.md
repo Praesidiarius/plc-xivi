@@ -87,6 +87,11 @@ always lands in `Unreleased` here.
   every real customer. `/_tls/ask` answers from the registry and refuses any
   request that did not come from the loopback, so it cannot be used from outside
   to ask whether a customer exists.
+- **A deploy installs the cron entries the release needs** ([XIV-61], §4.5).
+  They are generated out of the image being deployed, from the job list in code,
+  so the schedule cannot be a version behind the commands it names. The entries
+  run through `docker compose`, because the host has no PHP on it, and the task
+  refuses to write anything that is not a crontab.
 - **An installation with no customers yet can be deployed** ([XIV-61], §4.2).
   `bin/deploy` stops on an empty registry, which is right when a registry has
   been lost and wrong for an instance waiting for its first self-service signup:

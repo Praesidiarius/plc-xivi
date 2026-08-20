@@ -105,6 +105,13 @@ services:
       # for its first self-service signup is the legitimate case, and without this
       # every deploy to it failed before the containers were replaced.
       XIVI_ALLOW_EMPTY_REGISTRY: ${XIVI_ALLOW_EMPTY_REGISTRY:-}
+      # **What tells an outside service that a scheduled job ran** (§4.5). Empty
+      # means no HTTP client, no socket and no behaviour change, and it also
+      # means nothing notices when a job stops: the screens built on those jobs
+      # go stale quietly and the empty mailbox looks exactly like health. Each
+      # ping URL is a bearer token, which is why `deploy:crontab` prints whether
+      # a job is watched and never the address.
+      XIVI_MONITOR_PINGS: ${XIVI_MONITOR_PINGS:-}
       # Which hostnames are the platform's rather than a customer's (§4.3, XIV-93).
       CONTROL_PLANE_HOST: ${CONTROL_PLANE_HOST:-}
       CONTROL_PLANE_ALLOWED_IPS: ${CONTROL_PLANE_ALLOWED_IPS:-}

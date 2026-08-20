@@ -465,6 +465,23 @@ shells out to rsync on both ends. Log rotation is worth setting on the daemon
 (`10m` x 3 in `/etc/docker/daemon.json`); the default is unbounded and the disk
 is the smallest thing on the box.
 
+**The cron entries are installed by the deploy, generated out of the image being
+deployed** (§4.5). `deploy:crontab` prints them from `App\Monitoring\ScheduledJobs`
+in code, so what lands in `/etc/cron.d/xivi` is what *this release* needs rather
+than what a runbook remembers, and it cannot be a version behind its own
+commands. **A committed cron table was considered and rejected**: it would be a
+second list, and the way anybody would find out it had drifted is a job that
+quietly stopped being scheduled, which is the same silence a job that never ran
+produces.
+
+Two things about that file are load-bearing and both fail silently when wrong.
+The entries run through `docker compose` rather than `bin/console`, because the
+host has no PHP; `--wrapper` is what makes that so. And the task refuses to write
+anything that is not a crontab, after the first version captured the container
+entrypoint's own output, which prints the Symfony banner, the cache clear and the
+database wait to stdout, straight into `/etc/cron.d` above the real entries.
+`--entrypoint php` is what stops that at the source.
+
 **Secrets are installed once, deliberately, and never by a deploy.**
 `dep secrets:install <alias>` writes `/opt/xivi/.env.deploy` at mode 600 from a
 gitignored local file. A deploy that shipped them every time would put them in

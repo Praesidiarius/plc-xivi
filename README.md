@@ -147,6 +147,12 @@ has no Docker, and mounting the host's Docker socket into it to get one is a
 root-equivalent permission for a small convenience. `bin/ci` already builds the
 production image on the host, so this is the same split.
 
+The deploy also writes `/etc/cron.d/xivi` from the job list in this build, so the
+scheduled commands are installed rather than remembered. `bin/console
+deploy:crontab` shows what they are and which of them a monitoring service
+watches; **none, by default**, which is the state where a stopped job is
+invisible. `XIVI_MONITOR_PINGS` is how you change that.
+
 **Rollback is the same command with the previous digest**, which builds nothing:
 
 ```console
