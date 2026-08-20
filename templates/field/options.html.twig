@@ -29,7 +29,7 @@
 				<h1 class="h3 mb-0">{{ 'field.options.title'|trans({'%field%': field.label}) }}</h1>
 				<p class="text-body-secondary small mb-0">{{ 'field.options.intro'|trans }}</p>
 			</div>
-			<a class="btn btn-link" href="{{ path('field_index', {module: module.key}) }}">{{ 'field.options.back'|trans }}</a>
+			<a class="btn btn-link" href="{{ path('field_edit', {module: module.key, field: field.id}) }}">{{ 'field.edit.back_to_field'|trans }}</a>
 		</div>
 
 		{#

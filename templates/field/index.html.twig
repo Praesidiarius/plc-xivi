@@ -2,6 +2,22 @@
 
 {% block title %}Fields — {{ module.label }}{% endblock %}
 
+{#
+	The three doors ([XIV-163]).
+
+	This page used to be the whole editor: every field of every shape, every
+	setting of every type, the order, the widths and the add form, in one table.
+	It is now the question that comes before all of that, because the three
+	things somebody comes here to do have almost nothing in common. Adding a
+	field is answered by the *type* and then by that type's own options. Editing
+	one starts by saying which. Arranging the form is the only one of the three
+	that genuinely wants every field visible at once, and it is the only one that
+	still looks like the old table.
+
+	One set of doors per shape, because a module and its collections have
+	separate fields (§5.1) and every door needs to know which shape it is about
+	before it can ask anything else.
+#}
 {% block body %}
 	{{ include('_topbar.html.twig') }}
 
@@ -12,27 +28,10 @@
 			<div>
 				<h1 class="h3 mb-0">{{ 'common.fields'|trans }}</h1>
 				<p class="text-body-secondary small mb-0">
-					{{ module.label }} — your copy. Changes apply to this customer only and take effect
-					immediately.
+					{{ 'field.intro'|trans({'%module%': module.label}) }}
 				</p>
 			</div>
-			<div class="d-flex align-items-center gap-2">
-				{#
-					The headings on this module's form, on a page of their own (XIV-119).
-
-					Here rather than as a column in the table below for §5.4's usual
-					reason: the table is a control per field, and a section is not a
-					fact about a field — it is a thing with a name and a place, and
-					something has to be able to make one before any field can be put
-					in it. What the table does draw is the select saying which heading
-					each field is under, which is instantaneous and reversible and
-					therefore fits a cell.
-				#}
-				<a class="btn btn-outline-secondary btn-sm" href="{{ path('field_sections', {module: module.key}) }}">
-					{{ 'field.sections.link'|trans({'%count%': module.sections|length}) }}
-				</a>
-				<a class="btn btn-link" href="{{ path('module_index', {module: module.key}) }}">{{ 'field.back_to'|trans({'%module%': module.label|lower}) }}</a>
-			</div>
+			<a class="btn btn-link" href="{{ path('module_index', {module: module.key}) }}">{{ 'field.back_to'|trans({'%module%': module.label|lower}) }}</a>
 		</div>
 
 		{#
@@ -40,7 +39,7 @@
 
 			Here because this is where somebody comes when they want a field they
 			have not got, and until now the only answer to "the new Contact has an
-			addresses collection and mine does not" was to build it by hand — or, for
+			addresses collection and mine does not" was to build it by hand, or, for
 			a collection, to be told it cannot be done at all. A count and a link
 			rather than the offer itself: taking one changes the shape of every
 			record in the module, which is a page with a confirmation on the end of
@@ -59,20 +58,21 @@
 
 		{#
 			The first shape is the module itself and the rest are its collections
-			(§5.1) — captured here because the row loop below shadows `loop`, and
-			because only a module has sections: a collection's rows are drawn as a
-			table on the record page, and a table row has nowhere to put a heading
-			(XIV-119).
+			(§5.1). Only a module has sections, which is why the third door says
+			something slightly different on a collection: a collection's rows are
+			drawn as a table on the record page, and a table row has nowhere to put
+			a heading (XIV-119).
 		#}
 		{% for shape in shapes %}
-			{% set groupable = loop.first %}
+			{% set unfinishedHere = shape.fields|filter(f => f.id in unfinished)|length %}
 			<div class="card mb-3">
 				<div class="card-body">
 					{#
 						The heading is an input, because the label is the customer's word
 						and their module arrived named in whatever language it was
-						installed in (XIV-8). Same change as relabelling a field, so it
-						sits on the same screen.
+						installed in (XIV-8). It is here rather than behind a door because
+						it is the one thing about a shape that is not about its fields at
+						all, and there is nowhere else it belongs.
 					#}
 					<form method="post" action="{{ path('shape_rename', {module: module.key, shape: shape.id}) }}"
 					      class="d-flex align-items-center gap-2 mb-3">
@@ -85,423 +85,63 @@
 						{% endif %}
 					</form>
 
-					<div class="table-responsive">
-						<table class="table table-sm align-middle mb-0">
-							<thead>
-								<tr>
-									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'common.name'|trans }}</th>
-									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.label'|trans }}</th>
-									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.type'|trans }}</th>
-									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.rules'|trans }}</th>
-									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.order'|trans }}</th>
-									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.width'|trans }}</th>
-									{# Only where a heading can be drawn at all (XIV-119) — see the
-									   select below, and the argument on ModuleDefinition::$sections. #}
-									{% if groupable %}
-										<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.sections.column'|trans }}</th>
-									{% endif %}
-									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.autocomplete'|trans }}</th>
-									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.region'|trans }}</th>
-									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.points_at'|trans }}</th>
-									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.takes_from'|trans }}</th>
-									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.exclusive_within'|trans }}</th>
-									<th scope="col"></th>
-								</tr>
-							</thead>
-							<tbody>
-								{% for field in shape.fields %}
-									<tr>
-										{# One form per row: no JavaScript, and one field saved at a time
-										   is one thing to get wrong at a time. #}
-										<td><code>{{ field.key }}</code></td>
-										<td>
-											<input form="f{{ field.id }}" class="form-control form-control-sm" name="label"
-												   value="{{ field.label }}" style="min-width: 10rem">
-										</td>
-										<td>
-											{# No control: changing a type cannot carry stored values across
-											   and §7.2 has no answer for it yet. #}
-											<span class="text-body-secondary">{{ types[field.type].label|default(field.type) }}</span>
-										</td>
-										<td class="text-nowrap">
-											<label class="form-check-label small me-2">
-												<input form="f{{ field.id }}" type="checkbox" name="required" value="1" {{ field.required ? 'checked' : '' }}> {{ 'field.rule_required'|trans }}
-											</label>
-											<label class="form-check-label small me-2">
-												<input form="f{{ field.id }}" type="checkbox" name="unique" value="1" {{ field.unique ? 'checked' : '' }}> {{ 'field.rule_unique'|trans }}
-											</label>
-											<label class="form-check-label small me-2">
-												<input form="f{{ field.id }}" type="checkbox" name="filterable" value="1" {{ field.filterable ? 'checked' : '' }}> {{ 'field.rule_filterable'|trans }}
-											</label>
-											<label class="form-check-label small me-2">
-												<input form="f{{ field.id }}" type="checkbox" name="listed" value="1" {{ field.listed ? 'checked' : '' }}> {{ 'field.rule_listed'|trans }}
-											</label>
-											{# What the record is called: its heading, and whatever names it
-											   in a link later (§5.4). #}
-											<label class="form-check-label small">
-												<input form="f{{ field.id }}" type="checkbox" name="title" value="1" {{ field.title ? 'checked' : '' }}> {{ 'field.rule_title'|trans }}
-											</label>
-										</td>
-										<td>
-											<input form="f{{ field.id }}" type="number" class="form-control form-control-sm"
-												   name="position" value="{{ field.position }}" style="width: 5.5rem">
-										</td>
-										{# How wide, in twelfths (XIV-43). Blank is the useful answer for
-										   almost every field: it follows whatever that kind of field
-										   usually wants, and keeps following it. #}
-										<td>
-											<select form="f{{ field.id }}" class="form-select form-select-sm"
-													name="width" style="width: 7rem">
-												<option value="">{{ 'field.width_default'|trans }}</option>
-												{% for n in 1..12 %}
-													<option value="{{ n }}" {{ field.width == n ? 'selected' : '' }}>{{ n }}/12</option>
-												{% endfor %}
-											</select>
-										</td>
-										{#
-											Which heading this field is drawn under (XIV-119).
-
-											A cell rather than a page, unlike the two links at the end of
-											this row, and that is the test §5.4 applies to everything in
-											this table: choosing a section is instantaneous and reversible
-											— pick one, pick the blank again, nothing happened, no record
-											moved, nothing was written but this word. The page it points
-											at is where a section is *made*.
-
-											Drawn only on the module's own shape. A control here on a
-											collection would be one that appeared to work and did nothing,
-											which is the defect XIV-144 is named after — and the save
-											reads an absent control as "leave it alone" rather than as
-											"none", so a collection's row form cannot clear what it never
-											drew.
-
-											Blank is a real answer and the common one: a field in no
-											section is drawn at the top of the form, exactly where every
-											field in this product was drawn before sections existed.
-										#}
-										{% if groupable %}
-											<td>
-												<select form="f{{ field.id }}" class="form-select form-select-sm"
-														name="section" style="width: 10rem"
-														aria-label="{{ 'field.sections.column'|trans }}">
-													<option value="">{{ 'field.sections.none'|trans }}</option>
-													{% for section in sections %}
-														<option value="{{ section.key }}" {{ field.section == section.key ? 'selected' : '' }}>{{ section.label }}</option>
-													{% endfor %}
-												</select>
-											</td>
-										{% endif %}
-										{# Whether somebody types to narrow this field, or scrolls it
-										   (XIV-36). Only for the types that have candidates to narrow —
-										   a select beside a date would be a control that does nothing.
-										   Blank is the useful answer for almost every field: the engine
-										   knows how many candidates there are and decides, so a contact
-										   list that grows past a dropdown's worth turns into a search box
-										   without anybody having to find this setting. #}
-										<td>
-											{% if field.type in settable.autocomplete %}
-												<select form="f{{ field.id }}" class="form-select form-select-sm"
-														name="autocomplete" style="width: 8rem">
-													{% for value, label in autocompleteChoices %}
-														<option value="{{ value }}" {{ field.getOption('autocomplete', '') == value ? 'selected' : '' }}>{{ label|trans({}, 'xivi') }}</option>
-													{% endfor %}
-												</select>
-											{% endif %}
-										</td>
-										{# Which country a number typed without a country code is read as
-										   (XIV-114). Only for the types that read their values against one —
-										   today that is `phone` and nothing else. Blank is the useful answer
-										   for almost every field: it follows the country on the instance
-										   profile (§8.6) and keeps following it if that changes. What is
-										   decided here is how the *next* value typed into this field is
-										   read; nothing already stored moves, because a stored number is
-										   already E.164 and already carries its own country. #}
-										<td>
-											{% if field.type in settable.region %}
-												<select form="f{{ field.id }}" class="form-select form-select-sm"
-														name="region" style="width: 11rem">
-													<option value="">{{ 'field.region_default'|trans }}</option>
-													{% for code, name in regionChoices %}
-														<option value="{{ code }}" {{ field.getOption('region', '') == code ? 'selected' : '' }}>{{ name }}</option>
-													{% endfor %}
-												</select>
-											{% endif %}
-										</td>
-										{# Which module a reference points at (XIV-144). Only for the types
-										   whose values are ids in another module — today that is `reference`
-										   and nothing else. Unlike every other per-type control here this
-										   one has no useful blank: a reference pointing nowhere offers an
-										   empty picker and renders `#41` where a name belongs, so the
-										   engine refuses to save one, and the select has no empty option to
-										   choose.
-
-										   A module's own reference is drawn as what it is rather than as a
-										   control, because its target is what the module's own forms,
-										   documents and totals expect — the same reason its type is text
-										   and not a select. The hidden input is what keeps the save honest:
-										   this form names every setting it draws, so the one it deliberately
-										   does not draw still has to arrive unchanged. #}
-										<td>
-											{% if field.type in settable.module %}
-												{% if field.system %}
-													<span class="text-body-secondary small">{{ moduleChoices[field.getOption('module', '')]|default(field.getOption('module', '—')) }}</span>
-													<input form="f{{ field.id }}" type="hidden" name="module" value="{{ field.getOption('module', '') }}">
-												{% else %}
-													<select form="f{{ field.id }}" class="form-select form-select-sm"
-															name="module" style="width: 9rem" required>
-														{% for key, label in moduleChoices %}
-															<option value="{{ key }}" {{ field.getOption('module', '') == key ? 'selected' : '' }}>{{ label }}</option>
-														{% endfor %}
-													</select>
-												{% endif %}
-											{% endif %}
-										</td>
-										{#
-											Which shared list a choice field takes its values from
-											(XIV-127). Only for the types that can — today `choice` and
-											nothing else — and **blank is a real answer here**, unlike
-											the reference target beside it: it means the field keeps its
-											own options, which is what every choice field in every
-											tenant does and carries on doing without anybody touching
-											this control.
-
-											A module's own choice field is drawn as text rather than as
-											a select, on the same terms as its reference target: an
-											order's `status` options are the states its lifecycle moves
-											records between, and a list the customer maintains is a list
-											the customer can take entries out of. The hidden input keeps
-											the save honest — this form names every setting it draws, so
-											the one it deliberately does not draw still has to arrive
-											unchanged.
-										#}
-										<td>
-											{% if field.type in settable.list %}
-												{% if field.system %}
-													<span class="text-body-secondary small">{{ 'field.takes_from_own'|trans }}</span>
-													<input form="f{{ field.id }}" type="hidden" name="list" value="{{ field.getOption('list', '') }}">
-												{% else %}
-													<select form="f{{ field.id }}" class="form-select form-select-sm"
-															name="list" style="width: 9rem">
-														<option value="">{{ 'field.takes_from_own'|trans }}</option>
-														{% for key, label in listChoices %}
-															<option value="{{ key }}" {{ field.getOption('list', '') == key ? 'selected' : '' }}>{{ label }}</option>
-														{% endfor %}
-													</select>
-												{% endif %}
-											{% endif %}
-										</td>
-										{# What a period may not overlap another one within (XIV-136). The
-										   room, the machine, the carer: a field beside this one, whose
-										   value says which thing is being occupied. Choosing one builds a
-										   database constraint that refuses two overlapping periods for the
-										   same thing — not a check that can be raced, which is why the
-										   engine counts the records that already overlap and refuses the
-										   change rather than building something that enforces nothing.
-
-										   Blank is the ordinary answer and clears the rule: two projects
-										   running at once are not a conflict. Only this shape's other
-										   fields are offered, because that is all the constraint can name.
-
-										   Modules only, on the same terms `unique` is refused on a
-										   collection's field: within one parent record and across the
-										   whole table are different rules and the engine will not guess
-										   (§7). The engine refuses it too — this is the control simply not
-										   being offered where there is no honest answer. #}
-										<td>
-											{% if field.type in settable.exclusive_within and shape.key == module.key %}
-												<select form="f{{ field.id }}" class="form-select form-select-sm"
-														name="exclusive_within" style="width: 11rem">
-													<option value="">{{ 'field.exclusive_within_none'|trans }}</option>
-													{% for other in shape.fields %}
-														{% if other.key != field.key %}
-															<option value="{{ other.key }}" {{ field.getOption('exclusive_within', '') == other.key ? 'selected' : '' }}>{{ other.label }}</option>
-														{% endif %}
-													{% endfor %}
-												</select>
-											{% endif %}
-										</td>
-										<td class="text-end text-nowrap">
-											{# Drawn, saved, validated and useless (XIV-144): a choice field
-											   with no options accepts anything and offers nothing, a
-											   reference with no target names no record. Nothing added here
-											   can reach that state any more, so what this marks is a field
-											   older than the rule — said out loud rather than left to be
-											   discovered, which is §8.3.1's whole argument. #}
-											{% if field.id in unfinished %}
-												<span class="badge text-bg-warning">{{ 'field.unfinished'|trans }}</span>
-											{% endif %}
-											<form id="f{{ field.id }}" method="post"
-												  action="{{ path('field_update', {module: module.key, field: field.id}) }}">
-												<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
-												{% if field.getOption('max_length') %}
-													<input type="hidden" name="max_length" value="{{ field.getOption('max_length') }}">
-												{% endif %}
-												<button class="btn btn-sm btn-outline-secondary" type="submit">{{ 'common.save'|trans }}</button>
-											</form>
-											{#
-												The list a choice field is a choice between, on a page of
-												its own (XIV-144) — the second control here that does not
-												fit in a cell, and for numbering's reason: it is a row per
-												option, a rename that must not move a record and a removal
-												that may be refused with a paragraph.
-											#}
-											{% if field.type in settable.choices %}
-												<a class="btn btn-sm btn-outline-secondary"
-												   href="{{ path('field_options', {module: module.key, field: field.id}) }}">{{ 'field.options.link'|trans({'%count%': field.getOption('choices', {})|length}) }}</a>
-											{% endif %}
-											{#
-												Numbering is a page rather than a cell (XIV-27): what is
-												decided there is a pattern, the number it produces and the
-												counter it comes from, and the number has to be shown as it
-												is typed.
-
-												Since XIV-91 the link is on a text field that is *not*
-												numbered too, and says something different when it is:
-												numbering one is a question about the records it already
-												holds, and that page is where the question gets asked and
-												answered. Deliberately not a checkbox in this row — every
-												other control here is instantaneous and reversible, and this
-												one writes numbers into records that already exist.
-											#}
-											{% if field.id in numbered %}
-												<a class="btn btn-sm btn-outline-secondary"
-												   href="{{ path('field_numbering', {module: module.key, field: field.id}) }}">{{ 'field.numbering.title'|trans }}</a>
-											{% elseif field.id in numberable %}
-												<a class="btn btn-sm btn-outline-secondary"
-												   href="{{ path('field_numbering', {module: module.key, field: field.id}) }}">{{ 'field.numbering.start_link'|trans }}</a>
-											{% endif %}
-											{% if field.system %}
-												{# Came with the module; removing it is §7.2's other half. #}
-												<span class="text-body-secondary small">module field</span>
-											{% else %}
-												<a class="btn btn-sm btn-outline-danger"
-												   href="{{ path('field_confirm_delete', {module: module.key, field: field.id}) }}">{{ 'common.remove'|trans }}</a>
-											{% endif %}
-										</td>
-									</tr>
-								{% endfor %}
-							</tbody>
-						</table>
-					</div>
-
-					{#
-						What "unique" means, said where it is ticked (XIV-109). It used to
-						be a validator that queried the table and let the save proceed,
-						which two people pressing Save at the same moment could walk
-						straight through; it is a unique index now, so the answer comes
-						from the database at the moment of the write. The two parts worth
-						saying out loud are the ones somebody would otherwise discover by
-						being surprised: an empty field is not a duplicate of another empty
-						field, and a field whose records already share a value is refused
-						rather than applied — with the values named, so there is something
-						to go and search for.
-					#}
-					<p class="text-body-secondary small mt-2 mb-0">{{ 'field.rule_unique_note'|trans }}</p>
-
-					<form method="post" action="{{ path('field_add', {module: module.key}) }}" class="border-top mt-3 pt-3">
-						<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
-						<input type="hidden" name="shape" value="{{ shape.id }}">
-
-						<div class="row g-2 align-items-end">
-							<div class="col-sm-3">
-								<label class="form-label small mb-1" for="key{{ shape.id }}">{{ 'common.name'|trans }}</label>
-								<input id="key{{ shape.id }}" class="form-control form-control-sm" name="key"
-									   placeholder="vat_number" pattern="[a-z][a-z0-9_]*" required>
-							</div>
-							<div class="col-sm-3">
-								<label class="form-label small mb-1" for="label{{ shape.id }}">{{ 'field.label'|trans }}</label>
-								<input id="label{{ shape.id }}" class="form-control form-control-sm" name="label" placeholder="{{ 'field.label_placeholder'|trans }}">
-							</div>
-							<div class="col-sm-2">
-								<label class="form-label small mb-1" for="type{{ shape.id }}">{{ 'field.type'|trans }}</label>
-								{# Every type this editor can *configure*, which since XIV-144 is
-								   not the same as every type there is: offering one whose question
-								   this form cannot ask is offering a field that cannot be
-								   finished. Today they all pass, and the day one does not it
-								   disappears from here rather than being added broken. #}
-								<select id="type{{ shape.id }}" class="form-select form-select-sm" name="type">
-									{% for key, type in addable %}
-										<option value="{{ key }}">{{ type.label }}</option>
-									{% endfor %}
-								</select>
-							</div>
-							<div class="col-sm-4 text-nowrap">
-								<label class="form-check-label small me-2">
-									<input type="checkbox" name="required" value="1"> {{ 'field.rule_required'|trans }}
-								</label>
-								<label class="form-check-label small me-2">
-									<input type="checkbox" name="unique" value="1"> {{ 'field.rule_unique'|trans }}
-								</label>
-								<label class="form-check-label small me-2">
-									<input type="checkbox" name="filterable" value="1"> {{ 'field.rule_filterable'|trans }}
-								</label>
-								{# Unticked on purpose: a field added later should not widen a list
-								   somebody reads every day without being asked. #}
-								<label class="form-check-label small me-2">
-									<input type="checkbox" name="listed" value="1"> {{ 'field.rule_listed'|trans }}
-								</label>
-								<label class="form-check-label small">
-									<input type="checkbox" name="title" value="1"> {{ 'field.rule_title'|trans }}
-								</label>
-							</div>
-							<div class="col-sm-1 text-end">
-								<button class="btn btn-sm btn-primary" type="submit">{{ 'common.add'|trans }}</button>
-							</div>
+					<div class="row g-3">
+						{#
+							Door one. First on the row because it is the commonest act by
+							far and it used to be the hardest to find: a form at the bottom
+							of a table of everything somebody already has.
+						#}
+						<div class="col-md-4">
+							<a class="card h-100 text-decoration-none link-body-emphasis"
+							   href="{{ path('field_types', {module: module.key, shape: shape.id}) }}">
+								<div class="card-body">
+									<h2 class="h6 mb-1">{{ 'field.doors.add'|trans }}</h2>
+									<p class="text-body-secondary small mb-0">{{ 'field.doors.add_help'|trans }}</p>
+								</div>
+							</a>
 						</div>
 						{#
-							The two answers a type may not be able to do without (XIV-144).
-
-							Drawn for every add rather than shown when the type that needs them
-							is chosen, because choosing happens in the select above and this
-							page has no JavaScript deciding what is on it. That is honest
-							rather than merely cheap: the controller names a setting only for
-							a type that offers it, so a text field added with words in the
-							options box is a text field with no options — nothing is stored,
-							nothing is silently invented — and the label on each box says
-							which type it is for.
-
-							They are the reason a choice field is worth offering at all. The
-							engine refuses to write one with an empty list, so without a
-							control here the honest thing to do would have been to stop
-							offering the type.
+							Door two. The count is what makes it worth being a door rather
+							than a link: it says whether there is one field to look through
+							or forty.
 						#}
-						<div class="row g-2 align-items-end mt-1">
-							<div class="col-sm-6">
-								<label class="form-label small mb-1" for="choices{{ shape.id }}">{{ 'field.options.add_label'|trans }}</label>
-								<textarea id="choices{{ shape.id }}" class="form-control form-control-sm" name="choices"
-										  rows="2" placeholder="{{ 'field.options.add_placeholder'|trans }}"></textarea>
-							</div>
-							<div class="col-sm-3">
-								<label class="form-label small mb-1" for="module{{ shape.id }}">{{ 'field.points_at_label'|trans }}</label>
-								<select id="module{{ shape.id }}" class="form-select form-select-sm" name="module">
-									<option value="">—</option>
-									{% for key, label in moduleChoices %}
-										<option value="{{ key }}">{{ label }}</option>
-									{% endfor %}
-								</select>
-							</div>
-							{#
-								The other way of answering the same question as the box on the
-								left (XIV-127): a choice field's values may be its own options or
-								a list kept beside it, and either finishes the field. Which is why
-								neither control is `required` and the engine refuses a choice
-								field that arrives with neither, naming both in the sentence.
-							#}
-							<div class="col-sm-3">
-								<label class="form-label small mb-1" for="list{{ shape.id }}">{{ 'field.takes_from_label'|trans }}</label>
-								<select id="list{{ shape.id }}" class="form-select form-select-sm" name="list">
-									<option value="">—</option>
-									{% for key, label in listChoices %}
-										<option value="{{ key }}">{{ label }}</option>
-									{% endfor %}
-								</select>
-							</div>
+						<div class="col-md-4">
+							<a class="card h-100 text-decoration-none link-body-emphasis"
+							   href="{{ path('field_list', {module: module.key, shape: shape.id}) }}">
+								<div class="card-body">
+									<h2 class="h6 mb-1">{{ 'field.doors.edit'|trans({'%count%': shape.fields|length}) }}</h2>
+									<p class="text-body-secondary small mb-0">{{ 'field.doors.edit_help'|trans }}</p>
+									{#
+										Drawn, saved, validated and useless (XIV-144): a choice field
+										with no options accepts anything and offers nothing, a
+										reference with no target names no record. Nothing added now
+										can reach that state, so what this counts is a field older
+										than the rule. Said out loud rather than left to be
+										discovered, which is §8.3.1's whole argument.
+									#}
+									{% if unfinishedHere > 0 %}
+										<span class="badge text-bg-warning mt-2">{{ 'field.doors.unfinished'|trans({'%count%': unfinishedHere}) }}</span>
+									{% endif %}
+								</div>
+							</a>
 						</div>
-						<p class="text-body-secondary small mb-0 mt-2">
-							The name is where the value is stored and cannot be changed later; the label can.
-							{{ 'field.options.add_help'|trans }}
-						</p>
-					</form>
+						{#
+							Door three: the cross-field concerns. Everything behind it is
+							decided by looking at the other fields, which is exactly why it
+							is one page showing all of them.
+						#}
+						<div class="col-md-4">
+							<a class="card h-100 text-decoration-none link-body-emphasis"
+							   href="{{ path('field_arrange', {module: module.key, shape: shape.id}) }}">
+								<div class="card-body">
+									<h2 class="h6 mb-1">{{ 'field.doors.arrange'|trans }}</h2>
+									<p class="text-body-secondary small mb-0">
+										{{ loop.first ? 'field.doors.arrange_help'|trans : 'field.doors.arrange_help_rows'|trans }}
+									</p>
+								</div>
+							</a>
+						</div>
+					</div>
 				</div>
 			</div>
 		{% endfor %}

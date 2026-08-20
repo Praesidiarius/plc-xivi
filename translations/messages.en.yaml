@@ -517,6 +517,65 @@ module:
         removed: removed
 
 field:
+    # The three doors ([XIV-163]). The editor used to be one page carrying every
+    # control there is; it is now a choice between the three things somebody
+    # comes here to do, which have almost nothing in common.
+    intro: 'Your copy of %module%. Changes apply to this customer only and take effect immediately.'
+    key_help: 'The name is where the value is stored and cannot be changed later; the label can.'
+    # The three settings that moved out of the editor's own list and into the
+    # type declarations ([XIV-163]). They have labels of their own for the first
+    # time here: until now they were drawn for every field, which is why nobody
+    # had had to name them.
+    max_length: 'Longest it may be'
+    max_length_default: 'Type default'
+    min: Smallest
+    max: Largest
+    bound_none: 'No limit'
+    option_list: Options
+    sections_back: 'Back to arranging'
+    doors:
+        add: 'Add a new field'
+        add_help: 'The kind of field is asked first, and the form then asks only what that kind needs.'
+        edit: 'Edit a field (%count%)'
+        edit_help: 'Pick one from the list. Its form carries the settings its kind has, and no others.'
+        arrange: 'Arrange the form'
+        arrange_help: 'Order, widths, headings, and which fields the list shows.'
+        arrange_help_rows: 'Order, widths, and which fields the list shows.'
+        unfinished: '%count% need setting up'
+    types:
+        title: 'What kind of field?'
+        intro: 'The kind decides what else there is to ask, so it is asked first. The new field goes into "%shape%".'
+        asks: 'Asks about:'
+    add:
+        title: 'New %type% field'
+        intro: 'It joins "%shape%" and is on the record form straight away.'
+        back: 'Back to the kinds of field'
+        settings: 'What a %type% field can be told'
+    list:
+        title: 'Fields of "%shape%"'
+        intro: 'Choose one to change what it is. Where the fields sit is decided together, on the arrange page.'
+    edit:
+        title: 'Field "%field%"'
+        back: 'Back to the fields'
+        back_to_field: 'Back to the field'
+        module_field: 'came with the module'
+        fixed: >-
+            The name and the kind of field cannot be changed. The name is where every value is
+            stored, so a new one would orphan the lot; and no kind of field can hand its stored
+            values to another.
+        unfinished: >-
+            This kind of field does nothing until one of the settings below is filled in. This one
+            was made before that was refused, so it is drawn, saved and validated, and offers
+            nothing.
+        settings: 'What a %type% field can be told'
+        arranged_elsewhere: 'Where this field sits, how wide it is, which heading it is under and whether the list shows it are decided with the other fields:'
+    arrange:
+        title: 'Arrange "%shape%"'
+        intro: 'Where each field sits on the form, how wide it is, which heading it is under, and whether the list shows it.'
+        note: >-
+            The order is yours to set and is worked out from nothing: leave gaps of ten and type 15
+            to put something between two fields. A width of "type default" follows whatever that
+            kind of field usually wants, and keeps following it.
     picker_truncated: 'Showing the first %shown% of %total%. Narrow the list or search in the other module.'
     label: Label
     label_placeholder: VAT number
@@ -537,7 +596,6 @@ field:
     # rather than "target" or "module", because the column is read by somebody
     # deciding that an Order names a Contact.
     points_at: Points at
-    points_at_label: 'Points at (reference fields)'
     # What a period may not overlap another one within (XIV-136). "Exclusive
     # within" rather than "scope", because the column is read by somebody
     # deciding that two stays cannot share a Room.
@@ -548,7 +606,6 @@ field:
     # at" and a reader scanning the header row has to be able to tell the two
     # apart: one names a module full of records, the other names a vocabulary.
     takes_from: Takes values from
-    takes_from_label: 'Takes values from (choice fields)'
     # Blank, which is what every choice field in every tenant says today and is a
     # perfectly good answer rather than a missing one.
     takes_from_own: Its own options
@@ -1399,6 +1456,8 @@ mail:
     attachment_failed: 'Nothing was sent, because the document could not be attached. %reason%'
 
 flash:
+    fields_arranged: The form was rearranged.
+    type_not_addable: 'There is no kind of field called "%type%" to add here.'
     saved: Saved.
     # The shared lists (XIV-127). "Merged" is the one with a count in it and
     # lives in the ICU catalogue instead; these three do not count anything.

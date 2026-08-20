@@ -21,8 +21,12 @@ use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\DomCrawler\Field\ChoiceFormField;
 use Symfony\Component\HttpFoundation\Response;
 use Xivi\Contact\ContactModule;
+use Xivi\Core\Entity\CollectionDefinition;
+use Xivi\Core\Entity\FieldDefinition;
+use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
 
@@ -83,7 +87,17 @@ final class FieldUiTest extends WebTestCase
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
 
-    public function testTheEditorListsTheModulesFieldsAndItsCollections(): void
+    /**
+     * The doors, one set per shape, and the fields behind the second of them
+     * ([XIV-163]).
+     *
+     * The old editor put every field of every shape on one page, so this test
+     * used to be one request. It is three now, and the extra two are the point:
+     * a collection is edited through the same three doors as the module, which
+     * is what "the editor edits any shape" means once the editor is more than a
+     * single table.
+     */
+    public function testTheEditorOffersTheSameThreeDoorsForEveryShape(): void
     {
         $this->signIn(self::ADMIN);
 
@@ -91,16 +105,25 @@ final class FieldUiTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
 
-        $text = $crawler->filter('main')->text();
-        foreach (['first_name', 'birthday', 'postal_code'] as $expected) {
-            self::assertStringContainsString($expected, $text);
-        }
-
-        // A shape's label is an input now, because it can be renamed (XIV-8) —
-        // and text() does not see what an input holds.
+        // A shape's label is an input, because it can be renamed (XIV-8), and
+        // text() does not see what an input holds.
         $labels = $crawler->filter('input[name="label"]')->extract(['value']);
 
-        self::assertContains('Addresses', $labels);
+        self::assertContains('Addresses', $labels, 'the collection is here too');
+        self::assertCount(6, $crawler->filter('main a[href*="/fields/"]'), 'three doors each, for two shapes');
+
+        $module = $this->shapeId();
+        $collection = $this->collectionId();
+
+        $own = $this->client->request('GET', $this->url(sprintf('/m/contact/fields/%d/edit', $module)))->filter('main')->text();
+
+        foreach (['first_name', 'birthday'] as $expected) {
+            self::assertStringContainsString($expected, $own);
+        }
+
+        $rows = $this->client->request('GET', $this->url(sprintf('/m/contact/fields/%d/edit', $collection)))->filter('main')->text();
+
+        self::assertStringContainsString('postal_code', $rows, "and the collection's own fields are behind its own door");
     }
 
     /** The claim, end to end: a row becomes a form field. */
@@ -174,7 +197,7 @@ final class FieldUiTest extends WebTestCase
         $this->signIn(self::ADMIN);
         $this->addField(['key' => 'vat_number', 'label' => 'VAT number', 'type' => 'text']);
 
-        $this->setWidth('vat_number', '3');
+        $this->arrange('vat_number', width: '3');
 
         $crawler = $this->client->request('GET', $this->url('/m/contact/new?variant=person'));
 
@@ -198,19 +221,26 @@ final class FieldUiTest extends WebTestCase
             'label' => 'VAT number',
             'type' => 'text',
             'filterable' => '1',
-            'listed' => '1',
         ]);
 
-        $this->setWidth('vat_number', '4');
+        $this->arrange('vat_number', width: '4', listed: true);
 
-        $crawler = $this->client->request('GET', $this->url('/m/contact/fields'));
-        $row = $crawler->filter('tbody tr')->reduce(
+        // The field's own form, which since [XIV-163] is the page that does not
+        // draw a width at all. That is the whole assertion: two forms edit one
+        // field between them, and neither may quietly undo the other, which is
+        // XIV-26's rule now that there is more than one form to break it.
+        $crawler = $this->client->request('GET', $this->url(sprintf('/m/contact/fields/%d', $this->fieldId('vat_number'))));
+
+        self::assertSame('VAT number', $crawler->filter('[name="label"]')->attr('value'), 'the label is still there');
+        self::assertCount(1, $crawler->filter('input[type="checkbox"][checked]'), 'and the rule it was given');
+
+        $arranged = $this->client->request('GET', $this->url(sprintf('/m/contact/fields/%d/arrange', $this->shapeId())));
+        $row = $arranged->filter('tbody tr')->reduce(
             static fn (Crawler $tr): bool => str_contains($tr->text(), 'vat_number'),
         )->first();
 
-        self::assertSame('VAT number', $row->filter('[name="label"]')->attr('value'), 'the label is still there');
-        self::assertCount(2, $row->filter('input[type="checkbox"][checked]'), 'and both rules it was given');
-        self::assertSame('4', self::selected($row->filter('select[name="width"]')->getNode(0)), 'and the width stuck');
+        self::assertSame('4', self::selected($row->filter('select')->getNode(0)), 'and the width stuck');
+        self::assertNotNull($row->filter('input[type="checkbox"][checked]')->getNode(0), 'and so did the list column');
 
         // And filterable still means filterable, one layer out.
         $filters = $this->client->request('GET', $this->url('/m/contact'))->filter('form[method="get"]')->text();
@@ -232,11 +262,23 @@ final class FieldUiTest extends WebTestCase
         self::assertSelectorExists('[name="module_record[fields][vat_number]"]');
     }
 
+    /**
+     * And is put on it from the arrange page, which is the only place that asks
+     * ([XIV-163]).
+     *
+     * `listed` used to be a checkbox on the add form. It is one of the four
+     * things the third door owns now, because whether a column is worth having
+     * is decided against the columns already there. A field therefore arrives
+     * off the list and joins it deliberately, which is what XIV-26 wanted from
+     * the checkbox that was unticked by default.
+     */
     public function testAFieldMarkedForTheListBecomesAColumn(): void
     {
         $this->signIn(self::ADMIN);
         $this->addContact('Ada', 'Lovelace');
-        $this->addField(['key' => 'vat_number', 'label' => 'VAT number', 'type' => 'text', 'listed' => '1']);
+        $this->addField(['key' => 'vat_number', 'label' => 'VAT number', 'type' => 'text']);
+
+        $this->arrange('vat_number', listed: true);
 
         $crawler = $this->client->request('GET', $this->url('/m/contact'));
 
@@ -260,7 +302,7 @@ final class FieldUiTest extends WebTestCase
         $this->signIn(self::ADMIN);
         $this->addField(['key' => 'vat_number', 'label' => 'VAT number', 'type' => 'text']);
 
-        $crawler = $this->client->request('GET', $this->url('/m/contact/fields'));
+        $crawler = $this->client->request('GET', $this->url(sprintf('/m/contact/fields/%d', $this->fieldId('vat_number'))));
         $crawler = $this->client->click($crawler->filter('a:contains("Remove")')->link());
 
         self::assertResponseIsSuccessful();
@@ -280,11 +322,18 @@ final class FieldUiTest extends WebTestCase
     {
         $this->signIn(self::ADMIN);
 
-        $crawler = $this->client->request('GET', $this->url('/m/contact/fields'));
+        $crawler = $this->client->request('GET', $this->url(sprintf('/m/contact/fields/%d/edit', $this->shapeId())));
 
         self::assertStringContainsString('module field', $crawler->filter('main')->text());
         // Every field is the module's own at this point, so nothing is removable.
         self::assertCount(0, $crawler->filter('a:contains("Remove")'));
+
+        // And not on the field's own page either, which is where the button
+        // lives since [XIV-163]. The list above says why it is absent; this says
+        // it is absent where somebody would go looking for it.
+        $own = $this->client->request('GET', $this->url(sprintf('/m/contact/fields/%d', $this->fieldId('first_name'))));
+
+        self::assertCount(0, $own->filter('a:contains("Remove")'));
     }
 
     /** The list only renders a table when there is something in it. */
@@ -298,55 +347,31 @@ final class FieldUiTest extends WebTestCase
     }
 
     /**
-     * Set one field's width through the editor, sending what the browser sends.
+     * Change one field's place on the form, through the page that owns it.
      *
-     * The editor's controls sit in table cells and belong to their row's form
-     * through the HTML5 `form` attribute — which a browser honours and
-     * DomCrawler does not associate. So the association is done here: every
-     * control pointing at this row's form, with its current value, plus the new
-     * width. Sending only the width would look like somebody unticking every box
-     * on the row, and the test would pass or fail for the wrong reason.
+     * The arrange page is one form for the whole shape, so its controls are
+     * named per field id and every field of the shape is submitted at once. That
+     * is why this helper submits the real form rather than posting three values:
+     * a checkbox sends nothing when it is unticked, and a post naming only this
+     * field's would read as every other column being turned off.
      */
-    private function setWidth(string $key, string $width): void
+    private function arrange(string $key, ?string $width = null, ?bool $listed = null): void
     {
-        $crawler = $this->client->request('GET', $this->url('/m/contact/fields'));
+        $crawler = $this->client->request('GET', $this->url(sprintf('/m/contact/fields/%d/arrange', $this->shapeId())));
+        $form = $crawler->selectButton('Save')->form();
+        $id = $this->fieldId($key);
 
-        $row = $crawler->filter('tbody tr')->reduce(
-            static fn (Crawler $tr): bool => str_contains($tr->text(), $key),
-        )->first();
-
-        $form = $row->filter('form')->first();
-        $id = (string) $form->attr('id');
-
-        $values = ['_token' => (string) $form->filter('[name="_token"]')->attr('value')];
-
-        foreach ($crawler->filter(sprintf('[form="%s"]', $id)) as $node) {
-            \assert($node instanceof \DOMElement);
-
-            $name = $node->getAttribute('name');
-
-            if ($name === '' || $name === 'width') {
-                continue;
-            }
-
-            // A checkbox sends its value only when it is ticked, which is the
-            // whole difference between "on list" staying on and being turned off.
-            if ($node->getAttribute('type') === 'checkbox') {
-                if ($node->hasAttribute('checked')) {
-                    $values[$name] = $node->getAttribute('value');
-                }
-
-                continue;
-            }
-
-            $values[$name] = $node->nodeName === 'select'
-                ? self::selected($node)
-                : $node->getAttribute('value');
+        if ($width !== null) {
+            $form[sprintf('width[%d]', $id)] = $width;
         }
 
-        $values['width'] = $width;
+        if ($listed !== null) {
+            $box = $form[sprintf('listed[%d]', $id)];
+            \assert($box instanceof ChoiceFormField);
+            $listed ? $box->tick() : $box->untick();
+        }
 
-        $this->client->request('POST', $this->url((string) $form->attr('action')), $values);
+        $this->client->submit($form);
         $this->client->followRedirect();
     }
 
@@ -366,11 +391,26 @@ final class FieldUiTest extends WebTestCase
         return '';
     }
 
-    /** @param array<string, string> $values */
+    /**
+     * Add a field through the form for its type ([XIV-163]).
+     *
+     * The type is the URL rather than a control, because it is what decided
+     * which controls the form has. Everything else is filled in on the form the
+     * page actually renders, so a test cannot name a setting the page does not
+     * draw.
+     *
+     * @param array<string, string> $values
+     */
     private function addField(array $values): void
     {
-        $crawler = $this->client->request('GET', $this->url('/m/contact/fields'));
-        $form = $crawler->filter('form[action$="/fields/add"]')->first()->form();
+        $type = $values['type'] ?? 'text';
+        unset($values['type']);
+
+        $crawler = $this->client->request(
+            'GET',
+            $this->url(sprintf('/m/contact/fields/%d/add/%s', $this->shapeId(), $type)),
+        );
+        $form = $crawler->selectButton('Add')->form();
 
         foreach ($values as $name => $value) {
             $form[$name] = $value;
@@ -378,6 +418,36 @@ final class FieldUiTest extends WebTestCase
 
         $this->client->submit($form);
         $this->client->followRedirect();
+    }
+
+    /** The contact module's own shape, which the doors hang off. */
+    private function shapeId(): int
+    {
+        return self::service(TenantSwitcher::class)->runFor(
+            $this->tenant,
+            fn (): int => (int) self::service(MetadataRepository::class)->get(ContactModule::KEY)->getId(),
+        );
+    }
+
+    /** And its first collection, which is edited through the same three doors. */
+    private function collectionId(): int
+    {
+        return self::service(TenantSwitcher::class)->runFor($this->tenant, function (): int {
+            $collection = self::service(MetadataRepository::class)->get(ContactModule::KEY)->getCollections()->first();
+            self::assertInstanceOf(CollectionDefinition::class, $collection, 'the contact module has a collection');
+
+            return (int) $collection->getId();
+        });
+    }
+
+    private function fieldId(string $key): int
+    {
+        return self::service(TenantSwitcher::class)->runFor($this->tenant, function () use ($key): int {
+            $field = self::service(MetadataRepository::class)->get(ContactModule::KEY)->getField($key);
+            \assert($field instanceof FieldDefinition);
+
+            return (int) $field->getId();
+        });
     }
 
     private function signIn(string $email): void

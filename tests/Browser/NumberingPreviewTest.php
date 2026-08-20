@@ -130,24 +130,37 @@ final class NumberingPreviewTest extends PantherTestCase
     /**
      * The numbering page, reached the way somebody reaches it.
      *
-     * Through the link on the field editor rather than by a URL this test knows,
-     * so the link being drawn on the right field is under test too — it is the
-     * only way into this feature.
+     * Through the editor's own links rather than by a URL this test knows, so
+     * the way in is under test too: it is the only way into this feature. Since
+     * [XIV-163] that is three pages instead of one, and each of them is a real
+     * click: the doors for the module's own shape, the list of its fields, and
+     * then the numbered field's own page, which is where the link lives.
      */
     private function openTheNumberingPage(): void
     {
         $this->browser->request('GET', '/m/order/fields');
-        // `main table`, not `form`: the first form on every signed-in page is the
+        // `main a`, not `form`: the first form on every signed-in page is the
         // sign-out form inside the top bar's menu, which is invisible until
         // somebody opens the menu and is meant to be.
+        $this->browser->waitForVisibility('main a');
+        $this->browser->request('GET', $this->hrefOf('main a[href$="/edit"]'));
+
         $this->browser->waitForVisibility('main table');
+        $this->browser->request('GET', $this->hrefOf('main tbody a[href*="/fields/"]'));
 
-        $link = (string) $this->browser->executeScript(
-            'return document.querySelector(\'main a[href$="/numbering"]\').getAttribute("href");',
-        );
+        $this->browser->waitForVisibility('main a');
+        $this->browser->request('GET', $this->hrefOf('main a[href$="/numbering"]'));
 
-        $this->browser->request('GET', $link);
         $this->browser->waitForVisibility('#numbering-pattern');
+    }
+
+    /** The first link matching a selector, as the page in front of us has it. */
+    private function hrefOf(string $selector): string
+    {
+        return (string) $this->browser->executeScript(sprintf(
+            'return document.querySelector(%s).getAttribute("href");',
+            json_encode($selector, \JSON_THROW_ON_ERROR),
+        ));
     }
 
     /**

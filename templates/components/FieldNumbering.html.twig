@@ -167,7 +167,7 @@
 			<button class="btn btn-primary" type="submit" {{ this.preview is null ? 'disabled' : '' }}>
 				{{ (this.numbered ? 'common.save' : 'field.numbering.review')|trans }}
 			</button>
-			<a class="btn btn-link" href="{{ path('field_index', {module: this.module}) }}">
+			<a class="btn btn-link" href="{{ path('field_edit', {module: this.module, field: this.fieldId}) }}">
 				{{ 'common.cancel'|trans }}
 			</a>
 		</div>

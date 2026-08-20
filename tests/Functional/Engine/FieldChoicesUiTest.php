@@ -156,21 +156,30 @@ final class FieldChoicesUiTest extends WebTestCase
     }
 
     /**
-     * The add-field select offers what the editor can configure, and today that
-     * is everything.
+     * The type list offers what the editor can configure, and today that is
+     * everything.
      *
      * The page's half of {@see EditorConfiguresEveryTypeTest}: that one proves
-     * the rule, this one proves the select is built from it rather than from
-     * `all()` — which is the line the defect was hiding behind.
+     * the rule, this one proves the page is built from it rather than from
+     * `all()`, which is the line the defect was hiding behind. It was a select
+     * in the middle of the combined form until [XIV-163] and is a page of its
+     * own now, which changes where to look and nothing about what is being
+     * claimed.
      */
-    public function testTheAddFieldSelectOffersTheTypesTheEditorCanConfigure(): void
+    public function testTheTypeListOffersTheTypesTheEditorCanConfigure(): void
     {
-        $crawler = $this->client->request('GET', $this->url('/m/contact/fields'));
-        $offered = $crawler->filter('select[name="type"]')->first()->filter('option')->extract(['value']);
+        $crawler = $this->client->request(
+            'GET',
+            $this->url(sprintf('/m/contact/fields/%d/add', $this->shapeId(ContactModule::KEY))),
+        );
+        $offered = $crawler->filter('main a[href*="/add/"]')->extract(['href']);
 
-        self::assertContains('choice', $offered);
-        self::assertContains('reference', $offered);
-        self::assertContains('text', $offered);
+        foreach (['choice', 'reference', 'text'] as $type) {
+            self::assertNotEmpty(
+                array_filter($offered, static fn (string $href): bool => str_ends_with($href, '/add/'.$type)),
+                sprintf('"%s" can be added', $type),
+            );
+        }
     }
 
     /** An option nothing holds goes, because nothing is standing in the way. */
@@ -418,14 +427,27 @@ final class FieldChoicesUiTest extends WebTestCase
     // -- helpers ------------------------------------------------------------
 
     /**
-     * Add a field through the add form, exactly as the page sends it.
+     * Add a field through the form for its type, exactly as the page sends it
+     * ([XIV-163]).
+     *
+     * The type is in the URL rather than in a select, because it is what decides
+     * which controls the form has. What this changes for the refusals below is
+     * nothing at all: a `choice` field's form draws the options box and the
+     * shared-list select, so submitting it with both empty is still a request
+     * the engine has to answer, and it still answers by refusing.
      *
      * @param array<string, string> $values
      */
     private function addField(array $values, ?string $choices = null): void
     {
-        $crawler = $this->client->request('GET', $this->url('/m/contact/fields'));
-        $form = $crawler->filter('form[action$="/fields/add"]')->first()->form();
+        $type = $values['type'];
+        unset($values['type']);
+
+        $crawler = $this->client->request(
+            'GET',
+            $this->url(sprintf('/m/contact/fields/%d/add/%s', $this->shapeId(ContactModule::KEY), $type)),
+        );
+        $form = $crawler->selectButton('Add')->form();
 
         foreach ($values as $name => $value) {
             $form[$name] = $value;
@@ -437,6 +459,15 @@ final class FieldChoicesUiTest extends WebTestCase
 
         $this->client->submit($form);
         $this->client->followRedirect();
+    }
+
+    /** A module's own shape, which every add form hangs off. */
+    private function shapeId(string $module): int
+    {
+        return self::service(TenantSwitcher::class)->runFor(
+            $this->tenant,
+            fn (): int => (int) self::service(MetadataRepository::class)->get($module)->getId(),
+        );
     }
 
     /**

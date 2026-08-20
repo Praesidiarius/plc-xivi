@@ -1,0 +1,149 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'field.edit.title'|trans({'%field%': field.label}) }}{% endblock %}
+
+{#
+	One field's form ([XIV-163]).
+
+	The same rule as the add form and for the same reason: what is drawn is what
+	is true of every field, plus what this field's type declares. A `date` field
+	has no country on it, a `phone` field has no maximum length, and neither of
+	those is a `{% if %}` anybody has to read, because the controller asked the
+	type.
+
+	Two differences from the add form, both because the field already exists.
+	Its **key** and its **type** are text rather than controls: §5.4 refuses to
+	change either, and a sentence saying why is a better answer than a disabled
+	box. And the settings that have pages of their own are links here rather
+	than boxes, because those pages can be opened once there is a field for them
+	to be about.
+#}
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<div class="d-flex align-items-center justify-content-between mb-3">
+			<div>
+				<h1 class="h3 mb-0">{{ 'field.edit.title'|trans({'%field%': field.label}) }}</h1>
+				<p class="text-body-secondary small mb-0">
+					<code>{{ field.key }}</code>, {{ fieldType ? fieldType.label : field.type }}{{ field.system ? ', ' ~ 'field.edit.module_field'|trans }}
+				</p>
+			</div>
+			<a class="btn btn-link" href="{{ path('field_list', {module: module.key, shape: shape.id}) }}">{{ 'field.edit.back'|trans }}</a>
+		</div>
+
+		{#
+			Said out loud rather than left to be discovered (§8.3.1): this field is
+			of a type that cannot work until something is set, and nothing has set
+			it. Nothing added now can arrive in that state, so what this marks is a
+			field older than the rule or one a module wrote itself.
+		#}
+		{% if field.id in unfinished %}
+			<div class="alert alert-warning" role="alert">{{ 'field.edit.unfinished'|trans }}</div>
+		{% endif %}
+
+		<form method="post" action="{{ path('field_update', {module: module.key, field: field.id}) }}">
+			<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
+
+			<div class="card mb-3">
+				<div class="card-body">
+					<div class="row g-3 align-items-end">
+						<div class="col-sm-6">
+							<label class="form-label small mb-1" for="label">{{ 'field.label'|trans }}</label>
+							<input id="label" class="form-control form-control-sm" name="label" value="{{ field.label }}">
+						</div>
+					</div>
+					{# Why the two facts above the form are facts and not controls. #}
+					<p class="text-body-secondary small mb-0 mt-2">{{ 'field.edit.fixed'|trans }}</p>
+				</div>
+			</div>
+
+			<div class="card mb-3">
+				<div class="card-body">
+					<h2 class="h6">{{ 'field.rules'|trans }}</h2>
+					<div class="d-flex flex-wrap gap-3">
+						<label class="form-check-label small">
+							<input type="checkbox" name="required" value="1" {{ field.required ? 'checked' : '' }}> {{ 'field.rule_required'|trans }}
+						</label>
+						<label class="form-check-label small">
+							<input type="checkbox" name="unique" value="1" {{ field.unique ? 'checked' : '' }}> {{ 'field.rule_unique'|trans }}
+						</label>
+						<label class="form-check-label small">
+							<input type="checkbox" name="filterable" value="1" {{ field.filterable ? 'checked' : '' }}> {{ 'field.rule_filterable'|trans }}
+						</label>
+						{# What the record is called: its heading, and whatever names it in
+						   a link later (§5.4). #}
+						<label class="form-check-label small">
+							<input type="checkbox" name="title" value="1" {{ field.title ? 'checked' : '' }}> {{ 'field.rule_title'|trans }}
+						</label>
+					</div>
+					<p class="text-body-secondary small mb-0 mt-2">{{ 'field.rule_unique_note'|trans }}</p>
+					{#
+						"On list" is not here, and nor are the order, the width and the
+						section. They are the arrange page's, because every one of them is
+						decided by looking at the other fields (XIV-163). This form does
+						not mention them and therefore does not touch them, which is
+						XIV-26's rule and is what the save relies on.
+					#}
+					<p class="text-body-secondary small mb-0 mt-1">
+						{{ 'field.edit.arranged_elsewhere'|trans }}
+						<a href="{{ path('field_arrange', {module: module.key, shape: shape.id}) }}">{{ 'field.doors.arrange'|trans }}</a>
+					</p>
+				</div>
+			</div>
+
+			{% if options is not empty %}
+				<div class="card mb-3">
+					<div class="card-body">
+						<h2 class="h6">{{ 'field.edit.settings'|trans({'%type%': fieldType ? fieldType.label : field.type}) }}</h2>
+						<div class="row g-3 align-items-start">
+							{{ include('field/_type_options.html.twig') }}
+						</div>
+					</div>
+				</div>
+			{% endif %}
+
+			<button class="btn btn-primary" type="submit">{{ 'common.save'|trans }}</button>
+		</form>
+
+		{#
+			The pages that belong to this field rather than to its type, reached from
+			the one page that is about this field.
+
+			Each of them is here rather than as a control above for the argument
+			§5.4 has made three times now: what is decided on them is a row per
+			thing, or a change that writes into records that already exist, or a
+			removal that can be refused with a paragraph. A control on this form
+			would make the most consequential change on the page look like the
+			cheapest one.
+		#}
+		<div class="card mt-4">
+			<div class="card-body d-flex flex-wrap align-items-center gap-2">
+				{% if fieldType and field.type in settable.choices %}
+					<a class="btn btn-sm btn-outline-secondary"
+					   href="{{ path('field_options', {module: module.key, field: field.id}) }}">{{ 'field.options.link'|trans({'%count%': field.getOption('choices', {})|length}) }}</a>
+				{% endif %}
+				{#
+					Numbering is a page rather than a control (XIV-27): what is decided
+					there is a pattern, the number it produces and the counter it comes
+					from, and the number has to be shown as it is typed. Since XIV-91 the
+					link is on a text field that is *not* numbered too, and says
+					something different when it is.
+				#}
+				{% if field.id in numbered %}
+					<a class="btn btn-sm btn-outline-secondary"
+					   href="{{ path('field_numbering', {module: module.key, field: field.id}) }}">{{ 'field.numbering.title'|trans }}</a>
+				{% elseif field.id in numberable %}
+					<a class="btn btn-sm btn-outline-secondary"
+					   href="{{ path('field_numbering', {module: module.key, field: field.id}) }}">{{ 'field.numbering.start_link'|trans }}</a>
+				{% endif %}
+				{% if not field.system %}
+					<a class="btn btn-sm btn-outline-danger ms-auto"
+					   href="{{ path('field_confirm_delete', {module: module.key, field: field.id}) }}">{{ 'common.remove'|trans }}</a>
+				{% endif %}
+			</div>
+		</div>
+	</main>
+{% endblock %}

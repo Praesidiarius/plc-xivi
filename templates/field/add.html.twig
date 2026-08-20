@@ -1,0 +1,104 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'field.add.title'|trans({'%type%': fieldType.label}) }}{% endblock %}
+
+{#
+	One type's add form ([XIV-163]).
+
+	Everything on it is either true of every field there is, the key, the label
+	and the rules, or declared by the type that was chosen on the page before. There
+	is no branch here deciding what a `choice` field needs, because the type says
+	so and the controller read it.
+
+	**The type's own questions are asked here rather than after the fact.** The
+	engine refuses to write a `choice` field with nothing to choose between and a
+	`reference` pointing nowhere (§5.4), and it refuses them on the write path
+	where the console and the importer meet the same rule. What changed is that
+	the ordinary way to find out is no longer to submit and be told.
+
+	`listed` is deliberately absent: whether a field is a column in the list is
+	one of the four things the arrange page owns, and a field arrives off the
+	list, which is what XIV-26 argued for anyway. Nothing added today widens a
+	list somebody reads every day until somebody says so.
+#}
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<div class="d-flex align-items-center justify-content-between mb-3">
+			<div>
+				<h1 class="h3 mb-0">{{ 'field.add.title'|trans({'%type%': fieldType.label}) }}</h1>
+				<p class="text-body-secondary small mb-0">{{ 'field.add.intro'|trans({'%shape%': shape.label}) }}</p>
+			</div>
+			<a class="btn btn-link" href="{{ path('field_types', {module: module.key, shape: shape.id}) }}">{{ 'field.add.back'|trans }}</a>
+		</div>
+
+		<form method="post" action="{{ path('field_add', {module: module.key, shape: shape.id, type: type}) }}">
+			<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
+
+			<div class="card mb-3">
+				<div class="card-body">
+					<div class="row g-3 align-items-end">
+						<div class="col-sm-4">
+							<label class="form-label small mb-1" for="key">{{ 'common.name'|trans }}</label>
+							<input id="key" class="form-control form-control-sm" name="key"
+							       placeholder="vat_number" pattern="[a-z][a-z0-9_]*" required autofocus>
+						</div>
+						<div class="col-sm-4">
+							<label class="form-label small mb-1" for="label">{{ 'field.label'|trans }}</label>
+							<input id="label" class="form-control form-control-sm" name="label" placeholder="{{ 'field.label_placeholder'|trans }}">
+						</div>
+					</div>
+					<p class="text-body-secondary small mb-0 mt-2">{{ 'field.key_help'|trans }}</p>
+				</div>
+			</div>
+
+			{#
+				The rules, which are about the field rather than about its type and
+				are therefore the same four on every one of these forms. What "unique"
+				means is said where it is ticked (XIV-109): it is a unique index and
+				not a validator, so the answer comes from the database at the moment
+				of the write.
+			#}
+			<div class="card mb-3">
+				<div class="card-body">
+					<h2 class="h6">{{ 'field.rules'|trans }}</h2>
+					<div class="d-flex flex-wrap gap-3">
+						<label class="form-check-label small">
+							<input type="checkbox" name="required" value="1"> {{ 'field.rule_required'|trans }}
+						</label>
+						<label class="form-check-label small">
+							<input type="checkbox" name="unique" value="1"> {{ 'field.rule_unique'|trans }}
+						</label>
+						<label class="form-check-label small">
+							<input type="checkbox" name="filterable" value="1"> {{ 'field.rule_filterable'|trans }}
+						</label>
+						<label class="form-check-label small">
+							<input type="checkbox" name="title" value="1"> {{ 'field.rule_title'|trans }}
+						</label>
+					</div>
+					<p class="text-body-secondary small mb-0 mt-2">{{ 'field.rule_unique_note'|trans }}</p>
+				</div>
+			</div>
+
+			{#
+				And what this type, and only this type, has to say. An empty run is
+				the ordinary case: most types are a key, a label and the rules above.
+			#}
+			{% if options is not empty %}
+				<div class="card mb-3">
+					<div class="card-body">
+						<h2 class="h6">{{ 'field.add.settings'|trans({'%type%': fieldType.label}) }}</h2>
+						<div class="row g-3 align-items-start">
+							{{ include('field/_type_options.html.twig', {field: null}) }}
+						</div>
+					</div>
+				</div>
+			{% endif %}
+
+			<button class="btn btn-primary" type="submit">{{ 'common.add'|trans }}</button>
+		</form>
+	</main>
+{% endblock %}

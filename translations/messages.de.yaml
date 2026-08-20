@@ -358,6 +358,58 @@ module:
         removed: entfernt
 
 field:
+    intro: 'Deine Kopie von %module%. Änderungen gelten nur für diesen Kunden und wirken sofort.'
+    key_help: 'Der Name ist der Ort, an dem der Wert gespeichert wird, und lässt sich später nicht ändern; die Bezeichnung schon.'
+    max_length: 'Höchstens so lang'
+    max_length_default: 'Feldtyp-Standard'
+    min: Kleinster Wert
+    max: Größter Wert
+    bound_none: 'Keine Grenze'
+    option_list: Optionen
+    sections_back: 'Zurück zum Anordnen'
+    doors:
+        add: 'Neues Feld hinzufügen'
+        add_help: 'Zuerst wird die Feldart gefragt, danach fragt das Formular nur noch, was diese Art braucht.'
+        edit: 'Feld bearbeiten (%count%)'
+        edit_help: 'Eines aus der Liste wählen. Sein Formular trägt die Einstellungen seiner Art und keine anderen.'
+        arrange: 'Formular anordnen'
+        arrange_help: 'Reihenfolge, Breiten, Überschriften und welche Felder die Liste zeigt.'
+        arrange_help_rows: 'Reihenfolge, Breiten und welche Felder die Liste zeigt.'
+        unfinished: '%count% sind noch unfertig'
+    types:
+        title: 'Welche Art von Feld?'
+        intro: 'Die Art entscheidet, was sonst noch zu fragen ist, deshalb kommt sie zuerst. Das neue Feld gehört zu „%shape%“.'
+        asks: 'Fragt nach:'
+    add:
+        title: 'Neues Feld vom Typ %type%'
+        intro: 'Es gehört zu „%shape%“ und steht sofort im Erfassungsformular.'
+        back: 'Zurück zu den Feldarten'
+        settings: 'Was einem Feld vom Typ %type% gesagt werden kann'
+    list:
+        title: 'Felder von „%shape%“'
+        intro: 'Wähle eines, um zu ändern, was es ist. Wo die Felder sitzen, wird gemeinsam entschieden, auf der Seite zum Anordnen.'
+    edit:
+        title: 'Feld „%field%“'
+        back: 'Zurück zu den Feldern'
+        back_to_field: 'Zurück zum Feld'
+        module_field: 'kam mit dem Modul'
+        fixed: >-
+            Name und Feldart lassen sich nicht ändern. Der Name ist der Ort, an dem jeder Wert
+            gespeichert ist, ein neuer würde alle verwaisen lassen; und keine Feldart kann ihre
+            gespeicherten Werte an eine andere übergeben.
+        unfinished: >-
+            Diese Feldart tut nichts, solange keine der Einstellungen unten ausgefüllt ist. Dieses
+            Feld entstand, bevor das verweigert wurde: es wird gezeichnet, gespeichert und geprüft
+            und bietet nichts an.
+        settings: 'Was einem Feld vom Typ %type% gesagt werden kann'
+        arranged_elsewhere: 'Wo dieses Feld sitzt, wie breit es ist, unter welcher Überschrift es steht und ob die Liste es zeigt, wird zusammen mit den anderen Feldern entschieden:'
+    arrange:
+        title: '„%shape%“ anordnen'
+        intro: 'Wo jedes Feld im Formular sitzt, wie breit es ist, unter welcher Überschrift es steht und ob die Liste es zeigt.'
+        note: >-
+            Die Reihenfolge setzt du selbst, sie wird aus nichts abgeleitet: lass Sprünge von zehn
+            und tippe 15, um etwas dazwischenzuschieben. Die Breite „Feldtyp-Standard“ folgt dem,
+            was diese Art von Feld üblicherweise will, und folgt ihm weiter.
     picker_truncated: 'Es werden die ersten %shown% von %total% angezeigt. Grenze die Liste ein oder suche im anderen Modul.'
     label: Bezeichnung
     label_placeholder: Umsatzsteuer-ID
@@ -375,14 +427,12 @@ field:
     # „Ziel“ oder „Modul“: Gelesen wird die Spalte von jemandem, der entscheidet,
     # dass eine Bestellung einen Kontakt benennt.
     points_at: Zeigt auf
-    points_at_label: 'Zeigt auf (Referenzfelder)'
     # Worin ein Zeitraum keinen anderen überschneiden darf (XIV-136). „Exklusiv
     # innerhalb“ und nicht „Bereich“: Gelesen wird die Spalte von jemandem, der
     # entscheidet, dass zwei Aufenthalte sich kein Zimmer teilen können.
     exclusive_within: 'Exklusiv innerhalb'
     exclusive_within_none: 'Darf überschneiden'
     takes_from: Werte aus
-    takes_from_label: 'Werte aus (Auswahlfelder)'
     takes_from_own: Eigene Optionen
     unfinished: unfertig
     back_to: Zurück zu %module%
@@ -1212,6 +1262,8 @@ mail:
     attachment_failed: 'Es wurde nichts gesendet, weil das Dokument nicht angehängt werden konnte. %reason%'
 
 flash:
+    fields_arranged: Das Formular wurde neu angeordnet.
+    type_not_addable: 'Eine Feldart namens „%type%“ gibt es hier nicht zum Hinzufügen.'
     saved: Gespeichert.
     list_created: '„%list%“ angelegt. Füge unten die Einträge hinzu.'
     list_saved: '„%list%“ gespeichert.'

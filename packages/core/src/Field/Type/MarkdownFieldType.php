@@ -16,8 +16,8 @@ namespace Xivi\Core\Field\Type;
 use Symfony\Component\Validator\Constraints as Assert;
 use Xivi\Core\Demo\SampleVocabulary;
 use Xivi\Core\Entity\FieldDefinition;
-use Xivi\Core\Field\FieldType;
 use Xivi\Core\Field\HoldsFormattedText;
+use Xivi\Core\Field\LimitsItsLength;
 use Xivi\Core\Form\MarkdownType;
 use Xivi\Core\Markdown\MarkdownRenderer;
 use Xivi\Core\Query\Operator;
@@ -88,7 +88,7 @@ use Xivi\Core\Query\Operator;
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
-final class MarkdownFieldType implements FieldType, HoldsFormattedText
+final class MarkdownFieldType implements HoldsFormattedText, LimitsItsLength
 {
     /**
      * Four times what a `textarea` allows, because the things this exists for

@@ -16,7 +16,7 @@ namespace Xivi\Core\Field\Type;
 use Symfony\Component\Form\Extension\Core\Type\MoneyType;
 use Symfony\Component\Validator\Constraints as Assert;
 use Xivi\Core\Entity\FieldDefinition;
-use Xivi\Core\Field\FieldType;
+use Xivi\Core\Field\BoundsItsValues;
 use Xivi\Core\Money\InstanceCurrency;
 use Xivi\Core\Query\Operator;
 
@@ -43,7 +43,7 @@ use Xivi\Core\Query\Operator;
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
-final class CurrencyFieldType implements FieldType
+final class CurrencyFieldType implements BoundsItsValues
 {
     /** Cents. Currencies with three decimals are a problem for the day one arrives. */
     public const int SCALE = 2;

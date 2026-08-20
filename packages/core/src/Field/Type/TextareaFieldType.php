@@ -17,7 +17,7 @@ use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Validator\Constraints as Assert;
 use Xivi\Core\Demo\SampleVocabulary;
 use Xivi\Core\Entity\FieldDefinition;
-use Xivi\Core\Field\FieldType;
+use Xivi\Core\Field\LimitsItsLength;
 use Xivi\Core\Query\Operator;
 
 /**
@@ -30,7 +30,7 @@ use Xivi\Core\Query\Operator;
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
-final class TextareaFieldType implements FieldType
+final class TextareaFieldType implements LimitsItsLength
 {
     /** Long enough for a real description, short enough to stay a field. */
     public const int DEFAULT_MAX_LENGTH = 5000;

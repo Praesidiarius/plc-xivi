@@ -218,11 +218,7 @@ final class FieldSectionsTest extends WebTestCase
         $this->addSection('Billing');
 
         $street = $this->collectionFieldOf('addresses', 'street');
-        $this->post($this->url(sprintf('/m/contact/fields/%d', $street->getId())), [
-            'label' => $street->getLabel(),
-            'position' => (string) $street->getPosition(),
-            'section' => 'billing',
-        ]);
+        $this->arrange($this->collectionId(), 'section', (int) $street->getId(), 'billing');
 
         self::assertSelectorTextContains('.alert', 'has no sections to put fields in');
         self::assertNull($this->collectionFieldOf('addresses', 'street')->getSection());
@@ -233,11 +229,13 @@ final class FieldSectionsTest extends WebTestCase
     {
         $this->addSection('Billing');
 
-        $crawler = $this->client->request('GET', $this->url('/m/contact/fields'));
+        $own = $this->client->request('GET', $this->url(sprintf('/m/contact/fields/%d/arrange', $this->shapeId())));
 
-        // One card per shape, the module's first (§5.1).
-        self::assertGreaterThan(0, $crawler->filter('.card')->eq(0)->filter('select[name="section"]')->count());
-        self::assertCount(0, $crawler->filter('.card')->eq(1)->filter('select[name="section"]'));
+        self::assertGreaterThan(0, $own->filter('select[name^="section["]')->count());
+
+        $rows = $this->client->request('GET', $this->url(sprintf('/m/contact/fields/%d/arrange', $this->collectionId())));
+
+        self::assertCount(0, $rows->filter('select[name^="section["]'));
     }
 
     // -- an existing definition is untouched ---------------------------------
@@ -430,9 +428,13 @@ final class FieldSectionsTest extends WebTestCase
      */
     public function testARecordSavedWithSectionsIsStoredIdenticallyToOneSavedWithout(): void
     {
-        $values = ['kind' => 'person', 'first_name' => 'Ada', 'last_name' => 'Lovelace', 'email' => 'ada@example.test'];
+        $values = ['kind' => 'person', 'first_name' => 'Ada', 'last_name' => 'Lovelace'];
 
-        $before = $this->dataOf($this->savedId($this->saveRecord(ContactModule::KEY, $values, variant: 'person')));
+        $before = $this->dataOf($this->savedId($this->saveRecord(
+            ContactModule::KEY,
+            [...$values, 'email' => 'ada@example.test'],
+            variant: 'person',
+        )));
 
         $this->addSection('Billing');
 
@@ -440,9 +442,30 @@ final class FieldSectionsTest extends WebTestCase
             $this->putInSection($key, 'billing');
         }
 
-        $after = $this->dataOf($this->savedId($this->saveRecord(ContactModule::KEY, $values, variant: 'person')));
+        // A second email, because the module made that field unique and two
+        // records may not share one. It is left out of the comparison rather
+        // than compared, which is honest here: what is being claimed is that
+        // grouping changes nothing about storage, and a value deliberately made
+        // different is not evidence either way.
+        //
+        // **It used to be the same email, and that passed for the wrong reason**
+        // ([XIV-163]). Putting a field in a section was a post to the whole
+        // field's form naming a label, a position and a section, so every
+        // checkbox the form drew and the post did not name read as unticked, and
+        // three fields quietly stopped being unique on the way past. Sections are
+        // decided on their own page now, that page draws no rule checkboxes at
+        // all, and the flag survives; the duplicate is refused, as it always
+        // should have been.
+        $after = $this->dataOf($this->savedId($this->saveRecord(
+            ContactModule::KEY,
+            [...$values, 'email' => 'grace@example.test'],
+            variant: 'person',
+        )));
+
+        unset($before['email'], $after['email']);
 
         self::assertSame($before, $after, 'the stored payload is untouched by the grouping');
+        self::assertTrue($this->fieldOf('email')->isUnique(), 'and the grouping did not relax a rule on the way');
     }
 
     /** And a filter finds the same records, because nothing about the query changed. */
@@ -527,21 +550,60 @@ final class FieldSectionsTest extends WebTestCase
     }
 
     /**
-     * Put a field in a section through the row form in the field table.
+     * Put a field in a section through the page that owns the question
+     * ([XIV-163]).
      *
-     * Sent the way the browser sends it — the row's controls belong to the form
-     * through the HTML5 `form` attribute, which DomCrawler does not associate —
-     * so the label and the position go along rather than arriving empty.
+     * Which heading a field sits under is one of the four settings the arrange
+     * page draws, and that page is one form for the whole shape: a control per
+     * field, named by field id, all submitted together. So this sends the page
+     * back exactly as it renders it with one value changed, rather than posting
+     * three fields by hand. A checkbox sends nothing when it is unticked, so a
+     * post naming only this field's section would read as every list column on
+     * the shape being turned off.
      */
     private function putInSection(string $key, string $section): void
     {
-        $field = $this->fieldOf($key);
+        $this->arrange($this->shapeId(), 'section', (int) $this->fieldOf($key)->getId(), $section);
+    }
 
-        $this->post($this->url(sprintf('/m/contact/fields/%d', $field->getId())), [
-            'label' => $field->getLabel(),
-            'position' => (string) $field->getPosition(),
-            'section' => $section,
-        ]);
+    /**
+     * The arrange page, sent back with one control changed.
+     *
+     * Raw values rather than a submitted `Form`, because two of the tests here
+     * are about answers the page does not offer: a section that does not exist,
+     * and a section on a collection whose page draws no select at all. DomCrawler
+     * refuses to set a select to a value it has no option for, which is the right
+     * behaviour for a browser and useless for proving the engine refuses what a
+     * browser cannot send. What keeps it honest is that everything *else* posted
+     * is what the page itself rendered.
+     */
+    private function arrange(int $shape, string $control, int $field, string $value): void
+    {
+        $url = $this->url(sprintf('/m/contact/fields/%d/arrange', $shape));
+        $values = $this->client->request('GET', $url)->selectButton('Save')->form()->getPhpValues();
+        $values[$control][$field] = $value;
+
+        $this->client->request('POST', $url, $values);
+        $this->client->followRedirect();
+    }
+
+    /** The contact module's own shape, and its addresses collection. */
+    private function shapeId(): int
+    {
+        return self::service(TenantSwitcher::class)->runFor(
+            $this->tenant,
+            fn (): int => (int) self::service(MetadataRepository::class)->get(ContactModule::KEY)->getId(),
+        );
+    }
+
+    private function collectionId(): int
+    {
+        return self::service(TenantSwitcher::class)->runFor($this->tenant, function (): int {
+            $collection = self::service(MetadataRepository::class)->get(ContactModule::KEY)->getCollection('addresses');
+            self::assertNotNull($collection);
+
+            return (int) $collection->getId();
+        });
     }
 
     /** @param array<string, mixed> $values */
@@ -673,7 +735,7 @@ final class FieldSectionsTest extends WebTestCase
     private function token(): string
     {
         return (string) $this->client
-            ->request('GET', $this->url('/m/contact/fields'))
+            ->request('GET', $this->url('/m/contact/fields/sections'))
             ->filter('input[name="_token"]')
             ->first()
             ->attr('value');
