@@ -18,6 +18,29 @@
 	One form for the whole shape, and one save. The alternative, a save per row,
 	would be asking somebody to decide the order of a form one field at a time,
 	which is the arrangement this page exists to stop.
+
+	### The order is dragged, and the number went hidden ([XIV-165])
+
+	It used to be typed, in tens, so that 15 put something between 10 and 20.
+	That is a thing people know how to do and it was still the wrong instrument,
+	because arranging a form is a spatial act and the number was a translation
+	the customer was performing on the engine's behalf. Twenty-five fields is
+	where that stops being a small favour.
+
+	**What changed is the instrument and nothing else.** `position` is still an
+	integer in tens (§5.1) and is still what the save reads; the rows below still
+	carry one input each, now hidden, and a drop rewrites them 10, 20, 30 down
+	the table before anything is sent. So one gesture is still zero requests, the
+	whole shape still leaves in one submit through `updateField()`, and every
+	§5.4 refusal still runs on the way in. A write per drop would have been a
+	request per gesture and an unsaved state that can half-apply, which is the
+	one thing this page was built not to be.
+
+	This is also where the old note comes due. Typing beat move-up and move-down
+	when each press was a form submission; since Live Components landed (§8.3)
+	a press is a DOM move costing nothing, so the buttons came back beside the
+	handle rather than instead of it, and they are the keyboard's path through
+	the same mechanism.
 #}
 {% block body %}
 	{{ include('_topbar.html.twig') }}
@@ -54,10 +77,32 @@
 		<form method="post" action="{{ path('field_arrange_save', {module: module.key, shape: shape.id}) }}">
 			<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
 
-			<div class="card mb-3">
+			{#
+				Whether there is anything to drag *between*. A collection has no
+				sections and a module may have none yet, and in both cases the table
+				is one flat run with no heading rows in it: there is no group to
+				join, so drawing an "under no heading" row over every field would be
+				a label for a distinction that does not exist here.
+			#}
+			{% set headed = shape.key == module.key and sections|length > 0 %}
+			{% set columns = shape.key == module.key ? 6 : 5 %}
+
+			{#
+				The two sentences the announcement is made out of, translated here
+				and filled in there. `|trans` with no parameters leaves `%field%` and
+				the rest standing, which is what makes this work: the words are the
+				server's, in the reader's language, and the controller only puts a
+				name and two numbers into holes somebody who speaks the language
+				chose the position of. Building the sentence in JavaScript would put
+				German word order in an English file.
+			#}
+			<div class="card mb-3"
+			     data-controller="arrange-fields"
+			     data-arrange-fields-moved-value="{{ 'field.arrange.moved'|trans }}"
+			     data-arrange-fields-moved-into-value="{{ 'field.arrange.moved_into'|trans }}">
 				<div class="card-body">
 					<div class="table-responsive">
-						<table class="table table-sm align-middle mb-0">
+						<table class="table table-sm align-middle mb-0 arrange-table">
 							<thead>
 								<tr>
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'common.name'|trans }}</th>
@@ -70,64 +115,161 @@
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.rule_listed'|trans }}</th>
 								</tr>
 							</thead>
-							<tbody>
-								{% for field in shape.fields %}
-									<tr>
-										<td>
-											<a href="{{ path('field_edit', {module: module.key, field: field.id}) }}">{{ field.label }}</a>
-											<div class="text-body-secondary small"><code>{{ field.key }}</code></div>
-										</td>
-										<td class="text-body-secondary">{{ types[field.type].label|default(field.type) }}</td>
-										<td>
-											<input type="number" class="form-control form-control-sm"
-											       name="position[{{ field.id }}]" value="{{ field.position }}" style="width: 5.5rem"
-											       aria-label="{{ 'field.order'|trans }}">
-										</td>
-										{# How wide, in twelfths (XIV-43). Blank is the useful answer for
-										   almost every field: it follows whatever that kind of field
-										   usually wants, and keeps following it. #}
-										<td>
-											<select class="form-select form-select-sm" name="width[{{ field.id }}]"
-											        style="width: 7rem" aria-label="{{ 'field.width'|trans }}">
-												<option value="">{{ 'field.width_default'|trans }}</option>
-												{% for n in 1..12 %}
-													<option value="{{ n }}" {{ field.width == n ? 'selected' : '' }}>{{ n }}/12</option>
-												{% endfor %}
-											</select>
-										</td>
+							{#
+								One `tbody` and one sortable list, headings included.
+
+								The alternative, a list per section, reads better in the markup
+								and cannot be dropped into: a run with no fields in it has no
+								height, so the empty section somebody has just made would be the
+								one place a field could not go. Here a heading is an ordinary
+								row that simply has no handle on it, so it cannot be picked up
+								and is still something a field can be dropped underneath.
+							#}
+							<tbody data-arrange-fields-target="list">
+								{% for group in groups %}
+									{% if headed %}
 										{#
-											Which heading this field is drawn under (XIV-119). Blank is a
-											real answer and the common one: a field in no section is drawn
-											at the top of the form, exactly where every field in this
-											product was drawn before sections existed.
+											The anchor for a run, and what a drop past it means. A field
+											that comes to rest below this row is in this section, which is
+											read off the DOM rather than tracked, so the select in the row
+											and the heading above it cannot say different things.
+
+											A heading does not move. Where a *section* sits is stored on
+											the module rather than on any field (§5.4), and this form
+											saves through `updateField()` per field and has no business
+											writing the module row; that order is set on the sections
+											page, which is one click away in the corner above.
 										#}
-										{% if shape.key == module.key %}
+										<tr class="arrange-heading" data-arrange-fields-target="heading"
+										    data-section="{{ group.section ? group.section.key : '' }}">
+											<th colspan="{{ columns }}" scope="colgroup" class="bg-body-tertiary">
+												{% if group.section %}
+													{{ group.section.label }}
+												{% else %}
+													<span class="text-body-secondary fst-italic">{{ 'field.arrange.no_heading'|trans }}</span>
+												{% endif %}
+											</th>
+										</tr>
+									{% endif %}
+									{% for field in group.fields %}
+										<tr data-arrange-fields-target="row" data-field-label="{{ field.label }}">
 											<td>
-												<select class="form-select form-select-sm" name="section[{{ field.id }}]"
-												        style="width: 10rem" aria-label="{{ 'field.sections.column'|trans }}">
-													<option value="">{{ 'field.sections.none'|trans }}</option>
-													{% for section in sections %}
-														<option value="{{ section.key }}" {{ field.section == section.key ? 'selected' : '' }}>{{ section.label }}</option>
+												<a href="{{ path('field_edit', {module: module.key, field: field.id}) }}">{{ field.label }}</a>
+												<div class="text-body-secondary small"><code>{{ field.key }}</code></div>
+											</td>
+											<td class="text-body-secondary">{{ types[field.type].label|default(field.type) }}</td>
+											{#
+												Where the field sits, as three things that are one thing: a
+												handle for a mouse or a finger, two buttons for a keyboard,
+												and the number both of them write.
+
+												The number is hidden rather than gone. It is still what the
+												save reads and still an integer in tens, so nothing about how
+												a definition is stored moved; what it stopped being is a
+												control, because the row's place in this table already says
+												everything it said and says it in the shape of the answer.
+
+												The handle is `aria-hidden`: a screen reader announcing a
+												grip somebody cannot grip is worse than silence, and the two
+												buttons beside it carry the same ability under a name. Each
+												is labelled with its own field, so "move up" heard out of
+												context still says which row it would move.
+											#}
+											<td>
+												<div class="d-flex align-items-center gap-1">
+													<span class="arrange-handle" aria-hidden="true" title="{{ 'field.arrange.drag'|trans }}">
+														<i class="bi bi-grip-vertical"></i>
+													</span>
+													<button type="button" class="btn btn-sm btn-outline-secondary arrange-nudge"
+													        data-action="arrange-fields#up"
+													        aria-label="{{ 'field.arrange.move_up'|trans({'%field%': field.label}) }}">
+														<i class="bi bi-arrow-up" aria-hidden="true"></i>
+													</button>
+													<button type="button" class="btn btn-sm btn-outline-secondary arrange-nudge"
+													        data-action="arrange-fields#down"
+													        aria-label="{{ 'field.arrange.move_down'|trans({'%field%': field.label}) }}">
+														<i class="bi bi-arrow-down" aria-hidden="true"></i>
+													</button>
+													<input type="hidden" name="position[{{ field.id }}]" value="{{ field.position }}"
+													       data-arrange-fields-target="position">
+												</div>
+											</td>
+											{# How wide, in twelfths (XIV-43). Blank is the useful answer for
+											   almost every field: it follows whatever that kind of field
+											   usually wants, and keeps following it. #}
+											<td>
+												<select class="form-select form-select-sm" name="width[{{ field.id }}]"
+												        style="width: 7rem" aria-label="{{ 'field.width'|trans }}">
+													<option value="">{{ 'field.width_default'|trans }}</option>
+													{% for n in 1..12 %}
+														<option value="{{ n }}" {{ field.width == n ? 'selected' : '' }}>{{ n }}/12</option>
 													{% endfor %}
 												</select>
 											</td>
-										{% endif %}
-										{#
-											Whether the list shows this field as a column. A checkbox sends
-											nothing when it is unticked, which the save reads as the column
-											being turned off. Safe here and nowhere else, because this
-											form draws one for every field of the shape.
-										#}
-										<td>
-											<input type="checkbox" name="listed[{{ field.id }}]" value="1"
-											       {{ field.listed ? 'checked' : '' }} aria-label="{{ 'field.rule_listed'|trans }}">
-										</td>
-									</tr>
+											{#
+												Which heading this field is drawn under (XIV-119). Blank is a
+												real answer and the common one: a field in no section is drawn
+												at the top of the form, exactly where every field in this
+												product was drawn before sections existed.
+
+												Kept beside the drag rather than replaced by it ([XIV-165]),
+												and the two are wired together: dragging past a heading sets
+												this, and choosing here moves the row under that heading. One
+												of them is the gesture and the other is the way to send a
+												field to a section nine rows away without nine presses, which
+												is the same argument the number used to make and the reason a
+												keyboard is not left with only the nudges.
+											#}
+											{% if shape.key == module.key %}
+												<td>
+													<select class="form-select form-select-sm" name="section[{{ field.id }}]"
+													        style="width: 10rem" aria-label="{{ 'field.sections.column'|trans }}"
+													        data-arrange-fields-target="section"
+													        data-action="arrange-fields#reseat">
+														<option value="">{{ 'field.sections.none'|trans }}</option>
+														{% for section in sections %}
+															<option value="{{ section.key }}" {{ field.section == section.key ? 'selected' : '' }}>{{ section.label }}</option>
+														{% endfor %}
+													</select>
+												</td>
+											{% endif %}
+											{#
+												Whether the list shows this field as a column. A checkbox sends
+												nothing when it is unticked, which the save reads as the column
+												being turned off. Safe here and nowhere else, because this
+												form draws one for every field of the shape.
+											#}
+											<td>
+												<input type="checkbox" name="listed[{{ field.id }}]" value="1"
+												       {{ field.listed ? 'checked' : '' }} aria-label="{{ 'field.rule_listed'|trans }}">
+											</td>
+										</tr>
+									{% endfor %}
 								{% endfor %}
 							</tbody>
 						</table>
 					</div>
-					<p class="text-body-secondary small mb-0 mt-2">{{ 'field.arrange.note'|trans }}</p>
+					{#
+						What to do, said on the page rather than left to be discovered.
+						A grip is a picture and the arrows beside it are two more, so
+						the sentence that says a keyboard reaches all of this is the
+						only place anybody who cannot see them finds out. The second
+						half is drawn only where there are headings to drop between,
+						because a rule about sections on a table that has none is a
+						rule about something not on the screen.
+					#}
+					<p class="text-body-secondary small mb-0 mt-2">
+						{{ 'field.arrange.note'|trans }}
+						{% if headed %}{{ 'field.arrange.note_sections'|trans }}{% endif %}
+					</p>
+					{#
+						Where a move is said out loud. A DOM node changing parents tells
+						a screen reader nothing at all, so every move, dragged or
+						nudged, writes one sentence here naming the field and where it
+						now is. This is the only thing on the page that exists to be
+						read rather than seen.
+					#}
+					<p class="visually-hidden" aria-live="polite" data-arrange-fields-target="announcement"></p>
 				</div>
 			</div>
 

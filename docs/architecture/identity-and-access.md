@@ -45,6 +45,16 @@ availability.
   trips are run in every language the installation offers.
 - **Components stay generic over module, record and shape.** An `OrderForm`
   would be the module-specific code §1 exists to avoid.
+- **SortableJS is in, for the arrange page's drag** (XIV-165, §5.1). MIT, no
+  dependencies, one `importmap.php` line, self-hosted like the rest.
+  Rejected: the native HTML5 drag API, which has no touch story, draws a
+  table row differently per browser, and runs on events WebDriver cannot
+  produce, so the gesture would be untestable in the only layer that sees it.
+  Symfony UX has nothing for sorting; that was checked. It is configured
+  `forceFallback`, which is what puts it on pointer events. **Anything
+  dragged also has a keyboard path**, on XIV-95's precedent for replacing a
+  tooltip with a `<details>`: a control a keyboard reaches and a screen
+  reader announces, which a drag handle on its own is not.
 
 ### 8.3.1 The dashboard is its widgets (XIV-81)
 

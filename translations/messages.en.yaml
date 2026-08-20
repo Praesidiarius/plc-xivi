@@ -669,9 +669,19 @@ field:
         title: 'Arrange "%shape%"'
         intro: 'Where each field sits on the form, how wide it is, which heading it is under, and whether the list shows it.'
         note: >-
-            The order is yours to set and is worked out from nothing: leave gaps of ten and type 15
-            to put something between two fields. A width of "type default" follows whatever that
-            kind of field usually wants, and keeps following it.
+            Drag a field by its grip to move it, or press the arrows beside the grip, which move it
+            one place at a time and work from the keyboard. Nothing is saved until you press Save.
+            A width of "type default" follows whatever that kind of field usually wants, and keeps
+            following it.
+        note_sections: >-
+            A field that comes to rest under a heading is in that section, and the box in its row
+            says so too. The headings themselves are ordered on the sections page.
+        no_heading: 'Under no heading'
+        drag: 'Drag to move'
+        move_up: 'Move "%field%" up'
+        move_down: 'Move "%field%" down'
+        moved: '"%field%" is now number %place% of %total%.'
+        moved_into: '"%field%" is now number %place% of %total%, under "%section%".'
     picker_truncated: 'Showing the first %shown% of %total%. Narrow the list or search in the other module.'
     label: Label
     label_placeholder: VAT number

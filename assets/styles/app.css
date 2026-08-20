@@ -360,3 +360,61 @@
 	position: relative;
 	height: 10rem;
 }
+
+/*
+ * Arranging a form by moving the fields (XIV-165).
+ *
+ * Three states worth drawing and nothing else. The grip says the row can be
+ * picked up, and it is the only thing on the row that can start a drag, so it
+ * gets the cursor that promises that; `grabbing` while the pointer is down is
+ * the feedback that tells somebody the gesture took, on the half-second before
+ * anything has moved far enough to see.
+ *
+ * `.arrange-dragging` is the row's own slot while the copy of it is under the
+ * cursor. It is drawn as an empty outline rather than as a faded row, because
+ * what it is saying is "this is where it lands", and a faded row says "this is
+ * the row", which it is not: the row is the thing following the pointer.
+ *
+ * `.arrange-in-flight` is that copy. A `<tr>` taken out of a table has no layout
+ * of its own, so `display: table` is what stops it collapsing into a stripe of
+ * overlapping text while it is being carried. The widths of its cells will not
+ * match the table underneath it and that is accepted: it is a label under the
+ * cursor for as long as a gesture lasts, not a preview of the result.
+ */
+.arrange-handle {
+	cursor: grab;
+	color: var(--bs-secondary-color);
+	padding: 0 0.25rem;
+	touch-action: none;
+}
+
+.arrange-handle:active {
+	cursor: grabbing;
+}
+
+.arrange-table tr.arrange-dragging > * {
+	background-color: var(--bs-tertiary-bg);
+	color: transparent;
+}
+
+.arrange-table tr.arrange-dragging {
+	outline: 2px dashed var(--bs-primary-border-subtle);
+	outline-offset: -2px;
+}
+
+.arrange-table tr.arrange-in-flight {
+	display: table;
+	background-color: var(--bs-body-bg);
+	box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+	opacity: 0.95;
+}
+
+/*
+ * The heading a field is dragged under. A row that is a label rather than a
+ * record, so it loses the table's hover and its own borders and keeps the
+ * shading, which is what makes the run below it read as belonging to it.
+ */
+.arrange-table tr.arrange-heading > th {
+	font-weight: 600;
+	border-bottom-width: 2px;
+}
