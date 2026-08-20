@@ -33,7 +33,7 @@ landing:
             Une installation est déjà en route pour cette adresse e-mail. Cherchez la confirmation
             dans votre boîte de réception, ou écrivez-nous si elle n’est jamais arrivée.
         rate_limited: 'Trop de tentatives depuis ici. Réessayez dans %minutes% minutes environ.'
-        invalid_email: Cela ne ressemble pas à une adresse e-mail.
+        invalid_email: Nous ne pouvons pas utiliser cette adresse e-mail. Essayez-en une autre.
         invalid_slug: Une adresse ne peut contenir que des minuscules, des chiffres et des traits d’union.
         unknown_plan: Cette formule ne fait pas partie de notre offre.
         mail_failed: Le message de confirmation n’a pas pu partir à l’instant. Veuillez réessayer.

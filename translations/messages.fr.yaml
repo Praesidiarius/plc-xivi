@@ -73,6 +73,14 @@ control_plane:
     status_suspended: Suspendu
     no_tenants: Pas encore de clients
     no_tenants_hint: 'Mettez le premier en place avec'
+    refusals: Refusés au formulaire d’inscription
+    refusals_hint: >-
+        Inscriptions refusées parce que l’adresse vient d’un fournisseur de boîtes jetables. Un nom
+        que vous reconnaissez ici est une ligne à retirer de cette liste.
+    refusals_domain: Fournisseur
+    refusals_attempts: Refusées
+    refusals_first: Première
+    refusals_last: Dernière
     module_state: État
     module_price: Prix
     module_in_store: Dans la boutique

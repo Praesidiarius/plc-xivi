@@ -28,9 +28,11 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Mime\Email;
 use Xivi\ControlPlane\Controller\SignupApiController;
 use Xivi\ControlPlane\Controller\SignupConfirmationController;
+use Xivi\ControlPlane\Entity\SignupRefusal;
 use Xivi\ControlPlane\Entity\SignupRequest;
 use Xivi\ControlPlane\Entity\SignupStatus;
 use Xivi\ControlPlane\Provisioning\TenantProvisioner;
+use Xivi\ControlPlane\Repository\SignupRefusalRepository;
 use Xivi\ControlPlane\Repository\SignupRequestRepository;
 use Xivi\ControlPlane\Security\ControlPlaneHost;
 use Xivi\ControlPlane\Signup\ConfirmationToken;
@@ -92,6 +94,18 @@ final class SignupEndpointTest extends WebTestCase
 
     /** Every address this class creates starts with this, so cleanup can find them. */
     private const string ADDRESS_SUFFIX = '@xiv64.test';
+
+    /**
+     * A real throwaway provider and a real free-mail one (XIV-125).
+     *
+     * Neither ends in {@see ADDRESS_SUFFIX}, and neither could: the point of both
+     * is the domain, so they are cleaned up by name instead. The throwaway one
+     * never produces a row at all, which is the assertion, and the free-mail one
+     * produces an ordinary pending signup that {@see removeFixtures()} removes.
+     */
+    private const string THROWAWAY_DOMAIN = 'guerrillamail.com';
+    private const string THROWAWAY_ADDRESS = 'xiv125burner@' . self::THROWAWAY_DOMAIN;
+    private const string FREE_MAIL_ADDRESS = 'xiv125owner@gmail.com';
 
     private KernelBrowser $client;
     private string $host;
@@ -422,6 +436,62 @@ final class SignupEndpointTest extends WebTestCase
         self::assertSame(Response::HTTP_BAD_REQUEST, $status);
         self::assertSame('invalid_email', $body['error']);
         self::assertEmailCount(0);
+    }
+
+    /**
+     * **A signup from a throwaway provider is refused before anything exists**
+     * (XIV-125).
+     *
+     * Three assertions and each is a separate clause of the ticket. Nothing is
+     * recorded and nothing is sent, which is what "before anything is
+     * provisioned" means at this end of the feature: [XIV-98] provisions from a
+     * confirmed row, so a refusal that leaves no row can never become a database.
+     * The refusal is *counted*, so an operator can see it and review the list
+     * that produced it. And the word is `invalid_email`, shared with "that is not
+     * an address at all", because a code of its own would let anybody read the
+     * throwaway list back one address at a time, which is §8.12's `slug_taken`
+     * argument arriving at the same answer for the other field.
+     */
+    public function testASignupFromAThrowawayProviderIsRefusedAndCounted(): void
+    {
+        [$status, $body] = $this->submit(['email' => self::THROWAWAY_ADDRESS, 'company' => self::COMPANY]);
+
+        self::assertSame(Response::HTTP_BAD_REQUEST, $status);
+        self::assertSame('invalid_email', $body['error'], 'one word for two situations, deliberately');
+        self::assertStringNotContainsString(
+            'throwaway',
+            $body['message'],
+            'the sentence must not confirm which addresses would work',
+        );
+
+        self::assertEmailCount(0, 'nothing is sent to a mailbox nobody keeps');
+        self::assertNull(
+            self::service(SignupRequestRepository::class)->findOneByEmail(self::THROWAWAY_ADDRESS),
+            'nothing is recorded, so there is nothing for signup:provision to find',
+        );
+
+        $refusal = self::service(SignupRefusalRepository::class)->findOneBy(['domain' => self::THROWAWAY_DOMAIN]);
+        self::assertInstanceOf(SignupRefusal::class, $refusal, 'a refused signup is not silently dropped');
+        self::assertSame(1, $refusal->getAttempts());
+    }
+
+    /**
+     * **The common free-mail providers sign up like anybody else**, which is the
+     * judgement the whole feature turns on (XIV-125).
+     *
+     * A great many one-person companies read their post at Gmail, and refusing
+     * one is a customer lost who is never told why. The per-provider list is
+     * asserted in `DisposableEmailDomainsTest`; what this adds is that the
+     * endpoint itself accepts one end to end, so a check wired in at the wrong
+     * place cannot pass that test and refuse everybody here.
+     */
+    public function testAFreeMailProviderSignsUpLikeAnybodyElse(): void
+    {
+        [$status, $body] = $this->submit(['email' => self::FREE_MAIL_ADDRESS, 'company' => 'Gmail Using AG']);
+
+        self::assertSame(Response::HTTP_CREATED, $status, 'gmail.com is free, not disposable');
+        self::assertSame('pending_confirmation', $body['status']);
+        self::assertEmailCount(1);
     }
 
     /**
@@ -946,6 +1016,24 @@ final class SignupEndpointTest extends WebTestCase
             'SELECT s FROM ' . SignupRequest::class . ' s WHERE s.email LIKE :suffix',
         )->setParameter('suffix', '%' . self::ADDRESS_SUFFIX)->toIterable() as $signup) {
             $manager->remove($signup);
+        }
+
+        // The free-mail signup, which is a perfectly ordinary row and therefore
+        // not caught by the suffix above (XIV-125).
+        $free = self::service(SignupRequestRepository::class)->findOneByEmail(self::FREE_MAIL_ADDRESS);
+
+        if ($free instanceof SignupRequest) {
+            $manager->remove($free);
+        }
+
+        // And the tally this class adds to. Removed by domain rather than by
+        // emptying the table, because this class does not own it: the count is
+        // what one of the tests above asserts, so it has to start from nothing
+        // and leave nothing behind.
+        $refusal = self::service(SignupRefusalRepository::class)->findOneBy(['domain' => self::THROWAWAY_DOMAIN]);
+
+        if ($refusal instanceof SignupRefusal) {
+            $manager->remove($refusal);
         }
 
         $tenant = self::service(TenantRepository::class)->findOneBySlug(self::TAKEN_BY_A_TENANT);

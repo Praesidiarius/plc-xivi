@@ -24,6 +24,7 @@ use Xivi\ControlPlane\Entity\SignupStatus;
 use Xivi\ControlPlane\Provisioning\ProvisioningSlug;
 use Xivi\ControlPlane\Provisioning\SelfServiceTenantHostname;
 use Xivi\ControlPlane\Provisioning\TenantProvisioner;
+use Xivi\ControlPlane\Repository\SignupRefusalRepository;
 use Xivi\ControlPlane\Repository\SignupRequestRepository;
 
 /**
@@ -117,6 +118,24 @@ final readonly class SignupIntake
         private SelfServiceTenantHostname $hostnames,
         private SignupMailer $mailer,
         private ValidatorInterface $validator,
+        /**
+         * Which providers are throwaway (XIV-125).
+         *
+         * A constant list and a string comparison, holding no credential and
+         * opening no connection, so it changes nothing the class docblock above
+         * claims about this constructor graph. See the class itself for why the
+         * list is short, hand-kept and deliberately not a public one.
+         */
+        private DisposableEmailDomains $disposableDomains,
+        /**
+         * Where a refusal is counted so that somebody sees it (XIV-125).
+         *
+         * A repository over one control-plane table, reached only to increment
+         * a tally by domain. It is here rather than in the controller because
+         * the refusal is decided here, and a refusal recorded in one place and
+         * decided in another is a pair that drifts.
+         */
+        private SignupRefusalRepository $refusals,
         #[Autowire('%app.signup_plans%')]
         private array $plans = ['standard'],
         /**
@@ -181,6 +200,21 @@ final readonly class SignupIntake
     public function record(SignupSubmission $submission): SignupRequest
     {
         $email = $this->validEmail($submission->email);
+
+        // **Before the name is looked at and before anything at all is written**
+        // (XIV-125). The order is the requirement rather than an optimisation:
+        // an accepted signup here is a database and a role once [XIV-98] gets to
+        // it, so the one place a throwaway address can be refused cheaply is
+        // ahead of every other step. Nothing is persisted, nothing is mailed,
+        // and no name is held, which is also what makes this safe to do without
+        // a transaction.
+        //
+        // It sits *beside* the rate limiter rather than instead of it. That one
+        // bounds how fast signups arrive and is entirely silent about who is
+        // making them; this one is the opposite and neither substitutes for the
+        // other. See `SignupRateLimits`.
+        $this->refuseDisposableAddress($email);
+
         $company = $submission->companyName;
 
         if ($company === '') {
@@ -360,6 +394,43 @@ final readonly class SignupIntake
         }
 
         return $email;
+    }
+
+    /**
+     * Turns away an address whose provider hands out mailboxes nobody keeps
+     * (XIV-125).
+     *
+     * **The refusal is counted before it is thrown**, and that ordering is the
+     * ticket's requirement that a refusal not be silent. The tally is by domain
+     * and by nothing else, no address and no client, for §8.11's reason one
+     * degree harder: this person is not a customer and was never going to be
+     * one, so what is kept is that the list matched and how often. The operator
+     * screen draws it, and that is how a wrong entry in the list is ever
+     * noticed at all.
+     *
+     * **The word the caller hears is `invalid_email`**, which §8.12's
+     * `slug_taken` decided the shape of: whatever the endpoint distinguishes, a
+     * caller can enumerate. A code of its own would tell a script exactly which
+     * providers are listed, which is a map of which providers still work, and it
+     * would tell it in the machine-readable field a script branches on. So the
+     * two situations share one word, exactly as three situations share
+     * `slug_taken`, and the useful action is identical in both: use a different
+     * address. The detailed sentence naming the domain goes to whoever reads a
+     * stack trace, like {@see SignupRefused::unauthorized()}'s three.
+     *
+     * @throws SignupRefused
+     */
+    private function refuseDisposableAddress(string $email): void
+    {
+        if (!$this->disposableDomains->covers($email)) {
+            return;
+        }
+
+        $domain = DisposableEmailDomains::domainOf($email);
+
+        $this->refusals->record($domain);
+
+        throw SignupRefused::disposableAddress($domain);
     }
 
     /**

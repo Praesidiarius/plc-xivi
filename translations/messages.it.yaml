@@ -73,6 +73,14 @@ control_plane:
     status_suspended: Sospeso
     no_tenants: Ancora nessun cliente
     no_tenants_hint: 'Predisponi il primo con'
+    refusals: Respinti al modulo di registrazione
+    refusals_hint: >-
+        Registrazioni rifiutate perché l’indirizzo proviene da un fornitore di caselle usa e getta.
+        Un nome che riconosci qui è una riga da togliere da quell’elenco.
+    refusals_domain: Fornitore
+    refusals_attempts: Rifiutate
+    refusals_first: Prima
+    refusals_last: Ultima
     module_state: Stato
     module_price: Prezzo
     module_in_store: Nello Store

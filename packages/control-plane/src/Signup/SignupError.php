@@ -58,7 +58,23 @@ enum SignupError: string
     /** No shared secret, or the wrong one. See {@see SignupApiKey}. */
     case Unauthorized = 'unauthorized';
 
-    /** Not an email address. Nothing is looked up before this passes. */
+    /**
+     * An address this endpoint will not take.
+     *
+     * **Two situations behind one word** (XIV-125), which is
+     * {@see SlugTaken}'s arrangement applied to the other field: the string is
+     * not an address at all, or it is a perfectly good address at a provider of
+     * throwaway mailboxes ({@see DisposableEmailDomains}). Telling them apart
+     * would let a caller read the throwaway list back one address at a time,
+     * and what that list is, seen from outside, is a map of which providers
+     * still work.
+     *
+     * The cost is the same one `slug_taken` pays and is worth stating: somebody
+     * with a real address at a listed provider is told something that sounds
+     * like a typo. The sentence below is worded for both readers for exactly
+     * that reason, and so is the visitor's in `translations/landing.*.yaml`.
+     * Nothing is looked up before this passes.
+     */
     case InvalidEmail = 'invalid_email';
 
     /**
@@ -126,7 +142,7 @@ enum SignupError: string
         return match ($this) {
             self::InvalidRequest => 'The request body is not shaped the way this endpoint documents.',
             self::Unauthorized => 'The shared secret is missing or wrong.',
-            self::InvalidEmail => 'That is not an email address.',
+            self::InvalidEmail => 'That address cannot be used to sign up.',
             self::InvalidSlug => 'That name is not a valid hostname label.',
             self::SlugTaken => 'That name is not available.',
             self::AddressAlreadyRegistered => 'That address already has a signup waiting to be set up.',

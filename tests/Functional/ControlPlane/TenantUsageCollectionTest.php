@@ -187,6 +187,65 @@ final class TenantUsageCollectionTest extends KernelTestCase
     }
 
     /**
+     * **A customer nobody has ever signed in to is reported to the operator, and
+     * to nobody's database** (XIV-125).
+     *
+     * This is what an abandoned tenant looks like from the outside: the database
+     * exists, the registry row is fine, and not one person has ever used it.
+     * Worth saying out loud on a schedule, because the alternative is that it is
+     * visible only to somebody who opens the tenant list and reads a cell.
+     *
+     * **Reported and never removed**, which is the assertion at the end. §4.1
+     * makes deprovision loud, interactive and refused unattended and §4.6 forbids
+     * any automatic state from destroying data, so what this run may do is name
+     * the customer and name the command; the decision stays with a person. The
+     * run also stays successful, since nothing here is a failure.
+     *
+     * Asserted in both directions in one method, because the fixture's whole
+     * value is the *change*: with a sign-in on record the section is absent, and
+     * with the sign-ins taken away the same customer appears in it. An assertion
+     * that only ever saw the second half would pass against a section that is
+     * always drawn.
+     */
+    public function testACustomerNobodyHasEverSignedInToIsReportedAndNeverRemoved(): void
+    {
+        self::assertStringNotContainsString(
+            'Nobody has ever signed in',
+            $this->collect(self::SLUG)->getDisplay(),
+            'this customer has a sign-in on record',
+        );
+
+        // Straight SQL inside the tenant, because `User` offers no way back from
+        // having signed in and should not: the application has no such operation.
+        // What is being simulated is a customer nobody ever opened, and the only
+        // honest way to build one out of this fixture is to make the column say
+        // what it would have said.
+        self::service(TenantSwitcher::class)->runFor($this->tenant, static function (): void {
+            $manager = self::getContainer()->get('doctrine')->getManager('tenant');
+            \assert($manager instanceof EntityManagerInterface);
+
+            $manager->getConnection()->executeStatement('UPDATE app_user SET last_login_at = NULL');
+        });
+
+        $tester = $this->collect(self::SLUG);
+        $tester->assertCommandIsSuccessful();
+
+        $display = $tester->getDisplay();
+
+        self::assertStringContainsString('Nobody has ever signed in', $display);
+        self::assertStringContainsString(self::SLUG, $display, 'named, so the operator knows which customer');
+        self::assertStringContainsString(
+            'tenant:deprovision',
+            $display,
+            'the report names the manual command and does not run anything itself',
+        );
+
+        // And the customer is still there afterwards, which is the half of this
+        // that would be expensive to get wrong.
+        self::assertInstanceOf(Tenant::class, self::service(TenantRepository::class)->findOneBySlug(self::SLUG));
+    }
+
+    /**
      * A soft-deleted record is not one of them.
      *
      * `countAll()` filters on `deleted_at IS NULL`, which is the same predicate

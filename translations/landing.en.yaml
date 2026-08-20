@@ -49,7 +49,17 @@ landing:
             This email address already has an installation on the way. Check your inbox for the
             confirmation, or write to us if it never arrived.
         rate_limited: 'Too many attempts from here. Try again in about %minutes% minutes.'
-        invalid_email: That does not look like an email address.
+        # Two situations behind one sentence, for `slug_taken`'s reason one field
+        # along (XIV-125): the string is not an address, or it is a real address
+        # at a provider of throwaway mailboxes. A page that told them apart would
+        # let anybody read the throwaway list back one address at a time, which
+        # is a map of which providers still work.
+        #
+        # So it says neither "that is not an address" nor "we do not accept that
+        # provider". It says what is true of both and what to do about both, and
+        # it deliberately does not confirm that any other address would be
+        # accepted.
+        invalid_email: We cannot use that address. Try another one.
         invalid_slug: An address can only use lowercase letters, digits and hyphens.
         unknown_plan: That plan is not one we offer.
         mail_failed: We could not send the confirmation message just now. Please try again.

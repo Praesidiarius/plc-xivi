@@ -24,8 +24,10 @@ use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Routing\RouterInterface;
 use Xivi\ControlPlane\Controller\SignupPageController;
+use Xivi\ControlPlane\Entity\SignupRefusal;
 use Xivi\ControlPlane\Entity\SignupRequest;
 use Xivi\ControlPlane\Entity\SignupStatus;
+use Xivi\ControlPlane\Repository\SignupRefusalRepository;
 use Xivi\ControlPlane\Repository\SignupRequestRepository;
 use Xivi\ControlPlane\Security\ControlPlaneHost;
 use Xivi\ControlPlane\Signup\SignupApiKey;
@@ -433,6 +435,13 @@ final class SignupPageTest extends WebTestCase
     /**
      * An address that is not one is refused by the intake's own validator and
      * comes back as a sentence rather than as a 500.
+     *
+     * **The sentence stopped saying "that does not look like an address" in
+     * XIV-125**, and the change is the point rather than a copy edit: the same
+     * code now also answers a real address at a provider of throwaway mailboxes,
+     * because a code of its own would let anybody read that list back one
+     * address at a time. So the visitor is told what to do, which is identical in
+     * both cases, and is told nothing about which addresses would have worked.
      */
     public function testAnAddressThatIsNotOneIsExplained(): void
     {
@@ -442,7 +451,28 @@ final class SignupPageTest extends WebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
-        self::assertSelectorTextContains('.alert-danger', 'does not look like an email address');
+        self::assertSelectorTextContains('.alert-danger', 'We cannot use that address');
+    }
+
+    /**
+     * And so is a real address at a provider of throwaway mailboxes (XIV-125).
+     *
+     * The same sentence, from the same code, which is what stops the page being
+     * an oracle for the shipped list. Asserted here as well as at the endpoint
+     * because this is the surface a stranger actually meets: a page that decided
+     * to be more helpful than the contract would undo the decision from outside
+     * it, which is exactly what happened to `slug_taken` once (§8.12).
+     */
+    public function testAThrowawayAddressIsRefusedInTheSameWords(): void
+    {
+        $this->client->request('POST', $this->url('/signup'), [
+            'company' => self::COMPANY,
+            'email' => 'xiv125page@guerrillamail.com',
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+        self::assertSelectorTextContains('.alert-danger', 'We cannot use that address');
+        self::assertEmailCount(0);
     }
 
     /**
@@ -657,6 +687,15 @@ final class SignupPageTest extends WebTestCase
             'SELECT s FROM ' . SignupRequest::class . ' s WHERE s.email LIKE :suffix',
         )->setParameter('suffix', '%' . self::ADDRESS_SUFFIX)->toIterable() as $signup) {
             $manager->remove($signup);
+        }
+
+        // The tally the throwaway refusal above adds to (XIV-125). Removed by
+        // domain, because `SignupEndpointTest` asserts a *count* against the same
+        // provider and a row left behind here would be counted into it.
+        $refusal = self::service(SignupRefusalRepository::class)->findOneBy(['domain' => 'guerrillamail.com']);
+
+        if ($refusal instanceof SignupRefusal) {
+            $manager->remove($refusal);
         }
 
         $tenant = self::service(TenantRepository::class)->findOneBySlug(self::TAKEN_BY_A_TENANT);

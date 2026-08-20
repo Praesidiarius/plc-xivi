@@ -18,8 +18,11 @@ use App\Registry\Repository\TenantRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Xivi\ControlPlane\Entity\SignupRefusal;
+use Xivi\ControlPlane\Repository\SignupRefusalRepository;
 use Xivi\ControlPlane\Repository\TenantUsageRepository;
 use Xivi\ControlPlane\Security\ControlPlaneHost;
+use Xivi\ControlPlane\View\SignupRefusalListing;
 use Xivi\ControlPlane\View\TenantSummary;
 
 /**
@@ -134,6 +137,14 @@ final class TenantListController extends AbstractController
     public function __construct(
         private readonly TenantRepository $tenants,
         private readonly TenantUsageRepository $usages,
+        /**
+         * Who was turned away at the signup form (XIV-125).
+         *
+         * A third control-plane query on a page that already makes two, and no
+         * tenant connection: the row is a domain and two counters, written by
+         * the public endpoint when it refuses a throwaway address.
+         */
+        private readonly SignupRefusalRepository $refusals,
     ) {
     }
 
@@ -178,6 +189,24 @@ final class TenantListController extends AbstractController
                 $tenants,
                 static fn (TenantSummary $tenant): bool => !$tenant->servesRequests(),
             )),
+
+            // **Who did not get this far** (XIV-125). This page is the register
+            // of who is here, and the one thing that can quietly stop somebody
+            // joining it is the throwaway-address list: a domain wrongly on it
+            // refuses a real business, which is a customer who never arrives and
+            // never says why. So the refusals are counted by domain and drawn
+            // here, under the customers, where the person who can fix the list
+            // already is. Drawn only when there are some, like the banner above,
+            // and for the same reason.
+            //
+            // It is not a second page, and that is deliberate: a sixth nav item
+            // for a table of two dozen rows nobody needs weekly is a page
+            // somebody has to remember to open. §8.10's rule for this screen is
+            // that nobody has to go looking.
+            'refusals' => array_map(
+                static fn (SignupRefusal $refusal): SignupRefusalListing => SignupRefusalListing::of($refusal),
+                $this->refusals->newestFirst(),
+            ),
         ]);
     }
 }

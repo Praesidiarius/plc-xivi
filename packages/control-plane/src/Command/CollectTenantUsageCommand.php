@@ -60,6 +60,15 @@ use Xivi\ControlPlane\Usage\UsageCollector;
  * "could not be read" on one row — is only ever seen by somebody who has already
  * gone looking.
  *
+ * ## One thing it says beyond the figures (XIV-125)
+ *
+ * The run names the customers **nobody has ever signed in to**, which is what an
+ * abandoned tenant looks like from the outside: a database that exists and is
+ * not being used. It is a report and only ever a report. See
+ * {@see reportUnused()} for why there is no threshold in it, why it does not
+ * touch the exit code, and why nothing in this repository will ever remove a
+ * customer's database on a schedule.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[AsCommand(
@@ -91,6 +100,7 @@ final readonly class CollectTenantUsageCommand
 
         $failed = [];
         $rows = [];
+        $unused = [];
 
         foreach ($tenants as $tenant) {
             // One at a time, and the collector closes the customer's database
@@ -101,12 +111,21 @@ final readonly class CollectTenantUsageCommand
 
             if ($outcome->failed()) {
                 $failed[$tenant->getSlug()] = (string) $outcome->reason;
+            } elseif ($outcome->usage->getLastLoginAt() === null) {
+                // Nobody has ever signed in to this customer's database
+                // (XIV-125). Collected here rather than worked out later
+                // because this is where the answer is known to be a *reading*
+                // rather than a missing row: a failed collection has no figures
+                // and must never be reported as an empty one.
+                $unused[$tenant->getSlug()] = $tenant->getProvisionedAt() ?? $tenant->getCreatedAt();
             }
 
             $rows[] = self::row($tenant->getSlug(), $outcome);
         }
 
         $io->table(['Tenant', 'Users', 'Last sign-in', 'Records'], $rows);
+
+        self::reportUnused($io, $unused);
 
         if ($failed !== []) {
             // The driver's own words, here and nowhere else. They name the host,
@@ -132,6 +151,80 @@ final readonly class CollectTenantUsageCommand
         $io->success(sprintf('%d tenant(s) collected.', \count($tenants)));
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * The customers whose databases exist and have never been signed in to
+     * (XIV-125).
+     *
+     * ## Why this is reported and never acted on
+     *
+     * A tenant provisioned and never used is a real cost: a PostgreSQL database,
+     * a role, a hostname and a line on every screen that lists customers. It is
+     * also, from here, indistinguishable from a customer who bought the thing on
+     * Friday and starts on Monday. **So it is reported, and nothing in this
+     * repository will ever remove one on a timer.** §4.1 makes deprovision loud,
+     * interactive and refused unattended, and §4.6 says in as many words that no
+     * automatic state may destroy a database on its own; a cron job that dropped
+     * a customer's data because nobody had logged in yet would be both of those
+     * decisions undone by a scheduled task. The operator reads this and runs
+     * `tenant:deprovision` themselves, or does not.
+     *
+     * ## Why there is no threshold
+     *
+     * "Abandoned" would need a number of days, and §8.10 already rejected
+     * inventing one on the tenant list: a tenant nobody has touched for
+     * twenty-three days is exactly as unused as one at twenty-five, and a rule
+     * that draws the line between them teaches its reader that everything under
+     * the line is fine. So this section reports the *fact*, that nobody has ever
+     * signed in, together with the date the tenant started existing, and the
+     * reader supplies the judgement. The consequence is that a customer
+     * provisioned this afternoon appears here tonight, with today's date beside
+     * them, which reads as exactly what it is.
+     *
+     * ## Why it lives in this run rather than on the page
+     *
+     * The figures are already in hand here, and this run happens on a schedule,
+     * which is the difference that matters: the tenant list says "nobody has
+     * signed in" on a row somebody has to open the page to read, and this arrives
+     * in the operator's mail without anybody going looking (§4.5). It also does
+     * not touch the exit code, because nothing is broken. A non-zero exit is
+     * this command's way of saying a customer could not be *read*, and spending
+     * it on "a customer has not started yet" would teach somebody to ignore it.
+     *
+     * @param array<string, \DateTimeImmutable> $unused slug to when the tenant
+     *                                                  began existing, newest
+     *                                                  first once sorted
+     */
+    private static function reportUnused(SymfonyStyle $io, array $unused): void
+    {
+        if ($unused === []) {
+            return;
+        }
+
+        // Oldest first: the customer who was provisioned in March and never came
+        // back is the one worth reading about, and the one from this morning is
+        // noise until it is not. A list that put them the other way round would
+        // bury the finding under the ordinary.
+        asort($unused);
+
+        $io->section('Nobody has ever signed in');
+
+        foreach ($unused as $slug => $since) {
+            $io->text(sprintf(
+                ' <comment>%s</comment>: exists since %s (%d day(s))',
+                $slug,
+                $since->format('Y-m-d'),
+                (int) $since->diff(new \DateTimeImmutable())->days,
+            ));
+        }
+
+        $io->newLine();
+        $io->text(
+            'These databases exist and nobody has used them. Nothing removes one automatically: '
+            . '`tenant:deprovision` is deliberately manual and asks before it drops anything (§4.1).',
+        );
+        $io->newLine();
     }
 
     /**

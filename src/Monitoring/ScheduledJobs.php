@@ -119,6 +119,25 @@ final readonly class ScheduledJobs
                 'a customer\'s question to whoever runs this installation reaches nobody',
             ),
 
+            // The one nobody is waiting for and nobody would notice stopping,
+            // which is why it is written down here rather than left to a
+            // deployment to remember (XIV-125). A signup whose address never
+            // answered is dead a day after it was made, and until this runs it
+            // is somebody's address and somebody's company name kept for ever
+            // for no reason at all. The consequence of it not running is
+            // therefore not an outage but a table that quietly stops being
+            // defensible.
+            //
+            // Nightly, and at an odd minute for the reason the collector below
+            // is: nothing about it needs to be on the hour. It removes rows and
+            // never a database; see the command for why that distinction is the
+            // whole of what may be automated here.
+            new ScheduledJob(
+                'signup:prune',
+                '43 4 * * *',
+                'unconfirmed signups are kept for ever, addresses and company names included',
+            ),
+
             // The housekeeping one. Nobody is waiting, and the page is honest
             // about it either way — every row reads "not collected yet" until
             // this has run, and carries its own timestamp afterwards (§8.11) —
