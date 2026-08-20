@@ -16,7 +16,7 @@ namespace Xivi\Core\Field\Type;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Validator\Constraints as Assert;
 use Xivi\Core\Entity\FieldDefinition;
-use Xivi\Core\Field\FieldType;
+use Xivi\Core\Field\BoundsItsValues;
 use Xivi\Core\Query\Operator;
 
 /**
@@ -33,7 +33,7 @@ use Xivi\Core\Query\Operator;
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
-final class IntegerFieldType implements FieldType
+final class IntegerFieldType implements BoundsItsValues
 {
     public function key(): string
     {

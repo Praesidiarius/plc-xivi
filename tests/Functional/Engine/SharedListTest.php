@@ -685,22 +685,36 @@ final class SharedListTest extends WebTestCase
         ], $module);
     }
 
-    /** @param array<string, string> $values */
+    /**
+     * Add a field through the route the type's own form posts to ([XIV-163]).
+     *
+     * The shape and the type are in the URL rather than in the body, because
+     * they are what decided which controls the form had; a post that disagreed
+     * with the page it came from would be one nobody could reason about.
+     *
+     * @param array<string, string> $values
+     */
     private function addField(array $values, string $module = ContactModule::KEY): void
     {
-        $this->client->request('POST', $this->url(sprintf('/m/%s/fields/add', $module)), [
-            '_token' => $this->fieldToken($module),
-            ...$values,
-        ]);
+        $shape = $values['shape'];
+        $type = $values['type'];
+        unset($values['shape'], $values['type']);
+
+        $this->client->request(
+            'POST',
+            $this->url(sprintf('/m/%s/fields/%s/add/%s', $module, $shape, $type)),
+            ['_token' => $this->fieldToken($module), ...$values],
+        );
         $this->client->followRedirect();
     }
 
     /**
-     * Save one field's row in the field table, as the browser sends it.
+     * Save one field through its own form, naming what that form draws.
      *
-     * The row's controls belong to the form through the HTML5 `form` attribute,
-     * which DomCrawler does not associate, so the label and the position go with
-     * it by hand rather than arriving empty.
+     * A `choice` field's form draws the shared-list select, so naming `list`
+     * here is naming a control the page really has. The label and the position
+     * go with it because {@see \Xivi\Core\Metadata\MetadataEditor::updateField()}
+     * takes the value a field ends up with rather than a change.
      *
      * @param array<string, string> $values
      */

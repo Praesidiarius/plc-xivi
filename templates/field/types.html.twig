@@ -1,0 +1,89 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'field.types.title'|trans }}{% endblock %}
+
+{#
+	The type, asked before anything else ([XIV-163]).
+
+	Every other question about a new field depends on the answer to this one, so
+	it is asked on its own and the next page is built from what it says. What a
+	`choice` field cannot work without and what a `phone` field may optionally be
+	told have nothing in common; a single form carrying both is a form that is
+	mostly wrong whatever gets picked.
+
+	The list is the registry, filtered by whether this editor can ask the type's
+	own questions (XIV-144). Nothing here is written down per type: a type
+	registered tomorrow appears on this page, and one whose question nobody has
+	built a control for does not appear at all rather than appearing broken.
+
+	The line under each name is derived the same way: it is the options that
+	type declares, so it says what the next page will ask about before anybody
+	commits to it.
+#}
+{% block body %}
+	{#
+		What each option is called, in one place.
+
+		§5.4 says the thing that stays per option, deliberately, is *drawing* it: a
+		select of three fixed answers and a numbering pattern with a live preview
+		have nothing in common but the question "may this type have one". Naming one
+		is part of drawing it, so this map exists rather than a label on the
+		capability interface, which would make core learn what a form looks like. The
+		forms themselves carry each label inside the block that draws the control;
+		this page has no controls, only names, which is why it is the one place a map
+		is needed at all. Numbering is not on it because it is not on the form
+		either: it has a page of its own and is taken up after the field exists.
+	#}
+	{% set optionLabels = {
+		'autocomplete': 'field.autocomplete',
+		'region': 'field.region',
+		'choices': 'field.option_list',
+		'module': 'field.points_at',
+		'list': 'field.takes_from',
+		'exclusive_within': 'field.exclusive_within',
+		'max_length': 'field.max_length',
+		'min': 'field.min',
+		'max': 'field.max',
+	} %}
+
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<div class="d-flex align-items-center justify-content-between mb-3">
+			<div>
+				<h1 class="h3 mb-0">{{ 'field.types.title'|trans }}</h1>
+				<p class="text-body-secondary small mb-0">{{ 'field.types.intro'|trans({'%shape%': shape.label}) }}</p>
+			</div>
+			<a class="btn btn-link" href="{{ path('field_index', {module: module.key}) }}">{{ 'field.options.back'|trans }}</a>
+		</div>
+
+		<div class="row g-3">
+			{% for key, type in addable %}
+				<div class="col-md-4">
+					<a class="card h-100 text-decoration-none link-body-emphasis"
+					   href="{{ path('field_add_form', {module: module.key, shape: shape.id, type: key}) }}">
+						<div class="card-body">
+							<h2 class="h6 mb-1">{{ type.label }}</h2>
+							<p class="text-body-secondary small mb-0"><code>{{ key }}</code></p>
+							{#
+								What this type will be asked about, named from its own
+								declarations rather than from a list kept here. An empty one
+								is the ordinary case and says so: most types are the key, the
+								label and the rules, and nothing else.
+							#}
+							{% set asks = settings[key]|default([]) %}
+							{% if asks is not empty %}
+								<p class="text-body-secondary small mb-0 mt-2">
+									{{ 'field.types.asks'|trans }}
+									{% for option in asks %}{{ optionLabels[option] is defined ? optionLabels[option]|trans : option }}{{ not loop.last ? ', ' }}{% endfor %}
+								</p>
+							{% endif %}
+						</div>
+					</a>
+				</div>
+			{% endfor %}
+		</div>
+	</main>
+{% endblock %}

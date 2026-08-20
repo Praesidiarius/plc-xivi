@@ -184,14 +184,19 @@ final class EmailTemplateTest extends WebTestCase
      */
     public function testAFieldAddedTodayIsAMarkerToday(): void
     {
+        // Walked rather than posted, which is the cheapest way to keep this
+        // honest about the editor it goes through ([XIV-163]): the doors, the
+        // kinds of field, then the form for the one that was chosen. The
+        // module's own shape is the first set of doors the page draws; the rest
+        // belong to its collections, and a nickname does not belong to an
+        // address.
         $crawler = $this->client->request('GET', $this->url('/m/contact/fields'));
+        $crawler = $this->client->click($crawler->filter('main a[href$="/add"]')->first()->link());
+        $crawler = $this->client->click($crawler->filter('main a[href$="/add/text"]')->first()->link());
 
-        // The module's own shape is the first one the editor draws; the rest are
-        // its collections, and a nickname does not belong to an address.
-        $this->client->submit($crawler->filter('form[action$="/fields/add"]')->first()->form([
+        $this->client->submit($crawler->selectButton('Add')->form([
             'key' => 'nickname',
             'label' => 'Nickname',
-            'type' => 'text',
         ]));
 
         $page = $this->client->request('GET', $this->url('/m/contact/email-templates/new'))->filter('main')->text();

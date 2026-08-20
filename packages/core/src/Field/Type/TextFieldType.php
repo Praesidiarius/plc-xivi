@@ -17,6 +17,7 @@ use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Validator\Constraints as Assert;
 use Xivi\Core\Demo\SampleVocabulary;
 use Xivi\Core\Entity\FieldDefinition;
+use Xivi\Core\Field\LimitsItsLength;
 use Xivi\Core\Field\Numbers;
 use Xivi\Core\Query\Operator;
 
@@ -30,7 +31,7 @@ use Xivi\Core\Query\Operator;
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
-final class TextFieldType implements Numbers
+final class TextFieldType implements LimitsItsLength, Numbers
 {
     public const int DEFAULT_MAX_LENGTH = 255;
 

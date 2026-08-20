@@ -1,0 +1,137 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'field.arrange.title'|trans({'%shape%': shape.label}) }}{% endblock %}
+
+{#
+	The third door: the four things that are about the form rather than about a
+	field ([XIV-163]).
+
+	Order, width, which heading a field sits under and whether the list shows it.
+	Every one of them is decided by looking at the *other* fields: a position
+	means nothing except relative to the rest, two half-width fields share a row,
+	a section is a run of them, and a column is worth having only against the
+	columns already there. That is why this page still looks like the table the
+	old editor was: it is the part of that table which genuinely wanted every
+	field visible at once, with everything that did not want that taken out of
+	it.
+
+	One form for the whole shape, and one save. The alternative, a save per row,
+	would be asking somebody to decide the order of a form one field at a time,
+	which is the arrangement this page exists to stop.
+#}
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<div class="d-flex align-items-center justify-content-between mb-3">
+			<div>
+				<h1 class="h3 mb-0">{{ 'field.arrange.title'|trans({'%shape%': shape.label}) }}</h1>
+				<p class="text-body-secondary small mb-0">{{ 'field.arrange.intro'|trans }}</p>
+			</div>
+			<div class="d-flex align-items-center gap-2">
+				{#
+					The headings on this module's form, on a page of their own (XIV-119),
+					and reached from here because this is the page that needs them: a
+					section is a thing with a name and a place, and something has to be
+					able to make one before any field can be put in it. What this page
+					draws is the select saying which heading each field is under, which is
+					instantaneous and reversible and therefore fits a cell.
+
+					Only on a module. A collection's rows are drawn as a table on the
+					record page, and a table row has nowhere to put a heading.
+				#}
+				{% if shape.key == module.key %}
+					<a class="btn btn-outline-secondary btn-sm" href="{{ path('field_sections', {module: module.key}) }}">
+						{{ 'field.sections.link'|trans({'%count%': module.sections|length}) }}
+					</a>
+				{% endif %}
+				<a class="btn btn-link" href="{{ path('field_index', {module: module.key}) }}">{{ 'field.options.back'|trans }}</a>
+			</div>
+		</div>
+
+		<form method="post" action="{{ path('field_arrange_save', {module: module.key, shape: shape.id}) }}">
+			<input type="hidden" name="_token" value="{{ csrf_token('edit-fields') }}">
+
+			<div class="card mb-3">
+				<div class="card-body">
+					<div class="table-responsive">
+						<table class="table table-sm align-middle mb-0">
+							<thead>
+								<tr>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'common.name'|trans }}</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.type'|trans }}</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.order'|trans }}</th>
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.width'|trans }}</th>
+									{% if shape.key == module.key %}
+										<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.sections.column'|trans }}</th>
+									{% endif %}
+									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.rule_listed'|trans }}</th>
+								</tr>
+							</thead>
+							<tbody>
+								{% for field in shape.fields %}
+									<tr>
+										<td>
+											<a href="{{ path('field_edit', {module: module.key, field: field.id}) }}">{{ field.label }}</a>
+											<div class="text-body-secondary small"><code>{{ field.key }}</code></div>
+										</td>
+										<td class="text-body-secondary">{{ types[field.type].label|default(field.type) }}</td>
+										<td>
+											<input type="number" class="form-control form-control-sm"
+											       name="position[{{ field.id }}]" value="{{ field.position }}" style="width: 5.5rem"
+											       aria-label="{{ 'field.order'|trans }}">
+										</td>
+										{# How wide, in twelfths (XIV-43). Blank is the useful answer for
+										   almost every field: it follows whatever that kind of field
+										   usually wants, and keeps following it. #}
+										<td>
+											<select class="form-select form-select-sm" name="width[{{ field.id }}]"
+											        style="width: 7rem" aria-label="{{ 'field.width'|trans }}">
+												<option value="">{{ 'field.width_default'|trans }}</option>
+												{% for n in 1..12 %}
+													<option value="{{ n }}" {{ field.width == n ? 'selected' : '' }}>{{ n }}/12</option>
+												{% endfor %}
+											</select>
+										</td>
+										{#
+											Which heading this field is drawn under (XIV-119). Blank is a
+											real answer and the common one: a field in no section is drawn
+											at the top of the form, exactly where every field in this
+											product was drawn before sections existed.
+										#}
+										{% if shape.key == module.key %}
+											<td>
+												<select class="form-select form-select-sm" name="section[{{ field.id }}]"
+												        style="width: 10rem" aria-label="{{ 'field.sections.column'|trans }}">
+													<option value="">{{ 'field.sections.none'|trans }}</option>
+													{% for section in sections %}
+														<option value="{{ section.key }}" {{ field.section == section.key ? 'selected' : '' }}>{{ section.label }}</option>
+													{% endfor %}
+												</select>
+											</td>
+										{% endif %}
+										{#
+											Whether the list shows this field as a column. A checkbox sends
+											nothing when it is unticked, which the save reads as the column
+											being turned off. Safe here and nowhere else, because this
+											form draws one for every field of the shape.
+										#}
+										<td>
+											<input type="checkbox" name="listed[{{ field.id }}]" value="1"
+											       {{ field.listed ? 'checked' : '' }} aria-label="{{ 'field.rule_listed'|trans }}">
+										</td>
+									</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+					<p class="text-body-secondary small mb-0 mt-2">{{ 'field.arrange.note'|trans }}</p>
+				</div>
+			</div>
+
+			<button class="btn btn-primary" type="submit">{{ 'common.save'|trans }}</button>
+		</form>
+	</main>
+{% endblock %}

@@ -337,6 +337,58 @@ module:
         removed: retirée
 
 field:
+    intro: 'Votre copie de %module%. Les changements ne concernent que ce client et prennent effet immédiatement.'
+    key_help: 'Le nom est l’endroit où la valeur est stockée et ne peut plus changer ensuite ; le libellé, si.'
+    max_length: 'Longueur maximale'
+    max_length_default: 'Selon le type'
+    min: 'Valeur minimale'
+    max: 'Valeur maximale'
+    bound_none: 'Sans limite'
+    option_list: Options
+    sections_back: 'Retour à la disposition'
+    doors:
+        add: 'Ajouter un champ'
+        add_help: 'Le type de champ est demandé d’abord, puis le formulaire ne demande que ce dont ce type a besoin.'
+        edit: 'Modifier un champ (%count%)'
+        edit_help: 'Choisissez-en un dans la liste. Son formulaire porte les réglages de son type, et aucun autre.'
+        arrange: 'Disposer le formulaire'
+        arrange_help: 'Ordre, largeurs, intertitres et champs affichés dans la liste.'
+        arrange_help_rows: 'Ordre, largeurs et champs affichés dans la liste.'
+        unfinished: '%count% à configurer'
+    types:
+        title: 'Quel type de champ ?'
+        intro: 'Le type décide de ce qu’il reste à demander : il vient donc en premier. Le nouveau champ ira dans «%shape%».'
+        asks: 'Demande :'
+    add:
+        title: 'Nouveau champ %type%'
+        intro: 'Il rejoint «%shape%» et se trouve aussitôt sur le formulaire de fiche.'
+        back: 'Retour aux types de champ'
+        settings: 'Ce qu’on peut dire à un champ %type%'
+    list:
+        title: 'Champs de «%shape%»'
+        intro: 'Choisissez-en un pour changer ce qu’il est. La place des champs se décide ensemble, sur la page de disposition.'
+    edit:
+        title: 'Champ «%field%»'
+        back: 'Retour aux champs'
+        back_to_field: 'Retour au champ'
+        module_field: 'est venu avec le module'
+        fixed: >-
+            Le nom et le type de champ ne peuvent pas changer. Le nom est l’endroit où chaque
+            valeur est stockée, un autre nom les laisserait toutes orphelines ; et aucun type de
+            champ ne sait confier ses valeurs stockées à un autre.
+        unfinished: >-
+            Ce type de champ ne fait rien tant qu’un des réglages ci-dessous n’est pas renseigné.
+            Celui-ci a été créé avant que cela soit refusé : il est affiché, enregistré et validé,
+            et ne propose rien.
+        settings: 'Ce qu’on peut dire à un champ %type%'
+        arranged_elsewhere: 'La place de ce champ, sa largeur, l’intertitre sous lequel il figure et son affichage dans la liste se décident avec les autres champs :'
+    arrange:
+        title: 'Disposer «%shape%»'
+        intro: 'La place de chaque champ dans le formulaire, sa largeur, l’intertitre sous lequel il figure et son affichage dans la liste.'
+        note: >-
+            L’ordre est le vôtre et ne se déduit de rien : laissez des écarts de dix et tapez 15
+            pour intercaler quelque chose entre deux champs. Une largeur «selon le type» suit ce
+            que ce type de champ veut habituellement, et continue de le suivre.
     picker_truncated: 'Affichage des %shown% premiers sur %total%. Restreignez la liste ou cherchez dans l’autre module.'
     label: Libellé
     label_placeholder: Numéro de TVA
@@ -351,11 +403,9 @@ field:
     region: Pays
     region_default: Celui de cette installation
     points_at: Pointe vers
-    points_at_label: 'Pointe vers (champs de référence)'
     exclusive_within: 'Exclusif au sein de'
     exclusive_within_none: 'Peut se chevaucher'
     takes_from: Prend ses valeurs dans
-    takes_from_label: 'Prend ses valeurs dans (champs à choix)'
     takes_from_own: Ses propres options
     unfinished: à configurer
     back_to: Retour à %module%
@@ -1114,6 +1164,8 @@ mail:
     attachment_failed: 'Rien n’a été envoyé, parce que le document n’a pas pu être joint. %reason%'
 
 flash:
+    fields_arranged: Le formulaire a été redisposé.
+    type_not_addable: 'Il n’y a pas de type de champ «%type%» à ajouter ici.'
     saved: Enregistré.
     list_created: '«%list%» créée. Ajoutez ses entrées ci-dessous.'
     list_saved: '«%list%» enregistrée.'

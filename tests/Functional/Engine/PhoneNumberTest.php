@@ -433,72 +433,36 @@ final class PhoneNumberTest extends WebTestCase
     /**
      * Choose a country for the phone field on the editor's own page.
      *
-     * Sends what a browser sends, which is not what DomCrawler associates: the
-     * editor's controls sit in table cells and belong to their row's form
-     * through the HTML5 `form` attribute, so every control pointing at that form
-     * has to be gathered by hand — the same shape `FieldUiTest::setWidth()` uses
-     * and for the same reason. Sending only the country would read as somebody
-     * unticking every box on the row.
+     * One page and one form since [XIV-163]: the phone field's own, drawing what
+     * a `phone` field declares and nothing else. It used to be a cell in a table
+     * of every field, where the controls belonged to their row's form through the
+     * HTML5 `form` attribute and had to be gathered by hand because DomCrawler
+     * does not associate them. That is gone, and the country select being on this
+     * page at all is now part of what is asserted: a control drawn for the one
+     * type that reads its values against a country.
      */
     private function setCountryOfPhoneField(string $country): void
     {
-        $page = $this->client->request('GET', sprintf('https://%s/m/contact/fields', self::HOST));
-        self::assertResponseIsSuccessful();
-
-        $row = $page->filter('tbody tr')->reduce(
-            static fn (Crawler $tr): bool => str_contains($tr->text(), 'phone'),
-        )->first();
-
-        $form = $row->filter('form')->first();
-        $id = (string) $form->attr('id');
-
-        self::assertCount(
-            1,
-            $page->filter(sprintf('select[form="%s"][name="region"]', $id)),
-            'the country select is drawn on a phone field',
+        $page = $this->client->request(
+            'GET',
+            sprintf('https://%s/m/contact/fields/%d', self::HOST, $this->phoneFieldId()),
         );
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $page->filter('select[name="region"]'), 'the country select is drawn on a phone field');
 
-        $values = ['_token' => (string) $form->filter('[name="_token"]')->attr('value')];
+        $form = $page->selectButton('Save')->form();
+        $form['region'] = $country;
 
-        foreach ($page->filter(sprintf('[form="%s"]', $id)) as $node) {
-            \assert($node instanceof \DOMElement);
-
-            $name = $node->getAttribute('name');
-
-            if ($name === '' || $name === 'region') {
-                continue;
-            }
-
-            // A checkbox sends its value only when it is ticked, which is the
-            // whole difference between "filterable" staying on and being turned
-            // off by a save that was about something else.
-            if ($node->getAttribute('type') === 'checkbox') {
-                if ($node->hasAttribute('checked')) {
-                    $values[$name] = $node->getAttribute('value');
-                }
-
-                continue;
-            }
-
-            $values[$name] = $node->nodeName === 'select' ? self::selected($node) : $node->getAttribute('value');
-        }
-
-        $values['region'] = $country;
-
-        $this->client->request('POST', sprintf('https://%s%s', self::HOST, (string) $form->attr('action')), $values);
+        $this->client->submit($form);
         $this->client->followRedirect();
     }
 
-    /** Whichever option a select is showing. */
-    private static function selected(\DOMElement $select): string
+    private function phoneFieldId(): int
     {
-        foreach ($select->getElementsByTagName('option') as $option) {
-            if ($option->hasAttribute('selected')) {
-                return $option->getAttribute('value');
-            }
-        }
-
-        return '';
+        return self::service(TenantSwitcher::class)->runFor(
+            $this->tenant,
+            fn (): int => (int) $this->phoneField()->getId(),
+        );
     }
 
     private function makePhoneUnique(): void

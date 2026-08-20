@@ -98,20 +98,23 @@ final class FieldNumberingTest extends WebTestCase
         $this->signIn();
     }
 
-    /** The link is on the field, and the page opens on the pattern in use. */
+    /**
+     * The link is on the field's own page, and the page opens on the pattern in
+     * use.
+     *
+     * Since [XIV-163] the editor is a page per field rather than one table, so
+     * "exactly one field carries the link" is a claim about a set of pages and
+     * is checked by opening all of them. That is more requests and the same
+     * statement: numbering is offered on the fields that can have it and on no
+     * others, which is what stops the page being reachable for a field it would
+     * refuse.
+     */
     public function testANumberedFieldOffersItsPatternInTheFieldEditor(): void
     {
-        $fields = $this->client->request('GET', $this->url('/m/order/fields'));
-
-        self::assertCount(
-            1,
-            $fields->filter('a[href$="/numbering"]'),
-            'exactly one field on the module carries the link',
-        );
-        self::assertCount(
-            1,
-            $fields->filter('a[href$="/' . $this->fieldId(OrderModule::NUMBER) . '/numbering"]'),
-            'and it is the numbered one',
+        self::assertSame(
+            [$this->fieldId(OrderModule::NUMBER)],
+            $this->fieldsOfferingNumbering(OrderModule::KEY),
+            'exactly one field on the module carries the link, and it is the numbered one',
         );
 
         $page = $this->numberingPage();
@@ -320,8 +323,7 @@ final class FieldNumberingTest extends WebTestCase
     {
         $birthday = $this->fieldId('birthday', ContactModule::KEY);
 
-        $fields = $this->client->request('GET', $this->url('/m/contact/fields'));
-        self::assertCount(0, $fields->filter('a[href$="/' . $birthday . '/numbering"]'), 'no link on a date');
+        self::assertNotContains($birthday, $this->fieldsOfferingNumbering(ContactModule::KEY), 'no link on a date');
 
         $this->client->request('GET', $this->url('/m/contact/fields/' . $birthday . '/numbering'));
         self::assertResponseStatusCodeSame(404);
@@ -341,10 +343,9 @@ final class FieldNumberingTest extends WebTestCase
         $this->aContact('Acme AG');
         $this->aContact('Bertha GmbH');
 
-        $fields = $this->client->request('GET', $this->url('/m/contact/fields'));
-        self::assertCount(
-            1,
-            $fields->filter('a[href$="/' . $reference . '/numbering"]'),
+        self::assertContains(
+            $reference,
+            $this->fieldsOfferingNumbering(ContactModule::KEY),
             'the link is on a text field with no numbering',
         );
 
@@ -650,6 +651,55 @@ final class FieldNumberingTest extends WebTestCase
     }
 
     /** The page a customer opens, for the parts that are not the component. */
+    /**
+     * Which of a module's own fields offer the numbering page, read off the
+     * pages themselves.
+     *
+     * One request per field, which is what a page-per-field editor costs a test
+     * that wants to say "and no others" ([XIV-163]). Worth it: the alternative
+     * is asserting on one field and trusting the rest, and the defect this
+     * guards against is precisely a link appearing somewhere nobody looked.
+     *
+     * @return list<int>
+     */
+    private function fieldsOfferingNumbering(string $module): array
+    {
+        $shape = $this->inTenant(
+            fn (): int => (int) self::service(MetadataRepository::class)->get($module)->getId(),
+        );
+
+        $offering = [];
+
+        foreach ($this->fieldIdsIn($module, $shape) as $id) {
+            $page = $this->client->request('GET', $this->url(sprintf('/m/%s/fields/%d', $module, $id)));
+
+            if ($page->filter('a[href$="/numbering"]')->count() > 0) {
+                $offering[] = $id;
+            }
+        }
+
+        return $offering;
+    }
+
+    /**
+     * The ids of a shape's fields, taken from the page that lists them rather
+     * than from the definitions.
+     *
+     * @return list<int>
+     */
+    private function fieldIdsIn(string $module, int $shape): array
+    {
+        $links = $this->client
+            ->request('GET', $this->url(sprintf('/m/%s/fields/%d/edit', $module, $shape)))
+            ->filter('tbody a[href*="/fields/"]')
+            ->extract(['href']);
+
+        return array_values(array_map(
+            static fn (string $href): int => (int) substr($href, (int) strrpos($href, '/') + 1),
+            $links,
+        ));
+    }
+
     private function numberingPage(): Crawler
     {
         return $this->client->request(

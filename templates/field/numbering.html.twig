@@ -22,7 +22,7 @@
 					{{ module.label }} · <code>{{ field.key }}</code>
 				</p>
 			</div>
-			<a class="btn btn-link" href="{{ path('field_index', {module: module.key}) }}">{{ 'common.fields'|trans }}</a>
+			<a class="btn btn-link" href="{{ path('field_edit', {module: module.key, field: field.id}) }}">{{ 'field.edit.back_to_field'|trans }}</a>
 		</div>
 
 		{#

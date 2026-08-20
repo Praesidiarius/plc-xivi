@@ -337,6 +337,58 @@ module:
         removed: tolta
 
 field:
+    intro: 'La tua copia di %module%. Le modifiche riguardano solo questo cliente e hanno effetto subito.'
+    key_help: 'Il nome è il posto in cui il valore viene salvato e non si può più cambiare; l’etichetta sì.'
+    max_length: 'Al massimo lungo'
+    max_length_default: 'Secondo il tipo'
+    min: 'Valore minimo'
+    max: 'Valore massimo'
+    bound_none: 'Nessun limite'
+    option_list: Opzioni
+    sections_back: 'Torna alla disposizione'
+    doors:
+        add: 'Aggiungi un campo'
+        add_help: 'Prima si chiede il tipo di campo, poi il modulo chiede solo ciò di cui quel tipo ha bisogno.'
+        edit: 'Modifica un campo (%count%)'
+        edit_help: 'Scegline uno dall’elenco. Il suo modulo porta le impostazioni del suo tipo e nessun’altra.'
+        arrange: 'Disponi il modulo'
+        arrange_help: 'Ordine, larghezze, intestazioni e quali campi mostra l’elenco.'
+        arrange_help_rows: 'Ordine, larghezze e quali campi mostra l’elenco.'
+        unfinished: '%count% da configurare'
+    types:
+        title: 'Che tipo di campo?'
+        intro: 'Il tipo decide che cos’altro c’è da chiedere, perciò viene per primo. Il nuovo campo va in “%shape%”.'
+        asks: 'Chiede:'
+    add:
+        title: 'Nuovo campo %type%'
+        intro: 'Entra in “%shape%” ed è subito sul modulo di inserimento.'
+        back: 'Torna ai tipi di campo'
+        settings: 'Che cosa si può dire a un campo %type%'
+    list:
+        title: 'Campi di “%shape%”'
+        intro: 'Scegline uno per cambiare che cos’è. Dove stanno i campi si decide insieme, sulla pagina della disposizione.'
+    edit:
+        title: 'Campo “%field%”'
+        back: 'Torna ai campi'
+        back_to_field: 'Torna al campo'
+        module_field: 'è arrivato con il modulo'
+        fixed: >-
+            Il nome e il tipo di campo non si possono cambiare. Il nome è il posto in cui ogni
+            valore è salvato, un altro nome li lascerebbe tutti orfani; e nessun tipo di campo sa
+            affidare i suoi valori salvati a un altro.
+        unfinished: >-
+            Questo tipo di campo non fa nulla finché una delle impostazioni qui sotto non è
+            compilata. Questo campo è nato prima che ciò venisse rifiutato: viene disegnato,
+            salvato e convalidato, e non offre nulla.
+        settings: 'Che cosa si può dire a un campo %type%'
+        arranged_elsewhere: 'Dove sta questo campo, quanto è largo, sotto quale intestazione si trova e se l’elenco lo mostra si decidono insieme agli altri campi:'
+    arrange:
+        title: 'Disponi “%shape%”'
+        intro: 'Dove sta ogni campo nel modulo, quanto è largo, sotto quale intestazione si trova e se l’elenco lo mostra.'
+        note: >-
+            L’ordine è tuo e non si ricava da nulla: lascia salti di dieci e scrivi 15 per infilare
+            qualcosa tra due campi. Una larghezza “secondo il tipo” segue ciò che quel tipo di
+            campo di solito vuole, e continua a seguirlo.
     picker_truncated: 'Mostrati i primi %shown% di %total%. Restringi l’elenco o cerca nell’altro modulo.'
     label: Etichetta
     label_placeholder: Numero IVA
@@ -351,11 +403,9 @@ field:
     region: Paese
     region_default: Quello di questa installazione
     points_at: Punta a
-    points_at_label: 'Punta a (campi di riferimento)'
     exclusive_within: 'Esclusivo entro'
     exclusive_within_none: 'Può sovrapporsi'
     takes_from: Prende i valori da
-    takes_from_label: 'Prende i valori da (campi a scelta)'
     takes_from_own: Le sue opzioni
     unfinished: da configurare
     back_to: Torna a %module%
@@ -1103,6 +1153,8 @@ mail:
     attachment_failed: 'Nulla è stato inviato, perché il documento non si è potuto allegare. %reason%'
 
 flash:
+    fields_arranged: Il modulo è stato ridisposto.
+    type_not_addable: 'Non c’è nessun tipo di campo “%type%” da aggiungere qui.'
     saved: Salvato.
     list_created: 'Creata “%list%”. Aggiungi le sue voci qui sotto.'
     list_saved: 'Salvata “%list%”.'

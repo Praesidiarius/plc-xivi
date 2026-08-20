@@ -1,0 +1,92 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'field.list.title'|trans({'%shape%': shape.label}) }}{% endblock %}
+
+{#
+	The second door: which field ([XIV-163]).
+
+	A table with nothing to fill in, which is the whole point of splitting it
+	from the form. What is on a row is what tells somebody which row they want:
+	the key their values are stored under, the label they read, the type, and
+	whether the field is one of the ones that needs setting up. Everything that
+	can be *changed* is one click further in, on a form drawn for that field's
+	own type.
+
+	The old combined table put a dozen controls on every row and drew each of
+	them for every field whether or not it meant anything there. Nothing here
+	replaces that: the controls did not move to another table, they moved to a
+	form per field, and this page is the index to those forms.
+#}
+{% block body %}
+	{{ include('_topbar.html.twig') }}
+
+	<main class="container page-shell">
+		{{ include('_flashes.html.twig') }}
+
+		<div class="d-flex align-items-center justify-content-between mb-3">
+			<div>
+				<h1 class="h3 mb-0">{{ 'field.list.title'|trans({'%shape%': shape.label}) }}</h1>
+				<p class="text-body-secondary small mb-0">{{ 'field.list.intro'|trans }}</p>
+			</div>
+			<div class="d-flex align-items-center gap-2">
+				<a class="btn btn-sm btn-primary" href="{{ path('field_types', {module: module.key, shape: shape.id}) }}">{{ 'field.doors.add'|trans }}</a>
+				<a class="btn btn-link" href="{{ path('field_index', {module: module.key}) }}">{{ 'field.options.back'|trans }}</a>
+			</div>
+		</div>
+
+		<div class="card">
+			<div class="card-body">
+				<div class="table-responsive">
+					<table class="table table-sm align-middle mb-0">
+						<thead>
+							<tr>
+								<th scope="col" class="text-body-secondary small text-uppercase">{{ 'common.name'|trans }}</th>
+								<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.label'|trans }}</th>
+								<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.type'|trans }}</th>
+								<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.rules'|trans }}</th>
+								<th scope="col"></th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for field in shape.fields %}
+								<tr>
+									<td><code>{{ field.key }}</code></td>
+									<td>{{ field.label }}</td>
+									<td class="text-body-secondary">{{ types[field.type].label|default(field.type) }}</td>
+									<td class="text-body-secondary small text-nowrap">
+										{% set rules = [] %}
+										{% if field.required %}{% set rules = rules|merge(['field.rule_required'|trans]) %}{% endif %}
+										{% if field.unique %}{% set rules = rules|merge(['field.rule_unique'|trans]) %}{% endif %}
+										{% if field.filterable %}{% set rules = rules|merge(['field.rule_filterable'|trans]) %}{% endif %}
+										{% if field.listed %}{% set rules = rules|merge(['field.rule_listed'|trans]) %}{% endif %}
+										{% if field.title %}{% set rules = rules|merge(['field.rule_title'|trans]) %}{% endif %}
+										{{ rules|join(', ') }}
+									</td>
+									<td class="text-end text-nowrap">
+										{#
+											Drawn, saved, validated and useless (XIV-144): a choice field
+											with no options accepts anything and offers nothing, a
+											reference with no target names no record. Nothing added now
+											can reach that state, so what this marks is a field older
+											than the rule. Said out loud rather than left to be
+											discovered, which is §8.3.1's whole argument.
+										#}
+										{% if field.id in unfinished %}
+											<span class="badge text-bg-warning">{{ 'field.unfinished'|trans }}</span>
+										{% endif %}
+										{% if field.system %}
+											{# Came with the module; removing it is §7.2's other half. #}
+											<span class="text-body-secondary small me-2">module field</span>
+										{% endif %}
+										<a class="btn btn-sm btn-outline-secondary"
+										   href="{{ path('field_edit', {module: module.key, field: field.id}) }}">{{ 'common.edit'|trans }}</a>
+									</td>
+								</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	</main>
+{% endblock %}

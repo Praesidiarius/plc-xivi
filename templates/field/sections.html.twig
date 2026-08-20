@@ -27,7 +27,7 @@
 				<h1 class="h3 mb-0">{{ 'field.sections.title'|trans({'%module%': module.label}) }}</h1>
 				<p class="text-body-secondary small mb-0">{{ 'field.sections.intro'|trans }}</p>
 			</div>
-			<a class="btn btn-link" href="{{ path('field_index', {module: module.key}) }}">{{ 'field.options.back'|trans }}</a>
+			<a class="btn btn-link" href="{{ path('field_arrange', {module: module.key, shape: module.id}) }}">{{ 'field.sections_back'|trans }}</a>
 		</div>
 
 		<form method="post" action="{{ path('field_sections_save', {module: module.key}) }}">

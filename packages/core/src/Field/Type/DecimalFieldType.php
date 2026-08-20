@@ -16,7 +16,7 @@ namespace Xivi\Core\Field\Type;
 use Symfony\Component\Form\Extension\Core\Type\NumberType;
 use Symfony\Component\Validator\Constraints as Assert;
 use Xivi\Core\Entity\FieldDefinition;
-use Xivi\Core\Field\FieldType;
+use Xivi\Core\Field\BoundsItsValues;
 use Xivi\Core\Query\Operator;
 
 /**
@@ -38,7 +38,7 @@ use Xivi\Core\Query\Operator;
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
-final class DecimalFieldType implements FieldType
+final class DecimalFieldType implements BoundsItsValues
 {
     public const string SCALE = 'scale';
 

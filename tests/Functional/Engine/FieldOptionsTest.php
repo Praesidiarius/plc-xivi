@@ -271,6 +271,12 @@ final class FieldOptionsTest extends WebTestCase
     /**
      * Saves a field through the editor's own form, changing its label.
      *
+     * Since [XIV-163] that form is the field's own page rather than a row in a
+     * table of every field, which is where XIV-26's rule is now easiest to break
+     * and therefore where it has to be proved: the form draws what this field's
+     * type declares and nothing else, so everything below is a setting some
+     * *other* form knows about and this one must leave alone.
+     *
      * @param array<string, string> $settings anything else the form draws
      */
     private function rename(
@@ -282,8 +288,8 @@ final class FieldOptionsTest extends WebTestCase
     ): void {
         $id = $this->fieldOf($module, $field, $collection)->getId();
 
-        $crawler = $this->client->request('GET', $this->url('/m/' . $module . '/fields'));
-        $form = $crawler->filter('form[action$="/fields/' . $id . '"]')->form();
+        $crawler = $this->client->request('GET', $this->url(sprintf('/m/%s/fields/%d', $module, $id)));
+        $form = $crawler->selectButton('Save')->form();
         $form['label'] = $label;
 
         foreach ($settings as $name => $value) {

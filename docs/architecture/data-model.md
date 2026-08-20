@@ -94,7 +94,17 @@ whenever the tenant context moves, and writers empty it too. There is
 deliberately no tenant key, because keying would make keeping entries across a
 switch look safe, and that is the hazard.
 
-Admin-only; edits any shape. **The refusals are the feature:**
+Admin-only; edits any shape. **Three doors, not one page** (XIV-163): add a
+field, edit a field, arrange the form, one set per shape. Adding asks the
+*type* first, from the registry, then draws that type's own options and nothing
+else. Editing lists the shape's fields and draws the same per-type form for
+one. Arranging is order, width, section and `listed` for every field at once,
+and is where section management is reached. One form carrying every type's
+options is the shape XIV-144 fought, so the combined form is deleted rather
+than kept beside these: two editors drift with every option added after today.
+**The doors are presentation, and the refusals never were.**
+
+**The refusals are the feature:**
 
 - no type change (§7.2; XIV-146 builds the conversion), and no key change;
 - the editor refuses a rule existing records would fail, counting first and
@@ -105,10 +115,16 @@ Admin-only; edits any shape. **The refusals are the feature:**
 
 **A type declares which options are the customer's to set**: one
 option-to-capability list, resolved against the registry, where a new option
-costs an interface, a line in the list and a control. `needs()` is a list of
+costs an interface, a line in the list and a control. **The list has no
+exceptions since XIV-163**, which promoted `max_length`, `min` and `max` out
+of a second list drawn for every field: a form per type makes "the options this
+type declares" the whole content of a form, so a setting outside the
+declarations would have to be on every form or on none. `needs()` is a list of
 questions, each with its answering options, and every way of answering must be
-drawable. `EditorConfiguresEveryTypeTest` asserts the comparison over the
-container's registry and plants a violation.
+drawable **on that type's own add form**, where it is asked rather than refused
+after submit. `EditorConfiguresEveryTypeTest` asserts the comparison over the
+container's registry, opens every type's form to see the controls are really
+there, and plants a violation.
 
 - **A module's own `choice` field: add and rename options, never remove.**
   Variants and lifecycle states are options, and nothing records which options
@@ -135,9 +151,10 @@ collapsing, blueprint-declared sections, conditional visibility.
 
 Also here: **numbering is a page of its own** (§5.10). A field can be the
 record's **title** (a flag; the required-order guess is only the fallback). A
-field can be **listed** or not, a UI hint. **Removing a field keeps the
-values**, reversible by construction; purge is a separate explicit operation
-that does not exist yet, so the UI says "hide".
+field can be **listed** or not, a UI hint, set on the arrange page with the
+rest of what is cross-field. **Removing a field keeps the values**, reversible
+by construction; purge is a separate explicit operation that does not exist
+yet, so the UI says "hide".
 
 ### 5.5 Variants: one shape, more than one kind of record
 

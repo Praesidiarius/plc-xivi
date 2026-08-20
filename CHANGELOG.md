@@ -73,6 +73,27 @@ always lands in `Unreleased` here.
 
 ## [Unreleased]
 
+- **The field editor asks the type first, and is three pages instead of one**
+  ([XIV-163], §5.4). Clicking **Fields** on a module now offers a choice per
+  shape: add a field, edit one, or arrange the form. Adding asks which kind of
+  field before anything else and then shows only that kind's settings, so a
+  choice field's options and a reference's target are asked on the form rather
+  than refused after it. Editing lists the shape's fields and gives each one a
+  form of its own. Order, width, section and "on list" are decided together on
+  the arrange page, which is also where sections are managed from.
+- **You will have to relearn where two things are** ([XIV-163]). The single
+  table with every field and every control on it is **gone**, and no URL still
+  renders it: a link or bookmark to `/m/<module>/fields` now lands on the three
+  doors. Whether a field is a column in the list has moved off the add form to
+  the arrange page, so a field added today arrives off the list and joins it in
+  a second, deliberate step. Every refusal is unchanged and still enforced by
+  the engine rather than by a page.
+- **A maximum length, a smallest and a largest are now drawn where they mean
+  something** ([XIV-163], §5.4): they used to be settings the editor kept in a
+  list of its own and offered for every field there is. They are declared by the
+  field type like every other setting now, so `max_length` appears on text
+  fields and `min`/`max` on number fields, and on nothing else.
+
 - **The architecture brief is a summary again** ([XIV-159]): §4 to §8 and the
   entry file were distilled from ~12,500 lines to ~2,700 and unslopped. Every
   section number and every rule survives at its old address; the issue-by-issue
@@ -147,6 +168,7 @@ always lands in `Unreleased` here.
 [XIV-160]: https://xivi.youtrack.cloud/issue/XIV-160
 [XIV-161]: https://xivi.youtrack.cloud/issue/XIV-161
 [XIV-162]: https://xivi.youtrack.cloud/issue/XIV-162
+[XIV-163]: https://xivi.youtrack.cloud/issue/XIV-163
 
 
 ## Releases

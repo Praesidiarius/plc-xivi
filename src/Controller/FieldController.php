@@ -28,10 +28,12 @@ use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\AssumesACountry;
 use Xivi\Core\Field\Autocomplete;
 use Xivi\Core\Field\Autocompletes;
+use Xivi\Core\Field\BoundsItsValues;
 use Xivi\Core\Field\Enumerates;
 use Xivi\Core\Field\ExcludesOverlaps;
 use Xivi\Core\Field\FieldType;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Field\LimitsItsLength;
 use Xivi\Core\Field\NeedsAnAnswer;
 use Xivi\Core\Field\Numbers;
 use Xivi\Core\Field\PointsAtAList;
@@ -67,6 +69,47 @@ use Xivi\Core\ValueList\ValueLists;
  * It edits any shape, so a collection's fields are editable exactly like a
  * module's — the same reason there is one record repository (§5.1).
  *
+ * **Three doors rather than one page** ([XIV-163]). Until this ticket the whole
+ * editor was a single table with every control on it: every field of every
+ * shape, every setting of every type, the order, the widths and the add form,
+ * all at once. Two things were wrong with that and only one of them was
+ * cosmetic. The cosmetic one is that the commonest act by far, adding one field,
+ * happens on a page mostly occupied by the fields somebody already has. The
+ * other is the shape XIV-144 fought and lost ground to again: **one form has to
+ * carry every type's options at once**, so it draws a country beside a date and
+ * a maximum length beside a reference, and the only defence against that is
+ * `{% if %}`s nobody can read in a template nobody wants to open. A form that
+ * offers what it cannot configure is the defect; a form that offers what the
+ * field cannot use is the same defect wearing a hat.
+ *
+ * So the page a customer lands on offers three, and each of them asks one
+ * question:
+ *
+ *  * **add a field**, which asks the *type* first, from a list built out of the
+ *    registry so that a type registered tomorrow appears with no change here,
+ *    and then draws a form of that type's own options and nothing else;
+ *  * **edit a field**, which lists the shape's fields and then draws, again,
+ *    only what that field's type declares;
+ *  * **arrange the form**, which is where the cross-field concerns live: the
+ *    order, the widths, which heading each field sits under and which fields the
+ *    list shows. Those are facts about the form as a whole rather than about any
+ *    one field, which is why they were the part of the old table that actually
+ *    worked.
+ *
+ * **The old combined form is gone rather than kept beside this**, and no route
+ * renders it. Two editors for one thing drift apart with every option added
+ * after today, and the drift is silent: both pages keep working, one of them
+ * quietly stops offering something. That is the same argument that produced
+ * {@see self::PER_TYPE}, applied one level up.
+ *
+ * **The refusals did not move and must not.** Every rule §5.4 lists is enforced
+ * by {@see MetadataEditor}, on the write path, where the console and the
+ * importer meet it too: no type change, no key change, a rule counted against
+ * existing records before it is applied, a module's own fields protected, an
+ * option a record holds, a populated reference's target. What changed here
+ * is which page asks the question. A refusal that moved into a controller would
+ * be a refusal the importer no longer has.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 #[Route('/m/{module}/fields', requirements: ['module' => '[a-z][a-z0-9_]*'])]
@@ -79,25 +122,12 @@ use Xivi\Core\ValueList\ValueLists;
 final class FieldController extends AbstractController
 {
     /**
-     * The settings this form draws, and therefore the only ones it may change.
-     *
-     * A short list on purpose: everything else a field carries is declared by
-     * its module and has no control here (XIV-26). These three are drawn for
-     * every field whether or not they mean anything on it, which is what makes
-     * them different from the per-type settings below — the better question
-     * §5.4 asked, and the one PER_TYPE answers.
-     */
-    private const array SETTINGS = ['max_length', 'min', 'max'];
-
-    /**
      * The settings whose control depends on the field's *type*, and what
      * declares each (XIV-36, XIV-27).
      *
-     * Everything in SETTINGS above is a number and is drawn for every field
-     * whether or not it means anything there. These are not: a `text` field has
-     * nothing to autocomplete against and a `date` cannot be a document number,
-     * and a control that does nothing is worse than an absent one — somebody
-     * fills it in and waits for something to happen.
+     * A `text` field has nothing to autocomplete against and a `date` cannot be
+     * a document number, and a control that does nothing is worse than an absent
+     * one: somebody fills it in and waits for something to happen.
      *
      * So the *type* is asked, by implementing a capability interface. XIV-36
      * introduced that with a single `instanceof` and said in as many words that
@@ -173,7 +203,48 @@ final class FieldController extends AbstractController
         // know which *shape* it is being drawn on, since the answer is a field
         // beside it rather than a value from a fixed list.
         ExclusiveWithin::OPTION => ExcludesOverlaps::class,
+        // The eighth and ninth, and the first two that were already here
+        // ([XIV-163]). `max_length`, `min` and `max` used to live in a second
+        // list of this class's own and were drawn for every field there is, on
+        // the argument that a number is harmless where it means nothing. Giving
+        // each type a form of its own is what made that untenable: "the options
+        // this type declares" is the whole content of such a form, so a setting
+        // outside the declarations would have to be drawn on every one of them
+        // or on none. Promoting them cost what the third one cost, twice: an
+        // interface, a line here and a control in a template.
+        //
+        // Note that `min` and `max` are two options keyed to one capability,
+        // which this list could always express and had never needed to. A type
+        // that can be bounded below can be bounded above, so two interfaces
+        // would be two interfaces always declared together.
+        LimitsItsLength::OPTION => LimitsItsLength::class,
+        BoundsItsValues::MIN => BoundsItsValues::class,
+        BoundsItsValues::MAX => BoundsItsValues::class,
     ];
+
+    /**
+     * The options whose control is a page rather than a box on a form
+     * (XIV-27, XIV-144).
+     *
+     * Two of the declarations above name something too big to be a row in a
+     * form: a numbering pattern needs the number it would produce shown beside
+     * it as somebody types, and a choice field's list of options is a row each,
+     * with a rename that must not move a record and a removal that may be
+     * refused with a paragraph. Both already had their page before [XIV-163],
+     * and both keep it.
+     *
+     * So the per-field form draws neither and links to both, which is what this
+     * list is for. **The add form is the exception, and only for the options**:
+     * a page belonging to a field cannot be reached before the field exists, and
+     * the engine refuses to write a `choice` field with nothing to choose
+     * between, so the one place that must ask for the list up front is the one
+     * where the field is being made. Numbering has no such problem, because a
+     * field with no pattern is an ordinary text field and a perfectly good thing
+     * to have just made.
+     *
+     * @var list<string>
+     */
+    private const array OWN_PAGE = [NumberFormat::OPTION, ChoiceFieldType::CHOICES];
 
     public function __construct(
         private readonly MetadataRepository $metadata,
@@ -189,66 +260,38 @@ final class FieldController extends AbstractController
     ) {
     }
 
+    /**
+     * The three doors, one set per shape ([XIV-163]).
+     *
+     * What used to be the whole editor is now a page that asks which of three
+     * things somebody came to do, and the argument for each of them is on the
+     * class above. The only thing decided *here* is that the choice is offered
+     * per shape rather than once: a module and its collections are separate
+     * shapes with separate fields (§5.1), so "add a field" has to know which one
+     * before it can ask anything else, and asking that on a fourth page would be
+     * a page whose only content is a question somebody has already answered by
+     * looking at the module they are in.
+     *
+     * The shape's own name stays editable here, because it is the one thing
+     * about a shape that is not about its fields at all (XIV-8) and there is
+     * nowhere else it belongs.
+     */
     #[Route('', name: 'field_index', methods: ['GET'])]
-    public function index(string $module, Request $request): Response
+    public function index(string $module): Response
     {
         $definition = $this->definition($module);
 
         return $this->render('field/index.html.twig', [
             'module' => $definition,
             'shapes' => self::shapesOf($definition),
-            // Every registered type, because this is what the *table* names a
-            // field's type from and a field of a type this editor cannot
-            // configure still has to say what it is.
-            'types' => $this->fieldTypes->all(),
-            // What may be *added*, which since XIV-144 is not the same list. A
-            // type whose needs this form draws no control for cannot be
-            // configured here, so offering it would be offering a field that
-            // cannot be finished — the defect this ticket is named after.
-            'addable' => $this->addableTypes(),
-            // Which types offer which per-type control, as lists of type keys
-            // (XIV-36, XIV-27). Resolved here rather than in the template
-            // because Twig has no `instanceof`, and giving it one so a page
-            // could ask what a service implements would be a worse answer than
-            // a list of strings.
-            'settable' => $this->settableByType(),
-            'autocompleteChoices' => Autocomplete::settable(),
-            // Every country there is, named in the language being read (XIV-114).
-            // From symfony/intl rather than a list kept here, for the reason the
-            // currency and timezone pickers give: a copy of the country list
-            // maintained by hand is a copy that is wrong.
-            'regionChoices' => Countries::getNames($request->getLocale()),
-            // And every module this customer has, for the one option whose
-            // answer is another module (XIV-144). Their own labels rather than
-            // the blueprints' — §6.1 says the installed definition is the truth,
-            // and a customer who renamed Contacts to Kunden should be choosing
-            // "Kunden" here.
-            'moduleChoices' => $this->installedModules(),
-            // And every shared list this customer keeps, for the option whose
-            // answer names one (XIV-127). Blank is a real answer here and not a
-            // broken field — it means the field keeps its own options, which is
-            // what every `choice` field in every tenant does today.
-            'listChoices' => $this->lists->asChoices(),
             // Which fields are drawn, saved, validated and useless: a choice
             // field with no options, a reference with nothing to point at
             // (XIV-144). Nothing new can reach this state — the engine refuses
             // it — so what this marks is a field that predates the rule or one a
             // module wrote itself, and it is marked rather than left because
-            // §8.3.1's whole argument is that silence is the worse failure.
-            // The headings this customer has made, for the one select on the row
-            // that says which of them a field is drawn under (XIV-119). On the
-            // module's own shape only: a collection's rows are a table, and a
-            // heading in the middle of a table row is nothing at all.
-            'sections' => $definition->getSections(),
+            // §8.3.1's whole argument is that silence is the worse failure. A
+            // count on the door here, and the fields themselves behind it.
             'unfinished' => $this->unfinishedIn($definition),
-            // And which *fields* are actually numbered, which the type cannot
-            // answer: the link to the numbering page appears on those, and the
-            // page itself refuses everything else on the same test.
-            'numbered' => $this->numberedIn($definition),
-            // And which could be, which is XIV-91's whole addition to this page:
-            // the link now appears on a plain text field too, and says something
-            // different when it does.
-            'numberable' => $this->numberableIn($definition),
             // How many things this module's blueprint has grown that this
             // customer has not got (XIV-70). A count and not the list, because
             // this page is not where the offer is read — it is where somebody
@@ -256,6 +299,96 @@ final class FieldController extends AbstractController
             // read. The offer itself, with the argument for each one and the
             // dismissed ones beside it, is ModuleUpgradeController's.
             'additions' => \count($this->upgrade->available($definition)),
+        ]);
+    }
+
+    /**
+     * The first door: which kind of field, asked before anything else
+     * ([XIV-163]).
+     *
+     * **The type is the question every other question depends on**, which is why
+     * it is asked on a page of its own rather than in a select in the middle of
+     * a form. What a `choice` field needs and what a `phone` field offers have
+     * nothing in common, so a single form asking for a key, a label, a type and
+     * then every option any type might want is a form that is mostly wrong
+     * whatever gets chosen. Asked first, the type decides what the next page
+     * contains.
+     *
+     * Built from the registry through {@see self::addableTypes()}, so a type
+     * registered tomorrow is offered here with nothing changed in this class,
+     * and a type whose questions this editor cannot ask is not offered at all,
+     * which is XIV-144's rule and is now the thing deciding what this page
+     * lists.
+     */
+    #[Route('/{shape}/add', name: 'field_types', requirements: ['shape' => Requirement::POSITIVE_INT], methods: ['GET'])]
+    public function types(string $module, int $shape): Response
+    {
+        $definition = $this->definition($module);
+        $target = $this->shape($definition, $shape);
+        $addable = $this->addableTypes();
+
+        return $this->render('field/types.html.twig', [
+            'module' => $definition,
+            'shape' => $target,
+            'addable' => $addable,
+            // What each type will be asked about, so that the choice is made
+            // knowing it. Through {@see self::drawnFor()} rather than through
+            // the declarations directly, so this is the next page's contents
+            // exactly: a hint promising a control that page does not draw would
+            // be worse than no hint, and naming numbering here would promise one
+            // that is deliberately somewhere else.
+            'settings' => array_map(
+                static fn (FieldType $type): array => self::drawnFor($type, $target, adding: true),
+                $addable,
+            ),
+        ]);
+    }
+
+    /**
+     * The second half of the first door: this type's own options, and no others.
+     *
+     * Everything on this form is either true of every field there is, the key,
+     * the label and the rules, or declared by the type being added
+     * ({@see self::drawnFor()}). Nothing else is drawn, which makes XIV-26's rule
+     * that a form does not touch what it does not mention cost nothing to keep:
+     * the form mentions exactly what the type says it has.
+     *
+     * **A type's {@see NeedsAnAnswer} questions are asked here**, and that is
+     * the difference this ticket makes rather than a detail of layout. The
+     * engine refuses a `choice` field with nothing to choose between and a
+     * `reference` pointing nowhere, on the write path where the console and the
+     * importer meet the same rule (§5.4). Before [XIV-163] the only place that
+     * asked was a pair of boxes at the bottom of the combined form, drawn for
+     * every add whatever type was chosen and labelled with the type they were
+     * for, so the ordinary way to meet those refusals was to submit and be
+     * told. Asking on the form for the type that needs them does not weaken the
+     * refusal by one line; it stops the refusal being the first anybody hears of
+     * the requirement.
+     */
+    #[Route('/{shape}/add/{type}', name: 'field_add_form', requirements: ['shape' => Requirement::POSITIVE_INT, 'type' => '[a-z][a-z0-9_]*'], methods: ['GET'])]
+    public function addForm(string $module, int $shape, string $type, Request $request): Response
+    {
+        $definition = $this->definition($module);
+        $target = $this->shape($definition, $shape);
+        $addable = $this->addableTypes();
+
+        if (!isset($addable[$type])) {
+            // Either a type that does not exist or one whose questions this
+            // editor cannot ask, and both deserve the same answer: the list this
+            // page is reached from does not contain it, so arriving here means a
+            // typed URL or a link that has gone stale. Back to that list rather
+            // than a 404, because the list is what says which answers are honest.
+            $this->addFlash('warning', $this->translator->trans('flash.type_not_addable', ['%type%' => $type]));
+
+            return $this->redirectToRoute('field_types', ['module' => $module, 'shape' => $shape]);
+        }
+
+        return $this->render('field/add.html.twig', [
+            'module' => $definition,
+            'shape' => $target,
+            'type' => $type,
+            'fieldType' => $addable[$type],
+            ...$this->controlsFor($addable[$type], $target, adding: true, request: $request),
         ]);
     }
 
@@ -773,46 +906,134 @@ final class FieldController extends AbstractController
         return $this->redirectToRoute('field_index', ['module' => $module]);
     }
 
-    #[Route('/add', name: 'field_add', methods: ['POST'])]
-    public function add(string $module, Request $request): Response
+    /**
+     * The write behind the first door.
+     *
+     * The shape and the type are in the URL rather than in hidden inputs, which
+     * is not tidiness: they are what decided which controls this form has, so a
+     * post that disagreed with the page it came from would be a post nobody
+     * could reason about. `UnknownFieldType` is still caught, because the URL is
+     * as forgeable as a select was.
+     *
+     * **A refusal goes back to the form for this type**, not to a list. Every
+     * message the engine produces here names something to change, a key that is
+     * not an identifier or a choice field with nothing to choose between, and
+     * the page to change it on is the one that asked.
+     */
+    #[Route('/{shape}/add/{type}', name: 'field_add', requirements: ['shape' => Requirement::POSITIVE_INT, 'type' => '[a-z][a-z0-9_]*'], methods: ['POST'])]
+    public function add(string $module, int $shape, string $type, Request $request): Response
     {
         $definition = $this->definition($module);
+        $target = $this->shape($definition, $shape);
 
         if ($this->isCsrfTokenValid('edit-fields', (string) $request->request->get('_token'))) {
-            $shape = $this->shape($definition, (int) $request->request->get('shape'));
-
             try {
                 $field = $this->editor->addField(
-                    shape: $shape,
+                    shape: $target,
                     key: (string) $request->request->get('key'),
                     label: (string) $request->request->get('label'),
-                    type: (string) $request->request->get('type'),
+                    type: $type,
                     required: $request->request->getBoolean('required'),
                     unique: $request->request->getBoolean('unique'),
                     filterable: $request->request->getBoolean('filterable'),
-                    listed: $request->request->getBoolean('listed'),
+                    // `listed` is not here and not on the form, because since
+                    // [XIV-163] it belongs to the third door with the rest of
+                    // what the *list* and the *form* look like. The engine's
+                    // default is off, which is the answer XIV-26 argued for
+                    // anyway: a field added today should not widen a list
+                    // somebody reads every day until somebody says so.
                     title: $request->request->getBoolean('title'),
                     options: [
-                        ...$this->optionsFrom($request, (string) $request->request->get('type')),
+                        ...$this->optionsFrom($request, $type),
                         // The list a choice field is added with (XIV-144). Here
-                        // and not in optionsFrom() because this is one of the two
-                        // forms that draws it; the row in the table is the one
-                        // that does not, and a form that does not draw a setting
+                        // and not in optionsFrom() because this is the one form
+                        // that draws it; the per-field form links to the options
+                        // page instead, and a form that does not draw a setting
                         // does not name it.
-                        ...$this->choicesFrom($request, (string) $request->request->get('type')),
+                        ...$this->choicesFrom($request, $type),
                     ],
                 );
 
                 $this->addFlash('success', $this->translator->trans('flash.field_added', ['%field%' => $field->getLabel()]));
-                // UnknownFieldType too: the select is built from the registry, so a
-                // type it does not know means a tampered form, which is a message
-                // rather than a stack trace.
+
+                return $this->redirectToRoute('field_list', ['module' => $module, 'shape' => $shape]);
+                // UnknownFieldType too: the URL is built from the registry, so a
+                // type it does not know means a typed or stale one, which is a
+                // message rather than a stack trace.
             } catch (MetadataChangeRefused|UnknownFieldType $e) {
                 $this->addFlash('warning', $e->translatable()->trans($this->translator));
             }
         }
 
-        return $this->redirectToRoute('field_index', ['module' => $module]);
+        return $this->redirectToRoute('field_add_form', ['module' => $module, 'shape' => $shape, 'type' => $type]);
+    }
+
+    /**
+     * The second door: the shape's fields, as a list to choose one from.
+     *
+     * A table of names and types with nothing to fill in, which is the whole
+     * point of splitting it from the form. What is on a row is what tells
+     * somebody which row they want: the key a value is stored under, the label
+     * they read, the type, whether the field is unfinished, and the ways on to
+     * the pages that belong to this field rather than to its type: its options,
+     * its numbering, and removing it.
+     */
+    #[Route('/{shape}/edit', name: 'field_list', requirements: ['shape' => Requirement::POSITIVE_INT], methods: ['GET'])]
+    public function fields(string $module, int $shape): Response
+    {
+        $definition = $this->definition($module);
+
+        return $this->render('field/list.html.twig', [
+            'module' => $definition,
+            'shape' => $this->shape($definition, $shape),
+            // Every registered type, because this is what names a field's type
+            // in the table, and a field of a type this editor cannot configure
+            // still has to say what it is.
+            'types' => $this->fieldTypes->all(),
+            // Which of them are of a type that cannot work until something is
+            // set, with it unset (XIV-144). A badge on the row, because this is
+            // the page somebody scans looking for what needs attention; the
+            // sentence about it is on the field's own form.
+            'unfinished' => $this->unfinishedIn($definition),
+        ]);
+    }
+
+    /**
+     * One field's form: what is true of every field, and what its type declares.
+     *
+     * The same rule as the add form and for the same reason
+     * ({@see self::drawnFor()}), with two differences that come from the field
+     * already existing. Its **key** and its **type** are drawn as text rather
+     * than as controls, because §5.4 refuses to change either and a disabled
+     * control is a worse way of saying so than a sentence. And the two options
+     * that have pages of their own are links here rather than boxes: the field
+     * exists, so its options page and its numbering page can be reached.
+     */
+    #[Route('/{field}', name: 'field_edit', requirements: ['field' => Requirement::POSITIVE_INT], methods: ['GET'])]
+    public function edit(string $module, int $field, Request $request): Response
+    {
+        $definition = $this->definition($module);
+        $target = $this->field($definition, $field);
+        $shape = $target->getShape();
+        // A field whose type nothing registers any more, because a module was
+        // removed or a type renamed. The page still opens, because the label
+        // and the rules
+        // are still editable and the alternative is a customer who cannot get at
+        // their own definition; what it cannot draw is any per-type control,
+        // which drawnFor() answers with an empty list rather than a branch here.
+        $type = $this->fieldTypes->has($target->getType()) ? $this->fieldTypes->get($target->getType()) : null;
+
+        return $this->render('field/edit.html.twig', [
+            'module' => $definition,
+            'shape' => $shape,
+            'field' => $target,
+            'fieldType' => $type,
+            'unfinished' => $this->unfinishedIn($definition),
+            'numbered' => $this->numberedIn($definition),
+            'numberable' => $this->numberableIn($definition),
+            'settable' => $this->settableByType(),
+            ...$this->controlsFor($type, $shape, adding: false, request: $request),
+        ]);
     }
 
     #[Route('/{field}', name: 'field_update', requirements: ['field' => Requirement::POSITIVE_INT], methods: ['POST'])]
@@ -830,14 +1051,19 @@ final class FieldController extends AbstractController
                     required: $request->request->getBoolean('required'),
                     unique: $request->request->getBoolean('unique'),
                     filterable: $request->request->getBoolean('filterable'),
-                    listed: $request->request->getBoolean('listed'),
+                    // The three the third door owns, handed back exactly as they
+                    // are ([XIV-163]). {@see MetadataEditor::updateField()} takes
+                    // the value a field ends up with rather than a change, so a
+                    // page that draws no control for something has to say what it
+                    // already was. Otherwise "the form does not mention it"
+                    // would mean "the form clears it", which is XIV-26's accident
+                    // in the one place that rule was written for.
+                    listed: $target->isListed(),
                     title: $request->request->getBoolean('title'),
                     position: $request->request->getInt('position', $target->getPosition()),
                     options: $this->optionsFrom($request, $target->getType()),
-                    // Blank means "however wide this kind of field usually is"
-                    // (XIV-43), which is a real answer and not a missing one.
-                    width: self::widthFrom($request),
-                    section: self::sectionFrom($request, $target),
+                    width: $target->getWidth(),
+                    section: $target->getSection(),
                 );
 
                 $this->addFlash('success', $this->translator->trans('flash.field_saved', ['%field%' => $target->getLabel()]));
@@ -846,7 +1072,125 @@ final class FieldController extends AbstractController
             }
         }
 
-        return $this->redirectToRoute('field_index', ['module' => $module]);
+        return $this->redirectToRoute('field_edit', ['module' => $module, 'field' => $field]);
+    }
+
+    /**
+     * The third door: the four things that are about the form rather than about
+     * a field ([XIV-163]).
+     *
+     * Order, width, which heading a field sits under and whether the list shows
+     * it. Every one of them is decided by looking at the *other* fields: a
+     * position means nothing except relative to the rest, two half-width fields
+     * share a row, a section is a run of them, and a list column is worth having
+     * only against the columns already there. The old table put these beside the
+     * per-type settings and they were the part of it that worked, because they
+     * are the part that genuinely wants every field visible at once.
+     *
+     * Section management is reached from here rather than from the index
+     * (XIV-119), which is the same argument one step down: a section is made on
+     * its own page, and the page that needs it is this one.
+     */
+    #[Route('/{shape}/arrange', name: 'field_arrange', requirements: ['shape' => Requirement::POSITIVE_INT], methods: ['GET'])]
+    public function arrange(string $module, int $shape): Response
+    {
+        $definition = $this->definition($module);
+        $target = $this->shape($definition, $shape);
+
+        return $this->render('field/arrange.html.twig', [
+            'module' => $definition,
+            'shape' => $target,
+            'types' => $this->fieldTypes->all(),
+            // The headings this customer has made, for the select that says
+            // which of them a field is drawn under (XIV-119). Empty on a
+            // collection, whose rows are a table and where a heading in the
+            // middle of a table row is nothing at all. The template draws no
+            // column there rather than an empty select.
+            'sections' => $target instanceof ModuleDefinition ? $target->getSections() : [],
+        ]);
+    }
+
+    /**
+     * Every field of the shape, saved at once, because the decision was made
+     * across all of them.
+     *
+     * **One `updateField()` per field rather than a bulk write**, which is not
+     * an oversight about round trips. Every refusal §5.4 lists lives in that
+     * method, and a second path into the definitions that skipped them would be
+     * exactly the migration this ticket forbade: the doors are presentation, the
+     * enforcement is the engine's. What this page sends is the four settings it
+     * draws; everything else about each field is handed back as it already is,
+     * for the reason {@see self::update()} gives.
+     *
+     * A refusal is per field and does not stop the rest. Each save is its own
+     * transaction already, so pretending the page is one would mean claiming
+     * something the storage does not do; and the only refusal reachable from
+     * here at all is a section key that was never on the page, which is a posted
+     * form rather than somebody's afternoon.
+     */
+    #[Route('/{shape}/arrange', name: 'field_arrange_save', requirements: ['shape' => Requirement::POSITIVE_INT], methods: ['POST'])]
+    public function saveArrangement(string $module, int $shape, Request $request): Response
+    {
+        $definition = $this->definition($module);
+        $target = $this->shape($definition, $shape);
+
+        if ($this->isCsrfTokenValid('edit-fields', (string) $request->request->get('_token'))) {
+            /** @var array<string, mixed> $positions */
+            $positions = $request->request->all('position');
+            /** @var array<string, mixed> $widths */
+            $widths = $request->request->all('width');
+            /** @var array<string, mixed> $sections */
+            $sections = $request->request->all('section');
+            /** @var array<string, mixed> $listed */
+            $listed = $request->request->all('listed');
+            $refused = false;
+
+            foreach ($target->getFields() as $field) {
+                $id = (string) $field->getId();
+
+                try {
+                    $this->editor->updateField(
+                        field: $field,
+                        label: $field->getLabel(),
+                        required: $field->isRequired(),
+                        unique: $field->isUnique(),
+                        filterable: $field->isFilterable(),
+                        // A checkbox sends nothing when it is unticked, so the
+                        // absence of a field's id here is somebody turning the
+                        // column off. That reading is safe only because this
+                        // form draws a checkbox for every field of the shape,
+                        // which is the whole difference between it and the
+                        // per-field form beside it.
+                        listed: \array_key_exists($id, $listed),
+                        title: $field->isTitle(),
+                        position: isset($positions[$id]) ? (int) $positions[$id] : $field->getPosition(),
+                        // Nothing about the options, so nothing of the options
+                        // changes and none of their guards has anything to judge
+                        // (XIV-26).
+                        options: [],
+                        width: self::widthOf((string) ($widths[$id] ?? '')),
+                        // Absent and empty are read the same way here, unlike on
+                        // the reference target: this form draws the select for
+                        // every field it lists, so an id that is missing is a
+                        // browser that sent an empty select, and empty means "in
+                        // no section", which is a real answer and the common
+                        // one. A collection draws no select at all, and the
+                        // fields of a collection have never had a section to
+                        // lose.
+                        section: self::sectionOf((string) ($sections[$id] ?? '')),
+                    );
+                } catch (MetadataChangeRefused $e) {
+                    $this->addFlash('warning', $e->translatable()->trans($this->translator));
+                    $refused = true;
+                }
+            }
+
+            if (!$refused) {
+                $this->addFlash('success', $this->translator->trans('flash.fields_arranged'));
+            }
+        }
+
+        return $this->redirectToRoute('field_arrange', ['module' => $module, 'shape' => $shape]);
     }
 
     /**
@@ -857,10 +1201,15 @@ final class FieldController extends AbstractController
      * outside 1-12 is nonsense from a hand-edited form and is treated as blank
      * rather than clamped, because a form that quietly turns 40 into 12 tells
      * somebody they got what they asked for.
+     *
+     * Takes the value rather than the request since [XIV-163], because the page
+     * that draws this control now draws one per field and sends them as an array
+     * keyed by field id. The rule about what a width may be is the same rule
+     * wherever it is read from.
      */
-    private static function widthFrom(Request $request): ?int
+    private static function widthOf(string $width): ?int
     {
-        $width = trim((string) $request->request->get('width'));
+        $width = trim($width);
 
         if ($width === '' || !ctype_digit($width)) {
             return null;
@@ -872,29 +1221,20 @@ final class FieldController extends AbstractController
     }
 
     /**
-     * Which heading a field is drawn under, as the row sent it (XIV-119).
+     * Which heading a field is drawn under, as the form sent it (XIV-119).
      *
-     * **Absent and empty are read differently here**, which is the reference
-     * target's rule rather than the width's, and for the reference's reason: the
-     * select is drawn only on a module's own shape, because a collection's rows
-     * are a table and a table row has nowhere for a heading to go. So a request
-     * that does not carry the control at all is a form that never drew one, and
-     * the field keeps whatever it had; a blank that *is* sent is somebody
-     * choosing the empty option, which means "in no section" and is a real
-     * answer.
+     * Blank means "in no section", which is a real answer and the common one: a
+     * field in no section is drawn at the top of the form, exactly where every
+     * field in this product was drawn before sections existed.
      *
      * Nothing is checked against the module's own list here. That check is on
      * the write path, where the console and an import meet it too — and unlike
-     * every other control on this row it is a refusal rather than a shrug, for
-     * the reason {@see MetadataChangeRefused::unknownSection()} gives.
+     * the width above it is a refusal rather than a shrug, for the reason
+     * {@see MetadataChangeRefused::unknownSection()} gives.
      */
-    private static function sectionFrom(Request $request, FieldDefinition $field): ?string
+    private static function sectionOf(string $section): ?string
     {
-        if (!$request->request->has('section')) {
-            return $field->getSection();
-        }
-
-        $section = trim((string) $request->request->get('section', ''));
+        $section = trim($section);
 
         return $section === '' ? null : $section;
     }
@@ -1121,12 +1461,22 @@ final class FieldController extends AbstractController
         if ($this->isCsrfTokenValid('edit-fields', (string) $request->request->get('_token'))) {
             $target = $this->field($definition, $field);
 
+            $shape = $target->getShape();
+
             try {
                 $this->editor->removeField($target);
                 $this->addFlash('success', $this->translator->trans('flash.field_removed', ['%field%' => $target->getLabel()]));
             } catch (MetadataChangeRefused $e) {
                 $this->addFlash('warning', $e->translatable()->trans($this->translator));
+
+                return $this->redirectToRoute('field_edit', ['module' => $module, 'field' => $field]);
             }
+
+            // Back to the list this field was chosen from, which is the page a
+            // removal leaves somebody wanting to look at. Its own form is gone
+            // with it, so there is nowhere else to go. A refusal has somewhere
+            // very specific, which is the field that is still there.
+            return $this->redirectToRoute('field_list', ['module' => $module, 'shape' => $shape->getId()]);
         }
 
         return $this->redirectToRoute('field_index', ['module' => $module]);
@@ -1143,24 +1493,32 @@ final class FieldController extends AbstractController
     }
 
     /**
-     * The per-type settings this form draws, and only those (XIV-26).
+     * The per-type settings the form drew, and only those (XIV-26).
      *
      * **Every one of them is named on every save, cleared ones as null**, and
      * nothing else is named at all. That is the contract MetadataEditor merges
      * on: what the form does not mention it does not touch, so a field's
-     * `choices`, its `module`, what it inherits and how it is numbered all
-     * survive an edit this form has no idea it is next to.
+     * `choices`, what it inherits and how it is numbered all survive an edit
+     * this form has no idea it is next to.
      *
      * Blank means gone rather than absent, so a limit somebody has emptied out
      * really is emptied — a form that could only ever add a setting would be the
      * opposite bug.
      *
-     * The autocomplete setting joins them for the types that offer it (XIV-36),
-     * and is named on exactly the same terms: the select always sends a value,
-     * blank means "decide from the count", and blank therefore clears rather
-     * than leaves alone. A type that does not offer it is not named at all, so a
-     * text field's save says nothing about autocomplete and could not clear one
-     * even if something had put it there.
+     * **Every setting here is asked of the type first**, which since [XIV-163]
+     * has no exceptions. Three of them used to be named unconditionally, so a
+     * date field's save carried a `min`, a `max` and a `max_length`, all null,
+     * all clearing nothing, and all of them a control that would have been drawn
+     * beside a field it means nothing on if anybody had drawn them. They are
+     * declared like everything else now ({@see LimitsItsLength},
+     * {@see BoundsItsValues}), so a type that does not offer one is not asked
+     * about it and cannot have one cleared.
+     *
+     * Reading a control is deliberately per option and always has been: a select
+     * of three fixed answers, a country checked against symfony/intl and a
+     * number that may be blank have nothing in common but the question of which
+     * types may have one. That question is {@see self::PER_TYPE}'s; this is the
+     * answer to "and what did the box say".
      *
      * @return array<string, int|string|null>
      */
@@ -1168,9 +1526,25 @@ final class FieldController extends AbstractController
     {
         $options = [];
 
-        foreach (self::SETTINGS as $option) {
+        foreach ([LimitsItsLength::OPTION, BoundsItsValues::MIN, BoundsItsValues::MAX] as $option) {
+            if (!$this->offers($option, $type)) {
+                continue;
+            }
+
+            // A whole number or nothing. Anything else is a hand-edited form
+            // and reads as "no limit", on the same terms as every other control
+            // here: the honest response to a value the page could not have
+            // produced is to change nothing rather than to store a nonsense the
+            // type will later have to defend itself against.
+            //
+            // Whole numbers only, which is a limitation and an old one: a
+            // module's blueprint may give a currency field a bound of 0.5 and
+            // the type reads it as a float, but this control has cast to int
+            // since it was written and nothing has ever wanted otherwise. What
+            // changed with [XIV-163] is only that a value the box cannot produce
+            // is now left alone instead of being rounded silently.
             $value = trim((string) $request->request->get($option, ''));
-            $options[$option] = $value === '' ? null : (int) $value;
+            $options[$option] = preg_match('/^-?\d+$/', $value) === 1 ? (int) $value : null;
         }
 
         if ($this->offers(Autocomplete::OPTION, $type)) {
@@ -1330,15 +1704,22 @@ final class FieldController extends AbstractController
     }
 
     /**
-     * Whether this form can ask everything a type cannot work without.
+     * Whether the editor can ask everything a type cannot work without.
      *
      * Static and public so that the test can plant a violation against it — a
      * hypothetical type needing something nobody drew — without a container, a
      * tenant or a request. The rule is one line of arithmetic over two
      * declarations that live in different layers: what the type says it needs,
-     * and what {@see self::PER_TYPE} says this form draws for it. A need that is
-     * not in that list, or is in it under a capability this type does not
-     * declare, is a question the editor has no way of asking.
+     * and what {@see self::optionsOf()} says the editor draws for it. A need that
+     * is not among those, because no capability in {@see self::PER_TYPE} is keyed
+     * by it or because this type does not declare the one that is, is a question
+     * the editor has no way of asking.
+     *
+     * Since [XIV-163] "the editor draws it" means "it is on the form for this
+     * type", which is what {@see self::optionsOf()} returns and what the add form
+     * is built from. That is a narrower claim than the old one and a truer one:
+     * before, the list said which types *could* have a control and a template
+     * decided separately whether to draw it.
      */
     public static function configurable(FieldType $type): bool
     {
@@ -1346,11 +1727,11 @@ final class FieldController extends AbstractController
             return true;
         }
 
+        $offered = self::optionsOf($type);
+
         foreach ($type->needs() as $answers) {
             foreach ($answers as $option) {
-                $capability = self::PER_TYPE[$option] ?? null;
-
-                if ($capability === null || !$type instanceof $capability) {
+                if (!\in_array($option, $offered, true)) {
                     // **Every** way of answering, not merely one of them
                     // (XIV-127). A type offering two answers of which the editor
                     // can only ask for one is a type this form can finish, and
@@ -1365,6 +1746,118 @@ final class FieldController extends AbstractController
         }
 
         return true;
+    }
+
+    /**
+     * Every option this type declares, in the order the forms draw them
+     * ([XIV-163]).
+     *
+     * **The whole content of a type's form, decided by the type.** This is
+     * {@see self::PER_TYPE} read from the other end: that list says which
+     * capability owns each option, and this asks one type which of them it has.
+     * Nothing anywhere keeps a per-type list of controls, which is the property
+     * XIV-144 bought and this ticket spends: giving each type a form of its own
+     * is only safe while "what this form contains" is derived rather than
+     * written down.
+     *
+     * Static and pure, so the test that guards the whole arrangement can call it
+     * on a type it invented.
+     *
+     * @return list<string>
+     */
+    public static function optionsOf(FieldType $type): array
+    {
+        $offered = [];
+
+        foreach (self::PER_TYPE as $option => $capability) {
+            if ($type instanceof $capability) {
+                $offered[] = $option;
+            }
+        }
+
+        return $offered;
+    }
+
+    /**
+     * And which of those the form in front of somebody actually draws a box for.
+     *
+     * Two subtractions from {@see self::optionsOf()}, and both are decisions
+     * rather than plumbing:
+     *
+     *  * **the options with pages of their own** ({@see self::OWN_PAGE}) are
+     *    linked rather than drawn, except that a `choice` field's list is drawn
+     *    while the field is being added, because a page belonging to a field
+     *    cannot be opened before the field exists and the engine will not write
+     *    the field without it;
+     *  * **what a period is exclusive within is a module's question**, on the
+     *    same terms `unique` is refused on a collection's field: within one
+     *    parent record and across the whole table are different rules and the
+     *    engine will not guess (§7). The engine refuses it there too; this is the
+     *    control simply not being offered where there is no honest answer.
+     *
+     * @return list<string>
+     */
+    private static function drawnFor(?FieldType $type, ShapeDefinition $shape, bool $adding): array
+    {
+        if ($type === null) {
+            return [];
+        }
+
+        $elsewhere = $adding
+            ? array_diff(self::OWN_PAGE, [ChoiceFieldType::CHOICES])
+            : self::OWN_PAGE;
+
+        return array_values(array_filter(
+            self::optionsOf($type),
+            static fn (string $option): bool => !\in_array($option, $elsewhere, true)
+                && ($option !== ExclusiveWithin::OPTION || $shape instanceof ModuleDefinition),
+        ));
+    }
+
+    /**
+     * Everything a type's form needs in order to draw its own options and
+     * nothing else.
+     *
+     * One method for both forms, because "which controls does this type have"
+     * has one answer and two pages asking it separately is how the two pages
+     * would come to disagree. What differs between them is the `adding` flag
+     * above and nothing else.
+     *
+     * The answer lists are prepared here rather than in the template because
+     * Twig has no `instanceof` and should not grow one so that a page can
+     * interrogate the container. They are cheap and are handed over whether or
+     * not this type draws the control that uses them: a select with no control
+     * to sit in costs an unused variable, and deciding per option which lists to
+     * prepare would be a second per-type list, which is the thing this ticket
+     * exists to stop having.
+     *
+     * @return array<string, mixed>
+     */
+    private function controlsFor(?FieldType $type, ShapeDefinition $shape, bool $adding, Request $request): array
+    {
+        return [
+            'options' => self::drawnFor($type, $shape, $adding),
+            'autocompleteChoices' => Autocomplete::settable(),
+            // Every country there is, named in the language being read (XIV-114).
+            // From symfony/intl rather than a list kept here, for the reason the
+            // currency and timezone pickers give: a copy of the country list
+            // maintained by hand is a copy that is wrong.
+            'regionChoices' => Countries::getNames($request->getLocale()),
+            // And every module this customer has, for the option whose answer is
+            // another module (XIV-144). Their own labels rather than the
+            // blueprints'. §6.1 says the installed definition is the truth, and
+            // a customer who renamed Contacts to Kunden should be choosing
+            // "Kunden" here.
+            'moduleChoices' => $this->installedModules(),
+            // And every shared list this customer keeps, for the option whose
+            // answer names one (XIV-127). Blank is a real answer here and not a
+            // broken field: it means the field keeps its own options, which is
+            // what every `choice` field in every tenant does today.
+            'listChoices' => $this->lists->asChoices(),
+            // And this shape's own fields, for the one option whose answer is a
+            // field beside it rather than a value from a fixed list (XIV-136).
+            'scopeChoices' => $shape->getFields(),
+        ];
     }
 
     /**
