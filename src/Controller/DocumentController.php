@@ -191,6 +191,14 @@ final class DocumentController extends AbstractController
             'record' => $record,
             'templates' => $this->templates->forRecord($definition->getKey(), $definition->variantOf($record->data)),
             'formats' => DocumentFormat::cases(),
+            // What this record's PDF could carry, as ticks (XIV-164). Asked of
+            // the generator, which asks the module: the chooser is one page for
+            // every module there is, and a line in it saying "if this is an
+            // invoice, offer a payment slip" is exactly the module-specific
+            // knowledge §1 keeps out of the engine. Asked for the PDF because
+            // that is the format a decoration can mean anything on; the tick
+            // hides itself when somebody picks the .docx.
+            'decorations' => $this->generator->decorations($definition, $record, DocumentFormat::Pdf),
         ]);
     }
 
@@ -230,7 +238,7 @@ final class DocumentController extends AbstractController
 
         try {
             $document = $wanted === DocumentFormat::Pdf
-                ? $this->generator->pdf($found, $definition, $record)
+                ? $this->generator->pdf($found, $definition, $record, self::decorationsIn($request))
                 : $this->generator->docx($found, $definition, $record);
         } catch (DocumentFailed $e) {
             // Back to the record with the reason, rather than a stack trace: a
@@ -252,6 +260,28 @@ final class DocumentController extends AbstractController
         );
 
         return $response;
+    }
+
+    /**
+     * Which ticks came back ticked (XIV-164).
+     *
+     * Checkbox semantics all the way down: a box somebody unticked submits
+     * nothing at all, so an absent parameter and an empty one mean the same
+     * thing and both mean "no decoration". That is why the default is ticked in
+     * the form rather than assumed here. A URL somebody kept from before this
+     * feature therefore downloads an undecorated invoice, which is the honest
+     * reading of a request that expresses no choice; the choice lives on the
+     * screen where it can be seen.
+     *
+     * Nothing is validated: {@see \Xivi\Core\Document\PdfDecorator::decorate()}
+     * ignores a key it never offered, so a hand-typed one produces a document
+     * rather than an error page about a word nobody has to know exists.
+     *
+     * @return list<string>
+     */
+    private static function decorationsIn(Request $request): array
+    {
+        return array_values(array_filter($request->query->all('decorations'), 'is_string'));
     }
 
     /**

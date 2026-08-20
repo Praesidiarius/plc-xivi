@@ -1025,6 +1025,13 @@ document:
     format_pdf: PDF (pour envoyer)
     format_docx: Word (pour retoucher d’abord)
     download: Télécharger
+    # Ce qu’un module propose d’ajouter à un PDF, et ce que l’historique en dit
+    # ensuite (XIV-164). Par la clé de l’ajout, déclarée dans le code et que
+    # personne ne peut renommer.
+    decoration:
+        payment_part: section paiement QR
+    decoration_on: 'Avec %decoration%'
+    decoration_off: 'Sans %decoration%'
     none_for_record: Aucun modèle ne s’applique encore à cet enregistrement.
     marker:
         tenant_name: Cette entreprise
@@ -1194,6 +1201,11 @@ payment_part:
     skipped_no_currency: 'La facture a été générée sans section paiement QR : choisissez d’abord une monnaie (CHF ou EUR) dans le profil de l’entreprise.'
     skipped_reference: 'La facture a été générée sans section paiement QR : le numéro de facture «%number%» ne peut pas devenir une référence %type%.'
     skipped_invalid: 'La facture a été générée sans section paiement QR : les données de paiement n’ont pas passé la validation. Vérifiez la partie paiement du profil de l’entreprise.'
+    # La case des dialogues document et envoi (XIV-164). Cochée par défaut :
+    # une facture suisse veut normalement une section paiement, s’en passer est
+    # l’exception.
+    include: Joindre la section paiement QR
+    include_help: Le bulletin de versement suisse, en dernière page du PDF. Décochez pour une copie que personne ne doit payer.
 
 follow_up:
     priority:

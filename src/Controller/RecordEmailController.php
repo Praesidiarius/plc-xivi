@@ -26,7 +26,9 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use Xivi\Core\Document\Decoration;
 use Xivi\Core\Document\DocumentFormat;
+use Xivi\Core\Document\DocumentGenerator;
 use Xivi\Core\Document\DocumentTemplateRepository;
 use Xivi\Core\Entity\DocumentTemplate;
 use Xivi\Core\Entity\EmailTemplate;
@@ -133,6 +135,12 @@ final class RecordEmailController extends AbstractController
         private readonly RecordMailer $mailer,
         private readonly DocumentTemplateRepository $documents,
         private readonly DocumentAttachments $attachments,
+        // What the attached document could carry beyond what the template says
+        // (XIV-164). The generator rather than the decorator seam itself: this
+        // controller has no more business knowing that a Swiss invoice wants a
+        // payment slip than the document chooser has, and the generator is
+        // already the one object here that turns records into files.
+        private readonly DocumentGenerator $generator,
         private readonly TranslatorInterface $translator,
     ) {
     }
@@ -151,14 +159,18 @@ final class RecordEmailController extends AbstractController
         $record = $this->recordFor($definition, $id);
         $recipient = $this->recipients->for($definition, $record);
 
+        $attachments = $this->attachableFor($definition, $record);
+        $decorations = $this->decorationsFor($definition, $record, $attachments);
+
         return $this->render('mail/choose.html.twig', [
             'module' => $definition,
             'record' => $record,
             'templates' => $this->templatesFor($definition, $record),
             'recipient' => $recipient,
-            'draft' => self::blank($recipient),
-            'attachments' => $this->attachableFor($definition, $record),
+            'draft' => self::blank($recipient, $decorations),
+            'attachments' => $attachments,
             'formats' => DocumentFormat::cases(),
+            'decorations' => $decorations,
         ]);
     }
 
@@ -295,7 +307,7 @@ final class RecordEmailController extends AbstractController
      * about what is sendable down to the last case — a preview of something that
      * would then be refused is a preview of nothing.
      *
-     * @param array{template: int, subject: string, recipient: string, document: int, format: string} $draft
+     * @param array{template: int, subject: string, recipient: string, document: int, format: string, decorations: list<string>} $draft
      */
     private function problemWith(
         ModuleDefinition $definition,
@@ -335,7 +347,7 @@ final class RecordEmailController extends AbstractController
      * somebody worded carefully is not something to lose to a typo in the
      * address beside it.
      *
-     * @param array{template: int, subject: string, recipient: string, document: int, format: string} $draft
+     * @param array{template: int, subject: string, recipient: string, document: int, format: string, decorations: list<string>} $draft
      */
     private function backToChooser(
         ModuleDefinition $definition,
@@ -346,14 +358,17 @@ final class RecordEmailController extends AbstractController
     ): Response {
         $this->addFlash('warning', $refusal);
 
+        $attachments = $this->attachableFor($definition, $record);
+
         return $this->render('mail/choose.html.twig', [
             'module' => $definition,
             'record' => $record,
             'templates' => $this->templatesFor($definition, $record),
             'recipient' => $recipient,
             'draft' => $draft,
-            'attachments' => $this->attachableFor($definition, $record),
+            'attachments' => $attachments,
             'formats' => DocumentFormat::cases(),
+            'decorations' => $this->decorationsFor($definition, $record, $attachments),
         ]);
     }
 
@@ -371,7 +386,7 @@ final class RecordEmailController extends AbstractController
      * they might have done instead. A 404 for a template that does not apply to
      * this record, which is the call the document route already makes (§5.5).
      *
-     * @param array{template: int, subject: string, recipient: string, document: int, format: string} $draft
+     * @param array{template: int, subject: string, recipient: string, document: int, format: string, decorations: list<string>} $draft
      *
      * @throws AttachmentRefused when it cannot be made, or is too big to send
      */
@@ -401,7 +416,39 @@ final class RecordEmailController extends AbstractController
             // Hand-editable, and an unknown format is the one everybody means —
             // the same fallback the download route takes.
             DocumentFormat::tryFrom($draft['format']) ?? DocumentFormat::Pdf,
+            // And what was ticked for it (XIV-164). Passed on rather than
+            // checked here: what was actually on offer for this record is the
+            // module's answer, and DocumentAttachments is where the two are
+            // crossed, so that the document and the timeline entry cannot come
+            // to disagree about what went out.
+            $draft['decorations'],
         );
+    }
+
+    /**
+     * The ticks to draw beside the attachment picker (XIV-164).
+     *
+     * Nothing at all where there is no picker, which is a shortcut with a
+     * reason: a decoration is something added to an attached document, so a
+     * tick offered on a send that can attach nothing would be a control with no
+     * object. Beyond that the answer is the module's, through the generator,
+     * exactly as the document chooser asks it.
+     *
+     * The format is `Pdf` here rather than whatever the draft holds because
+     * this is the list of what *could* be offered, and the picker's own format
+     * select can still change under it: the tick hides itself when somebody
+     * chooses the .docx, and what is actually applied is settled again when the
+     * document is made.
+     *
+     * @param list<DocumentTemplate> $attachments
+     *
+     * @return list<Decoration>
+     */
+    private function decorationsFor(ModuleDefinition $definition, Record $record, array $attachments): array
+    {
+        return $attachments === []
+            ? []
+            : $this->generator->decorations($definition, $record, DocumentFormat::Pdf);
     }
 
     /**
@@ -493,7 +540,7 @@ final class RecordEmailController extends AbstractController
         return $this->templateOrNull($definition, $record, $id) ?? throw $this->createNotFoundException();
     }
 
-    /** @return array{template: int, subject: string, recipient: string, document: int, format: string} */
+    /** @return array{template: int, subject: string, recipient: string, document: int, format: string, decorations: list<string>} */
     private static function draftOf(Request $request): array
     {
         return [
@@ -507,11 +554,28 @@ final class RecordEmailController extends AbstractController
             // acquire one from whichever template happened to be listed first.
             'document' => $request->request->getInt('document'),
             'format' => (string) $request->request->get('format', DocumentFormat::Pdf->value),
+            // Ticked boxes only: an unticked one submits nothing, so a form
+            // that came back without this key asked for a plain document
+            // (XIV-164). The default that puts a payment part on a Swiss
+            // invoice is drawn in the form, where somebody can see it.
+            'decorations' => array_values(array_filter($request->request->all('decorations'), 'is_string')),
         ];
     }
 
-    /** @return array{template: int, subject: string, recipient: string, document: int, format: string} */
-    private static function blank(Recipient $recipient): array
+    /**
+     * A draft nobody has filled in yet.
+     *
+     * **Every offer ticked** (XIV-164), because the payment slip is the normal
+     * case for a Swiss invoice and leaving it out is the exception. The default
+     * lives here rather than as a `checked` in the template, so that the form
+     * reads the same on the way in and on the way back from a refusal: one
+     * expression decides the box, and what it reads is the draft.
+     *
+     * @param list<Decoration> $decorations
+     *
+     * @return array{template: int, subject: string, recipient: string, document: int, format: string, decorations: list<string>}
+     */
+    private static function blank(Recipient $recipient, array $decorations): array
     {
         return [
             'template' => 0,
@@ -519,6 +583,7 @@ final class RecordEmailController extends AbstractController
             'recipient' => $recipient->address ?? '',
             'document' => 0,
             'format' => DocumentFormat::Pdf->value,
+            'decorations' => array_map(static fn (Decoration $decoration): string => $decoration->key, $decorations),
         ];
     }
 

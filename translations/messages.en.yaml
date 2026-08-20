@@ -1308,6 +1308,13 @@ document:
     format_pdf: PDF — for sending
     format_docx: Word — for editing first
     download: Download
+    # What a module offers to put on a PDF, and what a timeline says about it
+    # afterwards (XIV-164). Keyed by the decoration's own key, which is declared
+    # in code and cannot be renamed by a customer.
+    decoration:
+        payment_part: QR-bill payment part
+    decoration_on: '%decoration% included'
+    decoration_off: '%decoration% left out'
     none_for_record: No template applies to this record yet.
     marker:
         tenant_name: This company
@@ -1501,6 +1508,11 @@ payment_part:
     skipped_no_currency: 'The invoice was generated without a QR payment part: choose a currency (CHF or EUR) in the company profile first.'
     skipped_reference: 'The invoice was generated without a QR payment part: the invoice number "%number%" cannot be turned into a %type% reference.'
     skipped_invalid: 'The invoice was generated without a QR payment part: the payment data did not validate. Check the payment section of the company profile.'
+    # The tick on the document and send choosers (XIV-164). Ticked by default,
+    # because a Swiss invoice normally wants a slip and leaving it out is the
+    # exception.
+    include: Add the QR-bill payment part
+    include_help: The Swiss payment slip, as the last page of the PDF. Untick it for a copy nobody is meant to pay.
 
 # Follow-ups (XIV-80). The words are the application's rather than a module's:
 # every module shares one pair of tables, so there is nobody else to own them.

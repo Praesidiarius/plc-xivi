@@ -1074,6 +1074,13 @@ document:
     format_pdf: PDF — zum Verschicken
     format_docx: Word — zum vorher Bearbeiten
     download: Herunterladen
+    # Was ein Modul auf ein PDF legen kann und was die Chronik danach dazu sagt
+    # (XIV-164). Nach dem Schlüssel der Beigabe, der im Code steht und von
+    # niemandem umbenannt werden kann.
+    decoration:
+        payment_part: QR-Zahlteil
+    decoration_on: '%decoration% dabei'
+    decoration_off: '%decoration% weggelassen'
     none_for_record: Für diesen Datensatz passt noch keine Vorlage.
     marker:
         tenant_name: Diese Firma
@@ -1265,6 +1272,11 @@ payment_part:
     skipped_no_currency: 'Die Rechnung wurde ohne QR-Zahlteil erzeugt: Wähl zuerst im Firmenprofil eine Währung (CHF oder EUR).'
     skipped_reference: 'Die Rechnung wurde ohne QR-Zahlteil erzeugt: Aus der Rechnungsnummer „%number%“ lässt sich keine %type%-Referenz machen.'
     skipped_invalid: 'Die Rechnung wurde ohne QR-Zahlteil erzeugt: Die Zahlungsdaten haben die Prüfung nicht bestanden. Prüf den Zahlungs-Abschnitt im Firmenprofil.'
+    # Das Häkchen in den Dialogen für Dokument und Versand (XIV-164). Von Haus
+    # aus gesetzt: Eine Schweizer Rechnung will normalerweise einen Zahlteil,
+    # ihn wegzulassen ist die Ausnahme.
+    include: QR-Zahlteil anfügen
+    include_help: Der Schweizer Zahlteil, als letzte Seite des PDFs. Für eine Kopie, die niemand bezahlen soll, Häkchen entfernen.
 
 # Wiedervorlagen (XIV-80). Die Wörter gehören der Anwendung und keinem Modul:
 # alle Module teilen sich ein Tabellenpaar, es gibt also niemanden sonst, dem sie

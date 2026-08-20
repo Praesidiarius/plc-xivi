@@ -905,6 +905,17 @@ brought `bcmath` and `gd` into the image.
   `float` API, argued at the call site: converted once at the edge, exact for
   every two-decimal value under the standard's ceiling, nothing computed from
   it.
+- **A decoration is offered, not applied** (XIV-164). `PdfDecorator` answers a
+  second question, "what would you add here and what is it called", and the
+  generic chooser draws a tick per answer, ticked, on the download and on the
+  send alike. The reason is §1: a chooser that knew to offer a payment slip on
+  an invoice would be module-specific code in the engine, and the module is the
+  only thing that can say. Nothing is stored on the record, because the choice
+  is a property of one generation. The tick asks and does not promise: the
+  refusals above are unchanged, and are the same predicate that decides whether
+  a tick is drawn at all, so an installation that cannot make a payment part is
+  told why rather than shown a box. The .docx offers nothing, and the timeline
+  records the offer and its answer, since "no" is what a reader is checking for.
 
 ### 5.29 A field that names several records (XIV-113)
 
