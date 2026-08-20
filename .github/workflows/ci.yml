@@ -15,7 +15,15 @@ jobs:
   ci:
     name: Checks
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # **Raised from 20 because the run crossed it, and the number is a symptom
+    # rather than a setting.** Measured on this workflow: 9 minutes on 2026-08-16,
+    # 16 and 17 on the 18th and 19th, and 21 on the 20th, where it was killed at
+    # 78% of the suite. The ceiling did not move; the run did.
+    #
+    # 35 buys room rather than fixing anything. What is actually growing is the
+    # suite and the image build, and if this needs raising again the thing to
+    # look at is which of the two, not this line.
+    timeout-minutes: 35
 
     env:
       # The runner may already be using the default ports; nothing in the suite
