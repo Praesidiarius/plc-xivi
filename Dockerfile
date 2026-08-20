@@ -28,6 +28,8 @@ RUN <<-EOF
 	install-php-extensions \
 		@composer \
 		apcu \
+		bcmath \
+		gd \
 		intl \
 		opcache \
 		pdo_pgsql \
