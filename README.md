@@ -80,6 +80,61 @@ the hostname to `/etc/hosts`.
 takes the same road at walking pace and carries on into the first operator, the
 control plane and the first customer.
 
+## Deploying
+
+The design decisions are in
+[docs/architecture/deployment.md §4.8](docs/architecture/deployment.md); the
+long-form reasoning is in [`deploy.php`](deploy.php) itself. This is the runbook.
+
+**What a target needs: Debian 13, Docker, Compose, and nothing else.** No PHP, no
+Postgres client, no rsync. Set Docker's log rotation, because the default is
+unbounded:
+
+```jsonc
+// /etc/docker/daemon.json
+{ "log-driver": "json-file", "log-opts": { "max-size": "10m", "max-file": "3" } }
+```
+
+The provisioning role needs `CREATEDB`, `CREATEROLE` and **`pg_signal_backend`**
+(XIV-94). A non-superuser without the last one cannot `DROP DATABASE` a tenant
+that somebody is still connected to, and the first deployment finds out at
+provisioning time.
+
+**Once per installation:**
+
+```console
+$ cp .hosts.yaml.dist .hosts.yaml            # hostnames, users, which image
+$ cp .env.deploy.dist .env.deploy.<alias>    # secrets, hostnames, Postgres sizing
+$ bin/compose exec php vendor/bin/dep secrets:install <alias>
+```
+
+Both copies are gitignored. Generate `APP_SECRET` and `TENANT_SECRET_KEYS` with
+`openssl rand -hex 32`; an instance that starts on the committed placeholders
+refuses to boot rather than encrypting customer data with a key that is in this
+repository.
+
+**Every release:**
+
+```console
+$ export GHCR_USER=<you> GHCR_TOKEN=<a PAT with write:packages>
+$ bin/compose exec php vendor/bin/dep deploy <alias>
+```
+
+That builds the image, pushes it to ghcr.io, pulls it on the target by digest,
+runs `bin/deploy` out of the new image to migrate the control plane and every
+tenant, and only then replaces the serving containers. A tenant that fails to
+migrate fails the deploy.
+
+**Rollback is a deploy of the previous digest:**
+
+```console
+$ bin/compose exec php vendor/bin/dep deploy:to <alias> --tag=sha256:<previous>
+```
+
+**It does not roll the databases back**, and does not need to: tenant migrations
+are additive only, so old code meets a newer schema and ignores what it does not
+know. A change that genuinely removes something is two releases.
+
 ## Licence
 
 MIT; see [LICENSE](LICENSE). Third-party notices are in

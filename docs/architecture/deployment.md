@@ -428,3 +428,78 @@ which changes three deployment facts and adds a check.
   full directory walk per customer whose expected steady state is a handful of
   orphans. A release blocked by somebody's abandoned upload is a check that stops
   being read.
+
+### 4.8 The deploy itself: Deployer as an SSH task runner (XIV-61)
+
+`deploy.php` is the definition and carries the long-form reasoning. What is
+settled here:
+
+- **Deployer, driving `docker compose` on the target, and its release layout is
+  deliberately unused.** No `releases/N`, no `current` symlink, no `shared/`,
+  because this ships as a container image and the target has no PHP to link a
+  release against. `recipe/common.php` is not required at all, so `dep list`
+  cannot offer `rollback`, `deploy:symlink` or `provision:mysql` as though they
+  meant something here. A GitHub Actions job was the alternative and lost on one
+  point: XIV-60 wants the control instance not publicly reachable, and a hosted
+  runner cannot reach a box an operator on the VPN can.
+- **The image is built where the deploy is driven, pushed to ghcr.io, and pulled
+  by digest.** Not built on the target: that puts the toolchain on the box and
+  makes builds compete for the RAM the sizing was done against. The digest rather
+  than the tag, so a container that restarts weeks later comes back as the same
+  code.
+- **Order: push, pull, `bin/deploy`, then replace the containers.** Migrating
+  before the swap is what lets the instance stay up, and it works only because
+  the window rule (§4.2) makes tenant migrations additive.
+- **Rollback is `dep deploy:to --tag=<previous digest>`, and it does not touch
+  the databases.** Code steps back, schema does not, and the additive rule is
+  what makes that safe rather than lucky. A migration that must remove something
+  is two releases.
+- **A failed deploy has nothing to unwind.** Nothing is replaced until after the
+  migration, so a failure leaves the previous image serving.
+
+**What the target needs: Docker, Compose, and nothing else.** No PHP, no
+Postgres client, no rsync. That last one is a constraint the deploy honours
+rather than a fact about Debian: `deploy.php` sends its configuration files
+base64 through the SSH session instead of calling Deployer's `upload()`, which
+shells out to rsync on both ends. Log rotation is worth setting on the daemon
+(`10m` x 3 in `/etc/docker/daemon.json`); the default is unbounded and the disk
+is the smallest thing on the box.
+
+**Secrets are installed once, deliberately, and never by a deploy.**
+`dep secrets:install <alias>` writes `/opt/xivi/.env.deploy` at mode 600 from a
+gitignored local file. A deploy that shipped them every time would put them in
+the shell history of every machine that ever deployed and would silently
+overwrite a rotated value.
+
+**On-demand TLS with an ask endpoint, which is not optional.** Tenancy resolves
+by hostname, so there is no list of names to certify and Caddy must be allowed to
+answer names nobody configured. Without the ask, anybody pointing DNS at the
+address spends the registered domain's certificate budget, which is every
+customer's. `App\Controller\TlsAskController` answers from the registry plus
+`app.system_hosts`, returns 204 or 404 and no body, and **refuses any request
+that did not arrive from the loopback**, which is what stops it being a way to
+ask whether a customer exists. It reads `REMOTE_ADDR` rather than
+`Request::getClientIp()` on purpose: the latter believes `X-Forwarded-For` wherever
+trusted proxies are configured. `/_tls/` is `PUBLIC_ACCESS` in `security.yaml`
+because Caddy asks before the handshake finishes and has no credential to send.
+Behind the firewall it answered 302 and Caddy reads anything non-2xx as no, so
+the failure mode was an instance serving no customer over HTTPS at all.
+
+**Postgres is tuned by the deployment, not left on the compose defaults.**
+`max_connections` and `shared_buffers` are variables in `.env.deploy` because the
+right values are a property of the box. Connections scale with tenants times
+concurrency here, since there is a database per tenant, no pooler, and classic
+mode. **A pooler is decided against for now**: it would need a pool per database
+rather than one pool, so it is design rather than a package, and XIV-154 measured
+tuning as worth about 12% on a migration walk.
+
+**The hosts are not committed.** `.hosts.yaml` is gitignored with
+`.hosts.yaml.dist` as the template, because the German test box is a rehearsal
+for the move to a Swiss one and a move that means editing a committed file is a
+move somebody does wrong under pressure.
+
+**The machine that deploys is the dev container.** There is no PHP on the host,
+so `compose.override.yaml` mounts `~/.ssh` read-only at `/ssh` and the dev image
+carries an ssh client. `ssh_control_path` is moved to `/tmp` because Deployer's
+default puts the multiplexing socket under a home directory the container does
+not have.

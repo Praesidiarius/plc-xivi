@@ -1,0 +1,125 @@
+---
+# **What a deployed instance runs** (XIV-61, docs/architecture/deployment.md §4.8).
+#
+# Used with the base file and never alone:
+#
+#   docker compose -f compose.yaml -f compose.prod.yaml up -d
+#
+# `bin/deploy` is the schema half and runs before this file's containers are
+# replaced. This file is the serving half. Neither one is the deploy: `deploy.php`
+# is what puts them in order on a target, and it is what to read for the sequence.
+#
+# **There is no `build:` here on purpose.** The image arrives from ghcr.io already
+# built and already tested, and a target that could build would be a target that
+# could build something different from what CI proved. That is also why the tag
+# below is a required variable rather than `:latest`: a deploy names the exact
+# image it is deploying, and `latest` is how two hosts end up running different
+# code while both reporting success.
+services:
+  php:
+    # Supplied by the deploy, and it must be an immutable reference.
+    # `deploy.php` passes the digest it just pushed rather than the moving tag,
+    # so a container restarted three weeks later comes back as the same code
+    # rather than as whatever `:v17.0.7` points at by then.
+    image: ${XIVI_IMAGE:?the deploy must name the image, digest included}
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: 0
+      # Every hostname this installation answers to, and the one place Caddy
+      # learns it may terminate TLS for a name nobody listed. `https://` with no
+      # host means "any name", which is only safe because on-demand TLS asks
+      # before issuing. See CADDY_GLOBAL_OPTIONS below, which is where the asking
+      # is configured, and §4.3 for which hostnames are legitimate.
+      SERVER_NAME: ${SERVER_NAME:-https://}
+      DEFAULT_URI: ${DEFAULT_URI:?the mailer and every absolute URL need a real origin}
+      # **On-demand TLS, and the ask endpoint that makes it safe** (§4.8).
+      #
+      # Without `ask`, anybody who points a DNS record at this IP causes a
+      # certificate request, which exhausts the Let's Encrypt budget for the whole
+      # registered domain rather than for the name they pointed. With it, Caddy
+      # asks the application first and the application answers from the registry.
+      #
+      # The ask URL is plain HTTP to 127.0.0.1 because Caddy is asking the PHP
+      # process inside its own container. It never leaves the container, so it
+      # needs no TLS and no credential, and the endpoint refuses anything that
+      # did not come from the loopback so that it cannot be used from outside to
+      # test whether a customer exists.
+      CADDY_GLOBAL_OPTIONS: |
+        on_demand_tls {
+          ask http://127.0.0.1:80/_tls/ask
+        }
+        email ${TLS_CONTACT_EMAIL:?Let's Encrypt needs an address for expiry warnings}
+        ${CADDY_ACME_CA_DIRECTIVE:-}
+      CADDY_SERVER_EXTRA_DIRECTIVES: |
+        tls {
+          on_demand
+        }
+      # The secrets. PlaceholderSecretGuard refuses at boot if any of these is
+      # still byte-identical to the committed placeholder, so a deployment that
+      # forgot one fails to start rather than starting and encrypting with a key
+      # that is in the repository.
+      APP_SECRET: ${APP_SECRET:?generate one, see docs/architecture/deployment.md §4.8}
+      TENANT_SECRET_KEYS: ${TENANT_SECRET_KEYS:?generate one, see docs/architecture/deployment.md §4.8}
+      TENANT_SECRET_KEY_ID: ${TENANT_SECRET_KEY_ID:-1}
+      # Which hostnames are the platform's rather than a customer's (§4.3, XIV-93).
+      CONTROL_PLANE_HOST: ${CONTROL_PLANE_HOST:-}
+      CONTROL_PLANE_ALLOWED_IPS: ${CONTROL_PLANE_ALLOWED_IPS:-}
+      SIGNUP_HOST: ${SIGNUP_HOST:-}
+      XIVI_TRUSTED_DOMAINS: ${XIVI_TRUSTED_DOMAINS:-}
+    healthcheck:
+      # Asks the ask endpoint about a hostname this installation certainly serves.
+      # That exercises the registry query rather than merely proving the process
+      # accepted a socket, so a container whose control-plane database has gone
+      # away is reported unhealthy instead of serving errors.
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:80/_tls/ask?domain=${HEALTHCHECK_HOST:?a hostname this instance serves, usually CONTROL_PLANE_HOST}"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  gotenberg:
+    # Pinned by digest for the same reason as the application image: a converter
+    # that silently changed version is a document that silently changed layout.
+    image: gotenberg/gotenberg:${GOTENBERG_VERSION:-8}
+    # Measured on the first target box on 2026-08-20: idle 9.8 MB, and 334 MB
+    # after one conversion, because LibreOffice stays warm and does not hand the
+    # memory back. The limit is here so that a conversion storm is refused by
+    # Gotenberg rather than by the kernel picking a victim, which on a single-box
+    # deployment is usually Postgres.
+    mem_limit: ${GOTENBERG_MEM_LIMIT:-1g}
+
+  database:
+    # **Tuned for the target rather than left on the compose file's defaults**
+    # (XIV-61 acceptance criterion). The stock 100 connections and 128MB of
+    # shared buffers are what the development file ships, and they are wrong here
+    # for a reason specific to this application.
+    #
+    # **Connections scale with tenants times concurrency, not with concurrency.**
+    # There is one database per tenant and no connection pooler in this stack.
+    # The `pool` entries in config/packages/doctrine.yaml are cache pools. Classic
+    # mode means every request is its own process opening its own connection to
+    # that tenant's database, so the usual "connections equal worker threads"
+    # sizing does not apply.
+    #
+    # Whether to add a pooler is decided rather than deferred: **not yet, and not
+    # PgBouncer as it stands.** A pooler here needs a pool per database rather
+    # than one pool, so it is a piece of design rather than a package, and the
+    # fleet rehearsal (XIV-154) measured tuning as worth about 12% on a migration
+    # walk. That is not the shape of a problem a pooler solves. Revisit when the
+    # tenant count makes `max_connections` a memory decision instead of a number.
+    command:
+      - postgres
+      - -c
+      - max_connections=${POSTGRES_MAX_CONNECTIONS:-500}
+      - -c
+      - shared_buffers=${POSTGRES_SHARED_BUFFERS:-512MB}
+      # Postgres reserves a small allowance per connection whether or not it is
+      # used, so 500 connections on a box sized for 8 GB is deliberate and on a
+      # box sized for 4 GB is not. Both numbers are variables for that reason,
+      # and the deployment env file is where a smaller box says so.
+      - -c
+      - work_mem=${POSTGRES_WORK_MEM:-4MB}
+    # Not published. The only thing that speaks to it is the application on the
+    # same compose network, and a Postgres reachable from the internet is how a
+    # single-box deployment becomes somebody else's.
+    ports: !reset []

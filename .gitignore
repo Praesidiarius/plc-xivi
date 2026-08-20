@@ -72,3 +72,9 @@
 # reads them through a BuildKit secret mount (XIV-99), so a file here is a
 # convenience for the person running the build and nothing else.
 auth.json
+
+# The deploy targets and their secrets (XIV-61). Templates are committed as
+# .hosts.yaml.dist and .env.deploy.dist; what an operator fills in is not.
+/.hosts.yaml
+/.env.deploy.*
+!/.env.deploy.dist

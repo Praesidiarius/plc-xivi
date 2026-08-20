@@ -81,6 +81,17 @@ ENV FRANKENPHP_WORKER_CONFIG=watch
 RUN <<-EOF
 	mv "$PHP_INI_DIR/php.ini-development" "$PHP_INI_DIR/php.ini"
 	install-php-extensions xdebug
+	# **What lets this container deploy** (XIV-61, §4.8). Deployer drives
+	# `docker compose` on the target over SSH, from an operator's machine rather
+	# than from a hosted runner, and this project has no PHP on the host: the
+	# operator's machine *is* this container. Without an ssh client `dep` fails
+	# on its first connection with nothing useful to say.
+	#
+	# Dev image only. The production images have no business holding an ssh
+	# client, and the deploy is driven at them rather than from them.
+	apt-get update
+	apt-get install -y --no-install-recommends openssh-client
+	rm -rf /var/lib/apt/lists/*
 	useradd -m -s /bin/bash nonroot
 	git config --system --add safe.directory /app
 	# The dev container runs as the host user (see compose.override.yaml), whose

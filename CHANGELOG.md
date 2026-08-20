@@ -73,6 +73,30 @@ always lands in `Unreleased` here.
 
 ## [Unreleased]
 
+- **This can now be deployed** ([XIV-61], §4.8). `deploy.php` builds the
+  production image, pushes it to ghcr.io, pulls it on the target by digest, runs
+  the control-plane and tenant migrations out of the new image, and only then
+  replaces the serving containers. Deployer drives `docker compose` over SSH and
+  its release layout is deliberately unused, which the file says at length so
+  nobody later "fixes" it by adopting one that would mean abandoning the
+  production image.
+- **A certificate is only ever requested for a hostname this installation
+  actually serves** ([XIV-61], §4.8). Tenancy resolves by hostname, so on-demand
+  TLS has to be allowed to answer names nobody configured, and without an ask
+  endpoint anybody pointing DNS at the address spends the certificate budget of
+  every real customer. `/_tls/ask` answers from the registry and refuses any
+  request that did not come from the loopback, so it cannot be used from outside
+  to ask whether a customer exists.
+- **Rollback is written down, including what it cannot undo** ([XIV-61], §4.8).
+  Deploying a previous digest takes seconds and does not roll the databases back.
+  That is safe because tenant migrations are additive only, not because anything
+  reverses them, and a change that genuinely removes something is two releases.
+- **Postgres is sized by the deployment rather than left on the development
+  defaults** ([XIV-61], §4.8). Connections here scale with tenants times
+  concurrency, because there is a database per tenant and no pooler. Whether to
+  add one is decided rather than deferred: not yet, since it would need a pool
+  per database rather than one pool.
+
 - **An edit form on a field naming several records now shows every one of them,
   even where two are called the same thing** ([XIV-167], §5.29). Two links
   sharing a title used to collapse into one option, and saving dropped whichever
@@ -370,6 +394,7 @@ always lands in `Unreleased` here.
 [XIV-164]: https://xivi.youtrack.cloud/issue/XIV-164
 [XIV-165]: https://xivi.youtrack.cloud/issue/XIV-165
 [XIV-166]: https://xivi.youtrack.cloud/issue/XIV-166
+[XIV-61]: https://xivi.youtrack.cloud/issue/XIV-61
 [XIV-167]: https://xivi.youtrack.cloud/issue/XIV-167
 
 
