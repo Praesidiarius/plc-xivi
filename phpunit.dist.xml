@@ -13,12 +13,19 @@
     <php>
         <ini name="display_errors" value="1" />
         <!--
-            The functional tests keep one kernel across a whole class, so the
+            Two consumers decide this number, and the larger one wins. The
+            functional tests keep one kernel across a whole class, so the
             profiler's per-request data piles up over a few dozen browser
-            requests. Not a leak to chase: it is what disabling the reboot buys
-            in speed, paid for in memory.
+            requests; not a leak to chase, it is what disabling the reboot buys
+            in speed, and 512M covered it. The HTML coverage report renderer is
+            the larger consumer: its footprint grows with the codebase, and at
+            ~89k lines across src/ and packages/ it outgrew 512M (XIV-161).
+            A CLI `-d memory_limit` cannot override this value, because PHPUnit
+            applies CLI ini settings before the XML's, so the limit has to be
+            right here for every run that renders HTML (`composer
+            coverage-html`).
         -->
-        <ini name="memory_limit" value="512M" />
+        <ini name="memory_limit" value="1G" />
         <ini name="error_reporting" value="-1" />
         <server name="APP_ENV" value="test" force="true" />
         <server name="SHELL_VERBOSITY" value="-1" />

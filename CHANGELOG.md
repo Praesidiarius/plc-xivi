@@ -84,8 +84,15 @@ always lands in `Unreleased` here.
   built-in signup page, and the store's refusal of requirement chains are now
   described as they behave.
 
+- **`bin/ci --coverage` no longer renders the HTML report** ([XIV-161]): the
+  renderer outgrew the 512M limit at ~89k lines and was killing CI, and nothing
+  in CI reads it. The floor gate and Codecov keep their Clover file; the
+  browsable report is now `composer coverage-html` (run with
+  `XDEBUG_MODE=coverage`), and the PHPUnit memory limit is 1G for its sake.
+
 [XIV-159]: https://xivi.youtrack.cloud/issue/XIV-159
 [XIV-160]: https://xivi.youtrack.cloud/issue/XIV-160
+[XIV-161]: https://xivi.youtrack.cloud/issue/XIV-161
 
 
 ## Releases

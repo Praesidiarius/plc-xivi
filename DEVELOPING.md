@@ -372,9 +372,17 @@ deliberately turned off and why.
 
 Coverage is measured over `src/` and `packages/`, written to `coverage/`, and
 gated by a floor in `bin/ci`, because a number nothing enforces drifts down
-one uncovered branch at a time. Open `coverage/html/index.html` to see what is
-not covered. Xdebug costs this suite about seven percent, because it spends
-its time provisioning databases rather than executing PHP.
+one uncovered branch at a time. `bin/ci --coverage` writes the Clover file the
+gate and Codecov read; the browsable report is its own run, because rendering
+HTML for 89k lines is memory CI has no reader for (XIV-161):
+
+```bash
+bin/compose exec -e XDEBUG_MODE=coverage php composer coverage-html
+```
+
+Then open `coverage/html/index.html` to see what is not covered. Xdebug costs
+this suite about seven percent, because it spends its time provisioning
+databases rather than executing PHP.
 
 Individual pieces, if you want them on their own:
 
