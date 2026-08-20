@@ -371,6 +371,12 @@ RUN <<-EOF
 EOF
 
 COPY --link --chmod=755 frankenphp/docker-entrypoint.sh /usr/local/bin/docker-entrypoint
+# **What compose.prod.yaml's healthcheck runs** (XIV-61, §4.8). This stage is
+# `debian:13-slim` and carries no curl, wget, nc or busybox, so a healthcheck
+# written the usual way fails with `executable file not found` and the container
+# never leaves `health: starting`. PHP is the only thing here that can open a
+# socket, and the script says why it asks what it asks.
+COPY --link --chmod=755 frankenphp/healthcheck.php /usr/local/bin/xivi-healthcheck
 
 USER www-data
 

@@ -91,6 +91,12 @@ always lands in `Unreleased` here.
   Deploying a previous digest takes seconds and does not roll the databases back.
   That is safe because tenant migrations are additive only, not because anything
   reverses them, and a change that genuinely removes something is two releases.
+- **A deployment can provision its first tenant** ([XIV-61], §4.8). `.env` ships
+  `TENANT_ADMIN_DSN` with the placeholder database password and the secret guard
+  deliberately does not cover it, so provisioning on a real target failed with
+  `password authentication failed for user "app"`. The deployment now builds that
+  DSN and the per-tenant template from `POSTGRES_PASSWORD`, so there is one value
+  to set and one to rotate.
 - **Postgres is sized by the deployment rather than left on the development
   defaults** ([XIV-61], §4.8). Connections here scale with tenants times
   concurrency, because there is a database per tenant and no pooler. Whether to

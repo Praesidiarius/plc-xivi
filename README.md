@@ -113,6 +113,20 @@ Both copies are gitignored. Generate `APP_SECRET` and `TENANT_SECRET_KEYS` with
 refuses to boot rather than encrypting customer data with a key that is in this
 repository.
 
+**The first deploy to a fresh installation takes two passes, and that is not a
+bug.** `bin/deploy` exits 1 on an empty registry, deliberately: an installation
+with no customers has either not been provisioned or has lost its registry, and
+both deserve a human. So the first pass migrates the control plane and stops
+there. Provision, then deploy again:
+
+```console
+$ bin/compose exec php vendor/bin/dep deploy:to <alias> --tag=<digest>   # stops at "No tenants to migrate"
+$ ssh <target> 'docker compose --project-directory /opt/xivi \
+    -f /opt/xivi/compose.yaml -f /opt/xivi/compose.prod.yaml \
+    --env-file /opt/xivi/.env.deploy run --rm php bin/console tenant:provision <slug> <hostname>'
+$ bin/compose exec php vendor/bin/dep deploy <alias>                     # green
+```
+
 **Every release:**
 
 ```console

@@ -498,6 +498,23 @@ tuning as worth about 12% on a migration walk.
 for the move to a Swiss one and a move that means editing a committed file is a
 move somebody does wrong under pressure.
 
+**Two things a first deployment gets wrong, both found by deploying rather than
+by reading.** `.env` ships `TENANT_ADMIN_DSN` carrying the committed placeholder
+password, and `PlaceholderSecretGuard` deliberately does not guard it or
+`DATABASE_URL` on the argument that a wrong database password fails loudly in
+seconds. It does fail loudly, at `tenant:provision`, with `password
+authentication failed for user "app"` and no hint about which variable is at
+fault, so `compose.prod.yaml` now builds `TENANT_ADMIN_DSN` and
+`TENANT_DSN_TEMPLATE` from `POSTGRES_PASSWORD` and the deployment sets one value.
+Separately, the env file is what Compose interpolates this file *with*; it is not
+the container's environment, so anything the running application reads has to be
+named in `environment:` as well.
+
+**The first deploy to a fresh installation stops at the tenant walk**, because
+`bin/deploy` exits 1 on an empty registry by design (§4.2). It migrates the
+control plane first, so the sequence is deploy, provision, deploy. Written down
+because it looks like a broken deploy the first time.
+
 **The machine that deploys is the dev container.** There is no PHP on the host,
 so `compose.override.yaml` mounts `~/.ssh` read-only at `/ssh` and the dev image
 carries an ssh client. `ssh_control_path` is moved to `/tmp` because Deployer's

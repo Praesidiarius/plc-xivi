@@ -125,7 +125,10 @@ set('env_file', '{{deploy_path}}/.env.deploy');
  */
 set('ssh_control_path', '/tmp/dep-%C');
 
-set('compose_files', '-f compose.yaml -f compose.prod.yaml');
+// **Absolute, because `-f` is resolved against the working directory and not
+// against `--project-directory`.** An SSH session lands in the remote user's
+// home, so relative names sent Compose looking for /root/compose.yaml.
+set('compose_files', '-f {{deploy_path}}/compose.yaml -f {{deploy_path}}/compose.prod.yaml');
 set('compose', 'docker compose --project-directory {{deploy_path}} {{compose_files}} --env-file {{env_file}}');
 
 // ghcr.io, same account as the repository (XIV-61). Free for private images,
@@ -163,6 +166,24 @@ set('docker_target', 'frankenphp_public');
 option('tag', null, \Symfony\Component\Console\Input\InputOption::VALUE_REQUIRED, 'The image tag or digest to build or deploy');
 
 set('image_tag', fn () => input()->getOption('tag') ?: trim(runLocally('git describe --tags --always --dirty')));
+
+/*
+ * **The exact image a task will pull and run.** `image:push` overwrites this
+ * with the digest the registry gave back, but `deploy:to` never builds anything,
+ * so it needs the reference to be derivable from `--tag` alone. Without that,
+ * deploying an image that already exists (which is what a rollback is) failed on
+ * an unset variable.
+ *
+ * A digest is joined with `@` and a tag with `:`, which is the difference
+ * between naming one immutable image and naming whatever the tag points at
+ * today. Rollbacks should always be given a digest.
+ */
+set('image_ref', function () {
+    $tag = get('image_tag');
+    $separator = str_starts_with($tag, 'sha256:') ? '@' : ':';
+
+    return get('image_name').$separator.$tag;
+});
 
 desc('Build the production image and push it to the registry, by digest');
 task('image:push', function (): void {
@@ -280,9 +301,33 @@ task('deploy:check_secrets_present', function (): void {
     }
 });
 
+desc('Record which image this target runs');
+task('deploy:record_image', function (): void {
+    /*
+     * **Written into the env file rather than passed on each command**, because
+     * the target has to work when the deploy is not there. `XIVI_IMAGE` has no
+     * default in `compose.prod.yaml` on purpose, so without this every
+     * `docker compose ps`, `logs` or `restart` an operator types on the box fails
+     * with `required variable XIVI_IMAGE is missing a value`, and a reboot brings
+     * nothing back up. Recording it also means the box itself is the answer to
+     * "what is actually deployed here".
+     *
+     * Rewritten through a temporary file in the same directory so an interrupted
+     * write cannot leave the deployment without its secrets.
+     */
+    $envFile = get('env_file');
+    $line = 'XIVI_IMAGE='.get('image_ref');
+
+    run(sprintf(
+        'grep -v "^XIVI_IMAGE=" %1$s > %1$s.new || true; echo %2$s >> %1$s.new; chmod 600 %1$s.new; mv %1$s.new %1$s',
+        escapeshellarg($envFile),
+        escapeshellarg($line),
+    ));
+});
+
 desc('Pull the image being deployed');
 task('deploy:pull', function (): void {
-    run('XIVI_IMAGE='.get('image_ref').' {{compose}} pull', timeout: 1800);
+    run('{{compose}} pull', timeout: 1800);
 });
 
 desc('Migrate: secrets, then the control plane, then every tenant');
@@ -290,8 +335,8 @@ task('deploy:migrate', function (): void {
     /*
      * **Out of the new image, before the serving containers are replaced.**
      * `bin/deploy` is the file to read for what this does and why it is not in
-     * the container entrypoint. Its exit codes are the reason this task is
-     * worth having as its own step:
+     * the container entrypoint. Its exit codes are the reason this is its own
+     * step:
      *
      *   0  everything current
      *   1  the run could not happen at all
@@ -301,54 +346,71 @@ task('deploy:migrate', function (): void {
      * 49 of 50" stop the release instead of reporting success. The failure names
      * the tenants and prints the retry line.
      *
-     * `--network` puts the one-shot container on the same compose network as the
-     * database, and `--rm` means a failed run leaves nothing behind to confuse
-     * the next one.
+     * **`compose run` rather than `docker run`**, and the difference is not
+     * cosmetic. The first attempt at this plumbed the network and the env file by
+     * hand and died on a fresh box with `network xivi_default not found`, because
+     * nothing had created it yet: the stack does not exist until `deploy:up`, and
+     * that runs after this on purpose. `compose run` starts the service's
+     * dependencies first, so the database is up and healthy whether this is the
+     * fiftieth deploy or the first, and the container it makes is on the right
+     * network with the right environment without any of it being restated here.
      */
-    $network = run('{{compose}} config --format json | grep -o \'"name": *"[^"]*"\' | head -1 | cut -d\'"\' -f4') ?: get('application');
-
-    run(sprintf(
-        'docker run --rm --network %s_default --env-file {{env_file}} -e XIVI_IMAGE=%s %s bin/deploy',
-        $network,
-        get('image_ref'),
-        get('image_ref'),
-    ), timeout: 3600);
+    run('{{compose}} run --rm php bin/deploy', timeout: 3600);
 });
 
 desc('Replace the serving containers');
 task('deploy:up', function (): void {
-    run('XIVI_IMAGE='.get('image_ref').' {{compose}} up -d --remove-orphans', timeout: 1800);
+    run('{{compose}} up -d --remove-orphans', timeout: 1800);
 });
 
 desc('Prove the instance is actually serving');
 task('deploy:verify', function (): void {
     /*
-     * The compose healthcheck asks the ask endpoint about a hostname this
-     * instance serves, so waiting for healthy proves the container booted, the
-     * control-plane database answered, and the registry query works. A deploy
-     * that finished with the containers up but the database unreachable would
-     * otherwise report success.
+     * Waits for the healthcheck, which asks the TLS ask endpoint about a hostname
+     * this instance serves and therefore covers the control-plane database and
+     * the registry query. A deploy that finished with the containers up but the
+     * database unreachable would otherwise report success.
+     *
+     * **`--format json` rather than a Go template**, because Deployer expands
+     * `{{...}}` in a command string before it is ever sent: asking Docker for
+     * `{{.Service}}` made Deployer look for a config option called `.Service` and
+     * fail the deploy after everything had already been replaced. Any Docker
+     * format string with braces in it has this problem.
      */
-    $ok = false;
+    for ($i = 0; $i < 40; ++$i) {
+        $lines = array_filter(explode("\n", run('{{compose}} ps --format json --all')));
 
-    for ($i = 0; $i < 30; ++$i) {
-        $state = run('{{compose}} ps --format "{{.Service}} {{.Health}}" | grep "^php " || true');
+        foreach ($lines as $line) {
+            $row = json_decode(trim($line), true);
 
-        if (str_contains($state, 'healthy')) {
-            $ok = true;
-            break;
+            if (!is_array($row) || ($row['Service'] ?? null) !== 'php') {
+                continue;
+            }
+
+            $health = $row['Health'] ?? '';
+
+            if ($health === 'healthy') {
+                writeln('<info>Serving</info> on {{alias}}, and the registry answered.');
+
+                return;
+            }
+
+            // A container that has exited is not going to become healthy, so say
+            // so now rather than after another two minutes of polling.
+            if (($row['State'] ?? '') === 'exited') {
+                break 2;
+            }
         }
 
-        sleep(2);
+        sleep(3);
     }
 
-    if (!$ok) {
-        run('{{compose}} logs --tail=50 php');
+    run('{{compose}} logs --tail=50 php', nothrow: true);
 
-        throw new \RuntimeException('The php container never became healthy. Logs above; the image is unchanged on the registry, so `dep deploy:to --tag=<previous digest>` puts the old one back.');
-    }
-
-    writeln('<info>Serving</info> on {{alias}}.');
+    throw new \RuntimeException(
+        'The php container never became healthy. Logs above. The previous image is still in the registry, '
+        .'so `dep deploy:to '.get('alias').' --tag=<previous digest>` puts it back.'
+    );
 });
 
 desc('Remove images no longer referenced, so a 38 GB disk stays a 38 GB disk');
@@ -362,6 +424,7 @@ task('deploy', [
     'image:push',
     'registry:login',
     'deploy:compose_files',
+    'deploy:record_image',
     'deploy:pull',
     'deploy:migrate',
     'deploy:up',
@@ -378,6 +441,7 @@ task('deploy:to', [
     'deploy:check_secrets_present',
     'registry:login',
     'deploy:compose_files',
+    'deploy:record_image',
     'deploy:pull',
     'deploy:migrate',
     'deploy:up',

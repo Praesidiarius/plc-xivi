@@ -30,7 +30,20 @@ services:
       # host means "any name", which is only safe because on-demand TLS asks
       # before issuing. See CADDY_GLOBAL_OPTIONS below, which is where the asking
       # is configured, and §4.3 for which hostnames are legitimate.
-      SERVER_NAME: ${SERVER_NAME:-https://}
+      #
+      # **The loopback address is listed explicitly, and the deploy does not work
+      # without it.** `https://` on its own tells Caddy to serve any hostname over
+      # TLS, which is what on-demand TLS needs, but it leaves nothing serving
+      # plain HTTP on port 80: Caddy builds its HTTP-to-HTTPS redirects from the
+      # hostnames it knows, and here it knows none. The ask endpoint is fetched
+      # over plain HTTP at 127.0.0.1:80, so without this the certificate check
+      # cannot be answered and no certificate is ever issued.
+      #
+      # Naming `http://127.0.0.1` as a site address is also what stops it being
+      # redirected: an explicit http:// address is served as HTTP rather than
+      # bounced. It is the loopback, so nothing outside the container reaches it,
+      # and TlsAskController refuses anything that is not the loopback anyway.
+      SERVER_NAME: ${SERVER_NAME:-https://, http://127.0.0.1}
       DEFAULT_URI: ${DEFAULT_URI:?the mailer and every absolute URL need a real origin}
       # **On-demand TLS, and the ask endpoint that makes it safe** (§4.8).
       #
@@ -61,17 +74,41 @@ services:
       APP_SECRET: ${APP_SECRET:?generate one, see docs/architecture/deployment.md §4.8}
       TENANT_SECRET_KEYS: ${TENANT_SECRET_KEYS:?generate one, see docs/architecture/deployment.md §4.8}
       TENANT_SECRET_KEY_ID: ${TENANT_SECRET_KEY_ID:-1}
+      # **Built here from POSTGRES_PASSWORD rather than set in the env file**, so
+      # the control-plane password has one source of truth. `compose.yaml` builds
+      # DATABASE_URL the same way and for the same reason.
+      #
+      # These two are why a deployment that ignores them cannot provision anybody:
+      # `.env` ships TENANT_ADMIN_DSN with the committed placeholder password, and
+      # PlaceholderSecretGuard deliberately does not guard it (nor DATABASE_URL),
+      # on the argument that a wrong database password fails loudly in seconds
+      # rather than quietly encrypting with a public key. It does fail loudly. It
+      # fails at `tenant:provision` with "password authentication failed for user
+      # app", which is loud but says nothing about which variable is wrong, so the
+      # answer is to set it here rather than to leave it to be rediscovered.
+      TENANT_ADMIN_DSN: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:?the control-plane database password}@database:5432/postgres?serverVersion=${POSTGRES_VERSION:-18}&charset=utf8
+      # {user} and {database} are the provisioner's placeholders, not Compose's;
+      # Compose only expands ${...}. The per-tenant password is generated per
+      # tenant and stored encrypted, so it is deliberately absent here.
+      TENANT_DSN_TEMPLATE: postgresql://{user}@database:5432/{database}?serverVersion=${POSTGRES_VERSION:-18}&charset=utf8
       # Which hostnames are the platform's rather than a customer's (§4.3, XIV-93).
       CONTROL_PLANE_HOST: ${CONTROL_PLANE_HOST:-}
       CONTROL_PLANE_ALLOWED_IPS: ${CONTROL_PLANE_ALLOWED_IPS:-}
       SIGNUP_HOST: ${SIGNUP_HOST:-}
       XIVI_TRUSTED_DOMAINS: ${XIVI_TRUSTED_DOMAINS:-}
+      # **Passed into the container, not merely present in the env file.** The env
+      # file is read by Compose to interpolate this file; it is not the container's
+      # environment. The healthcheck script runs inside the container and reads
+      # this, so without the line it failed every time with "HEALTHCHECK_HOST is
+      # not set" and the instance was reported unhealthy while serving perfectly.
+      HEALTHCHECK_HOST: ${HEALTHCHECK_HOST:?a hostname this instance serves, usually CONTROL_PLANE_HOST}
     healthcheck:
-      # Asks the ask endpoint about a hostname this installation certainly serves.
-      # That exercises the registry query rather than merely proving the process
-      # accepted a socket, so a container whose control-plane database has gone
-      # away is reported unhealthy instead of serving errors.
-      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:80/_tls/ask?domain=${HEALTHCHECK_HOST:?a hostname this instance serves, usually CONTROL_PLANE_HOST}"]
+      # Asks the ask endpoint about a hostname this installation certainly serves,
+      # which exercises the control-plane database and the registry query rather
+      # than merely proving the process accepted a socket. See
+      # frankenphp/healthcheck.php, which is a script because this image has no
+      # curl, wget, nc or busybox in it.
+      test: ["CMD", "php", "/usr/local/bin/xivi-healthcheck"]
       interval: 15s
       timeout: 5s
       retries: 5
