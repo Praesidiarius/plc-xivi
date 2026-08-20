@@ -16,6 +16,7 @@ namespace App\Tests\Browser;
 use App\Tenancy\TenantSwitcher;
 use App\Tenant\Repository\UserRepository;
 use App\Tenant\Security\UserCreator;
+use App\Tests\Support\ReleasesTheBrowser;
 use App\Tests\Support\SharesATenant;
 use Symfony\Component\Panther\Client;
 use Symfony\Component\Panther\PantherTestCase;
@@ -46,6 +47,7 @@ use Xivi\Order\OrderModule;
  */
 final class CollectionRowsTest extends PantherTestCase
 {
+    use ReleasesTheBrowser;
     use SharesATenant;
 
     /**

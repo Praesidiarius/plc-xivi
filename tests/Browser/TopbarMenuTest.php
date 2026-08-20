@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace App\Tests\Browser;
 
 use App\Tenant\Security\UserCreator;
+use App\Tests\Support\ReleasesTheBrowser;
 use App\Tests\Support\SharesATenant;
 use Facebook\WebDriver\Remote\RemoteWebDriver;
 use Facebook\WebDriver\WebDriverBy;
@@ -48,6 +49,7 @@ use Symfony\Component\Panther\PantherTestCase;
  */
 final class TopbarMenuTest extends PantherTestCase
 {
+    use ReleasesTheBrowser;
     use SharesATenant;
 
     /** The hostname the browser asks for — see {@see CollectionRowsTest::HOST}. */

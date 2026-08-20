@@ -169,6 +169,25 @@ always lands in `Unreleased` here.
   browsable report is now `composer coverage-html` (run with
   `XDEBUG_MODE=coverage`), and the PHPUnit memory limit is 1G for its sake.
 
+- **A language can no longer hide a bug** ([XIV-45], decisions §9.2). The suite
+  spoke English, and in English a number's displayed form and its stored form
+  are the same string, which is how XIV-44 shipped past four hundred and eighty
+  tests. Two things now: every field type is round-tripped through a form in
+  thirty formatting locales derived from `enabled_locales`, so a value that
+  stops surviving being shown and read back fails by name and by language; and
+  one browser test types a price and reads the total back in every enabled
+  language. A fifth language costs its own handful of formatting locales and one
+  browser page load, and no edit to either file. Measured: 2.6 s for the round
+  trips, 7 s for the browser test.
+- **The browser tests give their sessions back, and the leg is seven times
+  faster** ([XIV-45]). Panther never closes a Selenium session, so every browser
+  test held one of the grid's four slots until the whole run ended and, from the
+  fifth test onwards, every test waited on the node's five-minute idle reaper.
+  That was most of the leg's running time and the cause of its occasional
+  `POST /session` timeouts. Seventeen browser tests now run in 41 s where
+  sixteen took about five minutes. **A new browser test class must
+  `use App\Tests\Support\ReleasesTheBrowser`**, which is the whole of the fix.
+
 - **A serial test run can no longer be poisoned by a shared tenant's
   deprovision** ([XIV-148]): `SharesATenant`'s "already provisioned in this
   process" bookkeeping lived in a trait static, which PHP copies per class, so
@@ -201,6 +220,7 @@ always lands in `Unreleased` here.
   tenants. What was running out of memory was the rehearsal and a developer's
   own fleet commands.
 
+[XIV-45]: https://xivi.youtrack.cloud/issue/XIV-45
 [XIV-125]: https://xivi.youtrack.cloud/issue/XIV-125
 [XIV-146]: https://xivi.youtrack.cloud/issue/XIV-146
 [XIV-148]: https://xivi.youtrack.cloud/issue/XIV-148

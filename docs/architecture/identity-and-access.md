@@ -36,6 +36,13 @@ availability.
   The browser is another process, so the rollback is invisible to it, and it
   needs a hostname resolving from both containers. When the browser layer
   cannot reach something, fix the harness, not the application (XIV-105).
+- **A component's `formValues` is the view, never the model** (XIV-44, XIV-45).
+  The library puts there what the fields are *displaying*, and a displayed
+  number is written in the reader's language, so `19,90` reaches anything that
+  reads it straight. Whatever wants the stored form submits those values into a
+  form and takes its data. A green English suite cannot hold anybody to this,
+  because there the two spellings are one string, which is why §9.2's round
+  trips are run in every language the installation offers.
 - **Components stay generic over module, record and shape.** An `OrderForm`
   would be the module-specific code §1 exists to avoid.
 
