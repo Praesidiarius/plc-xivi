@@ -127,6 +127,18 @@ always lands in `Unreleased` here.
   it_CH: Swiss French numbers group with narrow spaces and take a decimal
   comma, except in money (§8.4.2).
 
+- **A fleet walk no longer grows by a tenant's worth of debug log per tenant**
+  ([XIV-162], §7 item 4): `TenantSwitcher` now empties Doctrine's query log and
+  Monolog's debug processor whenever a tenant is left, so `tenant:migrate`,
+  `tenant:inspect`, `tenant:schema:validate` and the three nightly collectors
+  cost one tenant rather than the fleet. Over 300 rehearsal tenants the
+  migration walk went from 88 MB climbing to 120 MB, to 74 MB flat.
+- **Nothing to act on for deployments, and the ticket's alarm was wider than
+  the bug**: both logs exist only in a debug build, and `bin/deploy` runs with
+  debug off, where the walk was already flat at 24 MB across the same 300
+  tenants. What was running out of memory was the rehearsal and a developer's
+  own fleet commands.
+
 [XIV-148]: https://xivi.youtrack.cloud/issue/XIV-148
 [XIV-152]: https://xivi.youtrack.cloud/issue/XIV-152
 [XIV-153]: https://xivi.youtrack.cloud/issue/XIV-153
@@ -134,6 +146,7 @@ always lands in `Unreleased` here.
 [XIV-159]: https://xivi.youtrack.cloud/issue/XIV-159
 [XIV-160]: https://xivi.youtrack.cloud/issue/XIV-160
 [XIV-161]: https://xivi.youtrack.cloud/issue/XIV-161
+[XIV-162]: https://xivi.youtrack.cloud/issue/XIV-162
 
 
 ## Releases

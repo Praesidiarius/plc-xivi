@@ -58,7 +58,17 @@ keeps its slot and gains a one-line answer rather than being removed.
    the connection. A fan-out holding fifty connections blocks the
    `DROP DATABASE` an operator is running; XIV-94 turned that from a blocked
    operator into a collection killed mid-count, which is quieter and not
-   better. Still open for shared caches.
+   better. **It also empties the two debug logs whenever a tenant is left**
+   (XIV-162): `doctrine.debug_data_holder` keeps every statement with its bound
+   parameters and a backtrace, nothing in a console process ever empties it,
+   and a walk therefore grew by a tenant's worth of it per tenant: 120 kB each,
+   measured over 300 rehearsal tenants, against a 256 MB limit. The reset
+   lives at the switch rather than in each command because six things walk the
+   fleet and the number only goes up; it fires only when a tenant is actually
+   being left, so a web request entering one from nothing keeps what the
+   profiler is there to show. Debug-only: `bin/deploy` runs with debug off,
+   where neither service exists and the walk was always flat. Still open for
+   shared caches.
 
 5. **Authorization model.** Settled, see §8.4. The record-level half is a
    WHERE clause, never a post-load check or a voter; a list is twenty-five
