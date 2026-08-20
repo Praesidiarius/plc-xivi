@@ -15,6 +15,8 @@ namespace App\Tests\Support;
 
 use App\Registry\Entity\Tenant;
 use App\Registry\Repository\TenantRepository;
+use App\Tenancy\Dbal\TenantDsnParser;
+use App\Tests\Support\Dbal\TenantConnectionKeyDriver;
 use DAMA\DoctrineTestBundle\Doctrine\DBAL\StaticDriver;
 use Xivi\ControlPlane\Provisioning\TenantProvisioner;
 
@@ -67,11 +69,19 @@ use Xivi\ControlPlane\Provisioning\TenantProvisioner;
  */
 trait SharesATenant
 {
-    /** @var array<string, Tenant> slug => tenant, for the current class only */
+    /**
+     * slug => tenant, for the current class only. "For the current class" is
+     * not a choice this trait gets to make: a static property on a trait is
+     * copied into every class that uses it, so each class has its own array.
+     * Here that accident is the wanted behaviour, because the entities are
+     * bound to the class's own kernel and `tearDownAfterClass()` clears them.
+     * The process-wide half of the bookkeeping is {@see ProvisionedSlugs},
+     * which is a class for exactly the opposite reason; see its docblock for
+     * the bug the difference caused (XIV-148).
+     *
+     * @var array<string, Tenant>
+     */
     private static array $sharedTenants = [];
-
-    /** @var array<string, true> every slug provisioned in this process, across classes */
-    private static array $provisioned = [];
 
     /**
      * The class's tenant, provisioned the first time it is asked for.
@@ -96,8 +106,13 @@ trait SharesATenant
             // deprovision would now terminate it out from under the class that is
             // still using it ([XIV-94]) rather than failing where somebody would
             // see it. Every test in both classes is rolled back anyway, so there
-            // is nothing in there to make again.
-            if (isset(self::$provisioned[$slug])) {
+            // is nothing in there to make again. This question has to be asked
+            // process-wide, which is why it is asked of a class and not of a
+            // static on this trait: the six browser classes share one slug,
+            // relied on this guard, and got a fresh copy of an empty array each
+            // instead (XIV-148). SharedSlugReuseSecondTest is the proof it now
+            // holds.
+            if (ProvisionedSlugs::has($slug)) {
                 \assert($existing instanceof Tenant);
 
                 return $existing;
@@ -105,10 +120,11 @@ trait SharesATenant
 
             // Left behind by the previous run, or by one that died halfway.
             if ($existing instanceof Tenant) {
+                self::refuseToTerminateASharedConnection($slug, $existing);
                 $provisioner->deprovision($existing);
             }
 
-            self::$provisioned[$slug] = true;
+            ProvisionedSlugs::add($slug);
 
             return $provisioner->provision($slug, $slug, $hostnames);
         });
@@ -134,6 +150,44 @@ trait SharesATenant
         } finally {
             StaticDriver::setKeepStaticConnections($keeping);
         }
+    }
+
+    /**
+     * The backstop under the reuse guard above: a deprovision that would reach
+     * a DAMA-cached connection is refused before it runs, not survived after.
+     *
+     * The reuse guard makes this unreachable for slugs that went through
+     * `sharedTenant()`, so what is left for it to catch is the path nobody has
+     * written yet: a leftover registry row whose database something in this
+     * process has already touched on the ordinary static path, a command that
+     * walks every tenant say, before any class claimed the slug here. Without
+     * this check that deprovision would terminate the cached connection
+     * ([XIV-94], deployment brief §4.1), and the failure would not land on the
+     * test that caused it: DAMA rolls back and reopens its transactions across
+     * *every* cached connection around *every* test, so one dead connection in
+     * the cache surfaces as a "terminating connection due to administrator
+     * command" runner warning, or a cascade of errors, in tests that did
+     * nothing wrong. That is exactly the shape XIV-148 was reported in.
+     * Failing here instead puts the offender's own name on the failure.
+     */
+    private static function refuseToTerminateASharedConnection(string $slug, Tenant $existing): void
+    {
+        $database = self::sharedService(TenantDsnParser::class)->databaseName($existing->getDatabaseDsn());
+
+        if (!TenantConnectionKeyDriver::holdsStaticConnectionTo($database)) {
+            return;
+        }
+
+        throw new \LogicException(sprintf(
+            'Refusing to deprovision the leftover tenant "%s": DAMA holds a static connection to '
+            . 'its database "%s", so deprovisioning would terminate that connection and every '
+            . 'test after this one would fail with "terminating connection due to administrator '
+            . 'command" (XIV-148). Something in this process connected to that database before '
+            . 'this class claimed the slug, most likely a test that walks every tenant in the '
+            . 'registry. Either scope that walk, or claim the slug through sharedTenant() first.',
+            $slug,
+            $database,
+        ));
     }
 
     public static function tearDownAfterClass(): void

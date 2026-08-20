@@ -90,6 +90,18 @@ always lands in `Unreleased` here.
   browsable report is now `composer coverage-html` (run with
   `XDEBUG_MODE=coverage`), and the PHPUnit memory limit is 1G for its sake.
 
+- **A serial test run can no longer be poisoned by a shared tenant's
+  deprovision** ([XIV-148]): `SharesATenant`'s "already provisioned in this
+  process" bookkeeping lived in a trait static, which PHP copies per class, so
+  the six browser classes sharing the `e2e` slug each tore the tenant down
+  under DAMA's live connection and every later test inherited a dead one. The
+  bookkeeping is now process-wide (`ProvisionedSlugs`), a guard refuses any
+  deprovision that would reach a DAMA-cached connection, the
+  `SharedSlugReuse*Test` pair proves the reuse serially, and
+  `failOnPhpunitWarning` turns the previously invisible subscriber warnings
+  into a red run. Reasoning in the brief, decisions §9.2.
+
+[XIV-148]: https://xivi.youtrack.cloud/issue/XIV-148
 [XIV-159]: https://xivi.youtrack.cloud/issue/XIV-159
 [XIV-160]: https://xivi.youtrack.cloud/issue/XIV-160
 [XIV-161]: https://xivi.youtrack.cloud/issue/XIV-161
