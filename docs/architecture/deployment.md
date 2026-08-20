@@ -523,10 +523,17 @@ landing page was served by the dashboard route, so it answered 500 on a host tha
 resolves no tenant, and `debug:router` reported the signup routes as present
 throughout, because it re-reads the loader instead of the matcher.
 
-**The first deploy to a fresh installation stops at the tenant walk**, because
-`bin/deploy` exits 1 on an empty registry by design (§4.2). It migrates the
-control plane first, so the sequence is deploy, provision, deploy. Written down
-because it looks like a broken deploy the first time.
+**An installation with no customers has to say it means it.** `bin/deploy` exits
+1 on an empty registry (§4.2), because one that has lost its registry is
+indistinguishable from one that never had a customer and the first should stop a
+release. The case that was not allowed for is an instance waiting for its first
+self-service signup (§8.14), which is legitimately empty and, while it was,
+could not be deployed at all: the step fails before the serving containers are
+replaced, so removing the last tenant from an installation made it undeployable.
+`XIVI_ALLOW_EMPTY_REGISTRY=1` is that stated deliberately, and it is a variable
+rather than a new default because only the deployment can tell the two apart. It
+does not cover `--slug`: a slug nothing answers to is a typo or a tenant that has
+gone missing, never an installation that is empty on purpose.
 
 **The machine that deploys is the dev container.** There is no PHP on the host,
 so `compose.override.yaml` mounts `~/.ssh` read-only at `/ssh` and the dev image

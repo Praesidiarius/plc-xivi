@@ -99,6 +99,12 @@ services:
       # Compose only expands ${...}. The per-tenant password is generated per
       # tenant and stored encrypted, so it is deliberately absent here.
       TENANT_DSN_TEMPLATE: postgresql://{user}@database:5432/{database}?serverVersion=${POSTGRES_VERSION:-18}&charset=utf8
+      # **An installation that is empty on purpose says so** (§4.2). `bin/deploy`
+      # stops on an empty registry, because one that has lost its customers looks
+      # from the inside exactly like one that never had any. An instance waiting
+      # for its first self-service signup is the legitimate case, and without this
+      # every deploy to it failed before the containers were replaced.
+      XIVI_ALLOW_EMPTY_REGISTRY: ${XIVI_ALLOW_EMPTY_REGISTRY:-}
       # Which hostnames are the platform's rather than a customer's (§4.3, XIV-93).
       CONTROL_PLANE_HOST: ${CONTROL_PLANE_HOST:-}
       CONTROL_PLANE_ALLOWED_IPS: ${CONTROL_PLANE_ALLOWED_IPS:-}

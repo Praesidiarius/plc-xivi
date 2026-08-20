@@ -87,6 +87,13 @@ always lands in `Unreleased` here.
   every real customer. `/_tls/ask` answers from the registry and refuses any
   request that did not come from the loopback, so it cannot be used from outside
   to ask whether a customer exists.
+- **An installation with no customers yet can be deployed** ([XIV-61], §4.2).
+  `bin/deploy` stops on an empty registry, which is right when a registry has
+  been lost and wrong for an instance waiting for its first self-service signup:
+  the step runs before the containers are replaced, so removing the last tenant
+  made an installation undeployable. `XIVI_ALLOW_EMPTY_REGISTRY=1` says it is
+  empty on purpose. A tenant that fails to migrate still fails the deploy, and a
+  `--slug` nothing answers to still fails.
 - **A deployment's own hostnames now reach the routing table** ([XIV-61], §4.8).
   The image ships a warmed cache built from the committed `.env`, and
   `SignupRouteLoader` decides whether the signup routes exist at all from
