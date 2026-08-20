@@ -13,8 +13,11 @@ declare(strict_types=1);
 
 namespace App\Twig;
 
+use App\Registry\Entity\Notice;
 use App\Registry\Entity\Tenant;
 use App\Tenancy\TenantContext;
+use App\Tenant\Entity\User;
+use App\Tenant\Notice\NoticeInbox;
 use App\Tenant\Repository\TenantProfileRepository;
 use App\Tenant\Security\PermissionArea;
 use App\Tenant\Security\PermissionResolver;
@@ -32,8 +35,9 @@ use Xivi\Core\Permission\ModuleAction;
  * and which modules they have.
  *
  * A Twig global rather than something each controller remembers to pass, since
- * forgetting it would mean a page with no navigation. All three accessors are
- * lazy — the login page renders without a tenant and must not query for modules.
+ * forgetting it would mean a page with no navigation. Every accessor that costs
+ * a query is lazy, because the login page renders without a tenant and must not
+ * query for modules, a logo or the operator's announcements.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
@@ -45,6 +49,8 @@ final class AppChrome
         private readonly PermissionResolver $permissions,
         private readonly Security $security,
         private readonly InstanceName $instance,
+        /** The operator's loud channel, read once per page; see getPageNotices(). */
+        private readonly NoticeInbox $notices,
         /** The customer's own mark lives on this row; see getTenantLogo(). */
         private readonly TenantProfileRepository $profiles,
         private readonly UrlGeneratorInterface $urls,
@@ -54,6 +60,16 @@ final class AppChrome
         private readonly ?string $logo = null,
     ) {
     }
+
+    /**
+     * The every-page notices, once this request has asked for them.
+     *
+     * Null is "not asked yet" and is distinct from the empty array, which is the
+     * ordinary answer and is what most requests get. See {@see getPageNotices()}.
+     *
+     * @var list<Notice>|null
+     */
+    private ?array $pageNotices = null;
 
     public function getTenant(): ?Tenant
     {
@@ -180,6 +196,48 @@ final class AppChrome
             $this->metadata->all(),
             static fn (ModuleDefinition $module): bool => $permissions->allows($module->getKey(), ModuleAction::List),
         ));
+    }
+
+    /**
+     * What the operator of this installation is saying loudly enough that it
+     * follows this person around (XIV-166, §8.16).
+     *
+     * **Here rather than in a Twig extension of its own**, because that is what
+     * this class is: the things every signed-in page needs around its content,
+     * fetched lazily so that the pages without a tenant do not pay for them. A
+     * banner in the shell is exactly that shape, and `chrome.pageNotices` reads
+     * in `_topbar.html.twig` the way `chrome.modules` two lines above it does.
+     *
+     * **Lazy on three conditions, and each of them is a real page.** No tenant is
+     * the control plane's own hosts and the login screen, where the tenant
+     * connection is deliberately unusable. No user is the same login screen after
+     * the tenant has resolved. And a user who is not a {@see User} is the
+     * operator signed in to the administration surface, who is not a member of
+     * any customer's installation and is not being announced to.
+     *
+     * **Memoised, and that is a footgun being removed rather than an
+     * optimisation.** One caller exists today and it renders once per page, so
+     * the memo saves nothing; but a Twig global is reachable from every template
+     * in the application, and the second call site somebody adds in a year should
+     * not quietly double a query that runs on every request. Per request, because
+     * the runtime is deliberately not a worker (§7.4, §9.2) and this object dies
+     * with the response.
+     *
+     * @return list<Notice>
+     */
+    public function getPageNotices(): array
+    {
+        if ($this->pageNotices !== null) {
+            return $this->pageNotices;
+        }
+
+        $reader = $this->security->getUser();
+
+        if (!$reader instanceof User || !$this->context->hasTenant()) {
+            return $this->pageNotices = [];
+        }
+
+        return $this->pageNotices = $this->notices->onEveryPage($reader);
     }
 
     /**

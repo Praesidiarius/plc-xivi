@@ -616,11 +616,13 @@ to be one yet.**
 - Not built: withdrawing a request, notifications in either direction, and
   declining on the screen.
 
-### 8.16 An operator can say something, and it lands where the work is (XIV-120)
+### 8.16 An operator can say something, and it lands where the work is (XIV-120, XIV-166)
 
-**A notice appears on the customer's dashboard as a widget.** Mail is a second
-channel with §8.7's preconditions, and none of them should stand between an
-operator and "we upgrade on Sunday".
+**A notice appears in the customer's own installation**, never by mail: mail is
+a second channel with §8.7's preconditions, and none of them should stand
+between an operator and "we upgrade on Sunday". **Which surface is the notice's
+own `reach`** (XIV-166): a card in the dashboard widget, or a band in the shell
+of every page. Default the card.
 
 - **In the control plane, registry half, read directly**, with no collector.
   An operator writes where the schema is owned, a customer only reads, and
@@ -645,10 +647,11 @@ operator and "we upgrade on Sunday".
 - **Audience per notice** (`Everyone` or `Administrators`), coarse and says
   so. A `@notices` permission was refused, because a customer must not be able
   to switch off the channel the operator is relied on to have.
-- **Dismissing is per person, written in the customer's own database.** The
-  grant forces it, and per tenant would let the first opener silence
-  everybody. The stored `notice_id` points across databases and is dropped
-  when it resolves to nothing; no orphan hunter.
+- **Dismissing is per person, written in the customer's own database**, and
+  since XIV-166 only on the dashboard channel. The grant forces the database,
+  and per tenant would let the first opener silence everybody. The stored
+  `notice_id` points across databases and is dropped when it resolves to
+  nothing; no orphan hunter.
 - **Live is `published_at` to `expires_at`, and withdrawing sets the end to
   now.** One concept. Withdrawing is not deleting, because "what did we tell
   them in March" is a question. The operator screen leads with what is live
@@ -657,13 +660,59 @@ operator and "we upgrade on Sunday".
 - **The widget costs a query in `panel()`, a stated departure**: "does this
   apply to you" *is* the database's question, and an unconditional card is
   permanent furniture.
+- **Reach is two channels and not a flag on one** (XIV-166). A card is read
+  when somebody opens their landing page; a band is on the record they are
+  editing and cannot be walked away from. The widget draws `dashboard` and the
+  shell draws `every_page`, **disjoint in the `WHERE` clause**, so the
+  dashboard, the one page carrying both surfaces, cannot say the same thing
+  twice. The band sits under the top bar inside the page column, included once
+  from `_topbar.html.twig`, so no page can forget it and none had to be edited.
+  Not `fixed` or `sticky`: a band that never scrolls away covers content for
+  the session and makes the shell responsible for its height.
+- **"No severity, no colour, no icon per notice" is overturned, for the loud
+  channel only** (XIV-166). That bullet was refusing to let an operator say how
+  much of somebody's day a notice is worth, and it was right while there was
+  one channel. Reach answers that question now, so priority is the smaller one
+  left over: given that this band was chosen, what kind of thing is it.
+  `info`, `warning`, `success`, `danger`. **The widget's cards are unchanged**,
+  at one weight, because the argument still holds on a page somebody opened
+  deliberately. The icon clause is kept, since the band names its priority in
+  words beside the colour and a third copy of the same fact is noise.
+- **The four map to Bootstrap contexts, written out in full** in
+  `notice_tone()`, §5.18's precedent, precisely because every arm is an
+  identity: interpolating the enum's value makes the model own the stylesheet
+  and goes quiet the day a fifth case is added. `Info` → `alert alert-info`,
+  `Warning` → `alert alert-warning`, `Success` → `alert alert-success`,
+  `Danger` → `alert alert-danger`. Bootstrap builds those from
+  `--bs-{tone}-text-emphasis`, `-bg-subtle` and `-border-subtle`, and redefines
+  all twelve under `[data-bs-theme=dark]`; `text-bg-*` is not redefined and
+  stays unused (§5.26).
+- **An every-page notice cannot be dismissed, and cannot be published without
+  an end** (XIV-166). The two halves are one decision. A band a reader switches
+  off once is the dashboard channel with extra steps; a band nobody can switch
+  off is a page held hostage. Only the party who chose the channel pays, so the
+  reader gets no control and `NoticeBoard` refuses an every-page notice with no
+  expiry, in the same list as every other way a notice would be a lie.
+  `notice_dismissal` therefore only ever holds `dashboard` rows; per person
+  stays per person there, and per tenant is not a question the loud channel
+  raises, because it stores nothing in either database.
+- **The band costs one control-plane `SELECT` per request and never touches the
+  tenant connection.** Measured rather than assumed, because reach moved this
+  read from once per dashboard to every request a customer makes: a `Seq Scan`
+  over a one-page table, `Buffers: shared hit=1`, **0.048 ms** of execution and
+  **0.24 ms** end to end through DBAL, against twenty notices. An *empty*
+  `notice` table measured 0.37 ms in the same loop, which is the useful part of
+  the result, since it says both figures are the socket rather than the scan.
+  Hence no cache, which would be a second copy of a fact Withdraw changes, and
+  no index on `reach`, which the planner would never choose. **The default stays
+  free**: the dismissal read fires only when the first query returned rows, so a
+  `dashboard` notice costs nothing on any other page.
 - **Not the answer to XIV-108**, which is §8.14's. A stranded signup has no
   tenant, database or user; the person waits outside the product.
 - Not built, each deliberate: read receipts (a dismissal reported as "read"
-  over-claims on the deciding screen), scheduling, severity levels, links or
-  markup (a linkable notice is a phishing channel on the one screen nobody
-  distrusts), translation (a notice is somebody's sentence, not a key), and
-  summaries.
+  over-claims on the deciding screen), scheduling, links or markup (a linkable
+  notice is a phishing channel on the one screen nobody distrusts), translation
+  (a notice is somebody's sentence, not a key), and summaries.
 
 ### 8.17 A customer can reach whoever runs this installation (XIV-123)
 

@@ -1,0 +1,104 @@
+{#
+	What the operator is saying loudly enough that you cannot walk away from it
+	(XIV-166, §8.16).
+
+	**The other half of the notices feature, and deliberately not the same half.**
+	A notice whose reach is `dashboard` is a card in `dashboard/widget/notices.html.twig`,
+	read when somebody chooses to open their landing page. A notice whose reach is
+	`every_page` is this: a band in the shell, above whatever they came here to do,
+	on the record they are editing and the list they are filtering. The two sets
+	are disjoint in the `WHERE` clause (`App\Registry\Entity\NoticeReach`), so the
+	dashboard, which is the one page that draws both surfaces, cannot print the
+	same announcement twice.
+
+	## Where it sits and why
+
+	Immediately under the top bar, inside the same `container page-shell` as the
+	page, above the page's own heading. Three things were on the table:
+
+	* **Pinned to the viewport** (`position: fixed` or `sticky`). Refused. A band
+	  that never scrolls away is not "you cannot get away from it", it is "you
+	  cannot use the page": it covers content permanently, it needs the shell to
+	  know its height in order to offset anything, and on a phone it takes a
+	  quarter of the viewport for the whole session. An operator asking for
+	  attention has not asked for the product to be smaller.
+	* **Inside `<main>`, above the page content.** Refused because every page
+	  would have to remember to include it, which is forty-odd templates and a
+	  forty-first that forgets.
+	* **Here.** The shell already has exactly one place every signed-in page goes
+	  through, `_topbar.html.twig`, so a page cannot fail to have this and a page
+	  added next year gets it without being told.
+
+	**It costs nothing on a load with nothing to say.** `chrome.pageNotices` is
+	empty on every ordinary request, this file renders no element at all, and the
+	document is byte for byte what it was before this ticket. It does push the page
+	down when there *is* something, which is the point of the channel rather than a
+	regression in it: compact, two or three lines, and only for as long as the
+	notice runs, which an operator had to put an end date on before they could
+	publish it.
+
+	## Colour, and the word beside it
+
+	`alert alert-{tone}`, with the tone from `notice_tone()` and the mapping
+	written out in full there. Never `text-bg-*`: that helper pins a foreground
+	against a fixed brand colour and Bootstrap does not redefine it under
+	`[data-bs-theme=dark]`, so a band built from it is legible on a light page and
+	wrong on a dark one. Alerts are built from `--bs-{tone}-text-emphasis`,
+	`-bg-subtle` and `-border-subtle`, and all three of those *are* redefined
+	(§5.26).
+
+	**The priority is printed as a word as well as a colour**, which is the tenant
+	list's rule and matters more here than there: somebody who cannot tell the
+	amber band from the red one is exactly the person who most needs to be told
+	which of the two this is. It is visible text rather than `visually-hidden`,
+	because colour blindness is not a screen reader.
+
+	## No dismiss button, and that is the decision rather than an omission
+
+	`App\Registry\Entity\NoticeReach::isDismissible()` has the argument at length.
+	The short version: a band a reader can switch off once and never see again is
+	the dashboard channel with extra steps, and a band nobody can switch off is an
+	operator holding somebody's product hostage. Only one of those two parties
+	should be paying, and it is the one who chose the channel, so the reader gets
+	no button and the operator cannot publish this without saying when it stops.
+#}
+{% if chrome.pageNotices is not empty %}
+	<div class="container page-shell">
+		{% for notice in chrome.pageNotices %}
+			{#
+				`role="status"` rather than `role="alert"` for all four tones. The
+				band is in the document when the page loads rather than appearing
+				during it, and `alert` is an assertive live region: it interrupts
+				whatever a screen reader is currently saying, which on a page that
+				has only just started being read means interrupting the page's own
+				title. Polite is the correct register for something that was
+				already here when you arrived.
+			#}
+			<div class="alert alert-{{ notice_tone(notice.priority) }} py-2 mb-3" role="status">
+				<p class="small text-uppercase fw-semibold mb-1">{{ notice.priority.labelKey|trans }}</p>
+				<p class="fw-semibold mb-1">{{ notice.title }}</p>
+				{#
+					`nl2br` over escaped text, which is the whole of the formatting
+					on offer here as on the dashboard card. Markdown, links and HTML
+					were all considered and refused when this feature was built: the
+					moment a notice can contain a link it is a channel somebody can
+					be phished through, and that is worse on this surface than on the
+					dashboard, because this one appears on pages where a customer is
+					in the middle of doing something.
+				#}
+				<p class="mb-1">{{ notice.body|nl2br }}</p>
+				{#
+					Who said it and when, the same two facts the dashboard card
+					carries and for the same reason: they are most of the difference
+					between an announcement and a popup. The author is a name copied
+					onto the notice when it was published, because this instance
+					cannot read the `operator` table at all (§4.4).
+				#}
+				<p class="small mb-0 opacity-75">
+					<time datetime="{{ notice.publishedAt|date('c') }}">{{ notice.publishedAt|date('Y-m-d H:i') }}</time>
+					· {{ notice.authorLabel }}
+				</p>
+			</div>
+		{% endfor %}
+	</div>
+{% endif %}

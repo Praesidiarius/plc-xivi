@@ -292,7 +292,9 @@ control_plane:
     # words should feel like one.
     notices: Notices
     notices_live: '%count% notice(s) customers are seeing now.'
-    notices_live_hint: A notice appears on the dashboard of everybody it was addressed to.
+    notices_live_hint: >-
+        A notice appears in the installation of everybody it was addressed to: on their
+        dashboard, or on every page they open.
     # What this screen cannot tell an operator, said on the screen. §8.16 names it
     # as a gap rather than leaving somebody to assume the number is somewhere.
     notices_no_receipts: >-
@@ -303,8 +305,20 @@ control_plane:
     notice_body: Notice
     notice_body_hint: Plain text. No links, no formatting.
     notice_audience: Who sees it
+    # Where it lands (XIV-166). Two channels rather than one with a dial, so the
+    # hint says what the loud one takes rather than what it adds.
+    notice_reach: Where it appears
+    notice_reach_hint: >-
+        A notice on every page cannot be put away by the people reading it, so it has to
+        say when it stops.
+    # And how loud it is drawn there. The hint names the surface, because a colour
+    # somebody chose and then cannot find is worse than no colour at all.
+    notice_priority: Kind
+    notice_priority_hint: Colours a notice on every page. Dashboard notices are all drawn the same.
     notice_expires: Stops showing (optional)
-    notice_expires_hint: UTC. Leave empty for a notice with no end; you can withdraw it at any time.
+    notice_expires_hint: >-
+        UTC. Leave empty for a notice with no end; you can withdraw it at any time. A notice
+        on every page has to have one.
     notice_addressed: Addressed to
     notice_addressed_count: '%count% customer(s)'
     notice_every_tenant: Every customer
@@ -323,10 +337,12 @@ control_plane:
     notice_gone: That notice no longer exists.
     notice_stale: That page had been open a while. Nothing was published — try again.
     notice_unknown_audience: That is not an audience a notice can have.
+    notice_unknown_reach: That is not a place a notice can appear.
+    notice_unknown_priority: That is not a kind a notice can be.
     no_notices: Nothing has been announced
     no_notices_hint: >-
-        A notice appears on the dashboard of everybody it was addressed to, in their own
-        installation, where they are already working.
+        A notice appears in the installation of everybody it was addressed to, where they
+        are already working: on their dashboard, or on every page they open.
 
     # A customer asks the operator something (XIV-123). The pair to the notices
     # above, and the vocabulary is deliberately smaller than a helpdesk's: there
@@ -428,6 +444,21 @@ notice:
         # ROLE_ADMIN is the nearest thing an installation knows to "whoever pays",
         # and the word for it should be the one the user screens already use.
         administrators: Administrators
+    # Where a notice lands (XIV-166). Read on the operator's form and nowhere
+    # else, since a customer is never told which channel they are looking at:
+    # they can see it.
+    reach:
+        dashboard: On the dashboard
+        every_page: On every page
+    # And how loud it is drawn there. Read on the operator's form *and* on the
+    # customer's banner, which is why these four are sentences a reader can
+    # understand rather than Bootstrap's own words: "danger" is a CSS context and
+    # not something to print at somebody who is trying to work.
+    priority:
+        info: For information
+        warning: Please note
+        success: Resolved
+        danger: Action needed
 
 # Reaching whoever runs this installation (XIV-123, §8.17). The customer's half
 # of the same conversation the notices above are the operator's half of.

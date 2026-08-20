@@ -16,6 +16,7 @@ namespace App\Tests\Functional\Deployment;
 use App\Deployment\RegistryGrants;
 use App\Registry\Entity\Notice;
 use App\Registry\Entity\NoticeAudience;
+use App\Registry\Entity\NoticeReach;
 use App\Registry\Entity\Tenant;
 use App\Registry\Notice\LiveNotices;
 use Doctrine\DBAL\Connection;
@@ -146,7 +147,7 @@ final class NoticeGrantsTest extends KernelTestCase
         $alpha = $this->tenant(self::ALPHA);
         $this->publish('Sunday maintenance', everyTenant: true);
 
-        $notices = $this->readAs($this->restrictedManager())->forTenant($alpha, administrator: false);
+        $notices = $this->readAs($this->restrictedManager())->forTenant($alpha, administrator: false, reach: NoticeReach::Dashboard);
 
         self::assertSame(['Sunday maintenance'], self::titlesOf($notices));
     }
@@ -166,7 +167,7 @@ final class NoticeGrantsTest extends KernelTestCase
         $alpha = $this->tenant(self::ALPHA);
         $this->publish('Your trial', everyTenant: false, recipients: [$alpha]);
 
-        $notices = $this->readAs($this->restrictedManager())->forTenant($alpha, administrator: false);
+        $notices = $this->readAs($this->restrictedManager())->forTenant($alpha, administrator: false, reach: NoticeReach::Dashboard);
 
         self::assertSame(['Your trial'], self::titlesOf($notices));
     }
@@ -185,7 +186,7 @@ final class NoticeGrantsTest extends KernelTestCase
         $this->publish('For alpha only', everyTenant: false, recipients: [$alpha]);
         $this->publish('For everybody', everyTenant: true);
 
-        $notices = $this->readAs($this->restrictedManager())->forTenant($beta, administrator: false);
+        $notices = $this->readAs($this->restrictedManager())->forTenant($beta, administrator: false, reach: NoticeReach::Dashboard);
 
         self::assertSame(['For everybody'], self::titlesOf($notices));
     }
@@ -206,10 +207,10 @@ final class NoticeGrantsTest extends KernelTestCase
 
         $reader = $this->readAs($this->restrictedManager());
 
-        self::assertSame(['Everybody'], self::titlesOf($reader->forTenant($alpha, administrator: false)));
+        self::assertSame(['Everybody'], self::titlesOf($reader->forTenant($alpha, administrator: false, reach: NoticeReach::Dashboard)));
         self::assertSame(
             ['Only admins', 'Everybody'],
-            self::titlesOf($reader->forTenant($alpha, administrator: true)),
+            self::titlesOf($reader->forTenant($alpha, administrator: true, reach: NoticeReach::Dashboard)),
         );
     }
 
@@ -231,7 +232,39 @@ final class NoticeGrantsTest extends KernelTestCase
 
         self::assertSame(
             [],
-            self::titlesOf($this->readAs($this->restrictedManager())->forTenant($alpha, administrator: true)),
+            self::titlesOf($this->readAs($this->restrictedManager())->forTenant($alpha, administrator: true, reach: NoticeReach::Dashboard)),
+        );
+    }
+
+    /**
+     * The reach is a clause the restricted role runs, not a filter applied
+     * afterwards (XIV-166).
+     *
+     * Here rather than only in a tenant test, because this is the reader that
+     * runs on a customer-facing instance and the every-page read runs on **every
+     * request it serves**. If the filter had been applied in PHP the two
+     * assertions below would both come back with both titles and the tenant
+     * tests would still pass, because the templates would draw the right thing:
+     * the cost would be invisible and the privilege story would be unchanged.
+     * This is where the clause itself is checked, against the role that has to
+     * be able to run it.
+     */
+    public function testTheReadIsScopedToOneChannelAtATime(): void
+    {
+        $alpha = $this->tenant(self::ALPHA);
+
+        $this->publish('A card', everyTenant: true);
+        $this->publish('A band', everyTenant: true, reach: NoticeReach::EveryPage);
+
+        $reader = $this->readAs($this->restrictedManager());
+
+        self::assertSame(
+            ['A card'],
+            self::titlesOf($reader->forTenant($alpha, administrator: true, reach: NoticeReach::Dashboard)),
+        );
+        self::assertSame(
+            ['A band'],
+            self::titlesOf($reader->forTenant($alpha, administrator: true, reach: NoticeReach::EveryPage)),
         );
     }
 
@@ -250,8 +283,8 @@ final class NoticeGrantsTest extends KernelTestCase
         $this->expectException(DbalException::class);
 
         $public->executeStatement(<<<'SQL'
-            INSERT INTO notice (title, body, audience, every_tenant, author_label, published_at, created_at)
-            VALUES ('smuggled', 'smuggled', 'everyone', true, 'nobody', now(), now())
+            INSERT INTO notice (title, body, audience, every_tenant, author_label, published_at, created_at, reach, priority)
+            VALUES ('smuggled', 'smuggled', 'everyone', true, 'nobody', now(), now(), 'dashboard', 'info')
             SQL);
     }
 
@@ -372,6 +405,7 @@ final class NoticeGrantsTest extends KernelTestCase
         bool $everyTenant,
         array $recipients = [],
         NoticeAudience $audience = NoticeAudience::Everyone,
+        NoticeReach $reach = NoticeReach::Dashboard,
     ): Notice {
         $notice = new Notice(
             $title,
@@ -379,6 +413,7 @@ final class NoticeGrantsTest extends KernelTestCase
             $audience,
             everyTenant: $everyTenant,
             authorLabel: 'The Operator',
+            reach: $reach,
         );
 
         foreach ($recipients as $recipient) {
