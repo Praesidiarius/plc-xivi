@@ -80,6 +80,26 @@ control_plane:
     refusals_attempts: Abgewiesen
     refusals_first: Zuerst
     refusals_last: Zuletzt
+    stalled_hint: >-
+        Diese Personen haben eine Adresse bestätigt und die Auskunft bekommen, dass ihre Installation
+        vorbereitet wird. Es blieb an einem Schritt stehen, den kein weiterer Versuch überwindet, und
+        läuft von allein nicht wieder an. Gesendet wurde ihnen bisher nichts.
+    stalled_failed: 'zuletzt versucht %time%'
+    stalled_waiting: 'wartet seit %time%'
+    stalled_preview: Was sie bekommen werden
+    stalled_locale: 'Verfasst in %locale%, der Sprache der Anmeldung.'
+    stalled_send: Diese Nachricht senden
+    stalled_sent_by: 'Gesendet von %who% am %time%. Weiteres geht nicht raus.'
+    stalled_sent: Die Nachricht wurde gesendet.
+    stalled_already: Jemand anderes hat bereits geschrieben. Es wurde nichts gesendet.
+    stalled_gone: Diese Anmeldung wartet nicht mehr. Entweder wurde sie eingerichtet oder der gewünschte Name ist frei geworden.
+    stalled_stale: Diese Seite wurde vor zu langer Zeit geladen. Es wurde nichts gesendet; lade sie neu und versuche es noch einmal.
+    stalled_not_sent: 'Es wurde nichts gesendet, diese Person hat also weiterhin nichts gehört: %reason%'
+    stage_preflight: Name nicht verfügbar
+    stage_tenant: Datenbank
+    stage_first_user: Erste Administration
+    stage_invitation: Einladung
+    stage_cleanup: Aufräumen
     module_state: Status
     module_price: Preis
     module_in_store: Im Store
@@ -1427,3 +1447,20 @@ signup:
         unknown: Dieser Link gehört zu keiner Anmeldung, auf die wir noch warten.
         next: 'Wir richten %slug% ein und melden uns, sobald es bereit ist.'
         sign_up_again: Eine erneute Anmeldung mit derselben Adresse startet eine neue.
+    stalled:
+        subject: 'Deine Installation %slug% ist noch nicht bereit'
+        greeting: 'Hallo %company%,'
+        body: >-
+            Du hast diese Adresse bestätigt und uns gebeten, eine Installation namens %slug%
+            einzurichten. Sie ist nicht bereit, und es tut uns leid, dass wir dich ohne ein Wort haben
+            warten lassen.
+        hand: >-
+            Beim Einrichten ist etwas aufgetreten, das sich nicht von selbst löst; jemand von uns muss
+            es von Hand erledigen. Jemand hier hat es inzwischen gesehen: Diese Nachricht hat ein
+            Mensch geschickt, nicht das System.
+        next: >-
+            Wir melden uns wieder an dieser Adresse, entweder wenn deine Installation bereit ist oder
+            wenn wir vorher etwas von dir brauchen.
+        no_action: >-
+            In der Zwischenzeit ist für dich nichts zu tun. Eine erneute Anmeldung hilft auch nicht:
+            Diese Adresse hält deine Anfrage bereits, und das Formular weist eine zweite ab.

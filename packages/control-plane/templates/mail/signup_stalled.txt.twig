@@ -1,0 +1,31 @@
+{#
+	The plain-text half of the message an operator sends a stranded signup
+	(XIV-108, §8.14).
+
+	**This file is also the preview.** `SignupMailer::renderApology()` renders it
+	and the tenant list draws the result beside the button, so what an operator
+	reads before pressing send is the same string the recipient reads afterwards.
+	Not a paraphrase of it, and not a second template that would drift from this
+	one the first time a sentence was reworded. That is what makes "the
+	operator sees what it says before it goes" a property rather than a promise.
+
+	**No URL anywhere in it**, which is the difference from every other mail this
+	application sends. There is nothing here to click: the installation does not
+	exist, so there is no address to give, and the confirmation link this person
+	already followed is spent. A message to somebody who is confused about why
+	they have heard nothing, carrying a link, is the shape of the mail they should
+	be suspicious of.
+
+	The sentences are in the catalogue rather than here because they go out in the
+	language the signup recorded (§8.14, as the invitation does), and a paragraph
+	written into a template is a paragraph in one language.
+#}
+{{ 'signup.stalled.greeting'|trans({'%company%': company}) }}
+
+{{ 'signup.stalled.body'|trans({'%slug%': slug}) }}
+
+{{ 'signup.stalled.hand'|trans }}
+
+{{ 'signup.stalled.next'|trans }}
+
+{{ 'signup.stalled.no_action'|trans }}

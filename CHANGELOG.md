@@ -73,6 +73,24 @@ always lands in `Unreleased` here.
 
 ## [Unreleased]
 
+- **A signup that will never provision now shows up on the tenant list, with the
+  person's address and a button that writes to them** ([XIV-108], §8.14). It sits
+  above the customer table, is drawn only when there is somebody in it, and names
+  where provisioning stopped, how many runs have tried and how long the person
+  has been waiting. Which signups qualify is the existing stage enum's answer, so
+  a failure the next run may fix is deliberately not listed.
+- **Nothing is sent automatically, and that is the decision rather than a gap**
+  ([XIV-108]). No attempt count, stage or elapsed time triggers a mail. The
+  operator reads the exact message on the page first, presses send, and the mail
+  goes out under the instance's own identity in the language the signup recorded.
+  It names no cause, because only one stage has one the system established, and
+  it carries no link.
+- **One message per person, recorded on the signup row** ([XIV-108]). Once it has
+  gone, the row shows who sent it and when instead of a button, and a second
+  operator posting a stale page sends nothing. **Adds a control migration**, so
+  `bin/console doctrine:migrations:migrate` on the control-plane database is
+  needed on upgrade; existing signups acquire two empty columns and nothing else
+  changes.
 - **An administrator can now change a field's type on a tenant that already has
   records** ([XIV-146], §7.2, §5.4). The field's own page has a **Change the
   type** link. Picking a kind shows a report first: how many values convert and
@@ -221,6 +239,7 @@ always lands in `Unreleased` here.
   own fleet commands.
 
 [XIV-45]: https://xivi.youtrack.cloud/issue/XIV-45
+[XIV-108]: https://xivi.youtrack.cloud/issue/XIV-108
 [XIV-125]: https://xivi.youtrack.cloud/issue/XIV-125
 [XIV-146]: https://xivi.youtrack.cloud/issue/XIV-146
 [XIV-148]: https://xivi.youtrack.cloud/issue/XIV-148

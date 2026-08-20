@@ -129,6 +129,21 @@ control_plane:
     # free, and nothing is broken. Nobody has decided yet, which is a state a
     # deployment may sit in on purpose.
     modules_unpriced: '{count, plural, one {# published module has no price, so nobody is offered it.} other {# published modules have no price, so nobody is offered them.}}'
+    # The heading of the stalled-signup section (XIV-108, §8.14). No `=0` case,
+    # for the reason `not_serving` above has none: it is drawn only when the
+    # number is not zero, and a heading permanently reading "0 signups are
+    # waiting" is furniture the eye learns to skip.
+    #
+    # "waiting on somebody here" rather than "failed" or "need attention". The
+    # provisioner fails on plenty of signups that fix themselves on the next run
+    # and are deliberately not in this list; what these have in common is that a
+    # person has to act, and saying so is what the section is for.
+    stalled: '{count, plural, one {# confirmed signup is waiting on somebody here.} other {# confirmed signups are waiting on somebody here.}}'
+    # How many runs have tried. Stated as a fact and never as a threshold:
+    # nothing in this feature fires at any number, and the count means whatever
+    # the local crontab decides it means, which is precisely why no rule reads
+    # it. The reader supplies the judgement.
+    stalled_attempts: '{count, plural, one {# attempt} other {# attempts}}'
 
 # Taking what a module grew (XIV-70). Every one of these counts something the
 # customer cannot see for themselves — how many records are in scope, how many

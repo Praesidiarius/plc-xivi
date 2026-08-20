@@ -24,8 +24,17 @@ use Twig\Environment;
 use Xivi\ControlPlane\Entity\SignupRequest;
 
 /**
- * The one mail this feature sends, and the only one in the system that comes
- * from the instance rather than from a customer (XIV-64).
+ * The mail this feature sends, and the only mail in the system that comes from
+ * the instance rather than from a customer (XIV-64).
+ *
+ * Two messages now rather than one (XIV-108): the confirmation, which the public
+ * endpoint sends to everybody, and the apology an operator sends by hand to
+ * somebody whose signup has stopped for good. They are in one class on purpose.
+ * Everything below is decided once here: who the mail is from, what happens when
+ * `MAILER_SENDER` is empty, which host the footer names, and which language it
+ * is written in. A second mailer for the second message would be a
+ * second answer to each of those questions, free to drift from this one on the
+ * day somebody changes only one of them.
  *
  * ### Why `TenantMailer` is not used, and could not be
  *
@@ -173,6 +182,141 @@ final readonly class SignupMailer
                 throw SignupMailFailed::because($failure);
             }
         });
+    }
+
+    /**
+     * The message an operator sends somebody whose signup has stopped for good
+     * (XIV-108, §8.14).
+     *
+     * ### Nothing here decides to send it
+     *
+     * This method is reached from a button on the tenant list and from nowhere
+     * else. `signup:provision` does not call it, no attempt count triggers it,
+     * and no scheduled job looks for anybody to write to. That is the ticket's
+     * decision rather than an omission: nearly every provisioning failure clears
+     * on the next run, and "we could not set up your installation" followed
+     * twenty minutes later by "here is your login" is worse for the reader than
+     * twenty minutes of silence. An operator who has looked decides, and the
+     * decision is theirs because the message is in substance an apology.
+     *
+     * ### What it may say, and what it therefore does not
+     *
+     * It names no cause. The one stage that has an established one is
+     * `preflight`, where the name really is gone; every other stage the button
+     * can be offered for is a machine that failed at something it was entitled
+     * to do, and a mail claiming the name was taken would be false for those.
+     * So the sentences are true of anything
+     * {@see \Xivi\ControlPlane\Provisioning\SignupProvisioningStage::isWorthRetrying()}
+     * says no to: it has not been set up, it will not resolve by itself, a
+     * person has seen it, and they will write again.
+     *
+     * ### The same identity as the confirmation, for the same reason
+     *
+     * Instance transport, instance sender with §8.7's fallback, and the signup
+     * host in the footer, all of it {@see sendConfirmation()}'s and none of it
+     * decided twice. There is still no tenant to ask; that is what the whole
+     * feature is about.
+     *
+     * @throws SignupMailFailed
+     */
+    public function sendApology(SignupRequest $signup): void
+    {
+        $from = $this->senderAddress();
+
+        $this->locales->runWithLocale($signup->getLocale(), function () use ($signup, $from): void {
+            $subject = $this->translator->trans('signup.stalled.subject', ['%slug%' => $signup->getSlug()]);
+            $context = self::apologyContext($signup);
+
+            try {
+                $this->mailer->send(
+                    new Email()
+                        ->from(new Address($from))
+                        ->to(new Address($signup->getEmail()))
+                        ->subject($subject)
+                        // Both parts, as the confirmation sends both. The
+                        // argument there was that a text-only client would show
+                        // an HTML-only message as nothing and the one thing that
+                        // mail has to deliver is a URL. This one has no URL and
+                        // the argument survives intact: the one thing it has to
+                        // deliver is four sentences, and a reader who sees none
+                        // of them is in exactly the silence the feature exists to
+                        // end.
+                        ->text($this->renderApologyBody($signup))
+                        ->html($this->twig->render(self::FRAME, [
+                            'subject' => $subject,
+                            'content' => $this->twig->render(
+                                '@XiviControlPlane/mail/signup_stalled.html.twig',
+                                $context,
+                            ),
+                            'general' => ['tenant.name' => $this->host->normalisedHost()],
+                        ])),
+                );
+            } catch (\Throwable $failure) {
+                throw SignupMailFailed::because($failure);
+            }
+        });
+    }
+
+    /**
+     * What that message will say, before it is sent.
+     *
+     * **Rendered from the same template the mail's text part is rendered from**,
+     * in the same language, from the same context: see
+     * {@see renderApologyBody()}. That is the whole point of the method existing:
+     * an operator is shown the sentences rather than a description of them, and
+     * a second string written for the screen would be a preview that could be
+     * wrong. There is no way to change what goes out without changing what is
+     * previewed, because they are one file.
+     *
+     * The subject comes with it, because the subject is the part of a mail its
+     * reader sees first and an operator approving a message they cannot see the
+     * subject of is approving most of one.
+     */
+    public function previewApology(SignupRequest $signup): ApologyPreview
+    {
+        return $this->locales->runWithLocale($signup->getLocale(), fn (): ApologyPreview => ApologyPreview::of(
+            $this->translator->trans('signup.stalled.subject', ['%slug%' => $signup->getSlug()]),
+            $this->renderApologyBody($signup),
+        ));
+    }
+
+    /**
+     * The plain-text body, trimmed.
+     *
+     * Trimmed because Twig leaves the newline after the comment block at the top
+     * of the template, and a preview that begins with a blank line reads as a
+     * rendering accident on the one screen where the reader is being asked
+     * whether the text is right.
+     *
+     * Not locale-switched here. Both callers are already inside
+     * `runWithLocale()`, and switching twice would be a second place deciding
+     * which language this person gets.
+     */
+    private function renderApologyBody(SignupRequest $signup): string
+    {
+        return trim($this->twig->render(
+            '@XiviControlPlane/mail/signup_stalled.txt.twig',
+            self::apologyContext($signup),
+        ));
+    }
+
+    /**
+     * The two values the apology's templates read.
+     *
+     * Both are the signup's own words back to it: the company name it gave and
+     * the name it asked for. Nothing derived, nothing about the failure, and no
+     * date: a timestamp in a mail is a timestamp in some timezone, and neither
+     * the reader's nor this process's is known to the other, which is the
+     * argument {@see hoursUntil()} carries.
+     *
+     * @return array{company: string, slug: string}
+     */
+    private static function apologyContext(SignupRequest $signup): array
+    {
+        return [
+            'company' => $signup->getCompanyName(),
+            'slug' => $signup->getSlug(),
+        ];
     }
 
     /**

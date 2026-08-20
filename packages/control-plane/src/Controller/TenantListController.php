@@ -22,6 +22,7 @@ use Xivi\ControlPlane\Entity\SignupRefusal;
 use Xivi\ControlPlane\Repository\SignupRefusalRepository;
 use Xivi\ControlPlane\Repository\TenantUsageRepository;
 use Xivi\ControlPlane\Security\ControlPlaneHost;
+use Xivi\ControlPlane\Signup\StalledSignups;
 use Xivi\ControlPlane\View\SignupRefusalListing;
 use Xivi\ControlPlane\View\TenantSummary;
 
@@ -145,6 +146,24 @@ final class TenantListController extends AbstractController
          * the public endpoint when it refuses a throwaway address.
          */
         private readonly SignupRefusalRepository $refusals,
+        /**
+         * Who confirmed an address and is still waiting (XIV-108).
+         *
+         * A fourth control-plane query, and still no tenant connection: a
+         * stranded signup has no tenant, no database and no user, which is
+         * exactly why §8.16's notices could not be the answer to it. The reads
+         * are `signup_request` rows and a Twig render each, both of them local
+         * to this process.
+         *
+         * The service rather than the repository, because *which* failures count
+         * as stranded is
+         * {@see \Xivi\ControlPlane\Provisioning\SignupProvisioningStage::isWorthRetrying()}'s
+         * answer and belongs in one place. This controller draws them; the act
+         * of writing to one of them is {@see StalledSignupController}, which is
+         * where the mailer lives, so that the paragraph above about what this
+         * page does not reach stays checkable against this constructor.
+         */
+        private readonly StalledSignups $stalled,
     ) {
     }
 
@@ -207,6 +226,24 @@ final class TenantListController extends AbstractController
                 static fn (SignupRefusal $refusal): SignupRefusalListing => SignupRefusalListing::of($refusal),
                 $this->refusals->newestFirst(),
             ),
+
+            // **Who is still waiting** (XIV-108, §8.14). A signup that failed at
+            // a stage no retry can get past will fail at it every run for ever,
+            // and until this ticket every signal about that was addressed to the
+            // operator: a non-zero exit into cron mail, a half-made tenant in the
+            // table above, three columns on a row nobody reads. The person who
+            // confirmed their address and was told their installation was being
+            // prepared heard nothing.
+            //
+            // Here rather than on a page of its own, which is the same choice the
+            // refusals below got and §8.10's rule for this screen: nobody should
+            // have to go looking. Above the table rather than under it, unlike
+            // the refusals, because this is the only section on this page with an
+            // outstanding *act* on it. The refusals are a tally somebody reviews
+            // when they wonder about the list; these are people waiting, and the
+            // page's shape is unchanged on the ordinary day because, like the
+            // banner, it is drawn only when it is not empty.
+            'stalled' => $this->stalled->listing(),
         ]);
     }
 }

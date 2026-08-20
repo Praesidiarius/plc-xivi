@@ -81,6 +81,26 @@ control_plane:
     refusals_attempts: Refusées
     refusals_first: Première
     refusals_last: Dernière
+    stalled_hint: >-
+        Ces personnes ont confirmé une adresse et se sont vu dire que leur installation était en
+        préparation. Elle s’est arrêtée à une étape qu’aucune reprise ne franchit, et ne repartira pas
+        toute seule. Rien ne leur a été envoyé.
+    stalled_failed: 'dernier essai %time%'
+    stalled_waiting: 'en attente depuis %time%'
+    stalled_preview: Ce qu’elles recevront
+    stalled_locale: 'Rédigé en %locale%, la langue de leur inscription.'
+    stalled_send: Envoyer ce message
+    stalled_sent_by: 'Envoyé par %who% le %time%. Rien d’autre ne part.'
+    stalled_sent: Le message a été envoyé.
+    stalled_already: Quelqu’un d’autre a déjà écrit. Rien n’a été envoyé.
+    stalled_gone: Cette inscription n’attend plus. Soit elle a été mise en place, soit le nom qu’elle voulait a été libéré.
+    stalled_stale: Cette page a été chargée il y a trop longtemps. Rien n’a été envoyé ; rouvrez-la et réessayez.
+    stalled_not_sent: 'Rien n’a été envoyé, cette personne n’a donc toujours rien reçu : %reason%'
+    stage_preflight: Nom indisponible
+    stage_tenant: Base de données
+    stage_first_user: Première administration
+    stage_invitation: Invitation
+    stage_cleanup: Nettoyage
     module_state: État
     module_price: Prix
     module_in_store: Dans la boutique
@@ -1297,3 +1317,20 @@ signup:
         unknown: Ce lien n’appartient à aucune inscription encore en attente.
         next: 'Nous mettons %slug% en place et vous écrirons quand ce sera prêt.'
         sign_up_again: S’inscrire à nouveau depuis la même adresse en démarre une nouvelle.
+    stalled:
+        subject: 'Votre installation %slug% n’est pas encore prête'
+        greeting: 'Bonjour %company%,'
+        body: >-
+            Vous avez confirmé cette adresse et nous avez demandé de mettre en place une installation
+            nommée %slug%. Elle n’est pas prête, et nous sommes désolés de vous avoir laissé attendre
+            sans un mot.
+        hand: >-
+            La mise en place a rencontré quelque chose qui ne se résoudra pas tout seul ; il faut donc
+            que l’un de nous s’en occupe à la main. Quelqu’un ici l’a maintenant vu : ce message a été
+            envoyé par une personne, pas par le système.
+        next: >-
+            Nous vous écrirons de nouveau à cette adresse, soit quand votre installation sera prête,
+            soit si nous avons d’abord une question à vous poser.
+        no_action: >-
+            Il n’y a rien à faire de votre côté en attendant. Vous réinscrire n’aiderait pas non plus :
+            cette adresse retient déjà votre demande, et le formulaire en refusera une seconde.
