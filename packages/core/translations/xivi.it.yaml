@@ -1,0 +1,190 @@
+# Il vocabolario proprio del motore (XIV-153), in italiano; dà del tu, come il
+# resto del catalogo italiano.
+#
+# Le chiavi seguono xivi.en.yaml esattamente, in entrambe le direzioni;
+# altrimenti TranslationCatalogueTest fa fallire il build.
+
+operator:
+    eq: è
+    neq: non è
+    contains: contiene
+    starts: inizia con
+    gt: dopo
+    gte: dal
+    lt: prima
+    lte: fino a
+    empty: è vuoto
+    filled: non è vuoto
+    # L'unico confronto che riguarda due estensioni anziché un punto (XIV-136).
+    # Si legge come un confronto in una riga di filtro: «Soggiorno si sovrappone
+    # a 19.8.2026».
+    overlaps: si sovrappone a
+
+autocomplete:
+    auto: Automatico
+    always: Sempre
+    never: Mai
+
+document:
+    marker:
+        record_id: Numero del record
+        created_at: Creato
+        updated_at: Modificato
+        today: Data odierna
+    problem:
+        not_a_docx: '“%file%” non è un documento Word leggibile qui. Salvalo come .docx e riprova.'
+        could_not_fill: 'Il modello “%template%” non si è potuto compilare. Forse è stato salvato in un formato che Word stesso riparerebbe.'
+        no_converter: Il convertitore PDF non è raggiungibile, quindi per ora è disponibile solo il .docx.
+
+mail:
+    recipient:
+        no_link: 'Questo record non nomina alcun %via%, quindi non c’è un indirizzo a cui inviare.'
+        link_gone: 'Il %via% che questo record nomina non c’è più, quindi non c’è un indirizzo a cui inviare.'
+        no_address_here: 'Questo record non ha %field%, quindi non c’è nulla a cui inviare.'
+        no_address_there: 'Il %via% che questo record nomina non ha %field%, quindi non c’è nulla a cui inviare.'
+        not_an_address: '“%value%” non è un indirizzo e-mail, quindi non ci si può inviare nulla.'
+
+lifecycle:
+    refused: 'Da “%state%” questo non è possibile. Da qui: %possible%.'
+    refused_final: 'Questo record è a “%state%” e da lì non si muove più.'
+    refused_unknown: Questo non è un passaggio che il record conosce.
+
+record:
+    collection_too_long: '%collection% contiene al massimo %limit% righe e questo ne ha %count%, quindi non è stato salvato nulla. Distribuiscile su più record.'
+    submission_unreadable: 'Questo modulo ha inviato valori in una forma che non gli appartiene, quindi non è stato salvato nulla. Ricarica la pagina e riprova.'
+    duplicate_value: 'Un altro record ha ricevuto questo %field% un attimo fa, mentre questo veniva salvato, quindi qui non è stato salvato nulla. Cambialo e riprova.'
+    duplicate_value_unknown: 'Un altro record ha ricevuto uno di questi valori un attimo fa, mentre questo veniva salvato, quindi qui non è stato salvato nulla. Controlla i campi che devono essere univoci e riprova.'
+    overlapping_period: 'Un altro record copre già parte di questo %field% per la stessa cosa, quindi qui non è stato salvato nulla. Scegli un periodo diverso, oppure una cosa diversa da prenotare.'
+    overlapping_period_unknown: 'Un altro record copre già parte di uno di questi periodi per la stessa cosa, quindi qui non è stato salvato nulla. Controlla i periodi su questo record e riprova.'
+
+history:
+    period:
+        today: Oggi
+        week: Questa settimana
+        month: Questo mese
+        year: Quest’anno
+        older: Prima
+
+permission:
+    action:
+        view: Vedere
+        list: Elencare
+        add: Aggiungere
+        edit: Modificare
+        delete: Eliminare
+        export: Esportare
+        import: Importare
+        templates: Modelli
+        document: Documenti
+        email_templates: Modelli e-mail
+        send_email: Inviare e-mail
+        transition: Cambiare stato
+        follow_up_create: Aggiungere promemoria
+        follow_up_complete: Completare promemoria
+    scope:
+        own: I propri record
+        all: Tutti i record
+
+import:
+    at_sheet: '%sheet%: %problem%'
+    at_row: '%sheet%, riga %row%: %problem%'
+    problem:
+        unknown_column: 'La colonna “%column%” non corrisponde ad alcun campo di “%shape%”.'
+        duplicate_column: 'Due colonne riempiono entrambe “%field%”.'
+        unreadable: 'Questo file non si è potuto leggere come foglio di calcolo (%reason%).'
+        missing_sheet: 'Il file non ha un foglio chiamato “%sheet%”. Un export di questo modulo ha esattamente la forma attesa.'
+        unknown_sheet: Questo foglio non corrisponde ad alcuna parte del modulo, e le sue righe verrebbero ignorate.
+        missing_parent_column: 'Un foglio “%shape%” ha bisogno di una colonna parent_id che dica a quale record appartiene ogni riga.'
+        duplicate_id: 'L’id “%id%” compare più di una volta.'
+        wrong_parent: 'La riga %row% non appartiene al record %parent%.'
+        unknown_parent_name: 'Nessuna riga del foglio %sheet% si chiama “%name%”. Metti quello stesso nome nella colonna id della riga a cui questo appartiene.'
+        unknown_id: 'Non esiste un record con id %id%. Lascia l’id vuoto per crearne uno nuovo.'
+        no_parent: 'Questa riga non nomina alcun record padre. Metti in parent_id l’id del %module% a cui appartiene.'
+        invalid_value: '%field%: %reason%'
+
+module:
+    requires_missing: '“%module%” ha bisogno di %missing%, che qui non è installato. Installa prima quello.'
+
+numbering:
+    counter_back: 'Questo contatore è a %at%, quindi il prossimo numero che dà è %at%. %wanted% è pari o inferiore a un numero già presente su un record, e un contatore va solo avanti.'
+    counter_back_in: 'Il contatore di %period% è a %at%, quindi il prossimo numero che dà è %at%. %wanted% è pari o inferiore a un numero già presente su un record, e un contatore va solo avanti.'
+    counter_in_use: 'Un record porta già %number%, quindi mettere il contatore a %wanted% darebbe quel numero una seconda volta. I numeri scritti a mano prima che questo campo fosse numerato non stanno in alcun contatore, quindi vengono cercati nei record. Il minimo a cui questo contatore può andare è %free%.'
+    counter_in_use_in: 'Un record porta già %number%, quindi mettere il contatore di %period% a %wanted% darebbe quel numero una seconda volta. I numeri scritti a mano prima che questo campo fosse numerato non stanno in alcun contatore, quindi vengono cercati nei record. Il minimo a cui questo contatore può andare è %free%.'
+
+metadata:
+    pattern_numbers_nothing: 'Uno schema di numerazione deve dire dove va il contatore: gli serve {number}, come in ORD-{year}-{number:4}. “%pattern%” lascerebbe questo campo senza nulla da numerare.'
+    empty_label: 'Una forma ha bisogno di un’etichetta: è così che la navigazione e ogni intestazione di pagina la chiamano.'
+    bad_key: 'Il nome di un campo inizia con una lettera e contiene solo minuscole, cifre e trattini bassi. “%key%” non lo fa.'
+    key_taken: '“%shape%” ha già un campo chiamato “%key%”.'
+    system_field: 'Il campo “%key%” è arrivato con il modulo e non si può togliere. I campi che hai aggiunto tu sì.'
+    module_not_installed: 'Nessun modulo chiamato “%module%” è installato qui.'
+    values_are_shared: '%count% record condividono già un valore in “%key%”, quindi non può diventare univoco. Su più di un record: %values%. Sistema prima quei record, oppure lascia “%key%” com’è.'
+    option_unanswered: 'Un campo “%type%” non fa nulla finché %option% non è impostato, quindi “%key%” non è stato salvato. Un campo a scelta senza opzioni non offre nulla e accetta qualsiasi cosa; un riferimento senza destinazione non ha dove cercare un record.'
+    options_are_held: '%count% record esistenti portano un’opzione che stai togliendo da “%key%”: %values%. Resterebbero con un valore che non è più in lista e non si potrebbero più salvare finché qualcuno non li sistema. Cambia prima quei record, oppure tieni l’opzione.'
+    options_are_the_modules: 'Il campo “%key%” è arrivato con il modulo, e le sue opzioni sono parte di ciò che il modulo fa: gli stati tra cui sposta i record, i tipi di record che conosce. Puoi aggiungere opzioni e rinominarle; toglierne una non è previsto.'
+    target_is_held: '%count% record esistenti puntano tramite “%key%” a record di “%from%”. Un id significa qualcosa solo nel modulo in cui è stato scelto, quindi puntare questo campo su “%to%” lascerebbe ognuno di loro a nominare il record sbagliato, o nessuno. Svuota prima quei record, oppure lascialo puntare su “%from%”.'
+    target_is_the_modules: 'Il campo “%key%” è arrivato con il modulo e punta su “%module%” perché i moduli di inserimento, i documenti e i totali del modulo se lo aspettano così. I campi che hai aggiunto tu possono puntare dove vuoi.'
+    unknown_target: 'Nessun modulo chiamato “%module%” è installato qui, quindi “%key%” non può puntarci.'
+    unknown_section: 'Non c’è una sezione chiamata “%section%” su questo modulo, quindi “%key%” non ci si può mettere. Creala prima nella pagina delle sezioni.'
+    section_needs_a_name: 'Una sezione è un’intestazione sul modulo di inserimento, quindi le serve un nome: è l’unica cosa che dice.'
+    sections_are_for_modules: '“%shape%” è un elenco di righe dentro un record, non un modulo di inserimento a sé, quindi non ha sezioni in cui mettere campi.'
+    entries_are_held: '%count% record esistenti portano una voce che stai togliendo da “%list%”: %values%. Stanno in %where%. Quei record resterebbero con un valore che la lista non ha più, e non si potrebbero più salvare finché qualcuno non li sistema. Cambia prima quei record, oppure tieni la voce.'
+    entry_has_children: '%count% voci stanno sotto “%label%”, quindi non si può togliere. Spostale altrove o rendile prima voci di primo livello.'
+    list_is_in_use: '“%list%” non si può eliminare: %count% campi ne prendono i valori, ovvero %fields%. Punta prima quei campi altrove, e la lista potrà andare.'
+    list_is_the_modules: 'Il campo “%key%” è arrivato con il modulo, e le sue opzioni sono parte di ciò che il modulo fa: gli stati tra cui sposta i record, i tipi di record che conosce. Non può prenderle da una lista che tieni tu. Aggiungi un campo tuo e punta quello sulla lista.'
+    list_key_taken: 'Una lista condivisa chiamata “%key%” esiste già.'
+    empty_list_label: 'Una lista ha bisogno di un nome: è ciò che l’editor dei campi propone quando qualcuno ci punta un campo.'
+    cannot_merge_that: 'Una fusione deve nominare due voci diverse di “%list%”. Scegli la voce da tenere e la voce da fondervi dentro.'
+    unknown_list: 'Nessuna lista condivisa chiamata “%list%” esiste qui, quindi “%key%” non può prenderne i valori.'
+    values_are_not_on_the_list: '%count% record esistenti portano in “%key%” un valore che non sta sulla lista “%list%”: %values%. Puntare il campo su quella lista li lascerebbe con qualcosa che essa non contiene, e non si potrebbero più salvare finché qualcuno non li sistema. Aggiungi prima quei valori alla lista, oppure cambia i record.'
+    values_are_not_among_its_options: '%count% record esistenti portano in “%key%” un valore che non è tra le opzioni proprie del campo: %values%. Togliere il campo dalla lista condivisa li lascerebbe con qualcosa che il campo non offre. Aggiungi prima quelle opzioni al campo, oppure lascialo sulla lista.'
+    scope_is_not_a_field: '“%key%” non può essere esclusivo entro “%scope%”: questo modulo non ha un campo con quel nome. Un periodo è esclusivo entro qualcosa, una stanza, una macchina, una persona, e quel qualcosa è un campo accanto a lui.'
+    scope_on_a_collection: '“%key%” è un campo della collezione “%shape%”, e lì un periodo non si può rendere esclusivo: entro uno stesso record padre e su tutta la tabella sono due regole diverse, e il motore non indovinerà quale si intendeva.'
+    periods_already_overlap: 'Dei record si sovrappongono già in “%key%”, quindi non può ancora diventare esclusivo entro “%scope%”: %pairs%. Separa prima quei record, oppure lascia “%key%” com’è.'
+
+query:
+    unknown_field: 'Non c’è nulla chiamato “%path%” su “%shape%” per filtrare o ordinare.'
+    unknown_collection: '“%module%” non ha una collezione chiamata “%collection%”.'
+    unsupported_operator: 'Impossibile chiedere se “%path%” (%type%) %operator%. Quel tipo accetta: %supported%.'
+    sort_by_collection: 'Impossibile ordinare per “%path%”: appartiene a una collezione, e un record che ne ha due ha due valori. Quale sarebbe quello del record?'
+
+markdown:
+    hint: >-
+        Formattazione: <code>**grassetto**</code>, <code>*corsivo*</code>, <code># Titolo</code>,
+        e una riga che inizia con <code>-</code> per un elenco.
+    preview: Anteprima
+
+phone:
+    help_country: 'Scritto senza prefisso internazionale, questo viene letto come un numero di questo paese: %country%.'
+    help_no_country: 'Questa installazione non ha indicato in quale paese si trova, quindi scrivi i numeri per intero, con il prefisso internazionale.'
+
+value_list:
+    tone:
+        primary: Accento
+        secondary: Attenuato
+        success: Verde
+        danger: Rosso
+        warning: Ambra
+        info: Blu
+        light: Chiaro
+        dark: Antracite
+    icon:
+        Circle: Punto
+        Square: Quadrato
+        Star: Stella
+        Flag: Bandiera
+        Place: Luogo
+        Building: Edificio
+        Person: Persona
+        Box: Scatola
+        Delivery: Consegna
+        Tools: Attrezzi
+        Done: Spunta
+        Attention: Avvertimento
+
+period:
+    from: Dal
+    until: Fino al
+    until_help: Il giorno in cui il periodo finisce; non è compreso, quindi una stanza è di nuovo libera in questa data.
+    open_ended_label: Senza data di fine
+    open_ended: 'dal %from%'

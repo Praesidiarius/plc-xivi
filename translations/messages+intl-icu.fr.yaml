@@ -1,0 +1,84 @@
+# Les chaînes qui comptent quelque chose (XIV-8), en français.
+#
+# Apostrophes typographiques (’) uniquement : dans un message ICU, l'apostrophe
+# ASCII est un caractère d'échappement et couperait le message en deux. En
+# français, «one» couvre aussi zéro ; c'est la règle CLDR, pas un oubli.
+
+dashboard:
+    field_count: '{count, plural, one {# champ} other {# champs}}'
+
+account:
+    password_minimum: '{count, plural, one {Au moins # caractère.} other {Au moins # caractères.}}'
+
+store:
+    preset_count: '{count, plural, =0 {Aucun choix à faire} one {# façon de l’installer} other {# façons de l’installer}}'
+    no_presets: '{count, plural, one {Ce module n’offre aucun choix à faire : il installe son unique champ.} other {Ce module n’offre aucun choix à faire : il installe ses # champs.}}'
+    will_create: '{count, plural, one {Crée # champ :} other {Crée # champs :}}'
+
+follow_up:
+    more_due: '{count, plural, one {Et # de plus.} other {Et # de plus.}}'
+    show_done: '{count, plural, one {# fait} other {# faits}}'
+    hide_done: '{count, plural, one {Masquer celui qui est fait} other {Masquer les # qui sont faits}}'
+
+module:
+    history_all: '{count, plural, one {Une entrée} other {Les # entrées}}'
+    history_changes: '{count, plural, one {# changement} other {# changements}}'
+    record_count: '{count, plural, one {# enregistrement.} other {# enregistrements.}}'
+    record_count_matching: '{count, plural, one {# enregistrement correspondant.} other {# enregistrements correspondants.}}'
+    linked_shown: 'Affichage de {shown, number} sur {total, number}.'
+
+mail:
+    attachment_size: '({size, number, ::.0} Mo)'
+    attachment_too_large: '«{file}» fait {size, number, ::.0} Mo, et cette installation envoie au plus {limit, number, ::.0} Mo.'
+
+field:
+    remove_holding: '{count, plural, one {<strong>#</strong> enregistrement porte actuellement une valeur pour lui.} other {<strong>#</strong> enregistrements portent actuellement une valeur pour lui.}}'
+    options:
+        held_count: '{count, plural, one {# enregistrement} other {# enregistrements}}'
+
+document:
+    unknown_placeholders: '{count, plural, one {{placeholders} sera imprimé tel quel : il n’existe pas d’espace réservé de ce nom.} other {{placeholders} seront imprimés tels quels : il n’existe pas d’espaces réservés de ces noms.}}'
+
+import:
+    written: '{added, plural, one {# ajouté} other {# ajoutés}}, {updated, plural, one {# mis à jour} other {# mis à jour}}'
+    rows_written: '{count, plural, one {# écrite} other {# écrites}}'
+    rows_removed: '{count, plural, one {# <strong>retirée</strong>, parce que le fichier ne la liste pas} other {# <strong>retirées</strong>, parce que le fichier ne les liste pas}}'
+    rows_removed_none: '{count, plural, other {# retirées}}'
+    problems: '{count, plural, one {Rien n’a été changé. # problème à régler d’abord :} other {Rien n’a été changé. # problèmes à régler d’abord :}}'
+
+group:
+    delete_members: '{count, plural, =0 {Personne n’est dans ce groupe,} one {# personne est dans ce groupe,} other {# personnes sont dans ce groupe,}}'
+    delete_grants: '{count, plural, one {et il accorde # autorisation.} other {et il accorde # autorisations.}}'
+
+control_plane:
+    not_serving: '{count, plural, one {# client n’est pas servi.} other {# clients ne sont pas servis.}}'
+    usage_users: '{count, plural, =0 {aucun utilisateur} one {# utilisateur} other {# utilisateurs}}'
+    usage_records: '{count, plural, =0 {aucun enregistrement} one {# enregistrement} other {# enregistrements}}'
+    modules_differ: '{count, plural, one {# module diffère du registre} other {# modules diffèrent du registre}}'
+    modules_more: '{count, plural, one {# module de plus} other {# modules de plus}}'
+    modules_unpriced: '{count, plural, one {# module publié n’a pas de prix ; il n’est donc proposé à personne.} other {# modules publiés n’ont pas de prix ; ils ne sont donc proposés à personne.}}'
+
+upgrade:
+    a_collection: '{count, plural, one {une collection, # champ} other {une collection, # champs}}'
+    banner: '{count, plural, one {Il manque à votre exemplaire de {module} # élément que ce module déclare désormais.} other {Il manque à votre exemplaire de {module} # éléments que ce module déclare désormais.}}'
+    review_records: '{count, plural, one {<strong>Le # enregistrement</strong> de {module} gagne ces champs, vides. Rien n’y est écrit ; les champs existent simplement à partir de maintenant.} other {<strong>Les # enregistrements</strong> de {module} gagnent ces champs, vides. Rien n’est écrit dans aucun d’eux ; les champs existent simplement à partir de maintenant.}}'
+    review_rows: '{count, plural, one {# ligne à l’intérieur de ces enregistrements gagne les nouveaux champs, vides aussi.} other {# lignes à l’intérieur de ces enregistrements gagnent les nouveaux champs, vides aussi.}}'
+    review_tables: '{count, plural, one {<strong>Une table est créée</strong> dans votre base de données pour la nouvelle collection. Elle démarre vide.} other {<strong># tables sont créées</strong> dans votre base de données, une par nouvelle collection. Elles démarrent vides.}}'
+    review_derived: '{count, plural, one {# de ceux-ci est rempli par le moteur plutôt que tapé ; il arrive donc vide sur les enregistrements existants et se remplit à la prochaine sauvegarde de chacun :} other {# de ceux-ci sont remplis par le moteur plutôt que tapés ; ils arrivent donc vides sur les enregistrements existants et se remplissent à la prochaine sauvegarde de chacun :}}'
+    review_relaxed: '{count, plural, one {# de ceux-ci est obligatoire dans le module et arrive facultatif ici, parce que les enregistrements existants ne pourraient pas le satisfaire. Rendez-le obligatoire dans l’éditeur de champs une fois remplis :} other {# de ceux-ci sont obligatoires dans le module et arrivent facultatifs ici, parce que les enregistrements existants ne pourraient pas les satisfaire. Rendez-les obligatoires dans l’éditeur de champs une fois remplis :}}'
+    review_agree: '{count, plural, one {Oui, l’ajouter à {module}.} other {Oui, ajouter les # à {module}.}}'
+
+flash:
+    list_merged: '{count, plural, =0 {Fusionné. Aucun enregistrement ne la portait.} one {Fusionné, et # enregistrement a été réécrit.} other {Fusionné, et # enregistrements ont été réécrits.}}'
+    upgrade_taken: '{count, plural, one {# élément ajouté à {module}. Il est dans la liste des champs maintenant, et à vous de le renommer et le réordonner comme les autres.} other {# éléments ajoutés à {module}. Ils sont dans la liste des champs maintenant, et à vous de les renommer et les réordonner comme les autres.}}'
+    password_too_short: '{count, plural, one {Utilisez au moins # caractère.} other {Utilisez au moins # caractères.}}'
+    imported: 'Importé. {module} : {added, plural, other {# ajoutés}}, {updated, plural, other {# mis à jour}}.'
+
+value_list:
+    merge:
+        writes: '{count, plural, one {<strong>#</strong> enregistrement sera réécrit.} other {<strong>#</strong> enregistrements seront réécrits.}}'
+        children: '{count, plural, one {# entrée classée sous elle passe sous l’entrée qui reste.} other {# entrées classées sous elle passent sous l’entrée qui reste.}}'
+        agree: '{count, plural, one {Oui : réécrire cet # enregistrement et retirer l’entrée de la liste.} other {Oui : réécrire ces # enregistrements et retirer l’entrée de la liste.}}'
+    delete:
+        what: '{count, plural, =0 {La liste n’a pas d’entrées ; rien n’est donc perdu que la liste elle-même.} one {La liste et son # entrée disparaissent, avec les couleurs et l’ordre.} other {La liste et ses # entrées disparaissent, avec les couleurs et l’ordre.}}'
+        orphans: '{count, plural, one {# enregistrement porte encore une de ses entrées et montrera le code stocké au lieu d’un libellé.} other {# enregistrements portent encore ses entrées et montreront les codes stockés au lieu de libellés.}}'

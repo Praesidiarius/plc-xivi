@@ -1,0 +1,82 @@
+# Come il modulo Ordini chiama sé stesso, i suoi campi e i suoi passaggi
+# (XIV-153).
+#
+# Letto una volta sola, all'installazione, poi scritto nelle definizioni di quel
+# cliente; vedi contact.en.yaml, che spiega perché è un seme e non una tabella
+# di corrispondenza.
+
+module: Ordini
+
+collection:
+    lines: Righe
+    taxes: Dettaglio IVA
+
+field:
+    number: Numero
+    contact: Cliente
+    ordered_on: Ordinato il
+    status: Stato
+    note: Nota
+    kind: Tipo
+    article: Articolo
+    description: Descrizione
+    quantity: Quantità
+    unit: Unità
+    unit_price: Prezzo unitario
+    line_discount: Sconto
+    line_total: Totale riga
+    tax_rate: Aliquota IVA (%)
+    vat_mode: Base dei prezzi
+    voucher: Buono
+    net_total: Totale netto
+    tax_total: IVA
+    gross_total: Totale
+    rate: Aliquota (%)
+    taxable_net: Netto
+    tax_amount: IVA
+
+# In che cosa si conta una quantità (XIV-118). L'articolo possiede l'unità e una
+# riga ne prende copia, quindi i due cataloghi portano le stesse sette parole
+# (§3). Volutamente non pluralizzato; l'argomento sta su `Xivi\Core\Field\Units`.
+unit:
+    hour: ore
+    day: giorni
+    piece: pezzi
+    kilogram: kg
+    metre: m
+    square_metre: m²
+    litre: litri
+
+# Come leggere ogni prezzo del documento (XIV-116). Frasi complete, non una
+# parola sola: un modello stampa `[vat_mode]` da solo, accanto a un blocco di
+# totali, e la frase deve reggere anche lì. Seminata all'installazione e
+# riformulabile dal cliente da quel momento (§6.1): «IVA esclusa» è stile
+# aziendale quanto traduzione.
+vat_mode:
+    excluded: Prezzi IVA esclusa
+    included: Prezzi IVA inclusa
+
+status:
+    draft: Bozza
+    confirmed: Confermato
+    delivered: Consegnato
+    cancelled: Annullato
+
+line:
+    article: Riga articolo
+    custom: Riga libera
+    comment: Commento
+    subtotal: Subtotale
+    # Il tipo che nessuno aggiunge (XIV-104): il motore scrive queste righe dal
+    # buono che l'ordine nomina, una per aliquota IVA.
+    discount: Sconto
+
+transition:
+    confirm: Conferma
+    deliver: Segna consegnato
+    cancel: Annulla
+
+# Perché un passaggio non viene offerto (XIV-110). Letto quando qualcuno guarda
+# il record, non seminato: la frase dice che cosa fare, non che cosa non va.
+guard:
+    needs_a_line: Un ordine ha bisogno di almeno una riga prima di poter essere confermato.

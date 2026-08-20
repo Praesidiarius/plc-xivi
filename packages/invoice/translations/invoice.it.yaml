@@ -1,0 +1,85 @@
+# Come il modulo Fatture chiama sé stesso, i suoi campi e i suoi passaggi
+# (XIV-153).
+#
+# Letto una volta sola, all'installazione, poi scritto nelle definizioni di quel
+# cliente; vedi contact.en.yaml, che spiega perché è un seme e non una tabella
+# di corrispondenza.
+
+module: Fatture
+
+collection:
+    lines: Righe
+    taxes: Dettaglio IVA
+
+field:
+    number: Numero
+    order: Ordine
+    contact: Cliente
+    issued_on: Emessa il
+    due_date: Scadenza
+    status: Stato
+    note: Nota
+    vat_mode: Base dei prezzi
+    net_total: Totale netto
+    tax_total: IVA
+    gross_total: Totale
+    kind: Tipo
+    order_line: Riga d’ordine
+    article: Articolo
+    description: Descrizione
+    quantity: Quantità
+    unit: Unità
+    unit_price: Prezzo unitario
+    tax_rate: Aliquota IVA (%)
+    line_discount: Sconto
+    line_total: Totale riga
+    rate: Aliquota (%)
+    taxable_net: Netto
+    tax_amount: IVA
+
+# In che cosa si conta una quantità (XIV-118). L'articolo possiede l'unità e una
+# riga ne prende copia, quindi i due cataloghi portano le stesse sette parole
+# (§3). Volutamente non pluralizzato; l'argomento sta su `Xivi\Core\Field\Units`.
+unit:
+    hour: ore
+    day: giorni
+    piece: pezzi
+    kilogram: kg
+    metre: m
+    square_metre: m²
+    litre: litri
+
+# Come leggere ogni prezzo del documento (XIV-116). Frasi complete, non una
+# parola sola; vedi order.it.yaml, che porta lo stesso blocco per la stessa
+# ragione.
+vat_mode:
+    excluded: Prezzi IVA esclusa
+    included: Prezzi IVA inclusa
+
+status:
+    draft: Bozza
+    sent: Inviata
+    paid: Pagata
+    cancelled: Annullata
+
+line:
+    article: Riga articolo
+    custom: Riga libera
+    comment: Commento
+    subtotal: Subtotale
+    discount: Sconto
+
+transition:
+    send: Segna inviata
+    pay: Segna pagata
+    cancel: Annulla
+
+seed:
+    action: Fattura quel che resta
+
+# La scheda del modulo sulla dashboard (XIV-66), nominata dal suo stesso
+# catalogo.
+dashboard:
+    unpaid: In attesa di pagamento
+    unpaid_none: Non c’è nulla in sospeso.
+    unpaid_overdue: In ritardo

@@ -1,0 +1,40 @@
+# Le parole della pagina di presentazione (XIV-65). Vedi landing.en.yaml per il
+# motivo per cui questo file è un catalogo a sé: è la metà delle modifiche che
+# `bin/ci` lascia passare senza voce di CHANGELOG
+# (docs/architecture/identity-and-access.md §8.13).
+landing:
+    title: Il tuo Xivi
+    headline: La tua installazione Xivi
+    subhead: La tua banca dati, il tuo indirizzo, e nessun dato di altri lì dentro.
+
+    form:
+        company: Nome dell’azienda
+        address: Il tuo indirizzo
+        address_help: Diventa l’indirizzo con cui accedi. Puoi cambiarlo.
+        email: Indirizzo e-mail
+        email_help: >-
+            Ti mandiamo un solo messaggio, per confermare che è davvero tuo. Non viene creato
+            nulla finché non rispondi.
+        plan: Piano
+        submit: Crea la mia installazione
+        confirmation_note: Nessun dato di pagamento, e nulla viene messo in piedi prima che tu confermi il tuo indirizzo.
+
+    name:
+        free: '%slug% è libero.'
+
+    done:
+        sent: 'Controlla %email%.'
+        next: 'Conferma l’indirizzo in quel messaggio e prepareremo %slug% per te.'
+        expiry: 'Il link smette di funzionare dopo %hours% ore. Compilando di nuovo il modulo ne arriva uno nuovo.'
+
+    error:
+        slug_taken: Quell’indirizzo è già preso. Provane un altro.
+        address_already_registered: >-
+            Per questo indirizzo e-mail c’è già un’installazione in arrivo. Cerca la conferma
+            nella tua casella di posta, oppure scrivici se non è mai arrivata.
+        rate_limited: 'Troppi tentativi da qui. Riprova tra circa %minutes% minuti.'
+        invalid_email: Questo non sembra un indirizzo e-mail.
+        invalid_slug: Un indirizzo può contenere solo lettere minuscole, cifre e trattini.
+        unknown_plan: Questo piano non è tra quelli che offriamo.
+        mail_failed: Non siamo riusciti a inviare la conferma in questo momento. Riprova per favore.
+        unavailable: Qualcosa è andato storto da noi. Riprova tra un momento per favore.

@@ -1,0 +1,40 @@
+# Les mots de la page d'accueil (XIV-65). Voir landing.en.yaml pour la raison
+# d'être de ce catalogue à part : c'est la moitié des changements que `bin/ci`
+# laisse passer sans entrée de CHANGELOG
+# (docs/architecture/identity-and-access.md §8.13).
+landing:
+    title: Votre propre Xivi
+    headline: Votre propre installation Xivi
+    subhead: Votre propre base de données, votre propre adresse, et aucune donnée d’autrui dedans.
+
+    form:
+        company: Nom de l’entreprise
+        address: Votre adresse
+        address_help: C’est l’adresse à laquelle vous vous connecterez. Vous pourrez la changer.
+        email: Adresse e-mail
+        email_help: >-
+            Nous y envoyons un seul message, pour confirmer qu’elle est bien à vous. Rien n’est
+            créé avant que vous y répondiez.
+        plan: Formule
+        submit: Créer mon installation
+        confirmation_note: Aucune donnée de paiement, et rien n’est mis en place avant que vous confirmiez votre adresse.
+
+    name:
+        free: '%slug% est libre.'
+
+    done:
+        sent: 'Consultez %email%.'
+        next: 'Confirmez l’adresse dans ce message, et nous mettrons %slug% en place pour vous.'
+        expiry: 'Le lien cesse de fonctionner après %hours% heures. Remplir à nouveau ce formulaire en envoie un nouveau.'
+
+    error:
+        slug_taken: Cette adresse est prise. Essayez-en une autre.
+        address_already_registered: >-
+            Une installation est déjà en route pour cette adresse e-mail. Cherchez la confirmation
+            dans votre boîte de réception, ou écrivez-nous si elle n’est jamais arrivée.
+        rate_limited: 'Trop de tentatives depuis ici. Réessayez dans %minutes% minutes environ.'
+        invalid_email: Cela ne ressemble pas à une adresse e-mail.
+        invalid_slug: Une adresse ne peut contenir que des minuscules, des chiffres et des traits d’union.
+        unknown_plan: Cette formule ne fait pas partie de notre offre.
+        mail_failed: Le message de confirmation n’a pas pu partir à l’instant. Veuillez réessayer.
+        unavailable: Quelque chose a mal tourné chez nous. Veuillez réessayer dans un instant.

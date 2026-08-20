@@ -1,0 +1,83 @@
+# Comment le module Factures se nomme, lui, ses champs et ses étapes (XIV-153).
+#
+# Lu une seule fois, à l'installation, puis écrit dans les définitions de ce
+# client ; voir contact.en.yaml, qui explique pourquoi c'est une graine et non
+# une table de correspondance.
+
+module: Factures
+
+collection:
+    lines: Lignes
+    taxes: Détail TVA
+
+field:
+    number: Numéro
+    order: Commande
+    contact: Client
+    issued_on: Émise le
+    due_date: Échéance
+    status: Statut
+    note: Note
+    vat_mode: Base des prix
+    net_total: Total net
+    tax_total: TVA
+    gross_total: Total
+    kind: Type
+    order_line: Ligne de commande
+    article: Article
+    description: Description
+    quantity: Quantité
+    unit: Unité
+    unit_price: Prix unitaire
+    tax_rate: Taux de TVA (%)
+    line_discount: Rabais
+    line_total: Total de la ligne
+    rate: Taux (%)
+    taxable_net: Net
+    tax_amount: TVA
+
+# Dans quoi une quantité se compte (XIV-118). L'article possède l'unité et une
+# ligne en prend copie, donc les deux catalogues portent les mêmes sept mots
+# (§3). Volontairement non pluralisé ; l'argument est sur `Xivi\Core\Field\Units`.
+unit:
+    hour: heures
+    day: jours
+    piece: pièces
+    kilogram: kg
+    metre: m
+    square_metre: m²
+    litre: litres
+
+# Comment lire chaque prix du document (XIV-116). Des phrases complètes, pas un
+# mot ; voir order.fr.yaml, qui porte le même bloc pour la même raison.
+vat_mode:
+    excluded: Prix hors TVA
+    included: Prix TVA comprise
+
+status:
+    draft: Brouillon
+    sent: Envoyée
+    paid: Payée
+    cancelled: Annulée
+
+line:
+    article: Ligne d’article
+    custom: Ligne libre
+    comment: Commentaire
+    subtotal: Sous-total
+    discount: Rabais
+
+transition:
+    send: Marquer envoyée
+    pay: Marquer payée
+    cancel: Annuler
+
+seed:
+    action: Facturer ce qui reste
+
+# La carte du module sur le tableau de bord (XIV-66), nommée depuis son propre
+# catalogue.
+dashboard:
+    unpaid: En attente de paiement
+    unpaid_none: Rien n’est en souffrance.
+    unpaid_overdue: En retard

@@ -42,15 +42,12 @@ final class TranslationCatalogueTest extends TestCase
     /** The language everything is written in first. */
     private const string SOURCE = 'en';
 
-    /** Everything else this build ships. */
-    private const array TRANSLATIONS = ['de'];
-
     public function testEveryLanguageTranslatesEverythingTheSourceSays(): void
     {
         foreach ($this->catalogues() as $domain => $path) {
             $source = self::keysOf(sprintf($path, self::SOURCE));
 
-            foreach (self::TRANSLATIONS as $locale) {
+            foreach (self::translations() as $locale) {
                 $missing = array_values(array_diff($source, self::keysOf(sprintf($path, $locale))));
 
                 self::assertSame([], $missing, sprintf(
@@ -73,7 +70,7 @@ final class TranslationCatalogueTest extends TestCase
         foreach ($this->catalogues() as $domain => $path) {
             $source = self::keysOf(sprintf($path, self::SOURCE));
 
-            foreach (self::TRANSLATIONS as $locale) {
+            foreach (self::translations() as $locale) {
                 $orphans = array_values(array_diff(self::keysOf(sprintf($path, $locale)), $source));
 
                 self::assertSame([], $orphans, sprintf(
@@ -95,6 +92,37 @@ final class TranslationCatalogueTest extends TestCase
         self::assertArrayHasKey('xivi', $catalogues, "the engine's own");
         self::assertArrayHasKey('contact', $catalogues, "a module's own");
         self::assertGreaterThan(100, \count(self::keysOf(sprintf($catalogues['messages'], 'en'))));
+    }
+
+    /** And likewise the list of languages the check runs against. */
+    public function testTheEnabledLocalesAreFound(): void
+    {
+        $translations = self::translations();
+
+        self::assertContains('de', $translations, 'the first language this ever shipped');
+        self::assertNotContains(self::SOURCE, $translations, 'the source is what the others are compared against');
+    }
+
+    /**
+     * Every locale this build offers, apart from the source they are all
+     * compared against.
+     *
+     * **Read out of `translation.yaml` rather than listed here**, and that is
+     * the point of the whole arrangement (XIV-153): `enabled_locales` is the
+     * promise (a language in it is offered in the picker and served whole),
+     * and this test is what makes the promise checkable. Enabling a locale
+     * without a complete catalogue fails the build; so does translating one
+     * nobody enabled, which would be finished work no reader can reach. One
+     * list, and the gate reads it rather than paraphrasing it.
+     *
+     * @return list<string>
+     */
+    private static function translations(): array
+    {
+        /** @var array{framework: array{enabled_locales: list<string>}} $config */
+        $config = Yaml::parseFile(\dirname(__DIR__, 2) . '/config/packages/translation.yaml');
+
+        return array_values(array_diff($config['framework']['enabled_locales'], [self::SOURCE]));
     }
 
     /**

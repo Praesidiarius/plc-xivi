@@ -1,0 +1,190 @@
+# Le vocabulaire propre du moteur (XIV-153), en français ; il vouvoie, comme le
+# reste du catalogue français.
+#
+# Les clés suivent xivi.en.yaml exactement, dans les deux sens ;
+# TranslationCatalogueTest fait échouer le build sinon.
+
+operator:
+    eq: est
+    neq: n’est pas
+    contains: contient
+    starts: commence par
+    gt: après
+    gte: dès
+    lt: avant
+    lte: jusqu’à
+    empty: est vide
+    filled: n’est pas vide
+    # La seule comparaison qui porte sur deux étendues plutôt que sur un point
+    # (XIV-136). Se lit comme une comparaison dans une ligne de filtre :
+    # « Séjour chevauche 19.8.2026 ».
+    overlaps: chevauche
+
+autocomplete:
+    auto: Automatique
+    always: Toujours
+    never: Jamais
+
+document:
+    marker:
+        record_id: Numéro d’enregistrement
+        created_at: Créé
+        updated_at: Modifié
+        today: Date du jour
+    problem:
+        not_a_docx: '«%file%» n’est pas un document Word lisible ici. Enregistrez-le au format .docx et réessayez.'
+        could_not_fill: 'Le modèle «%template%» n’a pas pu être rempli. Il a peut-être été enregistré dans un format que Word lui-même réparerait.'
+        no_converter: Le convertisseur PDF est injoignable ; seul le .docx est disponible pour l’instant.
+
+mail:
+    recipient:
+        no_link: 'Cet enregistrement ne nomme aucun %via% ; il n’y a donc pas d’adresse où envoyer.'
+        link_gone: 'Le %via% que cet enregistrement nomme n’existe plus ; il n’y a donc pas d’adresse où envoyer.'
+        no_address_here: 'Cet enregistrement n’a pas de %field% ; il n’y a donc rien où envoyer.'
+        no_address_there: 'Le %via% que cet enregistrement nomme n’a pas de %field% ; il n’y a donc rien où envoyer.'
+        not_an_address: '«%value%» n’est pas une adresse e-mail ; rien ne peut donc y être envoyé.'
+
+lifecycle:
+    refused: 'Ce n’est pas possible depuis «%state%». D’ici : %possible%.'
+    refused_final: 'Cet enregistrement est à «%state%» et n’en bouge plus.'
+    refused_unknown: Ce n’est pas une étape que cet enregistrement connaît.
+
+record:
+    collection_too_long: '%collection% contient au plus %limit% lignes et celui-ci en a %count% ; rien n’a donc été enregistré. Répartissez-les sur plusieurs enregistrements.'
+    submission_unreadable: 'Ce formulaire a envoyé des valeurs dans une forme qu’il n’a pas ; rien n’a donc été enregistré. Rechargez la page et réessayez.'
+    duplicate_value: 'Un autre enregistrement a reçu ce %field% à l’instant, pendant que celui-ci s’enregistrait ; rien n’a donc été enregistré ici. Changez-le et réessayez.'
+    duplicate_value_unknown: 'Un autre enregistrement a reçu une de ces valeurs à l’instant, pendant que celui-ci s’enregistrait ; rien n’a donc été enregistré ici. Vérifiez les champs qui doivent être uniques et réessayez.'
+    overlapping_period: 'Un autre enregistrement couvre déjà une partie de ce %field% pour la même chose ; rien n’a donc été enregistré ici. Choisissez une autre période, ou autre chose à réserver.'
+    overlapping_period_unknown: 'Un autre enregistrement couvre déjà une partie d’une de ces périodes pour la même chose ; rien n’a donc été enregistré ici. Vérifiez les périodes de cet enregistrement et réessayez.'
+
+history:
+    period:
+        today: Aujourd’hui
+        week: Cette semaine
+        month: Ce mois
+        year: Cette année
+        older: Plus ancien
+
+permission:
+    action:
+        view: Consulter
+        list: Lister
+        add: Ajouter
+        edit: Modifier
+        delete: Supprimer
+        export: Exporter
+        import: Importer
+        templates: Modèles
+        document: Documents
+        email_templates: Modèles d’e-mail
+        send_email: Envoyer des e-mails
+        transition: Changer le statut
+        follow_up_create: Ajouter des suivis
+        follow_up_complete: Clore des suivis
+    scope:
+        own: Ses propres enregistrements
+        all: Tous les enregistrements
+
+import:
+    at_sheet: '%sheet% : %problem%'
+    at_row: '%sheet%, ligne %row% : %problem%'
+    problem:
+        unknown_column: 'La colonne «%column%» ne correspond à aucun champ de «%shape%».'
+        duplicate_column: 'Deux colonnes remplissent toutes deux «%field%».'
+        unreadable: 'Ce fichier n’a pas pu être lu comme un tableur (%reason%).'
+        missing_sheet: 'Le fichier n’a pas de feuille nommée «%sheet%». Un export de ce module a exactement la forme attendue.'
+        unknown_sheet: Cette feuille ne correspond à aucune partie du module, et ses lignes seraient ignorées.
+        missing_parent_column: 'Une feuille «%shape%» a besoin d’une colonne parent_id disant à quel enregistrement chaque ligne appartient.'
+        duplicate_id: 'L’id «%id%» apparaît plus d’une fois.'
+        wrong_parent: 'La ligne %row% n’appartient pas à l’enregistrement %parent%.'
+        unknown_parent_name: 'Aucune ligne de la feuille %sheet% ne s’appelle «%name%». Mettez ce même nom dans la colonne id de la ligne à laquelle ceci appartient.'
+        unknown_id: 'Il n’y a pas d’enregistrement avec l’id %id%. Laissez l’id vide pour en créer un nouveau.'
+        no_parent: 'Cette ligne ne nomme aucun enregistrement parent. Mettez dans parent_id l’id du %module% auquel elle appartient.'
+        invalid_value: '%field% : %reason%'
+
+module:
+    requires_missing: '«%module%» a besoin de %missing%, qui n’est pas installé ici. Installez-le d’abord.'
+
+numbering:
+    counter_back: 'Ce compteur est à %at%, le prochain numéro qu’il donne est donc %at%. %wanted% est égal ou inférieur à un numéro déjà porté par un enregistrement, et un compteur ne fait qu’avancer.'
+    counter_back_in: 'Le compteur de %period% est à %at%, le prochain numéro qu’il donne est donc %at%. %wanted% est égal ou inférieur à un numéro déjà porté par un enregistrement, et un compteur ne fait qu’avancer.'
+    counter_in_use: 'Un enregistrement porte déjà %number% ; mettre le compteur à %wanted% donnerait donc ce numéro une seconde fois. Les numéros saisis à la main avant la numérotation de ce champ ne sont dans aucun compteur, ils sont donc cherchés dans les enregistrements. Le plus bas possible pour ce compteur est %free%.'
+    counter_in_use_in: 'Un enregistrement porte déjà %number% ; mettre le compteur de %period% à %wanted% donnerait donc ce numéro une seconde fois. Les numéros saisis à la main avant la numérotation de ce champ ne sont dans aucun compteur, ils sont donc cherchés dans les enregistrements. Le plus bas possible pour ce compteur est %free%.'
+
+metadata:
+    pattern_numbers_nothing: 'Un motif de numérotation doit dire où va le compteur : il lui faut {number}, comme dans ORD-{year}-{number:4}. «%pattern%» laisserait ce champ ne rien numéroter.'
+    empty_label: 'Une forme a besoin d’un libellé : c’est ainsi que la navigation et chaque titre de page la nomment.'
+    bad_key: 'Un nom de champ commence par une lettre et ne contient que des minuscules, des chiffres et des tirets bas. «%key%» n’y répond pas.'
+    key_taken: '«%shape%» a déjà un champ nommé «%key%».'
+    system_field: 'Le champ «%key%» est venu avec le module et ne peut pas être retiré. Les champs que vous avez ajoutés vous-même, si.'
+    module_not_installed: 'Aucun module nommé «%module%» n’est installé ici.'
+    values_are_shared: '%count% enregistrements partagent déjà une valeur dans «%key%» ; il ne peut donc pas devenir unique. Sur plus d’un enregistrement : %values%. Corrigez d’abord ces enregistrements, ou laissez «%key%» tel quel.'
+    option_unanswered: 'Un champ «%type%» ne fait rien tant que %option% n’est pas réglé ; «%key%» n’a donc pas été enregistré. Un champ à choix sans options ne propose rien et accepte n’importe quoi ; une référence sans cible n’a nulle part où chercher un enregistrement.'
+    options_are_held: '%count% enregistrements existants portent une option que vous retirez de «%key%» : %values%. Ils garderaient une valeur qui n’est plus dans la liste et ne pourraient plus être enregistrés avant d’être corrigés. Modifiez d’abord ces enregistrements, ou gardez l’option.'
+    options_are_the_modules: 'Le champ «%key%» est venu avec le module, et ses options font partie de ce que le module fait : les états entre lesquels il déplace les enregistrements, les types d’enregistrement qu’il connaît. Vous pouvez ajouter des options et les renommer ; en retirer une n’est pas proposé.'
+    target_is_held: '%count% enregistrements existants pointent par «%key%» vers des enregistrements de «%from%». Un id n’a de sens que dans le module où il a été choisi ; faire pointer ce champ vers «%to%» laisserait chacun d’eux nommer le mauvais enregistrement, ou aucun. Videz d’abord ces enregistrements, ou laissez-le pointer vers «%from%».'
+    target_is_the_modules: 'Le champ «%key%» est venu avec le module et pointe vers «%module%» parce que les formulaires, documents et totaux du module l’attendent ainsi. Les champs que vous avez ajoutés vous-même peuvent pointer où bon vous semble.'
+    unknown_target: 'Aucun module nommé «%module%» n’est installé ici ; «%key%» ne peut donc pas pointer vers lui.'
+    unknown_section: 'Il n’y a pas de section nommée «%section%» sur ce module ; «%key%» ne peut donc pas y être placé. Créez-la d’abord sur la page des sections.'
+    section_needs_a_name: 'Une section est un titre sur le formulaire ; il lui faut donc un nom : c’est la seule chose qu’elle dit.'
+    sections_are_for_modules: '«%shape%» est une liste de lignes à l’intérieur d’un enregistrement, pas un formulaire à part ; elle n’a donc pas de sections où placer des champs.'
+    entries_are_held: '%count% enregistrements existants portent une entrée que vous retirez de «%list%» : %values%. Ils sont dans %where%. Ces enregistrements garderaient une valeur que la liste n’a plus, et ne pourraient plus être enregistrés avant d’être corrigés. Modifiez d’abord ces enregistrements, ou gardez l’entrée.'
+    entry_has_children: '%count% entrées sont classées sous «%label%» ; elle ne peut donc pas être retirée. Déplacez-les ailleurs ou remontez-les d’abord au premier niveau.'
+    list_is_in_use: '«%list%» ne peut pas être supprimée : %count% champs y prennent leurs valeurs, à savoir %fields%. Faites d’abord pointer ces champs ailleurs, et la liste pourra partir.'
+    list_is_the_modules: 'Le champ «%key%» est venu avec le module, et ses options font partie de ce que le module fait : les états entre lesquels il déplace les enregistrements, les types d’enregistrement qu’il connaît. Il ne peut pas les prendre dans une liste que vous tenez. Ajoutez un champ à vous et faites-le pointer vers la liste.'
+    list_key_taken: 'Une liste partagée nommée «%key%» existe déjà.'
+    empty_list_label: 'Une liste a besoin d’un nom : c’est ce que l’éditeur de champs propose quand quelqu’un y fait pointer un champ.'
+    cannot_merge_that: 'Une fusion doit nommer deux entrées différentes de «%list%». Choisissez l’entrée à garder et l’entrée à fusionner dedans.'
+    unknown_list: 'Aucune liste partagée nommée «%list%» n’existe ici ; «%key%» ne peut donc pas y prendre ses valeurs.'
+    values_are_not_on_the_list: '%count% enregistrements existants portent dans «%key%» une valeur qui n’est pas sur la liste «%list%» : %values%. Faire pointer le champ vers cette liste les laisserait porter quelque chose qu’elle ne contient pas, et ils ne pourraient plus être enregistrés avant d’être corrigés. Ajoutez d’abord ces valeurs à la liste, ou modifiez les enregistrements.'
+    values_are_not_among_its_options: '%count% enregistrements existants portent dans «%key%» une valeur qui n’est pas une des options propres du champ : %values%. Retirer le champ de la liste partagée les laisserait porter quelque chose que le champ ne propose pas. Ajoutez d’abord ces options au champ, ou laissez-le sur la liste.'
+    scope_is_not_a_field: '«%key%» ne peut pas être exclusif au sein de «%scope%» : ce module n’a pas de champ de ce nom. Une période est exclusive au sein de quelque chose, une salle, une machine, une personne, et ce quelque chose est un champ à côté d’elle.'
+    scope_on_a_collection: '«%key%» est un champ de la collection «%shape%», et là une période ne peut pas être rendue exclusive : au sein d’un même enregistrement parent et sur toute la table sont deux règles différentes, et le moteur ne devinera pas laquelle était voulue.'
+    periods_already_overlap: 'Des enregistrements se chevauchent déjà dans «%key%» ; il ne peut donc pas encore devenir exclusif au sein de «%scope%» : %pairs%. Écartez d’abord ces enregistrements, ou laissez «%key%» tel quel.'
+
+query:
+    unknown_field: 'Rien ne s’appelle «%path%» sur «%shape%» pour filtrer ou trier.'
+    unknown_collection: '«%module%» n’a pas de collection nommée «%collection%».'
+    unsupported_operator: 'Impossible de demander si «%path%» (%type%) %operator%. Ce type accepte : %supported%.'
+    sort_by_collection: 'Impossible de trier par «%path%» : il appartient à une collection, et un enregistrement qui en a deux a deux valeurs. Laquelle serait celle de l’enregistrement ?'
+
+markdown:
+    hint: >-
+        Mise en forme : <code>**gras**</code>, <code>*italique*</code>, <code># Titre</code>,
+        et une ligne commençant par <code>-</code> pour une liste.
+    preview: Aperçu
+
+phone:
+    help_country: 'Saisi sans indicatif de pays, ceci est lu comme un numéro de ce pays : %country%.'
+    help_no_country: 'Cette installation n’a pas indiqué dans quel pays elle se trouve ; saisissez donc les numéros en entier, avec l’indicatif de pays.'
+
+value_list:
+    tone:
+        primary: Accent
+        secondary: Discret
+        success: Vert
+        danger: Rouge
+        warning: Ambre
+        info: Bleu
+        light: Pâle
+        dark: Anthracite
+    icon:
+        Circle: Point
+        Square: Carré
+        Star: Étoile
+        Flag: Drapeau
+        Place: Lieu
+        Building: Bâtiment
+        Person: Personne
+        Box: Carton
+        Delivery: Livraison
+        Tools: Outils
+        Done: Coche
+        Attention: Avertissement
+
+period:
+    from: Du
+    until: Jusqu’au
+    until_help: Le jour où la période se termine ; il n’est pas compris, une salle est donc de nouveau libre à cette date.
+    open_ended_label: Sans date de fin
+    open_ended: 'dès le %from%'

@@ -1,0 +1,82 @@
+# Comment le module Commandes se nomme, lui, ses champs et ses étapes
+# (XIV-153).
+#
+# Lu une seule fois, à l'installation, puis écrit dans les définitions de ce
+# client ; voir contact.en.yaml, qui explique pourquoi c'est une graine et non
+# une table de correspondance.
+
+module: Commandes
+
+collection:
+    lines: Lignes
+    taxes: Détail TVA
+
+field:
+    number: Numéro
+    contact: Client
+    ordered_on: Commandé le
+    status: Statut
+    note: Note
+    kind: Type
+    article: Article
+    description: Description
+    quantity: Quantité
+    unit: Unité
+    unit_price: Prix unitaire
+    line_discount: Rabais
+    line_total: Total de la ligne
+    tax_rate: Taux de TVA (%)
+    vat_mode: Base des prix
+    voucher: Bon
+    net_total: Total net
+    tax_total: TVA
+    gross_total: Total
+    rate: Taux (%)
+    taxable_net: Net
+    tax_amount: TVA
+
+# Dans quoi une quantité se compte (XIV-118). L'article possède l'unité et une
+# ligne en prend copie, donc les deux catalogues portent les mêmes sept mots
+# (§3). Volontairement non pluralisé ; l'argument est sur `Xivi\Core\Field\Units`.
+unit:
+    hour: heures
+    day: jours
+    piece: pièces
+    kilogram: kg
+    metre: m
+    square_metre: m²
+    litre: litres
+
+# Comment lire chaque prix du document (XIV-116). Des phrases complètes, pas un
+# mot : un gabarit imprime `[vat_mode]` seul, à côté d'un bloc de totaux, et la
+# phrase doit y survivre. Semée à l'installation et reformulable par le client
+# dès lors (§6.1) : « hors TVA » est autant style maison que traduction.
+vat_mode:
+    excluded: Prix hors TVA
+    included: Prix TVA comprise
+
+status:
+    draft: Brouillon
+    confirmed: Confirmée
+    delivered: Livrée
+    cancelled: Annulée
+
+line:
+    article: Ligne d’article
+    custom: Ligne libre
+    comment: Commentaire
+    subtotal: Sous-total
+    # Le type que personne n'ajoute (XIV-104) : le moteur écrit ces lignes
+    # depuis le bon que la commande nomme, une par taux de TVA.
+    discount: Rabais
+
+transition:
+    confirm: Confirmer
+    deliver: Marquer livrée
+    cancel: Annuler
+
+# Pourquoi une étape n'est pas proposée (XIV-110). Lu au moment où quelqu'un
+# regarde l'enregistrement, pas semé : la phrase nomme quoi faire plutôt que ce
+# qui cloche.
+guard:
+    needs_a_line: Une commande a besoin d’au moins une ligne avant de pouvoir être confirmée.

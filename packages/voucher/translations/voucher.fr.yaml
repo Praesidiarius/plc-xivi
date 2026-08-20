@@ -1,0 +1,39 @@
+# Comment le module Bons se nomme, lui, ses champs et ses quatre types
+# (XIV-153).
+#
+# Lu une seule fois, à l'installation, puis écrit dans les définitions de ce
+# client ; voir contact.en.yaml. `field.code_help` est la seule clé qui n'est
+# pas une graine : le type de champ la dessine à chaque affichage du formulaire
+# (voir voucher.en.yaml), et les refus sont lus au moment d'enregistrer.
+
+module: Bons
+
+field:
+    code: Code
+    code_help: 'Laissez vide et un code est généré pour vous. Tapez le vôtre si vous en voulez un que l’on puisse dire à voix haute ; les majuscules ne sont pas exigées.'
+    kind: Type
+    amount: Montant déduit
+    percentage: Pourcentage déduit (%)
+    article: Seulement sur les lignes de
+    valid_from: Valable dès le
+    valid_until: Valable jusqu’au
+    max_redemptions: Utilisations autorisées
+
+# Les quatre types ; chaque libellé dit le mode avant l'arithmétique (XIV-122).
+kind:
+    order_amount: Montant déduit de la commande
+    order_percentage: Pourcentage déduit de la commande
+    line_amount: Montant déduit d’une ligne
+    line_percentage: Pourcentage déduit d’une ligne
+
+# Pourquoi un bon a été refusé quand un document a voulu s'en servir (XIV-104,
+# XIV-122). Sept phrases, pas une : chacune nomme quoi faire ensuite plutôt que
+# la règle enfreinte.
+refusal:
+    expired: Le bon %voucher% a expiré et ne peut plus être utilisé.
+    not_yet_valid: Le bon %voucher% n’est pas encore valable.
+    exhausted: Le bon %voucher% a déjà été utilisé autant de fois qu’il le permet.
+    unavailable: Le bon %voucher% n’est plus disponible.
+    wrong_place_for_line: Le bon %voucher% s’applique à une seule ligne ; sa place est donc sur une ligne, pas sur la commande.
+    wrong_place_for_order: Le bon %voucher% s’applique à la commande entière ; sa place est donc sur la commande, pas sur une ligne.
+    wrong_article: Le bon %voucher% ne peut être utilisé que sur une ligne de %article%.

@@ -1,0 +1,8 @@
+# Les chaînes qui comptent quelque chose, dans le catalogue du module Factures
+# (XIV-66). Voir invoice+intl-icu.en.yaml pour la raison du fichier séparé.
+#
+# Apostrophes typographiques (’) uniquement : dans un message ICU, l'apostrophe
+# ASCII est un caractère d'échappement.
+
+dashboard:
+    unpaid_more: '{count, plural, one {Et # de plus.} other {Et # de plus.}}'

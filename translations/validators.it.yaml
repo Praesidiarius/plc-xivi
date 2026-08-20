@@ -1,0 +1,13 @@
+# I nostri messaggi di vincolo (XIV-153), informali («tu») come il tedesco:
+# è il registro abituale del software in italiano, e si sceglie una volta sola
+# (XIV-8).
+'Another record already uses this value.': Un altro record usa già questo valore.
+'A code is made of A-Z, 0-9 and single hyphens, like GIVE-10. Lower case is fine — it is stored in capitals either way.': 'Un codice è fatto di A-Z, 0-9 e singoli trattini, per esempio GIVE-10. Le minuscole vanno bene: viene comunque salvato in maiuscolo.'
+'{{ value }} is not a phone number.': '{{ value }} non è un numero di telefono.'
+'{{ value }} has no country code, and this installation has not said which country it is in — so there is no way to tell which number it is. Type it in full, like +41 79 123 45 67, or set the country on the instance profile.': '{{ value }} non ha il prefisso internazionale, e questa installazione non ha indicato in quale paese si trova: impossibile quindi dire di quale numero si tratti. Scrivilo per intero, per esempio +41 79 123 45 67, oppure imposta il paese nel profilo dell’istanza.'
+'{{ value }} is not a phone number that can be dialled in {{ country }}. Check the digits, or type it in full with its country code.': '{{ value }} non è un numero che si possa comporre in questo paese: {{ country }}. Controlla le cifre, oppure scrivilo per intero con il prefisso internazionale.'
+'{{ value }} carries an extension. A number is stored without one, so the extension would be silently dropped — put it in a field of its own.': '{{ value }} contiene un interno. Un numero viene salvato senza, quindi l’interno andrebbe perso senza avviso: mettilo in un campo a parte.'
+'{{ value }} is not a period.': '{{ value }} non è un periodo.'
+'A period has to start somewhere. Fill in the first date.': 'Un periodo deve pur cominciare da qualche parte. Compila la prima data.'
+'Say when this period ends, or tick that it has no end date.': 'Indica quando finisce questo periodo, oppure spunta che non ha una data di fine.'
+'This period ends before it starts. The second date is the moment the period stops rather than its last day, so it has to come after the first one.': 'Questo periodo finisce prima di cominciare. La seconda data è il momento in cui il periodo si ferma, non il suo ultimo giorno: deve quindi venire dopo la prima.'

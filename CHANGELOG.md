@@ -118,8 +118,18 @@ always lands in `Unreleased` here.
   `failOnPhpunitWarning` turns the previously invisible subscriber warnings
   into a red run. Reasoning in the brief, decisions §9.2.
 
+- **French and Italian** ([XIV-153]): every catalogue (the application's, the
+  engine's and each module's) now exists in fr and it, both are in
+  `enabled_locales`, and the picker offers them. French says vous where German
+  says du; Italian says tu. `TranslationCatalogueTest` now reads
+  `enabled_locales` itself, so enabling a locale with an incomplete catalogue
+  fails the build, and `SwissFiguresTest` pins what ICU does under fr_CH and
+  it_CH: Swiss French numbers group with narrow spaces and take a decimal
+  comma, except in money (§8.4.2).
+
 [XIV-148]: https://xivi.youtrack.cloud/issue/XIV-148
 [XIV-152]: https://xivi.youtrack.cloud/issue/XIV-152
+[XIV-153]: https://xivi.youtrack.cloud/issue/XIV-153
 [XIV-154]: https://xivi.youtrack.cloud/issue/XIV-154
 [XIV-159]: https://xivi.youtrack.cloud/issue/XIV-159
 [XIV-160]: https://xivi.youtrack.cloud/issue/XIV-160
