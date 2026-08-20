@@ -1,0 +1,47 @@
+{#
+	How a file field is drawn: what is on the record now, a way to replace it, and
+	a tick to take it off (XIV-115).
+
+	**A form theme rather than a template around the widget**, for the reason
+	`markdown.html.twig` gives one block along: nothing renders a record's fields
+	one at a time: `RecordForm` calls `form_widget(form.fields)` once and knows
+	nothing about what is in it, so a block keyed on this form type's own prefix
+	is the only way to give one kind of field its own appearance without something
+	upstream learning that it exists.
+
+	**The hidden control is rendered first and is the value.** Everything else here
+	is furniture: the file input exists so the browser has somewhere to put a file,
+	and the tick exists so a file can come off. If this block ever stops drawing
+	`stored`, every record with a file on it loses it on the next save. See
+	Xivi\Core\Form\RecordFileType, which explains why the value travels that way.
+
+	**No download link here, deliberately.** A form knows the shape it is drawing
+	and not which record it is drawing it for, and the download route is addressed
+	by module and record id (§8.4). Rather than thread two route parameters through
+	the engine so that an edit form can offer what the record page already offers
+	one click away, the form names the file it is holding and the record page is
+	where it is opened.
+#}
+{% block xivi_file_widget %}
+	{{- form_widget(form.stored) -}}
+
+	{% if stored_file is not null %}
+		<p class="form-text mb-1 mt-0">
+			<span class="fw-medium">{{ stored_file.name }}</span>
+			<span class="text-body-secondary">{{ file_size(stored_file.size) }}</span>
+		</p>
+
+		<div class="form-check mb-1">
+			{{ form_widget(form.remove, {attr: {class: 'form-check-input'}}) }}
+			{{ form_label(form.remove, null, {label_attr: {class: 'form-check-label'}}) }}
+		</div>
+	{% endif %}
+
+	{{- form_widget(form.upload) -}}
+
+	{# The ceiling, said where the choosing happens rather than after a refusal.
+	   `max_bytes` is Xivi\Core\Field\AttachmentLimit's constant, which is also
+	   what the intake measures against and what the ini files are aligned above,
+	   so this sentence cannot drift away from what is actually enforced. #}
+	<p class="form-text mb-0">{{ 'file.max'|trans({'%size%': file_size(max_bytes)}, 'xivi') }}</p>
+{% endblock %}

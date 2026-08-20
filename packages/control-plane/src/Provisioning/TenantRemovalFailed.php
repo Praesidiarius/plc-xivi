@@ -55,6 +55,11 @@ final class TenantRemovalFailed extends \RuntimeException
      *                                block, which is why the driver's own phrasing is kept out of it
      * @param bool   $databaseDropped the tenant's database is gone for good
      * @param bool   $roleDropped     the tenant's Postgres role is gone
+     * @param bool   $filesRemoved    the tenant's attachment directory is gone ([XIV-115]).
+     *                                Defaults to false because it is removed after the role and
+     *                                before the registry row, so every failure written before this
+     *                                parameter existed is a failure that stopped while the files
+     *                                were still there, and says so without being edited
      * @param string $detail          the cause in the database's own words, for the cases where the
      *                                reason cannot name it — a dependent object, a lock, a disk. It
      *                                joins `getMessage()` and not `reason()`, because whoever finds
@@ -68,6 +73,7 @@ final class TenantRemovalFailed extends \RuntimeException
         public readonly string $role,
         public readonly bool $databaseDropped,
         public readonly bool $roleDropped,
+        public readonly bool $filesRemoved = false,
         ?\Throwable $previous = null,
         string $detail = '',
     ) {
@@ -269,6 +275,48 @@ final class TenantRemovalFailed extends \RuntimeException
             $role,
             databaseDropped: true,
             roleDropped: true,
+            filesRemoved: true,
+            previous: $previous,
+            detail: $previous->getMessage(),
+        );
+    }
+
+    /**
+     * The cluster is empty and the files are not ([XIV-115]).
+     *
+     * A state of its own because it is the one the ordering was chosen to make
+     * survivable. The attachment directory is removed **after** the database and
+     * the role and **before** the control-plane row, and each half of that is a
+     * decision:
+     *
+     *  * after the drops, because a removal that deleted a live customer's files
+     *    and then failed to drop their database would have destroyed data while
+     *    the tenant was still serving requests;
+     *  * before the row, because the directory's name is derived from the DSN in
+     *    that row (§5.30). Delete the row first and the files are still on the
+     *    disk with nothing left that can work out where.
+     *
+     * So this is recoverable exactly the way §4.1 says every removal state must
+     * be: the row still names the tenant, and running the same command again
+     * steps over the drops and finishes the job.
+     */
+    public static function filesSurvived(
+        string $slug,
+        string $database,
+        string $role,
+        \Throwable $previous,
+    ): self {
+        return new self(
+            sprintf(
+                'The database and role of tenant "%s" are gone, but its files could not be removed.',
+                $slug,
+            ),
+            $slug,
+            $database,
+            $role,
+            databaseDropped: true,
+            roleDropped: true,
+            filesRemoved: false,
             previous: $previous,
             detail: $previous->getMessage(),
         );
@@ -299,6 +347,9 @@ final class TenantRemovalFailed extends \RuntimeException
             ['Role' => $this->roleDropped
                 ? sprintf('%s — dropped.', $this->role)
                 : sprintf('%s — still there.', $this->role)],
+            ['Files' => $this->filesRemoved
+                ? 'removed.'
+                : 'still on the disk. The control-plane row below is what says where.'],
             ['Control-plane row' => sprintf(
                 'still there. "bin/console tenant:list" still shows "%s".',
                 $this->slug,
@@ -351,9 +402,20 @@ final class TenantRemovalFailed extends \RuntimeException
             );
         }
 
+        if (!$this->filesRemoved) {
+            return sprintf(
+                'Database "%s" and role "%s" are gone for good; the files of "%s" and its '
+                . 'control-plane row are still there. Running "%s" again clears both.',
+                $this->database,
+                $this->role,
+                $this->slug,
+                $this->nextStep(),
+            );
+        }
+
         return sprintf(
-            'Database "%s" and role "%s" are gone for good; only the control-plane row for "%s" is '
-            . 'still there. Running "%s" again clears it.',
+            'Database "%s", role "%s" and the files are gone for good; only the control-plane row '
+            . 'for "%s" is still there. Running "%s" again clears it.',
             $this->database,
             $this->role,
             $this->slug,

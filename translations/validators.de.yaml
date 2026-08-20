@@ -12,3 +12,6 @@
 
 # Was ein Feld mit mehreren Datensätzen zu einem Eintrag sagt, den es nicht lesen kann (XIV-113).
 '{{ value }} is not a record id. Several records are named by their ids separated by a comma, as in 12,34.': '{{ value }} ist keine Datensatz-ID. Mehrere Datensätze werden über ihre IDs benannt, durch Komma getrennt, etwa 12,34.'
+
+# Was ein Dateifeld zu einer Tabellenzelle sagt, die keine Datei ist (XIV-115).
+'{{ value }} is not a file kept by this installation. A file gets into a record by being uploaded to it, so a spreadsheet can move a record between shapes but cannot bring a file with it.': '{{ value }} ist keine Datei, die diese Installation verwahrt. Eine Datei kommt an einen Datensatz, indem sie hochgeladen wird: Eine Tabelle kann Datensätze verschieben, aber keine Datei mitbringen.'

@@ -56,6 +56,16 @@ trait SavesRecords
      * @param array<string, list<array<string, mixed>>> $seeded       rows the component is mounted
      *                                                                with (XIV-19)
      * @param array<string, mixed>                      $seededFields and the values beside them
+     * @param array<string, mixed>                      $files        uploads riding beside the values
+     *                                                                ([XIV-115]), shaped exactly as a
+     *                                                                browser sends them: keyed by the
+     *                                                                input's own name, so a file field
+     *                                                                is `module_record[fields][<key>][upload]`.
+     *                                                                A Live Component's values travel as
+     *                                                                JSON and a file cannot, so the
+     *                                                                library puts these in the same
+     *                                                                `FormData` and they arrive on the
+     *                                                                request rather than in the model
      */
     protected function saveRecord(
         string $module,
@@ -66,6 +76,7 @@ trait SavesRecords
         ?string $as = null,
         array $seeded = [],
         array $seededFields = [],
+        array $files = [],
     ): Response {
         // The live-component endpoint is one global route and this application
         // resolves the customer from the host, so the harness's client has to be
@@ -112,7 +123,7 @@ trait SavesRecords
             // rows a collection does not have yet — and every row here is one
             // the form has never seen.
             ->set('module_record', $values['module_record'])
-            ->call('save')
+            ->call('save', [], $files)
             ->response());
 
         // The harness turns exception catching off so a broken component shows

@@ -27,7 +27,28 @@ the list with:
 
     composer licenses --no-dev
 
-**Checked on each addition, and the last one was `sprain/swiss-qr-bill`**
+**Checked on each addition, and the last one was `league/flysystem-bundle`**
+(XIV-115), which is what a record's files are stored through (brief §5.30). It
+is **MIT**, Copyright (c) 2019 Titouan Galopin, licence file in the package.
+Three packages arrive with it, each checked in the installed tree to the leaves
+rather than off a badge, and **all four are MIT**:
+
+- **`league/flysystem` 3.35.2** and **`league/flysystem-local` 3.31.0**: MIT,
+  Copyright (c) 2013-2026 Frank de Jonge, licence files in the packages. The
+  storage abstraction and the adapter this installation uses.
+- **`league/mime-type-detection` 1.17.0**: MIT, Copyright (c) 2013-2023 Frank de
+  Jonge, licence file in the package. Flysystem's own way of deciding what a
+  file is.
+
+Nothing else came with them: the rest of the tree is `symfony/config`,
+`symfony/dependency-injection` and `symfony/http-kernel`, which were installed
+already, plus `ext-fileinfo`, which is PHP's own and is compiled into the image
+by default. **The reason the licence mattered here** is the same one it did for
+the document stack: the alternative to a permissive storage abstraction is
+writing paths by hand, and §5.30's whole isolation argument rests on there being
+one class that does not.
+
+The addition before that was **`sprain/swiss-qr-bill`**
 (XIV-152), the library behind the QR-bill payment part on invoices (brief
 §5.28). It is **MIT**, Copyright (c) 2018–2025 Manuel Reinhard, licence file in
 the package. Four packages arrive with it, each checked in the installed tree

@@ -23,6 +23,8 @@ use App\Tenancy\Security\PasswordGenerator;
 use App\Tenancy\Security\TenantSecretCipher;
 use App\Tenancy\TenantResolver;
 use App\Tenancy\TenantSwitcher;
+use App\Tenant\Attachment\AttachmentRefused;
+use App\Tenant\Attachment\AttachmentStore;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Exception\DriverException;
@@ -99,6 +101,18 @@ final readonly class TenantProvisioner
         private TenantMigrator $migrator,
         private TenantDsnParser $dsnParser,
         private TenantSecretCipher $cipher,
+        /**
+         * A customer's files, so that removing them is part of removing the
+         * customer ([XIV-115], §4.1).
+         *
+         * The only thing here that is not SQL, and it is reached the same way
+         * every tenant-scoped service is: switched into, asked, switched out of.
+         * Provisioning does not create the directory, because nothing has to:
+         * the local adapter makes one on the first write, and a customer who
+         * never uploads anything should not have an empty folder standing for
+         * them.
+         */
+        private AttachmentStore $attachments,
         /** DSN with `{database}` and `{user}` placeholders, used when no explicit DSN is given. */
         #[Autowire('%env(TENANT_DSN_TEMPLATE)%')]
         private string $dsnTemplate,
@@ -302,6 +316,29 @@ final readonly class TenantProvisioner
             }
         } finally {
             $admin->close();
+        }
+
+        // **And the files, in the same command** ([XIV-115], §4.1). Not a
+        // cleanup job nobody runs: a customer who has been removed has been
+        // removed, and an attachment directory outliving the database it belonged
+        // to is a copy of somebody's contracts on a disk with nothing left that
+        // names it.
+        //
+        // **Between the role and the registry row**, and both halves of that are
+        // deliberate. After the drops, because a removal that deleted a live
+        // customer's files and then failed on `DROP DATABASE` would have
+        // destroyed data while the tenant was still serving. Before the row,
+        // because the directory is derived from the database name in that row
+        // (§5.30) and deleting the row first leaves the files unfindable, which
+        // is exactly the wreckage XIV-94 turned this ordering around to avoid.
+        //
+        // The switch opens no connection: the store asks the resolved tenant for
+        // its database name and touches nothing else, which is what lets this run
+        // against a database that has just been dropped.
+        try {
+            $this->switcher->runFor($tenant, $this->attachments->removeEverything(...));
+        } catch (AttachmentRefused $e) {
+            throw TenantRemovalFailed::filesSurvived($slug, $database, $role, $e);
         }
 
         try {

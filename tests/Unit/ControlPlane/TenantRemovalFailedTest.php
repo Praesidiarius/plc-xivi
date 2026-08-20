@@ -154,13 +154,18 @@ final class TenantRemovalFailedTest extends TestCase
         foreach ([
             TenantRemovalFailed::databaseSurvived(self::SLUG, self::DATABASE, self::ROLE, $previous),
             TenantRemovalFailed::roleSurvived(self::SLUG, self::DATABASE, self::ROLE, $previous),
+            // The fourth state ([XIV-115]): the cluster is empty and the files
+            // are not. It is between the role and the row for the reason
+            // TenantProvisioner gives, and it is repaired by the same re-run as
+            // the other three, which is what this loop is really asserting.
+            TenantRemovalFailed::filesSurvived(self::SLUG, self::DATABASE, self::ROLE, $previous),
             TenantRemovalFailed::registryRowSurvived(self::SLUG, self::DATABASE, self::ROLE, $previous),
         ] as $failure) {
             self::assertSame('bin/console tenant:deprovision acme --force', $failure->nextStep());
 
             $rows = $failure->state();
-            self::assertCount(3, $rows, 'the database, the role and the row: all three, always');
-            self::assertStringContainsString('still there', json_encode($rows[2], \JSON_THROW_ON_ERROR));
+            self::assertCount(4, $rows, 'the database, the role, the files and the row: all four, always');
+            self::assertStringContainsString('still there', json_encode($rows[3], \JSON_THROW_ON_ERROR));
         }
     }
 }

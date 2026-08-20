@@ -135,6 +135,7 @@ metadata:
     # enregistrements avec exactement le même ensemble », ce que personne ne veut
     # dire.
     unique_holds_several_values: 'Un champ «%type%» contient plusieurs valeurs ; «unique» n’a donc pas de sens unique pour lui : il faudrait qu’il signifie soit que deux enregistrements n’ont jamais exactement le même ensemble, ce que personne ne demande, soit qu’ils ne partagent aucune valeur, ce que le moteur ne peut pas imposer. Laisse «%key%» tel quel.'
+    file_on_a_collection: 'Un fichier ne peut pas vivre sur « %collection% », car une ligne de collection n’a pas d’adresse propre d’où la télécharger. Mets « %key% » sur la fiche elle-même.'
     unknown_section: 'Il n’y a pas de section nommée «%section%» sur ce module ; «%key%» ne peut donc pas y être placé. Créez-la d’abord sur la page des sections.'
     section_needs_a_name: 'Une section est un titre sur le formulaire ; il lui faut donc un nom : c’est la seule chose qu’elle dit.'
     sections_are_for_modules: '«%shape%» est une liste de lignes à l’intérieur d’un enregistrement, pas un formulaire à part ; elle n’a donc pas de sections où placer des champs.'
@@ -208,3 +209,16 @@ period:
     until_help: Le jour où la période se termine ; il n’est pas compris, une salle est donc de nouveau libre à cette date.
     open_ended_label: Sans date de fin
     open_ended: 'dès le %from%'
+
+# Un fichier sur une fiche (XIV-115). Quatre de ces six messages sont des refus,
+# et celui qui compte est `too_large` : il nomme la vraie limite, prise dans la
+# constante qui l’applique, car « trop gros » sans chiffre fait deviner.
+file:
+    upload: Choisir un fichier
+    remove: Retirer ce fichier
+    max: 'Jusqu’à %size% par fichier.'
+    problem:
+        too_large: '« %file% » fait %size%, et un fichier peut peser au plus %max%. Rien n’a été enregistré.'
+        did_not_arrive: '« %file% » n’est pas arrivé en entier et n’a donc pas été enregistré. Réessaie ; si cela se reproduit, préviens qui administre cette installation.'
+        not_saved: 'Le fichier n’a pas pu être enregistré. Rien n’a changé sur la fiche, et qui administre cette installation doit le savoir.'
+        missing: 'Le fichier « %file% » ne se trouve plus sur cette installation.'

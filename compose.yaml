@@ -19,6 +19,22 @@ services:
     volumes:
       - caddy_data:/data
       - caddy_config:/config
+      # **Where a record's files live, and the second thing an operator backs
+      # up** (XIV-115, §4.7). A `pg_dump` is no longer the whole backup: the
+      # customer's records name files that live here, and a restore that takes
+      # only the database produces records pointing at nothing.
+      # `tenant:files:check` is what says so out loud.
+      #
+      # **The path is `XIVI_ATTACHMENTS_DIR`'s default and is not repeated as an
+      # environment variable here**, deliberately. Setting it in this file would
+      # override `.env.test`, which points the suite somewhere of its own, and a
+      # compose file that quietly decides where a test run writes is a compose
+      # file nobody expects to have to read. Change one and change the other.
+      #
+      # Both images mount it at the same path. The customer-facing build is what
+      # serves the downloads (§4.4), and a design needing the administration
+      # surface to hand a customer their own file would be the wrong design.
+      - attachments:/app/var/attachments
     ports:
       - name: http
         target: 80
@@ -70,6 +86,7 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  attachments:
 ###> doctrine/doctrine-bundle ###
   database_data:
 ###< doctrine/doctrine-bundle ###

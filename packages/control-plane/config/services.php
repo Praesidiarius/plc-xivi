@@ -107,5 +107,12 @@ return static function (ContainerConfigurator $container): void {
                 // defaults would exist to satisfy a compiler pass rather than to
                 // mean anything.
                 __DIR__ . '/../src/Command/ResetProgress.php',
+                // The same third reason, one command along ([XIV-115]): what
+                // `tenant:files:check` learned about one customer, built per
+                // tenant out of two counts and two lists. The container cannot
+                // autowire an `int $claimed`, and giving it defaults would be
+                // writing a constructor for a compiler pass rather than for a
+                // caller.
+                __DIR__ . '/../src/Command/FileFindings.php',
             ]);
 };

@@ -101,10 +101,54 @@ deptrac:
         - type: classLike
           value: '^Xivi\\Knowledge\\'
 
-    - name: App
+    # **The one class allowed to touch a filesystem** ([XIV-115], §5.30).
+    #
+    # A layer of one namespace, and the only reason it exists is the layer below
+    # it. §4's isolation between customers is structural for records: the
+    # connection a query runs on cannot reach another customer's database. A
+    # directory is not that boundary, and prefixing a path with the tenant is the
+    # application being careful, which is exactly what §4 refuses to rely on.
+    #
+    # So the mitigation is made structural in the one way available here: there is
+    # one class, it resolves the tenant itself, no method on it takes a path or a
+    # tenant, and *nothing else may hold a Flysystem object at all*. The second
+    # half of that sentence is this file's to enforce, and it is the answer to the
+    # ticket's "consider whether deptrac can forbid the rest of the tree from
+    # constructing a filesystem directly": it can, because a `classLike` collector
+    # matches a dependency by name whether or not the class it names is under
+    # `paths`, so a vendor namespace can be a layer like any other.
+    #
+    # Checked the way the paragraph at the top of this file demands rather than
+    # assumed: a `use League\Flysystem\FilesystemOperator;` was planted in
+    # App\Record\RecordUploads and referenced in a property type, and
+    # `composer deptrac` reported "App must not depend on Flysystem". It was then
+    # removed.
+    - name: Attachments
       collectors:
         - type: classLike
-          value: '^App\\'
+          value: '^App\\Tenant\\Attachment\\'
+
+    # Everything a Flysystem storage is made of. Nothing under `paths` collects
+    # into this layer; it exists purely so that a dependency *on* it has somewhere
+    # to land and can be refused.
+    - name: Flysystem
+      collectors:
+        - type: classLike
+          value: '^League\\Flysystem\\'
+
+    # **`App` minus the seam above**, which is what makes the rule mean anything:
+    # a class collected into two layers would let a dependency allowed for one of
+    # them be allowed for both, and `App` would then be permitted to hold a
+    # filesystem by way of the very class the rule was written to isolate.
+    - name: App
+      collectors:
+        - type: bool
+          must:
+            - type: classLike
+              value: '^App\\'
+          must_not:
+            - type: classLike
+              value: '^App\\Tenant\\Attachment\\'
 
     # **The administration surface** (XIV-60), and the layer that exists because
     # the direction was previously not merely unenforced but genuinely circular.
@@ -196,8 +240,14 @@ deptrac:
     # which is part of this layer. If a `use Xivi\ControlPlane\…` ever appears
     # under `src/`, the answer is almost always that the thing doing the importing
     # belongs in the package, not that this line needs another entry.
+    # **Flysystem is deliberately absent from this list**, and that absence is the
+    # rule ([XIV-115]). A controller, a command or a service that injected a
+    # `FilesystemOperator` would fail the build here rather than a review. What it
+    # may do instead is name `Attachments`, which is one class with no method
+    # taking a path.
     App:
       - Core
+      - Attachments
       - ModuleContact
       - ModuleArticle
       - ModuleOrder
@@ -213,6 +263,22 @@ deptrac:
     ControlPlane:
       - App
       - Core
+      # Removing a customer removes their files in the same command (§4.1), and
+      # the confirmation names what will go. Both go through the seam, like
+      # everything else.
+      - Attachments
+
+    # The seam itself, and the only layer in this file that may reach a
+    # filesystem. It leans on the application for the tenant context and the DSN
+    # parser, and on core for what a stored file *is*.
+    Attachments:
+      - App
+      - Core
+      - Flysystem
+
+    # Collected from vendor and depended on by exactly one layer. Nothing in this
+    # repository is in it, so it can depend on nothing.
+    Flysystem: ~
 
     # It boots the kernel and asks the application's own services, which is the
     # point: a tool that reimplemented the queries would be a second API to the

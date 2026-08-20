@@ -40,6 +40,12 @@ return static function (ContainerConfigurator $container): void {
                 // services: the container would otherwise try to autowire a
                 // `?ValueTone` and a `string $from` into them.
                 __DIR__ . '/../src/Field/ValueBadge.php',
+                // What a record holds when it holds a file, and how large a file
+                // may be ([XIV-115]). A value and a pair of constants: the
+                // container would otherwise try to autowire a `string $token`
+                // into the first and register the second as a service nobody can
+                // call anything on.
+                __DIR__ . '/../src/Field/{StoredFile,AttachmentLimit}.php',
                 __DIR__ . '/../src/ValueList/{MergeCount,MergePlan,ValueListUse}.php',
                 __DIR__ . '/../src/XiviCoreBundle.php',
             ]);

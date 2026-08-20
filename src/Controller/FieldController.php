@@ -22,6 +22,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use Xivi\Core\Entity\CollectionDefinition;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
@@ -33,6 +34,7 @@ use Xivi\Core\Field\Enumerates;
 use Xivi\Core\Field\ExcludesOverlaps;
 use Xivi\Core\Field\FieldType;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Field\HoldsAFile;
 use Xivi\Core\Field\HoldsSeveralValues;
 use Xivi\Core\Field\LimitsItsLength;
 use Xivi\Core\Field\NeedsAnAnswer;
@@ -333,7 +335,7 @@ final class FieldController extends AbstractController
     {
         $definition = $this->definition($module);
         $target = $this->shape($definition, $shape);
-        $addable = $this->addableTypes();
+        $addable = $this->addableTypes($target);
 
         return $this->render('field/types.html.twig', [
             'module' => $definition,
@@ -378,7 +380,7 @@ final class FieldController extends AbstractController
     {
         $definition = $this->definition($module);
         $target = $this->shape($definition, $shape);
-        $addable = $this->addableTypes();
+        $addable = $this->addableTypes($target);
 
         if (!isset($addable[$type])) {
             // Either a type that does not exist or one whose questions this
@@ -1845,11 +1847,24 @@ final class FieldController extends AbstractController
      * {@see \App\Tests\Functional\Engine\EditorConfiguresEveryTypeTest} says so
      * out loud before anybody ships it.
      *
+     * **And not every type fits every shape** ([XIV-115]). A type holding a file
+     * is not offered on a collection, because a download is addressed by module
+     * and record id and a row has no address of its own. The engine refuses it on
+     * the write path either way; this is the half that keeps somebody from
+     * meeting the refusal after filling in a form, which is §8.3.1's rule about a
+     * control that looks like it works. The shape is optional so that the
+     * conversion page, which asks a question about a field rather than about a
+     * shape, can ask the same list.
+     *
      * @return array<string, FieldType>
      */
-    private function addableTypes(): array
+    private function addableTypes(?ShapeDefinition $shape = null): array
     {
-        return array_filter($this->fieldTypes->all(), self::configurable(...));
+        return array_filter(
+            $this->fieldTypes->all(),
+            static fn (FieldType $type): bool => self::configurable($type)
+                && !($shape instanceof CollectionDefinition && $type instanceof HoldsAFile),
+        );
     }
 
     /**
@@ -1888,7 +1903,16 @@ final class FieldController extends AbstractController
         return array_filter(
             $this->addableTypes(),
             static fn (FieldType $type): bool => $type->key() !== $field->getType()
-                && !$type instanceof NeedsAnAnswer,
+                && !$type instanceof NeedsAnAnswer
+                // **And nothing that holds a file** ([XIV-115]), which is the
+                // same argument the two above make, taken to its end. A
+                // conversion decides what existing values *are*, and there is no
+                // reading of a date or a sentence that is a file this
+                // installation wrote: the only way bytes get onto a record is an
+                // upload. Offered, it would refuse every non-empty column and
+                // succeed on empty ones, which is a page that works exactly when
+                // it does not matter.
+                && !$type instanceof HoldsAFile,
         );
     }
 
