@@ -1,0 +1,29 @@
+# Come il modulo Articoli chiama sé stesso e i suoi campi (XIV-153).
+#
+# Letto una volta sola, all'installazione, poi scritto nelle definizioni di quel
+# cliente; vedi contact.en.yaml, che spiega il perché. Un'etichetta è un dato del
+# cliente dal momento in cui il modulo è installato, e questo file non ha più
+# voce in capitolo.
+
+module: Articoli
+
+field:
+    title: Titolo
+    description: Descrizione
+    price: Prezzo
+    unit: Unità
+    tax_rate: Aliquota IVA (%)
+
+# In che cosa si conta una quantità (XIV-118). Seminato nelle definizioni del
+# cliente all'installazione, come ogni etichetta qui sopra, e suo da rinominare
+# da quel momento (§6.1).
+#
+# Volutamente non pluralizzato; l'argomento sta su `Xivi\Core\Field\Units`.
+unit:
+    hour: ore
+    day: giorni
+    piece: pezzi
+    kilogram: kg
+    metre: m
+    square_metre: m²
+    litre: litri

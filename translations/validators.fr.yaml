@@ -1,0 +1,13 @@
+# Nos propres messages de contrainte (XIV-153). Le français vouvoie, à la
+# différence de l'allemand : un « tu » dans un logiciel de gestion suisse romand
+# sonnerait faux, et le registre se choisit une fois pour toutes (XIV-8).
+'Another record already uses this value.': Un autre enregistrement utilise déjà cette valeur.
+'A code is made of A-Z, 0-9 and single hyphens, like GIVE-10. Lower case is fine — it is stored in capitals either way.': 'Un code se compose de A à Z, de 0 à 9 et de traits d’union simples, par exemple GIVE-10. Les minuscules conviennent aussi : il est de toute façon enregistré en majuscules.'
+'{{ value }} is not a phone number.': '{{ value }} n’est pas un numéro de téléphone.'
+'{{ value }} has no country code, and this installation has not said which country it is in — so there is no way to tell which number it is. Type it in full, like +41 79 123 45 67, or set the country on the instance profile.': '{{ value }} n’a pas d’indicatif de pays, et cette installation n’a pas indiqué dans quel pays elle se trouve ; impossible donc de savoir de quel numéro il s’agit. Saisissez-le en entier, par exemple +41 79 123 45 67, ou renseignez le pays dans le profil de l’instance.'
+'{{ value }} is not a phone number that can be dialled in {{ country }}. Check the digits, or type it in full with its country code.': '{{ value }} ne correspond à aucun numéro que l’on peut composer dans ce pays : {{ country }}. Vérifiez les chiffres, ou saisissez le numéro en entier avec son indicatif de pays.'
+'{{ value }} carries an extension. A number is stored without one, so the extension would be silently dropped — put it in a field of its own.': '{{ value }} comporte une extension interne. Un numéro est enregistré sans elle, elle disparaîtrait donc sans avertissement : prévoyez un champ à part pour la noter.'
+'{{ value }} is not a period.': '{{ value }} n’est pas une période.'
+'A period has to start somewhere. Fill in the first date.': 'Une période doit bien commencer quelque part. Renseignez la première date.'
+'Say when this period ends, or tick that it has no end date.': 'Indiquez quand cette période se termine, ou cochez qu’elle n’a pas de date de fin.'
+'This period ends before it starts. The second date is the moment the period stops rather than its last day, so it has to come after the first one.': 'Cette période se termine avant de commencer. La seconde date est le moment où la période s’arrête, et non son dernier jour ; elle doit donc venir après la première.'

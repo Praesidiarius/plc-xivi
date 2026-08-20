@@ -1,0 +1,1174 @@
+# Italiano, informale («tu») come il tedesco (XIV-153): è il registro abituale
+# del software in italiano, e un registro si sceglie una volta sola, perché
+# cambiarlo dopo significa riscrivere ogni frase (XIV-8).
+#
+# Le chiavi seguono messages.en.yaml esattamente, in entrambe le direzioni;
+# altrimenti TranslationCatalogueTest fa fallire il build. Una chiave mancante
+# ricadrebbe sull'inglese e diventerebbe un paragrafo isolato nella lingua
+# sbagliata sullo schermo di qualcun altro.
+
+common:
+    actions: Azioni
+    add: Aggiungi
+    area: Ambito
+    back: Indietro
+    cancel: Annulla
+    create: Crea
+    delete: Elimina
+    edit: Modifica
+    email: E-mail
+    export: Esporta
+    fields: Campi
+    import: Importa
+    module: Modulo
+    name: Nome
+    new: Nuovo
+    none: Nessuno.
+    password: Password
+    remove: Togli
+    rename: Rinomina
+    save: Salva
+    view: Vedi
+
+nav:
+    overview: Panoramica
+    users: Utenti
+    profile: Azienda
+    store: Store
+    account: Account
+    support: Supporto
+    lists: Liste
+    sign_out: Esci
+
+login:
+    title: Accedi
+    submit: Accedi
+    invitation_failed: Chiedi a chi amministra di mandarti un nuovo invito; ogni link funziona una volta e per 24 ore.
+
+control_plane:
+    title: Piano di controllo
+    revoked: Questo account operatore è stato revocato.
+    tenants: Clienti
+    status: Stato
+    plan: Piano
+    domain: Dominio
+    created: Creato
+    provisioned: Predisposto
+    modules: Moduli
+    modules_never: 'Moduli installati non ancora rilevati; questo è il registro.'
+    modules_failed: 'I moduli installati non si sono potuti leggere; questo è il registro.'
+    modules_collected: 'installati secondo il rilevamento del %time%'
+    module_unrecorded: non annotato
+    module_not_installed: non installato
+    usage: Utilizzo
+    usage_never: Non ancora rilevato
+    usage_failed: Non si è potuto leggere
+    usage_tried: 'tentato il %time%'
+    usage_collected: 'rilevato il %time%'
+    last_sign_in: 'ultimo accesso il %time%'
+    never_signed_in: nessuno ha mai effettuato l’accesso
+    status_provisioning: In predisposizione
+    status_trial: Prova
+    status_active: Attivo
+    status_suspended: Sospeso
+    no_tenants: Ancora nessun cliente
+    no_tenants_hint: 'Predisponi il primo con'
+    module_state: Stato
+    module_price: Prezzo
+    module_in_store: Nello Store
+    module_set_price: Imposta il prezzo
+    module_amount: Importo
+    module_state_development: In sviluppo
+    module_state_published: Pubblicato
+    pricing_unpriced: Ancora senza prezzo
+    pricing_free: Gratuito
+    pricing_priced: Prezzo impostato
+    pricing_not_for_sale: Non in vendita
+    module_offered: Offerto
+    module_withheld: Trattenuto
+    module_not_in_build: non in questo build
+    module_decided: 'deciso il %time%'
+    no_modules: Nessun modulo in questo build
+    no_modules_hint: Qui niente porta con sé un modulo, quindi non c’è nulla a cui dare un prezzo.
+    price_currency_unset: 'Questa installazione non ha detto in quale valuta fissa i prezzi. Imposta'
+    modules_unpriced_hint: >-
+        Un modulo senza prezzo non è un modulo gratuito, quindi lo Store non lo offre. Di’ quanto
+        costa, oppure di’ che è gratuito: entrambe sono decisioni, e nessuna delle due è
+        l’assenza di una decisione.
+    module_price_saved: 'Il prezzo di “%module%” è stato salvato. Nulla è stato installato o disinstallato.'
+    module_price_stale: Quella pagina era rimasta aperta per un po’. Nulla è cambiato; riprova.
+    module_price_unknown_pricing: Questo non è uno dei quattro modi in cui un modulo può avere un prezzo.
+    purchases: Richieste
+    purchases_outstanding: '%count% richiesta/e di modulo a cui nessuno ha ancora risposto.'
+    purchases_outstanding_hint: >-
+        Un cliente ha chiesto un modulo a pagamento. Nulla è stato installato e nulla è stato
+        addebitato: qualcuno deve decidere, farsi sentire, e installarlo.
+    purchases_how: 'A una richiesta si risponde installando il modulo per quel cliente:'
+    purchase_asked: Richiesto
+    purchase_first_asked: 'prima richiesta il %time%'
+    purchase_state: Stato
+    purchase_waiting: In attesa
+    purchase_installed: Installato
+    purchase_collected: 'letto il %time%'
+    no_purchases: Nessuno ha chiesto nulla
+    no_purchases_hint: >-
+        Le richieste compaiono qui dopo che gira `tenant:purchase:collect`. Un modulo deve avere
+        un prezzo prima che qualcuno possa chiederlo; ogni modulo è gratuito finché qualcuno non
+        ne fissa uno.
+    notices: Avvisi
+    notices_live: '%count% avviso/i che i clienti stanno vedendo ora.'
+    notices_live_hint: Un avviso compare sulla dashboard di tutti coloro a cui era indirizzato.
+    notices_no_receipts: >-
+        Nulla qui sa se qualcuno ha letto un avviso. Saperlo vorrebbe dire andarlo a rilevare
+        nella banca dati propria di ogni cliente.
+    notice_write: Scrivi un avviso
+    notice_title: Titolo
+    notice_body: Avviso
+    notice_body_hint: Testo semplice. Niente link, niente formattazione.
+    notice_audience: Chi lo vede
+    notice_expires: Smette di comparire (facoltativo)
+    notice_expires_hint: UTC. Lascia vuoto per un avviso senza fine; puoi ritirarlo in ogni momento.
+    notice_addressed: Indirizzato a
+    notice_addressed_count: '%count% cliente/i'
+    notice_every_tenant: Ogni cliente
+    notice_named_tenants: Solo i clienti spuntati qui sotto
+    notice_no_tenants: Su questa installazione non ci sono ancora clienti.
+    notice_publish: Pubblica
+    notice_published: Pubblicato per %count% cliente/i.
+    notice_published_all: Pubblicato per ogni cliente.
+    notice_published_at: Pubblicato
+    notice_state: Stato
+    notice_live: In corso
+    notice_ended: Terminato
+    notice_until: 'fino al %time%'
+    notice_withdraw: Ritira
+    notice_withdrawn: Quell’avviso non viene più mostrato a nessuno.
+    notice_gone: Quell’avviso non esiste più.
+    notice_stale: Quella pagina era rimasta aperta per un po’. Nulla è stato pubblicato; riprova.
+    notice_unknown_audience: Questo non è un pubblico che un avviso possa avere.
+    no_notices: Non è stato annunciato nulla
+    no_notices_hint: >-
+        Un avviso compare sulla dashboard di tutti coloro a cui era indirizzato, nella loro
+        installazione, dove già lavorano.
+    support: Supporto
+    support_outstanding: '%count% cliente/i in attesa di una risposta.'
+    support_outstanding_hint: >-
+        Una risposta compare sullo schermo del cliente nel momento in cui la scrivi; l’attesa è
+        solo all’andata, il tempo che un ticket venga rilevato.
+    support_raised: 'chiesto il %time%'
+    support_collected: 'rilevato il %time%'
+    support_replied_by: '%name% ha risposto il %time%'
+    support_reply: Rispondi
+    support_reply_again: Riscrivi la risposta
+    support_reply_hint: >-
+        Testo semplice, e il cliente lo legge subito. C’è una risposta per ticket; mandarne
+        un’altra sostituisce la prima.
+    support_send: Invia
+    support_state: Stato
+    support_move: Sposta
+    support_moved: 'Passato a %status%.'
+    support_replied: La tua risposta è sullo schermo del cliente.
+    support_stale: Quella pagina era rimasta aperta per un po’. Nulla è cambiato; riprova.
+    support_gone: Quel ticket non esiste più; il suo cliente potrebbe essere stato rimosso.
+    support_unknown_status: Questo non è uno stato in cui un ticket possa trovarsi.
+    no_support: Nessuno ha chiesto nulla
+    no_support_hint: >-
+        I ticket compaiono qui dopo che gira `tenant:support:collect`. Un’installazione che non
+        l’ha mai messo in un orario vede questa pagina esattamente come una a cui nessuno ha
+        scritto.
+    support_last_collection: 'Ultimo rilevamento il %time%.'
+
+dashboard:
+    follow_ups: I tuoi promemoria
+    no_access: Non hai ancora accesso ad alcun modulo. Chi amministra può concedertelo.
+    none_installed: 'Ancora nessun modulo installato. Installane uno con'
+    none_installed_store: Ancora nessun modulo installato.
+    from_store: Aggiungine uno dallo Store.
+    widget:
+        modules: Moduli
+    notices: Avvisi
+    customise: Personalizza
+    loading: Caricamento…
+    picker_title: La tua dashboard
+    picker_help: >-
+        Quali schede vedi, e in che ordine. Il numero accanto a ciascuna è la sua posizione;
+        a numeri uguali resta l’ordine mostrato qui.
+    picker_default_help: >-
+        Ciò che vede chiunque non abbia sistemato la propria dashboard. Lasciare fuori una scheda
+        non impedisce a nessuno di vederla; che cosa una persona possa guardare è questione di
+        autorizzazioni.
+    picker_position: Posizione
+    picker_reset: Torna all’impostazione predefinita
+    picker_empty: Non ci sono ancora schede da sistemare.
+    picker_following_company: Stai seguendo la dashboard dell’azienda.
+    picker_following_code: Ogni scheda, nell’ordine in cui sono elencate qui.
+    saved: La tua dashboard è stata salvata.
+    reset: La tua dashboard segue di nuovo quella dell’azienda.
+
+notice:
+    dismiss: Chiudi
+    audience:
+        everyone: Tutti qui
+        administrators: Amministratori
+
+support:
+    title: Supporto
+    intro: >-
+        Domande per le persone che mandano avanti questa installazione. Quello che scrivi qui
+        arriva a loro, e la loro risposta torna su questa pagina.
+    raise: Fai una domanda
+    subject: Oggetto
+    body: Che cosa sta succedendo
+    body_hint: >-
+        Che cosa stavi facendo, che cosa ti aspettavi, e che cosa è successo invece. Screenshot e
+        allegati non sono ancora supportati.
+    send: Invia
+    delay: >-
+        I ticket vengono rilevati periodicamente, quindi possono passare alcuni minuti prima che
+        qualcuno veda questo. La loro risposta compare qui appena viene scritta.
+    raised: >-
+        Annotato. Arriva a chi manda avanti questa installazione al prossimo rilevamento, e la
+        loro risposta comparirà qui.
+    stale: Quella pagina era rimasta aperta per un po’. Nulla è stato inviato; riprova.
+    none: Non hai ancora chiesto nulla
+    none_hint: >-
+        Qualsiasi cosa qualcuno di qui chieda compare su questa pagina, con la risposta, così può
+        leggerla anche un collega.
+    not_received: Non ancora ricevuto
+    raised_by: '%name% ha chiesto il %time%'
+    replied_by: '%name% ha risposto il %time%'
+    status:
+        open: In attesa di risposta
+        in_progress: In esame
+        closed: Chiuso
+
+account:
+    region: Regione
+    region_default: Segui quella dell’azienda
+    region_help: Come si scrivono numeri e date. Lo svizzero tedesco e il tedesco di Germania sono la stessa lingua e cifre diverse.
+    timezone: Fuso orario
+    timezone_default: 'Segui quello dell''azienda (%zone%)'
+    timezone_help: >-
+        Su quale orologio si mostrano le ore. Lascialo stare, a meno che tu non sia altrove
+        rispetto all’azienda; tutto viene comunque salvato allo stesso modo.
+    title: Il tuo account
+    details: Dati
+    name_help: Ciò che compare sui record di cui sei responsabile e nella loro cronologia.
+    email_help: Il tuo accesso. Chi amministra può cambiarlo per te.
+    hold_title: Scegli la tua password prima di andare avanti.
+    hold_body: >-
+        Quella con cui sei entrato è stata generata e ti è stata passata, quindi qualcun altro
+        l’ha vista. Tutto il resto aspetta finché non l’avrai sostituita.
+    invited_title: Scegli una password prima di andare avanti.
+    invited_body: >-
+        Sei arrivato con un link di invito, che ha funzionato una volta e ora è esaurito. Una
+        password tua è ciò che ti fa rientrare la prossima volta.
+    set_password: Imposta la password
+    current_password: Password attuale
+    current_password_help: Richiesta perché una sessione lasciata aperta non basti a impossessarsi del tuo account.
+    new_password: Nuova password
+    repeat_password: Ripetila
+    change_password: Cambia password
+    language: Lingua
+    language_help: La lingua in cui questa applicazione ti viene mostrata.
+    language_default: 'Segui la lingua predefinita (%locale%)'
+    save_language: Salva la lingua
+    language_saved: Lingua salvata.
+
+module:
+    view_record: Vedi il record
+    overdue: In ritardo
+    overdue_title: Inviata, e oltre la scadenza.
+    edit_record: Modifica il record
+    delete_record: Elimina il record
+    new_title: Nuovo %module%
+    edit_title: Modifica %module%
+    what_kind: Di che tipo?
+    filter: Filtra
+    filter_value: valore
+    clear_filter: Pulisci
+    no_matches: Nulla corrisponde.
+    empty_title: Ancora nessun %module%
+    empty_body: >-
+        Un vero inizio, o una settimana molto tranquilla. Aggiungi il primo e questa pagina
+        diventerà decisamente più interessante.
+    add_first: Aggiungi il primo
+    add_row: Aggiungi %collection%
+    add_kind: 'Aggiungi %kind%'
+    owner: Responsabile
+    record: Record
+    created: Creato
+    changed: Modificato
+    created_at: 'Creato %when%'
+    pages: Pagine
+    page_first: Prima pagina
+    page_previous: Pagina precedente
+    page_next: Pagina successiva
+    page_last: Ultima pagina
+    history: Cronologia
+    status: Stato
+    drifted: '%field% differisce da ciò da cui è stato copiato.'
+    outstanding: '%amount% rimanenti'
+    outstanding_help: Non ancora ripresi da qualcosa creato a partire da questo record.
+    locked: 'Questo record è %state% e non si può più modificare.'
+    history_empty: >-
+        Nulla di annotato. I record che esistevano prima della cronologia non ne hanno, fino
+        alla loro prossima modifica.
+    trend: Andamento
+    trend_field: Quale numero mostrare
+    trend_since: '%value% dal %date%, invariato.'
+    trend_summary: '%field% nel tempo: ora %value%, tra %low% e %high%.'
+    trend_range: 'tra %low% e %high%'
+    trend_truncated: I cambiamenti più vecchi di questi non vengono disegnati.
+    linked_all: Vedili tutti
+    action_by: 'da %who%'
+    action_by_system: Sistema
+    action:
+        created: Creato
+        updated: Aggiornato
+        deleted: Eliminato
+        document_generated: Documento generato
+        email_sent: E-mail inviata
+        email_failed: E-mail non inviata
+        transitioned: Stato cambiato
+    row_action:
+        added: aggiunta
+        updated: aggiornata
+        removed: tolta
+
+field:
+    picker_truncated: 'Mostrati i primi %shown% di %total%. Restringi l’elenco o cerca nell’altro modulo.'
+    label: Etichetta
+    label_placeholder: Numero IVA
+    shape_name: Nome di questa forma
+    rows_inside: '(righe dentro un %module%)'
+    type: Tipo
+    rules: Regole
+    order: Ordine
+    width: Larghezza
+    width_default: Secondo il tipo
+    autocomplete: Casella di ricerca
+    region: Paese
+    region_default: Quello di questa installazione
+    points_at: Punta a
+    points_at_label: 'Punta a (campi di riferimento)'
+    exclusive_within: 'Esclusivo entro'
+    exclusive_within_none: 'Può sovrapporsi'
+    takes_from: Prende i valori da
+    takes_from_label: 'Prende i valori da (campi a scelta)'
+    takes_from_own: Le sue opzioni
+    unfinished: da configurare
+    back_to: Torna a %module%
+    rule_required: obbligatorio
+    rule_unique: univoco
+    rule_unique_note: 'L’univocità è garantita dalla banca dati e non solo controllata mentre un modulo di inserimento è aperto: due record non possono portare lo stesso valore, un campo vuoto non è il duplicato di un altro campo vuoto, e un record eliminato non è d’intralcio. Un campo i cui record condividono già un valore non può diventare univoco prima che quei record vengano sistemati; ti verrà detto quali valori condividono.'
+    rule_filterable: filtrabile
+    rule_listed: in elenco
+    rule_title: gli fa da titolo
+    remove_title: Togliere “%field%”?
+    remove_body: >-
+        Il campo sparisce dal modulo di inserimento, dall’elenco, dai filtri e dalla convalida.
+        <strong>I valori restano salvati.</strong> Aggiungere di nuovo un campo chiamato
+        <code>%key%</code> li fa tornare.
+    remove_none_hold: Nessun record porta al momento un valore per lui.
+    remove_note: >-
+        Nulla qui elimina dati. Rimuovere definitivamente i valori è un’operazione a parte, che
+        non esiste ancora; vedi docs/architecture/open-questions.md §7.2.
+    remove_confirm: Togli il campo
+    sections:
+        link: 'Sezioni (%count%)'
+        column: Sezione
+        none: '(nessuna)'
+        title: 'Sezioni di “%module%”'
+        intro: >-
+            Intestazioni sul modulo di inserimento. Una sezione raggruppa campi sul modulo e
+            sulla pagina del record e non cambia nient’altro: i valori vengono salvati,
+            convalidati, filtrati e messi sui documenti esattamente come prima.
+        none_yet: Ancora nessuna sezione, quindi ogni campo viene disegnato in un’unica sequenza. Creane una qui sotto e mettici dei campi dalla pagina dei campi.
+        fields: Campi
+        fields_none: ancora nessuno
+        fields_count: '%count% campi'
+        add_label: Aggiungi una sezione
+        add_placeholder: Fatturazione
+        add_help: >-
+            Il nome è tuo e si può cambiare in ogni momento. Nulla si sposta quando ne rinomini
+            una, perché ciò che un campo porta è un codice breve ricavato dal primo nome che gli
+            dai.
+        note: >-
+            L’ordine è tuo e non si ricava dai campi: lascia salti di dieci e scrivi 15 per
+            infilare qualcosa in mezzo. Una sezione senza campi resta qui e non viene disegnata
+            sul modulo finché non c’è dentro qualcosa.
+        remove_title: 'Togliere la sezione “%section%”?'
+        remove_body: >-
+            Questo toglie l’intestazione e nient’altro. Una sezione non è un contenitore: non
+            tiene nulla, e nessun record è mai dipeso da una.
+        remove_none: Non c’è dentro nulla, quindi nulla si sposta.
+        remove_holding: >-
+            %count% campi ci stanno dentro. Tengono i loro valori, il loro ordine, le loro
+            larghezze e le loro regole, e tornano a essere disegnati in cima al modulo. Rimetterli
+            altrove è una tendina ciascuno.
+        remove_note: >-
+            Nulla qui elimina dati, e nulla qui cambia come un record viene salvato o trovato.
+            Solo l’aspetto del modulo di inserimento e della pagina del record.
+        remove_confirm: Togli la sezione
+    options:
+        link: 'Opzioni (%count%)'
+        title: 'Opzioni di “%field%”'
+        intro: Ciò tra cui si sceglie in questo campo. Aggiungerne una ha effetto immediato.
+        back: Torna ai campi
+        stored: Salvata come
+        held: Record
+        held_none: nessuno
+        none: Questo campo non ha ancora opzioni, quindi non offre nulla da scegliere e accetta qualsiasi cosa scritta. Aggiungine qui sotto.
+        add_label: Aggiungi opzioni, una per riga
+        add_placeholder: |-
+            Pallet
+            Cassa
+        add_help: >-
+            Un’etichetta per riga. Ciò che ogni record salva è un codice breve ricavato dalla
+            prima etichetta che dai, <code>pallet</code>, e non cambia mai più; rinominare
+            un’opzione più tardi non costa quindi nulla.
+        removal_note: >-
+            Un’opzione che nessun record porta si può togliere. Una che dei record portano no:
+            resterebbero con un valore che non è più in lista e non si potrebbero più salvare
+            finché qualcuno non li sistema.
+        module_field: >-
+            Questo campo è arrivato con il modulo, e le sue opzioni sono parte di ciò che il
+            modulo fa: gli stati tra cui sposta i record, i tipi di record che conosce. Puoi
+            aggiungere opzioni e rinominarle; toglierne una non è previsto.
+        on_a_list: >-
+            Questo campo prende i valori dalla lista condivisa “%list%”, quindi le opzioni qui
+            sotto sono le sue proprie e non sono in uso. Sono ciò su cui ricadrebbe se lo
+            togliessi dalla lista.
+        on_a_list_link: Apri quella lista
+    numbering:
+        title: Numerazione
+        pattern: Schema
+        pattern_help: >-
+            <code>{number}</code> è il contatore, e <code>{number:4}</code> lo riempie a quattro
+            cifre, così ordinare il testo ordina i documenti. <code>{year}</code> è l’anno in cui
+            il numero viene dato; uno schema che lo contiene riconta da uno ogni gennaio, perché
+            ha un contatore tutto suo.
+        numbers_nothing: >-
+            Questo non contiene <code>{number}</code>, quindi non numererebbe nulla e il campo
+            resterebbe da riempire a mano. Non si può salvare.
+        next_is: Il prossimo numero sarà
+        from_year: 'Dal contatore di %period%, che riparte ogni gennaio.'
+        from_forever: Da un unico contatore, che non riparte mai.
+        counter_switch: >-
+            Questo attinge a un contatore diverso da quello dello schema in uso, e quel contatore
+            è a %at%. Nulla viene rinumerato: il prossimo numero è semplicemente il prossimo che
+            quel contatore dà, e può essere più basso dell’ultimo che hai visto.
+        counter_label: Fai partire il contatore da
+        counter_help: 'Lascia vuoto per continuare da %at%. Impostalo se arrivi da un altro sistema e il tuo prossimo numero deve superare quelli che quello ha già raggiunto.'
+        counter_back: >-
+            Il contatore è a %at%, quindi un numero più basso verrebbe dato una seconda volta.
+            Verrà rifiutato: un numero doppio su un documento non è qualcosa che si possa
+            correggere dopo.
+        nothing_renumbered: >-
+            I numeri già dati non cambiano mai. Questo decide che aspetto avrà il prossimo e da
+            dove viene, e proprio nulla dei documenti che qualcuno ha già in mano.
+        start_title: Numera questo campo
+        start_link: Numeralo
+        review: Guarda che cosa farebbe
+        on_blank: >-
+            <strong>%count% record non hanno nulla in questo campo.</strong> Ricevono i numeri
+            adesso, dal più vecchio, così il numero dice quando il record è nato e non quando
+            qualcuno l’ha aperto l’ultima volta.
+        on_none_blank: >-
+            Ogni record ha già qualcosa in questo campo, quindi non viene scritto nulla in nessuno
+            di loro. La numerazione comincia con il prossimo record creato.
+        on_held: >-
+            <strong>%count% record portano già un valore</strong> e tengono esattamente quello che
+            hanno. Tra loro, tutto ciò che somiglia a un numero che questo schema produrrebbe
+            viene individuato prima, e il contatore parte sopra il più alto.
+        on_derived: >-
+            Una volta numerato questo campo, il motore lo riempie e nessuno ci scrive; è ciò che
+            impedisce a qualcuno di inserire un numero che il contatore sta per dare.
+        start_confirm_title: 'Numerare “%field%”?'
+        start_pattern: 'Lo schema sarà <code>%pattern%</code>.'
+        start_writes: >-
+            <strong>%count% record senza numero ne riceveranno uno</strong>, nell’ordine in cui
+            sono stati creati.
+        start_writes_none: >-
+            Nessun record viene toccato: ognuno di loro porta già un valore in questo campo, e
+            nessuno di quelli cambia.
+        start_range: 'Vanno da <code>%first%</code> a <code>%last%</code>.'
+        start_irreversible: >-
+            Questo non si può annullare. Un numero che è stato su un record è un numero che
+            qualcuno può aver letto al telefono, quindi nulla qui ne riprende uno.
+        start_found: >-
+            %count% record portano già un numero che questo schema avrebbe potuto produrre.
+            Restano come sono, e il contatore parte da %from%, così nessuno di quei numeri può
+            uscire una seconda volta.
+        start_unrecognised: >-
+            Altri %count% portano qualcosa che questo schema non potrebbe mai produrre, un
+            riferimento scritto in un’altra forma. Quelli non possono scontrarsi con nulla e
+            restano come sono.
+        start_next: 'Il prossimo record creato dopo questo sarà <code>%next%</code>.'
+        start_unique: >-
+            <strong>Questo campo diventa anche univoco.</strong> Un numero che due record non
+            possono condividere è ciò che un numero di documento <em>è</em>; la promessa smette
+            quindi di essere aritmetica e diventa un indice nella banca dati: nulla può scrivere
+            un secondo record con un numero già dato. Se due record condividono già un valore
+            qui, questo non si può promettere e nulla viene cambiato; ti verrà detto quali valori
+            condividono.
+        start_note: >-
+            Il contatore si potrà spostare in avanti dopo, sulla pagina di numerazione di questo
+            campo, se il tuo vecchio sistema è arrivato più in là dei numeri già presenti qui.
+        start_agree: 'Sì, scrivi numeri in %count% record esistenti. Capisco che non si può annullare.'
+        start_agree_none: 'Sì, numera questo campo d’ora in poi.'
+        start_do: Avvia la numerazione
+        stop_link: Smetti di numerare questo campo
+        stop_title: 'Smettere di numerare “%field%”?'
+        stop_keeps: >-
+            <strong>I numeri restano.</strong> Tutti i %count% record tengono esattamente ciò che
+            portano; stanno su documenti che i clienti hanno in mano, e nulla qui li raggiunge.
+        stop_typeable: >-
+            Il campo torna a essere una normale casella di testo: compare nel modulo di
+            inserimento, chiunque può scriverci, e nulla controlla che cosa. I nuovi record non
+            ci ricevono nulla, a meno che qualcuno non lo compili.
+        stop_counter: >-
+            Il contatore resta dov’è, quindi riaccendere la numerazione più avanti continua da
+            lì, invece di ripartire sopra numeri già usciti.
+
+value_list:
+    title: Liste
+    intro: >-
+        Una lista che tieni una volta sola e usi da più campi. “Regione” su un contatto e
+        “Regione” su un ordine possono essere la stessa lista, che così non può andare per conto
+        suo.
+    none: Ancora nessuna lista. Creane una qui sotto, poi punta un campo a scelta su di lei nell’editor dei campi.
+    name: Nome
+    stored: Salvata come
+    entries: Voci
+    used_by: Usata da
+    used_by_nothing: ancora nulla
+    back: Torna alle liste
+    new_label: Nome della nuova lista
+    new_placeholder: Regioni
+    new_help: >-
+        Ciò che ogni record salva è un codice breve ricavato dal nome che dai,
+        <code>regioni</code>, e non cambia mai più; rinominare la lista più tardi non costa
+        quindi nulla.
+    no_entries: Questa lista è vuota. Aggiungi voci qui sotto, una per riga.
+    colour: Colore
+    icon: Icona
+    under: Sotto
+    no_colour: nessuno
+    no_icon: nessuna
+    no_parent: '—'
+    add_label: Aggiungi voci, una per riga
+    removal_note: >-
+        Una voce che nessun record porta si può togliere. Una che dei record portano no, ovunque
+        nell’installazione e non solo nel modulo che stai guardando: quei record resterebbero con
+        un valore che la lista non ha più.
+    merge:
+        title: Fondi due voci
+        intro: >-
+            Due voci che si sono rivelate voler dire la stessa cosa: “Zurigo” e “Zürich”. Ogni
+            record che porta l’una viene riscritto per portare l’altra, e la prima se ne va.
+        from: Fondi questa voce
+        into: in questa
+        review: Rivedi la fusione
+        confirm_title: 'Fondere “%from%” in “%into%”?'
+        what: >-
+            Ogni record che porta <strong>%from%</strong> porterà invece <strong>%into%</strong>,
+            ovunque in questa installazione, e <strong>%from%</strong> verrà tolta da “%list%”.
+        irreversible: Questo non si può annullare. Dopo, nulla ricorda quale delle due un record portasse.
+        writes_none: Nessun record porta oggi quella voce, quindi nulla viene riscritto; la voce viene semplicemente tolta dalla lista.
+        where: Dove
+        records: Record
+        no_fields: Nessun campo prende ancora i valori da questa lista, quindi nulla viene riscritto.
+        note: >-
+            Nulla viene scritto nella cronologia dei record: è un cambiamento a una lista, non una
+            modifica a ogni record, e le date su quei record restano quelle che erano.
+        agree_none: 'Sì: togli quella voce dalla lista.'
+        do: Fondile
+    delete:
+        title: Eliminare “%list%”?
+        in_use: >-
+            Questa lista non si può eliminare finché dei campi ne prendono i valori: %fields%.
+            Punta prima quei campi altrove.
+        records_keep: >-
+            <strong>Nulla nei tuoi record viene eliminato.</strong> Un record tiene il codice con
+            cui è stato salvato e mostrerà quel codice al posto dell’etichetta.
+        do: Elimina la lista
+
+upgrade:
+    title: Che cosa ha guadagnato questo modulo
+    subtitle: '%module%: le parti del modulo che la tua copia non ha.'
+    back_to_fields: Torna ai campi
+    nothing: 'La tua copia di %module% ha tutto ciò che il modulo dichiara. Non c’è nulla da prendere.'
+    nothing_outstanding: 'La tua copia di %module% ha tutto ciò che il modulo dichiara, a parte ciò che hai scartato qui sotto.'
+    intro: >-
+        Un modulo può crescere tra una versione e l’altra, e installare non torna mai a toccare
+        un’installazione che già esiste: dal giorno in cui l’hai installato, le tue definizioni
+        fanno fede. Quindi nulla di tutto questo ti è successo. Viene offerto, e decidi tu, voce
+        per voce.
+    keeps_yours: >-
+        Si aggiungono solo novità. Un campo che hai già non viene mai offerto di nuovo, qualunque
+        cosa tu ne abbia fatto nel frattempo, rinominato, ristretto o riordinato, e nulla di ciò
+        che hai già viene cambiato. Nessun campo viene tolto e nessuno cambia tipo.
+    what: Che cosa
+    where: Va su
+    derived: riempito dal motore
+    dismiss: Questo no
+    review: Guarda che cosa farebbe
+    review_note: Nulla viene scritto prima che tu abbia letto la pagina seguente.
+    dismissed_title: Scartati
+    dismissed_help: >-
+        A questi hai detto di no, quindi non vengono più offerti. Togliere un campo conta come
+        dirgli di no: è così che un campo eliminato apposta smette di tornare. Offrirne uno di
+        nuovo lo rimette nell’elenco qui sopra.
+    restore: Offrilo di nuovo
+    banner_link: Guarda di che si tratta
+    review_title: 'Aggiungere questi a %module%?'
+    review_adds: 'Questo aggiunge alla tua copia di <strong>%module%</strong> quanto segue:'
+    review_keeps: 'Che cosa questo non fa:'
+    review_keeps_fields: >-
+        Nulla di ciò che hai già viene toccato: non un’etichetta, non una larghezza, non una
+        regola, non il loro ordine.
+    review_keeps_values: >-
+        Nessun valore viene scritto in alcun record. Un campo che il motore riempie arriva vuoto
+        e si riempie al prossimo salvataggio di ogni record.
+    review_keeps_removal: >-
+        Nessun campo viene tolto e nessuno cambia tipo. Sono due domande a parte, e questa non è
+        la risposta a nessuna delle due.
+    review_do: Aggiungili
+
+import:
+    file: Foglio di calcolo
+    file_help: 'Un export di questo modulo ha esattamente la forma attesa, con un foglio per forma: %sheets%.'
+    check: Controlla
+    back_to_list: Torna all’elenco
+    dry_run: Nulla è stato cambiato; ecco che cosa farebbe l’importazione.
+    how_title: Come viene letto un file
+    how_columns: Una colonna può chiamarsi come la chiave di un campo o come la sua etichetta.
+    how_missing: Un campo senza colonna tiene il valore che aveva; una colonna lasciata vuota lo cancella.
+    how_id: Una riga con un <code>id</code> aggiorna quel record. Un <code>id</code> vuoto ne aggiunge uno.
+    how_names: >-
+        Qualsiasi altra cosa in <code>id</code>, per esempio <code>ada</code>, dà un nome a un
+        record che questo file sta creando. È così che i nuovi record arrivano con le loro righe
+        figlie: dai a ogni nuovo record un nome tuo in <code>id</code>, e metti lo stesso nome
+        nel <code>parent_id</code> della riga figlia. Anche un record con l’<code>id</code>
+        vuoto viene creato, ma nulla nel file può puntare a lui.
+    how_collections: >-
+        Un foglio figlio parla per l’intera collezione: una riga che non elenca viene tolta dal
+        record. Lascia fuori il foglio per non toccarle.
+    how_atomic: Un problema in un punto qualsiasi rifiuta l’intero file. Non esiste uno stato importato a metà.
+
+user:
+    tooltip_edit: Modifica l’utente
+    tooltip_reset: Reimposta la password
+    tooltip_deactivate: Disattiva l’utente
+    tooltip_reactivate: Riattiva l’utente
+    tooltip_invite: Rimanda l’invito
+    add: Aggiungi un utente
+    edit_title: 'Modifica %email%'
+    role: Ruolo
+    administrator: Amministratore
+    member: Membro
+    last_signed_in: Ultimo accesso
+    never: mai
+    you: tu
+    deactivated: disattivato
+    password_not_set: password non ancora impostata
+    invitation_pending: invito in sospeso
+    email_help: È l’accesso. Deve essere unico qui, non ovunque.
+    name_help: Mostrato sui record di cui la persona è responsabile e nella cronologia. Se vuoto, l’e-mail.
+    first_sign_in: Come entra la prima volta
+    method_invite: Mandale un invito per e-mail
+    method_invite_help: >-
+        Un link a questa installazione, valido 24 ore e una volta sola. Nessuna password viene
+        creata, quindi non ce n’è mai una in mano ad altri; la persona sceglie la sua quando
+        arriva.
+    method_password: Genera una password che consegno io
+    administrator_help: >-
+        Chi amministra può fare tutto, e gestire utenti, gruppi e i campi di un modulo. Le
+        autorizzazioni qui sotto non hanno alcun effetto su di lui.
+    generated_password_note: Una password viene generata al salvataggio, e ti viene mostrata una volta sola perché tu la consegni.
+    groups: Gruppi
+    groups_help: >-
+        Da dove arrivano normalmente le autorizzazioni: un permesso dato a una funzione
+        sopravvive alla persona che la lascia. <a href="%link%">Gestisci i gruppi</a>.
+    no_groups: 'Non esiste ancora alcun gruppo. <a href="%link%">Creane uno</a>.'
+    extra_permissions: Autorizzazioni in più per questa persona
+    extra_permissions_help: >-
+        Solo per ciò che i gruppi non coprono già. Queste si <strong>aggiungono</strong> a ciò
+        che i gruppi danno; nulla qui può togliere un’autorizzazione, ed è per questo che ciò
+        che i gruppi già coprono non si può scegliere.
+    admin_permissions_note: >-
+        Questa persona amministra e può già fare tutto. Quanto impostato qui avrebbe effetto solo
+        se questo le venisse tolto.
+    from_groups: 'dai gruppi: %scope%'
+    permissions_note: >-
+        Chi amministra può fare tutto. Tutti gli altri partono da zero e ricevono ciò che i loro
+        <a href="%link%">gruppi di autorizzazioni</a> danno, per modulo e per azione.
+    edit_aria: 'Modifica %email%'
+    reset_aria: 'Reimposta la password di %email%'
+    invite_aria: 'Manda a %email% un nuovo invito'
+    deactivate_aria: 'Disattiva %email%'
+    reactivate_aria: 'Riattiva %email%'
+
+group:
+    tooltip_edit: Modifica il gruppo
+    tooltip_delete: Elimina il gruppo
+    title: Gruppi di autorizzazioni
+    one: Gruppo
+    new: Nuovo gruppo
+    members: Membri
+    permissions: Autorizzazioni
+    store: Lo Store
+    store_help: >-
+        Aggiungere moduli a questa installazione, che non è un’autorizzazione su un modulo in
+        particolare: sfogliare non riguarda nessuno di loro, e installare riguarda uno che ancora
+        non hai.
+    intro: >-
+        Un gruppo è un insieme di autorizzazioni date a una funzione anziché a una persona, e
+        così sopravvive a chi la lascia. Tutto si somma: un utente ha ciò che l’insieme dei suoi
+        gruppi gli dà, e nulla qui può togliere un’autorizzazione.
+    empty_title: Ancora nessun gruppo
+    empty_body: >-
+        Chi amministra può già fare tutto. Tutti gli altri non possono fare nulla finché un
+        gruppo non dice altrimenti.
+    make_first: Crea il primo
+    name_placeholder: Vendite, Supporto, Sola lettura…
+    name_help: Come si chiama la funzione. Potrai rinominarla.
+    what_it_may_do: Che cosa può fare questo gruppo
+    matrix_help: >-
+        Una riga per ogni modulo che questo cliente ha, una colonna per azione.
+        <strong>I propri record</strong> significa solo quelli che quella persona ha creato;
+        vale per le azioni che nominano un record già esistente, quindi aggiungere e importare
+        sono tutto o niente.
+    no_modules: Nessun modulo è installato, quindi non c’è ancora nulla da concedere.
+    instance: L’istanza stessa
+    instance_help: >-
+        Le parti di questa installazione che non sono i record di un modulo. Ce n’è una per tipo,
+        quindi l’unica domanda è chi può vederla e chi può cambiarla.
+    who_is_in_it: Chi ne fa parte
+    members_help: >-
+        Chi amministra non è in elenco: può già fare tutto, e metterlo in un gruppo farebbe
+        pensare che glielo si possa togliere.
+    no_members_available: Qui amministrano tutti, quindi non c’è ancora nessuno da aggiungere.
+    delete_title: 'Elimina %group%'
+    delete_heading: Eliminare “%group%”?
+    delete_warning: I membri perdono ciò che dava loro, a meno che un altro gruppo non dia loro lo stesso.
+    delete_note: >-
+        Nessuno viene eliminato e nulla di loro viene toccato; solo il gruppo e ciò che
+        concedeva. Non si può annullare, ma si può rifare.
+    delete_confirm: Elimina il gruppo
+    edit_aria: 'Modifica %group%'
+    delete_aria: 'Elimina %group%'
+
+profile:
+    region: Regione
+    region_none: Impostazione predefinita dell’applicazione
+    region_help: Con le convenzioni di quale paese scrive questa installazione. Chi sta altrove può scegliere le proprie sul suo account.
+    timezone: Fuso orario
+    timezone_none: 'Dalla regione (%zone%)'
+    timezone_help: >-
+        Su quale orologio si mostrano qui le ore. La regione risponde da sola dove un paese ha un
+        solo fuso; dove ne ha diversi, scegli, perché nulla sullo schermo dice che le ore sono
+        sbagliate. Gli istanti vengono sempre salvati allo stesso modo.
+    payment_terms: Termini di pagamento (giorni)
+    payment_terms_help: >-
+        Quanto tempo ha un cliente per pagare, contato dalla data della fattura. A un contatto si
+        possono dare termini suoi. Lascia vuoto e le fatture non portano scadenza, quindi nulla è
+        mai in ritardo.
+    vat_mode: Prezzi
+    vat_mode_none: 'Non impostato (prezzi IVA esclusa)'
+    vat_mode_excluded: Prezzi IVA esclusa
+    vat_mode_included: Prezzi IVA inclusa
+    vat_mode_help: >-
+        Se i prezzi che scrivi contengono già l’IVA. Un negozio indica 19.95 IVA inclusa perché è
+        la cifra sullo scaffale; una consulenza quota al netto e aggiunge l’IVA in fattura. Ogni
+        nuovo ordine e ogni nuova fattura ne prende una copia e si può regolare a parte, quindi
+        cambiare qui non altera mai un documento già inviato.
+    title: Profilo aziendale
+    intro: >-
+        Come si chiama questa installazione, e la valuta in cui lavora. Vale per tutti qui, non
+        solo per te.
+    company_name: Nome dell’azienda
+    company_name_help: Come vi chiamate. Una volta impostato, sostituisce il nome nella barra qui sopra.
+    logo: Logo
+    logo_help: >-
+        PNG o JPEG, fino a %size% KB. Compare nella barra qui sopra e sulla pagina di accesso di
+        questo indirizzo; chiunque raggiunga quella pagina può quindi vederlo, e un logo serve
+        proprio a questo.
+    logo_remove: Togli il logo
+    currency: Valuta
+    currency_help: In che cosa sono i prezzi. Nulla la impone, e i moduli che ne hanno bisogno la chiederanno.
+    currency_none: Non ancora scelta
+    read_only: Puoi vedere questo, ma non cambiarlo.
+    mail: Posta in uscita
+    mail_intro: >-
+        Da dove parte la posta che questa installazione manda. Lascia vuoto il server e parte
+        tramite noi, con il tuo indirizzo per le risposte. Compilalo e parte dal tuo fornitore,
+        genuinamente da te.
+    mail_sender_address: Indirizzo del mittente
+    mail_sender_address_help: >-
+        L’indirizzo che i tuoi clienti vedono, e dove vanno le loro risposte. Necessario prima di
+        poter usare un server.
+    mail_smtp_host: Il tuo server SMTP
+    mail_smtp_host_help: Lascia vuoto per inviare invece tramite questa installazione.
+    mail_smtp_port: Porta
+    mail_smtp_port_help: Vuoto per quella predefinita. 465 per TLS.
+    mail_smtp_user: Utente SMTP
+    mail_smtp_password: Password SMTP
+    mail_smtp_password_help: Salvata cifrata, e mai più mostrata.
+    mail_smtp_password_set: Una password è salvata. Lascia vuoto per tenerla.
+    payment: Farsi pagare
+    payment_intro: >-
+        Che cosa dice la sezione pagamento QR di una fattura: il conto su cui viene pagata, e il
+        vostro indirizzo come beneficiario. Lascia vuoto l’IBAN e le fatture escono senza
+        sezione pagamento.
+    address_street: Via
+    address_building_number: 'N.'
+    address_postal_code: NPA
+    address_city: Località
+    payment_iban: IBAN
+    payment_iban_help: >-
+        Il conto svizzero o del Liechtenstein su cui vengono pagate le vostre fatture. Va bene
+        anche un QR-IBAN, insieme al riferimento QR qui sotto.
+    reference_type: Riferimento di pagamento
+    reference_type_help: >-
+        Come un pagamento ritrova la sua fattura sull’estratto conto. Il riferimento del
+        creditore funziona con qualsiasi IBAN ed è l’impostazione predefinita. Il riferimento QR
+        richiede il QR-IBAN che la tua banca rilascia apposta. Senza riferimento, il numero di
+        fattura viaggia solo come testo libero.
+    reference_type_qrr: Riferimento QR (richiede un QR-IBAN)
+    reference_type_scor: Riferimento del creditore (qualsiasi IBAN)
+    reference_type_non: Nessun riferimento
+
+document:
+    documents: Documenti
+    templates: Modelli
+    templates_intro: >-
+        I file .docx da cui nascono i documenti di %module%. Scrivine uno in Word, metti i
+        segnaposto qui sotto dove devono andare i valori, e caricalo qui.
+    uploaded: Modelli caricati
+    none_yet: Ancora nessun modello. Nulla si può generare finché non ce n’è uno.
+    upload: Carica un modello
+    file: Il file .docx
+    file_help: 'Solo documenti Word, fino a %size% MB.'
+    name_placeholder: Lettera, Fattura, Scheda tecnica…
+    name_help: Come si chiama sul record. Preso dal nome del file se lasci vuoto.
+    applies_to: Vale per
+    applies_to_help: Un modello per un tipo di record viene offerto solo su quel tipo.
+    every_record: Ogni record
+    uploaded_when: Caricato
+    template: Modello
+    format: Formato
+    format_pdf: PDF (da inviare)
+    format_docx: Word (da ritoccare prima)
+    download: Scarica
+    none_for_record: Nessun modello vale ancora per questo record.
+    marker:
+        tenant_name: Questa azienda
+        tenant_logo: Il logo di questa azienda
+        user_name: Chi lo genera
+        user_email: La sua e-mail
+    marker_draws_a_picture: immagine
+    general: Generale
+    general_help: Disponibile in ogni modello, di qualunque cosa tratti.
+    for_variant: 'Per %variant%'
+    placeholders: Segnaposto
+    placeholders_help: >-
+        Scrivili nel documento Word, parentesi comprese. Vengono sostituiti con i valori di
+        questo record quando il documento viene generato. Ciò che lasci fuori resta fuori.
+    collection_help: >-
+        Mettine uno in una cella e l’intera riga della tabella si ripete: una volta per ogni riga
+        di questo elenco, nel loro ordine. I totali e tutto ciò che riguarda il record vanno
+        fuori dalla tabella, dove si scrivono una volta sola.
+    collection_kinds_help: >-
+        Una riga i cui segnaposto nominano un tipo viene disegnata solo per quel tipo, così puoi
+        impostare una riga di tabella per tipo e dare a ciascuna le sue colonne. Togli il tipo,
+        scrivi [%example%], e la riga viene disegnata per ognuno di loro.
+
+email_template:
+    templates: Modelli e-mail
+    templates_intro: >-
+        Che cosa dicono le e-mail di %module%. Scritti qui anziché caricati: un’e-mail è testo,
+        quindi non c’è nulla da impaginare in Word e nulla da ricaricare per correggere un
+        refuso.
+    none_yet: Ancora nessun modello e-mail. Nulla si può inviare finché non ce n’è uno.
+    write: Scrivi un modello
+    form_intro: Un nome, un oggetto e il messaggio stesso. Sia l’oggetto sia il testo accettano segnaposto.
+    subject: Oggetto
+    subject_placeholder: 'Fattura [record_id] da [tenant.name]'
+    subject_help: L’oggetto predefinito. Accetta segnaposto come il messaggio, e si può cambiare per un singolo invio.
+    body: Messaggio
+    body_placeholder: |-
+        Gentile [first_name],
+
+        grazie per il tuo ordine.
+    body_help: >-
+        Markdown. Riga vuota tra i paragrafi, *enfasi* tra asterischi, - per un punto elenco.
+        Tutto ciò che sembra HTML parte come i caratteri che hai scritto.
+    name_placeholder: Conferma d’ordine, Sollecito, Ringraziamento…
+    name_help: Come si chiama nell’elenco e nella finestra di invio. Nessuno fuori lo vede.
+    written_when: Scritto
+    placeholders_help: >-
+        Scrivili nell’oggetto o nel messaggio, parentesi comprese. Vengono sostituiti con i
+        valori di questo record quando l’e-mail parte. Ciò che lasci fuori resta fuori.
+    collection_help: >-
+        Questo non è un valore: diventa un’intera tabella, una riga per voce, nel loro ordine.
+        Mettilo su una riga a sé anziché dentro una frase. Nell’oggetto esce vuoto: una tabella
+        non è un oggetto.
+    collection_columns_help: >-
+        Ogni colonna viene mostrata, salvo dire altrimenti. Nomina quelle che vuoi, nell’ordine
+        che vuoi, scrivi [%example%]; di solito è ciò che un’e-mail vuole, visto che il documento
+        allegato elenca già tutto.
+    collection_kinds_help: >-
+        Le voci di ogni tipo finiscono nella stessa tabella, nel loro ordine, e una colonna per
+        cui una voce non ha nulla resta vuota. Aggiungi il tipo, [lines:article], per una tabella
+        di quel solo tipo.
+    wrapper: Attorno al tuo messaggio
+    wrapper_help: >-
+        Ciò che scrivi qui è il messaggio. La cornice attorno, l’impaginazione e il piè di pagina
+        con il nome della tua azienda, è parte di Xivi ed è la stessa per ogni e-mail; nessuno
+        può quindi romperla modificando un modello.
+    incomplete: Un modello ha bisogno di un nome, un oggetto e un messaggio. Nulla è stato salvato.
+    too_long: 'Il nome e l’oggetto possono avere al massimo %max% caratteri. Nulla è stato salvato.'
+
+permission:
+    yes: 'Sì'
+    no: 'No'
+    area:
+        profile: Profilo aziendale
+    store:
+        browse: Sfogliare lo Store
+        browse_help: Vedere quali moduli questa installazione potrebbe avere.
+        install: Installare moduli
+        install_help: Aggiungere un modulo a questa installazione. Non si può togliere, e ciò che viene installato viene scritto così com’è nella tua banca dati.
+        buy: Chiedere l’acquisto di moduli
+        buy_help: Richiedere un modulo a pagamento. Non installa nulla e non paga nulla; la richiesta viene annotata, e qualcuno si fa sentire.
+
+store:
+    title: Store
+    intro: I moduli che questa installazione può avere. Installarne uno lo aggiunge alla tua banca dati; nulla qui tocca nessun altro.
+    empty: In questo build non c’è ancora nulla in offerta.
+    details: Dettagli
+    installed: Installato
+    not_installed: Non installato
+    already_yours: Hai già questo modulo. Installarlo di nuovo non cambierebbe nulla; i campi scelti allora sono tuoi, da modificare adesso.
+    needs_first: 'Serve prima %missing%.'
+    requirements: Che cosa gli serve
+    requirements_help: Questo modulo non può funzionare senza questi. Installali prima; ognuno ha le sue scelte da fare, quindi non vengono installati al posto tuo.
+    presets: Come si può installare
+    presets_help: Un insieme di campi con un nome, da cui partire. Potrai aggiungere altri campi dopo, nelle impostazioni del modulo.
+    preset_default: Suggerito
+    collections_always: 'Qualunque cosa tu scelga, questo crea anche: %collections%. Sono elenchi di righe che appartengono a un record, e arrivano sempre con il modulo.'
+    install: Installa
+    install_title: 'Installa %module%'
+    choose_preset: Scegli da dove partire
+    preset_permanent: Nulla riscrive questo in seguito.
+    preset_permanent_help: >-
+        Installare scrive questi campi nella tua banca dati, e nulla li riscrive dopo; è ciò che
+        ti lascia libero di rinominarli e riordinarli. I campi dell’altro insieme si potranno
+        prendere più avanti, uno alla volta, dalle impostazioni del modulo; nulla toglie mai ciò
+        che installi adesso.
+    confirm_install: Installa questo modulo
+    follow_ups: Promemoria sui record di questo modulo
+    follow_ups_help: >-
+        Una nota con una data e il nome di qualcuno, tenuta su un record: richiamarli venerdì,
+        sollecitare questa fattura la settimana prossima. A differenza dei campi qui sopra,
+        questo non è definitivo; puoi spegnerlo o riaccenderlo in ogni momento.
+    price: Prezzo
+    price_one_off: Un prezzo una tantum per questo modulo. Non è un abbonamento e non c’è nulla di ricorrente da disdire.
+    ask_to_buy: Chiedi l’acquisto
+    buy_title: 'Chiedi l’acquisto di %module%'
+    buy_what_happens: Che cosa succede quando chiedi
+    buy_records_request: La tua richiesta viene annotata, con il prezzo qui sopra, e mostrata a chi manda avanti questa installazione.
+    buy_no_charge: Nulla viene addebitato e nessun dato di pagamento viene raccolto qui. Su questa pagina non c’è un modulo per la carta e non ci sarà mai.
+    buy_someone_replies: Qualcuno si farà sentire al riguardo. Il modulo non è installato finché non lo installa lui.
+    buy_confirm: Chiedi questo modulo
+    requested: Richiesto
+    requested_on: 'L’hai chiesto il %date%.'
+    requested_next: Nulla è stato addebitato. Qualcuno si farà sentire, e il modulo compare qui una volta installato.
+    refusal:
+        already_installed: 'Hai già %module%. Nulla è cambiato.'
+        requirements_missing: 'A %module% serve %missing%. Installa prima quelli.'
+        no_such_preset: 'Questo non è uno dei modi in cui %module% si può installare.'
+        costs_money: '%module% ha un prezzo. Chiedine piuttosto l’acquisto; quando lo fai non viene addebitato nulla.'
+        not_purchasable: '%module% non è qualcosa che questa installazione stia vendendo in questo momento. Torna a guardare la sua pagina.'
+
+refusal:
+    last_admin: Questo è l’unico amministratore attivo. Rendi prima amministratore qualcun altro.
+    own_admin_role: Non puoi toglierti da solo il ruolo di amministratore. Chiedi a un altro amministratore di farlo.
+    own_account: Non puoi disattivare il tuo stesso account.
+    email_taken: 'Qualcuno qui accede già come “%email%”.'
+    no_email: 'A un utente serve un indirizzo e-mail: è l’accesso.'
+    wrong_password: Questa non è la tua password attuale.
+    group_no_name: 'A un gruppo serve un nome: è ciò con cui lo si sceglie.'
+    group_name_taken: 'Esiste già un gruppo chiamato “%label%”.'
+    mail_server_without_address: 'A un server SMTP serve un indirizzo mittente: è ciò da cui la tua posta direbbe di venire.'
+    mail_not_an_address: '“%address%” non è un indirizzo e-mail.'
+    logo_too_large: 'Quel logo supera %size% KB. Esportalo più piccolo; a un logo in una barra o su una lettera servono pochissimi pixel.'
+    logo_not_an_image: '“%filename%” non è un PNG né un JPEG. I file SVG non sono accettati; esportane uno come PNG.'
+    already_has_password: '%email% ha già una password. Reimpostala invece di mandare un invito.'
+    inactive_invitee: '%email% è disattivato, e un link di invito non lo farebbe entrare. Riattivalo prima.'
+    password_already_set: Questo account ha già una password, quindi per cambiarla serve quella attuale.
+    follow_up_not_enabled: '%module% non prende promemoria.'
+    follow_up_no_record: Quel record non esiste, o è stato eliminato.
+    follow_up_not_permitted: Qui non ti è permesso farlo.
+    follow_up_assignee_blind: '%assignee% non può vedere questo record, quindi non gli si può assegnare.'
+    follow_up_not_your_note: 'Una nota può cambiarla solo chi l’ha scritta.'
+    follow_up_empty_note: 'A una nota serve un contenuto.'
+    follow_up_already_done: 'Questo promemoria è completato. Riaprilo prima di cambiarci qualcosa.'
+    payment_not_an_iban: '“%iban%” non è un IBAN.'
+    payment_not_swiss: '“%iban%” non è un IBAN svizzero o del Liechtenstein, e solo quelli possono ricevere un pagamento con QR-fattura.'
+    payment_qrr_needs_qr_iban: 'Il riferimento QR richiede un QR-IBAN, il tipo che la tua banca rilascia apposta per lui. Con un IBAN normale, scegli il riferimento del creditore.'
+    payment_qr_iban_needs_qrr: 'Questo è un QR-IBAN, e i pagamenti verso di lui devono portare un riferimento QR. Scegli il riferimento QR, oppure inserisci il tuo IBAN normale.'
+
+# Perché una fattura è uscita senza la sua sezione pagamento QR (XIV-152).
+# Avvertimenti accanto a un documento finito, non errori: la fattura in sé è a
+# posto.
+payment_part:
+    skipped_missing: 'La fattura è stata generata senza sezione pagamento QR. Nel profilo aziendale manca: %fields%.'
+    skipped_currency: 'La fattura è stata generata senza sezione pagamento QR: la QR-fattura esiste solo per CHF ed EUR, e questa installazione lavora in %currency%.'
+    skipped_no_currency: 'La fattura è stata generata senza sezione pagamento QR: scegli prima una valuta (CHF o EUR) nel profilo aziendale.'
+    skipped_reference: 'La fattura è stata generata senza sezione pagamento QR: il numero di fattura “%number%” non si può trasformare in un riferimento %type%.'
+    skipped_invalid: 'La fattura è stata generata senza sezione pagamento QR: i dati di pagamento non hanno superato la convalida. Controlla la parte pagamenti del profilo aziendale.'
+
+follow_up:
+    priority:
+        info: Per informazione
+        warning: Da tenere d’occhio
+        important: Importante
+    lens:
+        today: In scadenza oggi
+        week: In scadenza questa settimana
+        all: Tutti
+    lens_group: Fino a dove guardare
+    lens_empty:
+        today: Nulla in scadenza oggi.
+        week: Nulla in scadenza questa settimana.
+        all: Nulla sulla tua lista.
+    due: 'Scade %when%'
+    assigned_to: 'per %who%'
+    opened_by: 'Aperto da %who%, %when%'
+    done_at: 'Completato %when%'
+    mark_done: Fatto
+    reopen: Riapri
+    add: Aggiungi un promemoria
+    none: Nulla in sospeso su questo record.
+    open_it: Aprine uno
+    due_label: Quando
+    priority_label: Quanto urgente
+    assignee_label: Di chi
+    nobody: Nessuno in particolare
+    what_label: Che cosa c’è da fare
+    what_placeholder: 'Richiamarli: hanno chiesto della seconda fattura'
+    note_placeholder: Aggiungi una nota
+    add_note: Aggiungi
+    edited: (modificato)
+
+invitation:
+    subject: 'Sei stato invitato su %instance%'
+    greeting: 'Ciao %name%,'
+    body: >-
+        Qualcuno presso %instance% ti ha preparato un account. Segui il link qui sotto per
+        entrare; una volta lì ti verrà chiesto di scegliere una password.
+    button: Accetta l’invito
+    expiry: 'Il link smette di funzionare dopo %hours% ore.'
+    once: Funziona anche una volta sola, quindi conviene scegliere subito la password.
+    unexpected: Se non te lo aspettavi, non ti è richiesto nulla e puoi ignorarlo.
+
+mail:
+    send_failed: Il messaggio non è potuto partire. Non è uscito nulla; riprova, o controlla le impostazioni della posta in uscita.
+    no_sender: Questa installazione non ha ancora un indirizzo da cui inviare. Imposta un indirizzo mittente nel profilo aziendale.
+    send_email: Invia e-mail
+    send: Invia
+    preview: Anteprima
+    preview_and_send: Anteprima e invio
+    template: Modello
+    subject: Oggetto
+    subject_placeholder: Lascia vuoto per l’oggetto proprio del modello
+    subject_help: Solo per questo messaggio. Vuoto usa l’oggetto con cui il modello è stato scritto, e in entrambi i casi valgono gli stessi segnaposto.
+    recipient: Destinatario
+    recipient_help: Cambialo e solo questo messaggio va altrove; il record non viene alterato.
+    recipient_from_field: 'Preso da %field%.'
+    recipient_from_link: 'Preso dal %field% del %via% che questo record nomina.'
+    from: Da
+    reply_to: Rispondi a
+    none_for_record: Nessun modello e-mail vale ancora per questo record.
+    not_sendable: Da questo record non si può inviare nulla.
+    no_template_chosen: Scegli uno dei modelli. Nulla è stato inviato.
+    recipient_invalid: '“%address%” non è un indirizzo e-mail. Nulla è stato inviato.'
+    attachment: Allegato
+    no_attachment: Nessun allegato
+    attachment_help: Il documento viene generato da questo record all’invio del messaggio, e parte con lui.
+    attachment_failed: 'Nulla è stato inviato, perché il documento non si è potuto allegare. %reason%'
+
+flash:
+    saved: Salvato.
+    list_created: 'Creata “%list%”. Aggiungi le sue voci qui sotto.'
+    list_saved: 'Salvata “%list%”.'
+    list_deleted: 'Eliminata “%list%”. I record che portavano le sue voci tengono i codici con cui sono stati salvati.'
+    transitioned: 'Ora %state%.'
+    follow_up_opened: Aperto. Resta in cima a questo record finché qualcuno non lo segna come fatto.
+    follow_up_no_date: A un promemoria serve una data. Nulla è stato aperto.
+    template_uploaded: Modello caricato. Viene offerto su ogni record per cui vale.
+    template_deleted: 'Tolto “%template%”. I documenti già scaricati non ne risentono.'
+    email_template_saved: Salvato. Viene offerto su ogni record per cui vale.
+    email_template_deleted: 'Tolto “%template%”. Le e-mail già inviate non ne risentono.'
+    email_sent: 'Inviata a %recipient%. È sulla cronologia di questo record.'
+    profile_saved: Salvato. È così che l’istanza si descrive d’ora in poi.
+    shape_renamed: 'Rinominato in “%shape%”.'
+    deleted: Eliminato.
+    passwords_differ: Quelle due password non sono uguali.
+    password_changed: La tua password è stata cambiata.
+    field_added: 'Aggiunto “%field%”.'
+    field_saved: 'Salvato “%field%”.'
+    field_removed: 'Tolto “%field%”. I suoi valori sono ancora salvati.'
+    options_saved: 'Salvate le opzioni di “%field%”. I record che già ne portano una non cambiano.'
+    sections_saved: Salvato. Il modulo di inserimento e la pagina del record disegnano le sezioni in questo ordine.
+    section_added: 'Aggiunta la sezione “%section%”. Mettici dei campi dalla pagina dei campi.'
+    section_removed: 'Tolta la sezione “%section%”. I suoi campi sono ancora qui, in cima al modulo di inserimento.'
+    numbering_saved: 'Salvata la numerazione di “%field%”. I numeri già dati non cambiano.'
+    numbering_started: 'Numerato “%field%”. %count% record esistenti hanno ricevuto un numero, dal più vecchio.'
+    numbering_stopped: '“%field%” non è più numerato. I numeri sui record non cambiano, e nel campo si può di nuovo scrivere.'
+    upgrade_dismissed: '“%addition%” non verrà più offerto. Sta nell’elenco degli scartati se cambi idea.'
+    upgrade_restored: '“%addition%” è di nuovo in offerta.'
+    upgrade_nothing_chosen: Non era spuntato nulla, quindi non c’è nulla da aggiungere.
+    module_installed: 'Installato “%module%”. Nessuno lo vede finché a qualcuno non viene concessa un’autorizzazione su di lui.'
+    purchase_requested: 'Richiesto “%module%”. Nulla è stato addebitato; qualcuno si farà sentire al riguardo.'
+    group_created: 'Creato “%group%”. Ora di’ che cosa può fare.'
+    group_saved: 'Salvato “%group%”.'
+    group_deleted: 'Eliminato “%group%”. Nessuno è stato rimosso, solo ciò che il gruppo dava.'
+    user_saved: 'Salvato %email%.'
+    user_created: 'Creato %email%. La sua password è %password%; copiala adesso, non si può mostrare di nuovo.'
+    user_invited: 'Invitato %email%. Il link funziona una volta, per le prossime %hours% ore; ogni link precedente ha smesso di funzionare.'
+    user_created_not_invited: >-
+        Creato %email%, ma l’invito non è potuto partire (%reason%). L’account ne aspetta uno;
+        rimandalo dall’elenco quando la posta funziona.
+    invitation_failed: 'L’invito a %email% non è potuto partire (%reason%).'
+    password_reset: 'Nuova password per %email%: %password%; copiala adesso, non si può mostrare di nuovo.'
+    user_reactivated: '%email% ora può accedere.'
+    user_deactivated: '%email% non può più accedere.'
+    upload_broken: 'Quel file non è arrivato intero (%reason%).'
+    no_file: Scegli un foglio di calcolo da importare.
+
+signup:
+    mail:
+        subject: Conferma la tua installazione Xivi
+        greeting: 'Buongiorno %company%,'
+        body: >-
+            Qualcuno ha chiesto un’installazione Xivi chiamata %slug% usando questo indirizzo.
+            Segui il link qui sotto per confermare che eri tu; prima non viene creato nulla.
+        button: Conferma questo indirizzo
+        expiry: 'Il link smette di funzionare dopo %hours% ore, e chiedere di nuovo ne manda uno nuovo.'
+        unexpected: >-
+            Se non te lo aspettavi, non ti è richiesto nulla e nulla è stato creato. Puoi
+            ignorare questo messaggio.
+    confirmation:
+        title: Conferma dell’iscrizione
+        confirmed: 'Grazie, %company% è confermata.'
+        already: '%company% era già confermata. Non serve altro.'
+        expired: Questo link è scaduto.
+        slug_taken: 'Il nome %slug% è stato preso mentre questo link aspettava.'
+        unknown: Questo link non appartiene a un’iscrizione ancora in attesa.
+        next: 'Stiamo preparando %slug% e ti scriveremo quando è pronta.'
+        sign_up_again: Iscriversi di nuovo dallo stesso indirizzo ne avvia una nuova.

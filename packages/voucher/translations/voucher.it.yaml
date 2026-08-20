@@ -1,0 +1,39 @@
+# Come il modulo Buoni chiama sé stesso, i suoi campi e i suoi quattro tipi
+# (XIV-153).
+#
+# Letto una volta sola, all'installazione, poi scritto nelle definizioni di quel
+# cliente; vedi contact.en.yaml. `field.code_help` è l'unica chiave che non è un
+# seme: il tipo di campo la disegna a ogni resa del modulo (vedi
+# voucher.en.yaml), e i rifiuti vengono letti al momento del salvataggio.
+
+module: Buoni
+
+field:
+    code: Codice
+    code_help: 'Lascia vuoto e un codice viene generato per te. Scrivi il tuo se ne vuoi uno che si possa dire ad alta voce; le maiuscole non sono obbligatorie.'
+    kind: Tipo
+    amount: Importo di sconto
+    percentage: Percentuale di sconto (%)
+    article: Solo sulle righe di
+    valid_from: Valido dal
+    valid_until: Valido fino al
+    max_redemptions: Utilizzi consentiti
+
+# I quattro tipi; ogni etichetta dice il modo prima dell'aritmetica (XIV-122).
+kind:
+    order_amount: Importo di sconto sull’ordine
+    order_percentage: Percentuale di sconto sull’ordine
+    line_amount: Importo di sconto su una riga
+    line_percentage: Percentuale di sconto su una riga
+
+# Perché un buono è stato rifiutato quando un documento ha provato a usarlo
+# (XIV-104, XIV-122). Sette frasi, non una: ciascuna dice che cosa fare, non la
+# regola violata.
+refusal:
+    expired: Il buono %voucher% è scaduto e non può più essere usato.
+    not_yet_valid: Il buono %voucher% non è ancora valido.
+    exhausted: Il buono %voucher% è già stato usato tutte le volte che consente.
+    unavailable: Il buono %voucher% non è più disponibile.
+    wrong_place_for_line: Il buono %voucher% si applica a una sola riga; va quindi su una riga, non sull’ordine.
+    wrong_place_for_order: Il buono %voucher% si applica all’intero ordine; va quindi sull’ordine, non su una riga.
+    wrong_article: Il buono %voucher% può essere usato solo su una riga di %article%.

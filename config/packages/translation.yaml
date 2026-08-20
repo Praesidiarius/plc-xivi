@@ -11,7 +11,12 @@ framework:
     # closed set — a request asking for one that is not here falls back rather
     # than being served a half-translated page, and the language picker is
     # generated from this rather than from a second list that can disagree.
-    enabled_locales: ['en', 'de']
+    #
+    # A language may only be added here with a complete catalogue behind it;
+    # English is better than a half-translated page. That is not left to
+    # discipline: TranslationCatalogueTest reads this very list and fails the
+    # build for any locale below whose files miss a single key (XIV-153).
+    enabled_locales: ['en', 'de', 'fr', 'it']
 
     translator:
         default_path: '%kernel.project_dir%/translations'

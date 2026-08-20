@@ -1,0 +1,28 @@
+# Come il modulo Conoscenze chiama sé stesso, i suoi campi e i suoi argomenti
+# (XIV-153).
+#
+# Letto una volta sola, all'installazione, poi scritto nelle definizioni di quel
+# cliente; vedi contact.en.yaml, che spiega il perché. Ciò che viene salvato
+# resta `process` e `supplier` qualunque cosa diventino le etichette, e il
+# cliente può aggiungere un argomento suo; togliere uno dei sei è rifiutato
+# (§5.4).
+
+module: Conoscenze
+
+field:
+    title: Titolo
+    topic: Argomento
+    body: Voce
+
+topic:
+    # Come facciamo una cosa: i passi, in ordine.
+    process: Processo
+    # Che cosa abbiamo deciso: la regola, e dove smette di valere.
+    policy: Regola interna
+    # Che cosa è stato concordato con chi compra da noi.
+    customer: Cliente
+    # Che cosa sappiamo delle persone da cui compriamo.
+    supplier: Fornitore
+    # Che cosa sappiamo della cosa in sé.
+    product: Prodotto
+    other: Altro

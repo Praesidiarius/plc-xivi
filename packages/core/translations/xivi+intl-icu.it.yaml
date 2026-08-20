@@ -1,0 +1,6 @@
+# L'unico messaggio del motore che conta qualcosa (XIV-8). Solo apostrofi
+# tipografici (’): in un messaggio ICU l'apostrofo ASCII è un carattere di
+# escape.
+
+metadata:
+    would_invalidate: '{count, plural, one {Quella regola renderebbe invalido # record esistente, e non si potrebbe più salvare finché qualcuno non lo sistema. Sistema prima il record, oppure lascia “{key}” com’è.} other {Quella regola renderebbe invalidi # record esistenti, e non si potrebbero più salvare finché qualcuno non li sistema. Sistema prima i record, oppure lascia “{key}” com’è.}}'

@@ -1,0 +1,30 @@
+# Comment le module Contacts se nomme, lui et ses champs (XIV-153).
+#
+# Lu une seule fois, à l'installation, puis écrit dans les définitions de ce
+# client ; voir contact.en.yaml, qui explique longuement pourquoi ceci est une
+# graine et non une table de correspondance.
+
+module: Contacts
+
+collection:
+    addresses: Adresses
+
+field:
+    kind: Type
+    company_name: Raison sociale
+    first_name: Prénom
+    last_name: Nom
+    email: E-mail
+    phone: Téléphone
+    birthday: Date de naissance
+    company: Entreprise
+    payment_terms: Délai de paiement (jours)
+    address_label: Libellé
+    street: Rue
+    postal_code: NPA
+    city: Localité
+    country: Pays
+
+choice:
+    person: Personne
+    company: Entreprise

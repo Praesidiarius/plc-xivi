@@ -1,0 +1,29 @@
+# Comment le module Articles se nomme, lui et ses champs (XIV-153).
+#
+# Lu une seule fois, à l'installation, puis écrit dans les définitions de ce
+# client ; voir contact.en.yaml, qui explique pourquoi. Une étiquette est la
+# donnée du client dès l'installation du module, et ce fichier n'a plus voix au
+# chapitre.
+
+module: Articles
+
+field:
+    title: Titre
+    description: Description
+    price: Prix
+    unit: Unité
+    tax_rate: Taux de TVA (%)
+
+# Dans quoi une quantité se compte (XIV-118). Semé dans les définitions du
+# client à l'installation, comme chaque étiquette ci-dessus, et à lui de le
+# renommer dès ce moment (§6.1).
+#
+# Volontairement non pluralisé ; l'argument est sur `Xivi\Core\Field\Units`.
+unit:
+    hour: heures
+    day: jours
+    piece: pièces
+    kilogram: kg
+    metre: m
+    square_metre: m²
+    litre: litres

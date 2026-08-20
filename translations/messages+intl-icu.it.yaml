@@ -1,0 +1,83 @@
+# Le stringhe che contano qualcosa (XIV-8), in italiano.
+#
+# Solo apostrofi tipografici (’): in un messaggio ICU l'apostrofo ASCII è un
+# carattere di escape e taglierebbe il messaggio in due.
+
+dashboard:
+    field_count: '{count, plural, one {# campo} other {# campi}}'
+
+account:
+    password_minimum: '{count, plural, one {Almeno # carattere.} other {Almeno # caratteri.}}'
+
+store:
+    preset_count: '{count, plural, =0 {Nessuna scelta da fare} one {# modo di installarlo} other {# modi di installarlo}}'
+    no_presets: '{count, plural, one {Questo modulo non ha scelte da fare: installa il suo unico campo.} other {Questo modulo non ha scelte da fare: installa tutti i suoi # campi.}}'
+    will_create: '{count, plural, one {Crea # campo:} other {Crea # campi:}}'
+
+follow_up:
+    more_due: '{count, plural, one {E # in più.} other {E altri # in più.}}'
+    show_done: '{count, plural, one {# fatto} other {# fatti}}'
+    hide_done: '{count, plural, one {Nascondi quello fatto} other {Nascondi i # fatti}}'
+
+module:
+    history_all: '{count, plural, one {Una voce} other {Tutte le # voci}}'
+    history_changes: '{count, plural, one {# modifica} other {# modifiche}}'
+    record_count: '{count, plural, one {# record.} other {# record.}}'
+    record_count_matching: '{count, plural, one {# record corrispondente.} other {# record corrispondenti.}}'
+    linked_shown: 'Mostrati {shown, number} di {total, number}.'
+
+mail:
+    attachment_size: '({size, number, ::.0} MB)'
+    attachment_too_large: '“{file}” pesa {size, number, ::.0} MB, e questa installazione invia al massimo {limit, number, ::.0} MB.'
+
+field:
+    remove_holding: '{count, plural, one {<strong>#</strong> record porta al momento un valore per lui.} other {<strong>#</strong> record portano al momento un valore per lui.}}'
+    options:
+        held_count: '{count, plural, one {# record} other {# record}}'
+
+document:
+    unknown_placeholders: '{count, plural, one {{placeholders} verrà stampato così com’è: non esiste un segnaposto con quel nome.} other {{placeholders} verranno stampati così come sono: non esistono segnaposto con quei nomi.}}'
+
+import:
+    written: '{added, plural, one {# aggiunto} other {# aggiunti}}, {updated, plural, one {# aggiornato} other {# aggiornati}}'
+    rows_written: '{count, plural, one {# scritta} other {# scritte}}'
+    rows_removed: '{count, plural, one {# <strong>tolta</strong>, perché il file non la elenca} other {# <strong>tolte</strong>, perché il file non le elenca}}'
+    rows_removed_none: '{count, plural, other {# tolte}}'
+    problems: '{count, plural, one {Nulla è stato cambiato. # problema da sistemare prima:} other {Nulla è stato cambiato. # problemi da sistemare prima:}}'
+
+group:
+    delete_members: '{count, plural, =0 {Nessuno è in questo gruppo,} one {# persona è in questo gruppo,} other {# persone sono in questo gruppo,}}'
+    delete_grants: '{count, plural, one {e concede # autorizzazione.} other {e concede # autorizzazioni.}}'
+
+control_plane:
+    not_serving: '{count, plural, one {# cliente non viene servito.} other {# clienti non vengono serviti.}}'
+    usage_users: '{count, plural, =0 {nessun utente} one {# utente} other {# utenti}}'
+    usage_records: '{count, plural, =0 {nessun record} one {# record} other {# record}}'
+    modules_differ: '{count, plural, one {# modulo differisce dal registro} other {# moduli differiscono dal registro}}'
+    modules_more: '{count, plural, one {# altro modulo} other {# altri moduli}}'
+    modules_unpriced: '{count, plural, one {# modulo pubblicato non ha prezzo, quindi non viene offerto a nessuno.} other {# moduli pubblicati non hanno prezzo, quindi non vengono offerti a nessuno.}}'
+
+upgrade:
+    a_collection: '{count, plural, one {una collezione, # campo} other {una collezione, # campi}}'
+    banner: '{count, plural, one {Alla tua copia di {module} manca # cosa che questo modulo ora dichiara.} other {Alla tua copia di {module} mancano # cose che questo modulo ora dichiara.}}'
+    review_records: '{count, plural, one {<strong>Il # record</strong> di {module} guadagna questi campi, vuoti. Non ci viene scritto nulla; i campi esistono semplicemente d’ora in poi.} other {<strong>Tutti i # record</strong> di {module} guadagnano questi campi, vuoti. Non viene scritto nulla in nessuno di loro; i campi esistono semplicemente d’ora in poi.}}'
+    review_rows: '{count, plural, one {# riga dentro quei record guadagna i nuovi campi, anch’essa vuota.} other {# righe dentro quei record guadagnano i nuovi campi, anch’esse vuote.}}'
+    review_tables: '{count, plural, one {<strong>Viene creata una tabella</strong> nella tua banca dati per la nuova collezione. Parte vuota.} other {<strong>Vengono create # tabelle</strong> nella tua banca dati, una per nuova collezione. Partono vuote.}}'
+    review_derived: '{count, plural, one {# di questi lo riempie il motore anziché essere scritto; arriva quindi vuoto sui record già esistenti e si riempie al prossimo salvataggio di ciascuno:} other {# di questi li riempie il motore anziché essere scritti; arrivano quindi vuoti sui record già esistenti e si riempiono al prossimo salvataggio di ciascuno:}}'
+    review_relaxed: '{count, plural, one {# di questi è obbligatorio nel modulo e arriva facoltativo qui, perché i record già esistenti non potrebbero soddisfarlo. Rendilo obbligatorio nell’editor dei campi una volta compilati:} other {# di questi sono obbligatori nel modulo e arrivano facoltativi qui, perché i record già esistenti non potrebbero soddisfarli. Rendili obbligatori nell’editor dei campi una volta compilati:}}'
+    review_agree: '{count, plural, one {Sì, aggiungilo a {module}.} other {Sì, aggiungi tutti e # a {module}.}}'
+
+flash:
+    list_merged: '{count, plural, =0 {Fuso. Nessun record la portava.} one {Fuso, e # record è stato riscritto.} other {Fuso, e # record sono stati riscritti.}}'
+    upgrade_taken: '{count, plural, one {Aggiunta # cosa a {module}. Ora sta nell’elenco dei campi, ed è tua da rinominare e riordinare come ogni altra.} other {Aggiunte # cose a {module}. Ora stanno nell’elenco dei campi, e sono tue da rinominare e riordinare come ogni altra.}}'
+    password_too_short: '{count, plural, one {Usa almeno # carattere.} other {Usa almeno # caratteri.}}'
+    imported: 'Importato. {module}: {added, plural, other {# aggiunti}}, {updated, plural, other {# aggiornati}}.'
+
+value_list:
+    merge:
+        writes: '{count, plural, one {<strong>#</strong> record verrà riscritto.} other {<strong>#</strong> record verranno riscritti.}}'
+        children: '{count, plural, one {# voce che le sta sotto passa sotto la voce che resta.} other {# voci che le stanno sotto passano sotto la voce che resta.}}'
+        agree: '{count, plural, one {Sì: riscrivi quel # record e togli la voce dalla lista.} other {Sì: riscrivi quei # record e togli la voce dalla lista.}}'
+    delete:
+        what: '{count, plural, =0 {La lista non ha voci, quindi non si perde nulla se non la lista stessa.} one {La lista e la sua # voce se ne vanno, con i colori e l’ordine.} other {La lista e tutte le sue # voci se ne vanno, con i colori e l’ordine.}}'
+        orphans: '{count, plural, one {# record porta ancora una delle sue voci e mostrerà il codice salvato al posto di un’etichetta.} other {# record portano ancora le sue voci e mostreranno i codici salvati al posto delle etichette.}}'

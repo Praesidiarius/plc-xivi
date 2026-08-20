@@ -1,0 +1,30 @@
+# Come il modulo Contatti chiama sé stesso e i suoi campi (XIV-153).
+#
+# Letto una volta sola, all'installazione, poi scritto nelle definizioni di quel
+# cliente; vedi contact.en.yaml, che spiega a fondo perché questo è un seme e
+# non una tabella di corrispondenza.
+
+module: Contatti
+
+collection:
+    addresses: Indirizzi
+
+field:
+    kind: Tipo
+    company_name: Ragione sociale
+    first_name: Nome
+    last_name: Cognome
+    email: E-mail
+    phone: Telefono
+    birthday: Data di nascita
+    company: Azienda
+    payment_terms: Termini di pagamento (giorni)
+    address_label: Etichetta
+    street: Via
+    postal_code: NPA
+    city: Località
+    country: Paese
+
+choice:
+    person: Persona
+    company: Azienda

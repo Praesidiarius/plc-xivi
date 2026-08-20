@@ -1,0 +1,26 @@
+# Comment le module Savoir se nomme, lui, ses champs et ses sujets (XIV-153).
+#
+# Lu une seule fois, à l'installation, puis écrit dans les définitions de ce
+# client ; voir contact.en.yaml, qui explique pourquoi. Ce qui est stocké reste
+# `process` et `supplier` quoi que deviennent les étiquettes, et le client peut
+# ajouter un sujet à lui ; retirer un des six est refusé (§5.4).
+
+module: Savoir
+
+field:
+    title: Titre
+    topic: Sujet
+    body: Entrée
+
+topic:
+    # Comment nous faisons quelque chose : les étapes, dans l'ordre.
+    process: Processus
+    # Ce que nous avons décidé : la règle, et où elle cesse de s'appliquer.
+    policy: Règle interne
+    # Ce qui a été convenu avec quelqu'un qui nous achète.
+    customer: Client
+    # Ce que nous savons des gens auprès de qui nous achetons.
+    supplier: Fournisseur
+    # Ce que nous savons de la chose elle-même.
+    product: Produit
+    other: Autre

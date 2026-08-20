@@ -1,0 +1,8 @@
+# Le stringhe che contano qualcosa, nel catalogo del modulo Fatture (XIV-66).
+# Vedi invoice+intl-icu.en.yaml per il motivo del file separato.
+#
+# Solo apostrofi tipografici (’): in un messaggio ICU l'apostrofo ASCII è un
+# carattere di escape.
+
+dashboard:
+    unpaid_more: '{count, plural, one {E # altra.} other {E altre #.}}'
