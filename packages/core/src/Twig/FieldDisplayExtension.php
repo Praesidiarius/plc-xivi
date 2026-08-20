@@ -18,12 +18,15 @@ use Twig\Markup;
 use Twig\TwigFunction;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
+use Xivi\Core\Field\AttachmentLimit;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Field\HoldsAFile;
 use Xivi\Core\Field\HoldsFormattedText;
 use Xivi\Core\Field\HoldsSeveralValues;
 use Xivi\Core\Field\LinksToRecord;
 use Xivi\Core\Field\RecordLink;
 use Xivi\Core\Field\ShowsABadge;
+use Xivi\Core\Field\StoredFile;
 use Xivi\Core\Field\ValueBadge;
 use Xivi\Core\Markdown\MarkdownRenderer;
 
@@ -55,6 +58,8 @@ final class FieldDisplayExtension extends AbstractExtension
             // never can.
             new TwigFunction('formatted', $this->formatted(...)),
             new TwigFunction('value_badge', $this->valueBadge(...)),
+            new TwigFunction('stored_file', $this->storedFile(...)),
+            new TwigFunction('file_size', $this->fileSize(...)),
             new TwigFunction('display_stored', $this->displayStored(...)),
             new TwigFunction('is_sortable', $this->isSortable(...)),
             new TwigFunction('in_field_order', $this->inFieldOrder(...)),
@@ -199,6 +204,41 @@ final class FieldDisplayExtension extends AbstractExtension
         $type = $this->fieldTypes->get($field->getType());
 
         return $type instanceof ShowsABadge ? $type->badgeOf($value, $field) : null;
+    }
+
+    /**
+     * The file a value names, when it names one (XIV-115).
+     *
+     * The fifth function on this class with exactly this shape, and written for
+     * the reason `record_link()` gives: **the template asks the field, not the
+     * type key.** A record page writing `field.type == 'file'` would be a page to
+     * edit the next time something holds bytes, and a type holding several files
+     * is the obvious next thing.
+     *
+     * What comes back is metadata and never bytes. Whether the bytes are still
+     * there is a question about a filesystem, which is
+     * {@see \App\Tenant\Attachment\AttachmentStore}'s to answer and is
+     * deliberately not asked while a page is being drawn: a list of 25 records
+     * would be 25 stat calls to decorate a link that answers 404 honestly anyway.
+     */
+    public function storedFile(FieldDefinition $field, mixed $value): ?StoredFile
+    {
+        $type = $this->fieldTypes->get($field->getType());
+
+        return $type instanceof HoldsAFile ? $type->fileOf($value, $field) : null;
+    }
+
+    /**
+     * A number of bytes, as somebody would say it out loud.
+     *
+     * The formatting itself is {@see AttachmentLimit::shown()}, which is where it
+     * has to live: the sentence refusing a file that is too large names the same
+     * limit this prints beside the input, and a second formatter would eventually
+     * spell one number two ways. This is the door into a template.
+     */
+    public function fileSize(int $bytes): string
+    {
+        return AttachmentLimit::shown($bytes);
     }
 
     /**

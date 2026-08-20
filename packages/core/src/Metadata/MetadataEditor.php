@@ -14,12 +14,14 @@ declare(strict_types=1);
 namespace Xivi\Core\Metadata;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Xivi\Core\Entity\CollectionDefinition;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\Enumerates;
 use Xivi\Core\Field\FieldType;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Field\HoldsAFile;
 use Xivi\Core\Field\HoldsSeveralValues;
 use Xivi\Core\Field\NeedsAnAnswer;
 use Xivi\Core\Field\PointsAtAList;
@@ -167,6 +169,7 @@ final readonly class MetadataEditor
         $this->assertListExists($this->fieldTypes->get($type), $key, $merged);
         $this->assertScopeIsUsable($shape, $field, $merged);
         $this->assertUniqueIsAnswerable($this->fieldTypes->get($type), $key, $unique);
+        $this->assertFileFitsThisShape($this->fieldTypes->get($type), $shape, $key);
         $this->assertRecordsSurvive($shape, $field, $required, $unique);
 
         $this->asOneChange(function () use ($shape, $field): void {
@@ -1276,6 +1279,28 @@ final readonly class MetadataEditor
     {
         if ($unique && $type instanceof HoldsSeveralValues) {
             throw MetadataChangeRefused::uniqueHoldsSeveralValues($key, $type->key());
+        }
+    }
+
+    /**
+     * A file on a collection row, refused ([XIV-115]).
+     *
+     * Not because bytes on a row are a strange thing to want: a delivery note per
+     * line is a perfectly good idea. It is refused because **a row has no
+     * address**. A download is checked against the record it hangs off and is
+     * reached at `/m/{module}/{id}/file/{field}` (§8.4), and a collection row is
+     * identified by its parent plus its own id, which that route has nowhere to
+     * put. Adding the field first and the route later would mean a field somebody
+     * can fill in and nobody can read back, which is §8.3.1's defect in its
+     * worst form: a control that takes a customer's contract and loses it.
+     *
+     * Keyed on the capability rather than on the type's name, so a second type
+     * holding bytes inherits the refusal instead of discovering it.
+     */
+    private function assertFileFitsThisShape(FieldType $type, ShapeDefinition $shape, string $key): void
+    {
+        if ($type instanceof HoldsAFile && $shape instanceof CollectionDefinition) {
+            throw MetadataChangeRefused::fileOnACollection($key, $shape->getLabel());
         }
     }
 

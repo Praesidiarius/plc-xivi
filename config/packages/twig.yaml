@@ -9,7 +9,14 @@ twig:
     # that the `textarea_widget` it calls into is the themed one — a formatted
     # field is a textarea in every respect that reaches the browser, plus a
     # preview underneath.
-    form_themes: ['bootstrap_5_layout.html.twig', '@XiviCore/form/markdown.html.twig']
+    # The third is core's as well ([XIV-115]): how a field holding a file is
+    # drawn. After Bootstrap's for the same reason the second one is, since the
+    # block it defines calls into the themed `form_widget` for the controls
+    # inside it.
+    form_themes:
+        - 'bootstrap_5_layout.html.twig'
+        - '@XiviCore/form/markdown.html.twig'
+        - '@XiviCore/form/file.html.twig'
     globals:
         # Tenant name and module navigation, needed by every signed-in page.
         # Lazy: the login page renders without a tenant.

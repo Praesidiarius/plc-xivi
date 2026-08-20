@@ -15,6 +15,9 @@ namespace Xivi\ControlPlane\Command;
 
 use App\Registry\Repository\TenantRepository;
 use App\Tenancy\Dbal\TenantDsnParser;
+use App\Tenancy\TenantSwitcher;
+use App\Tenant\Attachment\AttachmentStore;
+use App\Tenant\Attachment\AttachmentUsage;
 use Symfony\Component\Console\Attribute\Argument;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Attribute\Option;
@@ -24,6 +27,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Xivi\ControlPlane\Provisioning\TenantProvisioner;
 use Xivi\ControlPlane\Provisioning\TenantRemovalFailed;
 use Xivi\ControlPlane\Usage\RecordCounter;
+use Xivi\Core\Field\AttachmentLimit;
 
 /**
  * Removes a customer: the control-plane row, the database and the role.
@@ -73,6 +77,12 @@ final readonly class DeprovisionTenantCommand
         private TenantProvisioner $provisioner,
         private TenantDsnParser $dsnParser,
         private RecordCounter $records,
+        // What the tenant is holding on the filesystem ([XIV-115]). Counted for
+        // the confirmation and deleted by the provisioner, which is the same
+        // split the record count already has: this command says what will go and
+        // the removal is what makes it go.
+        private AttachmentStore $attachments,
+        private TenantSwitcher $switcher,
     ) {
     }
 
@@ -109,6 +119,26 @@ final readonly class DeprovisionTenantCommand
             $unreadable = $e->getMessage();
         }
 
+        // **Counted here rather than described afterwards** ([XIV-115]). §4.1 asks
+        // the confirmation to name what is about to be destroyed, and until this
+        // ticket "everything in it" meant rows. A customer's contracts and signed
+        // delivery notes are the part of a deprovision that cannot be typed
+        // again, so the number and the weight of them belong in the sentence
+        // somebody says yes to.
+        //
+        // Read through a switch that opens no database connection: the store asks
+        // the resolved tenant for its database name and then talks to a
+        // filesystem, so this works even for a tenant whose provisioning died
+        // before the database existed, which is precisely the row somebody wants
+        // to remove.
+        $files = null;
+
+        try {
+            $files = $this->switcher->runFor($tenant, $this->attachments->usage(...));
+        } catch (\Throwable $e) {
+            $unreadable = trim(($unreadable ?? '') . ' ' . $e->getMessage());
+        }
+
         $io->warning(sprintf('About to permanently remove tenant "%s".', $tenant->getSlug()));
         $io->definitionList(
             ['Name' => $tenant->getName()],
@@ -117,6 +147,7 @@ final readonly class DeprovisionTenantCommand
             ['Database' => $database],
             ['Role' => $role],
             ['Records' => $records === null ? 'could not be read' : self::describe($records)],
+            ['Files' => $files instanceof AttachmentUsage ? self::describeFiles($files) : 'could not be read'],
         );
 
         // Said under the table rather than in it, because a driver error is three
@@ -166,7 +197,12 @@ final readonly class DeprovisionTenantCommand
 
         $io->success(sprintf('Tenant "%s" is gone.', $slug));
         $io->text([
-            sprintf(' Database <info>%s</info> dropped, role <info>%s</info> dropped, control-plane row deleted.', $database, $role),
+            sprintf(
+                ' Database <info>%s</info> dropped, role <info>%s</info> dropped, %s deleted, control-plane row deleted.',
+                $database,
+                $role,
+                $files instanceof AttachmentUsage ? self::describeFiles($files) : 'the files',
+            ),
             ' <comment>Unrecoverable from here.</comment> Anything that was in that database is only in a'
                 . ' backup now, and the hostnames above resolve to no tenant.',
         ]);
@@ -227,6 +263,26 @@ final readonly class DeprovisionTenantCommand
         }
 
         return Command::FAILURE;
+    }
+
+    /**
+     * The files, in the same voice as the record count above.
+     *
+     * A weight beside the number, because "412 files" and "412 files, 3.1 GB" are
+     * different sentences to somebody deciding whether they still have a backup.
+     */
+    private static function describeFiles(AttachmentUsage $usage): string
+    {
+        if ($usage->files === 0) {
+            return 'none';
+        }
+
+        return sprintf(
+            '%d file%s, %s',
+            $usage->files,
+            $usage->files === 1 ? '' : 's',
+            AttachmentLimit::shown($usage->bytes),
+        );
     }
 
     /** @param array<string, int> $counts */

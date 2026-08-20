@@ -401,3 +401,30 @@ that can destroy a database is §4's blast radius handed to a webhook.
 raw `pg_dump`. A dump is complete and unreadable anywhere else, and a second
 export path is a second thing to keep true. "You can always leave" has to name
 a format the customer can open.
+
+### 4.7 Files are the second thing to back up (XIV-115)
+
+A record's bytes are on a filesystem rather than in the tenant database (§5.30),
+which changes three deployment facts and adds a check.
+
+- **`XIVI_ATTACHMENTS_DIR` must be a volume, mounted at the same path in both
+  images** (§4.4). The customer-facing build serves the downloads, because a
+  design needing the administration surface to hand a customer their own file
+  would be the wrong design; it needs nothing the `SELECT`-only registry role
+  does not already give it.
+- **A backup is now two operations**, `pg_dump` plus the directory, and a
+  restore that takes only the first produces records pointing at nothing. The
+  documentation site's *Running an installation* says so in those words.
+- **`tenant:deprovision` removes the directory in the same command that drops the
+  database**, between the role and the registry row: after the drops because a
+  removal that destroyed a live customer's files and then failed would have
+  destroyed data while they were still served, and before the row because the
+  directory name is derived from the DSN in it. Its confirmation names the file
+  count and total size beside the record count.
+- **`tenant:files:check` reports records with missing files and files no record
+  claims**, per tenant or across the registry, with §4.2's exit codes and no
+  repair. **Run on demand rather than by `bin/deploy`**: the deploy checks are
+  cheap properties of the deployment whose failure is an outage, and this is a
+  full directory walk per customer whose expected steady state is a handful of
+  orphans. A release blocked by somebody's abandoned upload is a check that stops
+  being read.

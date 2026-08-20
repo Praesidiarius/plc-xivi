@@ -1055,6 +1055,28 @@ final class MetadataChangeRefused extends \RuntimeException
         );
     }
 
+    /**
+     * A file field on a collection ([XIV-115]).
+     *
+     * The argument is in {@see MetadataEditor::assertFileFitsThisShape()}: a
+     * download is addressed by module and record id, and a row has no address of
+     * its own. Said as a sentence with the way round that does work in it, because
+     * "put it on the record instead" is the whole of what somebody needs to hear.
+     */
+    public static function fileOnACollection(string $key, string $collection): self
+    {
+        return self::of(
+            sprintf(
+                'A file cannot go on "%s", because a row of a collection has no address of its own to '
+                . 'download from. Put "%s" on the record itself instead.',
+                $collection,
+                $key,
+            ),
+            'metadata.file_on_a_collection',
+            ['%key%' => $key, '%collection%' => $collection],
+        );
+    }
+
     public static function wouldInvalidateRecords(string $key, int $records): self
     {
         return self::of(

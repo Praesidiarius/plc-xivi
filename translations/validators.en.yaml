@@ -40,3 +40,6 @@
 # which. The example is in the message because the separator is the one part of
 # the spelling nobody can guess.
 '{{ value }} is not a record id. Several records are named by their ids separated by a comma, as in 12,34.': '{{ value }} is not a record id. Several records are named by their ids separated by a comma, as in 12,34.'
+
+# What a file field says to a spreadsheet cell that is not a file (XIV-115).
+'{{ value }} is not a file kept by this installation. A file gets into a record by being uploaded to it, so a spreadsheet can move a record between shapes but cannot bring a file with it.': '{{ value }} is not a file kept by this installation. A file gets into a record by being uploaded to it, so a spreadsheet can move a record between shapes but cannot bring a file with it.'

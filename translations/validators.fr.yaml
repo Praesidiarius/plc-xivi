@@ -14,3 +14,6 @@
 
 # Ce qu’un champ nommant plusieurs enregistrements dit d’un élément illisible (XIV-113).
 '{{ value }} is not a record id. Several records are named by their ids separated by a comma, as in 12,34.': '{{ value }} n’est pas un identifiant d’enregistrement. Plusieurs enregistrements se nomment par leurs identifiants séparés par une virgule, comme 12,34.'
+
+# Ce qu’un champ fichier répond à une cellule qui n’est pas un fichier (XIV-115).
+'{{ value }} is not a file kept by this installation. A file gets into a record by being uploaded to it, so a spreadsheet can move a record between shapes but cannot bring a file with it.': '{{ value }} n’est pas un fichier conservé par cette installation. Un fichier arrive sur une fiche parce qu’on l’y téléverse : un tableur déplace des fiches, il n’apporte pas de fichier.'

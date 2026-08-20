@@ -91,6 +91,40 @@ always lands in `Unreleased` here.
   `bin/console doctrine:migrations:migrate` on the control-plane database is
   needed on upgrade; existing signups acquire two empty columns and nothing else
   changes.
+- **A record can carry a file** ([XIV-115], §5.30). A new kind of field, **File**:
+  the signed contract on a contact, the delivery note on an order, the datasheet
+  on an article. Upload it on the record form, replace it or tick it off, and
+  download it from the record page. Up to **10 MB**, PDFs and everything else
+  alike; nothing paid is involved.
+- **The metadata is in your database and the bytes are on a filesystem**
+  ([XIV-115], §5.30), one directory per customer, behind `league/flysystem` so
+  that object storage is later a configuration change rather than a rewrite.
+  **Two things a deployment must do**: mount a **volume** for
+  `XIVI_ATTACHMENTS_DIR` in *both* images, and back it up. `pg_dump` is no longer
+  the whole backup, and the documentation site's *Running an installation* now
+  says so in two steps.
+- **A download is a permission, not a link** ([XIV-115], §8.4). It goes through
+  the application and is checked against the same rules as the record it hangs
+  off, so somebody who may not open the record cannot open the file even holding
+  the address. A record they may not see answers 404, as everywhere else.
+- **`tenant:deprovision` now takes the files with the database** ([XIV-115],
+  §4.1), and its confirmation names the file count and their total size beside
+  the record count. **`tenant:files:check` is new**: it reports records pointing
+  at missing files and files no record claims, per tenant or across the registry,
+  and it reports rather than repairs. Run on demand, deliberately not in
+  `bin/deploy`.
+- **The upload limits are aligned and stated** ([XIV-115]). The application
+  refuses at 10 MB and says so with the real number; PHP's `upload_max_filesize`
+  and `post_max_size` and Caddy's request body limit sit above it in that order,
+  and a unit test fails if that order is ever broken. **The container's PHP
+  configuration changed**, so an installation that pins its own ini has to move
+  with it.
+- **One file per field, not several** ([XIV-115], §5.29's rule). If several is
+  ever wanted it will be a field type of its own, for the reason a `multiple`
+  option was refused for links. **Not built, deliberately**: virus scanning,
+  thumbnails, previews, versioning a replaced file, and de-duplication. A
+  collection row cannot hold a file, because a row has no address to download
+  from.
 - **A field can now name several records at once** ([XIV-113], §5.29). A new
   kind of field, **Links to several records**, beside the existing single link:
   the tags on a contact, the people on a project, the categories an article is
@@ -259,6 +293,7 @@ always lands in `Unreleased` here.
 
 [XIV-45]: https://xivi.youtrack.cloud/issue/XIV-45
 [XIV-108]: https://xivi.youtrack.cloud/issue/XIV-108
+[XIV-115]: https://xivi.youtrack.cloud/issue/XIV-115
 [XIV-113]: https://xivi.youtrack.cloud/issue/XIV-113
 [XIV-125]: https://xivi.youtrack.cloud/issue/XIV-125
 [XIV-146]: https://xivi.youtrack.cloud/issue/XIV-146

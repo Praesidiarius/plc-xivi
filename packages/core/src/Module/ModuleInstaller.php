@@ -23,6 +23,7 @@ use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Field\HoldsAFile;
 use Xivi\Core\Field\HoldsSeveralValues;
 use Xivi\Core\Metadata\MetadataCache;
 use Xivi\Core\Metadata\MetadataRepository;
@@ -264,7 +265,21 @@ final readonly class ModuleInstaller
 
         foreach ($blueprint->collections as $collection) {
             foreach ($collection->fields as $field) {
-                $this->fieldTypes->get($field->type);
+                // A blueprint putting a file on a collection row ([XIV-115]).
+                // Refused for the reason MetadataEditor refuses it: a download is
+                // addressed by module and record id, and a row has no address of
+                // its own, so the field would take a customer's file and offer
+                // nobody a way back to it. Loud rather than a definition refusal,
+                // because a blueprint is written by somebody with the source open.
+                if ($this->fieldTypes->get($field->type) instanceof HoldsAFile) {
+                    throw new \RuntimeException(sprintf(
+                        'Field "%s" of collection "%s" holds a file, which a collection row cannot: there '
+                        . 'is no address to download one from. See Xivi\\Core\\Field\\HoldsAFile and '
+                        . 'docs/architecture/data-model.md §5.30.',
+                        $field->key,
+                        $collection->key,
+                    ));
+                }
 
                 if ($field->unique) {
                     throw new \RuntimeException(sprintf(

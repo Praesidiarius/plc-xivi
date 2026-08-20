@@ -240,10 +240,23 @@
 										   exactly as it was — for every field that is not pointed at
 										   a shared list. #}
 										{% set badge = value_badge(field, record.get(field.key)) %}
+										{# The file a value names, when it names one (XIV-115). Asked
+										   of the field on `record_link()`'s rule, and drawn here
+										   rather than by the form theme because this is the page
+										   that knows which record it is showing: the download route
+										   is addressed by module and id, which a form has no idea
+										   of. The link is not what protects the file: the route
+										   checks this record's own permissions before it reads a
+										   byte (§8.4), so an address in a page somebody copies is
+										   an address that will refuse them. #}
+										{% set file = stored_file(field, record.get(field.key)) %}
 										{# Empty reads quieter than filled, or a half-filled record
 										   looks busier than a full one. #}
 										{% if shown is empty %}
 											<span class="text-body-secondary">—</span>
+										{% elseif file %}
+											<a href="{{ path('record_file', {module: module.key, id: record.id, field: field.key}) }}">{{ file.name }}</a>
+											<span class="text-body-secondary">{{ file_size(file.size) }}</span>
 										{% elseif badge %}
 											{{ include('_value_badge.html.twig', {badge: badge}) }}
 										{% else %}

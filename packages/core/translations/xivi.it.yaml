@@ -134,6 +134,7 @@ metadata:
     # legge il valore come testo: imporrebbe «nessun record con esattamente lo
     # stesso insieme», che non è ciò che si intende.
     unique_holds_several_values: 'Un campo “%type%” contiene più valori, quindi “unico” non ha una sola risposta: dovrebbe significare o che due record non hanno mai esattamente lo stesso insieme, cosa che nessuno chiede, o che non condividono nemmeno un valore, cosa che il motore non può imporre. Lascia “%key%” com’è.'
+    file_on_a_collection: 'Un file non può stare su «%collection%», perché una riga di una raccolta non ha un indirizzo proprio da cui scaricarlo. Metti «%key%» sul record stesso.'
     unknown_section: 'Non c’è una sezione chiamata “%section%” su questo modulo, quindi “%key%” non ci si può mettere. Creala prima nella pagina delle sezioni.'
     section_needs_a_name: 'Una sezione è un’intestazione sul modulo di inserimento, quindi le serve un nome: è l’unica cosa che dice.'
     sections_are_for_modules: '“%shape%” è un elenco di righe dentro un record, non un modulo di inserimento a sé, quindi non ha sezioni in cui mettere campi.'
@@ -207,3 +208,16 @@ period:
     until_help: Il giorno in cui il periodo finisce; non è compreso, quindi una stanza è di nuovo libera in questa data.
     open_ended_label: Senza data di fine
     open_ended: 'dal %from%'
+
+# Un file su un record (XIV-115). Quattro di questi sei messaggi sono rifiuti, e
+# quello che conta è `too_large`: nomina il limite reale, preso dalla stessa
+# costante che lo applica, perché «troppo grande» senza un numero fa indovinare.
+file:
+    upload: Scegli un file
+    remove: Togli questo file
+    max: 'Fino a %size% per file.'
+    problem:
+        too_large: '«%file%» pesa %size%, e un file può pesare al massimo %max%. Non è stato salvato nulla.'
+        did_not_arrive: '«%file%» non è arrivato per intero e quindi non è stato salvato. Riprova; se succede ancora, avvisa chi gestisce questa installazione.'
+        not_saved: 'Il file non è stato salvato. Sul record non è cambiato nulla, e chi gestisce questa installazione deve saperlo.'
+        missing: 'Il file «%file%» non si trova più su questa installazione.'

@@ -93,8 +93,15 @@ RUN <<-EOF
 	# leaves Caddy unable to create /data/caddy/pki and the container never
 	# becomes healthy. A named volume takes its permissions from here, so a
 	# machine that already has one will not show this — only a fresh one will.
-	mkdir -p /app/var /data/caddy /config/caddy
-	chmod 1777 /app/var /data /data/caddy /config /config/caddy
+	#
+	# `/app/var/attachments` is on that list for exactly the caddy/ reason, one
+	# feature along ([XIV-115]): `compose.yaml` mounts a named volume there, and a
+	# named volume takes its ownership from the image's own directory when it is
+	# created. Without this line the volume arrives owned by root, the dev
+	# container cannot write into it, and the failure surfaces as a customer being
+	# told their upload could not be saved.
+	mkdir -p /app/var/attachments /data/caddy /config/caddy
+	chmod 1777 /app/var /app/var/attachments /data /data/caddy /config /config/caddy
 EOF
 
 COPY --link frankenphp/conf.d/20-app.dev.ini $PHP_INI_DIR/app.conf.d/

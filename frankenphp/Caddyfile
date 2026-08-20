@@ -18,6 +18,17 @@
 	root /app/public
 	encode zstd br gzip
 
+	# The outermost of the four upload ceilings (XIV-115, §5.30), and the only one
+	# enforced before PHP starts. Generously above the others on purpose: what
+	# this refuses is refused with a bare 413 that no part of this application can
+	# turn into a sentence, so it is here to stop a body nobody asked for rather
+	# than to be the limit anybody meets. The one somebody meets is
+	# Xivi\Core\Field\AttachmentLimit, at 10 MB, which names itself when it
+	# refuses; frankenphp/conf.d/10-app.ini holds the two in between.
+	request_body {
+		max_size 16MB
+	}
+
 	{$CADDY_SERVER_EXTRA_DIRECTIVES}
 
 	@phpRoute {

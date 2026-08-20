@@ -164,6 +164,7 @@ metadata:
     # läuft über den Wert als Text, würde also „keine zwei Datensätze mit genau
     # derselben Menge“ erzwingen, was niemand meint.
     unique_holds_several_values: 'Ein Feld vom Typ „%type%“ hält mehrere Werte, „eindeutig“ hat dafür also keine eindeutige Bedeutung: Es müsste entweder heißen, dass keine zwei Datensätze genau dieselbe Menge tragen, was niemand verlangt, oder dass keine zwei Datensätze auch nur einen Wert teilen, was die Engine nicht erzwingen kann. Lass „%key%“, wie es ist.'
+    file_on_a_collection: 'Eine Datei kann nicht an „%collection%“ hängen, weil eine Zeile einer Sammlung keine eigene Adresse hat, von der man sie herunterladen könnte. Leg „%key%“ stattdessen am Datensatz selbst an.'
     # Abschnitte (XIV-119). Abweisungen statt Achselzucken, anders als bei Breite
     # und Land: Die leere Antwort ist hier eine echte — „in keinem Abschnitt“ —,
     # also würde Unsinn als leer zu lesen ein Feld verschieben und Erfolg melden.
@@ -257,3 +258,16 @@ period:
     until_help: Der Tag, an dem der Zeitraum endet — er gehört nicht mehr dazu, das Zimmer ist an diesem Tag wieder frei.
     open_ended_label: Kein Enddatum
     open_ended: 'ab %from%'
+
+# Eine Datei an einem Datensatz (XIV-115). Vier der sechs sind Abweisungen, und
+# die wichtige ist `too_large`: Sie nennt die echte Grenze, aus derselben
+# Konstante, die sie durchsetzt. „Zu gross“ ohne Zahl ist Raten.
+file:
+    upload: Datei auswählen
+    remove: Diese Datei entfernen
+    max: 'Bis zu %size% pro Datei.'
+    problem:
+        too_large: '„%file%“ ist %size%, erlaubt sind höchstens %max%. Gespeichert wurde nichts.'
+        did_not_arrive: '„%file%“ ist nicht vollständig angekommen und wurde deshalb nicht gespeichert. Versuch es nochmals; wenn es wieder passiert, sollte es erfahren, wer diese Installation betreibt.'
+        not_saved: 'Die Datei konnte nicht gespeichert werden. Am Datensatz wurde nichts geändert, und wer diese Installation betreibt, sollte davon erfahren.'
+        missing: 'Die Datei „%file%“ liegt nicht mehr auf dieser Installation.'

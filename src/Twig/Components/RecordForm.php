@@ -14,10 +14,14 @@ declare(strict_types=1);
 namespace App\Twig\Components;
 
 use App\Record\RecordSubmission;
+use App\Record\RecordUploads;
+use App\Tenant\Attachment\AttachmentRefused;
+use App\Tenant\Attachment\AttachmentStore;
 use App\Tenant\Entity\User;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Translation\TranslatableMessage;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -30,6 +34,7 @@ use Symfony\UX\LiveComponent\Attribute\PreReRender;
 use Symfony\UX\LiveComponent\ComponentWithFormTrait;
 use Symfony\UX\LiveComponent\DefaultActionTrait;
 use Xivi\Core\Entity\ModuleDefinition;
+use Xivi\Core\Field\StoredFile;
 use Xivi\Core\Form\ModuleRecordType;
 use Xivi\Core\Lifecycle\Lifecycles;
 use Xivi\Core\Metadata\AvailableVariants;
@@ -113,6 +118,13 @@ final class RecordForm extends AbstractController
      * from the values on every request that carries them — so a client cannot
      * clear it by leaving it out, and nothing has to be kept in step with it
      * across a round trip.
+     *
+     * **Two things set it now** ([XIV-115]): a submission whose collections are
+     * longer than anything this engine writes, and an upload this installation
+     * will not take. Both are the same shape of event, which is what makes one
+     * property right for them rather than two: the submission was refused before
+     * a form was built, the reader is told why in one sentence, and everything
+     * else they typed goes back out untouched.
      */
     private ?TranslatableMessage $refusal = null;
 
@@ -131,6 +143,15 @@ final class RecordForm extends AbstractController
         // *is* and a customer's definitions are what they have made of it.
         private readonly ModuleRegistry $modules,
         private readonly DefaultVatMode $vatMode,
+        // The three halves of a file field ([XIV-115]): what takes an upload off
+        // the request before anything is validated, what removes the bytes a
+        // save has just replaced, and the request the upload arrives on. A Live
+        // Component receives no `Request` argument, because an action is not a
+        // controller method, so the stack is how the one it is answering is
+        // reached.
+        private readonly RecordUploads $uploads,
+        private readonly AttachmentStore $attachments,
+        private readonly RequestStack $requests,
     ) {
     }
 
@@ -189,7 +210,7 @@ final class RecordForm extends AbstractController
     }
 
     /**
-     * Draw the refusal instead of the submission it refused (XIV-90).
+     * Draw the refusal instead of the submission it refused (XIV-90, [XIV-115]).
      *
      * **Ahead of the trait's own re-render hook**, which is what the priority is
      * for: `ComponentWithFormTrait::submitFormOnRender()` submits
@@ -266,6 +287,49 @@ final class RecordForm extends AbstractController
             return null;
         }
 
+        // **The files, before anything else looks at the values** ([XIV-115]).
+        // A Live Component's values travel as JSON and a file cannot, so an
+        // upload arrives beside them on the request and is written to the
+        // tenant's storage here; what the form then submits is the value the
+        // store handed back, which is an ordinary string like every other field
+        // on this page. See App\Record\RecordUploads for why this is a step of
+        // its own rather than something the field type does on the way to
+        // storage.
+        $replacing = $this->filesOn($definition, $record);
+        $request = $this->requests->getCurrentRequest();
+        $taken = [];
+
+        try {
+            if ($request !== null) {
+                [$this->formValues, $taken] = $this->uploads->take(
+                    $definition,
+                    $request,
+                    $this->getFormName(),
+                    $this->formValues,
+                );
+            }
+        } catch (AttachmentRefused $refused) {
+            // A file that is too large, or one that did not arrive whole.
+            //
+            // **Through the same door XIV-90's refusal uses**, rather than by
+            // adding an error here, and the reason is one the first version of
+            // this got wrong: an error added to the form before the re-render is
+            // wiped by the re-render, because
+            // `ComponentWithFormTrait::submitFormOnRender()` submits the values
+            // into the form and `submit()` clears what is on it. So the refusal is
+            // recorded and drawn by {@see self::drawTheRefusalRatherThanTheRows()},
+            // which turns that hook off and puts the sentence where
+            // `form_errors()` renders it.
+            //
+            // It is the same kind of event as a collection over its cap, which is
+            // why it can share the machinery: the submission was refused before
+            // the form was built, and everything else somebody typed goes back
+            // out untouched.
+            $this->refusal = $refused->translatable();
+
+            return null;
+        }
+
         $this->submitForm();
 
         /** @var array{fields: array<string, mixed>} $submitted */
@@ -305,6 +369,18 @@ final class RecordForm extends AbstractController
 
             return null;
         }
+
+        // **What the save replaced, taken off the disk** ([XIV-115]). After the
+        // write rather than before it, because a save that is refused by the
+        // database must not have destroyed the file the record still holds; and
+        // only for values that actually changed, which is what makes uploading
+        // the same record twice cost one file rather than two.
+        //
+        // The previous bytes are gone for good, and that is versioning being out
+        // of scope rather than an oversight: the history entry keeps the old
+        // file's *name*, so a record says a contract was replaced and cannot hand
+        // anybody the copy it replaced.
+        $this->forget($replacing, $taken);
 
         $this->addFlash('success', $this->translator->trans('flash.saved'));
 
@@ -672,6 +748,63 @@ final class RecordForm extends AbstractController
         }
 
         return $kind === '' ? !$shape->hasVariants() : isset($this->variants->of($shape)[$kind]);
+    }
+
+    /**
+     * The files this record holds right now, by field key ([XIV-115]).
+     *
+     * Read before the save so that what it replaced can be removed after it. The
+     * record is the one the form was built from, so this is what is on disk for
+     * this record at the moment somebody pressed the button.
+     *
+     * @return array<string, StoredFile>
+     */
+    private function filesOn(ModuleDefinition $definition, Record $record): array
+    {
+        $held = [];
+
+        foreach ($definition->getFields() as $field) {
+            $file = StoredFile::parse($record->get($field->getKey()));
+
+            if ($file !== null) {
+                $held[$field->getKey()] = $file;
+            }
+        }
+
+        return $held;
+    }
+
+    /**
+     * Delete the bytes a save has just replaced.
+     *
+     * Only where an upload actually happened, and only where the token changed:
+     * a record saved twice with the same file keeps it, and a field nobody
+     * touched is not consulted at all.
+     *
+     * A failure to delete is deliberately not raised. The record is saved, the
+     * person is being redirected, and "your contract was saved but an old file
+     * could not be deleted" is a sentence that helps nobody; what it leaves is a
+     * file no record claims, which is exactly what the drift check reports
+     * (§4.7).
+     *
+     * @param array<string, StoredFile> $before what the record held
+     * @param array<string, StoredFile> $taken  what this request stored
+     */
+    private function forget(array $before, array $taken): void
+    {
+        foreach ($taken as $key => $file) {
+            $previous = $before[$key] ?? null;
+
+            if ($previous === null || $previous->token === $file->token) {
+                continue;
+            }
+
+            try {
+                $this->attachments->delete($previous);
+            } catch (AttachmentRefused) {
+                // Left for the check to find, and said so above.
+            }
+        }
     }
 
     private function currentUserId(): ?int

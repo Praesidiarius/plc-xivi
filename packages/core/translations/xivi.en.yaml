@@ -187,6 +187,7 @@ metadata:
     # the same set", which nobody means, and which the message in front of it
     # does not check.
     unique_holds_several_values: 'A "%type%" field holds several values, so "unique" has no single answer for it: it would have to mean either that no two records hold exactly the same set, which is not what anybody asks for, or that no two records share any one value, which the engine cannot enforce. Leave "%key%" as it is.'
+    file_on_a_collection: 'A file cannot go on "%collection%", because a row of a collection has no address of its own to download from. Put "%key%" on the record itself instead.'
     # Sections (XIV-119). Refusals rather than shrugs, unlike the width and the
     # country: the empty answer here is a real one — "in no section" — so reading
     # nonsense as empty would move somebody's field and call it a success.
@@ -303,3 +304,16 @@ period:
     until_help: The day the period ends — it is not included, so a room is free again on this date.
     open_ended_label: No end date
     open_ended: 'from %from%'
+
+# A file on a record (XIV-115). Four of these six are refusals, and the one that
+# matters is `too_large`: it names the real limit, taken from the constant that
+# enforces it, because "too big" without a number is somebody guessing.
+file:
+    upload: Choose a file
+    remove: Remove this file
+    max: 'Up to %size% per file.'
+    problem:
+        too_large: '"%file%" is %size%, and a file may be at most %max%. Nothing was saved.'
+        did_not_arrive: '"%file%" did not arrive complete, so it was not saved. Try it again; if it keeps happening, whoever runs this installation needs to know.'
+        not_saved: 'The file could not be saved. Nothing about the record was changed, and whoever runs this installation needs to know.'
+        missing: 'The file "%file%" is not on this installation any more.'

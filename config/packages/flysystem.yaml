@@ -1,0 +1,28 @@
+# Where a record's files live (XIV-115, §5.30).
+#
+# **One storage for the whole installation, and the tenant is a directory inside
+# it.** Not one storage per tenant: a storage is a compiled service and tenants
+# are rows in a database that arrive after the container is built, so a storage
+# per customer would be a container rebuild per sale. The directory is derived
+# from the resolved tenant by App\Tenant\Attachment\AttachmentStore, which is the
+# only class in this repository allowed to hold the operator below. Deptrac
+# enforces that, and §5.30 explains why a directory is not the boundary §4's
+# database-per-tenant gives records.
+#
+# **The local adapter, because it needs no service.** The interface is here so
+# that S3 is a change to this file rather than a change to the application:
+# swapping `local` for `aws` moves every attachment in the installation without
+# anything that reads or writes one being touched. That is the whole reason
+# league/flysystem is in the dependency list at all rather than being adopted
+# "later": later means migrating the bytes and the callers at once.
+#
+# `visibility: private` is what makes the local adapter create files 0600 and
+# directories 0700. Nothing serves these files off disk: a download goes through
+# the application so it can be refused (§8.4), and the web root is `public/`,
+# which this deliberately is not under.
+flysystem:
+    storages:
+        attachments.storage:
+            local:
+                directory: '%env(resolve:XIVI_ATTACHMENTS_DIR)%'
+            visibility: private

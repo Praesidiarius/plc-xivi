@@ -766,10 +766,17 @@ final readonly class RecordRepository
      * needs to know which record a row belongs to before it can write the entry
      * that says what happened to it.
      *
+     * **`$includeDeleted` is for a caller asking a different question** ([XIV-115]).
+     * A conversion is about records somebody will read, so it walks live rows; a
+     * check for files no record claims is about what is *held*, and a soft-deleted
+     * record holds its values exactly as it did the day before it was deleted.
+     * Walking live rows only, that check would report every deleted record's
+     * attachment as an orphan, which is a check whose normal output is wrong.
+     *
      * @return list<array{id: int, parent: int|null, value: string}> oldest first, so that
      *                                                               two runs over unchanged data touch the rows in the same order
      */
-    public function valueHolders(ShapeDefinition $shape, FieldDefinition $field): array
+    public function valueHolders(ShapeDefinition $shape, FieldDefinition $field, bool $includeDeleted = false): array
     {
         $parent = $shape instanceof CollectionDefinition
             ? CollectionDefinition::PARENT_COLUMN
@@ -778,10 +785,11 @@ final readonly class RecordRepository
         $rows = $this->connection->fetchAllAssociative(
             sprintf(
                 "SELECT id, %s AS parent_id, data->>:field AS held_value FROM %s
-                 WHERE deleted_at IS NULL AND data->>:field IS NOT NULL AND data->>:field <> ''
+                 WHERE %s data->>:field IS NOT NULL AND data->>:field <> ''
                  ORDER BY id ASC",
                 $parent,
                 $this->table($shape),
+                $includeDeleted ? '' : 'deleted_at IS NULL AND',
             ),
             ['field' => $field->getKey()],
         );

@@ -14,3 +14,6 @@
 
 # Che cosa dice di un elemento illeggibile un campo che nomina più record (XIV-113).
 '{{ value }} is not a record id. Several records are named by their ids separated by a comma, as in 12,34.': '{{ value }} non è un id di record. Più record si indicano con i loro id separati da una virgola, come 12,34.'
+
+# Cosa dice un campo file a una cella che non è un file (XIV-115).
+'{{ value }} is not a file kept by this installation. A file gets into a record by being uploaded to it, so a spreadsheet can move a record between shapes but cannot bring a file with it.': '{{ value }} non è un file conservato da questa installazione. Un file arriva su un record perché lo si carica: un foglio di calcolo sposta i record, ma non porta con sé un file.'

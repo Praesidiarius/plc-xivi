@@ -964,4 +964,53 @@ are not like that.
   (§5.1); an anchor per name, since the door exists on the other side; a shared
   list as the target (§5.26); and any ordering somebody arranges.
 
+### 5.30 A file on a record, and where the bytes live (XIV-115)
+
+- **Metadata in the tenant's database, bytes on the filesystem**, behind
+  `league/flysystem` (MIT), one directory per tenant. The tenant database nearly
+  wins on "a tenant is one database", and loses because attachments are many,
+  large and long-lived: single-digit GB per tenant lands inside `pg_dump`, and a
+  20 GB dump is slow to take and slow to restore, which turns the thing an
+  operator reaches for at 2am into the thing they cannot afford to run. §5.7's
+  blob in the tenant database is deliberately not extended: it was bounded, this
+  is not.
+- **The interface goes in now, not later.** Adopting Flysystem after the fact
+  would be a migration of the bytes and of every caller; with it, S3 is a change
+  to `config/packages/flysystem.yaml`.
+- **Isolation stops being physical, and the mitigation is structural.** §4's
+  boundary is a connection that cannot reach another customer's data; a directory
+  is not that, and a path prefixed with the tenant is the application being
+  careful. So: **one class touches a filesystem, it resolves the tenant itself,
+  and no method on it takes a path or a tenant** (`AttachmentStore`). The
+  directory is derived from the database name in the stored DSN, the same string
+  §4.1 resolves a drop from, so files and database cannot disagree. `deptrac`
+  forbids every other layer from depending on `League\Flysystem`, checked by
+  planting one.
+- **A stored value is one string**, `token:size:type:name`, on §5.27's argument:
+  a value that stops being a scalar changes the export, the history diff, the
+  importer and `data ->> 'key'`. The token is 32 hex characters and is not a
+  path; the name travels beside it and is never used as one.
+- **A download is a permission, not an address.** It goes through the
+  application, is checked against the record it hangs off, and answers 404 for a
+  reader who may not open that record (§8.4). Nothing is served off disk.
+- **One file per field**, on §5.29's rule; several would be a type of its own.
+  **A collection row cannot hold one**, because a download is addressed by module
+  and record id and a row has no address, refused in the editor and the
+  installer and keyed on the capability.
+- **Nothing reads a whole file into memory**, in or out: streams and a 64 KB
+  buffer, measured at 0.32 MB of difference between a 4 KB and a 10 MB upload and
+  0.14 MB to read one back. The media type is read from a 4 KB sample rather than
+  by handing `finfo` a path, which measured at 14.6 MB.
+- **Four upload limits, ordered from the inside out** and asserted by a test: the
+  application's 10 MB, then `upload_max_filesize`, then `post_max_size`, then
+  Caddy's request body limit. Only the innermost can name itself, and PHP
+  discarding a body over `post_max_size` reaches the application as a form that
+  submitted nothing.
+- **A file is written before the record naming it is validated**, so a refused
+  save leaves a file no record claims. Accepted: the alternatives are holding
+  10 MB across validation or a second staging area, and §4.7's check is the
+  standing answer to two things that can disagree.
+- Not built: virus scanning, thumbnails, previews, versioning a replaced file
+  (the old bytes go, the history keeps the old name), de-duplication.
+
 ---
