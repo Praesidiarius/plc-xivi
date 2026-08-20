@@ -1,15 +1,15 @@
 # Working on Xivi
 
-Orientation for a coding agent. Short on purpose — this is what gets got wrong
-without being told, not documentation. The long version of *why* anything here is
-the way it is lives in [`docs/architecture.md`](docs/architecture.md), which is a
-map, with §4–§8 in [`docs/architecture/`](docs/architecture) one file per area.
-**Read the sections your work touches, never the whole brief**: a comment citing
-§5.9 is telling you which file to open, not to open them all ([XIV-149]). Since
-[XIV-159] the brief holds the decisions alone, distilled; the issue-by-issue
-stories live in the tracker and in git history. The
-long version of *how to work here* — the stack, the suite, the layout, the
-tooling — is [`DEVELOPING.md`](DEVELOPING.md).
+Orientation for a coding agent. Short on purpose: this is what gets got wrong
+without being told, not documentation. The long version of *why* anything here
+is the way it is lives in [`docs/architecture.md`](docs/architecture.md), which
+is a map, with §4 to §8 in [`docs/architecture/`](docs/architecture) one file
+per area. **Read the sections your work touches, never the whole brief**: a
+comment citing §5.9 is telling you which file to open, not to open them all
+([XIV-149]). Since [XIV-159] the brief holds the decisions alone, distilled;
+the issue-by-issue stories live in the tracker and in git history. The long
+version of *how to work here*, the stack, the suite, the layout and the
+tooling, is [`DEVELOPING.md`](DEVELOPING.md).
 
 ## Run everything through `bin/compose`, never `docker compose`
 
@@ -23,11 +23,11 @@ bin/compose                     # prints which stack this checkout owns
 ```
 
 `bin/compose` forwards to `docker compose` after deriving the compose project,
-the published ports, the bind mount, the image name and the test-database prefix
-**from the checkout directory** (XIV-51, XIV-55, XIV-71). A bare `docker compose`
-does none of that. In the main checkout it happens to be right; in a git worktree
-it collides on port 443 and, less visibly, runs the test suite against the main
-checkout's tenant databases.
+the published ports, the bind mount, the image name and the test-database
+prefix **from the checkout directory** (XIV-51, XIV-55, XIV-71). A bare
+`docker compose` does none of that. In the main checkout it happens to be
+right; in a git worktree it collides on port 443 and, less visibly, runs the
+test suite against the main checkout's tenant databases.
 
 `--ignore-platform-req` is not the answer to anything here.
 
@@ -41,102 +41,104 @@ bin/ci --reclaim      # reclaim the test databases earlier runs left, and stop
 
 Every run reclaims those databases anyway; `--reclaim` is for the message that
 tells you to (XIV-106). A test control-plane database outlives the branch that
-migrated it, so a control migration you renamed or amended while iterating leaves
-it half-applied, and the next run dies in the PHPUnit bootstrap with a driver
-exception about a table. `bin/ci` no longer reaches that state, but a bare
-`composer test` still can, and when it does it says so and names this flag.
+migrated it, so a control migration you renamed or amended while iterating
+leaves it half-applied, and the next run dies in the PHPUnit bootstrap with a
+driver exception about a table. `bin/ci` no longer reaches that state, but a
+bare `composer test` still can, and when it does it says so and names this
+flag.
 
 GitHub Actions runs this same script, so there is no second list of checks that
 can drift. It must be green before you commit. It reconciles the container's
-cached artifacts with the tree first (XIV-63) — `vendor/` against
-`composer.lock`, and the compiled container against the config that produced it —
-so a stale stack is no longer something you have to think about.
+cached artifacts with the tree first (XIV-63), `vendor/` against
+`composer.lock` and the compiled container against the config that produced
+it, so a stale stack is no longer something you have to think about.
 
 **Two branches at once:** make a git worktree. It gets its own stack, ports,
-image and tenant databases, so two suites run at the same time without meeting.
-Two worktrees can still derive the *same* ports — the offset is one of a hundred,
-so at seven of them that is about one chance in five — and `bin/compose up` and
-`bin/ci` now refuse when they do, naming the other checkout and printing the
-exports that move you (XIV-86). They do not move you automatically: an address
-you can bookmark is the point of deriving one. Export what they print and carry
-on.
+image and tenant databases, so two suites run at the same time without
+meeting. Two worktrees can still derive the *same* ports, because the offset
+is one of a hundred, and at seven worktrees that is about one chance in five.
+`bin/compose up` and `bin/ci` refuse when it happens, naming the other
+checkout and printing the exports that move you (XIV-86). They do not move you
+automatically: an address you can bookmark is the point of deriving one.
+Export what they print and carry on.
 
 ## Where a decision goes
 
-The brief, and the brief only. Most questions that look open have been answered
-there with the argument attached, so **read the sections your work touches before
-designing anything** (the intro says where they are).
+The brief, and the brief only. Most questions that look open have been
+answered there with the argument attached, so **read the sections your work
+touches before designing anything**; the intro says where they are.
 
-`CHANGELOG.md` records *what changed*, one bullet per ticket. A decision that is
-worth keeping goes in the brief first, and the entry then points at it.
+`CHANGELOG.md` records *what changed*, one bullet per ticket. A decision that
+is worth keeping goes in the brief first, and the entry then points at it.
 
 A docblock is the other half of the same rule. The brief carries what a reader
-cannot learn by opening the code: the constraints, the rejected alternatives, the
-rules that span several classes. Everything else belongs beside the thing it
-describes, and **where the two disagree, the code is right.**
+cannot learn by opening the code: the constraints, the rejected alternatives,
+the rules that span several classes. Everything else belongs beside the thing
+it describes, and **where the two disagree, the code is right.**
 
 ## Conventions that are enforced socially, not mechanically
 
 - **Branches are `XIV-<n>/short-name`.**
-- **Every branch adds a real `CHANGELOG.md` entry** under `## [Unreleased]`, with
-  the `[XIV-n]:` link at the bottom. `bin/ci` only checks that the file changed —
-  writing something a reader can actually use is a human obligation. Anything
-  somebody has to *act* on gets its own bullet.
+- **Every branch adds a real `CHANGELOG.md` entry** under `## [Unreleased]`,
+  with the `[XIV-n]:` link at the bottom. `bin/ci` only checks that the file
+  changed; writing something a reader can actually use is a human obligation.
+  Anything somebody has to *act* on gets its own bullet.
 - **Every class carries the licence header and an `@author` docblock.**
   `composer cs-fix` fixes formatting but cannot add the `@author`.
 - **Comments explain *why*, in prose, at length.** This codebase argues with
   itself in its own comments. Match that; a terse one-liner in a file full of
   reasoning reads as unfinished.
-- **Each set starts at a baseline, and history begins there.** `migrations/tenant`
-  and `migrations/control` hold one file each: the fifty-one written before
-  2026-08-19 were squashed while nothing was deployed (XIV-151, §4.2). That was a
-  one-off and the window is shut — **a migration you write now is history and is
-  kept.** The originals are in git if you need the argument behind a column:
+- **Each migration set starts at a baseline, and history begins there.**
+  `migrations/tenant` and `migrations/control` hold one file each: the
+  fifty-one written before 2026-08-19 were squashed while nothing was deployed
+  (XIV-151, §4.2). That was a one-off and the window is shut. **A migration
+  you write now is history and is kept.** The originals are in git if you need
+  the argument behind a column:
   `git log --diff-filter=D --name-only -- migrations/tenant`.
 - **Start a migration with `bin/new-migration control|tenant 'what it does'`**,
   which picks the version for you. Two branches picked `Version20260818140000`
-  on the same afternoon (XIV-107) — hand-written migrations mean the version is a
-  timestamp somebody types, and a typed one is round. If you do write it by hand,
-  write **the actual UTC second**, `date -u +%Y%m%d%H%M%S`, never a rounded time;
-  and a version is unique across `migrations/control` *and* `migrations/tenant`,
-  even though the two run against different databases. That last part is a
-  decision rather than a constraint — the argument is in
-  `tests/Unit/MigrationVersionsAreUniqueTest.php`, which is also what fails when
-  it is broken.
-- **A migration writes `id INT GENERATED BY DEFAULT AS IDENTITY NOT NULL`, never
-  `SERIAL`.** The two behave near-identically, so nothing breaks — but Doctrine's
-  mapping expects identity, and every `SERIAL` column then shows up in
-  `doctrine:schema:validate` for ever. Eleven accumulated that way and made the
-  check permanently red, which is how a check stops being read (XIV-97). This one
-  *is* enforced mechanically now, by
-  `tests/Unit/MigrationsUseIdentityColumnsTest.php`; it is written down here
-  because a test can only tell you afterwards.
+  on the same afternoon (XIV-107), because hand-written migrations mean a
+  typed timestamp, and a typed one is round. If you do write it by hand, write
+  **the actual UTC second**, `date -u +%Y%m%d%H%M%S`, never a rounded time.
+  And a version is unique across `migrations/control` *and*
+  `migrations/tenant`, even though the two run against different databases.
+  That last part is a decision rather than a constraint; the argument is in
+  `tests/Unit/MigrationVersionsAreUniqueTest.php`, which is also what fails
+  when it is broken.
+- **A migration writes `id INT GENERATED BY DEFAULT AS IDENTITY NOT NULL`,
+  never `SERIAL`.** The two behave near-identically, so nothing breaks, but
+  Doctrine's mapping expects identity, and every `SERIAL` column then shows up
+  in `doctrine:schema:validate` for ever. Eleven accumulated that way and made
+  the check permanently red, which is how a check stops being read (XIV-97).
+  `tests/Unit/MigrationsUseIdentityColumnsTest.php` enforces this one
+  mechanically now; it is written down here because a test can only tell you
+  afterwards.
 - **A tenant migration's `up()` may only add.** No `DROP TABLE`, no
-  `DROP COLUMN`, no rename of either, no `SET NOT NULL` on a column that exists.
-  A deploy walks the customer databases one at a time with the instance still
-  serving (`bin/deploy`), so for the length of that walk one build of the code
-  meets both schemas. Expand now, contract a release later. `down()` is exempt —
-  going backwards deliberately is what it is for. Enforced by
-  `tests/Unit/TenantMigrationsAreAdditiveTest.php`, which is blunt on purpose and
-  cannot see a narrowed type or a new `UNIQUE`; those are still yours to catch
-  (XIV-61, §4.2).
-- **Reach for Symfony's own component before hand-rolling one**, and say so out
-  loud when you deliberately do not.
-- **Licence-check every new dependency** and record the result. Permissive only —
-  LGPL has been rejected here before.
+  `DROP COLUMN`, no rename of either, no `SET NOT NULL` on a column that
+  exists. A deploy walks the customer databases one at a time with the
+  instance still serving (`bin/deploy`), so for the length of that walk one
+  build of the code meets both schemas. Expand now, contract a release later.
+  `down()` is exempt, because going backwards deliberately is what it is for.
+  `tests/Unit/TenantMigrationsAreAdditiveTest.php` enforces it, is blunt on
+  purpose, and cannot see a narrowed type or a new `UNIQUE`; those are still
+  yours to catch (XIV-61, §4.2).
+- **Reach for Symfony's own component before hand-rolling one**, and say so
+  out loud when you deliberately do not.
+- **Licence-check every new dependency** and record the result. Permissive
+  only; LGPL has been rejected here before.
 
 ## Adding a package edits files you have edited (XIV-111)
 
 `composer require` and `composer update` run **Symfony Flex recipes**, and a
-recipe writes into your working tree. It is not misbehaving when it does; adding
-a package is simply not an operation that promises to leave your configuration
-alone. There are two mechanisms and they are not equally safe.
+recipe writes into your working tree. It is not misbehaving when it does;
+adding a package is simply not an operation that promises to leave your
+configuration alone. There are two mechanisms, and they are not equally safe.
 
 **Marker blocks are safe.** In `.env`, `.env.dev`, `.env.test`, `.gitignore`,
-`Dockerfile`, `compose.yaml` and `compose.override.yaml`, Flex only touches what
-is between `###> package/name ###` and `###< package/name ###`. Everything
-outside is yours and stays. (Everything in those files here *is* outside, except
-the Panther block in the `Dockerfile`.)
+`Dockerfile`, `compose.yaml` and `compose.override.yaml`, Flex only touches
+what is between `###> package/name ###` and `###< package/name ###`.
+Everything outside is yours and stays. (Everything in those files here *is*
+outside, except the Panther block in the `Dockerfile`.)
 
 **Whole-file rewrites are not.** These are regenerated from the recipe's own
 template or from a machine-written model of their contents, so a comment, an
@@ -148,16 +150,16 @@ ordering or a hand-trimmed entry in them is collateral by design:
 | `importmap.php` | `importmap:require`, and any recipe that ships an asset | Comments and deliberately *omitted* entries. The Tom Select comment in it explains that three of the four stylesheets the recipe offers are unwanted; a regeneration puts them back and says nothing. **Nothing guards this file.** |
 | `assets/controllers.json` | the Stimulus controllers configurator | Hand-set `enabled` and `autoimport` flags, which is the other half of the same Tom Select decision. |
 
-So: **read `git diff` after every `composer require` and `composer update`**, and
-read all of it rather than the part you were expecting. That is how the first two
-rows were caught, and it is still the only thing that catches the second and the
-third — the deployment guarantee is the one that no longer depends on somebody
-noticing.
+So: **read `git diff` after every `composer require` and `composer update`**,
+and read all of it rather than the part you were expecting. That is how the
+first two rows were caught, and it is still the only thing that catches the
+second and the third; the deployment guarantee is the one that no longer
+depends on somebody noticing.
 
 ## Tools, if you want them
 
-This project ships its own MCP tools — tenants, the module catalogue, a tenant's
-*real* field definitions, and tenant lifecycle. Once per checkout:
+This project ships its own MCP tools: tenants, the module catalogue, a
+tenant's *real* field definitions, and tenant lifecycle. Once per checkout:
 
 ```bash
 bin/compose exec php vendor/bin/mate init
@@ -175,8 +177,8 @@ reason to be stuck.
 
 ## Tenants
 
-The application is multi-tenant with a database per customer, so most things need
-to know which tenant they are about.
+The application is multi-tenant with a database per customer, so most things
+need to know which tenant they are about.
 
 ```bash
 bin/compose exec php bin/console tenant:list      # who exists
@@ -186,66 +188,68 @@ bin/compose exec php bin/console tenant:reset acme --modules=contact,article --r
 bin/compose exec php bin/console tenant:schema:validate   # does a customer's schema still match the mapping?
 ```
 
-`tenant:schema:validate` is the tenant half of `doctrine:schema:validate`, which
-cannot be pointed at a tenant: the DSN comes from a resolved tenant and a console
-command has none (§7.4). It reads and writes nothing. **It is expected to report
-sixteen differences today** — index names, partial indexes and three column
-defaults, all written down in §9.2 and split off as their own ticket — so read
-what it says rather than its exit status until that lands. XIV-151's squash did
-not change that list by one line, which is part of how the baseline was checked.
+`tenant:schema:validate` is the tenant half of `doctrine:schema:validate`,
+which cannot be pointed at a tenant: the DSN comes from a resolved tenant and
+a console command has none (§7.4). It reads and writes nothing. **It is
+expected to report sixteen differences today**: index names, partial indexes
+and three column defaults, all written down in §9.2 and split off as their own
+ticket. Read what it says rather than its exit status until that lands.
+XIV-151's squash did not change that list by one line, which is part of how
+the baseline was checked.
 
 `tenant:reset` throws a development tenant away and rebuilds it end to end,
 resolving module install order from the modules' own requirements. It destroys
-before it builds and cannot do otherwise, so a failure part-way costs the tenant
-— when that happens it prints what is gone, what is standing and the line to type
-next (XIV-74). No flag is needed at any record count.
+before it builds and cannot do otherwise, so a failure part-way costs the
+tenant; when that happens it prints what is gone, what is standing and the
+line to type next (XIV-74). No flag is needed at any record count.
 
-**Work in a tenant you made.** The dev tenants are throwaway and nothing in them
-needs preserving, so the reason is other people rather than their data: several
-checkouts and several agents share one Postgres cluster, and a tenant somebody
-else is using hands them a confusing failure. `tenant:reset` gives you one in a
-command, and the suite provisions and drops its own for the same reason.
+**Work in a tenant you made.** The dev tenants are throwaway and nothing in
+them needs preserving, so the reason is other people rather than their data:
+several checkouts and several agents share one Postgres cluster, and a tenant
+somebody else is using hands them a confusing failure. `tenant:reset` gives
+you one in a command, and the suite provisions and drops its own for the same
+reason.
 
 ## Two things that will mislead you
 
 **A module's blueprint in code is not what a tenant has.** Installing does not
 retro-fit: once a module is installed the customer's own definitions are the
-truth (§6.1), so a tenant may lack a field the blueprint declares, or carry one
-it renamed. Read the tenant's metadata rather than the module class when the
-question is about a tenant.
+truth (§6.1), so a tenant may lack a field the blueprint declares, or carry
+one it renamed. Read the tenant's metadata rather than the module class when
+the question is about a tenant.
 
-**Derived values belong to the engine.** Fields marked `derived` — document
-numbers, money totals, due dates — are filled on save by derivers. Writing them
-by hand suppresses the engine and produces records that look plausible and are
-wrong (XIV-73).
+**Derived values belong to the engine.** Fields marked `derived`, document
+numbers, money totals and due dates among them, are filled on save by
+derivers. Writing them by hand suppresses the engine and produces records that
+look plausible and are wrong (XIV-73).
 
 ## Layout
 
 ```
 src/                       the application: tenancy, the tenant registry, security, controllers
-packages/core              the engine — metadata, field types, record storage
-packages/contact           a module built on it (also article, order, invoice)
+packages/core              the engine: metadata, field types, record storage
+packages/contact           a module built on it (also article, order, invoice, voucher, knowledge)
 packages/control-plane     the administration surface: provisioning, operators, the tenant list
 ```
 
-A module may depend on core, never on another module; core may depend on neither
-the modules nor the application. **The control plane runs the other way**: it may
-depend on the application, and the application may never depend on it — what a
-tenant's own request needs from the control-plane database is `App\Registry`, in
-`src/` (§3.1). `deptrac` enforces all of it in CI.
+A module may depend on core, never on another module; core may depend on
+neither the modules nor the application. **The control plane runs the other
+way**: it may depend on the application, and the application may never depend
+on it; what a tenant's own request needs from the control-plane database is
+`App\Registry`, in `src/` (§3.1). `deptrac` enforces all of it in CI.
 
 **That rule covers `config/` too, and deptrac cannot see it** (XIV-96, §4.4).
-`docker build --target frankenphp_public` builds the image customers are served
-from, and it does not contain `packages/control-plane` — so an application
-configuration file naming a class from it is a container that will not compile.
-Every one of the four obstacles this hit was YAML, not PHP. Three seams are
-allowed and each guards on `class_exists()`; anything else fails
-`tests/Unit/Deployment/ControlPlaneIsOptionalAtBuildTimeTest.php`. If a firewall,
-a mapping or a route belongs to the administration surface, declare it in
-`packages/control-plane/config/`.
+`docker build --target frankenphp_public` builds the image customers are
+served from, and it does not contain `packages/control-plane`, so an
+application configuration file naming a class from it is a container that will
+not compile. Every one of the four obstacles this hit was YAML, not PHP. Three
+seams are allowed and each guards on `class_exists()`; anything else fails
+`tests/Unit/Deployment/ControlPlaneIsOptionalAtBuildTimeTest.php`. If a
+firewall, a mapping or a route belongs to the administration surface, declare
+it in `packages/control-plane/config/`.
 
-**Plant a violation when you add a layer to `deptrac.yaml`.** Every layer in it
-collected nothing at all until XIV-60 — the check was green for four months
+**Plant a violation when you add a layer to `deptrac.yaml`.** Every layer in
+it collected nothing at all until XIV-60; the check was green for four months
 because it was empty, not because the code obeyed it.
 
 <!-- BEGIN AI_MATE_INSTRUCTIONS -->
