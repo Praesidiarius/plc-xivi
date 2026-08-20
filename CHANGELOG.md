@@ -84,12 +84,22 @@ always lands in `Unreleased` here.
   built-in signup page, and the store's refusal of requirement chains are now
   described as they behave.
 
+- **Invoice PDFs carry a Swiss QR-bill payment part** ([XIV-152], §5.28): the
+  slip is appended as the PDF's last page, with the tenant's own IBAN and
+  address from the company profile (new fields there) and the invoice number as
+  an ISO 11649 creditor reference by default. CHF and EUR only; anything else,
+  or missing profile data, produces the invoice without a payment part and a
+  message saying exactly why. Library: `sprain/swiss-qr-bill` (MIT, tree
+  checked in THIRD-PARTY-NOTICES.md); the PHP image gained `bcmath` and `gd`,
+  so **rebuild your containers** after pulling this.
+
 - **`bin/ci --coverage` no longer renders the HTML report** ([XIV-161]): the
   renderer outgrew the 512M limit at ~89k lines and was killing CI, and nothing
   in CI reads it. The floor gate and Codecov keep their Clover file; the
   browsable report is now `composer coverage-html` (run with
   `XDEBUG_MODE=coverage`), and the PHPUnit memory limit is 1G for its sake.
 
+[XIV-152]: https://xivi.youtrack.cloud/issue/XIV-152
 [XIV-159]: https://xivi.youtrack.cloud/issue/XIV-159
 [XIV-160]: https://xivi.youtrack.cloud/issue/XIV-160
 [XIV-161]: https://xivi.youtrack.cloud/issue/XIV-161

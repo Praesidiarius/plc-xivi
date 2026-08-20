@@ -171,6 +171,71 @@
 				</div>
 
 				{#
+					The QR-bill on outgoing invoices (XIV-152, §5.28): which
+					account it pays into, which reference type that account can
+					carry, and the structured address the payment part prints as
+					the creditor. Street apart from number because the payload
+					wants them apart. The country is deliberately not asked
+					again: the region above is the country.
+
+					All of it may stay empty: an installation without an IBAN
+					here simply gets invoices without a payment part, and the
+					invoice download says what is missing when something is.
+				#}
+				<hr class="my-4">
+
+				<h2 class="h5">{{ 'profile.payment'|trans }}</h2>
+				<p class="text-body-secondary">{{ 'profile.payment_intro'|trans }}</p>
+
+				<div class="row">
+					<div class="col-md-8 mb-3">
+						<label class="form-label" for="address_street">{{ 'profile.address_street'|trans }}</label>
+						<input class="form-control" type="text" id="address_street" name="address_street"
+						       maxlength="70" value="{{ profile.addressStreet }}" {{ editable ? '' : 'disabled' }}>
+					</div>
+
+					<div class="col-md-4 mb-3">
+						<label class="form-label" for="address_building_number">{{ 'profile.address_building_number'|trans }}</label>
+						<input class="form-control" type="text" id="address_building_number" name="address_building_number"
+						       maxlength="16" value="{{ profile.addressBuildingNumber }}" {{ editable ? '' : 'disabled' }}>
+					</div>
+				</div>
+
+				<div class="row">
+					<div class="col-md-4 mb-3">
+						<label class="form-label" for="address_postal_code">{{ 'profile.address_postal_code'|trans }}</label>
+						<input class="form-control" type="text" id="address_postal_code" name="address_postal_code"
+						       maxlength="16" value="{{ profile.addressPostalCode }}" {{ editable ? '' : 'disabled' }}>
+					</div>
+
+					<div class="col-md-8 mb-3">
+						<label class="form-label" for="address_city">{{ 'profile.address_city'|trans }}</label>
+						<input class="form-control" type="text" id="address_city" name="address_city"
+						       maxlength="35" value="{{ profile.addressCity }}" {{ editable ? '' : 'disabled' }}>
+					</div>
+				</div>
+
+				<div class="mb-3">
+					<label class="form-label" for="payment_iban">{{ 'profile.payment_iban'|trans }}</label>
+					<input class="form-control" type="text" id="payment_iban" name="payment_iban"
+					       maxlength="42" value="{{ profile.paymentIban }}" autocomplete="off"
+					       {{ editable ? '' : 'disabled' }}>
+					<div class="form-text">{{ 'profile.payment_iban_help'|trans }}</div>
+				</div>
+
+				<div class="mb-3">
+					<label class="form-label" for="payment_reference_type">{{ 'profile.reference_type'|trans }}</label>
+					<select class="form-select" id="payment_reference_type" name="payment_reference_type" {{ editable ? '' : 'disabled' }}>
+						{% for value, label in referenceTypes %}
+							<option value="{{ value }}" {{ profile.paymentReferenceType == value ? 'selected' : '' }}>
+								{{ label|trans }}
+							</option>
+						{% endfor %}
+					</select>
+					<div class="form-text">{{ 'profile.reference_type_help'|trans }}</div>
+				</div>
+
+				{#
 					Who this installation's mail comes from, and which server it
 					leaves through (XIV-37). The two are one decision — see
 					docs/architecture/identity-and-access.md §8.7 — so they sit under one heading and
