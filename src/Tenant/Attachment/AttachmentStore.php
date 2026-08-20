@@ -65,7 +65,7 @@ use Xivi\Core\Field\StoredFile;
  * that is a property of the code rather than a hope about how big customers'
  * files are. {@see AttachmentLimit::CHUNK_BYTES} is the buffer everything copies
  * through, so a 10 MB PDF costs the same memory as a 4 KB one; the measurement
- * is in `tests/Measurement/AttachmentMemoryTest.php`.
+ * is in `tests/Functional/Engine/RecordFileTest.php`.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
