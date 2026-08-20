@@ -681,9 +681,9 @@ of every page. Default the card.
 - **The four map to Bootstrap contexts, written out in full** in
   `notice_tone()`, §5.18's precedent, precisely because every arm is an
   identity: interpolating the enum's value makes the model own the stylesheet
-  and goes quiet the day a fifth case is added. `Info` → `alert alert-info`,
-  `Warning` → `alert alert-warning`, `Success` → `alert alert-success`,
-  `Danger` → `alert alert-danger`. Bootstrap builds those from
+  and goes quiet the day a fifth case is added. `Info` → `info`, `Warning`
+  → `warning`, `Success` → `success`, `Danger` → `danger`, and the
+  band composes `alert alert-{tone}`. Bootstrap builds those from
   `--bs-{tone}-text-emphasis`, `-bg-subtle` and `-border-subtle`, and redefines
   all twelve under `[data-bs-theme=dark]`; `text-bg-*` is not redefined and
   stays unused (§5.26).
