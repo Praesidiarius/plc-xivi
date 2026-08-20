@@ -415,9 +415,20 @@ field:
         title: 'Disponi “%shape%”'
         intro: 'Dove sta ogni campo nel modulo, quanto è largo, sotto quale intestazione si trova e se l’elenco lo mostra.'
         note: >-
-            L’ordine è tuo e non si ricava da nulla: lascia salti di dieci e scrivi 15 per infilare
-            qualcosa tra due campi. Una larghezza “secondo il tipo” segue ciò che quel tipo di
-            campo di solito vuole, e continua a seguirlo.
+            Trascina un campo per la maniglia per spostarlo, oppure usa le frecce accanto: lo
+            spostano di un posto e funzionano da tastiera. Nulla viene salvato finché non premi
+            Salva. Una larghezza “secondo il tipo” segue ciò che quel tipo di campo di solito
+            vuole, e continua a seguirlo.
+        note_sections: >-
+            Un campo che si ferma sotto un’intestazione appartiene a quella sezione, e il menu
+            nella sua riga dice lo stesso. L’ordine delle intestazioni si imposta nella pagina
+            delle sezioni.
+        no_heading: 'Senza intestazione'
+        drag: 'Trascina per spostare'
+        move_up: 'Sposta “%field%” in alto'
+        move_down: 'Sposta “%field%” in basso'
+        moved: '“%field%” ora è il numero %place% di %total%.'
+        moved_into: '“%field%” ora è il numero %place% di %total%, sotto “%section%”.'
     picker_truncated: 'Mostrati i primi %shown% di %total%. Restringi l’elenco o cerca nell’altro modulo.'
     label: Etichetta
     label_placeholder: Numero IVA

@@ -268,6 +268,23 @@ of axis labels — so the server sends epoch milliseconds on a linear scale and
 `assets/controllers/trend_chart_controller.js` formats them with the browser's
 own `Intl`.
 
+**SortableJS**, MIT, Copyright (c) 2019 All contributors to Sortable.
+<https://github.com/SortableJS/Sortable>
+
+What makes a field on the arrange page something you move rather than something
+you renumber (XIV-165, brief §5.1). It has no dependencies of its own and no PHP
+half: one line in `importmap.php`, fetched into `assets/vendor/` by
+`importmap:install` and self-hosted like the rest, and imported by
+`assets/controllers/arrange_fields_controller.js` alone.
+
+Considered first and rejected: the browser's own HTML5 drag-and-drop API, which
+is free. It is not implemented for touch, dragging a table row through it looks
+different in every browser, and it runs on a class of event WebDriver cannot
+produce, so the one gesture would have been untestable in the only layer that can
+see it. Symfony UX has no component for sorting, which was checked against the
+package list rather than assumed: reaching for the framework's own thing first is
+the house rule, and this is it being said out loud when there is nothing there.
+
 **Bootstrap Icons** — MIT, Copyright (c) 2019-2024 The Bootstrap Authors.
 <https://github.com/twbs/icons>
 

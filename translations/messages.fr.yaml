@@ -415,9 +415,20 @@ field:
         title: 'Disposer «%shape%»'
         intro: 'La place de chaque champ dans le formulaire, sa largeur, l’intertitre sous lequel il figure et son affichage dans la liste.'
         note: >-
-            L’ordre est le vôtre et ne se déduit de rien : laissez des écarts de dix et tapez 15
-            pour intercaler quelque chose entre deux champs. Une largeur «selon le type» suit ce
-            que ce type de champ veut habituellement, et continue de le suivre.
+            Faites glisser un champ par sa poignée pour le déplacer, ou utilisez les flèches à
+            côté : elles le déplacent d’une place et fonctionnent au clavier. Rien n’est
+            enregistré tant que vous n’avez pas cliqué sur Enregistrer. Une largeur «selon le
+            type» suit ce que ce type de champ veut habituellement, et continue de le suivre.
+        note_sections: >-
+            Un champ qui se pose sous un intertitre appartient à cette section, et la liste
+            déroulante de sa ligne le dit aussi. L’ordre des intertitres eux-mêmes se règle sur
+            la page des sections.
+        no_heading: 'Sans intertitre'
+        drag: 'Glisser pour déplacer'
+        move_up: 'Monter «%field%»'
+        move_down: 'Descendre «%field%»'
+        moved: '«%field%» est maintenant le numéro %place% sur %total%.'
+        moved_into: '«%field%» est maintenant le numéro %place% sur %total%, sous «%section%».'
     picker_truncated: 'Affichage des %shown% premiers sur %total%. Restreignez la liste ou cherchez dans l’autre module.'
     label: Libellé
     label_placeholder: Numéro de TVA

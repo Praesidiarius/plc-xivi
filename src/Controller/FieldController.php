@@ -51,6 +51,7 @@ use Xivi\Core\Metadata\MetadataEditor;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Metadata\ModuleNotInstalled;
 use Xivi\Core\Metadata\NumberingChange;
+use Xivi\Core\Metadata\Section;
 use Xivi\Core\Module\ModuleUpgrade;
 use Xivi\Core\Numbering\AssignsNumbers;
 use Xivi\Core\Numbering\CounterRefused;
@@ -1258,6 +1259,11 @@ final class FieldController extends AbstractController
             // middle of a table row is nothing at all. The template draws no
             // column there rather than an empty select.
             'sections' => $target instanceof ModuleDefinition ? $target->getSections() : [],
+            // And the same fields again, already cut into the runs the table
+            // draws ([XIV-165]). The select above says which heading a field is
+            // under; this says where the headings *are*, which is the thing a
+            // drag has to be able to land between.
+            'groups' => self::arrangementGroups($target),
         ]);
     }
 
@@ -2340,6 +2346,73 @@ final class FieldController extends AbstractController
         }
 
         return $field;
+    }
+
+    /**
+     * The fields of a shape, cut into the runs the arrange table draws
+     * ([XIV-165]).
+     *
+     * **Deliberately not {@see ModuleDefinition::getFieldGroupsFor()}**, which
+     * is the single grouping decision in the product and stays that way: what
+     * that method answers is how a *record* is drawn, and this page is not a
+     * record. Two of its rules are wrong here, and each of them is wrong for
+     * exactly the reason that makes it right there.
+     *
+     * It drops a section with no fields in it, because a heading over nothing on
+     * a record page is noise about an editing session that has finished. Here
+     * the editing session *is* the page, and an empty section is precisely the
+     * one somebody has just made in order to drag a field into it. Drawn as
+     * nothing, it would be a section reachable only through the select beside
+     * it, which is the translation this ticket exists to stop.
+     *
+     * It also filters by variant, since a record is one variant and the fields
+     * of the others are not on it. This table is every field of the shape,
+     * because the position it is setting is one number that every variant reads.
+     *
+     * What is shared is the part that matters, and it is not restated here so
+     * much as read from the same place: **the ungrouped fields first, then each
+     * section by its own position**, off the same {@see
+     * ModuleDefinition::getSections()} and the same `hasSection()`, so a field
+     * naming a section nobody has any more is ungrouped rather than missing and
+     * the order this page shows is the order the form will show. A collection
+     * has no sections at all and yields one run with no heading over it, which
+     * is the flat table XIV-163 built.
+     *
+     * @return list<array{section: ?Section, fields: list<FieldDefinition>}>
+     */
+    private static function arrangementGroups(ShapeDefinition $shape): array
+    {
+        if (!$shape instanceof ModuleDefinition || $shape->getSections() === []) {
+            return [['section' => null, 'fields' => array_values($shape->getFields()->toArray())]];
+        }
+
+        $ungrouped = [];
+        /** @var array<string, list<FieldDefinition>> $grouped */
+        $grouped = [];
+
+        foreach ($shape->getFields() as $field) {
+            $key = $field->getSection();
+
+            if ($key === null || !$shape->hasSection($key)) {
+                $ungrouped[] = $field;
+
+                continue;
+            }
+
+            $grouped[$key][] = $field;
+        }
+
+        // The ungrouped run is drawn even when it is empty, unlike the record
+        // page's. It is the anchor a field is dragged back onto in order to
+        // leave every section, and the customer who has put all of their fields
+        // under headings is exactly the one who needs it.
+        $groups = [['section' => null, 'fields' => $ungrouped]];
+
+        foreach ($shape->getSections() as $section) {
+            $groups[] = ['section' => $section, 'fields' => $grouped[$section->key] ?? []];
+        }
+
+        return $groups;
     }
 
     /** A shape of *this* module, so an id from a form cannot reach another one. */

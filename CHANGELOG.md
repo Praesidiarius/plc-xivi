@@ -73,6 +73,24 @@ always lands in `Unreleased` here.
 
 ## [Unreleased]
 
+- **Fields on the arrange page are now moved rather than renumbered**
+  ([XIV-165], §5.1, §8.3). Drag a field by the grip beside it and drop it where
+  it belongs. The order box is gone from the page: the number it held is still
+  what gets stored, in tens, and the page now works it out from where the rows
+  ended up. Nothing is written until Save, exactly as before, so a whole form is
+  still rearranged in one go.
+- **Dropping a field under a heading puts it in that section** ([XIV-165],
+  §5.4). The table draws the headings in the order the form does, including
+  sections nothing is in yet, and the section box in each row follows the drag
+  both ways. Where the *headings* sit is still set on the sections page.
+- **Dragging is never the only way** ([XIV-165]). Every row has an up and a down
+  button beside the grip, reachable with the keyboard and announced with the
+  field's name, and a move made with them is read out. What to do is written on
+  the page.
+- **Adds one front-end dependency, SortableJS** ([XIV-165]). MIT, no
+  dependencies of its own, self-hosted through AssetMapper like Tom Select and
+  Chart.js; nothing is fetched from a CDN. See `THIRD-PARTY-NOTICES.md` for the
+  licence and for why the browser's own drag-and-drop API was not enough.
 - **A signup that will never provision now shows up on the tenant list, with the
   person's address and a button that writes to them** ([XIV-108], §8.14). It sits
   above the customer table, is drawn only when there is somebody in it, and names
@@ -306,6 +324,7 @@ always lands in `Unreleased` here.
 [XIV-161]: https://xivi.youtrack.cloud/issue/XIV-161
 [XIV-162]: https://xivi.youtrack.cloud/issue/XIV-162
 [XIV-163]: https://xivi.youtrack.cloud/issue/XIV-163
+[XIV-165]: https://xivi.youtrack.cloud/issue/XIV-165
 
 
 ## Releases

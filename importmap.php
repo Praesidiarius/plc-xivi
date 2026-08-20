@@ -42,4 +42,11 @@ return [
     'tom-select/dist/css/tom-select.bootstrap5.css' => ['version' => '2.6.2', 'type' => 'css'],
     'chart.js' => ['version' => '4.5.1'],
     '@kurkle/color' => ['version' => '0.3.4'],
+    // What makes the arrange page's rows draggable ([XIV-165]). MIT, no
+    // dependencies of its own, which is why nothing was added beside it here.
+    // It is loaded by assets/controllers/arrange_fields_controller.js and by
+    // nothing else, and that controller is the one place to read for what a
+    // drop actually writes: dragging is a way of typing the numbers this
+    // product already stored, not a second way of storing an order.
+    'sortablejs' => ['version' => '1.15.7'],
 ];

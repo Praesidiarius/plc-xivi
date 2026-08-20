@@ -20,6 +20,7 @@ use App\Tests\Support\SavesRecords;
 use App\Tests\Support\SharesATenant;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
 use Xivi\Contact\ContactModule;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
@@ -236,6 +237,55 @@ final class FieldSectionsTest extends WebTestCase
         $rows = $this->client->request('GET', $this->url(sprintf('/m/contact/fields/%d/arrange', $this->collectionId())));
 
         self::assertCount(0, $rows->filter('select[name^="section["]'));
+    }
+
+    /**
+     * The arrange page draws a heading for every section, empty ones included
+     * ([XIV-165]).
+     *
+     * **This is the half of dragging that a browser cannot be asked about
+     * cheaply and that nothing else would notice.** A field joins a section by
+     * coming to rest under its heading, so a section with no heading row on this
+     * page is a section no field can be dragged into, and the one that has no
+     * fields yet is exactly the one somebody just made in order to fill it. The
+     * record page deliberately draws nothing for it (§5.4), which is right there
+     * and would be a dead end here, so the two groupings are different code and
+     * this is what says the difference is on purpose.
+     *
+     * The ungrouped run gets one too, for the same reason read backwards: with
+     * every field under a heading there would otherwise be nothing to drag a
+     * field onto in order to take it out of one.
+     */
+    public function testEverySectionIsAHeadingOnTheArrangePageEvenWithNothingInIt(): void
+    {
+        $this->addSection('Billing');
+        $this->addSection('Delivery');
+        $this->putInSection('email', 'billing');
+
+        $crawler = $this->client->request('GET', $this->url(sprintf('/m/contact/fields/%d/arrange', $this->shapeId())));
+        $headings = $crawler->filter('tbody tr.arrange-heading')->each(
+            static fn (Crawler $tr): string => trim($tr->text()),
+        );
+
+        self::assertCount(3, $headings, 'the run with no heading, and one per section, filled or not');
+        self::assertSame('Delivery', $headings[2], 'including the one nothing has been put in yet');
+
+        // And the field that was put somewhere is under the right one: the rows
+        // between "Billing" and the next heading, which is what a drop reads.
+        $rows = $crawler->filter('tbody tr')->each(static function (Crawler $tr): string {
+            if ($tr->matches('.arrange-heading')) {
+                return '#' . trim($tr->text());
+            }
+
+            // No option carries `selected` when the answer is "in no section",
+            // because the blank one is drawn without it: an empty string here is
+            // that answer rather than a row this could not read.
+            $chosen = $tr->filter('[name^="section["] option[selected]');
+
+            return $chosen->count() === 0 ? '' : (string) $chosen->attr('value');
+        });
+
+        self::assertSame('billing', $rows[array_search('#Billing', $rows, true) + 1], 'the run under the heading is the section');
     }
 
     // -- an existing definition is untouched ---------------------------------

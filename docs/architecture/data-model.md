@@ -34,6 +34,14 @@ builder.
   rebuilt at PRE_SUBMIT from what was sent.
 - Rows keep the customer's **order** (`position` in tens, renumbered per
   save). Moving a row is not a change to it and writes no history.
+- **The order is dragged, not typed** (XIV-165). Typing a number beat move-up
+  and move-down only while each press was a form submission; §8.3 spent that
+  reason, so the arrange page moves rows and derives the tens from where they
+  land. The number stayed, hidden: one save, `updateField()` per field, every
+  §5.4 refusal intact, and no write per drop. A field dropped under a heading
+  joins that section; a heading does not move, because section order is the
+  module's row and this form writes fields. **Dragging is never the only
+  way**: the same move is two buttons, keyboard-reachable and announced.
 - A field may be **inherited** from the referenced record: copied at write,
   never read through, with a drift marker when the source moves on.
 - Three number kinds: `integer` counts, `decimal` measures, `currency` is

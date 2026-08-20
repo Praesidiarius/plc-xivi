@@ -436,9 +436,20 @@ field:
         title: '„%shape%“ anordnen'
         intro: 'Wo jedes Feld im Formular sitzt, wie breit es ist, unter welcher Überschrift es steht und ob die Liste es zeigt.'
         note: >-
-            Die Reihenfolge setzt du selbst, sie wird aus nichts abgeleitet: lass Sprünge von zehn
-            und tippe 15, um etwas dazwischenzuschieben. Die Breite „Feldtyp-Standard“ folgt dem,
-            was diese Art von Feld üblicherweise will, und folgt ihm weiter.
+            Zieh ein Feld am Griff, um es zu verschieben, oder nimm die Pfeile daneben: sie
+            verschieben es um einen Platz und funktionieren mit der Tastatur. Gespeichert wird
+            nichts, bevor du auf Speichern drückst. Die Breite „Feldtyp-Standard“ folgt dem, was
+            diese Art von Feld üblicherweise will, und folgt ihm weiter.
+        note_sections: >-
+            Ein Feld, das unter einer Überschrift landet, gehört zu diesem Abschnitt, und das
+            Auswahlfeld in seiner Zeile sagt dasselbe. Die Reihenfolge der Überschriften selbst
+            wird auf der Abschnittsseite gesetzt.
+        no_heading: 'Ohne Überschrift'
+        drag: 'Zum Verschieben ziehen'
+        move_up: '„%field%“ nach oben'
+        move_down: '„%field%“ nach unten'
+        moved: '„%field%“ ist jetzt Nummer %place% von %total%.'
+        moved_into: '„%field%“ ist jetzt Nummer %place% von %total%, unter „%section%“.'
     picker_truncated: 'Es werden die ersten %shown% von %total% angezeigt. Grenze die Liste ein oder suche im anderen Modul.'
     label: Bezeichnung
     label_placeholder: Umsatzsteuer-ID
