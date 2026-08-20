@@ -87,6 +87,18 @@ always lands in `Unreleased` here.
   every real customer. `/_tls/ask` answers from the registry and refuses any
   request that did not come from the loopback, so it cannot be used from outside
   to ask whether a customer exists.
+- **A signup confirmation reaches the person who asked for it** ([XIV-61], §8.14).
+  The production image carries its CA bundle as a file pointed at by an
+  environment variable rather than as an installed trust store, and requests
+  served by FrankenPHP did not find it, so every confirmation failed with
+  `certificate verify failed` while `mailer:test` sent perfectly well on the same
+  DSN in the same container. `openssl.cafile` is set in php.ini now, which settles
+  it for both and for everything else that speaks TLS outbound.
+- **A confirmation nobody received leaves a trace** ([XIV-61], §8.14). The real
+  cause was wrapped twice before it reached a person and written down nowhere, so
+  an operator had a pending row, a sentence in a browser, and no way to tell a
+  broken mail server from a broken template. It is logged with the slug, not the
+  address.
 - **The deployment notes say how to choose an SMTP port and how to write a DSN**
   ([XIV-61], §4.8). Providers block outbound mail ports as a timeout rather than
   a refusal, so the wrong choice looks like mail hanging; and credentials have to

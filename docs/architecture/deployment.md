@@ -491,6 +491,17 @@ STARTTLS. Credentials in the DSN have to be percent-encoded: a username that is
 an email address carries an `@` inside the userinfo, and a `[` in a password
 makes a URL parser read the rest as an IPv6 literal and refuse the whole string.
 
+**Outbound TLS needs `openssl.cafile` set, and finding that out cost a
+deployment.** The runtime image is `debian:13-slim` with no `ca-certificates`
+package; the bundle is copied from the builder and pointed at with
+`SSL_CERT_FILE`. The CLI honours that and FrankenPHP-served requests did not, so
+signup confirmations failed with `certificate verify failed` while
+`bin/console mailer:test` sent successfully on the same DSN in the same
+container. Two SAPIs disagreeing about the trust store is not worth leaving to
+environment inheritance, so `frankenphp/conf.d/10-app.ini` names the file. It
+covers SMTP and the §4.5 monitoring pings, which go to an HTTPS endpoint and are
+documented to fail silently.
+
 **Secrets are installed once, deliberately, and never by a deploy.**
 `dep secrets:install <alias>` writes `/opt/xivi/.env.deploy` at mode 600 from a
 gitignored local file. A deploy that shipped them every time would put them in
