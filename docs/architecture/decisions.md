@@ -163,6 +163,80 @@ difference between the parallel and serial runs (measured 67 s against
 against ~48 s), and the `SharedSlugReuse*Test` pair fails the serial run
 deterministically if the guard regresses.
 
+**Languages are covered by field type, not by test count** (XIV-45). XIV-44 was
+a Critical bug that four hundred and eighty tests walked past, the browser layer
+included, because the whole suite spoke English, and in English a number's
+displayed form and its stored form are the same string. The bug class is narrow
+and nameable: a value crossing between what the model stores and what the reader
+sees. A field type owns its storage, its form type and its display, so that
+crossing is a property of fourteen classes rather than of four hundred tests.
+Making the suite German would have moved the blind spot rather than closed it,
+since English has failure modes German does not. Two additions, and no third:
+
+- **A round trip per field type per formatting locale**
+  (`FieldTypeRoundTripTest`). Write a value down, build the form, take what a
+  browser would post back, submit exactly that, and compare what would be
+  stored. Over `FieldTypeRegistry::all()`, so the next type is covered without
+  an edit, and it fails by name if that type asks a question the harness cannot
+  answer. A module's own type is in the registry too, so `voucher_code` is
+  covered by the same sweep without core knowing the module exists. The run also
+  counts the fields whose displayed form really differed from their stored one
+  and refuses to be green without them, because a round trip through the
+  identity function survives every time. A planted violation kept in the file
+  makes XIV-44's mistake on purpose, and is green in English and red in the
+  first locale writing a decimal comma, which is this ticket's whole argument in
+  two assertions.
+- **One browser test in every enabled language**
+  (`FiguresInEveryLanguageTest`), one test rather than the browser suite run
+  four times. The browser is the only layer exercising the typing, the
+  re-render and the server's arithmetic at once, and it is the layer XIV-44
+  walked through. §8.3's "deliberately few" is kept by making the addition one
+  page load per language, in a class of its own because that file is about the
+  three things only a browser can see and none of them is language.
+
+**The locale set is derived, never listed.** The languages are
+`enabled_locales`, which is already the promise that a language in the picker is
+served whole, and each is expanded to one locale per distinct way of writing a
+number, an amount of money and a short date across every country ICU knows
+(`FormattingLocales`). Two locales agreeing on those three cannot round-trip
+differently, so thirty locales cover all 249 countries. That is how `fr_CH`
+gets tested writing plain numbers with a comma and money with a point, which
+four bare languages would have missed, and how `en_IN` grouping in lakhs gets
+tested without anybody having thought of it. **A fifth language costs its own
+five or six formatting locales and one browser page load**, not a second copy of
+anything.
+
+**Rejected: the whole suite twice**, which scales by multiplication and makes
+the third language a decision somebody regrets; **and a locale dimension on the
+tests that touch formatted values**, which needs exactly the knowledge that
+failed the first time.
+
+**What none of it covers, recorded rather than discovered later**: anything
+locale-dependent that is not a field type. A figure formatted in a Twig template
+or a PDF, a sort order where `ae` and `a` collate differently, an ICU plural
+whose harder forms English cannot exercise, and a type that stops localizing
+altogether, which round-trips perfectly because a value shown as it is stored
+comes back as it was shown. `SwissFiguresTest` pins the separators themselves.
+
+**A browser test gives its session back** (XIV-45,
+`App\Tests\Support\ReleasesTheBrowser`). Panther consults its client cache only
+for `chrome` and `firefox`, so a suite talking to a grid gets a new session per
+test method, and nothing closes it: the extension resets its own list,
+`tearDownAfterClass()` is disabled while that extension is loaded, and the one
+client quit at the end is the last one created. Every browser test therefore
+held one of the node's four slots until the run ended, and from the fifth test
+onwards every test waited on the 300-second idle reaper, which is what the
+browser leg's running time mostly was and why a test occasionally gave up at the
+180-second session-request timeout instead. Writing the seventeenth test is what
+found it. Quitting in `tearDown()` took the leg from about five minutes to
+forty seconds and made four slots generous again.
+
+**The prevention is a rule in §8.3, not a new class.** XIV-44's root cause was
+code reading view values where model values were meant, and the seam where that
+happened has one caller, so extracting a named accessor for it would be naming a
+thing to make it look guarded. The rule is written where the Live Components
+decisions are, and the suite is what holds anybody to it.
+
 **An avatar is generated here, never fetched** (XIV-77). Initials in a circle,
 on a hue derived from the email address. Refusing Gravatar was a privacy
 decision, not a styling one: it would send every signed-in user's email hash to

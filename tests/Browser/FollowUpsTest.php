@@ -19,6 +19,7 @@ use App\Tenant\Entity\User;
 use App\Tenant\FollowUp\FollowUpManager;
 use App\Tenant\Repository\UserRepository;
 use App\Tenant\Security\UserCreator;
+use App\Tests\Support\ReleasesTheBrowser;
 use App\Tests\Support\SharesATenant;
 use Symfony\Component\Panther\Client;
 use Symfony\Component\Panther\PantherTestCase;
@@ -57,6 +58,7 @@ use Xivi\Core\Record\RecordWriter;
  */
 final class FollowUpsTest extends PantherTestCase
 {
+    use ReleasesTheBrowser;
     use SharesATenant;
 
     /** The hostname the browser asks for — see {@see CollectionRowsTest::HOST}. */

@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Browser;
 
+use App\Tests\Support\ReleasesTheBrowser;
 use Facebook\WebDriver\WebDriverBy;
 use Symfony\Component\Panther\Client;
 use Symfony\Component\Panther\PantherTestCase;
@@ -104,6 +105,8 @@ use Xivi\ControlPlane\Signup\SignupHost;
  */
 final class SignupNameTest extends PantherTestCase
 {
+    use ReleasesTheBrowser;
+
     /** The hostname the web server binds — see {@see CollectionRowsTest::HOST}. */
     private const string HOST = 'xivi-e2e';
 
@@ -146,13 +149,6 @@ final class SignupNameTest extends PantherTestCase
     private const string RESERVED_COMPANY = 'Admin';
 
     private ?Client $browser = null;
-
-    protected function tearDown(): void
-    {
-        $this->browser = null;
-
-        parent::tearDown();
-    }
 
     /**
      * Typing a company name fills in the address, and the address is the

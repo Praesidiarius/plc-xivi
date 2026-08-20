@@ -137,11 +137,19 @@ services:
     environment:
       # One session at a time: the browser tests are deliberately few and run in
       # one process, so a queue is more honest than parallelism nothing uses.
-      # Four slots for three tests, deliberately generous. With one slot, a
-      # session the test process never released — a failing test, an interrupted
-      # run — makes every later test queue for three minutes before reporting a
-      # timeout that says nothing about a leaked browser. Slack here is the
-      # difference between a red run and a nine-minute red run.
+      # Four slots, deliberately generous for the slack: with one slot, a session
+      # the test process never released, a failing test or an interrupted run,
+      # makes every later test queue for three minutes before reporting a timeout
+      # that says nothing about a leaked browser. Slack here is the difference
+      # between a red run and a nine-minute red run.
+      #
+      # **Panther never closes a Selenium session**, so until XIV-45 the slack
+      # was the whole mechanism rather than slack: a slot was taken per test and
+      # given back only by the reaper below, and from the fifth test onwards
+      # every test waited for one. `App\Tests\Support\ReleasesTheBrowser` gives
+      # the session back when its test ends, which is what makes four slots
+      # generous again at seventeen tests, and took the browser leg from about
+      # five minutes to forty seconds. Use that trait in a new browser class.
       SE_NODE_MAX_SESSIONS: "4"
       SE_NODE_OVERRIDE_MAX_SESSIONS: "true"
       SE_OPTS: "--max-sessions 4 --override-max-sessions true"
