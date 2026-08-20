@@ -126,9 +126,7 @@ final readonly class RecordMailer
             // `email_failed` that names its attachment is a document that was
             // made and a transport that refused, which is a different afternoon
             // from a document that could not be made at all.
-            $attachment === null
-                ? null
-                : ['template' => $attachment->template, 'format' => $attachment->format->value],
+            self::attachmentEntry($attachment),
         );
 
         try {
@@ -150,6 +148,29 @@ final readonly class RecordMailer
         }
 
         $this->record($module, $record, RecordAction::EmailSent, $changes);
+    }
+
+    /**
+     * The attachment, as the timeline stores it, or null for a send without one.
+     *
+     * The pair XIV-40 settled, plus what was ticked for it (XIV-164). The
+     * decorations key is written **only when something was on offer**, so an
+     * entry that says nothing about a payment part is an entry where no payment
+     * part was ever a possibility, and one that says `false` is an invoice
+     * somebody deliberately sent without a slip. Those are different afternoons
+     * and the difference is what the entry is kept for.
+     *
+     * @return array{template: string, format: string, decorations?: array<string, bool>}|null
+     */
+    private static function attachmentEntry(?MailAttachment $attachment): ?array
+    {
+        if ($attachment === null) {
+            return null;
+        }
+
+        $entry = ['template' => $attachment->template, 'format' => $attachment->format->value];
+
+        return $attachment->decorations === [] ? $entry : [...$entry, 'decorations' => $attachment->decorations];
     }
 
     /**

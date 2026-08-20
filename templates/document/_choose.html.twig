@@ -8,8 +8,14 @@
 
 	A select rather than a row of buttons because a contact may have fifty
 	templates, and fifty buttons is the layout this replaced.
+
+	**And whatever the module offers to put on the PDF** (XIV-164), as one tick
+	each. This form knows nothing about invoices or payment slips: it draws the
+	list the module answered with, in the module's own words, and a module with
+	nothing to add turns this back into the form it was before.
 #}
-<form method="get" action="{{ path('module_document', {module: module.key, id: record.id}) }}">
+<form method="get" action="{{ path('module_document', {module: module.key, id: record.id}) }}"
+      data-controller="document-decorations">
 	<div class="mb-3">
 		<label class="form-label" for="{{ id|default('document') }}-template">{{ 'document.template'|trans }}</label>
 		<select class="form-select" id="{{ id|default('document') }}-template" name="template" required>
@@ -21,12 +27,41 @@
 
 	<div class="mb-3">
 		<label class="form-label" for="{{ id|default('document') }}-format">{{ 'document.format'|trans }}</label>
-		<select class="form-select" id="{{ id|default('document') }}-format" name="format">
+		<select class="form-select" id="{{ id|default('document') }}-format" name="format"
+		        data-document-decorations-target="format"
+		        data-action="change->document-decorations#refresh">
 			{% for format in formats %}
 				<option value="{{ format.value }}">{{ ('document.format_' ~ format.value)|trans }}</option>
 			{% endfor %}
 		</select>
 	</div>
+
+	{#
+		Ticked, because the slip is the normal case for a Swiss invoice and
+		leaving it out is the exception (XIV-164). The known cost of a default
+		that is almost always right is that people stop reading it; what changes
+		is that the choice exists, and exists where the document is produced.
+
+		Nothing is drawn at all when the list is empty, which covers three cases
+		with one silence: a module with no decoration, a tenant whose settings
+		could not produce one, and the .docx, which is never decorated. The last
+		of those is decided while somebody is standing here rather than before
+		the page was built, so the controller on the form hides these again when
+		the format changes.
+	#}
+	{% for decoration in decorations|default([]) %}
+		<div class="mb-3 form-check" data-document-decorations-target="field">
+			<input class="form-check-input" type="checkbox" checked
+			       id="{{ id|default('document') }}-decoration-{{ decoration.key }}"
+			       name="decorations[]" value="{{ decoration.key }}">
+			<label class="form-check-label" for="{{ id|default('document') }}-decoration-{{ decoration.key }}">
+				{{ decoration.label|trans }}
+			</label>
+			{% if decoration.help %}
+				<div class="form-text">{{ decoration.help|trans }}</div>
+			{% endif %}
+		</div>
+	{% endfor %}
 
 	<button class="btn btn-primary" type="submit">
 		<i class="bi bi-download" aria-hidden="true"></i> {{ 'document.download'|trans }}

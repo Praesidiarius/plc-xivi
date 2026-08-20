@@ -63,7 +63,13 @@ final readonly class RecordChanges
          * generated in order to be attached is not a second thing that happened,
          * so the same pair of keys sits inside this one rather than beside it.
          *
-         * @var array{template: string, recipient: string, subject: string, attachment?: array{template: string, format: string}}|array{}
+         * It grew one key when the payment part became a choice (XIV-164):
+         * `decorations`, a question and its answer per offer, so that "was the
+         * QR-bill on the invoice we sent" has an answer here rather than a
+         * guess. Absent where nothing was ever on offer, which is every .docx
+         * and every module that decorates nothing.
+         *
+         * @var array{template: string, recipient: string, subject: string, attachment?: array{template: string, format: string, decorations?: array<string, bool>}}|array{}
          */
         public array $email = [],
     ) {
@@ -87,9 +93,9 @@ final readonly class RecordChanges
      * unable to tell that pair from somebody downloading a PDF and then, for
      * their own reasons, writing to the customer.
      *
-     * @param array{template: string, format: string}|null $attachment what went
-     *                                                                 with it, named exactly as a document entry
-     *                                                                 would have named itself
+     * @param array{template: string, format: string, decorations?: array<string, bool>}|null $attachment what went
+     *                                                                                                    with it, named exactly as a document entry
+     *                                                                                                    would have named itself
      */
     public static function forEmail(
         string $template,

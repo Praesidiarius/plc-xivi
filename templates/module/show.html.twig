@@ -506,7 +506,7 @@
 						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'common.cancel'|trans }}"></button>
 					</div>
 					<div class="modal-body">
-						{{ include('document/_choose.html.twig', {templates: documents, formats: formats, id: 'modal'}) }}
+						{{ include('document/_choose.html.twig', {templates: documents, formats: formats, decorations: decorations, id: 'modal'}) }}
 					</div>
 				</div>
 			</div>
@@ -535,6 +535,7 @@
 							draft: emails.draft,
 							attachments: emails.attachments,
 							formats: formats,
+							decorations: emails.decorations,
 							id: 'modal',
 						}) }}
 					</div>

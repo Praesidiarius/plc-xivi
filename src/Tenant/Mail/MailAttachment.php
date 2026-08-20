@@ -49,6 +49,25 @@ final readonly class MailAttachment
         /** The document template's name, for the record's timeline. */
         public string $template,
         public DocumentFormat $format,
+        /**
+         * What was on offer for this document and what was ticked (XIV-164),
+         * one key per offer with the answer beside it.
+         *
+         * A map rather than a list of the ones applied, because the timeline
+         * has to be able to say **no** as well as yes: "was the payment part on
+         * the invoice we sent" is the question asked months later, and a list
+         * of what went on cannot distinguish an invoice deliberately sent
+         * without a slip from a letter that was never the kind of document to
+         * carry one. The key is present when the question was asked; the
+         * boolean is the answer.
+         *
+         * Empty for a .docx and for every module that offers nothing, which is
+         * most of them, and the entry then says nothing about decorations at
+         * all.
+         *
+         * @var array<string, bool>
+         */
+        public array $decorations = [],
     ) {
     }
 

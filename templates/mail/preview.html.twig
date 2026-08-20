@@ -68,6 +68,25 @@
 							<i class="bi bi-paperclip" aria-hidden="true"></i>
 							{{ attachment.filename }}
 							<span class="text-body-secondary">{{ 'mail.attachment_size'|trans({size: attachment.bytes / 1048576}) }}</span>
+							{#
+								And whether the ticks were honoured (XIV-164). Read off
+								the document that was actually made rather than off the
+								form that asked for it, which is the same standard the
+								file name and the size beside it are held to: what this
+								screen says is what is in the file. So a payment part
+								the tenant's settings could not produce says "left out"
+								here, and the person finds that out before the
+								irreversible button rather than from a customer who
+								could not pay.
+							#}
+							{% for key, applied in attachment.decorations %}
+								<div class="small {{ applied ? 'text-body-secondary' : 'text-warning-emphasis' }}">
+									<i class="bi bi-{{ applied ? 'check2' : 'dash' }}" aria-hidden="true"></i>
+									{{ ('document.decoration_' ~ (applied ? 'on' : 'off'))|trans({
+										'%decoration%': ('document.decoration.' ~ key)|trans,
+									}) }}
+								</div>
+							{% endfor %}
 						</dd>
 					{% endif %}
 				</dl>
@@ -113,6 +132,16 @@
 					<input type="hidden" name="recipient" value="{{ draft.recipient }}">
 					<input type="hidden" name="document" value="{{ draft.document }}">
 					<input type="hidden" name="format" value="{{ draft.format }}">
+					{#
+						The ticks too (XIV-164), or previewing would quietly undo
+						them: an unticked box submits nothing, so a send that
+						carried every other answer through and not these would
+						produce a document the screen above has just promised it
+						would not.
+					#}
+					{% for key in draft.decorations %}
+						<input type="hidden" name="decorations[]" value="{{ key }}">
+					{% endfor %}
 
 					<button class="btn btn-primary" type="submit">
 						<i class="bi bi-send" aria-hidden="true"></i> {{ 'mail.send'|trans }}

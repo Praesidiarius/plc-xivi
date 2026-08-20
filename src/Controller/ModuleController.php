@@ -27,7 +27,9 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use Xivi\Core\Document\Decoration;
 use Xivi\Core\Document\DocumentFormat;
+use Xivi\Core\Document\DocumentGenerator;
 use Xivi\Core\Document\DocumentTemplateRepository;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
@@ -86,6 +88,9 @@ final class ModuleController extends AbstractController
         // Nothing attached, which is the ordinary send (XIV-40).
         'document' => 0,
         'format' => 'pdf',
+        // And nothing ticked on it (XIV-164): the form ticks what it offers,
+        // and a draft for a send that is not being offered offers nothing.
+        'decorations' => [],
     ];
 
     /**
@@ -139,6 +144,10 @@ final class ModuleController extends AbstractController
         // than the definition: a field naming several records is found by
         // containment where one naming a single record is found by equality.
         private readonly FieldTypeRegistry $fieldTypes,
+        // What a PDF of this record could carry beyond the template (XIV-164),
+        // for the ticks in both modals. Through the generator, so this page
+        // learns what is on offer without learning what any of it is.
+        private readonly DocumentGenerator $generator,
     ) {
     }
 
@@ -340,6 +349,15 @@ final class ModuleController extends AbstractController
             ? $this->templates->forRecord($definition->getKey(), $definition->variantOf($record->data))
             : [];
 
+        // What a PDF of this record could carry, as ticks (XIV-164). Asked only
+        // when there is a document to put one on, so a record page with no
+        // templates does not read the company profile to decide the contents of
+        // a modal nobody is shown, which is the care every other line here
+        // takes.
+        $decorations = $documents === []
+            ? []
+            : $this->generator->decorations($definition, $record, DocumentFormat::Pdf);
+
         return $this->render('module/show.html.twig', [
             'module' => $definition,
             'record' => $record,
@@ -372,11 +390,12 @@ final class ModuleController extends AbstractController
             'historyShown' => self::HISTORY_ON_RECORD,
             'documents' => $documents,
             'formats' => DocumentFormat::cases(),
+            'decorations' => $decorations,
             // What could be sent from this record, and where it would go
             // (XIV-39). One value rather than three, because the page's three
             // states — no button, a reason instead of one, the button — are one
             // decision made from all of it.
-            'emails' => $this->emailsOn($definition, $record, $documents),
+            'emails' => $this->emailsOn($definition, $record, $documents, $decorations),
             // Null for a module that simply is (XIV-14); the page then draws no
             // status at all rather than an empty one.
             'lifecycle' => $lifecycle,
@@ -466,11 +485,18 @@ final class ModuleController extends AbstractController
      * made is the weaker of the two, so its list is a superset and nothing has
      * to be read a second time.
      *
-     * @param list<\Xivi\Core\Entity\DocumentTemplate> $documents
+     * The ticks come along on the same terms (XIV-164), and for the same reason
+     * they are drawn on the download: a choice that existed on one and not the
+     * other would be incoherent, and the mailed copy is the one a customer pays
+     * from. They are the caller's list again as well, since what a PDF of this
+     * record could carry does not depend on which button produced it.
      *
-     * @return array{templates: list<\Xivi\Core\Entity\EmailTemplate>, recipient: Recipient, draft: array{template: int, subject: string, recipient: string, document: int, format: string}, attachments: list<\Xivi\Core\Entity\DocumentTemplate>}
+     * @param list<\Xivi\Core\Entity\DocumentTemplate> $documents
+     * @param list<Decoration>                         $decorations
+     *
+     * @return array{templates: list<\Xivi\Core\Entity\EmailTemplate>, recipient: Recipient, draft: array{template: int, subject: string, recipient: string, document: int, format: string, decorations: list<string>}, attachments: list<\Xivi\Core\Entity\DocumentTemplate>, decorations: list<Decoration>}
      */
-    private function emailsOn(ModuleDefinition $definition, Record $record, array $documents): array
+    private function emailsOn(ModuleDefinition $definition, Record $record, array $documents, array $decorations): array
     {
         if (!$this->isGranted(ModuleAction::SendEmail->value, $definition->getKey())) {
             return [
@@ -478,21 +504,36 @@ final class ModuleController extends AbstractController
                 'recipient' => Recipient::missing(RecipientProblem::NotDeclared),
                 'draft' => self::NO_EMAIL_DRAFT,
                 'attachments' => [],
+                'decorations' => [],
             ];
         }
 
         $recipient = $this->recipients->for($definition, $record);
         $offered = $recipient->isOffered();
+        $attachments = $offered && $this->isGranted(ModuleAction::Document->value, new ModuleRecord($definition, $record))
+            ? $documents
+            : [];
 
         return [
             'templates' => $offered
                 ? $this->emailTemplates->forRecord($definition->getKey(), $definition->variantOf($record->data))
                 : [],
             'recipient' => $recipient,
-            'draft' => [...self::NO_EMAIL_DRAFT, 'recipient' => $recipient->address ?? ''],
-            'attachments' => $offered && $this->isGranted(ModuleAction::Document->value, new ModuleRecord($definition, $record))
-                ? $documents
-                : [],
+            'draft' => [
+                ...self::NO_EMAIL_DRAFT,
+                'recipient' => $recipient->address ?? '',
+                // Every offer ticked (XIV-164), the same blank draft the send
+                // chooser's own page starts from: the modal and the page are
+                // one form, so they have to start in one state.
+                'decorations' => $attachments === []
+                    ? []
+                    : array_map(static fn (Decoration $decoration): string => $decoration->key, $decorations),
+            ],
+            'attachments' => $attachments,
+            // No picker, no ticks: a decoration is something added to an
+            // attached document, so offering one where nothing can be attached
+            // would be a control with no object (XIV-164).
+            'decorations' => $attachments === [] ? [] : $decorations,
         ];
     }
 

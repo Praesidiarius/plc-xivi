@@ -992,6 +992,13 @@ document:
     format_pdf: PDF (da inviare)
     format_docx: Word (da ritoccare prima)
     download: Scarica
+    # Che cosa un modulo propone di aggiungere a un PDF, e che cosa la cronologia
+    # ne dice dopo (XIV-164). Per la chiave dell’aggiunta, dichiarata nel codice
+    # e che nessuno può rinominare.
+    decoration:
+        payment_part: sezione pagamento QR
+    decoration_on: 'Con %decoration%'
+    decoration_off: 'Senza %decoration%'
     none_for_record: Nessun modello vale ancora per questo record.
     marker:
         tenant_name: Questa azienda
@@ -1160,6 +1167,11 @@ payment_part:
     skipped_no_currency: 'La fattura è stata generata senza sezione pagamento QR: scegli prima una valuta (CHF o EUR) nel profilo aziendale.'
     skipped_reference: 'La fattura è stata generata senza sezione pagamento QR: il numero di fattura “%number%” non si può trasformare in un riferimento %type%.'
     skipped_invalid: 'La fattura è stata generata senza sezione pagamento QR: i dati di pagamento non hanno superato la convalida. Controlla la parte pagamenti del profilo aziendale.'
+    # La spunta nelle finestre di documento e invio (XIV-164). Attiva per
+    # impostazione predefinita: una fattura svizzera vuole di norma una sezione
+    # pagamento, ometterla è l’eccezione.
+    include: Aggiungi la sezione pagamento QR
+    include_help: La polizza di versamento svizzera, come ultima pagina del PDF. Togli la spunta per una copia che nessuno deve pagare.
 
 follow_up:
     priority:

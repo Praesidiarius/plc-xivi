@@ -233,6 +233,17 @@ always lands in `Unreleased` here.
   message saying exactly why. Library: `sprain/swiss-qr-bill` (MIT, tree
   checked in THIRD-PARTY-NOTICES.md); the PHP image gained `bcmath` and `gd`,
   so **rebuild your containers** after pulling this.
+- **The payment part is now a tick, ticked** ([XIV-164], §5.28). The document
+  window and the send window both carry **Add the QR-bill payment part**,
+  already ticked, so a copy for the file, a proforma or an invoice that is
+  already paid can go out without a slip. The choice belongs to that one
+  document and is stored nowhere on the record. The box is absent, without
+  comment, where it could not mean anything: on modules that add nothing to a
+  PDF, on an installation whose payment settings could not produce a slip, and
+  when the Word format is chosen. **A download link kept from before this
+  release now produces an invoice without a payment part**, since a request that
+  chose nothing is not a request for one; download it from the window again.
+  The timeline entry for a sent invoice says whether the slip went with it.
 
 - **`bin/ci --coverage` no longer renders the HTML report** ([XIV-161]): the
   renderer outgrew the 512M limit at ~89k lines and was killing CI, and nothing
@@ -306,6 +317,7 @@ always lands in `Unreleased` here.
 [XIV-161]: https://xivi.youtrack.cloud/issue/XIV-161
 [XIV-162]: https://xivi.youtrack.cloud/issue/XIV-162
 [XIV-163]: https://xivi.youtrack.cloud/issue/XIV-163
+[XIV-164]: https://xivi.youtrack.cloud/issue/XIV-164
 
 
 ## Releases

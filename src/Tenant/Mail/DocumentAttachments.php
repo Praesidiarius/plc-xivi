@@ -36,6 +36,15 @@ use Xivi\Core\Record\Record;
  *
  * **It refuses what is too big to send**, which is the other half.
  *
+ * **And it settles what was ticked** (XIV-164). The send chooser carries the
+ * same payment-part tick the download does, and this is where the wish becomes
+ * a fact: what the module offered for this record is crossed with what came
+ * back from the form, and the one resulting list both decorates the document
+ * and goes onto the timeline. Crossing them rather than trusting the form is
+ * what keeps a hand-posted key from claiming a slip that was never on offer,
+ * and computing it once is what stops the record of the send from disagreeing
+ * with the file that went out.
+ *
  * ### The ceiling, and why this number
  *
  * Seven mebibytes of document, by default. The number is chosen against what
@@ -87,6 +96,11 @@ final readonly class DocumentAttachments
      * makes "a failed generation sends nothing" true by construction rather than
      * by a caller remembering to check in the right order.
      *
+     * @param list<string> $wanted the decoration keys ticked on the send
+     *                             chooser (XIV-164), which is not the same
+     *                             thing as the decorations this document ends
+     *                             up with: see below
+     *
      * @throws AttachmentRefused when it cannot be made, or is too big to send
      */
     public function for(
@@ -94,9 +108,21 @@ final readonly class DocumentAttachments
         ModuleDefinition $module,
         Record $record,
         DocumentFormat $format,
+        array $wanted = [],
     ): MailAttachment {
+        // One offer at a time, answered yes or no. A .docx offers nothing at
+        // all and a module with no decoration offers nothing either, so this is
+        // usually empty and the two lines below cost nothing.
+        $answers = [];
+
+        foreach ($this->generator->decorations($module, $record, $format) as $decoration) {
+            $answers[$decoration->key] = \in_array($decoration->key, $wanted, true);
+        }
+
+        $applied = array_keys(array_filter($answers));
+
         try {
-            $contents = $this->generator->contents($template, $module, $record, $format);
+            $contents = $this->generator->contents($template, $module, $record, $format, $applied);
         } catch (DocumentFailed $failed) {
             throw AttachmentRefused::couldNotGenerate($failed);
         }
@@ -113,6 +139,7 @@ final readonly class DocumentAttachments
             $format->contentType(),
             $template->getName(),
             $format,
+            $answers,
         );
     }
 }

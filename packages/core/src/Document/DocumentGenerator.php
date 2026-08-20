@@ -51,6 +51,26 @@ final readonly class DocumentGenerator
     }
 
     /**
+     * What could be added to a PDF of this record, so a chooser can ask
+     * (XIV-164).
+     *
+     * The one place the three silences are decided, which is why it lives on
+     * the generator rather than on the seam behind it. A module with nothing to
+     * add and a tenant whose settings could not produce anything are both the
+     * decorator's own answer; **the format is this method's**, because the
+     * .docx is the one format this class already refuses to decorate, and a
+     * tick on a .docx would be a promise the pipeline below is written never to
+     * keep. Three absences, one empty list, and the chooser draws nothing in
+     * all three cases without knowing which it is.
+     *
+     * @return list<Decoration>
+     */
+    public function decorations(ModuleDefinition $module, Record $record, DocumentFormat $format): array
+    {
+        return $format === DocumentFormat::Pdf ? $this->decorator->offers($module, $record) : [];
+    }
+
+    /**
      * The finished .docx, as bytes.
      *
      * @throws DocumentFailed when the template cannot be read or filled
@@ -64,13 +84,15 @@ final readonly class DocumentGenerator
     }
 
     /**
-     * The same document as a PDF.
+     * The same document as a PDF, carrying whatever was ticked for it.
+     *
+     * @param list<string> $decorations keys from {@see self::decorations()}
      *
      * @throws DocumentFailed
      */
-    public function pdf(DocumentTemplate $template, ModuleDefinition $module, Record $record): string
+    public function pdf(DocumentTemplate $template, ModuleDefinition $module, Record $record, array $decorations = []): string
     {
-        $pdf = $this->contents($template, $module, $record, DocumentFormat::Pdf);
+        $pdf = $this->contents($template, $module, $record, DocumentFormat::Pdf, $decorations);
 
         // After the conversion, so a converter that is down leaves no entry
         // saying a document was made. And once, not twice: the PDF starts life
@@ -99,6 +121,12 @@ final readonly class DocumentGenerator
      * filled: the markers live in a Word document and stop being addressable the
      * moment it becomes a PDF.
      *
+     * @param list<string> $decorations which of {@see self::decorations()} were
+     *                                  ticked. Nothing by default, because a request that
+     *                                  expressed no wish is not a request for a payment part
+     *                                  (XIV-164). The tick is ticked by the form, where
+     *                                  somebody can see it and untick it.
+     *
      * @throws DocumentFailed when the template cannot be read, filled or converted
      */
     public function contents(
@@ -106,6 +134,7 @@ final readonly class DocumentGenerator
         ModuleDefinition $module,
         Record $record,
         DocumentFormat $format,
+        array $decorations = [],
     ): string {
         $document = $this->fill($template, $module, $record);
 
@@ -121,8 +150,11 @@ final readonly class DocumentGenerator
         // rather than in the two announcing verbs above, so the mailed copy of
         // an invoice carries the same payment part the downloaded one does; a
         // slip that appeared on the download and not on the email would be
-        // missing from precisely the copy the customer pays from.
-        return $this->decorator->decorate($module, $record, $pdf);
+        // missing from precisely the copy the customer pays from. The tick that
+        // now decides it (XIV-164) travels the same road for the same reason: a
+        // choice offered on the download and not on the send would be
+        // incoherent, and the mailed copy is where being wrong matters more.
+        return $this->decorator->decorate($module, $record, $pdf, $decorations);
     }
 
     /**

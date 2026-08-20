@@ -18,7 +18,8 @@
 #}
 {% set prefix = id|default('email') %}
 
-<form method="post" action="{{ path('module_email_send', {module: module.key, id: record.id}) }}">
+<form method="post" action="{{ path('module_email_send', {module: module.key, id: record.id}) }}"
+      data-controller="document-decorations">
 	<input type="hidden" name="_token" value="{{ csrf_token('send-record-email') }}">
 
 	<div class="mb-3">
@@ -67,7 +68,9 @@
 			<label class="form-label" for="{{ prefix }}-document">{{ 'mail.attachment'|trans }}</label>
 			<div class="row g-2">
 				<div class="col-sm-8">
-					<select class="form-select" id="{{ prefix }}-document" name="document">
+					<select class="form-select" id="{{ prefix }}-document" name="document"
+					        data-document-decorations-target="document"
+					        data-action="change->document-decorations#refresh">
 						<option value="0" {{ draft.document ? '' : 'selected' }}>{{ 'mail.no_attachment'|trans }}</option>
 						{% for template in attachments %}
 							<option value="{{ template.id }}" {{ draft.document == template.id ? 'selected' : '' }}>{{ template.name }}</option>
@@ -76,7 +79,9 @@
 				</div>
 				<div class="col-sm-4">
 					<label class="visually-hidden" for="{{ prefix }}-format">{{ 'document.format'|trans }}</label>
-					<select class="form-select" id="{{ prefix }}-format" name="format">
+					<select class="form-select" id="{{ prefix }}-format" name="format"
+					        data-document-decorations-target="format"
+					        data-action="change->document-decorations#refresh">
 						{% for format in formats %}
 							<option value="{{ format.value }}" {{ draft.format == format.value ? 'selected' : '' }}>
 								{{- ('document.format_' ~ format.value)|trans -}}
@@ -86,6 +91,36 @@
 				</div>
 			</div>
 			<div class="form-text">{{ 'mail.attachment_help'|trans }}</div>
+
+			{#
+				The very tick the download chooser draws, on the same terms and
+				from the same list (XIV-164). A choice that existed on the
+				download and not on the send would be incoherent, and this is
+				the copy that matters more: §5.28's argument for putting a
+				payment part on an invoice at all is that the mailed copy is the
+				one a customer pays from.
+
+				Ticked here too, and hidden by the controller on the form when
+				the answers beside it stop being true: no attachment, or a
+				.docx.
+
+				The draft decides, rather than a `checked` written in here, and
+				that is what makes a refusal keep what somebody chose: a blank
+				draft arrives with every offer ticked, and one that comes back
+				from a rejected send arrives with whatever survived it, which is
+				the same care the subject box beside it already takes.
+			#}
+			{% for decoration in decorations|default([]) %}
+				<div class="form-check mt-2" data-document-decorations-target="field">
+					<input class="form-check-input" type="checkbox"
+					       id="{{ prefix }}-decoration-{{ decoration.key }}"
+					       name="decorations[]" value="{{ decoration.key }}"
+					       {{ decoration.key in draft.decorations ? 'checked' : '' }}>
+					<label class="form-check-label" for="{{ prefix }}-decoration-{{ decoration.key }}">
+						{{ decoration.label|trans }}
+					</label>
+				</div>
+			{% endfor %}
 		</div>
 	{% endif %}
 
