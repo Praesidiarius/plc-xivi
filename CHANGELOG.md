@@ -293,8 +293,8 @@ always lands in `Unreleased` here.
 
 [XIV-45]: https://xivi.youtrack.cloud/issue/XIV-45
 [XIV-108]: https://xivi.youtrack.cloud/issue/XIV-108
-[XIV-115]: https://xivi.youtrack.cloud/issue/XIV-115
 [XIV-113]: https://xivi.youtrack.cloud/issue/XIV-113
+[XIV-115]: https://xivi.youtrack.cloud/issue/XIV-115
 [XIV-125]: https://xivi.youtrack.cloud/issue/XIV-125
 [XIV-146]: https://xivi.youtrack.cloud/issue/XIV-146
 [XIV-148]: https://xivi.youtrack.cloud/issue/XIV-148
