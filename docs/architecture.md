@@ -1,4 +1,4 @@
-# Xivi 17 — Architecture Brief
+# Xivi 17: Architecture Brief
 
 Metadata-driven CRM/ERP engine in Symfony, plus a working CRM built on top of
 it. Ground-up rebuild of its predecessor, called **v1** throughout; the version
