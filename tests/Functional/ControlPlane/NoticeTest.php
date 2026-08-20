@@ -14,6 +14,8 @@ declare(strict_types=1);
 namespace App\Tests\Functional\ControlPlane;
 
 use App\Registry\Entity\Notice;
+use App\Registry\Entity\NoticePriority;
+use App\Registry\Entity\NoticeReach;
 use App\Registry\Entity\Tenant;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
@@ -235,6 +237,94 @@ final class NoticeTest extends WebTestCase
     }
 
     /**
+     * An every-page notice with no end is refused (XIV-166).
+     *
+     * **The refusal that pays for the decision next door**, and it is worth
+     * saying why it is a refusal rather than a warning. An every-page notice is
+     * deliberately not dismissible, because a band a reader can switch off once
+     * is the dashboard channel with extra steps
+     * ({@see NoticeReach::isDismissible()}). Somebody has to be able to make it
+     * stop, and if it is not the reader then it has to be the operator, and the
+     * moment to make an operator decide when is before the band goes up rather
+     * than after a customer complains.
+     *
+     * The dashboard half of the same submission is the control: a notice with no
+     * end is perfectly ordinary there, because a release note is still true next
+     * month.
+     */
+    public function testAnEveryPageNoticeWithNoEndIsRefused(): void
+    {
+        $landed = $this->publish([
+            'title' => 'A band with no end',
+            'reach' => 'every_page',
+            'expires_at' => '',
+        ]);
+
+        self::assertNull($this->noticeTitled('A band with no end'));
+        self::assertStringContainsString('has to say when it stops', $landed->filter('main')->text());
+
+        $this->publish(['title' => 'A card with no end']);
+
+        self::assertInstanceOf(
+            Notice::class,
+            $this->noticeTitled('A card with no end'),
+            'the dashboard channel is unaffected: a release note is still true next month',
+        );
+    }
+
+    /**
+     * The reach and the priority reach the row, and the screen says so.
+     *
+     * Both halves in one test because they are one submission and one cell. The
+     * screen's part matters more than it looks: an operator publishing to every
+     * page of every customer's installation should be able to see afterwards
+     * that that is what they did, and the list is the only place that can tell
+     * them.
+     */
+    public function testTheReachAndThePriorityAreStoredAndShown(): void
+    {
+        $this->publish([
+            'title' => 'A loud one',
+            'reach' => 'every_page',
+            'priority' => 'danger',
+            'expires_at' => (new \DateTimeImmutable('+2 days'))->format('Y-m-d\TH:i'),
+        ]);
+
+        $notice = $this->noticeTitled('A loud one');
+        \assert($notice instanceof Notice);
+
+        self::assertSame(NoticeReach::EveryPage, $notice->getReach());
+        self::assertSame(NoticePriority::Danger, $notice->getPriority());
+        self::assertFalse($notice->isDismissible(), 'and the loud channel cannot be put away');
+
+        $row = $this->openNotices()->filter('tbody tr')->first()->text();
+
+        self::assertStringContainsString('On every page', $row);
+        self::assertStringContainsString('Action needed', $row);
+    }
+
+    /**
+     * A notice published with no opinion about either is the quiet channel at
+     * one weight, which is what every notice written before XIV-166 was.
+     *
+     * The form preselects both, so this is not testing the form: it is testing
+     * that the two defaults an operator is offered are the two the *row* would
+     * have taken anyway, which is what makes the migration's back-fill honest
+     * rather than a guess.
+     */
+    public function testAPlainNoticeIsADashboardNoticeForInformation(): void
+    {
+        $this->publish(['title' => 'An ordinary one']);
+
+        $notice = $this->noticeTitled('An ordinary one');
+        \assert($notice instanceof Notice);
+
+        self::assertSame(NoticeReach::Dashboard, $notice->getReach());
+        self::assertSame(NoticePriority::Info, $notice->getPriority());
+        self::assertTrue($notice->isDismissible());
+    }
+
+    /**
      * **The screen opens no tenant connection**, which is [XIV-58]'s boundary and
      * is asserted the same way the tenant list and the purchase screen assert it.
      *
@@ -271,7 +361,7 @@ final class NoticeTest extends WebTestCase
      * point of a flash and is why a refusal has to be read here rather than on a
      * later visit.
      *
-     * @param array{title?: string, body?: string, audience?: string, every_tenant?: string, tenants?: list<string>, expires_at?: string} $values
+     * @param array{title?: string, body?: string, audience?: string, every_tenant?: string, tenants?: list<string>, expires_at?: string, reach?: string, priority?: string} $values
      */
     private function publish(array $values): Crawler
     {
@@ -285,6 +375,12 @@ final class NoticeTest extends WebTestCase
             'title' => $values['title'] ?? 'A notice',
             'body' => ($values['body'] ?? 'The body of ' . ($values['title'] ?? 'A notice')) . ' ' . self::MARK,
             'audience' => $values['audience'] ?? 'everyone',
+            // The two XIV-166 added, defaulted here to what the form's own
+            // controls are preselected to: the quiet channel at the one weight
+            // everything used to be drawn in. A test about addressing or about
+            // withdrawal should not have to have an opinion about reach.
+            'reach' => $values['reach'] ?? 'dashboard',
+            'priority' => $values['priority'] ?? 'info',
             'every_tenant' => $values['every_tenant'] ?? '1',
             'tenants' => $values['tenants'] ?? [],
             'expires_at' => $values['expires_at'] ?? '',

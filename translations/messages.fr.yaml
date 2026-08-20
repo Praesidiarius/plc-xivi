@@ -145,7 +145,9 @@ control_plane:
         personne n’en fixe.
     notices: Avis
     notices_live: '%count% avis que les clients voient en ce moment.'
-    notices_live_hint: Un avis apparaît sur le tableau de bord de tous ceux à qui il était adressé.
+    notices_live_hint: >-
+        Un avis apparaît dans l’installation de tous ceux à qui il était adressé : sur leur
+        tableau de bord, ou sur chaque page qu’ils ouvrent.
     notices_no_receipts: >-
         Rien ici ne sait si quelqu’un a lu un avis. Le savoir signifierait aller le relever dans la
         base de données propre de chaque client.
@@ -154,8 +156,18 @@ control_plane:
     notice_body: Avis
     notice_body_hint: Texte brut. Pas de liens, pas de mise en forme.
     notice_audience: Qui le voit
+    notice_reach: Où il apparaît
+    notice_reach_hint: >-
+        Un avis sur chaque page ne peut pas être écarté par ceux qui le lisent, il doit donc dire
+        quand il s’arrête.
+    notice_priority: Genre
+    notice_priority_hint: >-
+        Colore un avis sur chaque page. Les avis du tableau de bord sont tous dessinés de la même
+        façon.
     notice_expires: Cesse de s’afficher (facultatif)
-    notice_expires_hint: UTC. Laissez vide pour un avis sans fin ; vous pouvez le retirer à tout moment.
+    notice_expires_hint: >-
+        UTC. Laissez vide pour un avis sans fin ; vous pouvez le retirer à tout moment. Un avis sur
+        chaque page doit en avoir une.
     notice_addressed: Adressé à
     notice_addressed_count: '%count% client(s)'
     notice_every_tenant: Chaque client
@@ -174,10 +186,12 @@ control_plane:
     notice_gone: Cet avis n’existe plus.
     notice_stale: Cette page était restée ouverte un moment. Rien n’a été publié ; réessayez.
     notice_unknown_audience: Ce n’est pas un public qu’un avis peut avoir.
+    notice_unknown_reach: Ce n’est pas un endroit où un avis peut apparaître.
+    notice_unknown_priority: Ce n’est pas un genre qu’un avis peut avoir.
     no_notices: Rien n’a été annoncé
     no_notices_hint: >-
-        Un avis apparaît sur le tableau de bord de tous ceux à qui il était adressé, dans leur
-        propre installation, là où ils travaillent déjà.
+        Un avis apparaît dans l’installation de tous ceux à qui il était adressé, là où ils
+        travaillent déjà : sur leur tableau de bord, ou sur chaque page qu’ils ouvrent.
     support: Support
     support_outstanding: '%count% client(s) attendent une réponse.'
     support_outstanding_hint: >-
@@ -238,6 +252,14 @@ notice:
     audience:
         everyone: Tout le monde ici
         administrators: Administrateurs
+    reach:
+        dashboard: Sur le tableau de bord
+        every_page: Sur chaque page
+    priority:
+        info: Pour information
+        warning: À noter
+        success: Réglé
+        danger: Action requise
 
 support:
     title: Support

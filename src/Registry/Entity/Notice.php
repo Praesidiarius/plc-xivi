@@ -97,14 +97,26 @@ use Doctrine\ORM\Mapping as ORM;
  * that can disagree with the first. A title and a body is what an announcement
  * is.
  *
- * **No severity.** Every notice is drawn the same way, so nothing here competes
- * for attention by claiming to be urgent. The day a genuine emergency channel is
- * wanted it should look different from this one rather than being this one with
- * a red flag set.
- *
  * **No read receipt.** See §8.16: knowing that somebody read this means
  * collecting a fact out of every customer's database, which is [XIV-102]'s
  * collector pointed the other way and is a feature rather than a column.
+ *
+ * ## What it used to say it had not got, and now has (XIV-166)
+ *
+ * This docblock read *"no severity: every notice is drawn the same way, so
+ * nothing here competes for attention by claiming to be urgent. The day a
+ * genuine emergency channel is wanted it should look different from this one
+ * rather than being this one with a red flag set."*
+ *
+ * **That paragraph got its own wish.** The genuine emergency channel arrived,
+ * and it does look different from this one: {@see NoticeReach::EveryPage} is a
+ * band in the shell of every page rather than a card on a landing page somebody
+ * chooses to open, and {@see $priority} says what kind of thing is in it. The
+ * sentence is quoted rather than deleted because it was right about the thing it
+ * refused, and it is still right about the dashboard: a card in the notices
+ * widget is drawn exactly as it was, in one weight, with no colour and no icon.
+ * Do not put the priority on it without an argument for why the dashboard has
+ * become a place where four weights are honest.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
@@ -173,6 +185,29 @@ class Notice
         /** A date the customer is shown, which is half of what makes this an announcement rather than an advert. */
         #[ORM\Column(name: 'published_at')]
         private \DateTimeImmutable $publishedAt = new \DateTimeImmutable(),
+        /**
+         * Where in the customer's day this is allowed to appear (XIV-166).
+         *
+         * **Defaulted, and the default is the quiet one**, which is the same
+         * decision the column's `DEFAULT 'dashboard'` made in the migration and
+         * for the same reason: every notice written before this column existed
+         * behaves exactly as it did, and a caller that has not thought about
+         * reach gets the channel that costs a reader nothing. The loud one is
+         * only ever reached by saying so.
+         */
+        #[ORM\Column(length: 32, enumType: NoticeReach::class)]
+        private NoticeReach $reach = NoticeReach::Dashboard,
+        /**
+         * How loud it is drawn on the loud channel, and nothing at all on the
+         * quiet one (XIV-166).
+         *
+         * Defaulted to {@see NoticePriority::Info} because that is what a notice
+         * with no opinion about itself is, and because it is the honest reading
+         * of every notice written before XIV-166: they were drawn in one weight,
+         * and of the four this enum offers, the one weight they had is this one.
+         */
+        #[ORM\Column(length: 32, enumType: NoticePriority::class)]
+        private NoticePriority $priority = NoticePriority::Info,
     ) {
         $this->recipients = new ArrayCollection();
         $this->createdAt = $this->publishedAt;
@@ -201,6 +236,31 @@ class Notice
     public function isForEveryTenant(): bool
     {
         return $this->everyTenant;
+    }
+
+    public function getReach(): NoticeReach
+    {
+        return $this->reach;
+    }
+
+    public function getPriority(): NoticePriority
+    {
+        return $this->priority;
+    }
+
+    /**
+     * Whether a reader may put this away for themselves.
+     *
+     * Delegated to the reach rather than answered here, because it is a fact
+     * about the channel and not about this row: see
+     * {@see NoticeReach::isDismissible()}, which carries the argument. It is
+     * forwarded at all so that a template and
+     * {@see \App\Tenant\Notice\NoticeInbox} can ask the notice, which is the
+     * thing they are holding.
+     */
+    public function isDismissible(): bool
+    {
+        return $this->reach->isDismissible();
     }
 
     public function getAuthorLabel(): string

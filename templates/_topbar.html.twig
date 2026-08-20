@@ -284,3 +284,18 @@
 		</ul>
 	</div>
 </nav>
+
+{#
+	The operator's every-page notices (XIV-166, §8.16), directly under the bar and
+	above whatever the page is about.
+
+	**Included here rather than from each page**, and that is the reason this
+	partial is in the top bar's file at all rather than in every one of the forty
+	templates that draw a page. `_topbar.html.twig` is the one thing every
+	signed-in page of a customer's installation goes through, so putting the band
+	here means a page cannot fail to have it and a page written next year gets it
+	without anybody remembering to say so. It renders nothing at all when there is
+	nothing live, which is almost always; `templates/_notices.html.twig` argues the
+	placement and the colours.
+#}
+{{ include('_notices.html.twig') }}

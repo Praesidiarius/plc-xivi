@@ -15,6 +15,8 @@ namespace App\Registry\Notice;
 
 use App\Registry\Entity\Notice;
 use App\Registry\Entity\NoticeAudience;
+use App\Registry\Entity\NoticePriority;
+use App\Registry\Entity\NoticeReach;
 use App\Registry\Entity\Tenant;
 use App\Registry\Repository\TenantRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -61,6 +63,18 @@ use Doctrine\ORM\EntityManagerInterface;
  * * **An empty title or body.** Not validation theatre — this row is drawn on a
  *   customer's landing page, and an empty card there is a defect somebody
  *   reports.
+ * * **An every-page notice with no end** (XIV-166). The newest of the four and
+ *   the only one that is not obviously a mistake being caught: an operator who
+ *   publishes to every page of every customer's installation and leaves the end
+ *   date empty has not made an error, they have taken a band across somebody
+ *   else's product for as long as they happen to remember it. That is the half of
+ *   this ticket a customer cannot answer for themselves, because an every-page
+ *   notice is deliberately not dismissible
+ *   ({@see NoticeReach::isDismissible()} has the argument).
+ *   The reader cannot switch it off and the operator cannot forget to; the
+ *   refusal is what makes the second half of that sentence true. Withdrawing
+ *   early is still one press, and the dashboard channel is unaffected, because
+ *   there a notice with no end is somebody's release note and is exactly right.
  *
  * The messages are sentences rather than translation keys, for the reason
  * {@see \Xivi\ControlPlane\Controller\ModulePricingController} gives about
@@ -109,6 +123,17 @@ final readonly class NoticeBoard
         string $authorLabel,
         ?\DateTimeImmutable $expiresAt = null,
         ?\DateTimeImmutable $now = null,
+        /*
+         * Where it appears, and how loud it is drawn there (XIV-166).
+         *
+         * Defaulted rather than required, and the two defaults are the entity's
+         * own: a caller with no opinion publishes the quiet channel at the one
+         * weight everything used to be drawn in, which is what every call site
+         * written before this ticket meant. The operator's form always says
+         * both, because a form is where an opinion is supposed to be formed.
+         */
+        NoticeReach $reach = NoticeReach::Dashboard,
+        NoticePriority $priority = NoticePriority::Info,
     ): Notice {
         $now ??= new \DateTimeImmutable();
         $title = trim($title);
@@ -132,6 +157,18 @@ final readonly class NoticeBoard
             );
         }
 
+        if ($reach === NoticeReach::EveryPage && $expiresAt === null) {
+            // The one refusal in this list that is not catching a slip. See the
+            // class docblock: a band on every page of somebody else's product
+            // cannot be dismissed by the person reading it, so it has to be
+            // ended by the person who put it there, and the moment to make them
+            // decide when is before it goes up rather than after somebody
+            // complains.
+            throw new \InvalidArgumentException(
+                'A notice on every page cannot be put away by the people who read it, so it has to say when it stops. Give it an end date, or send it to the dashboard instead.',
+            );
+        }
+
         $recipients = $tenantSlugs === null ? null : $this->resolve($tenantSlugs);
 
         $notice = new Notice(
@@ -141,6 +178,8 @@ final readonly class NoticeBoard
             everyTenant: $recipients === null,
             authorLabel: $authorLabel,
             publishedAt: $now,
+            reach: $reach,
+            priority: $priority,
         );
 
         $notice->expireAt($expiresAt);

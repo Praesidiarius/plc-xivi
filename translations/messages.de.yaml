@@ -154,7 +154,9 @@ control_plane:
     # und nicht die einer Kampagne (XIV-120).
     notices: Mitteilungen
     notices_live: '%count% Mitteilung(en) sehen die Kundinnen und Kunden gerade.'
-    notices_live_hint: Eine Mitteilung erscheint im Dashboard aller, an die sie gerichtet ist.
+    notices_live_hint: >-
+        Eine Mitteilung erscheint in der Installation aller, an die sie gerichtet ist: in ihrem
+        Dashboard oder auf jeder Seite, die sie öffnen.
     notices_no_receipts: >-
         Ob jemand eine Mitteilung gelesen hat, weiss hier nichts. Das zurückzuholen hiesse, es aus
         jeder Kundendatenbank einzusammeln.
@@ -163,8 +165,18 @@ control_plane:
     notice_body: Mitteilung
     notice_body_hint: Reiner Text. Keine Links, keine Formatierung.
     notice_audience: Wer sie sieht
+    notice_reach: Wo sie erscheint
+    notice_reach_hint: >-
+        Eine Mitteilung auf jeder Seite lässt sich von den Lesenden nicht wegklicken, darum muss
+        sie sagen, wann sie aufhört.
+    notice_priority: Art
+    notice_priority_hint: >-
+        Färbt eine Mitteilung auf jeder Seite. Mitteilungen im Dashboard werden alle gleich
+        dargestellt.
     notice_expires: Läuft aus (optional)
-    notice_expires_hint: UTC. Leer lassen für eine Mitteilung ohne Ende; zurückziehen kannst du sie jederzeit.
+    notice_expires_hint: >-
+        UTC. Leer lassen für eine Mitteilung ohne Ende; zurückziehen kannst du sie jederzeit. Eine
+        Mitteilung auf jeder Seite braucht eines.
     notice_addressed: Gerichtet an
     notice_addressed_count: '%count% Kunde(n)'
     notice_every_tenant: Alle Kundinnen und Kunden
@@ -183,10 +195,12 @@ control_plane:
     notice_gone: Diese Mitteilung gibt es nicht mehr.
     notice_stale: Die Seite war eine Weile offen. Es wurde nichts veröffentlicht — versuch es nochmals.
     notice_unknown_audience: Das ist kein Publikum, das eine Mitteilung haben kann.
+    notice_unknown_reach: Das ist kein Ort, an dem eine Mitteilung erscheinen kann.
+    notice_unknown_priority: Das ist keine Art, die eine Mitteilung haben kann.
     no_notices: Es wurde noch nichts angekündigt
     no_notices_hint: >-
-        Eine Mitteilung erscheint im Dashboard aller, an die sie gerichtet ist — in ihrer eigenen
-        Installation, dort, wo sie ohnehin arbeiten.
+        Eine Mitteilung erscheint in der Installation aller, an die sie gerichtet ist, dort, wo sie
+        ohnehin arbeiten: in ihrem Dashboard oder auf jeder Seite, die sie öffnen.
 
     # Eine Kundin fragt den Betreiber etwas (XIV-123).
     support: Support
@@ -256,6 +270,14 @@ notice:
     audience:
         everyone: Alle hier
         administrators: Administratorinnen und Administratoren
+    reach:
+        dashboard: Im Dashboard
+        every_page: Auf jeder Seite
+    priority:
+        info: Zur Information
+        warning: Bitte beachten
+        success: Erledigt
+        danger: Handeln nötig
 
 # Den Betreiber dieser Installation erreichen (XIV-123, §8.17).
 support:

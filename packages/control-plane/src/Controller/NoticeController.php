@@ -15,6 +15,8 @@ namespace Xivi\ControlPlane\Controller;
 
 use App\Registry\Entity\Notice;
 use App\Registry\Entity\NoticeAudience;
+use App\Registry\Entity\NoticePriority;
+use App\Registry\Entity\NoticeReach;
 use App\Registry\Entity\Tenant;
 use App\Registry\Notice\NoticeBoard;
 use App\Registry\Repository\TenantRepository;
@@ -166,6 +168,29 @@ final class NoticeController extends AbstractController
             return $this->redirectToRoute('control_plane_notices');
         }
 
+        // Where it lands and how loud it is drawn there (XIV-166). Both are read
+        // the same defensive way the audience above is, and the reason is the
+        // same and applies harder: the form offers two radios and a select, so
+        // neither of these messages is one an operator using the page should ever
+        // read, but a hand-made POST is a thing and "it went onto every page of
+        // every customer's installation because the field was misspelled" is the
+        // worst available answer to one.
+        $reach = NoticeReach::tryFrom((string) $request->request->get('reach'));
+
+        if ($reach === null) {
+            $this->addFlash('error', $this->translator->trans('control_plane.notice_unknown_reach'));
+
+            return $this->redirectToRoute('control_plane_notices');
+        }
+
+        $priority = NoticePriority::tryFrom((string) $request->request->get('priority'));
+
+        if ($priority === null) {
+            $this->addFlash('error', $this->translator->trans('control_plane.notice_unknown_priority'));
+
+            return $this->redirectToRoute('control_plane_notices');
+        }
+
         // Null is every customer; a list names them. The two are alternatives
         // rather than a list that happens to be empty — an empty list is refused
         // downstream, because "named nobody" is a notice with no readers and the
@@ -182,6 +207,8 @@ final class NoticeController extends AbstractController
                 $slugs,
                 self::authorLabel($this->getUser()),
                 self::expiryFrom($request),
+                reach: $reach,
+                priority: $priority,
             );
         } catch (\InvalidArgumentException $e) {
             // Shown verbatim. These are sentences telling an operator what to do

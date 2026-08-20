@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace App\Tenant\Notice;
 
 use App\Registry\Entity\Notice;
+use App\Registry\Entity\NoticeReach;
 use App\Registry\Notice\LiveNotices;
 use App\Tenancy\TenantContext;
 use App\Tenant\Entity\NoticeDismissal;
@@ -58,6 +59,23 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  * it writes nothing, so the table cannot fill with rows about notices this
  * installation was never addressed by.
  *
+ * ## Two channels, and only one of them ever reaches the second database
+ * (XIV-166)
+ *
+ * {@see onTheDashboard()} is what the widget draws and is the class as it was:
+ * registry, then dismissals, then the difference. {@see onEveryPage()} is what
+ * the shell draws, and it stops after the first query, because an every-page
+ * notice is not dismissible ({@see NoticeReach::isDismissible()} carries that
+ * argument at length).
+ *
+ * That is not a shortcut, it is the shape of the decision showing through: there
+ * is no per-person state for the loud channel in either database, so there is
+ * nothing to ask the customer's database about. The consequence is the one worth
+ * remembering when reading a query log: **a request for an ordinary page costs
+ * exactly one control-plane `SELECT` and never touches the tenant connection on
+ * this feature's account**, whether or not the installation has notices, and
+ * whatever their reach.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class NoticeInbox
@@ -82,22 +100,16 @@ final readonly class NoticeInbox
     }
 
     /**
-     * Everything this person should be seeing, newest first.
+     * Everything this person should be seeing on their dashboard, newest first.
+     *
+     * The widget's list, and the class's original method under a name that says
+     * which of the two surfaces it is about (XIV-166).
      *
      * @return list<Notice>
      */
-    public function forReader(User $reader): array
+    public function onTheDashboard(User $reader): array
     {
-        if (!$this->context->hasTenant()) {
-            // No tenant is the login page and every console command. Nobody is
-            // being served, so nobody is being told anything.
-            return [];
-        }
-
-        $live = $this->notices->forTenant(
-            $this->context->getTenant(),
-            UserManager::isAdmin($reader),
-        );
+        $live = $this->live($reader, NoticeReach::Dashboard);
 
         if ($live === []) {
             return [];
@@ -115,6 +127,47 @@ final readonly class NoticeInbox
     }
 
     /**
+     * Everything this person should be meeting wherever they are, newest first.
+     *
+     * The shell's band (XIV-166), and **the only method in this class that runs
+     * on an ordinary request**: it is called once per page render by
+     * {@see \App\Twig\AppChrome::getPageNotices()}, from `_topbar.html.twig`.
+     *
+     * No dismissal query and no filtering afterwards, which is
+     * {@see NoticeReach::isDismissible()}'s decision arriving here as an absence
+     * rather than as a condition. Somebody reading this method looking for the
+     * missing half should read that one: an every-page notice ends when the
+     * operator ends it, and the operator had to say when that is before they
+     * could publish it.
+     *
+     * @return list<Notice>
+     */
+    public function onEveryPage(User $reader): array
+    {
+        return $this->live($reader, NoticeReach::EveryPage);
+    }
+
+    /**
+     * What the registry is currently saying to this person on one channel.
+     *
+     * @return list<Notice>
+     */
+    private function live(User $reader, NoticeReach $reach): array
+    {
+        if (!$this->context->hasTenant()) {
+            // No tenant is the login page and every console command. Nobody is
+            // being served, so nobody is being told anything.
+            return [];
+        }
+
+        return $this->notices->forTenant(
+            $this->context->getTenant(),
+            UserManager::isAdmin($reader),
+            $reach,
+        );
+    }
+
+    /**
      * Puts one away for this person, and for nobody else.
      *
      * Returns whether anything was written, which the controller uses to decide
@@ -128,7 +181,14 @@ final readonly class NoticeInbox
      */
     public function dismiss(int $noticeId, User $reader): bool
     {
-        $live = $this->forReader($reader);
+        // The dashboard's list and not both channels', which is where XIV-166's
+        // decision is actually enforced rather than merely drawn. A hand-made
+        // POST naming a live every-page notice finds nothing here and writes
+        // nothing, exactly as one naming a notice addressed to another customer
+        // does: authority over what may be dismissed is answered by the same
+        // query that decides what to draw, so there is no second rule free to
+        // disagree with the first.
+        $live = $this->onTheDashboard($reader);
 
         foreach ($live as $notice) {
             if ((int) $notice->getId() !== $noticeId) {

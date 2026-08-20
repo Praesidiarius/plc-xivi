@@ -74,6 +74,20 @@ use Xivi\Core\Dashboard\WidgetPanel;
  * the panel exists, so deferring would buy a second round trip to render text
  * that is already in memory.
  *
+ * ## What it does *not* draw, since XIV-166
+ *
+ * Every notice whose reach is `every_page`. Those are drawn by the shell, on the
+ * dashboard as on every other page, and this widget filters them out in the
+ * `WHERE` clause rather than in the template: the two sets are disjoint by
+ * construction, so the one page where both surfaces exist at once cannot print
+ * the same announcement twice. See {@see \App\Registry\Entity\NoticeReach}.
+ *
+ * The cards here are also unchanged in appearance, which is the half of §8.16's
+ * *"no severity"* bullet that survives XIV-166: a dashboard notice carries a
+ * priority in the database and is drawn in one weight regardless, because the
+ * argument that four weights invite everything to become a warning is still true
+ * of a page somebody chose to open.
+ *
  * ## A reader may hide it, and that is not a hole in the channel
  *
  * §8.3.1's layout lets anybody untick any widget, this one included. That looks
@@ -111,7 +125,7 @@ final readonly class NoticeWidget implements DashboardWidget
             return null;
         }
 
-        $notices = $this->inbox->forReader($reader);
+        $notices = $this->inbox->onTheDashboard($reader);
 
         if ($notices === []) {
             // Nothing live, nothing addressed here, or this reader has put it all

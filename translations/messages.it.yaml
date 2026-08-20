@@ -145,7 +145,9 @@ control_plane:
         ne fissa uno.
     notices: Avvisi
     notices_live: '%count% avviso/i che i clienti stanno vedendo ora.'
-    notices_live_hint: Un avviso compare sulla dashboard di tutti coloro a cui era indirizzato.
+    notices_live_hint: >-
+        Un avviso compare nell’installazione di tutti coloro a cui era indirizzato: sulla loro
+        dashboard, oppure su ogni pagina che aprono.
     notices_no_receipts: >-
         Nulla qui sa se qualcuno ha letto un avviso. Saperlo vorrebbe dire andarlo a rilevare
         nella banca dati propria di ogni cliente.
@@ -154,8 +156,18 @@ control_plane:
     notice_body: Avviso
     notice_body_hint: Testo semplice. Niente link, niente formattazione.
     notice_audience: Chi lo vede
+    notice_reach: Dove compare
+    notice_reach_hint: >-
+        Un avviso su ogni pagina non può essere messo via da chi lo legge, quindi deve dire quando
+        smette.
+    notice_priority: Tipo
+    notice_priority_hint: >-
+        Colora un avviso su ogni pagina. Gli avvisi sulla dashboard sono tutti disegnati allo
+        stesso modo.
     notice_expires: Smette di comparire (facoltativo)
-    notice_expires_hint: UTC. Lascia vuoto per un avviso senza fine; puoi ritirarlo in ogni momento.
+    notice_expires_hint: >-
+        UTC. Lascia vuoto per un avviso senza fine; puoi ritirarlo in ogni momento. Un avviso su
+        ogni pagina ne deve avere una.
     notice_addressed: Indirizzato a
     notice_addressed_count: '%count% cliente/i'
     notice_every_tenant: Ogni cliente
@@ -174,10 +186,12 @@ control_plane:
     notice_gone: Quell’avviso non esiste più.
     notice_stale: Quella pagina era rimasta aperta per un po’. Nulla è stato pubblicato; riprova.
     notice_unknown_audience: Questo non è un pubblico che un avviso possa avere.
+    notice_unknown_reach: Questo non è un posto in cui un avviso possa comparire.
+    notice_unknown_priority: Questo non è un tipo che un avviso possa avere.
     no_notices: Non è stato annunciato nulla
     no_notices_hint: >-
-        Un avviso compare sulla dashboard di tutti coloro a cui era indirizzato, nella loro
-        installazione, dove già lavorano.
+        Un avviso compare nell’installazione di tutti coloro a cui era indirizzato, dove già
+        lavorano: sulla loro dashboard, oppure su ogni pagina che aprono.
     support: Supporto
     support_outstanding: '%count% cliente/i in attesa di una risposta.'
     support_outstanding_hint: >-
@@ -238,6 +252,14 @@ notice:
     audience:
         everyone: Tutti qui
         administrators: Amministratori
+    reach:
+        dashboard: Sulla dashboard
+        every_page: Su ogni pagina
+    priority:
+        info: Per informazione
+        warning: Da tenere presente
+        success: Risolto
+        danger: Serve un intervento
 
 support:
     title: Supporto

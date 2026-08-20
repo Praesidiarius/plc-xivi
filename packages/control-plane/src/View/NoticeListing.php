@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Xivi\ControlPlane\View;
 
 use App\Registry\Entity\Notice;
+use App\Registry\Entity\NoticeReach;
 use App\Registry\Entity\NoticeRecipient;
 
 /**
@@ -52,6 +53,22 @@ final readonly class NoticeListing
         public string $authorLabel,
         /** A key in the `messages` domain — the audience is drawn in the operator's language, not stored in it. */
         public string $audienceKey,
+        /** The same, for where it appears (XIV-166). */
+        public string $reachKey,
+        /**
+         * And for how loud it is drawn there.
+         *
+         * A key rather than the enum, like the two above, and there is a second
+         * reason here that is worth spelling out: what the operator's *table*
+         * wants is the word, whereas what a customer's banner wants is the word
+         * *and* a Bootstrap context. Handing this screen the context as well
+         * would put `notice_tone()` on a page that draws no banner and invite a
+         * coloured row, which is the operator's list quietly acquiring an
+         * opinion about severity that §8.16 gives only to the loud channel.
+         */
+        public string $priorityKey,
+        /** Whether it goes in front of people everywhere, which is what the screen leads the cell with. */
+        public bool $everyPage,
         public bool $everyTenant,
         public array $recipients,
         public \DateTimeImmutable $publishedAt,
@@ -87,6 +104,9 @@ final readonly class NoticeListing
             body: $notice->getBody(),
             authorLabel: $notice->getAuthorLabel(),
             audienceKey: $notice->getAudience()->labelKey(),
+            reachKey: $notice->getReach()->labelKey(),
+            priorityKey: $notice->getPriority()->labelKey(),
+            everyPage: $notice->getReach() === NoticeReach::EveryPage,
             everyTenant: $notice->isForEveryTenant(),
             recipients: $recipients,
             publishedAt: $notice->getPublishedAt(),

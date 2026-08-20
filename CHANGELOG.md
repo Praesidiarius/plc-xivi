@@ -73,6 +73,21 @@ always lands in `Unreleased` here.
 
 ## [Unreleased]
 
+- **An operator's notice can now go on every page instead of only the dashboard,
+  and can say what kind of thing it is** ([XIV-166], §8.16). The publish form
+  gained **Where it appears**, dashboard or every page, and **Kind**, one of four
+  colours. The dashboard is the default and its cards are unchanged: the colour
+  is drawn only on the every-page band, which sits under the top bar of whatever
+  page the customer is on.
+- **An every-page notice cannot be dismissed by the people reading it, so the
+  form now requires an end date for one** ([XIV-166], §8.16). Publishing one
+  without an end is refused with a sentence. Dashboard notices are unaffected:
+  they still have an optional end and can still be put away per person.
+- **Adds a control migration**, so `bin/console doctrine:migrations:migrate` on
+  the control-plane database is needed on upgrade ([XIV-166]). Notices published
+  before it keep working untouched: they become dashboard notices at the one
+  weight they were already drawn in.
+
 - **A signup that will never provision now shows up on the tenant list, with the
   person's address and a button that writes to them** ([XIV-108], §8.14). It sits
   above the customer table, is drawn only when there is somebody in it, and names
@@ -306,6 +321,7 @@ always lands in `Unreleased` here.
 [XIV-161]: https://xivi.youtrack.cloud/issue/XIV-161
 [XIV-162]: https://xivi.youtrack.cloud/issue/XIV-162
 [XIV-163]: https://xivi.youtrack.cloud/issue/XIV-163
+[XIV-166]: https://xivi.youtrack.cloud/issue/XIV-166
 
 
 ## Releases
