@@ -510,6 +510,19 @@ Separately, the env file is what Compose interpolates this file *with*; it is no
 the container's environment, so anything the running application reads has to be
 named in `environment:` as well.
 
+**Anything structural taken from the environment has to be recomputed at
+container start.** `%env()%` is resolved when a parameter is read, so most
+configuration survives one image being deployed to many instances. Routing does
+not: `SignupRouteLoader` decides whether the signup routes exist from
+`SIGNUP_HOST` (§8.13), and that is written into the compiled URL matcher at
+warmup, which happened at image build against the committed `.env`. The
+entrypoint runs `cache:clear` for that reason, and `cache:clear` rather than
+`cache:warmup` because warmup leaves an existing matcher alone, which was
+measured rather than assumed. The failure this fixes is worth remembering: the
+landing page was served by the dashboard route, so it answered 500 on a host that
+resolves no tenant, and `debug:router` reported the signup routes as present
+throughout, because it re-reads the loader instead of the matcher.
+
 **The first deploy to a fresh installation stops at the tenant walk**, because
 `bin/deploy` exits 1 on an empty registry by design (§4.2). It migrates the
 control plane first, so the sequence is deploy, provision, deploy. Written down

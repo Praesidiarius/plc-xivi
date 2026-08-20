@@ -103,6 +103,27 @@ services:
       CONTROL_PLANE_HOST: ${CONTROL_PLANE_HOST:-}
       CONTROL_PLANE_ALLOWED_IPS: ${CONTROL_PLANE_ALLOWED_IPS:-}
       SIGNUP_HOST: ${SIGNUP_HOST:-}
+      # **Off unless the deployment says otherwise** (§8.13). With SIGNUP_HOST
+      # empty neither the page nor the endpoint has a route at all, whatever this
+      # says, so the pair is safe to carry here.
+      SIGNUP_PAGE: ${SIGNUP_PAGE:-false}
+      # **An empty secret refuses everybody**, which is the intended failure: a
+      # deployment that names a signup host and forgets this has published an
+      # anonymous endpoint, and an endpoint that works for everybody is not
+      # noticed while one that works for nobody is noticed in minutes.
+      XIVI_SIGNUP_SECRET: ${XIVI_SIGNUP_SECRET:-}
+      XIVI_SIGNUP_PLANS: ${XIVI_SIGNUP_PLANS:-standard}
+      # **Where mail goes, and by default that is nowhere.** `null://null` is what
+      # `.env` commits, deliberately: an installation that has not said where to
+      # send mail should drop it rather than guess at a local sendmail. Carried
+      # here so that a deployment can name a real server, because until it does,
+      # every confirmation link and every invitation is discarded silently. A
+      # signup host without this is a form whose visitors never hear back.
+      MAILER_DSN: ${MAILER_DSN:-null://null}
+      # Empty means mail comes from no-reply@ at whichever hostname the customer
+      # reached this installation on, which is this instance's domain for them
+      # (§8.7). Their own name and Reply-To are used regardless.
+      MAILER_SENDER: ${MAILER_SENDER:-}
       XIVI_TRUSTED_DOMAINS: ${XIVI_TRUSTED_DOMAINS:-}
       # **Passed into the container, not merely present in the env file.** The env
       # file is read by Compose to interpolate this file; it is not the container's

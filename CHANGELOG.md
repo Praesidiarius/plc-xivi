@@ -87,6 +87,19 @@ always lands in `Unreleased` here.
   every real customer. `/_tls/ask` answers from the registry and refuses any
   request that did not come from the loopback, so it cannot be used from outside
   to ask whether a customer exists.
+- **A deployment's own hostnames now reach the routing table** ([XIV-61], §4.8).
+  The image ships a warmed cache built from the committed `.env`, and
+  `SignupRouteLoader` decides whether the signup routes exist at all from
+  `SIGNUP_HOST`, so an instance that set it still served its landing page from
+  the dashboard route and answered 500 on a host that resolves no tenant.
+  `debug:router` listed the routes correctly the whole time, because it re-reads
+  the loader rather than the compiled matcher. The entrypoint rebuilds the cache
+  against the deployment's environment now.
+- **Mail and signup can be configured by a deployment at all** ([XIV-61], §4.8).
+  `MAILER_DSN`, `MAILER_SENDER`, `SIGNUP_HOST`, `SIGNUP_PAGE`,
+  `XIVI_SIGNUP_SECRET` and `XIVI_SIGNUP_PLANS` were not passed into the
+  container, so a target ran on the committed defaults whatever its env file
+  said: mail dropped, signup off.
 - **One command builds, pushes and deploys** ([XIV-61], §4.8). `bin/release
   <target>` builds the image the target is configured for, pushes it, and deploys
   the digest rather than the tag. The build stays on the host because the dev
