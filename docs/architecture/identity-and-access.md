@@ -551,9 +551,20 @@ three.
 - **The first administrator has no password anywhere**:
   `createWithoutPassword()` plus the signed login link. A generated password
   nobody reads is a live credential for the account's lifetime.
-- **The customer is not told when it fails**, and that is the honest gap.
-  Every signal is addressed to the operator, who can act. A mail after N
-  attempts needs a decision about what it may honestly say.
+- **A stranded signup is told by hand, and by nothing else** (XIV-108). No
+  attempt count, stage or period sends anything: most failures clear on the
+  next run, and both sentences a rule could send are wrong somewhere it would
+  fire (*"we are looking into it"* commits a human nobody can know is looking;
+  *"that name is taken"* is true only of `preflight`). So
+  `isWorthRetrying()` puts the ones that never resolve on the tenant list,
+  above the table because they carry an act, and an operator reads the message
+  and presses send. **The message names no cause**, being true of every stage
+  the button can be offered for, and carries no link. `apology_sent_at` and
+  `apology_sent_by` record the act, so a second operator cannot apologise
+  twice; an act, not a status, for §8.12's reason. Instance identity under
+  §8.7's fallback, in the language the signup recorded. Not built: a thread
+  (§8.17), a second message, and any button that renames or provisions
+  anything (§8.10).
 
 ### 8.15 A price a customer can see, and an ask that installs nothing (XIV-102)
 
@@ -646,8 +657,8 @@ operator and "we upgrade on Sunday".
 - **The widget costs a query in `panel()`, a stated departure**: "does this
   apply to you" *is* the database's question, and an unconditional card is
   permanent furniture.
-- **Not the answer to XIV-108.** A stranded signup has no tenant, database or
-  user; the person waits outside the product.
+- **Not the answer to XIV-108**, which is §8.14's. A stranded signup has no
+  tenant, database or user; the person waits outside the product.
 - Not built, each deliberate: read receipts (a dismissal reported as "read"
   over-claims on the deciding screen), scheduling, severity levels, links or
   markup (a linkable notice is a phishing channel on the one screen nobody

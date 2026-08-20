@@ -74,6 +74,15 @@
 		{{ include('@XiviControlPlane/_nav.html.twig', {current: 'control_plane_home'}) }}
 
 		{#
+			This page had nothing to flash until it had a button on it (XIV-108).
+			The apology posts to `StalledSignupController` and is redirected back
+			here, so the answer to "did it go" has to be readable on this page or
+			the write is silent. The partial is the application's own, which is
+			what the other four control-plane screens include.
+		#}
+		{{ include('_flashes.html.twig') }}
+
+		{#
 			**The line that makes a stuck tenant answerable from the doorway.**
 
 			Drawn only when there is something to say. A banner that is always
@@ -97,6 +106,153 @@
 					</div>
 				</div>
 			</div>
+		{% endif %}
+
+		{#
+			**Who confirmed an address and is still waiting** (XIV-108, §8.14).
+
+			A signup that stops at a stage no retry can get past stops there for
+			ever: the commonest cause is an operator taking the translated name by
+			hand between the confirmation and the next cron run, and no number of
+			runs undoes that. Everything that noticed used to be addressed to the
+			operator, and the loudest of those signals was a line in cron mail. The
+			person waiting heard nothing at all.
+
+			**Above the table, and drawn only when it is not empty.** This is the
+			one section on this page carrying an act somebody has to perform, which
+			is why it outranks the customer list rather than sitting under it with
+			the refusals; and like the banner above, an empty version of it would
+			be furniture the eye learns to skip.
+
+			**The message is printed, not described.** `subject` and `body` are the
+			mail's own subject and its own plain-text body, rendered by
+			`SignupMailer` in the language the signup recorded, which is why the
+			text below may not be English. An operator reads the sentences that
+			will arrive and then presses the button; there is no second wording
+			anywhere for this page to show instead, which is what makes seeing it
+			first a property rather than a promise.
+
+			**Nothing on this page sends anything by itself.** No count, no stage
+			and no elapsed time triggers a mail, here or anywhere else in the
+			feature. See `Xivi\ControlPlane\Signup\StalledSignups` for why the two
+			automatic messages that were considered are both wrong somewhere they
+			would fire.
+		#}
+		{% if stalled is not empty %}
+			<section class="mb-4">
+				<h2 class="h6">{{ 'control_plane.stalled'|trans({'%count%': stalled|length}) }}</h2>
+				<p class="small text-body-secondary">{{ 'control_plane.stalled_hint'|trans }}</p>
+
+				{% for signup in stalled %}
+					<div class="card mb-2">
+						<div class="card-body">
+							<div class="d-flex flex-wrap align-items-baseline gap-2">
+								<strong>{{ signup.companyName }}</strong>
+								<span class="badge text-bg-light font-monospace">{{ signup.slug }}</span>
+								{#
+									Colour and the word, never colour alone: the rule this
+									page keeps everywhere, because about one reader in twelve
+									cannot tell two badge shades apart and a screenshot
+									pasted into a chat carries no hover.
+								#}
+								<span class="badge text-bg-secondary">
+									{{ ('control_plane.stage_' ~ signup.stage.value)|trans }}
+								</span>
+							</div>
+
+							{#
+								The address is drawn because the operator is about to write
+								to it, and approving a letter with the envelope covered up is
+								not approving it. `StalledSignupListing` carries the argument
+								for why §8.11's line about a customer's people does not reach
+								this person: they are the platform's own correspondent, not
+								somebody's user.
+
+								Beside it, the two facts that say how long this has been
+								going on, and no judgement drawn from them. §8.10 refused a
+								staleness threshold on the table below on the grounds that a
+								tenant stuck for 23 hours is exactly as broken as one stuck
+								for 25, and the same holds here: the attempt count and the
+								moments are stated, and the reader supplies what they mean.
+							#}
+							<div class="small text-body-secondary mt-1">
+								<span class="font-monospace">{{ signup.email }}</span>
+								&middot;
+								{{ 'control_plane.stalled_attempts'|trans({'%count%': signup.attempts}) }}
+								&middot;
+								{{ 'control_plane.stalled_failed'|trans({'%time%': signup.failedAt|date('Y-m-d H:i')}) }}
+								{% if signup.confirmedAt %}
+									&middot;
+									{{ 'control_plane.stalled_waiting'|trans({'%time%': signup.confirmedAt|date('Y-m-d H:i')}) }}
+								{% endif %}
+							</div>
+
+							{#
+								The message, folded into a disclosure rather than laid open.
+								A real control, reachable by keyboard and announced by a
+								screen reader, which is the shape XIV-95 chose for the module
+								tail on the same page. Folded because five of these at full
+								height push the customer table off the screen, and open is
+								one click away on the row the operator is acting on.
+
+								`|nl2br` because the body is the plain-text part of a mail:
+								its paragraph breaks are newlines, and HTML would otherwise
+								run five sentences together into one block that reads nothing
+								like what arrives.
+							#}
+							<details class="mt-2">
+								<summary class="small">{{ 'control_plane.stalled_preview'|trans }}</summary>
+								{#
+									The two class names are for the suite as much as for the
+									stylesheet, which is what `module-cell` above is for too:
+									`StalledSignupTest` reads the previewed text back out and
+									compares it to the text of the mail that goes, and that
+									comparison is only worth anything if it can address the
+									body on its own rather than by position.
+								#}
+								<div class="border rounded p-2 mt-2 small">
+									<div class="signup-message-subject fw-semibold">{{ signup.subject }}</div>
+									<div class="signup-message mt-2">{{ signup.body|nl2br }}</div>
+								</div>
+								<div class="small text-body-secondary mt-1">
+									{{- 'control_plane.stalled_locale'|trans({'%locale%': signup.locale}) -}}
+								</div>
+							</details>
+
+							{#
+								**One message per person, and the record is what enforces
+								it.** Once somebody has been written to the button is gone and
+								the row says who sent it and when, so a second operator
+								opening this page an hour later cannot apologise to the same
+								customer twice. The controller refuses it as well, for the two
+								operators who load the page in the same minute.
+
+								There is no second button here, and deliberately: nothing on
+								this page renames a signup, releases a name or provisions
+								anything. §8.10 keeps lifecycle controls off this screen
+								because the commands have refusals a button would have to
+								reproduce, and that argument did not change for this section.
+							#}
+							{% if signup.awaitsAMessage %}
+								<form method="post" action="{{ path('control_plane_signup_apology', {id: signup.id}) }}" class="mt-2">
+									<input type="hidden" name="_token" value="{{ csrf_token('stalled_signup') }}">
+									<button class="btn btn-sm btn-primary" type="submit">
+										{{ 'control_plane.stalled_send'|trans }}
+									</button>
+								</form>
+							{% else %}
+								<div class="small mt-2">
+									<i class="bi bi-check2" aria-hidden="true"></i>
+									{{ 'control_plane.stalled_sent_by'|trans({
+										'%who%': signup.sentBy,
+										'%time%': signup.sentAt|date('Y-m-d H:i'),
+									}) }}
+								</div>
+							{% endif %}
+						</div>
+					</div>
+				{% endfor %}
+			</section>
 		{% endif %}
 
 		{% if tenants is empty %}

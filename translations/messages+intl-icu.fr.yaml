@@ -57,6 +57,8 @@ control_plane:
     modules_differ: '{count, plural, one {# module diffère du registre} other {# modules diffèrent du registre}}'
     modules_more: '{count, plural, one {# module de plus} other {# modules de plus}}'
     modules_unpriced: '{count, plural, one {# module publié n’a pas de prix ; il n’est donc proposé à personne.} other {# modules publiés n’ont pas de prix ; ils ne sont donc proposés à personne.}}'
+    stalled: '{count, plural, one {# inscription confirmée attend quelqu’un ici.} other {# inscriptions confirmées attendent quelqu’un ici.}}'
+    stalled_attempts: '{count, plural, one {# tentative} other {# tentatives}}'
 
 upgrade:
     a_collection: '{count, plural, one {une collection, # champ} other {une collection, # champs}}'

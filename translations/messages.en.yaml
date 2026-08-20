@@ -154,6 +154,50 @@ control_plane:
     refusals_attempts: Refused
     refusals_first: First
     refusals_last: Most recent
+    # Signups that will never provision, and the one act an operator can take
+    # about them (XIV-108, §8.14). The section above the tenant table.
+    #
+    # The hint says three things and stops: what these people did, that it will
+    # not start by itself, and that nothing has gone out to them. The last is the
+    # one an operator has to know before pressing anything, because it is the
+    # difference between an apology and a second apology.
+    stalled_hint: >-
+        These people confirmed an address and were told their installation was being prepared. It stopped
+        at a step no retry gets past, so it will not start again by itself. Nothing has been sent to them.
+    stalled_failed: 'last tried %time%'
+    stalled_waiting: 'waiting since %time%'
+    stalled_preview: What they will be sent
+    # Named because the preview is in their language rather than the operator's,
+    # and a paragraph of unexpected Italian on an operator's screen otherwise
+    # reads as something being wrong.
+    stalled_locale: 'Written in %locale%, the language they signed up in.'
+    stalled_send: Send this message
+    stalled_sent_by: 'Sent by %who% on %time%. Nothing further goes out.'
+    stalled_sent: The message has been sent.
+    stalled_already: Somebody else has already written to them. Nothing was sent.
+    # Good news rather than an error about a missing record: between the page
+    # being drawn and the button being pressed, either the cron run provisioned
+    # it or somebody released the name it was waiting for.
+    stalled_gone: That signup is no longer waiting. Either it has been provisioned or the name it wanted was released.
+    stalled_stale: This page was loaded too long ago. Nothing was sent; open it again and try once more.
+    # The transport's own words, because an operator is one of us and the name of
+    # the server that refused is the only part of this they can act on. The
+    # sentence leads with the consequence: nobody has been told.
+    stalled_not_sent: 'Nothing was sent, so this person has still heard nothing: %reason%'
+    # What `SignupProvisioningStage` calls each step, for the badge on a stalled
+    # row. Five cases and all five are here, because the template composes the key
+    # from the enum's value and a missing one would render as a key.
+    #
+    # `preflight` is the only one that says what is wrong rather than where it
+    # stopped, and that is not an inconsistency: it is the one case where the
+    # system has actually established a cause, which is also why the mail refuses
+    # to name it. The operator may know; the customer is told nothing the system
+    # cannot vouch for in every case the button is offered.
+    stage_preflight: Name unavailable
+    stage_tenant: Database
+    stage_first_user: First administrator
+    stage_invitation: Invitation
+    stage_cleanup: Cleanup
     # The module pricing screen (XIV-101). What this deployment charges for each
     # module, which is a fact about *this company's business* and not about the
     # code — hence a control-plane row an operator edits, rather than a field on a
@@ -1635,3 +1679,39 @@ signup:
         unknown: This link does not belong to a signup we are still waiting on.
         next: 'We are setting up %slug% and will write to you when it is ready.'
         sign_up_again: Signing up again from the same address starts a new one.
+    # The message an operator sends by hand to somebody whose signup stopped for
+    # good (XIV-108, §8.14). Nothing sends it on a schedule, at a stage or after
+    # a number of attempts: an operator reads these sentences on the tenant list
+    # and presses a button.
+    #
+    # **No sentence names a cause**, which is the constraint the wording was
+    # written against. `preflight` genuinely means the name is gone, and the
+    # button is offered for anything the stage enum stops calling retryable, so
+    # "that name is taken" would be false for the rest. What every one of them
+    # has in common is exactly what is said here: it is not set up, it will not
+    # resolve on its own, a person has seen it, and they will write again.
+    #
+    # **There is no link in it**, unlike every other mail this application sends.
+    # Nothing exists to click, and a message to somebody wondering why they have
+    # heard nothing, carrying a link, is the shape of the mail they ought to
+    # distrust.
+    #
+    # The last line exists because it is the one thing the reader is likely to
+    # try, and it does not work: a confirmed address already holds a signup, and
+    # §8.12's intake refuses a second one. Better said here than discovered.
+    stalled:
+        subject: 'Your %slug% installation is not ready yet'
+        greeting: 'Hello %company%,'
+        body: >-
+            You confirmed this address and asked us to set up an installation called %slug%. It is not
+            ready, and we are sorry to have left you waiting without a word.
+        hand: >-
+            Setting it up ran into something that will not resolve on its own, so it needs one of us to
+            deal with it by hand. Somebody here has now seen it: a person sent this message, not the
+            system.
+        next: >-
+            We will write to you again at this address, either when your installation is ready or if we
+            need to ask you something first.
+        no_action: >-
+            There is nothing for you to do in the meantime. Signing up again will not help either: this
+            address already holds your request, and the form will turn a second one away.

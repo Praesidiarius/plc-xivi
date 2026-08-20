@@ -31,19 +31,21 @@ use Xivi\ControlPlane\Entity\SignupStatus;
  * None of them lists, counts or searches, because nothing on the public side has
  * any business enumerating who else has signed up.
  *
- * {@see findConfirmed()} is the fourth and it enumerates outright, and
- * {@see findAbandonedPending()} is the fifth (XIV-125). Both are added here
- * rather than in a repository of their own because a second
- * `ServiceEntityRepository` over one entity is two objects that can disagree
- * about what a `SignupRequest` is, which is a worse trade than the one it would
- * buy. What keeps the rule above true is not that the methods are absent but
- * that **nothing on the public side calls them**: their callers are
- * {@see \Xivi\ControlPlane\Provisioning\SignupProvisioner} and
- * {@see \Xivi\ControlPlane\Command\PruneSignupsCommand}, both reached only from
- * a console, and `SignupEndpointTest` already asserts that the provisioner is
- * not in either public controller's constructor graph. The boundary is where it
- * always was; this is the non-public half of the feature asking the questions
- * only it is entitled to ask.
+ * {@see findConfirmed()} is the fourth and it enumerates outright,
+ * {@see findAbandonedPending()} is the fifth (XIV-125) and
+ * {@see findFailed()} the sixth (XIV-108). All three are added here rather than
+ * in a repository of their own because a second `ServiceEntityRepository` over
+ * one entity is two objects that can disagree about what a `SignupRequest` is,
+ * which is a worse trade than the one it would buy. What keeps the rule above
+ * true is not that the methods are absent but that **nothing on the public side
+ * calls them**: their callers are
+ * {@see \Xivi\ControlPlane\Provisioning\SignupProvisioner},
+ * {@see \Xivi\ControlPlane\Command\PruneSignupsCommand} and
+ * {@see \Xivi\ControlPlane\Signup\StalledSignups}, reached from a console or
+ * from behind the control-plane firewall, and `SignupEndpointTest` already
+ * asserts that the provisioner is not in either public controller's constructor
+ * graph. The boundary is where it always was; this is the non-public half of the
+ * feature asking the questions only it is entitled to ask.
  *
  * @extends ServiceEntityRepository<SignupRequest>
  *
@@ -162,6 +164,49 @@ class SignupRequestRepository extends ServiceEntityRepository
             ->setParameter('pending', SignupStatus::Pending)
             ->setParameter('cutoff', $expiredBefore)
             ->orderBy('s.confirmationExpiresAt', 'ASC')
+            ->addOrderBy('s.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Every signup a provisioning run has failed on, oldest failure first
+     * (XIV-108).
+     *
+     * **Failed, and not yet judged stalled.** The predicate is
+     * `provisioning_stage IS NOT NULL`, which is a plain column test meaning
+     * *something has gone wrong here at least once*. Which of those failures
+     * will never resolve is
+     * {@see \Xivi\ControlPlane\Provisioning\SignupProvisioningStage::isWorthRetrying()}'s
+     * answer, and it is asked in PHP by the caller rather than translated into a
+     * DQL `s.provisioningStage = :preflight`. That is
+     * {@see \Xivi\ControlPlane\Controller\TenantListController}'s argument for
+     * sorting by `attentionRank()` in PHP, one table along: a second copy of the
+     * rule, in a different language, is a copy nothing would notice diverging
+     * from the enum, and here the divergence would be a page offering to
+     * apologise for a signup that is about to succeed.
+     *
+     * The cost is a list of failed signups fetched and mostly discarded. In the
+     * ordinary life of this table that list is empty, because a confirmed signup
+     * is provisioned by the next cron run and the row is deleted; a bad
+     * afternoon makes it a handful. If it is ever large enough for the filtering
+     * to matter, something is wrong that this page cannot fix.
+     *
+     * **Oldest failure first**, so the page reads as a queue of people who have
+     * been waiting, longest wait at the top. `provisioning_failed_at` moves with
+     * every attempt, so a signup failing every five minutes since Tuesday and
+     * one that first failed an hour ago carry timestamps minutes apart. That is
+     * the right ordering anyway for the question this page asks, which is *who
+     * is still waiting*, and the row shows the attempt count beside it so the
+     * difference between the two is visible where the reader can use it.
+     *
+     * @return list<SignupRequest>
+     */
+    public function findFailed(): array
+    {
+        return $this->createQueryBuilder('s')
+            ->andWhere('s.provisioningStage IS NOT NULL')
+            ->orderBy('s.provisioningFailedAt', 'ASC')
             ->addOrderBy('s.id', 'ASC')
             ->getQuery()
             ->getResult();

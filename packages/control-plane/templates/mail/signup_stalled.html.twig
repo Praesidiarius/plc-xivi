@@ -1,0 +1,28 @@
+{#
+	The content part of the message an operator sends a stranded signup (XIV-108,
+	§8.14), drawn inside `@XiviCore/email/base.html.twig` like every other mail
+	this application sends (§5.13). This file is only the middle; `SignupMailer`
+	renders it to a string and hands it in as `content`.
+
+	Inline styles for the frame's reason: Gmail and Outlook both drop a <style>
+	block often enough that relying on one is relying on luck.
+
+	**The same sentences as the text part, in the same order, and no others.** The
+	text part is what an operator previews before pressing send, so a paragraph
+	that appeared only here would be a paragraph nobody approved, which is the
+	one thing this feature is built to prevent. Adding a sentence means adding it
+	to both files, and the catalogue key is what keeps them saying the same thing.
+
+	**Nothing here is a link or a button**, unlike the confirmation mail. See the
+	text part for why: there is nothing to click, and a link in this particular
+	message would be the shape of the mail its reader ought to distrust.
+#}
+<p style="margin: 0 0 16px 0;">{{ 'signup.stalled.greeting'|trans({'%company%': company}) }}</p>
+
+<p style="margin: 0 0 16px 0;">{{ 'signup.stalled.body'|trans({'%slug%': slug}) }}</p>
+
+<p style="margin: 0 0 16px 0;">{{ 'signup.stalled.hand'|trans }}</p>
+
+<p style="margin: 0 0 16px 0;">{{ 'signup.stalled.next'|trans }}</p>
+
+<p style="margin: 0; color: #6c757d; font-size: 13px;">{{ 'signup.stalled.no_action'|trans }}</p>

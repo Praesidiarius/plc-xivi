@@ -58,6 +58,8 @@ control_plane:
     modules_differ: '{count, plural, one {# Modul weicht von der Registrierung ab} other {# Module weichen von der Registrierung ab}}'
     modules_more: '{count, plural, one {# weiteres Modul} other {# weitere Module}}'
     modules_unpriced: '{count, plural, one {# veröffentlichtes Modul hat keinen Preis und wird deshalb niemandem angeboten.} other {# veröffentlichte Module haben keinen Preis und werden deshalb niemandem angeboten.}}'
+    stalled: '{count, plural, one {# bestätigte Anmeldung wartet auf jemanden hier.} other {# bestätigte Anmeldungen warten auf jemanden hier.}}'
+    stalled_attempts: '{count, plural, one {# Versuch} other {# Versuche}}'
 
 # Übernehmen, was ein Modul dazubekommen hat (XIV-70). Jeder dieser Sätze zählt
 # etwas, das der Kunde selbst nicht sehen kann — wie viele Datensätze betroffen

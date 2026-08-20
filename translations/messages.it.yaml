@@ -81,6 +81,26 @@ control_plane:
     refusals_attempts: Rifiutate
     refusals_first: Prima
     refusals_last: Ultima
+    stalled_hint: >-
+        Queste persone hanno confermato un indirizzo e si sono sentite dire che la loro installazione
+        era in preparazione. Si è fermata a un passo che nessun altro tentativo supera, e da sola non
+        riparte. Non è stato mandato loro nulla.
+    stalled_failed: 'ultimo tentativo %time%'
+    stalled_waiting: 'in attesa dal %time%'
+    stalled_preview: Che cosa riceveranno
+    stalled_locale: 'Scritto in %locale%, la lingua della loro iscrizione.'
+    stalled_send: Manda questo messaggio
+    stalled_sent_by: 'Mandato da %who% il %time%. Non parte altro.'
+    stalled_sent: Il messaggio è stato mandato.
+    stalled_already: Qualcun altro ha già scritto. Non è stato mandato nulla.
+    stalled_gone: Questa iscrizione non è più in attesa. O è stata preparata o il nome che voleva si è liberato.
+    stalled_stale: Questa pagina è stata caricata troppo tempo fa. Non è stato mandato nulla; riaprila e riprova.
+    stalled_not_sent: 'Non è stato mandato nulla, quindi questa persona non ha ancora saputo niente: %reason%'
+    stage_preflight: Nome non disponibile
+    stage_tenant: Base di dati
+    stage_first_user: Prima amministrazione
+    stage_invitation: Invito
+    stage_cleanup: Pulizia
     module_state: Stato
     module_price: Prezzo
     module_in_store: Nello Store
@@ -1285,3 +1305,19 @@ signup:
         unknown: Questo link non appartiene a un’iscrizione ancora in attesa.
         next: 'Stiamo preparando %slug% e ti scriveremo quando è pronta.'
         sign_up_again: Iscriversi di nuovo dallo stesso indirizzo ne avvia una nuova.
+    stalled:
+        subject: 'La tua installazione %slug% non è ancora pronta'
+        greeting: 'Buongiorno %company%,'
+        body: >-
+            Hai confermato questo indirizzo e ci hai chiesto di preparare un’installazione chiamata
+            %slug%. Non è pronta, e ci dispiace averti lasciato aspettare senza dire nulla.
+        hand: >-
+            La preparazione ha incontrato qualcosa che non si risolve da sé, quindi serve che uno di
+            noi se ne occupi a mano. Qualcuno qui ora l’ha visto: questo messaggio l’ha mandato una
+            persona, non il sistema.
+        next: >-
+            Ti scriveremo di nuovo a questo indirizzo, o quando la tua installazione sarà pronta o se
+            prima abbiamo bisogno di chiederti qualcosa.
+        no_action: >-
+            Nel frattempo non devi fare nulla. Iscriverti di nuovo non aiuta: questo indirizzo tiene
+            già la tua richiesta, e il modulo ne rifiuterà una seconda.

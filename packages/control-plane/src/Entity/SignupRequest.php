@@ -195,6 +195,52 @@ class SignupRequest
     #[ORM\Column(name: 'provisioning_stage', enumType: SignupProvisioningStage::class, length: 16, nullable: true)]
     private ?SignupProvisioningStage $provisioningStage = null;
 
+    /**
+     * When an operator wrote to this person about the wait, and NULL until one
+     * does (XIV-108).
+     *
+     * **The whole record of the send, together with {@see $apologySentBy}, and
+     * deliberately not a status.** §8.12 refused a `provisioned` case on
+     * {@see SignupStatus} because a status here would be a second copy of a fact
+     * the registry already holds; the same argument applies to an `apologised`
+     * one, with the difference that there is no registry to disagree with, only
+     * the two columns themselves. So the act is recorded as the act: a moment
+     * and a name, which is how §8.16 records who published a notice and §8.17
+     * who answered a ticket.
+     *
+     * **What it is read for is one question**: whether this person has already
+     * been written to. The tenant list offers the button only while this is
+     * NULL, and {@see recordApology()} refuses a second send, so two operators
+     * opening the same page a minute apart cannot apologise to one customer
+     * twice. That is the entire purpose of storing it, and it is why the value
+     * is written after the mail has gone rather than before. See the mailer's
+     * caller, {@see \Xivi\ControlPlane\Signup\StalledSignups::apologise()}: a
+     * failed send must leave the button where it was, because §8.7's rule is
+     * that "nothing happened" must never look like "it went out".
+     *
+     * Nothing clears it. A row that provisions is deleted rather than updated
+     * (§8.12: this table holds live signups only), so like
+     * {@see $provisioningFailedAt} this column has exactly two states over a
+     * row's life.
+     */
+    #[ORM\Column(name: 'apology_sent_at', nullable: true)]
+    private ?\DateTimeImmutable $apologySentAt = null;
+
+    /**
+     * Which operator sent it, as they were called at the time.
+     *
+     * A copy of `operator.name` rather than a foreign key to the row, which is
+     * the treatment `Notice::$authorLabel` and a support reply's author both
+     * get. Here the reason is narrower than theirs and sharper: an operator's
+     * row is removed when their access is withdrawn, and withdrawing access must
+     * not turn "Marie wrote to them on Tuesday" into "somebody did". The one
+     * reader of this column is another operator deciding whether a waiting
+     * customer has already been dealt with, and a name is the only part of the
+     * answer they can act on.
+     */
+    #[ORM\Column(name: 'apology_sent_by', length: 255, nullable: true)]
+    private ?string $apologySentBy = null;
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -367,6 +413,69 @@ class SignupRequest
     public function getProvisioningStage(): ?SignupProvisioningStage
     {
         return $this->provisioningStage;
+    }
+
+    /**
+     * Whether trying again will never get this signup any further (XIV-108).
+     *
+     * **One notion of stuck, and it is the enum's.**
+     * {@see SignupProvisioningStage::isWorthRetrying()} already separates the
+     * failure that clears itself on the next cron run from the one that refuses
+     * for ever, and it was written to answer exactly this question. A second
+     * definition here, whether an attempt threshold, an age or a stage named in
+     * a second `match`, would be a rule that could disagree with it, and the
+     * disagreement would show up as a page offering to apologise for something
+     * that is about to succeed.
+     *
+     * A row that has never failed is not stalled, which is why the NULL stage is
+     * handled here rather than being pushed into the enum: no stage means the
+     * next run has not tried yet, and nearly every signup in this table is in
+     * that state for the few minutes it exists.
+     */
+    public function provisioningIsStalled(): bool
+    {
+        return $this->provisioningStage !== null && !$this->provisioningStage->isWorthRetrying();
+    }
+
+    /**
+     * An operator has written to this person about the wait.
+     *
+     * **Called after the mail has gone, never before**, and it refuses to be
+     * called twice. The first half is the caller's business and is argued there;
+     * the second is enforced here because it is the property the columns exist
+     * for, and a check that lives only in a controller is a check the second
+     * caller does not know about.
+     *
+     * The exception rather than a silent no-op, because the two situations a
+     * second call can come from want different answers and only an exception
+     * lets the caller give them: a form posted twice by an impatient operator,
+     * which is a message to show, and a second code path that has forgotten the
+     * rule, which is a bug. Swallowing it would report success for a mail that
+     * this row says was already sent.
+     */
+    public function recordApology(string $operatorLabel): void
+    {
+        if ($this->apologySentAt !== null) {
+            throw new \LogicException(sprintf(
+                'Signup %d was already written to at %s.',
+                $this->id ?? 0,
+                $this->apologySentAt->format('Y-m-d H:i'),
+            ));
+        }
+
+        $this->apologySentAt = new \DateTimeImmutable();
+        $this->apologySentBy = $operatorLabel;
+        $this->touch();
+    }
+
+    public function getApologySentAt(): ?\DateTimeImmutable
+    {
+        return $this->apologySentAt;
+    }
+
+    public function getApologySentBy(): ?string
+    {
+        return $this->apologySentBy;
     }
 
     public function getId(): ?int
