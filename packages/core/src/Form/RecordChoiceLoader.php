@@ -17,6 +17,7 @@ use Symfony\Component\Form\ChoiceList\ArrayChoiceList;
 use Symfony\Component\Form\ChoiceList\ChoiceListInterface;
 use Symfony\Component\Form\ChoiceList\Loader\ChoiceLoaderInterface;
 use Xivi\Core\Record\Candidate;
+use Xivi\Core\Record\DistinctLabels;
 use Xivi\Core\Record\RecordCandidates;
 
 /**
@@ -63,15 +64,34 @@ use Xivi\Core\Record\RecordCandidates;
 final class RecordChoiceLoader implements ChoiceLoaderInterface
 {
     /**
-     * Candidates this list knows about, label => id.
+     * Candidates this list knows about, id => what the record is called.
      *
-     * Keyed by label because that is the shape Symfony reads option text out of:
-     * `ArrayChoiceList` keeps the array keys and hands them back as the original
-     * keys the view labels itself from.
+     * **Keyed by id here and by label at the end** (XIV-167), and the two halves
+     * of that sentence are both load-bearing. `ArrayChoiceList` reads option
+     * text out of the array *keys*, keeping them and handing them back as the
+     * original keys the view labels itself from, so what {@see
+     * self::loadChoiceList()} hands it has to be label => id, and keying this by
+     * id instead would only move the problem into the flip.
      *
-     * @var array<string, int>
+     * The problem is that a label is not unique and an id is. Every record here
+     * arrives through {@see RecordCandidates::byId()}, one at a time, and a
+     * single record has nothing to be disambiguated against, so `byId()` answers
+     * with the bare title. Collected label => id, two records sharing a title
+     * wrote the same key and the second overwrote the first: an edit form on a
+     * field naming both of them rendered one option, showed one selection, and
+     * dropped the other link the moment anybody saved. Which of the two
+     * survived was whichever was offered last.
+     *
+     * So the titles are collected under the one key that cannot collide, and the
+     * labels are made distinct once, at the end, when the whole set is in hand,
+     * by {@see DistinctLabels}, which is the same rule the select path has
+     * always applied through {@see RecordCandidates::find()}. That timing is
+     * what makes reusing the rule possible at all: it needs to see the records
+     * beside each other, and this class is handed them one by one.
+     *
+     * @var array<int, string>
      */
-    private array $known = [];
+    private array $titles = [];
 
     public function __construct(
         private readonly RecordCandidates $candidates,
@@ -98,9 +118,26 @@ final class RecordChoiceLoader implements ChoiceLoaderInterface
         }
     }
 
+    /**
+     * Everything offered so far, spelled so a reader can tell it apart.
+     *
+     * The labelling happens here rather than in {@see self::remember()} because
+     * it is a question about a *set*: whether a title needs its id beside it
+     * depends on what else ended up in the list, and nothing knows that until
+     * the list is finished. Symfony's own ordering makes the timing work:
+     * `LazyChoiceList` only asks for this when the view is built, which is after
+     * `PRE_SET_DATA` has offered the record's links and after a submission has
+     * resolved whatever was picked.
+     */
     public function loadChoiceList(?callable $value = null): ChoiceListInterface
     {
-        return new ArrayChoiceList($this->known, $value);
+        $known = [];
+
+        foreach (DistinctLabels::among($this->titles) as $id => $label) {
+            $known[$label] = $id;
+        }
+
+        return new ArrayChoiceList($known, $value);
     }
 
     /**
@@ -112,15 +149,50 @@ final class RecordChoiceLoader implements ChoiceLoaderInterface
      * {@see RecordCandidates::byId()} answers null for and deliberately does not
      * distinguish between.
      *
-     * @param list<string|int|null> $values
+     * **Under the keys they were asked for, and that is the interface's rule
+     * rather than a nicety** (XIV-167). `ChoiceLoaderInterface` says the choices
+     * come back "with the same keys and in the same order as the corresponding
+     * values in the given array", and `ArrayChoiceList::getChoicesForValues()`
+     * honours it by assigning at `$i`. This appended instead, which re-indexes
+     * from zero, and ChoiceType is a consumer that reads the keys back:
      *
-     * @return list<int>
+     *     foreach ($choiceList->getChoicesForValues($data) as $key => $choice) {
+     *         $knownValues[] = $data[$key];
+     *     }
+     *
+     * So every key after a refused value was off by one, and it went wrong in
+     * two directions. A submission whose keys do not start at zero, which a
+     * Live Component model produces the moment a list is written sparsely because
+     * its values travel as JSON, shifted straight off the end of `$data`, which
+     * is the "Undefined array key 0" this was reported as. And refusing one id
+     * out of three made `$knownValues` pick up the **refused** value while
+     * dropping a real one, so what ChoiceType went on to submit was a set
+     * assembled partly out of an id this method had just said no to.
+     *
+     * **What that second one did not do is quietly save the wrong set**, and the
+     * reason is worth being uncomfortable about rather than reassured by:
+     * `ChoicesToValuesTransformer` sits behind this and refuses when it gets back
+     * fewer choices than it passed values, so the refused id was caught one layer
+     * down and the whole save came back as "The selected choice is invalid",
+     * about a set somebody had picked entirely out of the widget's own
+     * suggestions. A loader that answers wrongly and is saved by the strictness
+     * of its caller is still answering wrongly, and nothing in
+     * `ChoiceLoaderInterface` promises the next caller checks.
+     *
+     * Preserving the key keeps a refusal a refusal: the value disappears from
+     * the answer at the key it was asked about, the ones beside it are unmoved,
+     * and ChoiceType finds the refused one among the unknown values instead of
+     * among the submitted ones.
+     *
+     * @param array<array-key, string|int|null> $values
+     *
+     * @return array<array-key, int>
      */
     public function loadChoicesForValues(array $values, ?callable $value = null): array
     {
         $choices = [];
 
-        foreach ($values as $submitted) {
+        foreach ($values as $key => $submitted) {
             if ($submitted === null || $submitted === '' || !is_numeric($submitted)) {
                 continue;
             }
@@ -132,7 +204,7 @@ final class RecordChoiceLoader implements ChoiceLoaderInterface
                 // still shows what was picked rather than an empty box beside
                 // the message about the field that was actually wrong.
                 $this->remember($candidate);
-                $choices[] = $candidate->id;
+                $choices[$key] = $candidate->id;
             }
         }
 
@@ -147,9 +219,18 @@ final class RecordChoiceLoader implements ChoiceLoaderInterface
      * because delegating would mean loading a list to look up a value that is
      * the choice itself.
      *
-     * @param list<int|null> $choices
+     * **The same keys back, like its counterpart** (XIV-167), which this has
+     * always done without saying so: `array_map()` over exactly one array keeps
+     * that array's keys. It is written down because the two halves have to agree
+     * (a loader that preserved keys one way and re-indexed the other would put
+     * a form's view data and its submitted data on different footings), and
+     * because `array_map()` stops preserving them the moment a second array is
+     * passed, which makes this a property of the call rather than of the
+     * function.
      *
-     * @return list<string>
+     * @param array<array-key, int|null> $choices
+     *
+     * @return array<array-key, string>
      */
     public function loadValuesForChoices(array $choices, ?callable $value = null): array
     {
@@ -159,8 +240,16 @@ final class RecordChoiceLoader implements ChoiceLoaderInterface
         );
     }
 
+    /**
+     * Keeping a candidate, by the one key two of them cannot share.
+     *
+     * Offering the same record twice is ordinary rather than a mistake: an edit
+     * form offers its stored links and then resolves the submitted ones, which
+     * for a save that changed nothing is the same ids again. By id that is
+     * simply the same entry written twice.
+     */
     private function remember(Candidate $candidate): void
     {
-        $this->known[$candidate->label] = $candidate->id;
+        $this->titles[$candidate->id] = $candidate->label;
     }
 }
