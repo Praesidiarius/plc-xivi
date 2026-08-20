@@ -312,6 +312,18 @@ final class ReferenceFieldType implements Autocompletes, LinksToRecord, PointsAt
         return [[self::MODULE]];
     }
 
+    /**
+     * Equality, because this one holds exactly one id (XIV-113).
+     *
+     * What XIV-52's reverse-link card always did, said by the type instead of
+     * assumed by the caller. See {@see PointsAtAModule::findsTargetBy()} for why
+     * it moved.
+     */
+    public function findsTargetBy(): Operator
+    {
+        return Operator::Equals;
+    }
+
     public static function targetModule(FieldDefinition $field): string
     {
         $module = $field->getOption(self::MODULE);

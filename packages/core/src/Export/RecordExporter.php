@@ -17,6 +17,7 @@ use OpenSpout\Common\Entity\Row;
 use OpenSpout\Writer\XLSX\Writer;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
+use Xivi\Core\Field\HoldsSeveralValues;
 use Xivi\Core\Permission\RecordAccess;
 use Xivi\Core\Query\RecordQuery;
 use Xivi\Core\Record\Record;
@@ -38,7 +39,9 @@ use Xivi\Core\Record\RecordRepository;
  * **Values are in storage form**, not display form: an ISO date rather than a
  * formatted one, a choice's stored value rather than its label, a reference's id
  * rather than the record's name. Anything else would be a file that reads nicely
- * and cannot be imported.
+ * and cannot be imported. A field naming several records is the one value that
+ * is not a scalar, and it becomes one cell holding its ids separated by
+ * {@see HoldsSeveralValues::SEPARATOR} (XIV-113).
  *
  * Variants need nothing special. Every field is a column, `kind` says which
  * apply, and the rest are blank for that row (§5.5).
@@ -171,7 +174,22 @@ final readonly class RecordExporter
         $values = [];
 
         foreach ($shape->getFieldKeys() as $key) {
-            $values[] = $stored[$key] ?? null;
+            $value = $stored[$key] ?? null;
+
+            // **A cell holds text, and a field may hold a list** (XIV-113). The
+            // items go in separated by {@see HoldsSeveralValues::SEPARATOR},
+            // which is the spelling the type reads back on the way in, so §5.6's
+            // round trip still holds: export, re-import, nothing changes.
+            //
+            // Asked of the *value* rather than of the field's type, and that is
+            // deliberate rather than lazy. This class has no field type registry
+            // and wants none: it exists to know that a header is a key and a
+            // value is storage form, and nothing else about what a field is. An
+            // array is already the answer to the only question being asked here,
+            // which is whether one cell has to hold more than one thing.
+            $values[] = \is_array($value)
+                ? implode(HoldsSeveralValues::SEPARATOR, array_map(strval(...), $value))
+                : $value;
         }
 
         return $values;

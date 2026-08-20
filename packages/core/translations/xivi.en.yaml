@@ -21,6 +21,11 @@ operator:
     # The only comparison that is about two stretches rather than a point
     # (XIV-136). Reads as a comparison in a filter row: "Stay overlaps 19.8.2026".
     overlaps: overlaps
+    # The two a field holding several records answers with, and the pair it is
+    # not (XIV-113). "Has any of these" would be the OR tree §5.3 says the query
+    # layer has not got, so it is not spelled here either.
+    includes: includes
+    excludes: does not include
 
 # Whether somebody types to narrow a field's candidates (XIV-36). Read in the
 # metadata editor, beside the field's width — three answers rather than a tick
@@ -177,6 +182,11 @@ metadata:
     target_is_held: '%count% existing records point through "%key%" at records in "%from%". An id only means anything in the module it was chosen from, so pointing this field at "%to%" would leave every one of them naming the wrong record, or none. Empty those records first, or leave it pointing at "%from%".'
     target_is_the_modules: 'The field "%key%" came with the module and points at "%module%" because the module''s own forms, documents and totals expect it to. Fields you added yourself can be pointed wherever you like.'
     unknown_target: 'No module named "%module%" is installed here, so "%key%" cannot point at it.'
+    # `unique` on a field that holds a list (XIV-113). The index behind the flag
+    # is over the value as text, so it would enforce "no two records hold exactly
+    # the same set", which nobody means, and which the message in front of it
+    # does not check.
+    unique_holds_several_values: 'A "%type%" field holds several values, so "unique" has no single answer for it: it would have to mean either that no two records hold exactly the same set, which is not what anybody asks for, or that no two records share any one value, which the engine cannot enforce. Leave "%key%" as it is.'
     # Sections (XIV-119). Refusals rather than shrugs, unlike the width and the
     # country: the empty answer here is a real one — "in no section" — so reading
     # nonsense as empty would move somebody's field and call it a success.
@@ -224,6 +234,7 @@ query:
     unknown_collection: '"%module%" has no collection called "%collection%".'
     unsupported_operator: 'Cannot ask whether "%path%" (%type%) %operator%. That type accepts: %supported%.'
     sort_by_collection: 'Cannot sort by "%path%": it belongs to a collection, and a record with two of them has two values. Which one would be the record''s?'
+    sort_by_several_values: 'Cannot sort by "%path%" (%type%): it holds several values, and a record with four of them has four. Which one would the list be in the order of?'
 
 # The two sentences beside a formatted field's textarea (XIV-131).
 #

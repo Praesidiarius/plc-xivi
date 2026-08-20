@@ -170,9 +170,21 @@
 								<th scope="col" class="text-body-secondary small text-uppercase">
 									{{ h.sortable(module, query, nameSort, 'common.name'|trans) }}
 								</th>
+								{#
+									A column that cannot be an ordering is a heading rather than
+									a link (XIV-113). Asked of the field, on `record_link()`'s
+									rule. A header comparing type names would be a header to
+									edit the next time something holds a list, and it agrees
+									with the compiler, which refuses such a sort outright. A link
+									that raises is worse than plain text.
+								#}
 								{% for field in columns %}
 									<th scope="col" class="text-body-secondary small text-uppercase">
-										{{ h.sortable(module, query, field.key, field.label) }}
+										{% if is_sortable(field) %}
+											{{ h.sortable(module, query, field.key, field.label) }}
+										{% else %}
+											{{ field.label }}
+										{% endif %}
 									</th>
 								{% endfor %}
 								<th scope="col" class="text-body-secondary small text-uppercase">{{ 'module.owner'|trans }}</th>

@@ -20,6 +20,7 @@ use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Field\HoldsSeveralValues;
 use Xivi\Core\Field\Type\ReferenceFieldType;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Metadata\ModuleNotInstalled;
@@ -435,6 +436,26 @@ final readonly class QueryCompiler
                 sprintf('%s && %s', $value, $type->comparableSql(':' . $param)),
                 $this->bind($type, $field, $filter->value),
             ],
+            // **The type's own expression on both sides again** (XIV-113), and
+            // for the reason the line above gives: `comparableSql()` is a pure
+            // text→SQL transform, so applying it to the bound parameter builds
+            // the same JSON array out of the one value somebody typed as it
+            // builds out of the column, and this line stays free of any knowledge
+            // of what a list is. `@>` is Postgres' containment operator, so
+            // asking for 3 finds `[3, 12]` and does not find `[13]`, which a
+            // joined string compared with LIKE would have got wrong.
+            Operator::Includes => [
+                sprintf('%s @> %s', $value, $type->comparableSql(':' . $param)),
+                $this->bind($type, $field, $filter->value),
+            ],
+            // COALESCE, not a bare NOT: containment against a column holding
+            // nothing is NULL rather than false, and `NOT NULL` is NULL, so a
+            // record with no value at all would be dropped from a filter that is
+            // true of it. Same correction `IS DISTINCT FROM` makes above.
+            Operator::Excludes => [
+                sprintf('NOT COALESCE(%s @> %s, FALSE)', $value, $type->comparableSql(':' . $param)),
+                $this->bind($type, $field, $filter->value),
+            ],
             default => throw UnsupportedQuery::operator($filter->operator, $filter->path(), $field->getType(), $supported),
         };
 
@@ -453,6 +474,16 @@ final readonly class QueryCompiler
     private function bind(\Xivi\Core\Field\FieldType $type, FieldDefinition $field, mixed $value): string
     {
         $stored = $type->toStorage($value, $field);
+
+        if (\is_array($stored)) {
+            // A type that stores a list binds the JSON its column holds
+            // (XIV-113), which is the same statement the scalar case makes: bind
+            // what is stored, and let `comparableSql()` read it back the way it
+            // reads the column back. Anything that will not encode is bound as
+            // the empty array and matches nothing, which is what a filter on a
+            // value nobody can express should do.
+            return json_encode($stored, \JSON_UNESCAPED_UNICODE) ?: '[]';
+        }
 
         return \is_scalar($stored) ? (string) $stored : '';
     }
@@ -477,6 +508,23 @@ final readonly class QueryCompiler
                 ?? throw UnsupportedQuery::unknownField($sort->field, $module->getKey());
 
             $type = $this->fieldTypes->get($field->getType());
+
+            // **A field holding several values has no place in an ordering**
+            // (XIV-113), which is §5.3's refusal to sort by a collection with
+            // fewer tables in it: a contact with four tags has four values and
+            // none of them is the contact's, so there is nothing to compare the
+            // next row against. Refused rather than sorted by the array's own
+            // text, which would put `[10, 2]` before `[9]` and look like an
+            // ordering nobody can explain.
+            //
+            // Asked of the capability rather than of the type's name, like every
+            // other question here, and the list header asks the same thing
+            // before it offers the link, so this is the guard behind a URL rather
+            // than the thing a customer meets.
+            if ($type instanceof HoldsSeveralValues) {
+                throw UnsupportedQuery::sortingBySeveralValues($sort->field, $field->getType());
+            }
+
             // Inline rather than bound: a parameter in ORDER BY is a value, and
             // Postgres would read it as "order by this constant" — which orders
             // by nothing at all. The key comes from a definition row and is

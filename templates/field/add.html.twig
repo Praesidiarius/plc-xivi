@@ -69,9 +69,15 @@
 						<label class="form-check-label small">
 							<input type="checkbox" name="required" value="1"> {{ 'field.rule_required'|trans }}
 						</label>
-						<label class="form-check-label small">
-							<input type="checkbox" name="unique" value="1"> {{ 'field.rule_unique'|trans }}
-						</label>
+						{# Not drawn for a type whose value is a list (XIV-113): the
+						   engine refuses the flag, because the index behind it would
+						   enforce "no two records hold exactly the same set" and nobody
+						   means that. A box that is always refused is worse than no box. #}
+						{% if uniqueOffered %}
+							<label class="form-check-label small">
+								<input type="checkbox" name="unique" value="1"> {{ 'field.rule_unique'|trans }}
+							</label>
+						{% endif %}
 						<label class="form-check-label small">
 							<input type="checkbox" name="filterable" value="1"> {{ 'field.rule_filterable'|trans }}
 						</label>
@@ -79,7 +85,9 @@
 							<input type="checkbox" name="title" value="1"> {{ 'field.rule_title'|trans }}
 						</label>
 					</div>
-					<p class="text-body-secondary small mb-0 mt-2">{{ 'field.rule_unique_note'|trans }}</p>
+					{% if uniqueOffered %}
+						<p class="text-body-secondary small mb-0 mt-2">{{ 'field.rule_unique_note'|trans }}</p>
+					{% endif %}
 				</div>
 			</div>
 

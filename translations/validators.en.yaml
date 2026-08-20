@@ -32,3 +32,11 @@
 'A period has to start somewhere. Fill in the first date.': 'A period has to start somewhere. Fill in the first date.'
 'Say when this period ends, or tick that it has no end date.': 'Say when this period ends, or tick that it has no end date.'
 'This period ends before it starts. The second date is the moment the period stops rather than its last day, so it has to come after the first one.': 'This period ends before it starts. The second date is the moment the period stops rather than its last day, so it has to come after the first one.'
+
+# What a field naming several records says about one item it cannot read
+# (XIV-113). The item rather than the cell, because a cell reading
+# `12,tuesday,34` has two good ids in it and one thing to fix, and the whole
+# point of keeping the bad item instead of dropping it is that somebody is told
+# which. The example is in the message because the separator is the one part of
+# the spelling nobody can guess.
+'{{ value }} is not a record id. Several records are named by their ids separated by a comma, as in 12,34.': '{{ value }} is not a record id. Several records are named by their ids separated by a comma, as in 12,34.'

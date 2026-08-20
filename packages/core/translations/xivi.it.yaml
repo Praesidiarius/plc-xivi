@@ -19,6 +19,11 @@ operator:
     # Si legge come un confronto in una riga di filtro: «Soggiorno si sovrappone
     # a 19.8.2026».
     overlaps: si sovrappone a
+    # I due confronti di un campo che nomina più record (XIV-113). «Uno di
+    # questi» sarebbe l’albero OR che il livello di query non ha (§5.3), quindi
+    # non è scritto nemmeno qui.
+    includes: contiene
+    excludes: non contiene
 
 autocomplete:
     auto: Automatico
@@ -125,6 +130,10 @@ metadata:
     target_is_held: '%count% record esistenti puntano tramite “%key%” a record di “%from%”. Un id significa qualcosa solo nel modulo in cui è stato scelto, quindi puntare questo campo su “%to%” lascerebbe ognuno di loro a nominare il record sbagliato, o nessuno. Svuota prima quei record, oppure lascialo puntare su “%from%”.'
     target_is_the_modules: 'Il campo “%key%” è arrivato con il modulo e punta su “%module%” perché i moduli di inserimento, i documenti e i totali del modulo se lo aspettano così. I campi che hai aggiunto tu possono puntare dove vuoi.'
     unknown_target: 'Nessun modulo chiamato “%module%” è installato qui, quindi “%key%” non può puntarci.'
+    # «Unico» su un campo che contiene un elenco (XIV-113). L’indice dietro il flag
+    # legge il valore come testo: imporrebbe «nessun record con esattamente lo
+    # stesso insieme», che non è ciò che si intende.
+    unique_holds_several_values: 'Un campo “%type%” contiene più valori, quindi “unico” non ha una sola risposta: dovrebbe significare o che due record non hanno mai esattamente lo stesso insieme, cosa che nessuno chiede, o che non condividono nemmeno un valore, cosa che il motore non può imporre. Lascia “%key%” com’è.'
     unknown_section: 'Non c’è una sezione chiamata “%section%” su questo modulo, quindi “%key%” non ci si può mettere. Creala prima nella pagina delle sezioni.'
     section_needs_a_name: 'Una sezione è un’intestazione sul modulo di inserimento, quindi le serve un nome: è l’unica cosa che dice.'
     sections_are_for_modules: '“%shape%” è un elenco di righe dentro un record, non un modulo di inserimento a sé, quindi non ha sezioni in cui mettere campi.'
@@ -156,6 +165,7 @@ query:
     unknown_collection: '“%module%” non ha una collezione chiamata “%collection%”.'
     unsupported_operator: 'Impossibile chiedere se “%path%” (%type%) %operator%. Quel tipo accetta: %supported%.'
     sort_by_collection: 'Impossibile ordinare per “%path%”: appartiene a una collezione, e un record che ne ha due ha due valori. Quale sarebbe quello del record?'
+    sort_by_several_values: 'Impossibile ordinare per “%path%” (%type%): contiene più valori, e un record che ne ha quattro ne ha quattro. In ordine di quale sarebbe l’elenco?'
 
 markdown:
     hint: >-

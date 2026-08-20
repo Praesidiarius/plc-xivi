@@ -11,3 +11,6 @@
 'A period has to start somewhere. Fill in the first date.': 'Un periodo deve pur cominciare da qualche parte. Compila la prima data.'
 'Say when this period ends, or tick that it has no end date.': 'Indica quando finisce questo periodo, oppure spunta che non ha una data di fine.'
 'This period ends before it starts. The second date is the moment the period stops rather than its last day, so it has to come after the first one.': 'Questo periodo finisce prima di cominciare. La seconda data è il momento in cui il periodo si ferma, non il suo ultimo giorno: deve quindi venire dopo la prima.'
+
+# Che cosa dice di un elemento illeggibile un campo che nomina più record (XIV-113).
+'{{ value }} is not a record id. Several records are named by their ids separated by a comma, as in 12,34.': '{{ value }} non è un id di record. Più record si indicano con i loro id separati da una virgola, come 12,34.'

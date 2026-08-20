@@ -126,6 +126,17 @@ final readonly class AvailableFields
         // The key as a string, the way {@see \Xivi\Core\Metadata\AvailableVariants}
         // asks the same question: a field type's key is what a *definition*
         // carries, and the class behind it is not something core matches on.
+        //
+        // **`multi_reference` is deliberately not named beside it** (XIV-113).
+        // Only a *blueprint* reaches this method, no shipped module declares
+        // that type, and adding a second string literal is the drift
+        // {@see \App\Tests\Functional\Engine\ValueListReachesEveryTypeTest}
+        // exists to warn about: the honest version asks the registry whether the
+        // type {@see \Xivi\Core\Field\PointsAtAModule points at a module},
+        // which means handing this class a field type registry it has managed
+        // without. Worth doing on the day a module ships such a field, and not
+        // before. The symptom until then is a picker that offers nothing, which
+        // is what the field type already says on the page.
         if ($field->type !== 'reference') {
             return true;
         }

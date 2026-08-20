@@ -1021,6 +1021,40 @@ final class MetadataChangeRefused extends \RuntimeException
         );
     }
 
+    /**
+     * `unique` on a field that holds several values (XIV-113).
+     *
+     * **Refused, rather than left to match nothing.** XIV-109 enforces the flag
+     * with a partial index over `data ->> 'key'`, and for a JSON array that
+     * expression is the array's own text, so the index would build without a
+     * complaint and mean "no two records hold exactly the same set". Nobody
+     * ticking that box means that. They mean "no two records share any of
+     * these", which is not an index at all, and the gap between the two would be
+     * invisible: the validator in front would go on checking something else
+     * again, and the first anybody heard of it would be a duplicate the database
+     * had cheerfully allowed.
+     *
+     * So the answer is a sentence rather than a silent yes. The editor does not
+     * draw the checkbox either, on §8.3.1's rule about a control that looks like
+     * it works; this is what makes the refusal true for the importer, the console
+     * and whatever asks next.
+     */
+    public static function uniqueHoldsSeveralValues(string $key, string $type): self
+    {
+        return self::of(
+            sprintf(
+                'A "%s" field holds several values, so "unique" has no single answer for it: it would have '
+                . 'to mean either that no two records hold exactly the same set, which is not what anybody '
+                . 'asks for, or that no two records share any one value, which the engine cannot enforce. '
+                . 'Leave "%s" as it is.',
+                $type,
+                $key,
+            ),
+            'metadata.unique_holds_several_values',
+            ['%key%' => $key, '%type%' => $type],
+        );
+    }
+
     public static function wouldInvalidateRecords(string $key, int $records): self
     {
         return self::of(

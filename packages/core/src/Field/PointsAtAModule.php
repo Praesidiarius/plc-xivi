@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 namespace Xivi\Core\Field;
 
+use Xivi\Core\Query\Operator;
+
 /**
  * A field type whose values are ids in another module, and whose fields say
  * which one (XIV-144).
@@ -42,4 +44,22 @@ namespace Xivi\Core\Field;
  */
 interface PointsAtAModule extends NeedsAnAnswer
 {
+    /**
+     * The comparison that finds the records whose value here names a given one
+     * (XIV-113).
+     *
+     * **The reverse of a link, asked of the type rather than assumed.** XIV-52's
+     * card on a record's page counts what points at it, and until a second type
+     * pointed at a module that count could be written as `= 14` and be right. A
+     * field holding several links needs containment, and the caller must not be
+     * the place that knows which. A `switch` there would be the switch on field
+     * type this whole abstraction exists to prevent, and it would be a *silent*
+     * one: a type it did not know about would simply be counted as nothing, and
+     * a card reading "no orders" is indistinguishable from a customer with none.
+     *
+     * It is on this interface rather than on {@see FieldType} because it is only
+     * answerable by a type that points at records: nothing else has a target for
+     * the question to be about.
+     */
+    public function findsTargetBy(): Operator;
 }

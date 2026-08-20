@@ -69,7 +69,16 @@ use Xivi\Core\Record\RecordSearchUrl;
  * catalogue big enough to make a form that heavy is a catalogue `auto` turns
  * into a search box.
  *
- * @extends AbstractType<int|null>
+ * **And one picker for both arities** (XIV-113). A field that may name several
+ * records passes `multiple`, and everything above this line is what it gets:
+ * the same scoped candidates, the same cap with the same apology, the same
+ * search box past the same count. Nothing here is per arity because nothing here
+ * depends on it, which is also the answer to whether `symfony/ux-autocomplete`
+ * does multi-select: its controller reads `select.multiple` and configures Tom
+ * Select from it, so the widget is the package's rather than something this had
+ * to grow.
+ *
+ * @extends AbstractType<int|list<int>|null>
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
@@ -109,8 +118,16 @@ final class RecordReferenceType extends AbstractType
         $builder->addEventListener(FormEvents::PRE_SET_DATA, static function (FormEvent $event) use ($loader): void {
             $data = $event->getData();
 
-            if (is_numeric($data)) {
-                $loader->offer((int) $data);
+            // One id or several (XIV-113). A field holding a list arrives here as
+            // an array and every one of its links has to be offered, or an edit
+            // form would show the first tag and quietly drop the other three the
+            // moment somebody saved. The loop is the whole difference: what is
+            // offered, and what a submitted value is checked against, is the same
+            // record read the same way whichever arity asked.
+            foreach (\is_array($data) ? $data : [$data] as $id) {
+                if (is_numeric($id)) {
+                    $loader->offer((int) $id);
+                }
             }
         });
     }

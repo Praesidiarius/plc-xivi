@@ -52,6 +52,32 @@ enum Operator: string
      */
     case Overlaps = 'overlaps';
 
+    /**
+     * Has this record among the several it names (XIV-113).
+     *
+     * The comparison a field holding a list needs and the one a field holding a
+     * scalar cannot answer: `Equals` against a set would have to mean either "is
+     * exactly this set", which a filter box holding one value cannot express, or
+     * this, so this is spelled differently rather than overloaded.
+     *
+     * **One value, deliberately.** "Has any of these" is a disjunction, and §5.3
+     * says the query layer has no `OR` tree; two of these filters in one URL mean
+     * *and*, like every other pair. Offering a list here and compiling it as an
+     * `OR` would be building that tree in one operator, where nothing else can
+     * see it.
+     */
+    case Includes = 'includes';
+
+    /**
+     * And does not have it.
+     *
+     * Matches a record with nothing in the field at all, on
+     * {@see self::NotEquals}'s reasoning: a contact with no tags genuinely does
+     * not have this one, and dropping it for being empty would make "not urgent"
+     * mean "has tags, none of them urgent".
+     */
+    case Excludes = 'excludes';
+
     /** The two that are about presence rather than about a value. */
     public function needsValue(): bool
     {

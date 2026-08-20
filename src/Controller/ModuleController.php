@@ -32,6 +32,8 @@ use Xivi\Core\Document\DocumentTemplateRepository;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Export\RecordExporter;
+use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Field\PointsAtAModule;
 use Xivi\Core\Field\Type\ReferenceFieldType;
 use Xivi\Core\History\HistoryRepository;
 use Xivi\Core\History\HistorySection;
@@ -132,6 +134,11 @@ final class ModuleController extends AbstractController
         // none of them has to, which is the property that keeps it from being a
         // rule somebody has to remember.
         private readonly RecordPrimer $primer,
+        // Which comparison finds the records pointing at this one (XIV-113).
+        // Only the reverse-link card needs it, and it needs the *type* rather
+        // than the definition: a field naming several records is found by
+        // containment where one naming a single record is found by equality.
+        private readonly FieldTypeRegistry $fieldTypes,
     ) {
     }
 
@@ -593,7 +600,15 @@ final class ModuleController extends AbstractController
         // modules those are — the customer decides that by installing them.
         foreach ($this->metadata->all() as $other) {
             foreach ($other->getFields() as $field) {
-                if ($field->getType() !== 'reference' || ReferenceFieldType::targetModule($field) !== $module->getKey()) {
+                $type = $this->fieldTypes->get($field->getType());
+
+                // **Every type that points at a module, not the one that used to
+                // be the only one** (XIV-113). A field naming several records is
+                // as much a link as a field naming one, and a card that counted
+                // only `reference` would report "no contacts" for a company four
+                // people are tagged with. That is a wrong answer that looks
+                // exactly like a right one.
+                if (!$type instanceof PointsAtAModule || ReferenceFieldType::targetModule($field) !== $module->getKey()) {
                     continue;
                 }
 
@@ -607,8 +622,12 @@ final class ModuleController extends AbstractController
                     continue;
                 }
 
+                // The comparison is the type's to name: equality where one id is
+                // stored, containment where several are (XIV-113). Asked rather
+                // than assumed, because a caller choosing it would be a switch on
+                // field type whose failure mode is a count of zero.
                 $query = new RecordQuery(
-                    [new Filter($field->getKey(), Operator::Equals, (int) $record->id)],
+                    [new Filter($field->getKey(), $type->findsTargetBy(), (int) $record->id)],
                     [],
                     1,
                     self::LINKED_ON_RECORD,
