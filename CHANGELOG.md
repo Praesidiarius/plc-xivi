@@ -87,6 +87,11 @@ always lands in `Unreleased` here.
   every real customer. `/_tls/ask` answers from the registry and refuses any
   request that did not come from the loopback, so it cannot be used from outside
   to ask whether a customer exists.
+- **The deployment notes say how to choose an SMTP port and how to write a DSN**
+  ([XIV-61], §4.8). Providers block outbound mail ports as a timeout rather than
+  a refusal, so the wrong choice looks like mail hanging; and credentials have to
+  be percent-encoded, since an email-address username carries an `@` inside the
+  userinfo and a `[` in a password is read as the start of an IPv6 literal.
 - **A deploy installs the cron entries the release needs** ([XIV-61], §4.5).
   They are generated out of the image being deployed, from the job list in code,
   so the schedule cannot be a version behind the commands it names. The entries

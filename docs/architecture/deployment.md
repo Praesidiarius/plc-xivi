@@ -482,6 +482,15 @@ entrypoint's own output, which prints the Symfony banner, the cache clear and th
 database wait to stdout, straight into `/etc/cron.d` above the real entries.
 `--entrypoint php` is what stops that at the source.
 
+**Mail needs a port the host can reach, and that is worth measuring rather than
+assuming** (§8.7). Hosting providers block outbound SMTP to keep their address
+ranges off blocklists, and the block is a timeout, so it looks like mail hanging
+rather than mail refused. On the first target, 25, 465 and 2525 were blocked and
+587 was open, which rules out `smtps://` and leaves `smtp://` on 587 with
+STARTTLS. Credentials in the DSN have to be percent-encoded: a username that is
+an email address carries an `@` inside the userinfo, and a `[` in a password
+makes a URL parser read the rest as an IPv6 literal and refuse the whole string.
+
 **Secrets are installed once, deliberately, and never by a deploy.**
 `dep secrets:install <alias>` writes `/opt/xivi/.env.deploy` at mode 600 from a
 gitignored local file. A deploy that shipped them every time would put them in
