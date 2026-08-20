@@ -89,6 +89,15 @@ security:
         - { path: '^/logo/', roles: PUBLIC_ACCESS }
         # Debug-only diagnostic; the controller itself 404s outside debug builds.
         - { path: ^/_tenancy/, roles: PUBLIC_ACCESS }
+        # **Caddy asks this before a TLS handshake finishes, so it has no
+        # credential to send and nothing to be redirected to** (XIV-61, §4.8).
+        # Behind the firewall it answered 302 to the login page, and Caddy reads
+        # anything that is not 2xx as "do not get a certificate for this name" —
+        # so the failure is not an error page, it is an instance that quietly
+        # serves no customer over HTTPS at all. TlsAskController is what makes
+        # this safe to expose: it refuses any request that did not come from the
+        # loopback, which is where Caddy asks from. TlsAskTest holds both halves.
+        - { path: ^/_tls/, roles: PUBLIC_ACCESS }
         - { path: ^/, roles: ROLE_USER }
 
 when@test:

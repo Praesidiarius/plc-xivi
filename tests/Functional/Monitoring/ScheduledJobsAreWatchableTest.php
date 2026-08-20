@@ -206,10 +206,50 @@ final class ScheduledJobsAreWatchableTest extends KernelTestCase
     }
 
     /**
+     * **The entry a deploy installs runs the job through Docker, because the
+     * target has no PHP on it** (XIV-61, §4.8).
+     *
+     * The printed default assumes it is run where the console is, which is
+     * inside the container, and that is right for somebody reading it. Written
+     * into `/etc/cron.d` on the host it is a line that fails every five minutes
+     * into mail nobody reads, which is the same silence a job that was never
+     * scheduled produces.
+     *
+     * Both shapes are asserted together: the wrapper has to replace `bin/console`
+     * rather than sit in front of it, and a test that only looked for the wrapper
+     * would pass on an entry that still ended in a path the host does not have.
+     */
+    public function testTheDeployedEntryRunsTheJobThroughItsWrapper(): void
+    {
+        $display = $this->crontab(options: [
+            '--wrapper' => 'docker compose run --rm php bin/console',
+            '--user' => 'root',
+        ])->getDisplay();
+
+        self::assertStringContainsString(
+            'root docker compose run --rm php bin/console signup:provision',
+            $display,
+        );
+        self::assertStringNotContainsString('cd /srv/xivi', $display);
+    }
+
+    /**
+     * `/etc/cron.d` requires the user column and a user crontab refuses it, so
+     * the default must not carry one. Getting this wrong is silent either way.
+     */
+    public function testTheUserColumnIsAbsentUnlessAskedFor(): void
+    {
+        self::assertStringContainsString('* cd /srv/xivi && bin/console signup:provision', $this->crontab()->getDisplay());
+    }
+
+    /**
      * Runs `deploy:crontab` against a freshly booted kernel with this value of
      * `XIVI_MONITOR_PINGS`.
      */
-    private function crontab(string $pings = ''): CommandTester
+    /**
+     * @param array<string, string> $options
+     */
+    private function crontab(string $pings = '', array $options = []): CommandTester
     {
         self::ensureKernelShutdown();
         // Both superglobals, and `$_ENV` is the one that matters: Dotenv has
@@ -221,7 +261,7 @@ final class ScheduledJobsAreWatchableTest extends KernelTestCase
         $_SERVER['XIVI_MONITOR_PINGS'] = $pings;
 
         $tester = new CommandTester((new Application(self::bootKernel()))->find('deploy:crontab'));
-        $tester->execute(['--directory' => '/srv/xivi']);
+        $tester->execute(['--directory' => '/srv/xivi'] + $options);
 
         return $tester;
     }

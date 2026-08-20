@@ -233,7 +233,23 @@ php bin/console deploy:check-hosts
 # An empty registry exits 1 and stops the deploy too, which is the right answer
 # for a real deployment — an installation with no customers has either not been
 # provisioned yet or has lost its registry, and both are worth a human looking.
+#
+# **Unless the deployment says it is empty on purpose.** An installation waiting
+# for its first self-service signup is legitimately empty, and for as long as it
+# is, this step failed before the serving containers were replaced — so the
+# instance could not be deployed at all, and removing the last tenant from one
+# made it undeployable. `XIVI_ALLOW_EMPTY_REGISTRY=1` in the deployment's
+# environment is that case stated deliberately.
+#
+# It is a variable rather than the default because the two situations are
+# indistinguishable from here: an installation that has lost its registry looks
+# exactly like one that never had a customer. Only the deployment knows which it
+# is, so the deployment is what says.
 step 'Every tenant schema'
-php bin/console tenant:migrate
+if [ "${XIVI_ALLOW_EMPTY_REGISTRY:-}" = '1' ]; then
+	php bin/console tenant:migrate --allow-empty
+else
+	php bin/console tenant:migrate
+fi
 
 printf '\nSchema is deployed. Replace the serving containers now.\n'

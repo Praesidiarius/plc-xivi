@@ -81,6 +81,17 @@ ENV FRANKENPHP_WORKER_CONFIG=watch
 RUN <<-EOF
 	mv "$PHP_INI_DIR/php.ini-development" "$PHP_INI_DIR/php.ini"
 	install-php-extensions xdebug
+	# **What lets this container deploy** (XIV-61, §4.8). Deployer drives
+	# `docker compose` on the target over SSH, from an operator's machine rather
+	# than from a hosted runner, and this project has no PHP on the host: the
+	# operator's machine *is* this container. Without an ssh client `dep` fails
+	# on its first connection with nothing useful to say.
+	#
+	# Dev image only. The production images have no business holding an ssh
+	# client, and the deploy is driven at them rather than from them.
+	apt-get update
+	apt-get install -y --no-install-recommends openssh-client
+	rm -rf /var/lib/apt/lists/*
 	useradd -m -s /bin/bash nonroot
 	git config --system --add safe.directory /app
 	# The dev container runs as the host user (see compose.override.yaml), whose
@@ -360,6 +371,12 @@ RUN <<-EOF
 EOF
 
 COPY --link --chmod=755 frankenphp/docker-entrypoint.sh /usr/local/bin/docker-entrypoint
+# **What compose.prod.yaml's healthcheck runs** (XIV-61, §4.8). This stage is
+# `debian:13-slim` and carries no curl, wget, nc or busybox, so a healthcheck
+# written the usual way fails with `executable file not found` and the container
+# never leaves `health: starting`. PHP is the only thing here that can open a
+# socket, and the script says why it asks what it asks.
+COPY --link --chmod=755 frankenphp/healthcheck.php /usr/local/bin/xivi-healthcheck
 
 USER www-data
 

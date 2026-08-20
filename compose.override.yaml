@@ -43,6 +43,19 @@ services:
       - ${XIVI_BRAND_DIR:-./assets/brand}:/app/assets/brand:ro
       - ./frankenphp/Caddyfile:/etc/frankenphp/Caddyfile:ro
       - ./frankenphp/conf.d/20-app.dev.ini:/usr/local/etc/php/app.conf.d/20-app.dev.ini:ro
+      # **The operator's SSH keys, so this container can deploy** (XIV-61, §4.8).
+      # Deployer runs `docker compose` on the target over SSH and there is no PHP
+      # on the host, so the machine driving a deploy is this container. Read-only,
+      # and at a fixed path rather than at $HOME/.ssh because the container runs
+      # as the host's uid with no passwd entry of its own and $HOME is /tmp.
+      # `.hosts.yaml` names the key from here, which is also what makes it obvious
+      # in one file which key a deploy will use.
+      #
+      # Mounting a private key into a container is worth a second's thought. It is
+      # the developer's own key, on the developer's own machine, going to a host
+      # they already have root on, and the alternative is installing PHP on the
+      # host, which this project deliberately does not have.
+      - ${HOME}/.ssh:/ssh:ro
       # Keep var/ off the bind-mount for faster I/O on Mac/Windows; comment to inspect from the host.
       - /app/var
     environment:

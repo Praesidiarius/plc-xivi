@@ -16,6 +16,7 @@ namespace Xivi\ControlPlane\Signup;
 use App\Registry\Repository\TenantRepository;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Validator\Constraints\Email;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
@@ -136,6 +137,19 @@ final readonly class SignupIntake
          * decided in another is a pair that drifts.
          */
         private SignupRefusalRepository $refusals,
+        /**
+         * **So that a confirmation nobody received leaves a trace** (XIV-61).
+         *
+         * The send is wrapped twice before it reaches a person: the real cause
+         * becomes {@see SignupMailFailed}, that becomes {@see SignupRefused},
+         * and the page says the confirmation could not be sent just now and to
+         * try again. Nothing along that path wrote the cause down, so an
+         * operator looking into "signup is broken" had a row in the intake, a
+         * sentence in a browser, and nothing else. That was found by hitting it
+         * on a real deployment, where the answer turned out to be one line of
+         * configuration and took a redeploy to see at all.
+         */
+        private LoggerInterface $logger,
         #[Autowire('%app.signup_plans%')]
         private array $plans = ['standard'],
         /**
@@ -274,6 +288,14 @@ final readonly class SignupIntake
         try {
             $this->mailer->sendConfirmation($signup, $token);
         } catch (\Throwable $failure) {
+            // The slug and not the address: §8.11 keeps a log to counts and
+            // identifiers rather than to who somebody is, and the row is what an
+            // operator needs to find this again anyway.
+            $this->logger->error('A signup confirmation could not be sent.', [
+                'exception' => $failure,
+                'slug' => $signup->getSlug(),
+            ]);
+
             throw SignupRefused::mailFailed($failure);
         }
 

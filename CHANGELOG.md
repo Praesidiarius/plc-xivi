@@ -73,6 +73,84 @@ always lands in `Unreleased` here.
 
 ## [Unreleased]
 
+- **This can now be deployed** ([XIV-61], §4.8). `deploy.php` builds the
+  production image, pushes it to ghcr.io, pulls it on the target by digest, runs
+  the control-plane and tenant migrations out of the new image, and only then
+  replaces the serving containers. Deployer drives `docker compose` over SSH and
+  its release layout is deliberately unused, which the file says at length so
+  nobody later "fixes" it by adopting one that would mean abandoning the
+  production image.
+- **A certificate is only ever requested for a hostname this installation
+  actually serves** ([XIV-61], §4.8). Tenancy resolves by hostname, so on-demand
+  TLS has to be allowed to answer names nobody configured, and without an ask
+  endpoint anybody pointing DNS at the address spends the certificate budget of
+  every real customer. `/_tls/ask` answers from the registry and refuses any
+  request that did not come from the loopback, so it cannot be used from outside
+  to ask whether a customer exists.
+- **A signup confirmation reaches the person who asked for it** ([XIV-61], §8.14).
+  The production image carries its CA bundle as a file pointed at by an
+  environment variable rather than as an installed trust store, and requests
+  served by FrankenPHP did not find it, so every confirmation failed with
+  `certificate verify failed` while `mailer:test` sent perfectly well on the same
+  DSN in the same container. `openssl.cafile` is set in php.ini now, which settles
+  it for both and for everything else that speaks TLS outbound.
+- **A confirmation nobody received leaves a trace** ([XIV-61], §8.14). The real
+  cause was wrapped twice before it reached a person and written down nowhere, so
+  an operator had a pending row, a sentence in a browser, and no way to tell a
+  broken mail server from a broken template. It is logged with the slug, not the
+  address.
+- **The deployment notes say how to choose an SMTP port and how to write a DSN**
+  ([XIV-61], §4.8). Providers block outbound mail ports as a timeout rather than
+  a refusal, so the wrong choice looks like mail hanging; and credentials have to
+  be percent-encoded, since an email-address username carries an `@` inside the
+  userinfo and a `[` in a password is read as the start of an IPv6 literal.
+- **A deploy installs the cron entries the release needs** ([XIV-61], §4.5).
+  They are generated out of the image being deployed, from the job list in code,
+  so the schedule cannot be a version behind the commands it names. The entries
+  run through `docker compose`, because the host has no PHP on it, and the task
+  refuses to write anything that is not a crontab.
+- **An installation with no customers yet can be deployed** ([XIV-61], §4.2).
+  `bin/deploy` stops on an empty registry, which is right when a registry has
+  been lost and wrong for an instance waiting for its first self-service signup:
+  the step runs before the containers are replaced, so removing the last tenant
+  made an installation undeployable. `XIVI_ALLOW_EMPTY_REGISTRY=1` says it is
+  empty on purpose. A tenant that fails to migrate still fails the deploy, and a
+  `--slug` nothing answers to still fails.
+- **A deployment's own hostnames now reach the routing table** ([XIV-61], §4.8).
+  The image ships a warmed cache built from the committed `.env`, and
+  `SignupRouteLoader` decides whether the signup routes exist at all from
+  `SIGNUP_HOST`, so an instance that set it still served its landing page from
+  the dashboard route and answered 500 on a host that resolves no tenant.
+  `debug:router` listed the routes correctly the whole time, because it re-reads
+  the loader rather than the compiled matcher. The entrypoint rebuilds the cache
+  against the deployment's environment now.
+- **Mail and signup can be configured by a deployment at all** ([XIV-61], §4.8).
+  `MAILER_DSN`, `MAILER_SENDER`, `SIGNUP_HOST`, `SIGNUP_PAGE`,
+  `XIVI_SIGNUP_SECRET` and `XIVI_SIGNUP_PLANS` were not passed into the
+  container, so a target ran on the committed defaults whatever its env file
+  said: mail dropped, signup off.
+- **One command builds, pushes and deploys** ([XIV-61], §4.8). `bin/release
+  <target>` builds the image the target is configured for, pushes it, and deploys
+  the digest rather than the tag. The build stays on the host because the dev
+  container has no Docker, and giving it the host's socket is a root-equivalent
+  permission for one command. The same command with a digest is a rollback and
+  builds nothing.
+- **Rollback is written down, including what it cannot undo** ([XIV-61], §4.8).
+  Deploying a previous digest takes seconds and does not roll the databases back.
+  That is safe because tenant migrations are additive only, not because anything
+  reverses them, and a change that genuinely removes something is two releases.
+- **A deployment can provision its first tenant** ([XIV-61], §4.8). `.env` ships
+  `TENANT_ADMIN_DSN` with the placeholder database password and the secret guard
+  deliberately does not cover it, so provisioning on a real target failed with
+  `password authentication failed for user "app"`. The deployment now builds that
+  DSN and the per-tenant template from `POSTGRES_PASSWORD`, so there is one value
+  to set and one to rotate.
+- **Postgres is sized by the deployment rather than left on the development
+  defaults** ([XIV-61], §4.8). Connections here scale with tenants times
+  concurrency, because there is a database per tenant and no pooler. Whether to
+  add one is decided rather than deferred: not yet, since it would need a pool
+  per database rather than one pool.
+
 - **An edit form on a field naming several records now shows every one of them,
   even where two are called the same thing** ([XIV-167], §5.29). Two links
   sharing a title used to collapse into one option, and saving dropped whichever
@@ -370,6 +448,7 @@ always lands in `Unreleased` here.
 [XIV-164]: https://xivi.youtrack.cloud/issue/XIV-164
 [XIV-165]: https://xivi.youtrack.cloud/issue/XIV-165
 [XIV-166]: https://xivi.youtrack.cloud/issue/XIV-166
+[XIV-61]: https://xivi.youtrack.cloud/issue/XIV-61
 [XIV-167]: https://xivi.youtrack.cloud/issue/XIV-167
 
 

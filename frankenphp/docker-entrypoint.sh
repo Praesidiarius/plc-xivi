@@ -48,6 +48,36 @@ if [ "$1" = 'frankenphp' ] || [ "$1" = 'php' ] || [ "$1" = 'bin/console' ]; then
 	# would be refusing the ordinary case.
 	php bin/console deploy:check-secrets
 
+	# **Rebuild the routing cache against this deployment's environment**
+	# (XIV-61, docs/architecture/deployment.md §4.8).
+	#
+	# The image ships a warmed `var/cache/prod`, built from the committed `.env`,
+	# and most of what is in there is env-independent because `%env()%` is
+	# resolved when a parameter is read rather than when the container is
+	# compiled. Routing is the exception, and it is not a small one.
+	#
+	# `SignupRouteLoader` decides **whether routes exist at all** from
+	# `SIGNUP_HOST` (§8.13), and that decision is written into the compiled URL
+	# matcher at warmup. Warmup happened at build time, where `SIGNUP_HOST` is the
+	# empty value `.env` commits, so an instance that sets it got a matcher with
+	# no signup routes in it and served its landing page from the dashboard route
+	# instead. That is a 500 on a host which deliberately resolves no tenant, and
+	# nothing anywhere says the cause: `debug:router` lists the routes correctly,
+	# because it re-reads the loader rather than the matcher, so the one command
+	# somebody would run to check agrees that everything is fine.
+	#
+	# One image is deployed to instances with different hostnames, so anything
+	# structural taken from the environment has to be recomputed here. It costs
+	# under a second and it runs before the database wait, so it is not on the
+	# path of anything slow.
+	#
+	# **`cache:clear` and not `cache:warmup`**, which was measured rather than
+	# assumed: warmup leaves an existing `url_matching_routes.php` exactly as it
+	# found it, so on this image it is a no-op and the stale matcher survives it.
+	# Clearing builds the cache directory afresh and the matcher comes back with
+	# the deployment's hostnames in it.
+	php bin/console cache:clear
+
 	if grep -q ^DATABASE_URL= .env; then
 		echo 'Waiting for database to be ready...'
 		ATTEMPTS_LEFT_TO_REACH_DATABASE=60

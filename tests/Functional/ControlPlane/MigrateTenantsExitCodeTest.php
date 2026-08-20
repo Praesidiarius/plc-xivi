@@ -161,6 +161,22 @@ final class MigrateTenantsExitCodeTest extends KernelTestCase
     }
 
     /**
+     * The flag is about an empty registry and nothing else.
+     *
+     * A slug nothing answers to is a typo, or a tenant that has gone missing
+     * since somebody wrote the retry line down. Neither is an installation that
+     * is empty on purpose, and both share an exit code with one, so this is the
+     * case where the distinction could quietly be lost.
+     */
+    public function testAllowEmptyDoesNotExcuseASlugNothingAnswersTo(): void
+    {
+        self::assertSame(
+            Command::FAILURE,
+            $this->migrate('test_xiv61_no_such_tenant', allowEmpty: true)->getStatusCode(),
+        );
+    }
+
+    /**
      * A deploy captures this output and a person reads it later, so it has to
      * carry the slug and the line to type — an exit code alone tells somebody
      * that something is wrong and nothing about which customer.
@@ -212,13 +228,21 @@ final class MigrateTenantsExitCodeTest extends KernelTestCase
         $manager->clear();
     }
 
-    private function migrate(string $slug): CommandTester
+    private function migrate(string $slug, bool $allowEmpty = false): CommandTester
+    {
+        return $this->migrateWith($allowEmpty ? ['--slug' => $slug, '--allow-empty' => true] : ['--slug' => $slug]);
+    }
+
+    /**
+     * @param array<string, bool|string> $input
+     */
+    private function migrateWith(array $input): CommandTester
     {
         $kernel = self::$kernel;
         \assert($kernel instanceof KernelInterface);
 
         $tester = new CommandTester((new Application($kernel))->find('tenant:migrate'));
-        $tester->execute(['--slug' => $slug]);
+        $tester->execute($input);
 
         return $tester;
     }

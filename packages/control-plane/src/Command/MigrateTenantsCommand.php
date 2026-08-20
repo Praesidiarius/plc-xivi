@@ -49,6 +49,29 @@ use Xivi\ControlPlane\Provisioning\TenantProvisioner;
  *   3  {@see self::TENANT_FAILED}   the run happened and at least one tenant is behind.
  *                                   The others were migrated and are fine
  *
+ * ## An installation that has no customers yet, and means it
+ *
+ * The empty registry exits 1 because an installation with customers that has
+ * lost them looks exactly like one that never had any, and the second is cheap
+ * to say out loud while the first is a catastrophe worth stopping a deploy for.
+ *
+ * That reasoning holds and the default does not move. What it did not allow for
+ * is an installation which is legitimately empty and expects to be: one waiting
+ * for its first self-service signup (§8.14), which is a real state a deployment
+ * sits in for as long as it takes somebody to fill the form in. There, every
+ * deploy fails at this step, and it fails *before* the serving containers are
+ * replaced, so the instance cannot be configured at all. Removing the last
+ * tenant from an installation should not make it undeployable.
+ *
+ * `--allow-empty` is that case, said deliberately. It turns an empty registry
+ * into success and changes nothing else, which is the point: it is not a
+ * `--force` and it does not weaken the failure that matters.
+ *
+ * **It does not cover `--slug`.** A slug nothing answers to is a typo or a
+ * tenant that has gone missing, never an installation that is empty on purpose,
+ * so that keeps exiting 1 with the flag set. The two failures share an exit code
+ * and are not the same thing.
+ *
  * A deploy stops on anything non-zero. What the distinction buys is what it says
  * *afterwards* — and, more usefully, that a partial failure can be retried with
  * `--slug` for the named tenants rather than by re-running the whole registry
@@ -80,13 +103,31 @@ final readonly class MigrateTenantsCommand
         SymfonyStyle $io,
         #[Option(description: 'Migrate only this tenant')]
         ?string $slug = null,
+        #[Option(description: 'Treat an empty registry as success, for an installation with no customers yet')]
+        bool $allowEmpty = false,
     ): int {
         $tenants = $slug !== null
             ? array_filter([$this->tenants->findOneBySlug($slug)])
             : $this->tenants->findAllOrdered();
 
         if ($tenants === []) {
-            $io->error($slug !== null ? sprintf('No tenant with slug "%s".', $slug) : 'No tenants to migrate.');
+            // Deliberately not $allowEmpty: a slug nothing answers to is a typo
+            // or a tenant that has gone missing, which is never what the flag is
+            // about. See the class docblock.
+            if ($slug !== null) {
+                $io->error(sprintf('No tenant with slug "%s".', $slug));
+
+                return Command::FAILURE;
+            }
+
+            if ($allowEmpty) {
+                $io->success('No tenants yet, and --allow-empty says that is expected. Nothing to migrate.');
+
+                return Command::SUCCESS;
+            }
+
+            $io->error('No tenants to migrate.');
+            $io->writeln('If this installation is empty on purpose, say so with --allow-empty.');
 
             return Command::FAILURE;
         }

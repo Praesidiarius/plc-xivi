@@ -428,3 +428,152 @@ which changes three deployment facts and adds a check.
   full directory walk per customer whose expected steady state is a handful of
   orphans. A release blocked by somebody's abandoned upload is a check that stops
   being read.
+
+### 4.8 The deploy itself: Deployer as an SSH task runner (XIV-61)
+
+`deploy.php` is the definition and carries the long-form reasoning. What is
+settled here:
+
+- **Deployer, driving `docker compose` on the target, and its release layout is
+  deliberately unused.** No `releases/N`, no `current` symlink, no `shared/`,
+  because this ships as a container image and the target has no PHP to link a
+  release against. `recipe/common.php` is not required at all, so `dep list`
+  cannot offer `rollback`, `deploy:symlink` or `provision:mysql` as though they
+  meant something here. A GitHub Actions job was the alternative and lost on one
+  point: XIV-60 wants the control instance not publicly reachable, and a hosted
+  runner cannot reach a box an operator on the VPN can.
+- **The image is built where the deploy is driven, pushed to ghcr.io, and pulled
+  by digest.** Not built on the target: that puts the toolchain on the box and
+  makes builds compete for the RAM the sizing was done against. The digest rather
+  than the tag, so a container that restarts weeks later comes back as the same
+  code.
+- **Order: push, pull, `bin/deploy`, then replace the containers.** Migrating
+  before the swap is what lets the instance stay up, and it works only because
+  the window rule (§4.2) makes tenant migrations additive.
+- **Rollback is `dep deploy:to --tag=<previous digest>`, and it does not touch
+  the databases.** Code steps back, schema does not, and the additive rule is
+  what makes that safe rather than lucky. A migration that must remove something
+  is two releases.
+- **A failed deploy has nothing to unwind.** Nothing is replaced until after the
+  migration, so a failure leaves the previous image serving.
+
+**What the target needs: Docker, Compose, and nothing else.** No PHP, no
+Postgres client, no rsync. That last one is a constraint the deploy honours
+rather than a fact about Debian: `deploy.php` sends its configuration files
+base64 through the SSH session instead of calling Deployer's `upload()`, which
+shells out to rsync on both ends. Log rotation is worth setting on the daemon
+(`10m` x 3 in `/etc/docker/daemon.json`); the default is unbounded and the disk
+is the smallest thing on the box.
+
+**The cron entries are installed by the deploy, generated out of the image being
+deployed** (§4.5). `deploy:crontab` prints them from `App\Monitoring\ScheduledJobs`
+in code, so what lands in `/etc/cron.d/xivi` is what *this release* needs rather
+than what a runbook remembers, and it cannot be a version behind its own
+commands. **A committed cron table was considered and rejected**: it would be a
+second list, and the way anybody would find out it had drifted is a job that
+quietly stopped being scheduled, which is the same silence a job that never ran
+produces.
+
+Two things about that file are load-bearing and both fail silently when wrong.
+The entries run through `docker compose` rather than `bin/console`, because the
+host has no PHP; `--wrapper` is what makes that so. And the task refuses to write
+anything that is not a crontab, after the first version captured the container
+entrypoint's own output, which prints the Symfony banner, the cache clear and the
+database wait to stdout, straight into `/etc/cron.d` above the real entries.
+`--entrypoint php` is what stops that at the source.
+
+**Mail needs a port the host can reach, and that is worth measuring rather than
+assuming** (§8.7). Hosting providers block outbound SMTP to keep their address
+ranges off blocklists, and the block is a timeout, so it looks like mail hanging
+rather than mail refused. On the first target, 25, 465 and 2525 were blocked and
+587 was open, which rules out `smtps://` and leaves `smtp://` on 587 with
+STARTTLS. Credentials in the DSN have to be percent-encoded: a username that is
+an email address carries an `@` inside the userinfo, and a `[` in a password
+makes a URL parser read the rest as an IPv6 literal and refuse the whole string.
+
+**Outbound TLS needs `openssl.cafile` set, and finding that out cost a
+deployment.** The runtime image is `debian:13-slim` with no `ca-certificates`
+package; the bundle is copied from the builder and pointed at with
+`SSL_CERT_FILE`. The CLI honours that and FrankenPHP-served requests did not, so
+signup confirmations failed with `certificate verify failed` while
+`bin/console mailer:test` sent successfully on the same DSN in the same
+container. Two SAPIs disagreeing about the trust store is not worth leaving to
+environment inheritance, so `frankenphp/conf.d/10-app.ini` names the file. It
+covers SMTP and the §4.5 monitoring pings, which go to an HTTPS endpoint and are
+documented to fail silently.
+
+**Secrets are installed once, deliberately, and never by a deploy.**
+`dep secrets:install <alias>` writes `/opt/xivi/.env.deploy` at mode 600 from a
+gitignored local file. A deploy that shipped them every time would put them in
+the shell history of every machine that ever deployed and would silently
+overwrite a rotated value.
+
+**On-demand TLS with an ask endpoint, which is not optional.** Tenancy resolves
+by hostname, so there is no list of names to certify and Caddy must be allowed to
+answer names nobody configured. Without the ask, anybody pointing DNS at the
+address spends the registered domain's certificate budget, which is every
+customer's. `App\Controller\TlsAskController` answers from the registry plus
+`app.system_hosts`, returns 204 or 404 and no body, and **refuses any request
+that did not arrive from the loopback**, which is what stops it being a way to
+ask whether a customer exists. It reads `REMOTE_ADDR` rather than
+`Request::getClientIp()` on purpose: the latter believes `X-Forwarded-For` wherever
+trusted proxies are configured. `/_tls/` is `PUBLIC_ACCESS` in `security.yaml`
+because Caddy asks before the handshake finishes and has no credential to send.
+Behind the firewall it answered 302 and Caddy reads anything non-2xx as no, so
+the failure mode was an instance serving no customer over HTTPS at all.
+
+**Postgres is tuned by the deployment, not left on the compose defaults.**
+`max_connections` and `shared_buffers` are variables in `.env.deploy` because the
+right values are a property of the box. Connections scale with tenants times
+concurrency here, since there is a database per tenant, no pooler, and classic
+mode. **A pooler is decided against for now**: it would need a pool per database
+rather than one pool, so it is design rather than a package, and XIV-154 measured
+tuning as worth about 12% on a migration walk.
+
+**The hosts are not committed.** `.hosts.yaml` is gitignored with
+`.hosts.yaml.dist` as the template, because the German test box is a rehearsal
+for the move to a Swiss one and a move that means editing a committed file is a
+move somebody does wrong under pressure.
+
+**Two things a first deployment gets wrong, both found by deploying rather than
+by reading.** `.env` ships `TENANT_ADMIN_DSN` carrying the committed placeholder
+password, and `PlaceholderSecretGuard` deliberately does not guard it or
+`DATABASE_URL` on the argument that a wrong database password fails loudly in
+seconds. It does fail loudly, at `tenant:provision`, with `password
+authentication failed for user "app"` and no hint about which variable is at
+fault, so `compose.prod.yaml` now builds `TENANT_ADMIN_DSN` and
+`TENANT_DSN_TEMPLATE` from `POSTGRES_PASSWORD` and the deployment sets one value.
+Separately, the env file is what Compose interpolates this file *with*; it is not
+the container's environment, so anything the running application reads has to be
+named in `environment:` as well.
+
+**Anything structural taken from the environment has to be recomputed at
+container start.** `%env()%` is resolved when a parameter is read, so most
+configuration survives one image being deployed to many instances. Routing does
+not: `SignupRouteLoader` decides whether the signup routes exist from
+`SIGNUP_HOST` (§8.13), and that is written into the compiled URL matcher at
+warmup, which happened at image build against the committed `.env`. The
+entrypoint runs `cache:clear` for that reason, and `cache:clear` rather than
+`cache:warmup` because warmup leaves an existing matcher alone, which was
+measured rather than assumed. The failure this fixes is worth remembering: the
+landing page was served by the dashboard route, so it answered 500 on a host that
+resolves no tenant, and `debug:router` reported the signup routes as present
+throughout, because it re-reads the loader instead of the matcher.
+
+**An installation with no customers has to say it means it.** `bin/deploy` exits
+1 on an empty registry (§4.2), because one that has lost its registry is
+indistinguishable from one that never had a customer and the first should stop a
+release. The case that was not allowed for is an instance waiting for its first
+self-service signup (§8.14), which is legitimately empty and, while it was,
+could not be deployed at all: the step fails before the serving containers are
+replaced, so removing the last tenant from an installation made it undeployable.
+`XIVI_ALLOW_EMPTY_REGISTRY=1` is that stated deliberately, and it is a variable
+rather than a new default because only the deployment can tell the two apart. It
+does not cover `--slug`: a slug nothing answers to is a typo or a tenant that has
+gone missing, never an installation that is empty on purpose.
+
+**The machine that deploys is the dev container.** There is no PHP on the host,
+so `compose.override.yaml` mounts `~/.ssh` read-only at `/ssh` and the dev image
+carries an ssh client. `ssh_control_path` is moved to `/tmp` because Deployer's
+default puts the multiplexing socket under a home directory the container does
+not have.
