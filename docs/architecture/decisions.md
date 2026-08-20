@@ -136,6 +136,33 @@ tests in `tests/Functional/Engine` are the canary. Remove the middleware and
 they fail, rather than quietly agreeing. Tests that provision and drop their
 own tenants carry `#[SkipDatabaseRollback]`.
 
+**A tenant with a DAMA-cached connection may not be deprovisioned, and the
+suite now refuses rather than survives it** (XIV-148). Deprovisioning
+terminates every session on the database (§4.1), and a terminated connection
+in DAMA's cache does not fail where it was caused: DAMA rolls back and reopens
+its transactions across every cached connection around every test, so one dead
+connection surfaces as "terminating connection due to administrator command"
+in whichever tests run next: as runner warnings a green run hides, or as a
+cascade of errors. That is what a serial run met: the "provisioned once per
+process" set behind `SharesATenant`'s reuse guard was a static *on the trait*,
+PHP copies trait statics into every using class, and the six browser classes
+sharing the `e2e` slug each got an empty copy and deprovisioned the live
+tenant in turn. Three things came out of it. The bookkeeping is a class
+(`ProvisionedSlugs`), because a class static is the process-wide slot the
+sentence needed. The leftover-cleanup path checks a ledger of databases DAMA
+has cached (kept by the connection-key middleware, which sees exactly what
+DAMA sees) and throws in the offending test instead of poisoning the ones
+after it. And `failOnPhpunitWarning` is on: the warnings this defect surfaced
+as are invisible to `failOnWarning`, and a suite whose isolation has silently
+stopped must be red. No extra serial leg was added to the gate, because the
+serial path is already exercised on every CI run: the coverage leg runs
+PHPUnit serially, paratest being unable to do coverage under PHPUnit 13. A
+local serial leg would re-check what CI already checks at the cost of the
+difference between the parallel and serial runs (measured 67 s against
+9 min 16 s on a workstation carrying several stacks; CI's own gap is ~10 s
+against ~48 s), and the `SharedSlugReuse*Test` pair fails the serial run
+deterministically if the guard regresses.
+
 **An avatar is generated here, never fetched** (XIV-77). Initials in a circle,
 on a hue derived from the email address. Refusing Gravatar was a privacy
 decision, not a styling one: it would send every signed-in user's email hash to

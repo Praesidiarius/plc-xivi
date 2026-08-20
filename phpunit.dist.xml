@@ -1,12 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <!-- https://phpunit.readthedocs.io/en/latest/configuration.html -->
+<!--
+    failOnPhpunitWarning is not covered by failOnWarning, and the difference
+    bought this suite a defect it could not see (XIV-148). An exception thrown
+    inside an event subscriber is reported as a "test runner warning" and the
+    run stays green. Event subscribers are where DAMA rolls its transactions
+    back, so that is exactly where a terminated database connection first
+    surfaces, and every test after the dead connection then runs without its
+    rollback. With this flag a poisoned connection cache turns the run red at
+    the first test it touches instead of at none of them.
+-->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          colors="true"
          failOnDeprecation="true"
          failOnNotice="true"
          failOnWarning="true"
+         failOnPhpunitWarning="true"
          bootstrap="tests/bootstrap.php"
          cacheDirectory=".phpunit.cache"
 >
