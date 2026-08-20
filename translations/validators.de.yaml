@@ -9,3 +9,6 @@
 'A period has to start somewhere. Fill in the first date.': 'Ein Zeitraum fängt irgendwo an. Trag das erste Datum ein.'
 'Say when this period ends, or tick that it has no end date.': 'Sag, wann dieser Zeitraum endet — oder kreuz an, dass er kein Enddatum hat.'
 'This period ends before it starts. The second date is the moment the period stops rather than its last day, so it has to come after the first one.': 'Dieser Zeitraum endet, bevor er beginnt. Das zweite Datum ist der Moment, an dem er aufhört, und nicht sein letzter Tag — es muss also nach dem ersten liegen.'
+
+# Was ein Feld mit mehreren Datensätzen zu einem Eintrag sagt, den es nicht lesen kann (XIV-113).
+'{{ value }} is not a record id. Several records are named by their ids separated by a comma, as in 12,34.': '{{ value }} ist keine Datensatz-ID. Mehrere Datensätze werden über ihre IDs benannt, durch Komma getrennt, etwa 12,34.'

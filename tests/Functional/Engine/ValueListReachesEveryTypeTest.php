@@ -98,6 +98,16 @@ final class ValueListReachesEveryTypeTest extends KernelTestCase
 
         self::assertInstanceOf(PointsAtAList::class, $registry->get('choice'));
         self::assertNotInstanceOf(PointsAtAList::class, $registry->get('reference'));
+
+        // **And the multi-value one does not either** (XIV-113), which is a
+        // decision rather than an omission and is therefore written down where
+        // it can go red. §5.26 promised that a multi-value field pointing at a
+        // `value_list` would use that option and that capability; the type
+        // XIV-113 built points at a *module*, so the promise is not exercised:
+        // its values are records, not entries somebody keeps on a list. A future
+        // type that does point at one inherits every refusal by declaring this,
+        // and the invariant above is what holds it to the option name.
+        self::assertNotInstanceOf(PointsAtAList::class, $registry->get('multi_reference'));
     }
 
     /**

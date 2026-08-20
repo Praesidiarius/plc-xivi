@@ -97,4 +97,27 @@ final class UnsupportedQuery extends \InvalidArgumentException
             ['%path%' => $path],
         );
     }
+
+    /**
+     * The same refusal for a field that holds several values (XIV-113).
+     *
+     * Its own sentence rather than the one above, because the reason is the same
+     * and the *fix* is not: a collection is sorted by naming one of its rows'
+     * fields somewhere else, and a field holding four links has nowhere else to
+     * go. Saying "it belongs to a collection" about a field that does not would
+     * send somebody looking for a collection there is none of.
+     */
+    public static function sortingBySeveralValues(string $path, string $type): self
+    {
+        return self::of(
+            sprintf(
+                'Cannot sort by "%s" (%s): it holds several values, and a record with four of them has '
+                . 'four. Which one would the list be in the order of?',
+                $path,
+                $type,
+            ),
+            'query.sort_by_several_values',
+            ['%path%' => $path, '%type%' => $type],
+        );
+    }
 }

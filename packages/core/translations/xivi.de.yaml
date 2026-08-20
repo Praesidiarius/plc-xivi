@@ -15,6 +15,11 @@ operator:
     # (XIV-136). Liest sich in einer Filterzeile: „Aufenthalt überschneidet
     # 19.8.2026“.
     overlaps: überschneidet
+    # Die beiden Vergleiche eines Feldes, das mehrere Datensätze benennt
+    # (XIV-113). „Eines davon“ wäre der OR-Baum, den die Abfrageschicht laut
+    # §5.3 nicht hat, und steht deshalb auch hier nicht.
+    includes: enthält
+    excludes: enthält nicht
 
 # Ob jemand tippt, um die Auswahl einzugrenzen (XIV-36).
 autocomplete:
@@ -155,6 +160,10 @@ metadata:
     target_is_held: '%count% vorhandene Datensätze zeigen über „%key%“ auf Datensätze in „%from%“. Eine ID bedeutet nur in dem Modul etwas, aus dem sie gewählt wurde — zeigte dieses Feld auf „%to%“, würde jede einzelne davon den falschen Datensatz benennen oder gar keinen. Leere diese Datensätze zuerst, oder lass es auf „%from%“ zeigen.'
     target_is_the_modules: 'Das Feld „%key%“ kam mit dem Modul und zeigt auf „%module%“, weil die Formulare, Dokumente und Summen des Moduls das erwarten. Felder, die du selbst angelegt hast, dürfen zeigen, wohin du willst.'
     unknown_target: 'Hier ist kein Modul namens „%module%“ installiert, deshalb kann „%key%“ nicht darauf zeigen.'
+    # „Eindeutig“ auf einem Feld, das eine Liste hält (XIV-113). Der Index dahinter
+    # läuft über den Wert als Text, würde also „keine zwei Datensätze mit genau
+    # derselben Menge“ erzwingen, was niemand meint.
+    unique_holds_several_values: 'Ein Feld vom Typ „%type%“ hält mehrere Werte, „eindeutig“ hat dafür also keine eindeutige Bedeutung: Es müsste entweder heißen, dass keine zwei Datensätze genau dieselbe Menge tragen, was niemand verlangt, oder dass keine zwei Datensätze auch nur einen Wert teilen, was die Engine nicht erzwingen kann. Lass „%key%“, wie es ist.'
     # Abschnitte (XIV-119). Abweisungen statt Achselzucken, anders als bei Breite
     # und Land: Die leere Antwort ist hier eine echte — „in keinem Abschnitt“ —,
     # also würde Unsinn als leer zu lesen ein Feld verschieben und Erfolg melden.
@@ -195,6 +204,7 @@ query:
     unknown_collection: '„%module%“ hat keine Sammlung namens „%collection%“.'
     unsupported_operator: 'Es lässt sich nicht fragen, ob „%path%“ (%type%) %operator%. Dieser Typ akzeptiert: %supported%.'
     sort_by_collection: 'Nach „%path%“ lässt sich nicht sortieren: es gehört zu einer Sammlung, und ein Datensatz mit zweien davon hat zwei Werte. Welcher wäre der des Datensatzes?'
+    sort_by_several_values: 'Nach „%path%“ (%type%) lässt sich nicht sortieren: es hält mehrere Werte, und ein Datensatz mit vieren davon hat vier. In der Reihenfolge welches Werts stünde die Liste?'
 
 # Die beiden Sätze neben dem Textfeld eines formatierten Feldes (XIV-131).
 #

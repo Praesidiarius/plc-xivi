@@ -33,6 +33,7 @@ use Xivi\Core\Field\Enumerates;
 use Xivi\Core\Field\ExcludesOverlaps;
 use Xivi\Core\Field\FieldType;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Field\HoldsSeveralValues;
 use Xivi\Core\Field\LimitsItsLength;
 use Xivi\Core\Field\NeedsAnAnswer;
 use Xivi\Core\Field\Numbers;
@@ -2025,6 +2026,17 @@ final class FieldController extends AbstractController
     {
         return [
             'options' => self::drawnFor($type, $shape, $adding),
+            // Whether the `unique` checkbox is drawn at all (XIV-113). It is one
+            // of the four rules that are about a field rather than about its
+            // type, so it is on every one of these forms, except on a type whose
+            // values are a list, where the engine refuses the flag outright
+            // because the index behind it would enforce a rule nobody asked for.
+            //
+            // Drawn and then refused would be §8.3.1's own defect: a control that
+            // looks like it works. The refusal is still there and is still what
+            // makes this true for the importer and the console; this only stops a
+            // customer meeting it by ticking a box.
+            'uniqueOffered' => !$type instanceof HoldsSeveralValues,
             'autocompleteChoices' => Autocomplete::settable(),
             // Every country there is, named in the language being read (XIV-114).
             // From symfony/intl rather than a list kept here, for the reason the

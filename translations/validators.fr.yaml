@@ -11,3 +11,6 @@
 'A period has to start somewhere. Fill in the first date.': 'Une période doit bien commencer quelque part. Renseignez la première date.'
 'Say when this period ends, or tick that it has no end date.': 'Indiquez quand cette période se termine, ou cochez qu’elle n’a pas de date de fin.'
 'This period ends before it starts. The second date is the moment the period stops rather than its last day, so it has to come after the first one.': 'Cette période se termine avant de commencer. La seconde date est le moment où la période s’arrête, et non son dernier jour ; elle doit donc venir après la première.'
+
+# Ce qu’un champ nommant plusieurs enregistrements dit d’un élément illisible (XIV-113).
+'{{ value }} is not a record id. Several records are named by their ids separated by a comma, as in 12,34.': '{{ value }} n’est pas un identifiant d’enregistrement. Plusieurs enregistrements se nomment par leurs identifiants séparés par une virgule, comme 12,34.'

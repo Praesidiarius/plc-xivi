@@ -23,6 +23,7 @@ use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Field\HoldsSeveralValues;
 use Xivi\Core\Metadata\MetadataCache;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Record\OverlapExclusion;
@@ -242,7 +243,23 @@ final readonly class ModuleInstaller
     private function assertTypesExist(ModuleBlueprint $blueprint): void
     {
         foreach ($blueprint->fields as $field) {
-            $this->fieldTypes->get($field->type);
+            $type = $this->fieldTypes->get($field->type);
+
+            // A blueprint marking a list-valued field unique (XIV-113). The same
+            // shape of refusal as the collection one below and for a reason of
+            // the same kind: the index XIV-109 builds would enforce "no two
+            // records hold exactly the same set", which is not what the word
+            // means here, and the engine will not guess the rule that was meant.
+            // Loud rather than a definition refusal, because a blueprint is
+            // written by somebody with the source open.
+            if ($field->unique && $type instanceof HoldsSeveralValues) {
+                throw new \RuntimeException(sprintf(
+                    'Field "%s" is a "%s", which holds several values, and is marked unique. See '
+                    . 'Xivi\\Core\\Field\\HoldsSeveralValues and docs/architecture/data-model.md §5.29.',
+                    $field->key,
+                    $field->type,
+                ));
+            }
         }
 
         foreach ($blueprint->collections as $collection) {

@@ -20,6 +20,7 @@ use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\Enumerates;
 use Xivi\Core\Field\FieldType;
 use Xivi\Core\Field\FieldTypeRegistry;
+use Xivi\Core\Field\HoldsSeveralValues;
 use Xivi\Core\Field\NeedsAnAnswer;
 use Xivi\Core\Field\PointsAtAList;
 use Xivi\Core\Field\PointsAtAModule;
@@ -165,6 +166,7 @@ final readonly class MetadataEditor
         $this->assertTargetExists($this->fieldTypes->get($type), $key, $merged);
         $this->assertListExists($this->fieldTypes->get($type), $key, $merged);
         $this->assertScopeIsUsable($shape, $field, $merged);
+        $this->assertUniqueIsAnswerable($this->fieldTypes->get($type), $key, $unique);
         $this->assertRecordsSurvive($shape, $field, $required, $unique);
 
         $this->asOneChange(function () use ($shape, $field): void {
@@ -248,6 +250,7 @@ final readonly class MetadataEditor
         // already relabelled the field before refusing the scope would be the
         // half-done state XIV-27 spent an ordering argument avoiding.
         $this->assertScopeIsUsable($field->getShape(), $field, $merged);
+        $this->assertUniqueIsAnswerable($type, $field->getKey(), $unique);
 
         $this->assertRecordsSurvive(
             $field->getShape(),
@@ -1093,6 +1096,7 @@ final readonly class MetadataEditor
         }
 
         $shape = $field->getShape();
+        $this->assertUniqueIsAnswerable($this->fieldTypes->get($field->getType()), $field->getKey(), unique: true);
         $this->assertRecordsSurvive($shape, $field, required: false, unique: true);
 
         $field->setUnique(true);
@@ -1251,6 +1255,27 @@ final readonly class MetadataEditor
                 $conflicts,
                 self::DUPLICATES_NAMED,
             );
+        }
+    }
+
+    /**
+     * `unique` on a type that holds several values, refused (XIV-113).
+     *
+     * Before {@see self::assertRecordsSurvive()} rather than inside it, and the
+     * order is the point: that method counts the records a rule would invalidate,
+     * and there are none: a field holding lists has no duplicates in the sense
+     * the index means, so the count would come back zero and the flag would be
+     * written. This is a refusal about the rule itself rather than about the
+     * data, so it is asked before anybody goes looking at rows.
+     *
+     * Keyed on the capability, never on the type's name, so the second type to
+     * store a list inherits the refusal instead of quietly getting an index that
+     * enforces the wrong thing.
+     */
+    private function assertUniqueIsAnswerable(FieldType $type, string $key, bool $unique): void
+    {
+        if ($unique && $type instanceof HoldsSeveralValues) {
+            throw MetadataChangeRefused::uniqueHoldsSeveralValues($key, $type->key());
         }
     }
 

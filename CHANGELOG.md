@@ -91,6 +91,25 @@ always lands in `Unreleased` here.
   `bin/console doctrine:migrations:migrate` on the control-plane database is
   needed on upgrade; existing signups acquire two empty columns and nothing else
   changes.
+- **A field can now name several records at once** ([XIV-113], §5.29). A new
+  kind of field, **Links to several records**, beside the existing single link:
+  the tags on a contact, the people on a project, the categories an article is
+  in. It uses the same picker, which lets you pick more than one, and the record
+  page, documents and emails print the names separated by commas.
+- **Filtering one offers "includes" and "does not include", and deliberately not
+  "any of these"** ([XIV-113], §5.29, §7.3). Two *includes* filters mean *and*,
+  like every other pair of filters. Asking for any of several is the `OR` the
+  query layer still has not got, and is left unbuilt rather than faked.
+- **Two things such a field will not do, and says so** ([XIV-113]). It cannot be
+  marked **unique**, because "unique" has no single meaning for a set of values,
+  so the box is not drawn; and a list cannot be put in the order of one, so its
+  column heading is not a sort link. Both are refusals with a sentence rather
+  than silence.
+- **Exports and imports carry several ids in one cell**, separated by a comma,
+  and round-trip unchanged ([XIV-113], §5.6). An entry in such a cell that is
+  not a record id refuses the whole file and names the cell and the item, rather
+  than being quietly dropped.
+
 - **An administrator can now change a field's type on a tenant that already has
   records** ([XIV-146], §7.2, §5.4). The field's own page has a **Change the
   type** link. Picking a kind shows a report first: how many values convert and
@@ -240,6 +259,7 @@ always lands in `Unreleased` here.
 
 [XIV-45]: https://xivi.youtrack.cloud/issue/XIV-45
 [XIV-108]: https://xivi.youtrack.cloud/issue/XIV-108
+[XIV-113]: https://xivi.youtrack.cloud/issue/XIV-113
 [XIV-125]: https://xivi.youtrack.cloud/issue/XIV-125
 [XIV-146]: https://xivi.youtrack.cloud/issue/XIV-146
 [XIV-148]: https://xivi.youtrack.cloud/issue/XIV-148

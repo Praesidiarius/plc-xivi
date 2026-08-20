@@ -797,7 +797,10 @@ nothing that tidies `Zürich`, `Zurich` and `zurich` back into one.
 - **The XIV-113 settlement**: a multi-value field points at the same
   `value_list` rows through the same option and capability, and inherits every
   refusal, because `ValueListUsage` finds fields by capability rather than
-  type name. A registry test holds that promise and plants the violation.
+  type name. A registry test holds that promise and plants the violation. What
+  XIV-113 built points at a *module* rather than a list (§5.29), so the promise
+  stands unexercised; the test now says so about that type by name, which is
+  what keeps "not declared" a decision rather than an omission.
 - Not here: retirement, module-seeded lists (a blueprint writes definitions,
   and a list is not one), a module's own field pointed at a list, deeper
   nesting, and colour beyond the record list and page.
@@ -902,5 +905,63 @@ brought `bcmath` and `gd` into the image.
   `float` API, argued at the call site: converted once at the edge, exact for
   every two-decimal value under the standard's ceiling, nothing computed from
   it.
+
+### 5.29 A field that names several records (XIV-113)
+
+The tags on a contact, the people on a project, the categories an article is
+in. A `reference` holds exactly one record, and plenty of real relationships
+are not like that.
+
+- **A type, not a `multiple` option on `reference`**, inside §5.21's rule and
+  settled by XIV-127 before this was opened: one value becoming a list changes
+  the storage shape of every record already holding one, which is retroactivity
+  at its strongest. `reference` is untouched, and there is no path from a
+  populated one that is not a §7.2 conversion, which works, because a single id
+  reads as a list of one; the way back does not.
+- **Stored as a JSON array of ids**, said out loud in the type. A joined string
+  would make a containment filter a `LIKE` that finds 13 when asked about 3.
+- **Order is not meaningful.** De-duplicated and sorted ascending on save, so
+  two spellings of one set are one stored value and the history diff, which
+  compares storage forms with `===`, cannot report a reordering as a change.
+  Display follows the stored order, because ordering names is a collation
+  decision this engine has taken nowhere else. An arranged list is a third type,
+  never an option here.
+- **`unique` is refused**, with the reason said. XIV-109's partial index is over
+  `data ->> 'key'`, which for an array is the array's *text*: it would build
+  happily and mean "no two records hold the same whole set", which nobody asks
+  for and the validator in front does not check. Refused in the editor, in the
+  installer, and keyed on `HoldsSeveralValues` rather than on the type's name;
+  the checkbox is not drawn either.
+- **Filtering is containment**: `includes` and `excludes`, one value each,
+  compiled as `@>`. **"Has any of these" is not offered**, because it is §7.3's
+  missing `OR`; two `includes` mean *and*, like every other pair. **A hop
+  through it is not offered**, because through one link a hop is "the record it
+  names" and through a set it is "any of them", which reads the same and is not.
+  **Sorting is refused** on §5.3's collection argument, and the list header
+  draws a heading rather than a link so nobody meets the refusal by clicking.
+- **Priming survives** (XIV-54), which is where the multiplier lands: a page of
+  25 records with four links each is a hundred names. Ids collapse per target
+  module, and the count is asserted flat with `assertSame` across two set sizes,
+  with the unprimed count asserted to climb so the flat one means something.
+- **A marker prints the names, comma-separated**, in a document and an email
+  alike, through `display()` and with no new grammar. §5.13.1 gave a collection
+  a table because its rows have columns; a set of names has one column, and a
+  one-column table is a list somebody has to style for nothing.
+- **Export writes one cell of ids** separated by a comma, which import reads
+  back; §5.6's round trip holds. **No escape, because the alphabet is closed**:
+  ids are digits. **An item that is not an id is kept rather than dropped**, so
+  the type's own constraints name it and an import refuses the file, which is
+  `integer`'s answer to `"12abc"` one arity up.
+- **The reverse-link count sees inside arrays** (XIV-52). Which comparison finds
+  a record is the *type's* to name (`PointsAtAModule::findsTargetBy()`), because
+  a caller choosing it would fail by counting zero, and a card reading "no
+  contacts" is indistinguishable from the truth.
+- **One picker, two arities.** `RecordReferenceType` takes `multiple`, so
+  XIV-35's cap, its apology and XIV-36's search box are the same code rather
+  than the same decision taken twice; `symfony/ux-autocomplete`'s controller
+  reads `select.multiple` and configures Tom Select from it.
+- Not here: a relationship carrying fields of its own, which is a collection
+  (§5.1); an anchor per name, since the door exists on the other side; a shared
+  list as the target (§5.26); and any ordering somebody arranges.
 
 ---

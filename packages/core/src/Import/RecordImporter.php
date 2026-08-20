@@ -539,7 +539,16 @@ final readonly class RecordImporter
         $violations = $this->validator->validate($shape, $values, $recordId);
 
         foreach ($violations as $violation) {
-            $key = trim($violation->getPropertyPath(), '[]');
+            // The **first** segment, because a violation is no longer always
+            // about the whole value (XIV-113): a field holding several records
+            // reports its bad item at `[tags][2]`, and trimming the brackets off
+            // that gives `tags][2`, which names no field and reads as a typo in
+            // this file. What somebody fixing the spreadsheet needs is the column
+            // it is in and the sentence saying what is wrong with it, and both
+            // survive taking the first segment.
+            $key = preg_match('/^\[([^\]]+)\]/', $violation->getPropertyPath(), $matches) === 1
+                ? $matches[1]
+                : trim($violation->getPropertyPath(), '[]');
             $field = $shape->getField($key);
 
             // The violation message is already translated by the validator, so it

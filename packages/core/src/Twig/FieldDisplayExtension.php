@@ -20,6 +20,7 @@ use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
 use Xivi\Core\Field\HoldsFormattedText;
+use Xivi\Core\Field\HoldsSeveralValues;
 use Xivi\Core\Field\LinksToRecord;
 use Xivi\Core\Field\RecordLink;
 use Xivi\Core\Field\ShowsABadge;
@@ -55,6 +56,7 @@ final class FieldDisplayExtension extends AbstractExtension
             new TwigFunction('formatted', $this->formatted(...)),
             new TwigFunction('value_badge', $this->valueBadge(...)),
             new TwigFunction('display_stored', $this->displayStored(...)),
+            new TwigFunction('is_sortable', $this->isSortable(...)),
             new TwigFunction('in_field_order', $this->inFieldOrder(...)),
             new TwigFunction('record_title', $this->recordTitle(...)),
         ];
@@ -197,6 +199,26 @@ final class FieldDisplayExtension extends AbstractExtension
         $type = $this->fieldTypes->get($field->getType());
 
         return $type instanceof ShowsABadge ? $type->badgeOf($value, $field) : null;
+    }
+
+    /**
+     * Whether a list may be put in the order of this column (XIV-113).
+     *
+     * The fourth function on this class with the same shape as `record_link()`,
+     * and written for the reason that one gives: **the template asks the field,
+     * not the type key.** A header writing `field.type != 'multi_reference'`
+     * would be a header to edit the next time something holds a list.
+     *
+     * The answer is no for a field holding several values, because a record with
+     * four tags has four and none of them is the record's. That is §5.3's own
+     * argument for refusing to sort by a collection, and
+     * {@see \Xivi\Core\Query\QueryCompiler} is what makes it true. This is the half that keeps a customer from meeting it: a
+     * column header offering a link that raises is worse than one that is plain
+     * text, and the two have to agree or the refusal is a 500 somebody clicked.
+     */
+    public function isSortable(FieldDefinition $field): bool
+    {
+        return !$this->fieldTypes->get($field->getType()) instanceof HoldsSeveralValues;
     }
 
     /**

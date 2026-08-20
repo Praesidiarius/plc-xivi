@@ -28,7 +28,10 @@ keeps its slot and gains a one-line answer rather than being removed.
      and leaves an `INVALID` index enforcing nothing. `unique` on a
      collection's field is refused outright, because whole-table and
      within-one-parent are different rules and the engine will not guess. That
-     half is still open.
+     half is still open. **`unique` on a field holding several values is refused
+     too** (XIV-113, §5.29), and for a sharper reason: the expression is the
+     array's own text, so the index would build and silently mean "no two
+     records hold the same whole set".
    - **Additive upgrades** are §7.2.1, built.
    - **A field changing type** is built, below.
    - **Purging a removed field's values** stays open, deliberately beside type
@@ -64,7 +67,11 @@ keeps its slot and gains a one-line answer rather than being removed.
    (§5.23).
 
 3. **Query layer.** Built, see §5.3. Still open, and narrower than the question
-   was: `OR` between conditions, and keyset paging.
+   was: `OR` between conditions, and keyset paging. XIV-113 met the first of
+   those and did not build it: a field naming several records filters by
+   containment, one value at a time, and "has any of these" is left unoffered
+   rather than compiled into a disjunction one operator can see and nothing else
+   can (§5.29).
 
 4. **Doctrine multi-tenancy hazards.** Web requests are safe by construction,
    because the runtime is deliberately not a worker (§9.2). Any process that
@@ -100,7 +107,11 @@ keeps its slot and gains a one-line answer rather than being removed.
    take exactly one hop through a link, compiled as `EXISTS`, and the target
    module's own permissions apply inside the subquery; no grant there matches
    nothing, which is an answer rather than an error. A link into an
-   uninstalled module, and a link to a deleted record, read as `#id` text.
+   uninstalled module, and a link to a deleted record, read as `#id` text. A
+   second type names *several* records (XIV-113, §5.29); it stores an array,
+   filters by containment, is refused an ordering and a `unique` flag, and is
+   counted by the same reverse list, which asks the type which comparison finds
+   it.
    Deleting a pointed-at record is allowed and the link goes stale, because
    records are soft-deleted and nothing is destroyed. The *name* a reference
    shows is read unscoped, since an order whose customer says `#14` is

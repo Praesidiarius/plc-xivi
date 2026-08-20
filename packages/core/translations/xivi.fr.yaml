@@ -19,6 +19,11 @@ operator:
     # (XIV-136). Se lit comme une comparaison dans une ligne de filtre :
     # « Séjour chevauche 19.8.2026 ».
     overlaps: chevauche
+    # Les deux comparaisons d’un champ qui nomme plusieurs enregistrements
+    # (XIV-113). « L’un d’eux » serait l’arbre OR que la couche de requête n’a
+    # pas (§5.3) ; il n’est donc pas écrit ici non plus.
+    includes: contient
+    excludes: ne contient pas
 
 autocomplete:
     auto: Automatique
@@ -125,6 +130,11 @@ metadata:
     target_is_held: '%count% enregistrements existants pointent par «%key%» vers des enregistrements de «%from%». Un id n’a de sens que dans le module où il a été choisi ; faire pointer ce champ vers «%to%» laisserait chacun d’eux nommer le mauvais enregistrement, ou aucun. Videz d’abord ces enregistrements, ou laissez-le pointer vers «%from%».'
     target_is_the_modules: 'Le champ «%key%» est venu avec le module et pointe vers «%module%» parce que les formulaires, documents et totaux du module l’attendent ainsi. Les champs que vous avez ajoutés vous-même peuvent pointer où bon vous semble.'
     unknown_target: 'Aucun module nommé «%module%» n’est installé ici ; «%key%» ne peut donc pas pointer vers lui.'
+    # « Unique » sur un champ qui contient une liste (XIV-113). L’index derrière le
+    # drapeau porte sur la valeur en texte : il imposerait « pas deux
+    # enregistrements avec exactement le même ensemble », ce que personne ne veut
+    # dire.
+    unique_holds_several_values: 'Un champ «%type%» contient plusieurs valeurs ; «unique» n’a donc pas de sens unique pour lui : il faudrait qu’il signifie soit que deux enregistrements n’ont jamais exactement le même ensemble, ce que personne ne demande, soit qu’ils ne partagent aucune valeur, ce que le moteur ne peut pas imposer. Laisse «%key%» tel quel.'
     unknown_section: 'Il n’y a pas de section nommée «%section%» sur ce module ; «%key%» ne peut donc pas y être placé. Créez-la d’abord sur la page des sections.'
     section_needs_a_name: 'Une section est un titre sur le formulaire ; il lui faut donc un nom : c’est la seule chose qu’elle dit.'
     sections_are_for_modules: '«%shape%» est une liste de lignes à l’intérieur d’un enregistrement, pas un formulaire à part ; elle n’a donc pas de sections où placer des champs.'
@@ -156,6 +166,7 @@ query:
     unknown_collection: '«%module%» n’a pas de collection nommée «%collection%».'
     unsupported_operator: 'Impossible de demander si «%path%» (%type%) %operator%. Ce type accepte : %supported%.'
     sort_by_collection: 'Impossible de trier par «%path%» : il appartient à une collection, et un enregistrement qui en a deux a deux valeurs. Laquelle serait celle de l’enregistrement ?'
+    sort_by_several_values: 'Impossible de trier par «%path%» (%type%) : il contient plusieurs valeurs, et un enregistrement qui en a quatre en a quatre. Dans l’ordre de laquelle la liste serait-elle ?'
 
 markdown:
     hint: >-
