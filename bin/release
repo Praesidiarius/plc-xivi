@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+#
+# Build this checkout, push it, and deploy it to a target.
+#
+#   bin/release test                 build, push, deploy the current commit
+#   bin/release test --tag=v17.0.8   name the image something in particular
+#   bin/release test --build-only    build and push, deploy nothing
+#
+# **This exists because the machine that builds and the machine that deploys are
+# not the same machine** (XIV-61, docs/architecture/deployment.md §4.8), and that
+# is a consequence of this project having no PHP on the host.
+#
+# Deployer runs inside the dev container, since that is the only place a `dep`
+# binary exists. The container has an ssh client, so it can drive `docker
+# compose` on the target perfectly well. What it does not have is Docker: no CLI
+# and no socket, so `docker build` inside it cannot work. The obvious fix is to
+# mount `/var/run/docker.sock` into the dev container, and that was rejected:
+# the socket is root-equivalent on the developer's own machine, and handing it to
+# a container so it can run one command is a large permission for a small
+# convenience.
+#
+# So the build happens out here, where Docker already is and where `bin/ci`
+# already builds the production image, and only the deploy goes into the
+# container. That split is the whole job of this script.
+#
+# **The image is deployed by digest, never by the tag it was pushed under.** The
+# tag is for humans reading the registry; a digest is what makes a container that
+# restarts three weeks from now come back as the same bytes. `deploy:to` takes
+# the digest, which is also why a rollback is expressible at all.
+#
+# ## Credentials
+#
+# `GHCR_USER` and a token with `write:packages`, from the environment:
+#
+#   export GHCR_USER=your-github-login
+#   export GHCR_TOKEN_FILE=~/somewhere/outside/this/checkout
+#
+# `GHCR_TOKEN` works too if you would rather have it in the environment directly.
+# The file is preferred: a token in a shell variable ends up in the shell's
+# history file and in the environment of every process started from that shell.
+#
+# **The token is never passed as an argument**, here or in `deploy.php`. It goes
+# into the container through `docker compose exec -e GHCR_TOKEN`, which is the
+# pass-through form that names the variable and copies the value across without
+# it appearing in any process list.
+
+set -euo pipefail
+
+# shellcheck source=lib/stack-env.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/stack-env.sh"
+
+cd "$XIVI_ROOT"
+
+if [ "$#" -eq 0 ]; then
+	printf 'Which target? Aliases come from .hosts.yaml:\n\n' >&2
+	bin/compose exec -T php vendor/bin/dep config --format=json 2>/dev/null \
+		| python3 -c 'import json,sys; [print("  "+k) for k in json.load(sys.stdin)]' 2>/dev/null \
+		|| printf '  (none: copy .hosts.yaml.dist to .hosts.yaml first)\n' >&2
+	printf '\nUsage: bin/release <alias> [--tag=…] [--build-only]\n' >&2
+	exit 1
+fi
+
+alias=$1
+shift
+
+tag=''
+build_only=''
+
+for arg in "$@"; do
+	case "$arg" in
+	--tag=*) tag="${arg#--tag=}" ;;
+	--build-only) build_only=1 ;;
+	*)
+		printf 'bin/release: unknown option %s\n' "$arg" >&2
+		exit 1
+		;;
+	esac
+done
+
+# **Which image this host runs is the host's business, not this script's.** The
+# public instance is built without the administration surface and the internal
+# one with it (XIV-96, §4.4), and `.hosts.yaml` is where that is recorded. Asking
+# Deployer means there is one answer rather than two that can disagree.
+config=$(bin/compose exec -T php vendor/bin/dep config "$alias" --format=json)
+
+read -r docker_target image_name < <(
+	printf '%s' "$config" | python3 -c '
+import json, sys
+hosts = json.load(sys.stdin)
+host = next(iter(hosts.values()))
+print(host["docker_target"], host["image_name"])
+'
+)
+
+if [ -z "$tag" ]; then
+	# `--dirty` on purpose: an image built from a working tree that does not match
+	# any commit should say so in its own name, because the commit it claims is
+	# the one somebody will check out when this breaks.
+	tag=$(git describe --tags --always --dirty)
+fi
+
+: "${GHCR_USER:?set GHCR_USER to your GitHub login}"
+
+if [ -z "${GHCR_TOKEN:-}" ]; then
+	token_file="${GHCR_TOKEN_FILE:-}"
+
+	if [ -z "$token_file" ] || [ ! -r "$token_file" ]; then
+		printf 'bin/release: no credential. Set GHCR_TOKEN, or GHCR_TOKEN_FILE to a\n' >&2
+		printf 'readable file holding a GitHub token with write:packages.\n' >&2
+		exit 1
+	fi
+
+	GHCR_TOKEN=$(tr -d '\r\n' <"$token_file")
+	export GHCR_TOKEN
+fi
+
+registry="${image_name%%/*}"
+
+# **A digest given as the tag means "deploy this, do not build anything", which
+# is what a rollback is.** There is nothing to build: the image already exists in
+# the registry, and rebuilding from the current working tree would produce
+# different bytes under the name of the thing being rolled back to, which is the
+# one outcome a rollback must not have. Anything else is a name for a new build.
+if [ "${tag#sha256:}" != "$tag" ]; then
+	digest="$tag"
+	printf '\n==> Deploying an image that already exists, building nothing\n'
+else
+	printf '\n==> Building %s (%s)\n' "$image_name:$tag" "$docker_target"
+	docker build --target "$docker_target" --tag "$image_name:$tag" .
+
+	printf '\n==> Pushing to %s\n' "$registry"
+	printf '%s' "$GHCR_TOKEN" | docker login "$registry" --username "$GHCR_USER" --password-stdin >/dev/null
+	docker push "$image_name:$tag"
+
+	# **What the registry actually stored**, which is not derivable from the tag.
+	# `RepoDigests` is populated by the push, so this has to come after it.
+	digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$image_name:$tag")
+	digest="${digest#*@}"
+
+	printf '\n==> %s is %s\n' "$tag" "$digest"
+fi
+
+if [ -n "$build_only" ]; then
+	printf '\nBuilt and pushed, nothing deployed. To deploy it:\n'
+	printf '  bin/release %s --tag=%s\n' "$alias" "$digest"
+	exit 0
+fi
+
+printf '\n==> Deploying to %s\n' "$alias"
+
+# -e NAME without a value is the pass-through form: it copies the value from this
+# shell without putting it on a command line anywhere.
+bin/compose exec -T -e GHCR_USER -e GHCR_TOKEN php \
+	vendor/bin/dep deploy:to "$alias" --tag="$digest"
+
+printf '\nDeployed %s to %s.\n' "$digest" "$alias"
+printf 'Rolling back is the same command with the previous digest:\n'
+printf '  bin/release %s --tag=<previous digest>\n' "$alias"

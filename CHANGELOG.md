@@ -87,6 +87,12 @@ always lands in `Unreleased` here.
   every real customer. `/_tls/ask` answers from the registry and refuses any
   request that did not come from the loopback, so it cannot be used from outside
   to ask whether a customer exists.
+- **One command builds, pushes and deploys** ([XIV-61], §4.8). `bin/release
+  <target>` builds the image the target is configured for, pushes it, and deploys
+  the digest rather than the tag. The build stays on the host because the dev
+  container has no Docker, and giving it the host's socket is a root-equivalent
+  permission for one command. The same command with a digest is a rollback and
+  builds nothing.
 - **Rollback is written down, including what it cannot undo** ([XIV-61], §4.8).
   Deploying a previous digest takes seconds and does not roll the databases back.
   That is safe because tenant migrations are additive only, not because anything

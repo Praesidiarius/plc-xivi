@@ -63,9 +63,17 @@ services:
         }
         email ${TLS_CONTACT_EMAIL:?Let's Encrypt needs an address for expiry warnings}
         ${CADDY_ACME_CA_DIRECTIVE:-}
+      # `CADDY_TLS_ISSUER` is empty in a real deployment, which leaves Caddy on
+      # its default of Let's Encrypt. Set it to `issuer internal` to rehearse
+      # before public DNS exists: the certificate is locally signed and no
+      # browser will trust it, but **the ask endpoint is still consulted**, which
+      # is the part of on-demand TLS with somewhere to go wrong. A public CA
+      # cannot be rehearsed against, staging included, because validation is an
+      # inbound request from the CA over public DNS.
       CADDY_SERVER_EXTRA_DIRECTIVES: |
         tls {
           on_demand
+          ${CADDY_TLS_ISSUER:-}
         }
       # The secrets. PlaceholderSecretGuard refuses at boot if any of these is
       # still byte-identical to the committed placeholder, so a deployment that

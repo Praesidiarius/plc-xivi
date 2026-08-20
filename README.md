@@ -130,24 +130,44 @@ $ bin/compose exec php vendor/bin/dep deploy <alias>                     # green
 **Every release:**
 
 ```console
-$ export GHCR_USER=<you> GHCR_TOKEN=<a PAT with write:packages>
-$ bin/compose exec php vendor/bin/dep deploy <alias>
+$ export GHCR_USER=<your github login>
+$ export GHCR_TOKEN_FILE=~/somewhere/outside/this/checkout
+$ bin/release <alias>
 ```
 
-That builds the image, pushes it to ghcr.io, pulls it on the target by digest,
-runs `bin/deploy` out of the new image to migrate the control plane and every
-tenant, and only then replaces the serving containers. A tenant that fails to
-migrate fails the deploy.
+`bin/release` builds the image, pushes it to ghcr.io, and hands the resulting
+**digest** to Deployer, which pulls it on the target, runs `bin/deploy` out of
+the new image to migrate the control plane and every tenant, and only then
+replaces the serving containers. A tenant that fails to migrate fails the deploy.
 
-**Rollback is a deploy of the previous digest:**
+The build is out here rather than inside the dev container because the container
+has no Docker, and mounting the host's Docker socket into it to get one is a
+root-equivalent permission for a small convenience. `bin/ci` already builds the
+production image on the host, so this is the same split.
+
+**Rollback is the same command with the previous digest**, which builds nothing:
 
 ```console
-$ bin/compose exec php vendor/bin/dep deploy:to <alias> --tag=sha256:<previous>
+$ bin/release <alias> --tag=sha256:<previous>
 ```
 
 **It does not roll the databases back**, and does not need to: tenant migrations
 are additive only, so old code meets a newer schema and ignores what it does not
 know. A change that genuinely removes something is two releases.
+
+### Before public DNS exists
+
+No certificate authority can issue for a hostname that does not resolve publicly,
+because validation is an inbound request from the CA. A hosts file on your own
+machine changes nothing, and Let's Encrypt's staging endpoint validates the same
+way. To rehearse anyway, put `CADDY_TLS_ISSUER=issuer internal` in the env file:
+Caddy signs locally, nothing trusts the certificate, and **the ask endpoint is
+still consulted**, which is the half worth rehearsing. Remove the line once DNS
+resolves.
+
+```console
+$ curl -k --resolve demo.example.com:443:<ip> https://demo.example.com/
+```
 
 ## Licence
 
