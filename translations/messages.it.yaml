@@ -1126,6 +1126,17 @@ store:
     title: Store
     intro: I moduli che questa installazione può avere. Installarne uno lo aggiunge alla tua banca dati; nulla qui tocca nessun altro.
     empty: In questo build non c’è ancora nulla in offerta.
+    find: Trova un modulo
+    find_placeholder: Un nome, o qualcosa che contiene
+    find_submit: Cerca
+    find_clear: Mostra tutto
+    no_matches: 'Qui non corrisponde nulla a «%query%».'
+    yours: I tuoi moduli
+    yours_help: Installati in questa banca dati e tuoi, da rinominare e riordinare. Aprine uno per vedere come è stato installato.
+    available: Moduli da aggiungere
+    available_help: Non ancora installati qui. Ognuno dice di che cosa ha bisogno prima che tu cominci.
+    nothing_to_add: Hai già ogni modulo che questa installazione offre.
+    requires: 'Richiede:'
     details: Dettagli
     installed: Installato
     not_installed: Non installato

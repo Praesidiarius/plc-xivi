@@ -101,13 +101,39 @@ final class ModuleStoreController extends AbstractController
     ) {
     }
 
-    /** Everything this build offers, each saying whether it is theirs already. */
+    /**
+     * What this customer has, and then what they could add (XIV-140).
+     *
+     * **Two lists rather than one badged list**, which is the whole of XIV-140
+     * on this action: the service answers the two questions separately and the
+     * template draws them as two sections. See {@see ModuleStore::owned()} for
+     * why the first of them is read from the customer's own definitions instead
+     * of from the catalogue.
+     *
+     * **`q` is a plain query parameter and the box is a plain GET form.** No
+     * Live Component, and that is a deliberate departure from this application's
+     * front-end direction rather than a gap: the whole list is a handful of
+     * strings the server has already composed for the page it is drawing, so
+     * filtering it is a substring test and not a round trip worth componentising
+     * (§3.2, and {@see ModuleStore::matches()} has the longer argument). What
+     * the parameter buys instead is a URL: a filtered store can be reloaded,
+     * bookmarked and pasted to a colleague, which a component's internal state
+     * cannot.
+     */
     #[Route('', name: 'store_index', methods: ['GET'])]
     #[IsGranted(StoreAction::Browse->value, subject: 'store')]
-    public function index(string $store): Response
+    public function index(string $store, Request $request): Response
     {
+        // Trimmed here rather than in the service, because this is the only
+        // place a human typed it. What reaches the template is what the box is
+        // redrawn with, so "  crm  " coming back as "crm" is the search saying
+        // what it actually did.
+        $query = trim((string) $request->query->get('q', ''));
+
         return $this->render('store/index.html.twig', [
-            'offers' => $this->store->offers(),
+            'owned' => $this->store->owned($query),
+            'available' => $this->store->available($query),
+            'query' => $query,
             'currency' => $this->currency->code(),
         ]);
     }

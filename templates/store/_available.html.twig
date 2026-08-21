@@ -1,0 +1,94 @@
+{#
+	One module the customer could add, saying enough to decide with (XIV-140).
+
+	**What it needs is the body of the tile now**, and that is XIV-140's own
+	observation rather than a design flourish: [XIV-23] already computes it, and it
+	is most of what somebody needs in order to know whether this module is a step
+	they can take today. Before this the body said how many presets the module has,
+	which is a number about a choice nobody has started making.
+
+	**Every requirement is named, not only the missing ones.** "Needs Contacts and
+	Orders, and you have both" is the sentence that lets somebody stop worrying;
+	listing only the gaps means a tile that says nothing is a tile you still have to
+	open to find out why. The missing ones carry the warning colour *and* the word,
+	because a colour is not a statement and a screen reader cannot see one.
+
+	**The buttons are the module page's buttons, under the module page's two
+	grants.** Installing and committing the company to a payment are different
+	authorities (§8.4.3), so `can('install', …)` and `can('buy', …)` are asked
+	separately, and somebody holding neither reads a tile that is complete and
+	simply does not act. A module that needs something missing gets no button at
+	all rather than a disabled one, for the reason `show.html.twig` gives: a control
+	that cannot be used is a question with no answer on it.
+
+	**A price appears only where there is one** (XIV-102). See `_price.html.twig`,
+	which has the argument for why free is silent.
+#}
+<div class="col-sm-6 col-lg-4">
+	<div class="card h-100">
+		<div class="card-body d-flex flex-column">
+			<h3 class="h6 card-title d-flex align-items-center gap-2 mb-2">
+				{% if offer.blueprint.icon %}
+					<i class="bi bi-{{ offer.blueprint.icon }} text-body-secondary" aria-hidden="true"></i>
+				{% endif %}
+				<span class="me-auto">{{ offer.label }}</span>
+				{#
+					The price sits in the heading rather than in the body, so that a
+					reader scanning a grid for "what costs money" scans one column. It
+					renders nothing for a free module, which is why the card looks
+					untouched for every module in this build.
+				#}
+				{{ include('store/_price.html.twig', {offer: offer, currency: currency, emphasis: 'small fw-semibold'}) }}
+			</h3>
+
+			{#
+				They pressed the button yesterday and nothing has happened since, which
+				is exactly what was supposed to happen (XIV-102). Said on the tile so
+				that nobody is left wondering whether it worked.
+			#}
+			{% if offer.hasBeenRequested %}
+				<p class="card-text mb-2">
+					<span class="badge text-bg-info">{{ 'store.requested'|trans }}</span>
+				</p>
+			{% endif %}
+
+			{% if offer.requirements is not empty %}
+				<p class="card-text small mb-2">
+					<span class="text-body-secondary">{{ 'store.requires'|trans }}</span>
+					{% for requirement in offer.requirements %}
+						<span class="badge {{ requirement.installed ? 'text-bg-light border' : 'text-bg-warning' }}">
+							{{ requirement.label }}
+							<span class="visually-hidden">({{ (requirement.installed ? 'store.installed' : 'store.not_installed')|trans }})</span>
+						</span>
+					{% endfor %}
+				</p>
+			{% endif %}
+
+			{#
+				Kept from before XIV-140 and demoted rather than dropped: how many ways
+				there are to install it is a real thing to know about the decision
+				ahead, and it was only ever wrong as the *only* thing the tile said.
+			#}
+			<p class="card-text text-body-secondary small mb-3">
+				{{ 'store.preset_count'|trans({'%count%': offer.presets|length}) }}
+			</p>
+
+			<div class="mt-auto d-flex flex-wrap gap-2">
+				<a class="btn btn-sm btn-outline-secondary" href="{{ path('store_module', {module: offer.key}) }}">
+					{{ 'store.details'|trans }}
+				</a>
+				{% if offer.isInstallable and can('install', chrome.store) %}
+					<a class="btn btn-sm btn-primary" href="{{ path('store_install', {module: offer.key}) }}">
+						<i class="bi bi-download" aria-hidden="true"></i>
+						{{ 'store.install'|trans }}
+					</a>
+				{% elseif offer.isBuyable and not offer.hasBeenRequested and can('buy', chrome.store) %}
+					<a class="btn btn-sm btn-primary" href="{{ path('store_buy', {module: offer.key}) }}">
+						<i class="bi bi-bag" aria-hidden="true"></i>
+						{{ 'store.ask_to_buy'|trans }}
+					</a>
+				{% endif %}
+			</div>
+		</div>
+	</div>
+</div>

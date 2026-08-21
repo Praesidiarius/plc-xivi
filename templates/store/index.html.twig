@@ -1,17 +1,51 @@
 {#
-	The shop window: everything this build offers, and where this customer stands
-	on each (XIV-6).
+	The shop window, as two questions instead of one wall (XIV-6, XIV-140).
 
-	A module already installed is shown rather than hidden, and says so. Hiding it
-	would leave somebody hunting for a module they already have — and "you have
-	this" is the answer to their question, where an empty grid is not.
+	### What was wrong with the wall
 
-	**A price appears on a tile only where there is one** (XIV-102). Free is
-	silent — see `_price.html.twig`, which has the argument — so a deployment that
-	has priced nothing sees exactly the grid it saw before this landed. That is the
-	point rather than a happy accident: almost everything here is free, and a
-	"Free" badge on every card would be furniture in the same way a permanently
-	zero banner is on the operator's screen.
+	Until XIV-140 this was a single grid of every module the store offers, in the
+	catalogue's order, with the ones the customer already had carrying a green
+	badge. That is fine at five modules and stops working well short of thirty, for
+	three reasons worth separating, because only one of them is the one the ticket
+	named:
+
+	  * **The order was the module *key*, and nobody sees keys.** Labels are
+	    translated, so key order is not even alphabetical on the screen: in German
+	    this build reads Artikel, Kontakte, Rechnungen, Wissen, Bestellungen,
+	    Gutscheine. A grid in an order the reader cannot predict is a grid they
+	    have to read all of, whatever its size.
+	  * **The two questions were interleaved.** An established customer has most of
+	    the catalogue, so "what do I already have" and "what could I add" both cost
+	    the whole page. Splitting them is free, because the store knew the answer
+	    all along.
+	  * **The tile said the least useful thing it could.** For an available module
+	    it said how many presets it has, which is a number about a choice nobody
+	    has started making. What it needs was already computed and was not shown.
+
+	Search is the fourth, and it is deliberately last: it is what you reach for
+	once the first three are fixed, not instead of fixing them.
+
+	### The order of the sections, and why theirs comes first
+
+	Theirs, then the offer. It is one compact row at any realistic module count, it
+	grounds the reader in their own installation before the shop starts, and it is
+	what somebody arriving to check "do we have invoicing" came for. The offer is
+	the taller half and is where the page's weight belongs.
+
+	### What is deliberately not here
+
+	**No categories, and no trades.** A module belongs to as many trades as sell it
+	(Contacts is in Basic CRM and in Care Home both), so a category on a module
+	would have to be a hand-maintained list that a package already implies.
+	Grouping by trade is [XIV-139]'s packages seen from this side, and when they
+	land they slot in above "modules you can add" without anything here being
+	unpicked. The grouping this ticket ships is the one the store already knew:
+	theirs, or not theirs yet.
+
+	**No upgrade offers.** [XIV-70]'s "your module has gained a field" lives on the
+	module's own settings and must not leak onto this page. *Install something new*
+	and *take more of what you already own* are different acts, and a store that
+	mixed them would be a store that keeps selling you things you have.
 #}
 {% extends 'base.html.twig' %}
 
@@ -26,67 +60,80 @@
 		<h1 class="h3 mb-1">{{ 'store.title'|trans }}</h1>
 		<p class="text-body-secondary">{{ 'store.intro'|trans }}</p>
 
-		{% if offers is empty %}
-			<div class="alert alert-secondary">
-				{{ 'store.empty'|trans }}
+		{#
+			A GET form, so a narrowed store is a URL that can be reloaded and sent to
+			somebody. Shown at every catalogue size rather than appearing once the
+			build passes some count: a page that changes shape as modules are
+			published is a page nobody learns, and the count at which a box would
+			appear is a number nobody could defend. One input is not furniture.
+		#}
+		<form method="get" class="row g-2 align-items-end mb-4" role="search">
+			<div class="col-sm-6 col-lg-4">
+				<label class="form-label small text-body-secondary mb-1" for="store-q">{{ 'store.find'|trans }}</label>
+				<input type="search" class="form-control form-control-sm" id="store-q" name="q"
+					   value="{{ query }}" placeholder="{{ 'store.find_placeholder'|trans }}">
 			</div>
-		{% else %}
-			<div class="row g-3">
-				{% for offer in offers %}
-					<div class="col-sm-6 col-lg-4">
-						<div class="card h-100">
-							<div class="card-body d-flex flex-column">
-								<h2 class="h6 card-title d-flex align-items-center gap-2 mb-2">
-									{% if offer.blueprint.icon %}
-										<i class="bi bi-{{ offer.blueprint.icon }} text-body-secondary" aria-hidden="true"></i>
-									{% endif %}
-									<span class="me-auto">{{ offer.label }}</span>
-									{#
-										The price sits in the heading rather than in the body, so
-										that a reader scanning a grid for "what costs money" scans
-										one column. It renders nothing for a free module, which is
-										why the card looks untouched for every module in this
-										build.
-									#}
-									{{ include('store/_price.html.twig', {offer: offer, currency: currency, emphasis: 'small fw-semibold'}) }}
-								</h2>
+			<div class="col-auto">
+				<button class="btn btn-sm btn-outline-secondary" type="submit">{{ 'store.find_submit'|trans }}</button>
+			</div>
+			{% if query is not empty %}
+				<div class="col-auto">
+					<a class="btn btn-sm btn-link" href="{{ path('store_index') }}">{{ 'store.find_clear'|trans }}</a>
+				</div>
+			{% endif %}
+		</form>
 
-								{#
-									Four states now, and they are genuinely different answers
-									rather than one answer with a flag. "You have it" needs no
-									button; "it needs Contact first" needs the names of what is
-									missing, because a disabled button with no reason is a dead
-									end; and "you have asked for this" is the one XIV-102 added,
-									because somebody who pressed the button yesterday needs to be
-									told that is why nothing has happened.
-								#}
-								{% if offer.installed %}
-									<p class="card-text mb-3">
-										<span class="badge text-bg-success">{{ 'store.installed'|trans }}</span>
-									</p>
-								{% elseif offer.hasBeenRequested %}
-									<p class="card-text mb-3">
-										<span class="badge text-bg-info">{{ 'store.requested'|trans }}</span>
-									</p>
-								{% elseif offer.missingRequirements is not empty %}
-									<p class="card-text text-body-secondary small mb-3">
-										{{ 'store.needs_first'|trans({'%missing%': offer.missingRequirements|map(r => r.label)|join(', ')}) }}
-									</p>
-								{% else %}
-									<p class="card-text text-body-secondary small mb-3">
-										{{ 'store.preset_count'|trans({'%count%': offer.presets|length}) }}
-									</p>
-								{% endif %}
+		{% if owned is empty and available is empty %}
+			<div class="alert alert-secondary">
+				{#
+					Two different nothings. An empty store is a deployment that has
+					published nothing yet; an empty result is a word that matched nothing,
+					and the way out of that one is the link beside the box.
+				#}
+				{{ query is empty ? 'store.empty'|trans : 'store.no_matches'|trans({'%query%': query}) }}
+			</div>
+		{% endif %}
 
-								<div class="mt-auto">
-									<a class="btn btn-sm btn-outline-secondary" href="{{ path('store_module', {module: offer.key}) }}">
-										{{ 'store.details'|trans }}
-									</a>
-								</div>
-							</div>
-						</div>
-					</div>
-				{% endfor %}
+		{% if owned is not empty %}
+			<section id="store-yours" class="mb-4" aria-labelledby="store-yours-heading">
+				<h2 id="store-yours-heading" class="h5 d-flex align-items-center gap-2 mb-1">
+					{{ 'store.yours'|trans }}
+					<span class="badge rounded-pill text-bg-secondary">{{ owned|length }}</span>
+				</h2>
+				<p class="text-body-secondary small">{{ 'store.yours_help'|trans }}</p>
+
+				<div class="row g-2">
+					{% for module in owned %}
+						{{ include('store/_owned.html.twig', {module: module}) }}
+					{% endfor %}
+				</div>
+			</section>
+		{% endif %}
+
+		{% if available is not empty %}
+			<section id="store-available" aria-labelledby="store-available-heading">
+				<h2 id="store-available-heading" class="h5 d-flex align-items-center gap-2 mb-1">
+					{{ 'store.available'|trans }}
+					{#
+						The count is of what is on the screen, and what is on the screen is
+						what `ModuleCatalog::offeredEntries()` returned. A module withheld by
+						[XIV-101]'s pricing state is not in that list, so it is not in this
+						number either: a count that included one would be telling a customer
+						how many modules an operator has not decided about yet (§6.5).
+					#}
+					<span class="badge rounded-pill text-bg-secondary">{{ available|length }}</span>
+				</h2>
+				<p class="text-body-secondary small">{{ 'store.available_help'|trans }}</p>
+
+				<div class="row g-3">
+					{% for offer in available %}
+						{{ include('store/_available.html.twig', {offer: offer, currency: currency}) }}
+					{% endfor %}
+				</div>
+			</section>
+		{% elseif owned is not empty and query is empty %}
+			<div class="alert alert-secondary">
+				{{ 'store.nothing_to_add'|trans }}
 			</div>
 		{% endif %}
 	</main>

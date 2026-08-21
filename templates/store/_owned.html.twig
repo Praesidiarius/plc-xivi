@@ -1,0 +1,37 @@
+{#
+	One module the customer already has, as the store names it back to them
+	(XIV-140).
+
+	**Small on purpose.** These are the majority of the page for an established
+	customer and the least interesting thing on it, so they get a dense row rather
+	than the tile an offer gets. Still a card, because "you have this" is an answer
+	and an answer needs somewhere to sit.
+
+	**Their word for it, not the blueprint's.** §6.1 stops the blueprint having a
+	say the moment a module is installed, so a customer who renamed Contacts to
+	Klienten reads Klienten here, exactly as they do in the bar at the top of every
+	page. The other half of the screen uses the blueprint's label, because nothing
+	over there is theirs to have renamed yet.
+
+	**A link only while the store still has a page for it.** A module withdrawn
+	from the store, or dropped from a build, is still installed and still works
+	(§6.2), and `store_module` answers 404 for it. Same rule, same reason, as the
+	requirement links on a module's own page: a link to a page that refuses is
+	worse than a name that sits still.
+#}
+<div class="col-6 col-md-4 col-xl-3">
+	<div class="card h-100">
+		<div class="card-body d-flex align-items-center gap-2 py-2 px-3">
+			<i class="bi bi-{{ module.icon }} text-body-secondary" aria-hidden="true"></i>
+			<span class="me-auto text-truncate">
+				{% if module.offered %}
+					<a class="stretched-link text-reset text-decoration-none"
+					   href="{{ path('store_module', {module: module.key}) }}">{{ module.label }}</a>
+				{% else %}
+					{{ module.label }}
+				{% endif %}
+			</span>
+			<span class="badge text-bg-success">{{ 'store.installed'|trans }}</span>
+		</div>
+	</div>
+</div>

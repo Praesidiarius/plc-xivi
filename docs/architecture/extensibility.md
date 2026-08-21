@@ -96,6 +96,46 @@ grows by adding a case.
   not deferred. Uninstalling is not in the store, because it means deciding
   what happens to the records.
 
+#### 6.3.1 Two shelves, not one wall (XIV-140)
+
+The index answers the two questions a customer arrives with **separately**:
+what they have, then what they could add. One badged list made both cost the
+whole page once the build carries more than a handful of modules.
+
+- **"What you have" is read from the customer's own definitions**, never from
+  the catalogue, and therefore says *their* label for each module. A module
+  withdrawn from the store, priced `not_for_sale`, or dropped from a build is
+  still installed and still works (§6.2), so a shelf built from what the store
+  offers would silently omit a module somebody used that morning. It links to
+  the store page only while there is one.
+- **Ordered by label in the reader's language, through `Collator`.** The
+  catalogue orders by module key because two runs must read the same; a key is
+  a fact about the code and the reader never sees one. In German this build's
+  key order reads Artikel, Kontakte, Rechnungen, Wissen, Bestellungen,
+  Gutscheine, which is no order at all.
+- **A tile names every module it requires**, satisfied ones included, because
+  "you have both of these" is what lets somebody stop worrying. XIV-23 already
+  computed it.
+- **Search is a substring over labels and collection names, in memory, in a
+  `q` parameter.** §3.2 licenses it: the catalogue is curated, so there is no
+  index and nothing to rank. The record query layer was rejected outright, as a
+  module in the store is not a record, a field, or a row in the tenant's
+  database. A GET parameter rather than component state, so a narrowed store is
+  a URL.
+- **No categories and no taxonomy.** A module belongs to as many trades as sell
+  it, so a category on a module would be a hand-maintained list a package
+  already implies. **Grouping by trade is XIV-139's packages**, and they slot in
+  above "modules you can add" without any of this being unpicked. A blueprint
+  `description` was weighed and rejected for the same reason: prose that sells a
+  vertical belongs on a package's page, not on six modules in four languages.
+- **The store never links to XIV-70's upgrade offer.** Installing something new
+  and taking more of what you already own are different acts, and the second
+  lives on the module's own settings.
+- **Composing the page is O(1) reads, not O(modules).** The catalogue is asked
+  once (`ModuleCatalog::offeredEntries()`, entries rather than blueprints so
+  the price comes with them) and the tenant's definitions once
+  (`MetadataRepository::all()`). Both used to be per tile.
+
 ### 6.4 Asking an installation what it is (XIV-76)
 
 §6.1 means the repository cannot describe a tenant. A blueprint is the
