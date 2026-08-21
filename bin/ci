@@ -29,10 +29,12 @@
 # `bin/compose`, never a bare `docker compose` — the latter finds the main
 # checkout's (XIV-55).
 #
-# Coverage is opt-in rather than always on, but not because it is slow: this
-# suite spends its time provisioning databases, so Xdebug costs it about seven
-# percent. It is opt-in because the report is only wanted when somebody is going
-# to read it. CI passes --coverage.
+# Coverage is opt-in because the report is only wanted when somebody is going to
+# read it. CI passes --coverage. It is also the longest step in the run and by
+# some way, so opting in is not free either: the suite is serial under coverage
+# (paratest cannot do it, see the step itself) and that alone is most of the
+# difference between a minute and five. The driver used to be the other half of
+# it and is not any more (XIV-170).
 #
 # The stack is left running afterwards; nothing here touches your dev tenants.
 # The test suite creates and drops its own.
@@ -223,6 +225,25 @@ xivi_assert_ports_free || exit 1
 # fragment is already sourced into this process: the variables are exported, so
 # both reach the same stack. The wrapper is for a shell that has not sourced it.
 docker compose up -d --wait
+
+# **A dev image built before XIV-170 has no PCOV in it**, and Compose does not
+# rebuild an image it already has, so that is the ordinary state of every stack
+# that existed before this landed. Left alone the run reaches the coverage step
+# minutes from here and dies inside PHPUnit with "No code coverage driver is
+# available", which names neither the image nor the command that fixes it.
+#
+# Asked here rather than at the step, for the reason the reclaim below gives:
+# something a rebuild fixes should be said in the first ten seconds, not after
+# the static analysis. Only when coverage is wanted, since nothing else in the
+# run needs a driver.
+if [ "$coverage" = true ] && ! docker compose exec -T php php -m | grep -qix pcov; then
+	printf '\nThe dev image has no PCOV, which is what measures coverage (XIV-170).\n\n' >&2
+	printf 'It was added to the image rather than to a dependency, and Compose will\n' >&2
+	printf 'not rebuild an image that already exists. Build it and start it again:\n\n' >&2
+	printf '    bin/compose build php\n' >&2
+	printf '    bin/compose up -d --wait\n\n' >&2
+	exit 1
+fi
 
 # **The test databases earlier runs left, and the volume they were filling**
 # (XIV-78).
@@ -668,18 +689,32 @@ if [ "$coverage" = true ]; then
 	# Serial, and not by choice: paratest 7.24 crashes outright when asked for
 	# coverage under PHPUnit 13 ("Call to a member function write() on array" in
 	# its SuiteLoader). So the coverage run — which is the one GitHub Actions
-	# makes — is the serial one until paratest catches up. Worth retrying on the
-	# next paratest release; it is the difference between ~48s and ~10s.
+	# makes — is the serial one until paratest catches up. Re-checked on
+	# 2026-08-21 for XIV-170: 7.24.1 is out and its only change is deprecating a
+	# CLI flag, so the constraint stands. Worth retrying on each release; it is
+	# the difference between one process and eight.
 	#
 	# The tmpfs test database (XIV-10) helps here regardless, and is most of the
 	# win: this path was 165s before it.
 	#
-	# Xdebug is in the dev image already and is the only driver here. The report
-	# goes to coverage/ rather than var/, because var/ is an anonymous volume and
-	# anything written there cannot be read from the host — which is exactly what
-	# CI has to do to upload it.
+	# **PCOV collects, and Xdebug is switched off rather than left to itself**
+	# (XIV-170). Both drivers are in the dev image and the Dockerfile's dev stage
+	# argues out which does what; the part that matters here is that the two
+	# decisions are separate. php-code-coverage picks PCOV for line coverage on
+	# its own, so the driver would be right either way, but an Xdebug still in
+	# `coverage` mode goes on instrumenting every executed line underneath it and
+	# the run keeps paying for a driver nothing is reading. Turning it off is
+	# what buys the time: 687s to 328s on this suite, with the percentage
+	# unmoved.
+	#
+	# Anything that wants what PCOV cannot do, branch coverage or a profile,
+	# passes XDEBUG_MODE=coverage instead and waits.
+	#
+	# The report goes to coverage/ rather than var/, because var/ is an anonymous
+	# volume and anything written there cannot be read from the host — which is
+	# exactly what CI has to do to upload it.
 	rm -rf coverage
-	docker compose exec -T -e XDEBUG_MODE=coverage php composer coverage
+	docker compose exec -T -e XDEBUG_MODE=off php composer coverage
 
 	step "Coverage is at or above ${COVERAGE_FLOOR}%"
 	# The gate runs in the container like everything else — there is no host PHP
