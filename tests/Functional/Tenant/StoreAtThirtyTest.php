@@ -30,6 +30,8 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
 use Twig\Environment;
+use Xivi\Core\Metadata\MetadataEditor;
+use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleRegistry;
 use Xivi\Knowledge\KnowledgeModule;
@@ -398,6 +400,73 @@ final class StoreAtThirtyTest extends WebTestCase
             self::assertNotEmpty($offers, 'a query count over an empty shelf would prove nothing');
 
             return $counter->count();
+        });
+    }
+
+    /**
+     * German collation, not byte order, and this is the case that tells them
+     * apart (XIV-140).
+     *
+     * **The sibling test above cannot see this.** It asserts Gutscheine before
+     * Wissen, which is "sorted by label rather than by module key", and `strcmp`
+     * satisfies that too because G precedes W in bytes as well as in German. So
+     * that test protects the sort existing; it does not protect the sort being
+     * `Collator`. Measured: replacing `ModuleStore::compareLabels()` with
+     * `strcmp` leaves all eight of the other tests here green.
+     *
+     * `Ärzte` and `Zimmer` disagree flatly. `Ä` is two bytes beginning `0xC3`,
+     * `Z` is `0x5A`, so a byte comparison files Zimmer first while a German
+     * reader looks for Ärzte at the top. That is the failure the docblock on
+     * `compareLabels()` describes, and until now nothing held it.
+     *
+     * Asserted on the owned shelf because those labels are the **customer's**
+     * (§6.1), so a test can set them. The offer's labels come from the
+     * translation catalogue and no test may rename a module for everybody.
+     */
+    public function testTheOwnedShelfSortsByGermanCollationRatherThanByBytes(): void
+    {
+        $this->publish(...self::OURS);
+        $this->installForTenant(KnowledgeModule::KEY);
+        $this->installForTenant(VoucherModule::KEY);
+        $this->relabel([KnowledgeModule::KEY => 'Zimmer', VoucherModule::KEY => 'Ärzte']);
+        $this->signIn();
+
+        $page = $this->client->request('GET', $this->url('/store'), [], [], ['HTTP_ACCEPT_LANGUAGE' => 'de']);
+
+        $labels = $page->filter('#store-yours .card')->each(
+            static fn ($card): string => $card->text(),
+        );
+
+        self::assertLessThan(
+            $this->positionOf($labels, 'Zimmer'),
+            $this->positionOf($labels, 'Ärzte'),
+            'byte order files Zimmer before Ärzte; a German reader does not',
+        );
+    }
+
+    /**
+     * Renames installed modules the way the metadata editor does.
+     *
+     * Through {@see MetadataEditor::renameShape()} rather than by setting the
+     * label and flushing here, which is what I tried first and what does not
+     * work: the definitions are read once per tenant per request (XIV-53), so a
+     * write that does not clear that cache is invisible to the page this test
+     * then asks for. The editor's own method flushes and clears, which is the
+     * whole reason to go through it.
+     *
+     * @param array<string, string> $labels module key => the customer's word for it
+     */
+    private function relabel(array $labels): void
+    {
+        self::service(TenantSwitcher::class)->runFor($this->tenant, function () use ($labels): void {
+            $metadata = self::service(MetadataRepository::class);
+            $editor = self::service(MetadataEditor::class);
+
+            foreach ($labels as $key => $label) {
+                $definition = $metadata->find($key);
+                self::assertNotNull($definition, sprintf('module "%s" is installed', $key));
+                $editor->renameShape($definition, $label);
+            }
         });
     }
 
