@@ -23,6 +23,7 @@ use Xivi\Core\Field\FieldType;
 use Xivi\Core\Field\FieldTypeRegistry;
 use Xivi\Core\Field\HoldsAFile;
 use Xivi\Core\Field\HoldsSeveralValues;
+use Xivi\Core\Field\ModuleOwnedOptions;
 use Xivi\Core\Field\NeedsAnAnswer;
 use Xivi\Core\Field\PointsAtAList;
 use Xivi\Core\Field\PointsAtAModule;
@@ -101,6 +102,11 @@ final readonly class MetadataEditor
         // field naming what it is exclusive within is a promise, and a promise
         // with nothing enforcing it is the state both tickets exist to end.
         private OverlapExclusion $exclusions,
+        // What a module's own options are worth now ([XIV-176]). Read here for
+        // one thing only: the narrowing a reference is under, which is the
+        // module's rather than the customer's and so is not on the row this
+        // class edits. See {@see self::recordsPointingOutside()}.
+        private ModuleOwnedOptions $options,
     ) {
     }
 
@@ -1244,6 +1250,46 @@ final readonly class MetadataEditor
             // for this page to count, and `choicesOf()` gives it none.
             $type instanceof Enumerates ? $type->findsHoldersBy() : Operator::Equals,
         );
+    }
+
+    /**
+     * How many records hold a link the field's narrowing would not offer
+     * ([XIV-176]).
+     *
+     * The third of these counts, beside the two that already refuse a change
+     * ({@see MetadataChangeRefused::optionsAreHeld()} and
+     * {@see MetadataChangeRefused::targetIsHeld()}), and it keeps their
+     * discipline exactly: **count and name the number, never fix anything.**
+     *
+     * **Nothing refuses on it, and that is the deliberate part.** The narrowing
+     * this counts against is not a change anybody is making. It is the module's
+     * own, read live from the blueprint ({@see ModuleOwnedOptions}), so there is
+     * no write to refuse and no operator to refuse it to. What the number is for is saying
+     * how many documents in this tenant hold a link the picker no longer offers,
+     * which is how many will refuse to save until somebody clears the field.
+     * `tenant:inspect` prints it.
+     *
+     * Zero for everything that cannot be outside a narrowing: a field of another
+     * type, a field that admits every kind, and a target module whose shape
+     * cannot name kinds at all, which is the guard's case, where there is no
+     * effective narrowing to be outside of.
+     */
+    public function recordsPointingOutside(FieldDefinition $field): int
+    {
+        $variants = ReferenceFieldType::variantsIn($this->options->of($field));
+
+        if ($variants === []) {
+            return 0;
+        }
+
+        $target = $this->modules->find(ReferenceFieldType::targetModule($field));
+        $variantField = $target?->getVariantField();
+
+        if ($target === null || $variantField === null) {
+            return 0;
+        }
+
+        return $this->records->countPointingOutside($field->getShape(), $field, $target, $variantField, $variants);
     }
 
     /**

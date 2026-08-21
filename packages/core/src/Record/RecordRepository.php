@@ -1114,6 +1114,66 @@ final readonly class RecordRepository
     }
 
     /**
+     * How many live records point at a record the narrowing on this field would
+     * not offer ([XIV-176]).
+     *
+     * **The third count in this class, and the first that has to leave the
+     * table.** {@see self::countWithValue()} counts any non-empty value and
+     * {@see self::valueCountsAmong()} counts values among a named set; neither
+     * can answer this, because the question is not about what is stored in the
+     * column at all. What is stored is an id, and whether that id is inside the
+     * narrowing is a fact about the *other* shape's row. So this joins, on
+     * `(data ->> 'key')::int`, and reads the target's own variant field.
+     *
+     * The cast is guarded by a `CASE`, and that is load-bearing rather than
+     * belt-and-braces. `ReferenceFieldType::toStorage()` writes an integer or
+     * nothing, so ordinarily every value here is digits. But Postgres does not
+     * promise to evaluate the `WHERE` before the join condition, so a single row
+     * carrying text under this key would take the whole count down with a cast
+     * error rather than being counted as zero. A `CASE` decides per row, in the
+     * expression, where the ordering is the expression's own.
+     *
+     * **A target that is gone is not counted, and is not the same problem.** A
+     * link to a deleted or missing record is stale (§7.6), the picker does not
+     * offer it either way, and counting it here would put a number in front of
+     * somebody that no narrowing produced. Live rows on both sides, which is
+     * what every other count the editor prints already means.
+     *
+     * Named and never acted on: this class counts, the caller names the number,
+     * and nothing anywhere fixes a record because of it.
+     *
+     * @param list<string> $variants the kinds the field admits; never empty, since
+     *                               a field admitting every kind has nothing
+     *                               outside it and the caller answers zero
+     *                               without a query
+     */
+    public function countPointingOutside(
+        ShapeDefinition $shape,
+        FieldDefinition $field,
+        ModuleDefinition $target,
+        string $variantField,
+        array $variants,
+    ): int {
+        if ($variants === []) {
+            return 0;
+        }
+
+        return (int) $this->connection->fetchOne(
+            sprintf(
+                "SELECT COUNT(*) FROM %s h
+                 JOIN %s t ON t.id = CASE WHEN h.data ->> :field ~ '^[0-9]+\$' THEN (h.data ->> :field)::int END
+                 WHERE h.deleted_at IS NULL
+                   AND t.deleted_at IS NULL
+                   AND (t.data ->> :variant IS NULL OR t.data ->> :variant NOT IN (:variants))",
+                $this->table($shape),
+                $this->table($target),
+            ),
+            ['field' => $field->getKey(), 'variant' => $variantField, 'variants' => $variants],
+            ['variants' => ArrayParameterType::STRING],
+        );
+    }
+
+    /**
      * How many live records would fail a rule that is about to be switched on.
      *
      * Making a field required, or unique, is a promise about data that already

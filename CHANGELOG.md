@@ -73,6 +73,27 @@ always lands in `Unreleased` here.
 
 ## [Unreleased]
 
+- **A module's own field options now reach a tenant that installed it earlier**
+  ([XIV-176], §7.2.2). Which voucher kinds an order's two pickers admit is the
+  module's answer, not the customer's: no control draws it and only the
+  installer ever wrote it. Options like that are read from the blueprint every
+  time they are read, so XIV-172's narrowing reaches an existing shop with
+  **nothing written** into its definitions: no screen, no command, no consent
+  and no migration. The customer's own label, width, position and `required`
+  are untouched, and §7.2.1's upgrade offer is unchanged.
+- **A narrowing a tenant's shapes cannot express is dropped rather than
+  applied** ([XIV-176]). A picker whose target module has no kinds would
+  otherwise list nothing at all instead of listing everything, which is how a
+  module improving its own blueprint could empty a form across an instance.
+- **A voucher a document already names stays on it** ([XIV-176], §7.2.2), the
+  way XIV-175 already kept one that expired after the order was agreed. The
+  picker shows it and a save that changes nothing keeps it; a document taking
+  such a voucher afresh still meets the refusal naming the field.
+- **`tenant:inspect` prints what the engine reads** ([XIV-176]). Where the
+  stored row and the effective options differ it shows both, and it names how
+  many records hold a link the narrowing no longer offers. Development only,
+  and it counts rather than fixing anything.
+
 - **A module can draw its own records on its index now, and the engine does not
   learn what it drew** ([XIV-178], §5.3). One seam: a module hands back a
   template name and its data, and §5.3's page includes that template where it
@@ -109,6 +130,7 @@ always lands in `Unreleased` here.
 
 [XIV-150]: https://xivi.youtrack.cloud/issue/XIV-150
 [XIV-171]: https://xivi.youtrack.cloud/issue/XIV-171
+[XIV-176]: https://xivi.youtrack.cloud/issue/XIV-176
 [XIV-177]: https://xivi.youtrack.cloud/issue/XIV-177
 [XIV-178]: https://xivi.youtrack.cloud/issue/XIV-178
 
