@@ -73,6 +73,43 @@ always lands in `Unreleased` here.
 
 ## [Unreleased]
 
+- **A module can draw its own records on its index now, and the engine does not
+  learn what it drew** ([XIV-178], §5.3). One seam: a module hands back a
+  template name and its data, and §5.3's page includes that template where it
+  would otherwise draw the table. Everything above stays the engine's on every
+  module: the heading, Export, Import, Templates, Email templates, Fields, New,
+  the filter form and both empty states. A module never gets the page, a
+  controller or a route. A module whose customer has deleted or converted the
+  field its layout needs gets the table back rather than an error.
+- **The card index belongs to the Knowledge module, not to the engine**
+  ([XIV-177], §5.22). It was built the other way round first, as a general
+  grouping capability a module declared with one line, and it had exactly one
+  declaration; the brief's first rule is that an abstraction is earned by a
+  second concrete use case. The cards, their order, their ceiling, the unfiled
+  card and the card markup are all in `packages/knowledge` now, behind the seam
+  above. **Nothing on screen changed and no release ever had the capability**,
+  so there is nothing to act on unless you are working from `main`, where
+  `GroupedList`, `ModuleBlueprint::$groupedList`, `RecordGrouper` and
+  `RecordGroup` are gone and `Xivi\Core\Record\IndexBodyProvider` is what a
+  module implements instead.
+- **`Enumerates::optionsOf()` is off the interface again** ([XIV-177]). It was
+  promoted onto it for the card index and had no other interface-typed caller;
+  `ChoiceFieldType` keeps the method and every caller reaches it there,
+  including `MultiChoiceFieldType`, which asks the single-choice type it wraps.
+  That promotion is what left `multi_choice` abstract by omission when two
+  branches merged on `main`, and a field type implementing `Enumerates` no
+  longer has to answer it.
+- **Templates shipped by core or by a module are checked for the boundary they
+  cannot break in code** ([XIV-178], §3). `deptrac` reads PHP and cannot open a
+  Twig file, so a `path()` call in a module template would be the module
+  learning the application's routing table with nothing to say so. A unit test
+  refuses route helpers there, and refuses a `trans` that names no domain.
+  Naming one is allowed whichever catalogue it is, because saying so is the
+  decision.
+
+[XIV-177]: https://xivi.youtrack.cloud/issue/XIV-177
+[XIV-178]: https://xivi.youtrack.cloud/issue/XIV-178
+
 - **The Knowledge index is now a card per topic instead of a page of rows**
   ([XIV-168], §5.22). Each card holds its entries' titles as links to the entry,
   with the day it last changed beside each one, and the search, the filter bar
@@ -83,12 +120,12 @@ always lands in `Unreleased` here.
 - **Edit and delete are no longer on the index for Knowledge** ([XIV-168]).
   Both are on the entry's own page, which the title links to, so deleting an
   entry is one click further than it was.
-- **Any module can ask for a grouped index now, and no other module has
-  changed** ([XIV-168], §5.3). A module names one of its own choice fields and
-  the engine does the rest, so the cards are built from that field's *current*
-  options: a topic a customer adds in the field editor gets a card without
-  anybody writing code. Every other module's list is the table it was, with its
-  sortable headers, its pager and its row actions.
+- **The cards are built from the topic field's *current* options, and no other
+  module has changed** ([XIV-168], §5.3). A topic a customer adds in the field
+  editor gets a card without anybody writing code, and a customer who removes
+  the field gets the ordinary list back rather than an error. Every other
+  module's list is the table it was, with its sortable headers, its pager and
+  its row actions.
 - **An installation learns who is actually talking to it over IPv6**
   ([XIV-61], §4.8). Docker's bridge is IPv4-only unless told otherwise, and a
   published port still answers IPv6 through the userland proxy, which opens its

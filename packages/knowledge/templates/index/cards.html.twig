@@ -1,0 +1,118 @@
+{#
+	**One card per topic**, which is what the knowledge index is instead of a
+	table of rows (XIV-168). The second template this repository ships from a
+	module package, after `packages/invoice/templates/dashboard/unpaid.html.twig`,
+	and the first one that is a *page body* rather than a card on somebody else's
+	page.
+
+	Reached as `@XiviKnowledge/index/cards.html.twig`: a bundle's `templates/`
+	directory is a Twig namespace named after the bundle class, so shipping a
+	template from down here needed no configuration at all.
+
+	**It lives here because the layout is this module's and the page is not**
+	(XIV-178). `templates/module/index.html.twig` keeps everything that is every
+	module's, which is the heading, the seven buttons, the filter form, both empty
+	states, the count underneath and the pager, and hands the region between the
+	empty state and the pager to whatever body the module offered. Ninety-six lines of
+	card markup sat in that shared file for a day, behind a branch, which is the
+	arrangement that makes the *next* module's index another branch in the same
+	file rather than another file.
+
+	**Nothing here names an application route.** `urls[record.id]` and
+	`card.listing` arrived built, through `Xivi\Core\Record\RecordPageUrl` and
+	`Xivi\Core\Record\RecordListUrl`, because §3 says a module package sees
+	`Xivi\Core\` and nothing else and a `path()` call is the one place deptrac
+	cannot see that boundary break. `tests/Unit/ModuleTemplatesKeepTheBoundaryTest.php`
+	is what says so mechanically.
+
+	**Two of the words below are the application's**, `module.card_shown` and
+	`module.card_all`, named with their domain out loud rather than by omission.
+	That is deliberate rather than a slip: the linked-records card on
+	`templates/module/show.html.twig` says exactly the same two sentences about
+	exactly the same situation, and a second copy of "Showing 10 of 47" in four
+	languages is a second thing to keep in step for no reason anybody could
+	state. Everything this module has an opinion of its own about is in
+	`knowledge.<locale>.yaml` beside this directory.
+
+	`record_title()` is core's own Twig function (`Xivi\Core\Twig`), so a card
+	draws a customer's values through the same field types the record page does
+	rather than through a formatting rule of its own.
+
+	**The page is as long as the number of topics in use.** Each card stops at
+	its ceiling and a card is only drawn when something is in it, so a fresh
+	tenant sees no boxes and a busy one sees a card per topic somebody has
+	actually filed something under. There is deliberately no pager: paging over
+	cards would cut a topic in half across two pages, and the way past one card's
+	ceiling is that card's own link.
+#}
+<div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+	{% for card in cards %}
+		<div class="col">
+			<div class="card h-100">
+				<div class="card-header d-flex align-items-baseline justify-content-between gap-2">
+					{#
+						The customer's own word for the topic. `label` is null in the
+						two cases nothing named them: the entries that answered with
+						nothing, which get the field's own name in a sentence, and a
+						value left over from an option that has gone, which is shown
+						raw because the raw value is the only honest thing left to
+						call it.
+					#}
+					<span class="fw-semibold">
+						{%- if card.label is not null -%}
+							{{ card.label }}
+						{%- elseif card.isUnfiled -%}
+							{{ 'index.unfiled'|trans({'%field%': field.label}, 'knowledge') }}
+						{%- else -%}
+							{{ card.value }}
+						{%- endif -%}
+					</span>
+					{# What this reader may see under it, never what exists (§8.4). #}
+					<span class="badge text-bg-secondary">{{ card.total }}</span>
+				</div>
+				<ul class="list-group list-group-flush">
+					{% for record in card.records %}
+						<li class="list-group-item d-flex align-items-baseline justify-content-between gap-2">
+							{# The title, and nothing else that can be pressed. Edit and
+							   delete are on the record page, which is one click away and
+							   already carries both; a card of entries is for reading. #}
+							<a class="text-reset" href="{{ urls[record.id] }}">
+								{{ record_title(module, record.data, record.id) }}
+							</a>
+							{#
+								**The age comes along** (XIV-132, §5.22). The Changed
+								column was added because staleness rather than emptiness
+								is what a knowledge base fails at, and an entry from 2023
+								describing a process that changed in 2024 is the failure
+								that costs something. Dropping the column and keeping
+								nothing in its place would have quietly given that up, so
+								the date sits at the end of each line: the day alone,
+								because a card is scanned, with the machine-readable
+								moment on the `datetime` attribute.
+							#}
+							{% if record.updatedAt %}
+								<time class="text-body-secondary small text-nowrap" datetime="{{ record.updatedAt|date('c') }}">
+									{{- record.updatedAt|date('Y-m-d') -}}
+								</time>
+							{% endif %}
+						</li>
+					{% endfor %}
+				</ul>
+				{#
+					**A card that is showing less than it counted says so, and links
+					to the rest.** Silently stopping at ten would make a card of the
+					first ten look like a topic with ten entries in it, which is the
+					thing XIV-35 refuses. The link is this same index narrowed to
+					this topic and asked for as rows, so the ceiling is behind a
+					page that has a pager and column headers.
+				#}
+				{% if card.isTruncated %}
+					<div class="card-footer small text-body-secondary">
+						{{ 'module.card_shown'|trans({'%shown%': card.shown, '%total%': card.total}, 'messages') }}
+						<a href="{{ card.listing }}">{{ 'module.card_all'|trans({}, 'messages') }}</a>
+					</div>
+				{% endif %}
+			</div>
+		</div>
+	{% endfor %}
+</div>

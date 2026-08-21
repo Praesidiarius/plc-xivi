@@ -20,7 +20,7 @@ return static function (ContainerConfigurator $container): void {
         ->load('Xivi\\Core\\', __DIR__ . '/../src/')
             ->exclude([
                 __DIR__ . '/../src/Entity/',
-                __DIR__ . '/../src/Module/{ModuleBlueprint,CollectionBlueprint,FieldBlueprint,GroupedList}.php',
+                __DIR__ . '/../src/Module/{ModuleBlueprint,CollectionBlueprint,FieldBlueprint}.php',
                 // Declarations and answers, not services: a module writes the
                 // first in its blueprint and the resolver hands back the second
                 // (XIV-39).
@@ -33,11 +33,11 @@ return static function (ContainerConfigurator $container): void {
                 __DIR__ . '/../src/Phone/{PhoneReading,DiallablePhoneNumber}.php',
                 __DIR__ . '/../src/Metadata/{NumberingPlan,ConversionPlan}.php',
                 __DIR__ . '/../src/Numbering/{NumberFormat,NumbersFound}.php',
-                // A record, what a deriver made of one, and one card of a grouped
-                // index (XIV-168). The last is an answer the grouper hands back,
-                // not a service: the container would otherwise try to autowire a
-                // `string $value` into it.
-                __DIR__ . '/../src/Record/{Record,Derivation,RecordGroup}.php',
+                // A record, what a deriver made of one, and what a module handed
+                // back to draw its own index with (XIV-178). The last is an
+                // answer rather than a service: the container would otherwise
+                // try to autowire a `string $template` into it.
+                __DIR__ . '/../src/Record/{Record,Derivation,IndexBody}.php',
                 __DIR__ . '/../src/Validation/UniqueFieldValue.php',
                 // One thing the clock owes a tenant, and what a turn of it came
                 // to (XIV-155). Values the runner builds and hands back, not

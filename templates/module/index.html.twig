@@ -1,31 +1,30 @@
-{% import '_record_link.html.twig' as link %}
-{% import '_pager.html.twig' as pager %}
 {% extends 'base.html.twig' %}
 
-{% block title %}{{ module.label }}{% endblock %}
-
 {#
-	A column header that sorts. Clicking the current sort turns it round, and any
-	sort resets to page one — page 3 of a different order is not where you were.
-#}
-{% macro sortable(module, query, key, label) %}
-	{% if key is empty %}
-		{{ label }}
-	{% else %}
-		{# A key may name several fields; the first one carries the indicator. #}
-		{% set current = query.sortOn(key|split(',')|first) %}
-		{% set next = current and current.direction.value == 'asc' ? 'desc' : 'asc' %}
-		<a class="text-decoration-none text-reset"
-		   href="{{ path('module_index', app.request.query.all|merge({
-			   module: module.key, sort: key, dir: next, page: null,
-		   })) }}">
-			{{ label }}
-			{% if current %}<span aria-hidden="true">{{ current.direction.value == 'asc' ? '↑' : '↓' }}</span>{% endif %}
-		</a>
-	{% endif %}
-{% endmacro %}
+	**§5.3's index, for every module there is**, and since XIV-178 this file is
+	the page rather than the page *and* every layout that has ever been wanted on
+	it.
 
-{% import _self as h %}
+	What is here is what is everybody's: the heading, the seven action buttons,
+	the filter form, and the two empty states. What draws the records is a body,
+	and there are two kinds. The table is what an index is unless somebody said
+	otherwise (`module/index/_table.html.twig`); the other is whatever a module
+	handed back for its own records (`Xivi\Core\Record\IndexBodyProvider`).
+
+	**The branch below is on whether there is a body, and on nothing else.** It
+	does not know what a body draws, how many kinds there are, or that a knowledge
+	base exists; it knows a template name and an array. That is the whole of what
+	XIV-177 was repairing. For one day this file carried ninety-six lines of card
+	markup behind a branch, which is the arrangement that makes the *second*
+	module's index another branch in the same file.
+
+	A module's body is included with `with_context = false`, the same mount
+	`templates/components/DashboardPanel.html.twig` gives a widget and for the same
+	reason: a body is handed exactly what its module put in `IndexBody::$values`
+	and cannot quietly start reading a variable this page happens to have in
+	scope. The table is included *with* context, because it is this page's own.
+#}
+{% block title %}{{ module.label }}{% endblock %}
 
 {% block body %}
 	{{ include('_topbar.html.twig') }}
@@ -158,307 +157,35 @@
 					</div>
 				</div>
 			{% endif %}
-		{% elseif groups is not null %}
+		{% elseif body is not null %}
 			{#
-				**One card per value of the field this module is grouped by**
-				(XIV-168), and the branch is on `groups` rather than on which module
-				this is. A knowledge base is the first module to declare a grouping
-				and nothing here knows that: a module says so in its blueprint, the
-				engine builds the cards, and this draws whatever it is handed.
+				**The module drew its own records** (XIV-178). Which module, and what
+				it drew, is deliberately unknowable from here: the controller asked
+				the modules whether any of them had a body for this page, one of them
+				said yes and handed over a template name and its data, and this
+				includes it.
 
-				What sits above is untouched. The search and filter bar, Export,
-				Import, Templates, Email templates, Fields and New are all still
-				there and all still work, because the cards are the *result* of the
-				same query the table ran rather than a second way of asking.
+				Everything above is untouched and keeps working. The search and
+				filter bar, Export, Import, Templates, Email templates, Fields and
+				New are all still there, because a body is drawn from the *same*
+				query the table would have run rather than from a second way of
+				asking.
 
-				**The page is as long as the number of values in use.** Each card
-				stops at its ceiling, and a card is only drawn when something is in
-				it, so a fresh tenant sees no boxes and a busy one sees a card per
-				topic somebody has actually filed something under. There is
-				deliberately no pager: paging over cards would cut a topic in half
-				across two pages, and the way past one card's ceiling is that card's
-				own link.
+				**No pager.** A body is handed the whole query and reports the whole
+				total (see `Xivi\Core\Record\IndexBody`), so there is no page of many
+				for a pager to move between; how a body bounds itself is the body's
+				own business and it has the URL parameter `ModuleController::VIEW`
+				for pointing past its own ceiling.
 			#}
-			<div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
-				{% for group in groups %}
-					<div class="col">
-						<div class="card h-100">
-							<div class="card-header d-flex align-items-baseline justify-content-between gap-2">
-								{#
-									The customer's own word for the value. `label` is null in the
-									two cases nothing named them: the records that answered with
-									nothing, which get the field's own name in a sentence, and a
-									value left over from an option that has gone, which is shown
-									raw because the raw value is the only honest thing left to
-									call it.
-								#}
-								<span class="fw-semibold">
-									{%- if group.label is not null -%}
-										{{ group.label }}
-									{%- elseif group.isUnfiled -%}
-										{{ 'module.unfiled'|trans({'%field%': group.field.label}) }}
-									{%- else -%}
-										{{ group.value }}
-									{%- endif -%}
-								</span>
-								{# What this reader may see under it, never what exists (§8.4). #}
-								<span class="badge text-bg-secondary">{{ group.total }}</span>
-							</div>
-							<ul class="list-group list-group-flush">
-								{% for record in group.records %}
-									<li class="list-group-item d-flex align-items-baseline justify-content-between gap-2">
-										{# The title, and nothing else that can be pressed. Edit and
-										   delete are on the record page, which is one click away and
-										   already carries both; a card of entries is for reading. #}
-										<a class="text-reset" href="{{ path('module_show', {module: module.key, id: record.id}) }}">
-											{{ record_title(module, record.data, record.id) }}
-										</a>
-										{#
-											**The age comes along** (XIV-132, §5.22). The Changed
-											column was added because staleness rather than emptiness
-											is what a knowledge base fails at, and an entry from 2023
-											describing a process that changed in 2024 is the failure
-											that costs something. Dropping the column and keeping
-											nothing in its place would have quietly given that up, so
-											the date sits at the end of each line: the day alone,
-											because a card is scanned, with the machine-readable
-											moment on the `datetime` attribute.
-										#}
-										{% if record.updatedAt %}
-											<time class="text-body-secondary small text-nowrap" datetime="{{ record.updatedAt|date('c') }}">
-												{{- record.updatedAt|date('Y-m-d') -}}
-											</time>
-										{% endif %}
-									</li>
-								{% endfor %}
-							</ul>
-							{#
-								**A card that is showing less than it counted says so, and links
-								to the rest.** Silently stopping at ten would make a card of the
-								first ten look like a topic with ten entries in it, which is the
-								thing XIV-35 refuses. The link is this same index narrowed to
-								this value and asked for as rows, so the ceiling is behind a
-								page that has a pager and column headers.
-							#}
-							{% if group.isTruncated %}
-								<div class="card-footer small text-body-secondary">
-									{{ 'module.card_shown'|trans({'%shown%': group.shown, '%total%': group.total}) }}
-									<a href="{{ path('module_index', group.listing) }}">{{ 'module.card_all'|trans }}</a>
-								</div>
-							{% endif %}
-						</div>
-					</div>
-				{% endfor %}
-			</div>
+			{{ include(body.template, body.values, with_context = false) }}
 
+			{# How many match, which is the page's sentence whatever drew them, and
+			   the number the body itself counted rather than a second opinion. #}
 			<p class="text-body-secondary small mt-3 mb-0">
 				{{ (query.isFiltered ? 'module.record_count_matching' : 'module.record_count')|trans({'%count%': total}) }}
 			</p>
 		{% else %}
-			<div class="card">
-				<div class="table-responsive">
-					<table class="table table-hover align-middle mb-0">
-						<thead>
-							<tr>
-								{# The name first, because it is the one thing every record has
-								   whatever variant it is (§5.5), and the only sensible thing to
-								   click. Then the customer's own listed fields, in their order. #}
-								<th scope="col" class="text-body-secondary small text-uppercase">
-									{{ h.sortable(module, query, nameSort, 'common.name'|trans) }}
-								</th>
-								{#
-									A column that cannot be an ordering is a heading rather than
-									a link (XIV-113). Asked of the field, on `record_link()`'s
-									rule. A header comparing type names would be a header to
-									edit the next time something holds a list, and it agrees
-									with the compiler, which refuses such a sort outright. A link
-									that raises is worse than plain text.
-								#}
-								{% for field in columns %}
-									<th scope="col" class="text-body-secondary small text-uppercase">
-										{% if is_sortable(field) %}
-											{{ h.sortable(module, query, field.key, field.label) }}
-										{% else %}
-											{{ field.label }}
-										{% endif %}
-									</th>
-								{% endfor %}
-								<th scope="col" class="text-body-secondary small text-uppercase">{{ 'module.owner'|trans }}</th>
-								{#
-									**When this row was last touched** (XIV-132).
-
-									A system column beside a system column: `owner_id` and
-									`updated_at` are both written by the engine on every record of
-									every module (§5.2), neither is a field anybody declared, and
-									the one has been drawn here since the list existed. So this is
-									the second half of a pair rather than a new idea, and like the
-									first it sorts on nothing — a `RecordQuery` orders on the
-									customer's own definitions, and these two are not among them.
-
-									It is here because of what a knowledge base fails at. An empty
-									one is obvious and harmless; a *confidently wrong* one — an
-									entry from 2023 describing a process that changed in 2024,
-									which somebody reads and follows — is the failure that costs
-									something, and the only cheap defence is that the age is on the
-									screen next to the entry rather than one click inside it. The
-									record page has shown "Changed" in its right-hand card all
-									along, which is the right place to find it and the wrong place
-									to *notice* it: by the time you are reading the page you have
-									already decided this is the answer.
-
-									Every other module gets it too, and that is deliberate rather
-									than collateral. "Which of these did somebody touch today" is a
-									question a list of orders and a list of contacts get asked as
-									often as a list of entries does, and a column the engine can
-									fill for free on every module is not a knowledge-base feature
-									that leaked — it is the generic thing this ticket happened to
-									be the first to need.
-								#}
-								<th scope="col" class="text-body-secondary small text-uppercase">{{ 'module.changed'|trans }}</th>
-								<th scope="col"></th>
-							</tr>
-						</thead>
-						<tbody>
-							{% for record in records %}
-								<tr>
-									{# The name opens the record, which is where anyone clicking a
-									   row expects to end up. #}
-									<td>
-										<a class="text-reset" href="{{ path('module_show', {module: module.key, id: record.id}) }}">
-											{{ record_title(module, record.data, record.id) }}
-										</a>
-										{# Two field reads and no query (XIV-67), so a page of
-										   twenty-five costs nothing extra — which is what lets
-										   the answer be today's rather than a stored flag. #}
-										{% if is_overdue(module, record) %}
-											<span class="badge text-bg-danger ms-1" title="{{ 'module.overdue_title'|trans }}">
-												{{- 'module.overdue'|trans -}}
-											</span>
-										{% endif %}
-									</td>
-									{% for field in columns %}
-										{#
-											A value the customer gave a colour to is drawn as a chip
-											(XIV-127). The template asks the *field* rather than its
-											type — `value_badge()` is the third function on
-											`FieldDisplayExtension` with that shape, after
-											`record_link()` and `formatted()`, and for the same
-											reason: a page that switched on `field.type == 'choice'`
-											is a page to edit the next time something has a colour.
-
-											Null is the answer for every field in every tenant until
-											somebody points one at a shared list and colours an
-											entry, so this row looks exactly as it did.
-										#}
-										{% set badges = value_badges(field, record.get(field.key)) %}
-										{#
-											**Three chips, then a count** ([XIV-169]). A field holding
-											several values can hold a dozen, and a dozen in one column
-											of a twenty-five row table is a cell deciding how tall
-											every other row is. Three is what fits beside the columns
-											this table already has, at the width a list is read at.
-
-											The number lives here rather than in the field type
-											because it is a statement about *this* table: the record
-											page has room for all of them and draws all of them, which
-											is where somebody goes when the count says there is more.
-											`ShowsSeveralBadges` says the same thing from the other
-											end and hands over every value.
-
-											The count is not a link, because the row already is one:
-											clicking anywhere on it opens the record the rest of the
-											values are on.
-										#}
-										{% set cellBadges = 3 %}
-										<td>
-											{%- if badges is not empty %}
-												{%- for badge in badges|slice(0, cellBadges) %}{{ include('_value_badge.html.twig', {badge: badge}) }}{% endfor -%}
-												{%- if badges|length > cellBadges %}
-													<span class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle"
-													      title="{{ 'module.more_values'|trans({'%count%': badges|length - cellBadges}) }}">
-														{{- 'module.more_values_short'|trans({'%count%': badges|length - cellBadges}) -}}
-													</span>
-												{%- endif -%}
-											{%- else %}{{ link.linked(field, record.get(field.key), display(field, record.get(field.key))) }}{% endif -%}
-										</td>
-									{% endfor %}
-									{# owner_id is a system column; the name is resolved by the
-									   application, since the engine does not know what a user is. #}
-									<td class="text-body-secondary">{{ owners[record.ownerId] ?? '—' }}</td>
-									{# The date alone, without the time: a list is scanned rather
-									   than read, and "2024-11-03" answers "is this still current"
-									   where "2024-11-03 16:42" makes the reader do the same
-									   arithmetic through more digits. The full moment is a click
-									   away on the record itself, and the exact one after that in
-									   the timeline. `<time>` carries the machine-readable form so
-									   the column is not merely a picture of a date. #}
-									<td class="text-body-secondary">
-										{%- if record.updatedAt -%}
-											<time datetime="{{ record.updatedAt|date('c') }}">{{ record.updatedAt|date('Y-m-d') }}</time>
-										{%- else -%}
-											—
-										{%- endif -%}
-									</td>
-									<td class="row-actions text-end">
-										{# Asked about this row, not about the module: with a scope of
-										   "own", the answer differs from one line to the next. #}
-										{% if can('view', module, record) %}
-											<a class="btn btn-sm btn-outline-secondary"
-											   data-bs-toggle="tooltip" title="{{ 'module.view_record'|trans }}"
-											   href="{{ path('module_show', {module: module.key, id: record.id}) }}">
-												<i class="bi bi-eye" aria-hidden="true"></i>
-												<span class="visually-hidden">{{ 'common.view'|trans }}</span>
-											</a>
-										{% endif %}
-										{% if can('edit', module, record) %}
-											<a class="btn btn-sm btn-outline-secondary"
-											   data-bs-toggle="tooltip" title="{{ 'module.edit_record'|trans }}"
-											   href="{{ path('module_edit', {module: module.key, id: record.id}) }}">
-												<i class="bi bi-pencil" aria-hidden="true"></i>
-												<span class="visually-hidden">{{ 'common.edit'|trans }}</span>
-											</a>
-										{% endif %}
-										{% if can('delete', module, record) %}
-											<form method="post" class="d-inline"
-											      action="{{ path('module_delete', {module: module.key, id: record.id}) }}">
-												<input type="hidden" name="_token" value="{{ csrf_token('delete-record-' ~ record.id) }}">
-												<button type="submit" class="btn btn-sm btn-outline-danger"
-												        data-bs-toggle="tooltip" title="{{ 'module.delete_record'|trans }}">
-													<i class="bi bi-trash" aria-hidden="true"></i>
-													<span class="visually-hidden">{{ 'common.delete'|trans }}</span>
-												</button>
-											</form>
-										{% endif %}
-									</td>
-								</tr>
-							{% endfor %}
-						</tbody>
-					</table>
-				</div>
-			</div>
-
-			<div class="d-flex align-items-center justify-content-between mt-2">
-				{#
-					ICU rather than a ternary, because "one" and "other" are not the
-					only two answers every language has, and building the sentence in
-					Twig would bake English grammar into the template (XIV-8).
-				#}
-				<p class="text-body-secondary small mb-0">
-					{{ (query.isFiltered ? 'module.record_count_matching' : 'module.record_count')|trans({'%count%': total}) }}
-				</p>
-
-				{#
-					The query string goes in with the parameters, which is what keeps
-					a filter and a sort alive across a page change (XIV-69).
-				#}
-				{{ pager.pager(
-					'module_index',
-					app.request.query.all|merge({module: module.key}),
-					query.page,
-					pages,
-					'module.pages'|trans
-				) }}
-			</div>
+			{{ include('module/index/_table.html.twig') }}
 		{% endif %}
 	</main>
 {% endblock %}

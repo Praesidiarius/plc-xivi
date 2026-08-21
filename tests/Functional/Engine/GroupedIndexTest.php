@@ -43,24 +43,32 @@ use Xivi\Core\Permission\RecordAccess;
 use Xivi\Core\Query\Filter;
 use Xivi\Core\Query\Operator;
 use Xivi\Core\Query\RecordQuery;
-use Xivi\Core\Record\RecordGroup;
+use Xivi\Knowledge\Index\TopicCards;
 use Xivi\Knowledge\KnowledgeModule;
 
 /**
- * An index that is a card per value rather than a page of rows (XIV-168).
+ * An index that is a card per topic rather than a page of rows (XIV-168), drawn
+ * by the module rather than by the engine (XIV-178).
  *
- * **The subject is the engine, not the knowledge base.** A module declares
- * {@see \Xivi\Core\Module\GroupedList} naming one of its own fields, and §5.3's
- * one generic index draws a card per value of that field. Knowledge is the only
- * module that declares it today, which makes it the fixture rather than the
- * feature: the article module is installed in the same tenant throughout, and
- * the last test here is the one that says its list is still a list.
+ * **The subject changed and not one assertion did**, which is the finding worth
+ * recording here. XIV-168 built a general grouping capability in the engine and
+ * these fifteen tests defended it through the rendered page; XIV-177 took that
+ * capability back into `packages/knowledge` because one module wanted it and §1
+ * says an abstraction is earned by a second concrete use case. Everything below
+ * asserts what a reader sees, so the only lines that moved were the two `use`
+ * statements naming what is now {@see TopicCards} and
+ * {@see \Xivi\Core\Record\IndexBodyProvider}. A test that had asserted against
+ * the grouper would have had to be rewritten, which is the argument for testing
+ * the page.
+ *
+ * **The article module is installed in the same tenant throughout** and is the
+ * control: it offers no body, so its index is the table, and the last test here
+ * is what turns red if anything leaks out of the seam.
  *
  * The tests are grouped by the decision each defends, because most of what this
- * ticket cost was decisions rather than code: what happens to records that
- * answered the grouping question with nothing, what happens to a value nobody
- * has used, what a card does when it has more than fits, and what the page costs
- * when a customer invents six more topics.
+ * cost was decisions rather than code: what happens to entries with no topic,
+ * what happens to a topic nobody has used, what a card does when it has more
+ * than fits, and what the page costs when a customer invents six more topics.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
@@ -234,7 +242,7 @@ final class GroupedIndexTest extends WebTestCase
      */
     public function testAFilteredExportStillHoldsWhatTheCardsShowed(): void
     {
-        $this->writeMany(KnowledgeModule::PROCESS, ModuleController::LINKED_ON_RECORD + 2);
+        $this->writeMany(KnowledgeModule::PROCESS, TopicCards::PER_CARD + 2);
         $this->write('Ferien im Juli', KnowledgeModule::OTHER);
 
         $filter = ['filter' => [[
@@ -242,7 +250,7 @@ final class GroupedIndexTest extends WebTestCase
         ]]];
 
         $shown = $this->titlesUnder($this->index($filter), 'Process');
-        self::assertCount(ModuleController::LINKED_ON_RECORD, $shown, 'the card stopped short');
+        self::assertCount(TopicCards::PER_CARD, $shown, 'the card stopped short');
 
         $exported = $this->exported(new RecordQuery([
             new Filter(KnowledgeModule::TOPIC, Operator::Equals, KnowledgeModule::PROCESS),
@@ -369,21 +377,21 @@ final class GroupedIndexTest extends WebTestCase
      */
     public function testACardStopsAtTheCeilingSaysSoAndLinksToTheRest(): void
     {
-        $total = ModuleController::LINKED_ON_RECORD + 2;
+        $total = TopicCards::PER_CARD + 2;
         $this->writeMany(KnowledgeModule::PROCESS, $total);
 
         $page = $this->index();
         $text = $page->filter('main')->text();
 
-        self::assertCount(ModuleController::LINKED_ON_RECORD, $this->titlesUnder($page, 'Process'));
+        self::assertCount(TopicCards::PER_CARD, $this->titlesUnder($page, 'Process'));
         self::assertStringContainsString(
-            sprintf('Showing %d of %d.', ModuleController::LINKED_ON_RECORD, $total),
+            sprintf('Showing %d of %d.', TopicCards::PER_CARD, $total),
             $text,
             'the card admits what it is holding back',
         );
         self::assertStringContainsString(sprintf('Process %d', $total), $text, 'and the badge counts them all');
 
-        $link = $page->filter(sprintf('main .card a[href*="%s=%s"]', RecordGroup::VIEW, RecordGroup::AS_LIST));
+        $link = $page->filter(sprintf('main .card a[href*="%s=%s"]', ModuleController::VIEW, ModuleController::AS_LIST));
         self::assertCount(1, $link, 'exactly one way past the ceiling');
 
         $rest = $this->client->request('GET', (string) $link->attr('href'));

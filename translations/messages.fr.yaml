@@ -373,10 +373,6 @@ module:
     trend_range: 'entre %low% et %high%'
     trend_truncated: Les changements plus anciens que ceux-ci ne sont pas dessinés.
     card_all: Tout voir
-    # La carte d'un index groupé pour les enregistrements qui n'ont pas répondu à
-    # la question du regroupement (XIV-168). Le nom du champ est inséré, donc
-    # « Sans Sujet » dans la base de connaissances.
-    unfiled: 'Sans %field%'
     action_by: 'par %who%'
     action_by_system: Système
     action:

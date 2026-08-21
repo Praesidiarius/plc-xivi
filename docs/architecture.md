@@ -34,6 +34,20 @@ neither module may own the clock; **the clock is §6.7 and it landed before
 either consumer**, which is the rule working rather than being waived. §4.5 is
 its outside half.
 
+And it was first enforced by *removal* on 2026-08-21 (XIV-177, XIV-178). The
+knowledge base wanted a card per topic and what shipped was a general grouping
+capability in the engine with one declaration behind it; a day later all of it
+was in `packages/knowledge` and what the engine kept was a seam that knows a
+template name and some data (§5.3). Two things came out of that and both are
+general. **A seam is not an abstraction**: the engine may own the *place* a
+module plugs into without owning what plugs in, and the test of which one you
+have built is whether the engine names the thing: a seam that knew what a card
+was would have been the abstraction wearing a seam's clothes. And **the way
+back has to be cheap or the rule is a bet**: leaving one module's markup in one
+module is only safe because a second module wanting it moves one template into
+the application and changes no interface. Design the seam so that promotion is
+a file move.
+
 ---
 
 ## 2. Lessons from v1 (hard constraints, not preferences)

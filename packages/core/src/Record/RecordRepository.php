@@ -129,13 +129,28 @@ final readonly class RecordRepository
      * The first few records under each value of one field, and how many there
      * are under each, in one statement (XIV-168).
      *
-     * This is what a grouped index (§5.3) reads, and the whole reason it is a
-     * method here rather than a loop in a controller is the count of statements.
-     * A card per value with a query per card is unbounded query count on a page
-     * whose values a customer may add to, and §5.3's discipline is that query
-     * counts are asserted flat between two sizes so growth fails rather than
-     * slows. **One statement, whatever the number of groups**, and it answers
-     * both questions a card asks.
+     * The whole reason it is a method here rather than a loop in the caller is
+     * the count of statements. A card per value with a query per card is
+     * unbounded query count on a page whose values a customer may add to, and
+     * §5.3's discipline is that query counts are asserted flat between two sizes
+     * so growth fails rather than slows. **One statement, whatever the number of
+     * groups**, and it answers both questions a card asks.
+     *
+     * ## Why this stayed in core when the card index left it (XIV-177)
+     *
+     * Everything else XIV-168 built for the knowledge base's card index is in
+     * `packages/knowledge` now: the cards, their order, their ceiling, and what
+     * happens to records holding nothing. One module wanting a layout does not
+     * earn the engine a layout (§1). This is the exception, and on its
+     * own merits rather than by association: **it compiles
+     * {@see RecordAccess} into the window function**, the
+     * same predicate `findBy()` and `countBy()` compile, so a card's badge counts
+     * what this reader may see and cannot count anything else (§8.4). A module
+     * writing this statement for itself would be a module writing its own
+     * permission filter, which is the one thing about a query that must not be
+     * reimplemented per caller. Building queries is what this class is for; the
+     * only reader today is {@see \Xivi\Knowledge\Index\TopicCards}, and that is a
+     * fact about which pages exist rather than about where the method belongs.
      *
      * Two window functions over the same partition do it. `ROW_NUMBER()` numbers
      * each group's records in the page's own ordering, and the outer `WHERE`
