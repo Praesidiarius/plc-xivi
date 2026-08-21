@@ -46,10 +46,11 @@ use Xivi\Core\Record\RecordCandidates;
  *   ceiling to apologise for (XIV-35).
  * - {@see self::loadChoicesForValues()} answers "may this id be picked", once,
  *   through {@see RecordCandidates::byId()} — the same access rule and the same
- *   variant narrowing the endpoint applies. That is the load-bearing half: a
- *   value typed into the request by hand goes through it exactly as one clicked
- *   in the dropdown does, so the widget and the form cannot come to different
- *   conclusions about whose records these are.
+ *   narrowing to a set of kinds the endpoint applies (XIV-172). That is the
+ *   load-bearing half: a value typed into the request by hand goes through it
+ *   exactly as one clicked in the dropdown does, so the widget and the form
+ *   cannot come to different conclusions about whose records these are, or about
+ *   whether a voucher meant for one line may be put on the document.
  *
  * **It is mutable, which a loader normally is not**, and the reason is the order
  * Symfony does things in. The choice list is resolved as an option, before any
@@ -93,10 +94,17 @@ final class RecordChoiceLoader implements ChoiceLoaderInterface
      */
     private array $titles = [];
 
+    /**
+     * @param list<string> $variants which kinds this picker may hold; empty for
+     *                               all of them. The same set the endpoint
+     *                               behind the widget was given, or the widget
+     *                               would suggest records this then refuses
+     *                               (XIV-172)
+     */
     public function __construct(
         private readonly RecordCandidates $candidates,
         private readonly string $moduleKey,
-        private readonly ?string $variant,
+        private readonly array $variants,
     ) {
     }
 
@@ -111,7 +119,7 @@ final class RecordChoiceLoader implements ChoiceLoaderInterface
      */
     public function offer(int $id): void
     {
-        $candidate = $this->candidates->byId($this->moduleKey, $this->variant, $id);
+        $candidate = $this->candidates->byId($this->moduleKey, $this->variants, $id);
 
         if ($candidate !== null) {
             $this->remember($candidate);
@@ -144,8 +152,9 @@ final class RecordChoiceLoader implements ChoiceLoaderInterface
      * The ids among these that may actually be picked.
      *
      * Anything not returned makes ChoiceType refuse the submission, which is the
-     * behaviour wanted for a deleted record, another customer's id, the wrong
-     * variant and a number somebody typed into the request — all of which
+     * behaviour wanted for a deleted record, another customer's id, a kind this
+     * picker does not offer and a number somebody typed into the request, all of
+     * which
      * {@see RecordCandidates::byId()} answers null for and deliberately does not
      * distinguish between.
      *
@@ -197,7 +206,7 @@ final class RecordChoiceLoader implements ChoiceLoaderInterface
                 continue;
             }
 
-            $candidate = $this->candidates->byId($this->moduleKey, $this->variant, (int) $submitted);
+            $candidate = $this->candidates->byId($this->moduleKey, $this->variants, (int) $submitted);
 
             if ($candidate !== null) {
                 // Remembered, so that redrawing the form after a refused save

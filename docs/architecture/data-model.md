@@ -835,6 +835,32 @@ the money to belong to.
   deriver treats it as worth nothing and never guesses; an order voucher
   dropped on a line is not "probably meant for the order". It could not be a
   field constraint, because the rule reads both records.
+- **And the pickers no longer offer what that refusal will catch** (XIV-172).
+  Both fields list only their own family, so the refusal is what makes the rule
+  true rather than what announces it. **The narrowing takes a set**, which is
+  the decision: a reference's `variant` option, single-valued since references
+  learned about kinds, now also holds a list, and the whole candidate path
+  (the query, the memoised list, the choice loader, the search endpoint) speaks
+  a `list<string>` with empty meaning all, which is `FieldBlueprint::variants`'
+  rule (§5.5) rather than a second one. The two alternatives were rejected on
+  the same ground: a second field on the voucher saying where it applies
+  duplicates what `kind` already encodes, and restructuring the four kinds into
+  two variants and a field re-opens the fifth combination this section refused
+  by not offering it, at the cost of a migration over customers' records.
+  Declarative in the blueprint, so XIV-88's "no expression language" stands.
+  The set travels as `RecordQuery::$variants`, a closed narrowing beside
+  `Search` and not a filter, because two filters are ANDed and no record is of
+  two kinds at once; `byId()` narrows too, or the rule would be true of the
+  form and false of the wire. The kinds are spelled as keys in `OrderModule`,
+  since §3 forbids the import, with a unit test asserting they still match
+  `VoucherModule`'s.
+- **What that moved is who speaks first, on the one path with a picker.** A
+  misplaced voucher can no longer be submitted through the record form: it is
+  not among the choices, so it fails to transform and arrives as nothing, which
+  is what every unofferable reference id has always done there (the record form
+  does not validate; §5.4's validator reads the definitions instead). The
+  refusal's sentence is now reached by an import, a copy, and anything else
+  writing through the engine, which is where the guarantee always lived.
 - Accepted and asserted: the Discount column exists in voucherless
   installations, and the field editor removes it. Not in: stacking (the field
   is a single reference, so the question cannot be asked yet), best-line

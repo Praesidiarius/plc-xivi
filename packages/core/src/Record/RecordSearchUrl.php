@@ -35,11 +35,19 @@ interface RecordSearchUrl
 {
     /**
      * The address that answers with candidates of this module, optionally
-     * narrowed to one variant.
+     * narrowed to some of its kinds.
      *
      * The typed text is *not* a parameter here. The widget appends its own
      * `query=` and pages the result by following what the response hands back,
      * so what this returns is the endpoint rather than one search of it.
+     *
+     * **The kinds are a list, and an empty one means all of them** (XIV-172).
+     * A picker that admits two of a module's four kinds, and an order's voucher
+     * field is one, has to be able to say both, and the endpoint has to narrow
+     * exactly as the select does or the two halves of one control would offer
+     * different records.
+     *
+     * @param list<string> $variants
      */
-    public function forModule(string $moduleKey, ?string $variant): string;
+    public function forModule(string $moduleKey, array $variants): string;
 }

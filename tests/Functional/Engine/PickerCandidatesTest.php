@@ -162,15 +162,15 @@ final class PickerCandidatesTest extends WebTestCase
         self::service(TenantSwitcher::class)->runFor($this->tenant, function (): void {
             $lists = self::service(CandidateLists::class);
 
-            $first = $lists->for(ArticleModule::KEY, null);
+            $first = $lists->for(ArticleModule::KEY, []);
             self::assertNotSame([], $first['choices']);
 
-            [, $cached] = self::countingQueries(static fn (): array => $lists->for(ArticleModule::KEY, null));
+            [, $cached] = self::countingQueries(static fn (): array => $lists->for(ArticleModule::KEY, []));
             self::assertSame(0, $cached, 'a second ask inside one request reads nothing');
 
             $lists->reset();
 
-            [, $afterReset] = self::countingQueries(static fn (): array => $lists->for(ArticleModule::KEY, null));
+            [, $afterReset] = self::countingQueries(static fn (): array => $lists->for(ArticleModule::KEY, []));
             self::assertGreaterThan(0, $afterReset, 'and after a reset it reads again');
         });
     }

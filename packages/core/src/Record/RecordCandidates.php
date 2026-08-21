@@ -19,8 +19,6 @@ use Xivi\Core\Metadata\ModuleNotInstalled;
 use Xivi\Core\Permission\ModuleAction;
 use Xivi\Core\Permission\RecordAccess;
 use Xivi\Core\Permission\RecordAccessProvider;
-use Xivi\Core\Query\Filter;
-use Xivi\Core\Query\Operator;
 use Xivi\Core\Query\RecordQuery;
 use Xivi\Core\Query\Search;
 use Xivi\Core\Query\Sort;
@@ -45,10 +43,19 @@ use Xivi\Core\Query\Sort;
  * the query — an administrator's bypass belongs in how their permissions resolve
  * (§8.4) and not in a second answer buried in a repository call.
  *
- * The variant narrows it the way `formOptions()` already narrows the select
+ * The variants narrow it the way `formOptions()` already narrows the select
  * (§5.5), so a person's employer offers companies rather than every contact —
  * and the same narrowing applies when a submitted id is checked, or the widget
  * would be a suggestion and the validation a different rule.
+ *
+ * **A set of them rather than one** (XIV-172), which is the whole of that
+ * ticket's decision arriving here. It was a single nullable key until an order's
+ * two voucher pickers needed *two* of the voucher module's four kinds each: the
+ * document takes the kinds that apply to a document and a line takes the kinds
+ * that apply to a line, so a field admitting exactly one variant could not say
+ * what either of them means. Empty is what "every kind" is spelled as, which is
+ * `FieldBlueprint::variants`' own rule (§5.5) rather than a second convention,
+ * and it is what every reference that says nothing about variants passes.
  *
  * Sorted by the shape's first title field, which is what somebody is scanning,
  * and is the same order the select used before any of this existed.
@@ -80,9 +87,11 @@ final readonly class RecordCandidates
     /**
      * One page of candidates, optionally narrowed by what somebody has typed.
      *
+     * @param list<string> $variants which kinds may be offered; empty for all
+     *
      * @return list<Candidate>
      */
-    public function find(string $moduleKey, ?string $variant, string $search = '', int $page = 1, int $perPage = self::PER_PAGE): array
+    public function find(string $moduleKey, array $variants, string $search = '', int $page = 1, int $perPage = self::PER_PAGE): array
     {
         $module = $this->moduleOf($moduleKey);
 
@@ -92,7 +101,7 @@ final readonly class RecordCandidates
 
         $found = $this->records->findBy(
             $module,
-            $this->queryFor($module, $variant, $search, $page, $perPage),
+            $this->queryFor($module, $variants, $search, $page, $perPage),
             $this->accessTo($moduleKey),
         );
 
@@ -105,8 +114,16 @@ final readonly class RecordCandidates
      * **The same predicate as the page, or the number leaks.** A total counted
      * without the access restriction would say how many records exist, one
      * integer at a time, which is the thing scoping the picker was for.
+     *
+     * The variants are part of that sameness and not only for the leak: this
+     * number is what decides whether the control is a select or a search box
+     * ({@see \Xivi\Core\Field\Autocomplete::AUTO_ABOVE}), so counting the
+     * whole module would turn a picker offering fifteen vouchers into a search
+     * box because the customer happens to keep sixty of the other kind.
+     *
+     * @param list<string> $variants
      */
-    public function count(string $moduleKey, ?string $variant, string $search = ''): int
+    public function count(string $moduleKey, array $variants, string $search = ''): int
     {
         $module = $this->moduleOf($moduleKey);
 
@@ -116,7 +133,7 @@ final readonly class RecordCandidates
 
         return $this->records->countBy(
             $module,
-            $this->queryFor($module, $variant, $search, 1, self::PER_PAGE),
+            $this->queryFor($module, $variants, $search, 1, self::PER_PAGE),
             $this->accessTo($moduleKey),
         );
     }
@@ -132,8 +149,14 @@ final readonly class RecordCandidates
      *
      * Null covers every way of not having it, and they are deliberately
      * indistinguishable from out here: no such module, no such record, deleted,
-     * the wrong variant, and not yours. A caller that could tell them apart
-     * would be a caller that can probe for which ids exist.
+     * the wrong kind, and not yours. A caller that could tell them apart would
+     * be a caller that can probe for which ids exist.
+     *
+     * **The kinds are checked here and not only in the list** (XIV-172). A
+     * filtered dropdown is what somebody picks from; this is what decides
+     * whether the id that arrives may be picked *at all*, including one nobody
+     * picked because it was typed into the request. Narrowing only the list
+     * would leave the rule true of the form and false of the wire.
      *
      * **The record comes out of {@see ReferenceTargets}, and that is not a
      * micro-optimisation** (XIV-54). An autocompleting picker on a collection
@@ -151,8 +174,10 @@ final readonly class RecordCandidates
      * own permissions decide is whether they may *have* it. Applying the
      * predicate to a record already in memory costs no query and keeps the
      * refusal in one place.
+     *
+     * @param list<string> $variants which kinds may be picked; empty for all
      */
-    public function byId(string $moduleKey, ?string $variant, int $id): ?Candidate
+    public function byId(string $moduleKey, array $variants, int $id): ?Candidate
     {
         $module = $this->moduleOf($moduleKey);
 
@@ -176,9 +201,7 @@ final readonly class RecordCandidates
             return null;
         }
 
-        $variantField = $module->getVariantField();
-
-        if ($variant !== null && $variantField !== null && ($record->get($variantField) ?? null) !== $variant) {
+        if (!self::isOneOf($module, $record, $variants)) {
             return null;
         }
 
@@ -186,20 +209,21 @@ final readonly class RecordCandidates
     }
 
     /**
-     * The query all three paths share: the variant filter, the name search, the
-     * ordering and the page.
+     * The query all three paths share: the kinds, the name search, the ordering
+     * and the page.
+     *
+     * **The kinds travel as the query's own narrowing rather than as a filter**
+     * (XIV-172). One of them used to be a `Filter` on the variant field, which
+     * worked exactly as long as a field admitted one kind; two of them cannot be
+     * two filters, because filters are ANDed and no record is of two kinds at
+     * once. {@see RecordQuery::$variants} is where that argument is written
+     * down, along with why it is not an operator over a list.
+     *
+     * @param list<string> $variants
      */
-    private function queryFor(ModuleDefinition $module, ?string $variant, string $search, int $page, int $perPage): RecordQuery
+    private function queryFor(ModuleDefinition $module, array $variants, string $search, int $page, int $perPage): RecordQuery
     {
-        $filters = [];
-        $variantField = $module->getVariantField();
-
-        if ($variant !== null && $variantField !== null) {
-            $filters[] = new Filter($variantField, Operator::Equals, $variant);
-        }
-
         return new RecordQuery(
-            filters: $filters,
             sorts: self::sortByTitle($module),
             page: max(1, $page),
             perPage: $perPage,
@@ -211,7 +235,35 @@ final readonly class RecordCandidates
                 static fn (\Xivi\Core\Entity\FieldDefinition $field): string => $field->getKey(),
                 $module->getTitleFields(),
             )),
+            variants: $variants,
         );
+    }
+
+    /**
+     * Whether one record in hand is of a kind this picker offers.
+     *
+     * The same question {@see self::queryFor()} asks the database, asked of a
+     * record that is already loaded, which is what {@see self::byId()} has,
+     * because the record comes out of the memo rather than out of a query
+     * (XIV-54). Written once so the two answers cannot drift: a record the SQL
+     * would exclude and this admits is precisely the hole the filtered list was
+     * closing.
+     *
+     * A shape with no variant field admits nothing once a caller has named
+     * kinds, which is {@see \Xivi\Core\Query\QueryCompiler}'s answer to the
+     * same case and for the reason written there.
+     *
+     * @param list<string> $variants
+     */
+    private static function isOneOf(ModuleDefinition $module, Record $record, array $variants): bool
+    {
+        if ($variants === []) {
+            return true;
+        }
+
+        $variantField = $module->getVariantField();
+
+        return $variantField !== null && \in_array($record->get($variantField), $variants, true);
     }
 
     /**

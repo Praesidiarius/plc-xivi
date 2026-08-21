@@ -28,7 +28,9 @@ use Xivi\Core\Module\ModuleInstaller;
 use Xivi\Core\Module\ModuleInstallOrder;
 use Xivi\Core\Module\ModuleRegistry;
 use Xivi\Core\Record\Record;
+use Xivi\Core\Record\RecordRefused;
 use Xivi\Core\Record\RecordRepository;
+use Xivi\Core\Record\RecordWriter;
 use Xivi\Invoice\InvoiceModule;
 use Xivi\Order\OrderModule;
 use Xivi\Voucher\Redemption\VoucherRedemptions;
@@ -97,7 +99,23 @@ final class OrderLineVoucherRedemptionTest extends WebTestCase
     }
     // -- the mode decides where a voucher may be applied ---------------------
 
-    /** A line voucher on the order is refused, with the fix in the sentence. */
+    /**
+     * A line voucher on the order is refused at the write, with the fix in the
+     * sentence.
+     *
+     * **Asked of the writer rather than of the record form, and that changed
+     * with [XIV-172]**, though the assertion is the same one it always was. Since the
+     * pickers narrowed to the kinds they can actually hold, a misplaced voucher
+     * cannot be submitted through the form at all: it is not among the choices,
+     * so the value never reaches the engine and this sentence is never reached
+     * either. `VoucherPickerTest` is where *that* is under test.
+     *
+     * What is under test here is the rule itself, which is not a property of any
+     * picker. An import, a copy of another document and anything else calling
+     * {@see RecordWriter} write vouchers onto orders with no form in front of
+     * them, and the refusal is what makes the mode true for them rather than
+     * merely presented.
+     */
     public function testALineVoucherPutOnTheOrderIsRefused(): void
     {
         $voucher = $this->aVoucher(
@@ -105,20 +123,14 @@ final class OrderLineVoucherRedemptionTest extends WebTestCase
             VoucherModule::LINE_AMOUNT,
         );
 
-        $response = $this->saveRecord(OrderModule::KEY, [
-            'contact' => (string) $this->aCompany(),
+        $refusal = $this->refusalOfWriting([
+            'contact' => $this->aCompany(),
             'ordered_on' => '2026-08-19',
             'status' => OrderModule::DRAFT,
-            OrderModule::VOUCHER => (string) $voucher,
-        ], [OrderModule::LINES => [self::row([
-            OrderModule::KIND => OrderModule::CUSTOM_LINE,
-            'description' => 'Desk',
-            OrderModule::QUANTITY => '1',
-            OrderModule::UNIT_PRICE => '100.00',
-            OrderModule::TAX_RATE => self::STANDARD,
-        ])]]);
+            OrderModule::VOUCHER => $voucher,
+        ], [self::aDesk()]);
 
-        self::assertStringContainsString('belongs on a line rather than on the order', (string) $response->getContent());
+        self::assertStringContainsString('applies to a single line and was put on the document', $refusal);
         self::assertSame(0, $this->redeemed($voucher), 'and a refused save takes no use');
     }
 
@@ -130,21 +142,13 @@ final class OrderLineVoucherRedemptionTest extends WebTestCase
             VoucherModule::ORDER_AMOUNT,
         );
 
-        $response = $this->saveRecord(OrderModule::KEY, [
-            'contact' => (string) $this->aCompany(),
+        $refusal = $this->refusalOfWriting([
+            'contact' => $this->aCompany(),
             'ordered_on' => '2026-08-19',
             'status' => OrderModule::DRAFT,
-            OrderModule::VOUCHER => '',
-        ], [OrderModule::LINES => [self::row([
-            OrderModule::KIND => OrderModule::CUSTOM_LINE,
-            'description' => 'Desk',
-            OrderModule::QUANTITY => '1',
-            OrderModule::UNIT_PRICE => '100.00',
-            OrderModule::TAX_RATE => self::STANDARD,
-            OrderModule::LINE_VOUCHER => (string) $voucher,
-        ])]]);
+        ], [[...self::aDesk(), OrderModule::LINE_VOUCHER => $voucher]]);
 
-        self::assertStringContainsString('belongs on the order rather than on a line', (string) $response->getContent());
+        self::assertStringContainsString('applies to the whole document and was put on a line', $refusal);
         self::assertSame(0, $this->redeemed($voucher));
     }
     // -- one voucher, several lines, and the counter -------------------------
@@ -363,6 +367,53 @@ final class OrderLineVoucherRedemptionTest extends WebTestCase
             'status' => OrderModule::DRAFT,
             OrderModule::VOUCHER => (string) ($record->get(OrderModule::VOUCHER) ?? ''),
         ], [OrderModule::LINES => $rows], $order);
+    }
+
+    /**
+     * What the engine says when it refuses to write this order.
+     *
+     * The English sentence rather than the translated one: `RecordRefused`
+     * carries both, a `TranslatableMessage` for the person and a plain message
+     * for whoever is reading a log or a stack, and the plain one is the half
+     * that does not move when a catalogue is retranslated.
+     *
+     * @param array<string, mixed>       $fields
+     * @param list<array<string, mixed>> $lines
+     */
+    private function refusalOfWriting(array $fields, array $lines): string
+    {
+        return self::service(TenantSwitcher::class)->runFor($this->tenant, function () use ($fields, $lines): string {
+            $module = self::service(MetadataRepository::class)->get(OrderModule::KEY);
+
+            try {
+                self::service(RecordWriter::class)->save($module, new Record(data: $fields), [
+                    OrderModule::LINES => array_map(
+                        static fn (array $row): array => ['id' => null, 'data' => $row],
+                        $lines,
+                    ),
+                ]);
+            } catch (RecordRefused $refused) {
+                return $refused->getMessage();
+            }
+
+            self::fail('the write was expected to be refused');
+        });
+    }
+
+    /**
+     * One ordinary line to hang the assertion on.
+     *
+     * @return array<string, string>
+     */
+    private static function aDesk(): array
+    {
+        return [
+            OrderModule::KIND => OrderModule::CUSTOM_LINE,
+            'description' => 'Desk',
+            OrderModule::QUANTITY => '1',
+            OrderModule::UNIT_PRICE => '100.00',
+            OrderModule::TAX_RATE => self::STANDARD,
+        ];
     }
 
     /** @param array<string, string> $fields */

@@ -114,6 +114,31 @@ final class OrderModule implements ModuleProvider
     /** And which one the voucher above names. A key again, and no import (§3). */
     private const string VOUCHER_MODULE = 'voucher';
 
+    /**
+     * The voucher kinds that may be applied to a document, and to one line.
+     *
+     * **Spelled out here because §3 forbids the import, not because the voucher
+     * module is not the authority.** `VoucherModule::ORDER_KINDS` and
+     * `LINE_KINDS` are where these live and where their meaning is argued; a
+     * module may depend on core and never on another module, so this file names
+     * them the way it already names the module itself: as keys, with no `use`
+     * statement. `VoucherKeysMatchTheVoucherModuleTest` asserts the two lists are
+     * the same, in `tests/`, which is the one layer allowed to see both.
+     *
+     * They are here at all because the two pickers below need them (XIV-172).
+     * The four kinds are two families, an order voucher adds a discount line to
+     * the document and a line voucher reduces the line it is named on (§5.25),
+     * and the two are mutually exclusive: `RedeemsVouchers` refuses a save that
+     * puts one where the other belongs. Until this ticket both pickers listed all
+     * four, so the first thing that told anybody was the refusal.
+     *
+     * @var list<string>
+     */
+    private const array DOCUMENT_VOUCHER_KINDS = ['order_amount', 'order_percentage'];
+
+    /** @var list<string> */
+    private const array LINE_VOUCHER_KINDS = ['line_amount', 'line_percentage'];
+
     public function blueprint(): ModuleBlueprint
     {
         return new ModuleBlueprint(
@@ -308,6 +333,27 @@ final class OrderModule implements ModuleProvider
                     position: 46,
                     options: [
                         ReferenceFieldType::MODULE => self::VOUCHER_MODULE,
+                        // **And only the kinds that can be applied here**
+                        // (XIV-172). The picker used to list every voucher the
+                        // customer had, including the ones that reduce a single
+                        // line, which cannot go on a document, are refused at
+                        // the save, and had no business being in a list somebody
+                        // chooses from. A picker offering what will be refused is
+                        // a form asking a question it already knows the answer
+                        // to.
+                        //
+                        // Declared, not computed: the narrowing is two keys in
+                        // the blueprint rather than a condition somebody writes,
+                        // which is [XIV-88]'s decision (no expression language)
+                        // arriving here as a shape rather than as a prohibition.
+                        //
+                        // **This does not replace the refusal at the write**, and
+                        // is not allowed to. `RedeemsVouchers` still reads the
+                        // voucher's kind on every save, because a record reaches
+                        // the engine from an import, a copy and anything else
+                        // that never drew a picker. What changed is who speaks
+                        // first on the one path that has a picker.
+                        ReferenceFieldType::VARIANT => self::DOCUMENT_VOUCHER_KINDS,
                         // **A generated order names no voucher** (§5.17,
                         // XIV-73). A reference otherwise samples a real record,
                         // which here would take real uses off real vouchers
@@ -603,6 +649,16 @@ final class OrderModule implements ModuleProvider
                             position: 47,
                             options: [
                                 ReferenceFieldType::MODULE => self::VOUCHER_MODULE,
+                                // **The other family, for the same reason the
+                                // header takes its own** (XIV-172): a voucher
+                                // that comes off the document as a whole cannot
+                                // be applied to one row, so it is not offered on
+                                // one. The two narrowings are written beside
+                                // their fields rather than derived from each
+                                // other, because "the kinds that are not the
+                                // document's" would be a rule that silently
+                                // claims every kind added later.
+                                ReferenceFieldType::VARIANT => self::LINE_VOUCHER_KINDS,
                                 // **A generated line names no voucher** (§5.17,
                                 // XIV-73), for precisely the reason the header's
                                 // field says nothing either: a reference samples a

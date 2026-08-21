@@ -209,7 +209,16 @@ final class AutocompleteOptionTest extends WebTestCase
 
         self::assertTrue(self::isAutocompleting($field));
         self::assertStringContainsString('/m/' . ContactModule::KEY . '/search', $url, 'one route, per module');
-        self::assertStringContainsString('variant=' . ContactModule::COMPANY, $url, 'narrowed the way the select was');
+        // `variant[0]=company`, encoded. The parameter became a repeated one
+        // when the narrowing learned to name several kinds (XIV-172), because a
+        // picker may admit two of a module's variants, as an order's voucher
+        // field does, and the endpoint has to narrow exactly as the select does. A
+        // field naming one kind is the list of one, spelled the same way.
+        self::assertStringContainsString(
+            'variant%5B0%5D=' . ContactModule::COMPANY,
+            $url,
+            'narrowed the way the select was',
+        );
     }
 
     /**

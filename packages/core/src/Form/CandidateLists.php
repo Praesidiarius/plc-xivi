@@ -58,7 +58,7 @@ use Xivi\Core\Record\RecordCandidates;
  * about.** The list is scoped — `RecordAccess` for the current user (§8.4,
  * XIV-13) — so a memo shared between two readers would hand one of them the
  * other's scoped list, which is precisely the leak scoping the picker was for.
- * What makes a key of module-and-variant safe is that a request has exactly one
+ * What makes a key of module-and-kinds safe is that a request has exactly one
  * reader, which is a property of the request lifetime rather than of this class:
  * it is true *because* of the reset, not alongside it. There is a test that a
  * second reader in a second request gets their own list, because this is the kind
@@ -69,7 +69,14 @@ use Xivi\Core\Record\RecordCandidates;
 final class CandidateLists implements ResetInterface
 {
     /**
-     * One request's answers, keyed by module and variant.
+     * One request's answers, keyed by module and the kinds asked for.
+     *
+     * The kinds are part of the key and not an afterthought (XIV-172): an order
+     * form asks this for the *same* module twice, once for the document's
+     * voucher picker and once per line, and the two want different halves of the
+     * voucher module. A key of module alone would hand the second asker the
+     * first one's answer, which is the offering-what-cannot-be-chosen defect
+     * arriving by a new door.
      *
      * @var array<string, array{choices: array<string, int>, total: int}>
      */
@@ -78,9 +85,9 @@ final class CandidateLists implements ResetInterface
     /**
      * **Reading them is not this class's job either** (XIV-36).
      *
-     * What a module's candidates are — narrowed to a variant, scoped to this
-     * reader, ordered by what they are called and named from the title fields —
-     * moved to {@see RecordCandidates} when the search endpoint arrived, because
+     * What a module's candidates are, narrowed to the kinds asked for, scoped
+     * to this reader, ordered by what they are called and named from the title
+     * fields, moved to {@see RecordCandidates} when the search endpoint arrived, because
      * a picker and the search box that replaces it have to answer with exactly
      * the same records in exactly the same order. Two copies of that reading
      * would be two things to keep in step and one of them eventually wrong: a
@@ -102,11 +109,13 @@ final class CandidateLists implements ResetInterface
      * They are memoised together for the same reason — splitting them here would
      * put the cap and the count on two different lifetimes.
      *
+     * @param list<string> $variants which kinds may be offered; empty for all
+     *
      * @return array{choices: array<string, int>, total: int}
      */
-    public function for(string $moduleKey, ?string $variant): array
+    public function for(string $moduleKey, array $variants): array
     {
-        return $this->lists[$moduleKey . "\0" . ($variant ?? '')] ??= $this->read($moduleKey, $variant);
+        return $this->lists[implode("\0", [$moduleKey, ...$variants])] ??= $this->read($moduleKey, $variants);
     }
 
     /**
@@ -123,10 +132,14 @@ final class CandidateLists implements ResetInterface
         $this->lists = [];
     }
 
-    /** @return array{choices: array<string, int>, total: int} */
-    private function read(string $moduleKey, ?string $variant): array
+    /**
+     * @param list<string> $variants
+     *
+     * @return array{choices: array<string, int>, total: int}
+     */
+    private function read(string $moduleKey, array $variants): array
     {
-        $found = $this->candidates->find($moduleKey, $variant, '', 1, RecordReferenceType::MAX_CHOICES);
+        $found = $this->candidates->find($moduleKey, $variants, '', 1, RecordReferenceType::MAX_CHOICES);
         $choices = [];
 
         foreach ($found as $candidate) {
@@ -142,7 +155,7 @@ final class CandidateLists implements ResetInterface
         // what scoping the picker was for.
         $total = \count($found) < RecordReferenceType::MAX_CHOICES
             ? \count($found)
-            : $this->candidates->count($moduleKey, $variant);
+            : $this->candidates->count($moduleKey, $variants);
 
         return ['choices' => $choices, 'total' => $total];
     }

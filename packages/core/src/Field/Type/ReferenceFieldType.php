@@ -28,7 +28,6 @@ use Xivi\Core\Metadata\ModuleNotInstalled;
 use Xivi\Core\Permission\ModuleAction;
 use Xivi\Core\Permission\RecordAccess;
 use Xivi\Core\Permission\RecordAccessProvider;
-use Xivi\Core\Query\Filter;
 use Xivi\Core\Query\Operator;
 use Xivi\Core\Query\RecordQuery;
 use Xivi\Core\Record\Record;
@@ -56,6 +55,30 @@ use Xivi\Core\Record\ReferenceTargets;
  *
  * The variant is optional and narrows the candidates, so a person's employer
  * offers companies rather than every contact in the database.
+ *
+ * **It may name several** (XIV-172), which is the same option holding a list:
+ *
+ *     ['module' => 'voucher', 'variant' => ['order_amount', 'order_percentage']]
+ *
+ * An order carries two voucher pickers, one on the document and one on every
+ * line, and each of them admits two of the voucher module's four kinds, so a
+ * narrowing that could only name one variant could not describe either of them,
+ * and both listed all four until this ticket. Which is worse than untidy: the
+ * two families are mutually exclusive by a rule the *save* enforces, so every
+ * list was offering records that would be refused.
+ *
+ * **One option key, two shapes, and that is deliberate rather than lazy.** A
+ * second key would be two ways to say one thing and a question about what they
+ * mean together; renaming this one to `variants` would silently drop the
+ * narrowing on every field a tenant already has, because installed definitions
+ * are the customer's and are not retro-fitted (§6.1), and a picker quietly
+ * widened to a whole module is exactly the failure being fixed. So the key stays and
+ * {@see self::targetVariants()} is the single place that reads either shape.
+ *
+ * A list is what the narrowing *is*, so it is also what the rest of the path
+ * takes: `RecordCandidates`, `CandidateLists`, `RecordChoiceLoader` and the
+ * search endpoint all speak a `list<string>`, empty meaning every kind, which
+ * is `FieldBlueprint::variants`' rule (§5.5) rather than a second convention.
  *
  * A third option says whether somebody types to find the record rather than
  * scrolling for it (XIV-36):
@@ -191,7 +214,7 @@ final class ReferenceFieldType implements Autocompletes, LinksToRecord, PointsAt
 
     /**
      * Ids this field could point at: records of its target module, narrowed to
-     * its target variant when it has one.
+     * the kinds it says it points at.
      *
      * @return list<int>
      */
@@ -203,21 +226,20 @@ final class ReferenceFieldType implements Autocompletes, LinksToRecord, PointsAt
             return [];
         }
 
-        $filters = [];
-        $variant = self::targetVariant($field);
-        $variantField = $module->getVariantField();
-
-        if ($variant !== null && $variantField !== null) {
-            $filters[] = new Filter($variantField, Operator::Equals, $variant);
-        }
-
         // Unrestricted, and deliberately not scoped like the picker is (XIV-13):
         // this feeds the demo generator, which runs from a console command with
         // nobody signed in. Scoping it would mean generated links that always
         // point nowhere.
+        //
+        // Narrowed the same way the picker is, though (XIV-172), and through the
+        // query's own narrowing rather than a filter, because a field admitting
+        // two kinds cannot say so with two filters: they would be ANDed and no
+        // record is of two kinds at once. A demo tenant whose generated links
+        // point at records the form would refuse is a tenant that fails its own
+        // first save.
         $records = ($this->records)()->findBy(
             $module,
-            new RecordQuery($filters, [], 1, self::CANDIDATES),
+            new RecordQuery([], [], 1, self::CANDIDATES, variants: self::targetVariants($field)),
             RecordAccess::unrestricted(),
         );
 
@@ -247,7 +269,7 @@ final class ReferenceFieldType implements Autocompletes, LinksToRecord, PointsAt
     {
         return [
             'target_module' => self::targetModule($field),
-            'target_variant' => self::targetVariant($field),
+            'target_variants' => self::targetVariants($field),
             'required' => $field->isRequired(),
             // Read from the definition here and resolved against the candidate
             // count by the form type (XIV-36), because "how many are there" is a
@@ -331,11 +353,37 @@ final class ReferenceFieldType implements Autocompletes, LinksToRecord, PointsAt
         return \is_string($module) ? $module : '';
     }
 
-    public static function targetVariant(FieldDefinition $field): ?string
+    /**
+     * The kinds of record this field points at, empty for all of them.
+     *
+     * **The one place that reads either shape of the option** (XIV-172). It has
+     * held a single key since references learned about variants at all, and a
+     * customer's installed definitions still do: `contact.employer` carries the
+     * string `company` in every tenant that has the module. It now also holds a
+     * list, because an order's voucher pickers admit two kinds each. Reading both
+     * here rather than at four call sites is what keeps that from becoming a
+     * question anybody else has to ask.
+     *
+     * Anything else, a number, an object, a list with a blank in it, narrows
+     * nothing rather than raising. A half-finished field in the editor draws an
+     * empty picker today and this is not the place to change that; §7.6 has the
+     * open question.
+     *
+     * @return list<string>
+     */
+    public static function targetVariants(FieldDefinition $field): array
     {
         $variant = $field->getOption(self::VARIANT);
+        $wanted = \is_array($variant) ? $variant : [$variant];
+        $variants = [];
 
-        return \is_string($variant) && $variant !== '' ? $variant : null;
+        foreach ($wanted as $one) {
+            if (\is_string($one) && $one !== '') {
+                $variants[] = $one;
+            }
+        }
+
+        return $variants;
     }
 
     private function titleOf(string $moduleKey, int $id): string

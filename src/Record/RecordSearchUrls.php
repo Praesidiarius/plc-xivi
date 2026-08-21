@@ -42,11 +42,22 @@ final readonly class RecordSearchUrls implements RecordSearchUrl
     {
     }
 
-    public function forModule(string $moduleKey, ?string $variant): string
+    /**
+     * **The kinds travel as a repeated parameter**, `variant[]=…`, which is what
+     * a list is in a query string and what `RecordSearchController` reads back
+     * (XIV-172). A comma-joined value would have been shorter and would have
+     * needed an escape, because a variant key is a choice value and belongs to
+     * the customer once the module is installed (§6.1), and an alphabet nothing
+     * closes is one to keep out of a separator.
+     *
+     * Omitted entirely when there are none, so a picker that narrows nothing
+     * asks for the whole module the way it always did.
+     */
+    public function forModule(string $moduleKey, array $variants): string
     {
         return $this->urls->generate('record_search', array_filter([
             'module' => $moduleKey,
-            'variant' => $variant,
-        ], static fn (?string $value): bool => $value !== null && $value !== ''));
+            'variant' => array_values($variants),
+        ]));
     }
 }
