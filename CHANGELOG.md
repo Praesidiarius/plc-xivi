@@ -153,6 +153,22 @@ always lands in `Unreleased` here.
 
 [XIV-168]: https://xivi.youtrack.cloud/issue/XIV-168
 
+- **The trend chart's x axis reads as dates again** ([XIV-174], §8.4.2). It was
+  labelled `1'787'200'000'000` for anybody whose account or installation names a
+  country. The page's `lang` carried Symfony's `de_CH` where HTML wants
+  `de-CH`, and `Intl.DateTimeFormat` throws on the underscore rather than
+  ignoring it, so the browser abandoned the dates, the tooltip heading and the
+  line's colour in one go and Chart.js printed the raw millisecond count. The
+  `lang` attribute is a real language tag now, which is worth knowing about
+  because everything else reading the document's language was being handed the
+  same broken value.
+- **And no two labels on it say the same day** ([XIV-174]). Ticks land on
+  midnight rather than on round millisecond counts, so a record made yesterday
+  is labelled with the day it crossed instead of with the same date twice. The
+  labels also survive the field picker redrawing the card, which they did not.
+
+[XIV-174]: https://xivi.youtrack.cloud/issue/XIV-174
+
 
 ## Releases
 
