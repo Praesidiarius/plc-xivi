@@ -540,6 +540,23 @@ final class MultiChoiceFieldType implements Autocompletes, HoldsSeveralValues, P
     }
 
     /**
+     * The same options the single-valued type offers, from the same field.
+     *
+     * Delegated rather than reimplemented, and there is nothing to add: what a
+     * field is a choice *between* does not change because it may hold several of
+     * them. The customer's arrangement (§5.20) and their own definition over the
+     * blueprint's (§6.1) both come along with it, and a second copy of that
+     * lookup here would be a second place for the answer to drift.
+     *
+     * Reached through {@see PointsAtAList}, which extends {@see Enumerates}, so a
+     * type that points at a list has to be able to say what is on it.
+     */
+    public function optionsOf(FieldDefinition $field): array
+    {
+        return $this->single->optionsOf($field);
+    }
+
+    /**
      * Wider than one option, because it holds several and each is a word (§5.4).
      *
      * {@see MultiReferenceFieldType}'s number and its argument: half a row is what
