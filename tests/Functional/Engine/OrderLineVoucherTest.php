@@ -773,10 +773,11 @@ final class OrderLineVoucherTest extends WebTestCase
     private function anArticle(string $title, string $price): int
     {
         return $this->savedId($this->saveRecord(ArticleModule::KEY, [
+            ArticleModule::KIND => ArticleModule::PLAIN,
             'title' => $title,
             'price' => $price,
             'tax_rate' => self::STANDARD,
-        ]));
+        ], variant: ArticleModule::PLAIN));
     }
 
     private function aCompany(): int

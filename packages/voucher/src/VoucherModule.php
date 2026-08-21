@@ -168,6 +168,27 @@ final class VoucherModule implements ModuleProvider
     /** Which module the article restriction points at. Its key, not its package. */
     private const string ARTICLE_MODULE = 'article';
 
+    /**
+     * And which kinds of article it may be restricted to ([XIV-133]).
+     *
+     * Keys and no import, the way the module key above is, and asserted against
+     * `ArticleModule::SELLABLE` by `SellersNameTheArticleKindsTest`.
+     *
+     * **A restriction names exactly one record, and with variants that record is
+     * the variant.** "20% off the large one" is what this field can now say; "20%
+     * off T-shirts, whatever the size" is three vouchers, because a T-shirt sold
+     * in three sizes is three records and this holds one id. That is a real
+     * limitation and it is stated rather than papered over: reading a restriction
+     * *through* a variant to its base would be a second rule about what an
+     * article is, in the one module that has no business having an opinion about
+     * catalogues. What the narrowing buys today is that the base is not in the
+     * list at all: a voucher restricted to it could never match a line, since no
+     * line may name it (§5.25).
+     *
+     * @var list<string>
+     */
+    private const array SELLABLE_ARTICLE_KINDS = ['plain', 'sku'];
+
     /** Whether a voucher of this kind is applied to one line rather than to the document. */
     public static function isLineKind(mixed $kind): bool
     {
@@ -352,6 +373,7 @@ final class VoucherModule implements ModuleProvider
                     position: 50,
                     options: [
                         ReferenceFieldType::MODULE => self::ARTICLE_MODULE,
+                        ReferenceFieldType::VARIANT => self::SELLABLE_ARTICLE_KINDS,
                         // **A generated voucher restricts nothing** (§5.17,
                         // XIV-73). A reference otherwise samples a real record,
                         // and a demo tenant full of vouchers that may only go on

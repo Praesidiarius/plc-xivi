@@ -125,6 +125,27 @@ final class InvoiceModule implements ModuleProvider
     private const string CONTACT_MODULE = 'contact';
     private const string ARTICLE_MODULE = 'article';
 
+    /**
+     * The kinds of article a line may sell ([XIV-133]).
+     *
+     * **Spelled out here for the reason the voucher kinds above are.** §3
+     * forbids the import, not the authority: `ArticleModule::SELLABLE` is where
+     * this list lives and where it is argued, and
+     * `SellersNameTheArticleKindsTest` asserts the two agree from
+     * `tests/`, the one layer allowed to see both packages.
+     *
+     * What is missing from it is the point. An article sold in variants, a
+     * T-shirt that exists in three sizes, is not itself a sellable thing, and a
+     * line naming it would be an order for "T-shirt ×3" that nobody in a
+     * warehouse can fulfil. So the picker offers the plain articles and the
+     * variants, and never the base, which is [XIV-133]'s answer to whether the
+     * parent stays sellable: it does not, said once, declaratively, in the only
+     * place that decides what a picker shows.
+     *
+     * @var list<string>
+     */
+    private const array SELLABLE_ARTICLE_KINDS = ['plain', 'sku'];
+
     public function blueprint(): ModuleBlueprint
     {
         return new ModuleBlueprint(
@@ -344,6 +365,13 @@ final class InvoiceModule implements ModuleProvider
                             position: 8,
                             derived: true,
                         ),
+                        // **Which variant, where there is one** ([XIV-133]). The
+                        // field is unchanged and so is the seed that fills it:
+                        // an article sold in sizes is a record per size, so the
+                        // id copied off the order line is already the id of the
+                        // thing that was sold. The narrowing matters only on an
+                        // invoice written from nothing, and it says the same
+                        // thing the order's does.
                         new FieldBlueprint(
                             key: self::ARTICLE,
                             width: 2,
@@ -352,7 +380,10 @@ final class InvoiceModule implements ModuleProvider
                             required: true,
                             variants: [self::ARTICLE_LINE],
                             position: 10,
-                            options: [ReferenceFieldType::MODULE => self::ARTICLE_MODULE],
+                            options: [
+                                ReferenceFieldType::MODULE => self::ARTICLE_MODULE,
+                                ReferenceFieldType::VARIANT => self::SELLABLE_ARTICLE_KINDS,
+                            ],
                         ),
                         new FieldBlueprint(
                             key: self::DESCRIPTION,

@@ -74,6 +74,35 @@ final readonly class RecordSubmission
     }
 
     /**
+     * The submitted values, with anything the record takes from a record it
+     * points at filled in ([XIV-133]).
+     *
+     * **The same call {@see self::rows()} has been making since XIV-18, one
+     * shape up**, and the asymmetry it removes was never a decision. `fillIn()`
+     * takes a `ShapeDefinition` and always has; the only reason a module's own
+     * fields never went through it is that until now the only field in the
+     * product declaring `inherit` was an order line's, and a line is a row.
+     * An article that is a variant of another article ([XIV-133], §5.32) is a
+     * *record* taking the unit and the VAT rate from the record it names, which
+     * is the identical sentence about the identical mechanism, so it goes
+     * through the identical call rather than through a second one written for
+     * modules.
+     *
+     * Before the validation rather than inside the save, and that is the half
+     * worth stating: an inherited value has to be there when the rules are
+     * checked, or a field that is required and inherited would be refused for
+     * being empty a moment before it was filled in.
+     *
+     * @param array<string, mixed> $fields
+     *
+     * @return array<string, mixed>
+     */
+    public function fields(ModuleDefinition $definition, array $fields): array
+    {
+        return $this->inherited->fillIn($definition, $fields);
+    }
+
+    /**
      * The submitted collection rows, keyed by collection, carrying the position
      * they hold in the form so a violation can be put back on the row it came
      * from.

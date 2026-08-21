@@ -623,7 +623,11 @@ final class SendEmailTest extends WebTestCase
 
     private function anArticle(): int
     {
-        return $this->savedId($this->saveRecord(ArticleModule::KEY, ['title' => 'A widget']));
+        return $this->savedId($this->saveRecord(
+            ArticleModule::KEY,
+            [ArticleModule::KIND => ArticleModule::PLAIN, 'title' => 'A widget'],
+            variant: ArticleModule::PLAIN,
+        ));
     }
 
     private function anOrder(int $contact): int

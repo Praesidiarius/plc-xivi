@@ -378,21 +378,34 @@ final class RecordTrendTest extends WebTestCase
 
     // -- helpers ------------------------------------------------------------
 
-    /** One article, saved the way the application saves one. */
+    /**
+     * One article, saved the way the application saves one.
+     *
+     * A plain one ([XIV-133], §5.32): an article comes in three kinds now, and
+     * a price series is a question about something that has a price. What a
+     * *variant's* price history looks like needs no test of its own for the same
+     * reason nothing else here changed: a variant is an article record, so it is
+     * this record with a different value in one field.
+     */
     private function anArticle(string $price, ?string $taxRate = null): int
     {
-        $fields = ['title' => 'Bürostuhl Ergo', 'price' => $price];
+        $fields = [ArticleModule::KIND => ArticleModule::PLAIN, 'title' => 'Bürostuhl Ergo', 'price' => $price];
 
         if ($taxRate !== null) {
             $fields['tax_rate'] = $taxRate;
         }
 
-        return $this->savedId($this->saveRecord(ArticleModule::KEY, $fields));
+        return $this->savedId($this->saveRecord(ArticleModule::KEY, $fields, variant: ArticleModule::PLAIN));
     }
 
     private function priceBecomes(int $id, string $price): void
     {
-        $this->saveRecord(ArticleModule::KEY, ['title' => 'Bürostuhl Ergo', 'price' => $price], recordId: $id);
+        $this->saveRecord(
+            ArticleModule::KEY,
+            [ArticleModule::KIND => ArticleModule::PLAIN, 'title' => 'Bürostuhl Ergo', 'price' => $price],
+            recordId: $id,
+            variant: ArticleModule::PLAIN,
+        );
     }
 
     /**

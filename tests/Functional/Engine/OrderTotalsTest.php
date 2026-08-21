@@ -424,10 +424,11 @@ final class OrderTotalsTest extends WebTestCase
     private function anArticle(string $title, string $price, ?string $taxRate = null): int
     {
         return $this->savedId($this->saveRecord(ArticleModule::KEY, [
+            ArticleModule::KIND => ArticleModule::PLAIN,
             'title' => $title,
             'price' => $price,
             'tax_rate' => $taxRate ?? '',
-        ]));
+        ], variant: ArticleModule::PLAIN));
     }
 
     private function transition(int $order, string $name): void

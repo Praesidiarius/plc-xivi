@@ -484,7 +484,11 @@ final class GroupedIndexTest extends WebTestCase
      */
     public function testAModuleThatDeclaresNoGroupingStillHasItsList(): void
     {
-        $this->saveRecord(ArticleModule::KEY, ['title' => 'Schreibtischlampe']);
+        $this->saveRecord(
+            ArticleModule::KEY,
+            [ArticleModule::KIND => ArticleModule::PLAIN, 'title' => 'Schreibtischlampe'],
+            variant: ArticleModule::PLAIN,
+        );
 
         $page = $this->client->request('GET', $this->url('/m/' . ArticleModule::KEY));
 

@@ -144,6 +144,7 @@ final class PickerCandidatesTest extends WebTestCase
         $before = $this->optionsEditing($order);
 
         $this->write(ArticleModule::KEY, [
+            ArticleModule::KIND => ArticleModule::PLAIN,
             'title' => 'Article added between two requests',
             'price' => '12.00',
             'tax_rate' => '8.1',
@@ -205,6 +206,10 @@ final class PickerCandidatesTest extends WebTestCase
 
         for ($i = 1; $i <= 5; ++$i) {
             $this->articles[] = $this->write(ArticleModule::KEY, [
+                // A plain one ([XIV-133]): the line's picker offers the kinds an
+                // article can be *sold* as, so an article with no kind at all is
+                // offered by nothing and this fixture would build an empty list.
+                ArticleModule::KIND => ArticleModule::PLAIN,
                 'title' => sprintf('Article %04d', $i),
                 'price' => number_format(5 + $i * 1.35, 2, '.', ''),
                 'tax_rate' => '8.1',

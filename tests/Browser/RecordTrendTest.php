@@ -557,6 +557,10 @@ final class RecordTrendTest extends PantherTestCase
                 // trends and therefore a picker, which is what the re-render
                 // test needs something to click.
                 $record = new Record([
+                    // Plain ([XIV-133]): an article has kinds now, and only the
+                    // two that are sold carry a price at all, so a record with
+                    // no kind is a record whose price is not on its page.
+                    ArticleModule::KIND => ArticleModule::PLAIN,
                     'title' => self::TITLE,
                     'price' => '100.00',
                     self::OTHER_FIELD => '7.70',
@@ -602,7 +606,11 @@ final class RecordTrendTest extends PantherTestCase
             function (): int {
                 $module = self::service(MetadataRepository::class)->get(ArticleModule::KEY);
 
-                $record = new Record(['title' => self::SHORT_TITLE, 'price' => '30.00']);
+                $record = new Record([
+                    ArticleModule::KIND => ArticleModule::PLAIN,
+                    'title' => self::SHORT_TITLE,
+                    'price' => '30.00',
+                ]);
                 self::service(RecordWriter::class)->save($module, $record);
 
                 $this->age(

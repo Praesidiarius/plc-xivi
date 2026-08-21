@@ -170,7 +170,11 @@ final class VoucherModuleTest extends WebTestCase
      */
     public function testAllFourKindsSave(): void
     {
-        $article = $this->savedId($this->saveRecord(ArticleModule::KEY, ['title' => 'Coffee', 'price' => '4.50']));
+        $article = $this->savedId($this->saveRecord(
+            ArticleModule::KEY,
+            [ArticleModule::KIND => ArticleModule::PLAIN, 'title' => 'Coffee', 'price' => '4.50'],
+            variant: ArticleModule::PLAIN,
+        ));
 
         $this->submit(
             ['code' => 'TEN-OFF', 'kind' => VoucherModule::ORDER_AMOUNT, 'amount' => '10.00'],

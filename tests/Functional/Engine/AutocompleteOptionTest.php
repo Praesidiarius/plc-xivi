@@ -253,9 +253,10 @@ final class AutocompleteOptionTest extends WebTestCase
         $linked = $companies[\count($companies) - 1];
 
         $article = $this->savedId($this->saveRecord(ArticleModule::KEY, [
+            ArticleModule::KIND => ArticleModule::PLAIN,
             'title' => 'Desk lamp',
             self::SUPPLIER => (string) $linked,
-        ]));
+        ], variant: ArticleModule::PLAIN));
 
         $field = $this->fieldOnTheForm(self::SUPPLIER, '/m/article/' . $article . '/edit');
         $selected = $field->filter('option[selected]');
@@ -281,9 +282,10 @@ final class AutocompleteOptionTest extends WebTestCase
         $wanted = $companies[\count($companies) - 1];
 
         $article = $this->savedId($this->saveRecord(ArticleModule::KEY, [
+            ArticleModule::KIND => ArticleModule::PLAIN,
             'title' => 'Desk lamp',
             self::SUPPLIER => (string) $wanted,
-        ]));
+        ], variant: ArticleModule::PLAIN));
 
         self::assertSame($wanted, $this->supplierOf($article), 'it stored the id it was given');
     }
@@ -339,8 +341,16 @@ final class AutocompleteOptionTest extends WebTestCase
         $companies = $this->companies(Autocomplete::AUTO_ABOVE + 1);
         $wanted = $companies[0];
 
-        $this->saveRecord(ArticleModule::KEY, ['title' => 'Desk lamp', self::SUPPLIER => (string) $wanted]);
-        $this->saveRecord(ArticleModule::KEY, ['title' => 'Cable']);
+        $this->saveRecord(
+            ArticleModule::KEY,
+            [ArticleModule::KIND => ArticleModule::PLAIN, 'title' => 'Desk lamp', self::SUPPLIER => (string) $wanted],
+            variant: ArticleModule::PLAIN,
+        );
+        $this->saveRecord(
+            ArticleModule::KEY,
+            [ArticleModule::KIND => ArticleModule::PLAIN, 'title' => 'Cable'],
+            variant: ArticleModule::PLAIN,
+        );
 
         $table = $this->client->request('GET', $this->url(sprintf(
             '/m/article?filter[0][path]=%s&filter[0][op]=eq&filter[0][value]=%d',
@@ -407,7 +417,7 @@ final class AutocompleteOptionTest extends WebTestCase
     }
 
     /** One field's control on a record form, as it is actually drawn. */
-    private function fieldOnTheForm(string $key, string $path = '/m/article/new'): Crawler
+    private function fieldOnTheForm(string $key, string $path = '/m/article/new?variant=' . ArticleModule::PLAIN): Crawler
     {
         $control = $this->client->request('GET', $this->url($path))->filter('#' . self::idOf($key));
 

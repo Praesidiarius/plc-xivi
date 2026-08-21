@@ -334,9 +334,15 @@ final class RecordForm extends AbstractController
 
         /** @var array{fields: array<string, mixed>} $submitted */
         $submitted = $this->getForm()->getData();
+        // What this record takes from a record it points at, filled in before
+        // anything judges it ([XIV-133], XIV-18). The rows below have had this
+        // done to them since inheritance existed; a module's own fields now get
+        // the same call, because an article that is a variant of another article
+        // is a record inheriting rather than a row inheriting.
+        $fields = $this->submission->fields($definition, $submitted['fields']);
         $rows = $this->submission->rows($definition, $this->getForm()->getData());
 
-        if (!$this->submission->validate($definition, $this->getForm(), $submitted['fields'], $rows, $record->id)) {
+        if (!$this->submission->validate($definition, $this->getForm(), $fields, $rows, $record->id)) {
             // **The view is already built by this point**, cached by
             // `submitForm()` on its way out, so errors added to the form after
             // it would render into nothing. Dropping it makes the next render
@@ -350,7 +356,7 @@ final class RecordForm extends AbstractController
         }
 
         try {
-            $saved = $this->submission->save($definition, $record, $submitted['fields'], $rows, $this->currentUserId());
+            $saved = $this->submission->save($definition, $record, $fields, $rows, $this->currentUserId());
         } catch (DuplicateValue|RecordRefused $clash) {
             // **The refusals the validator above could not make** (XIV-109,
             // XIV-104). One read the table and found nothing, and somebody else's

@@ -74,9 +74,12 @@ final class DemoDataTest extends KernelTestCase
             $modules = self::service(ModuleRegistry::class);
 
             $installer->install($modules->get(ContactModule::KEY));
-            // Contact declares no samples anywhere and article declares two, so
-            // one tenant carries both halves of XIV-24: the field nobody has said
-            // anything about, and the field that says something.
+            // Contact declares no samples anywhere and article declares several,
+            // so one tenant carries both halves of XIV-24: the field nobody has
+            // said anything about, and the field that says something. The
+            // article's `kind` is one of them since [XIV-133], and it says the
+            // strongest thing a `samples` list can: only one of its options is
+            // ever generated.
             $installer->install($modules->get(ArticleModule::KEY));
         });
     }
