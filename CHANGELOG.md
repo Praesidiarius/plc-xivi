@@ -107,6 +107,8 @@ always lands in `Unreleased` here.
   Naming one is allowed whichever catalogue it is, because saying so is the
   decision.
 
+[XIV-150]: https://xivi.youtrack.cloud/issue/XIV-150
+[XIV-171]: https://xivi.youtrack.cloud/issue/XIV-171
 [XIV-177]: https://xivi.youtrack.cloud/issue/XIV-177
 [XIV-178]: https://xivi.youtrack.cloud/issue/XIV-178
 
@@ -126,6 +128,29 @@ always lands in `Unreleased` here.
   the field gets the ordinary list back rather than an error. Every other
   module's list is the table it was, with its sortable headers, its pager and
   its row actions.
+- **Installing a module asks the database once which tables are taken, not once
+  per table** ([XIV-171]). Postgres answers "does this table exist" by listing
+  every table in the database, and the installer asked it per table: three
+  listings to install an order module, one of which is its history. The refusal
+  happens before any DDL now and names every clashing table rather than the
+  first, so a clash on a collection no longer leaves the module's own tables
+  standing.
+- **A test cannot see another test class's records, and that is a test now**
+  ([XIV-171]). It was true by construction, and nothing would have gone red if a
+  change to `SharesATenant` had made two classes share a tenant, which is the
+  first thing anybody trying to make provisioning cheaper reaches for. The new
+  pair commits a contact into one class's tenant and proves the next class
+  cannot read it, corroborated by the same reader finding it one tenant along.
+- **Neither ticket's actual proposal was built, and the measurement is why**
+  ([XIV-171], [XIV-150], §9.2). Serially, provisioning test tenants is 23 s of a
+  620 s run, so cloning a template database cannot repay its staleness and its
+  cluster-wide role problems, and sharing tenants between classes buys the same
+  seconds by giving up the one property the suite exists to prove. What did
+  change is smaller and elsewhere: the test container no longer wraps every form
+  type in the profiler's data collector, filling in a panel nothing opens.
+  `tests/Functional/Engine` goes from 591 s to 529 s and the whole serial suite
+  from 686 s to 619 s.
+
 - **An installation learns who is actually talking to it over IPv6**
   ([XIV-61], §4.8). Docker's bridge is IPv4-only unless told otherwise, and a
   published port still answers IPv6 through the userland proxy, which opens its

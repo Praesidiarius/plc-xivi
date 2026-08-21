@@ -65,6 +65,56 @@ use Xivi\ControlPlane\Provisioning\TenantProvisioner;
  * tests/Functional/Tenancy — should carry #[SkipDatabaseRollback] instead, which
  * makes DAMA leave its connections alone entirely.
  *
+ * ## Asking for a tenant of your own
+ *
+ * **The slug is the request.** A class that passes a slug nobody else passes
+ * gets a database nobody else touches, and that is every class in the suite
+ * today. Nothing is shared between classes and nothing is pooled, so there is no
+ * opt-out to remember and no annotation to forget: two classes share a tenant
+ * only by both naming the same slug, which the browser classes do on purpose and
+ * everybody else avoids by convention. {@see ClassTenantIsolationFirstTest}
+ * and its second half are what turn that convention into a red test.
+ *
+ * ## Why this is still per class and not per suite (XIV-171, XIV-150)
+ *
+ * Both tickets proposed making this cheaper, and the measurement of 2026-08-21
+ * says there is nothing here worth making cheaper. Serially and without
+ * coverage, which is the shape CI runs in, the whole suite is 620 s. Of that:
+ *
+ *   * **provisioning is 22.9 s**: 226 tenants at a mean of 101 ms, of which 19 ms
+ *     is the database and the role and the rest is the two migrations XIV-151's
+ *     squash left;
+ *   * **module installation is 50.6 s**: 2,020 calls at 25 ms, and it runs per
+ *     *test* rather than per class, because DDL inside a transaction rolls back
+ *     with everything else it wrote.
+ *
+ * So:
+ *
+ *   * **Cloning a template database** (XIV-150) has a ceiling of 23 s, or under
+ *     4%, and cannot reach all of it: the clone still copies the schema's files
+ *     and the role is a cluster object a clone does not bring. Against that it
+ *     buys a template that lies whenever a migration is added, a clone that fails
+ *     whenever anything is connected, and the cluster-wide role collision XIV-120
+ *     already lost a day to. Refused on the numbers, not on the idea.
+ *   * **Sharing one tenant across the classes that only read** buys the same 23 s
+ *     and pays for it in the one property this suite exists to prove. The pair of
+ *     tests above fails the moment it is tried.
+ *   * **Installing modules once per class, outside the rollback**, buys 51 s and
+ *     is the same trade one level down. A class whose tests edit definitions,
+ *     the metadata editor ones, the type conversions, the module upgrade, would
+ *     leak them into their siblings, and the failure lands on whichever test runs
+ *     next rather than on the one that caused it. That is XIV-61's registry
+ *     incident with the nouns changed.
+ *
+ * What actually costs the suite its time is none of this. 85% of the serial run
+ * is tests/Functional/Engine, and 78% of *that* is what the tests do after
+ * `setUp()` returns: 5,685 requests in the version of that directory this was
+ * measured on, of which the record form answered 1,718 renders and 846 saves at
+ * around 100 ms each. Those are round trips a browser also makes, since a live
+ * component re-renders when its model changes, so they are not waste. XIV-171 has
+ * the two ways of collapsing them that were measured and refused, and what each
+ * one quietly broke.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 trait SharesATenant

@@ -178,6 +178,19 @@ underneath whoever is collecting, and switching it off is what buys the time
 `bin/coverage-gate` never asked for. Xdebug stays in the image: it is the only
 thing a debugger can attach to, and the two coexist.
 
+**One tenant per test class stays, and the reason is measured** (XIV-171,
+XIV-150). Serially and without coverage the suite is 620 s; provisioning is
+22.9 s of it (226 tenants, 101 ms each, after XIV-151 squashed the migrations)
+and module installation 50.6 s. Cloning a template database therefore has a
+ceiling under 4% and buys a template that lies whenever a migration is added,
+and sharing tenants between classes buys the same seconds by giving up the
+property the suite exists to prove. `ClassTenantIsolation{First,Second}Test`
+makes that a red test rather than an argument. What the suite actually spends
+its time on is `tests/Functional/Engine` at 85%, and 78% of that is the record
+form's own round trips, which a browser also makes. **Revisit when provisioning
+passes roughly 15% of suite time**, and re-measure first, which is what the two
+tickets before this one did not.
+
 **Languages are covered by field type, not by test count** (XIV-45). XIV-44 was
 a Critical bug that four hundred and eighty tests walked past, the browser layer
 included, because the whole suite spoke English, and in English a number's
