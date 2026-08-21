@@ -8,7 +8,9 @@
 module: Articoli
 
 field:
+    kind: Tipo
     title: Titolo
+    sku_of: Variante di
     description: Descrizione
     price: Prezzo
     unit: Unità
@@ -27,3 +29,10 @@ unit:
     metre: m
     square_metre: m²
     litre: litri
+
+# I tre tipi di articolo ([XIV-133], §5.32). Nel codice la cosa si chiama SKU, a
+# schermo variante; l'argomento sta in article.en.yaml.
+choice:
+    plain: Articolo
+    base: Venduto in varianti
+    sku: Variante

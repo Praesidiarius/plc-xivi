@@ -118,7 +118,7 @@ final class CrossModuleLinkTest extends WebTestCase
         $this->aCompany('Acme AG');
         $this->aPerson('Ada', 'Lovelace');
 
-        $crawler = $this->client->request('GET', $this->url('/m/article/new'));
+        $crawler = $this->client->request('GET', $this->url('/m/article/new?variant=' . ArticleModule::PLAIN));
         $options = self::optionsOf($crawler, sprintf('select[name="%s"]', self::field(self::SUPPLIER)));
 
         self::assertContains('Acme AG', $options);
@@ -258,7 +258,7 @@ final class CrossModuleLinkTest extends WebTestCase
 
         $this->keepsAPlainSelect();
 
-        $help = $this->client->request('GET', $this->url('/m/article/new'))
+        $help = $this->client->request('GET', $this->url('/m/article/new?variant=' . ArticleModule::PLAIN))
             ->filter(sprintf('#%s_help', str_replace(['[', ']'], ['_', ''], self::field(self::SUPPLIER))));
 
         self::assertCount(1, $help, 'the picker explains itself');
@@ -533,13 +533,13 @@ final class CrossModuleLinkTest extends WebTestCase
 
     private function anArticle(string $title, ?int $supplier = null): int
     {
-        $fields = ['title' => $title];
+        $fields = [ArticleModule::KIND => ArticleModule::PLAIN, 'title' => $title];
 
         if ($supplier !== null) {
             $fields[self::SUPPLIER] = (string) $supplier;
         }
 
-        return $this->savedId($this->saveRecord(ArticleModule::KEY, $fields));
+        return $this->savedId($this->saveRecord(ArticleModule::KEY, $fields, variant: ArticleModule::PLAIN));
     }
 
     private function grant(string $email, string $module, ModuleAction $action): void

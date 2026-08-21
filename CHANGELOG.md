@@ -282,6 +282,44 @@ always lands in `Unreleased` here.
 
 [XIV-139]: https://xivi.youtrack.cloud/issue/XIV-139
 [XIV-140]: https://xivi.youtrack.cloud/issue/XIV-140
+- **An article can be sold in more than one variant, each with its own price**
+  ([XIV-133], §5.32). A T-shirt in S, M and L is one article and three sizes
+  instead of three unrelated articles: an article is now *plain*, *sold in
+  variants* or *a variant*, and adding one asks which, the way adding a contact
+  already asks whether it is a person or a company. A variant brings its own
+  title and its own price and shares the base's description, so an edit to the
+  description is one edit. Its unit and VAT rate arrive filled in from the base
+  and are the variant's own afterwards.
+- **An article sold in variants cannot be put on an order line** ([XIV-133]).
+  It is not a thing anybody can pick and pack, so the pickers on an order line,
+  on an invoice line and on a voucher's article restriction offer the plain
+  articles and the variants and leave the base out. A line naming a variant
+  records which variant was sold, and an invoice made from that order carries
+  it, because a variant is an ordinary article record and nothing about the link
+  changed.
+- **Nothing about an article without variants changed**, including every order
+  already written ([XIV-133], §5.32). Turning an existing article into one sold
+  in variants is a change to one dropdown; its price stops being asked for and
+  is kept, and every order line that already named it still says what it said,
+  because a line holds its own copy of the title and the price.
+- **Act on this if you have a tenant from before today.** Variants reach new
+  installations only, which is the standing rule that a customer's definitions
+  are theirs (§6.1): the module upgrade offers the two new *fields* and cannot
+  make the module have kinds, so taking them there would give you a dropdown
+  that decides nothing. Rebuild a development tenant with `tenant:reset`
+  instead. There is no migration in this change.
+- **A record can now take a value from a record it points at, not only a line**
+  ([XIV-133], §5.32). Inheritance is what an order line has always used to copy
+  an article's title and price; it works on a record's own fields now, with the
+  same "copied once, never over something typed" rule and the same marker when
+  the copy and the source have since diverged. Nothing changes for a field that
+  does not declare it, which today is every field outside Articles and Orders.
+- **Not in this**: stock and inventory, an attribute matrix that turns size ×
+  colour into nine variants, and barcodes beyond a field you add yourself
+  ([XIV-133], §5.32). Demo data is still all plain articles, for the reason
+  generated vouchers restrict nothing.
+
+[XIV-133]: https://xivi.youtrack.cloud/issue/XIV-133
 
 
 ## Releases

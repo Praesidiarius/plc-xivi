@@ -75,7 +75,7 @@ final class ArticleModuleTest extends WebTestCase
     /** A declaration is the whole module: the form comes out of the definitions. */
     public function testTheFormIsBuiltFromTheArticleDefinitions(): void
     {
-        $crawler = $this->client->request('GET', $this->url('/m/article/new'));
+        $crawler = $this->client->request('GET', $this->url('/m/article/new?variant=' . ArticleModule::PLAIN));
 
         self::assertResponseIsSuccessful();
 
@@ -99,7 +99,7 @@ final class ArticleModuleTest extends WebTestCase
     {
         $this->setCurrency('CHF');
 
-        $crawler = $this->client->request('GET', $this->url('/m/article/new'));
+        $crawler = $this->client->request('GET', $this->url('/m/article/new?variant=' . ArticleModule::PLAIN));
         $group = $crawler->filter(sprintf('.input-group:has([name="%s"])', self::field('price')));
 
         self::assertCount(1, $group, 'the price is drawn as an input group');
@@ -113,7 +113,7 @@ final class ArticleModuleTest extends WebTestCase
      */
     public function testWithNoCurrencyChosenThePriceIsJustANumber(): void
     {
-        $crawler = $this->client->request('GET', $this->url('/m/article/new'));
+        $crawler = $this->client->request('GET', $this->url('/m/article/new?variant=' . ArticleModule::PLAIN));
 
         self::assertSelectorExists(sprintf('[name="%s"]', self::field('price')));
         self::assertCount(0, $crawler->filter(sprintf('.input-group:has([name="%s"])', self::field('price'))));
@@ -175,7 +175,7 @@ final class ArticleModuleTest extends WebTestCase
      */
     public function testAnArticleIsSoldInAUnit(): void
     {
-        $crawler = $this->client->request('GET', $this->url('/m/article/new'));
+        $crawler = $this->client->request('GET', $this->url('/m/article/new?variant=' . ArticleModule::PLAIN));
         $options = $crawler
             ->filter(sprintf('select[name="%s"] option', self::field('unit')))
             ->each(static fn ($node): string => trim((string) $node->attr('value')));
@@ -233,9 +233,13 @@ final class ArticleModuleTest extends WebTestCase
     // -- helpers ------------------------------------------------------------
 
     /** @param array<string, string> $values */
-    private function submit(array $values): void
+    private function submit(array $values, string $variant = ArticleModule::PLAIN): void
     {
-        $this->saved = $this->saveRecord(ArticleModule::KEY, $values);
+        $this->saved = $this->saveRecord(
+            ArticleModule::KEY,
+            [ArticleModule::KIND => $variant, ...$values],
+            variant: $variant,
+        );
     }
 
     private function setCurrency(string $code): void

@@ -265,10 +265,11 @@ final class ReferenceChoiceLoaderTest extends WebTestCase
         [$one, $two] = $this->companies('Regal A', 'Regal B');
 
         $saved = $this->saveRecord(ArticleModule::KEY, [
+            ArticleModule::KIND => ArticleModule::PLAIN,
             'title' => 'Desk lamp',
             'price' => '19.90',
             self::LINKED => [1 => (string) $one, 2 => (string) $two],
-        ]);
+        ], variant: ArticleModule::PLAIN);
 
         self::assertSame([$one, $two], $this->linkedTo($this->savedId($saved)));
     }
@@ -325,10 +326,11 @@ final class ReferenceChoiceLoaderTest extends WebTestCase
         $article = $this->articleLinking([$one, $two]);
 
         $saved = $this->saveRecord(ArticleModule::KEY, [
+            ArticleModule::KIND => ArticleModule::PLAIN,
             'title' => 'Desk lamp',
             'price' => '19.90',
             self::LINKED => [(string) $one, (string) self::GONE, (string) $two],
-        ], recordId: $article);
+        ], recordId: $article, variant: ArticleModule::PLAIN);
 
         self::assertTrue($saved->isRedirect(), 'the two it may have are two links it may make');
         self::assertSame([$one, $two], $this->linkedTo($article), 'and the id it may not have is not among them');
@@ -343,10 +345,11 @@ final class ReferenceChoiceLoaderTest extends WebTestCase
         $article = $this->articleLinking([$one, $two]);
 
         $again = $this->saveRecord(ArticleModule::KEY, [
+            ArticleModule::KIND => ArticleModule::PLAIN,
             'title' => 'Desk lamp',
             'price' => '19.90',
             self::LINKED => [(string) $one, (string) $two],
-        ], recordId: $article);
+        ], recordId: $article, variant: ArticleModule::PLAIN);
 
         self::assertTrue($again->isRedirect(), 'a re-save of the same set is a save');
         self::assertSame([$one, $two], $this->linkedTo($article));
@@ -367,10 +370,11 @@ final class ReferenceChoiceLoaderTest extends WebTestCase
         [$one] = $this->companies('Regal A', 'Regal B');
 
         $article = $this->savedId($this->saveRecord(ArticleModule::KEY, [
+            ArticleModule::KIND => ArticleModule::PLAIN,
             'title' => 'Desk lamp',
             'price' => '19.90',
             self::ONE => (string) $one,
-        ]));
+        ], variant: ArticleModule::PLAIN));
 
         $field = $this->fieldOnTheForm(self::ONE, $article);
 
@@ -417,10 +421,11 @@ final class ReferenceChoiceLoaderTest extends WebTestCase
     private function articleLinking(array $companies): int
     {
         return $this->savedId($this->saveRecord(ArticleModule::KEY, [
+            ArticleModule::KIND => ArticleModule::PLAIN,
             'title' => 'Desk lamp',
             'price' => '19.90',
             self::LINKED => array_map(strval(...), $companies),
-        ]));
+        ], variant: ArticleModule::PLAIN));
     }
 
     /**

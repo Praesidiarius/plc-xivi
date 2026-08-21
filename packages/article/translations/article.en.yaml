@@ -7,7 +7,9 @@
 module: Articles
 
 field:
+    kind: Kind
     title: Title
+    sku_of: Variant of
     description: Description
     price: Price
     unit: Unit
@@ -32,3 +34,18 @@ unit:
     metre: m
     square_metre: m²
     litre: litres
+
+# The three kinds an article comes in ([XIV-133], §5.32).
+#
+# **The customer's word is "variant" and the code's word is "SKU"**, and the gap
+# is deliberate. §5.5 already calls something a variant, the metadata concept
+# deciding which fields a record has, so the source says SKU everywhere to keep
+# that word meaning one thing. Nobody selling T-shirts reads §5.5, and "variant"
+# is what they call three sizes of one shirt, so that is what the screen says.
+#
+# "Sold in variants" rather than "Base": the label has to say what choosing it
+# *does*, and half of what it does is take the price away.
+choice:
+    plain: Article
+    base: Sold in variants
+    sku: Variant

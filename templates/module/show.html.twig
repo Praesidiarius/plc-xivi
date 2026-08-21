@@ -322,6 +322,16 @@
 										{% else %}
 											{{ link.linked(field, record.get(field.key), shown) }}
 										{% endif %}
+										{# What this record took from a record it names and has since
+										   diverged from ([XIV-133]). The same marker a collection row
+										   carries further down, for the same reason and with the same
+										   sentence. Empty for every record in every module that
+										   inherits nothing, which is most of them. #}
+										{% if field.label in driftedFields|default([]) %}
+											<i class="bi bi-pencil-square text-body-secondary small"
+											   title="{{ 'module.drifted'|trans({'%field%': field.label}) }}"
+											   aria-hidden="true"></i>
+										{% endif %}
 									</dd>
 								{% endif %}
 							{% endfor %}

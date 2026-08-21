@@ -122,7 +122,7 @@ final class OrderModule implements ModuleProvider
      * `LINE_KINDS` are where these live and where their meaning is argued; a
      * module may depend on core and never on another module, so this file names
      * them the way it already names the module itself: as keys, with no `use`
-     * statement. `VoucherKeysMatchTheVoucherModuleTest` asserts the two lists are
+     * statement. `OrderNamesTheVoucherKindsTest` asserts the two lists are
      * the same, in `tests/`, which is the one layer allowed to see both.
      *
      * They are here at all because the two pickers below need them (XIV-172).
@@ -138,6 +138,27 @@ final class OrderModule implements ModuleProvider
 
     /** @var list<string> */
     private const array LINE_VOUCHER_KINDS = ['line_amount', 'line_percentage'];
+
+    /**
+     * The kinds of article a line may sell ([XIV-133]).
+     *
+     * **Spelled out here for the reason the voucher kinds above are.** §3
+     * forbids the import, not the authority: `ArticleModule::SELLABLE` is where
+     * this list lives and where it is argued, and
+     * `SellersNameTheArticleKindsTest` asserts the two agree from
+     * `tests/`, the one layer allowed to see both packages.
+     *
+     * What is missing from it is the point. An article sold in variants, a
+     * T-shirt that exists in three sizes, is not itself a sellable thing, and a
+     * line naming it would be an order for "T-shirt ×3" that nobody in a
+     * warehouse can fulfil. So the picker offers the plain articles and the
+     * variants, and never the base, which is [XIV-133]'s answer to whether the
+     * parent stays sellable: it does not, said once, declaratively, in the only
+     * place that decides what a picker shows.
+     *
+     * @var list<string>
+     */
+    private const array SELLABLE_ARTICLE_KINDS = ['plain', 'sku'];
 
     public function blueprint(): ModuleBlueprint
     {
@@ -454,6 +475,17 @@ final class OrderModule implements ModuleProvider
                         ),
                         // The article this line sells, on the one kind of line
                         // that sells one.
+                        //
+                        // **And which variant of it** ([XIV-133]). An article
+                        // sold in sizes is three records rather than one, so a
+                        // line naming the large one already says which variant
+                        // was sold: the id it stores is the variant's, the
+                        // description and the price it inherits are the
+                        // variant's, and the invoice seeded from it copies the
+                        // same id. Nothing here had to change for that except
+                        // the narrowing below, which takes the base out of the
+                        // picker; see `SELLABLE_ARTICLE_KINDS` for why it is
+                        // not offered.
                         new FieldBlueprint(
                             key: 'article',
                             width: 2,
@@ -462,7 +494,10 @@ final class OrderModule implements ModuleProvider
                             required: true,
                             variants: [self::ARTICLE_LINE],
                             position: 10,
-                            options: [ReferenceFieldType::MODULE => self::ARTICLE_MODULE],
+                            options: [
+                                ReferenceFieldType::MODULE => self::ARTICLE_MODULE,
+                                ReferenceFieldType::VARIANT => self::SELLABLE_ARTICLE_KINDS,
+                            ],
                         ),
                         // **One field, four meanings**: what the article is
                         // called, what the custom line sells, what the comment

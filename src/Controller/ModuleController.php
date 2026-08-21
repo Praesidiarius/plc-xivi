@@ -465,6 +465,17 @@ final class ModuleController extends AbstractController
             // from (XIV-18) — a negotiated price and a stale copy look the same
             // until something says which is which.
             'drifted' => $this->driftedRows($definition, $children),
+            // And which of the *record's* own inherited values have (XIV-18,
+            // [XIV-133]). One shape up from the line above and the same
+            // sentence: an article that is a variant of another article takes
+            // that article's unit and VAT rate, and a copy nobody can tell has
+            // gone stale is worse than no copy. Labels rather than fields, which
+            // is what the row half hands the template and what the template
+            // compares against.
+            'driftedFields' => array_map(
+                static fn (FieldDefinition $field): string => $field->getLabel(),
+                $this->inherited->driftedIn($definition, $record->data),
+            ),
             'linked' => $this->linkedTo($definition, $record),
             // What this record can be turned into, and how much of it is left to
             // turn (XIV-19). Only modules this person may add to: offering a

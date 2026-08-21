@@ -601,6 +601,10 @@ final class CollectionCeilingTest extends WebTestCase
 
         for ($i = 1; $i <= $count; ++$i) {
             $this->articles[] = $this->write(ArticleModule::KEY, [
+                // Plain ones ([XIV-133]): a line's picker offers only what an
+                // article can be sold as, so a catalogue with no kinds in it is
+                // a catalogue the measured page cannot draw a single option from.
+                ArticleModule::KIND => ArticleModule::PLAIN,
                 'title' => sprintf('Article %04d', $i),
                 'price' => number_format(5 + ($i % 400) * 1.35, 2, '.', ''),
                 'tax_rate' => (string) $rates[$i % \count($rates)],

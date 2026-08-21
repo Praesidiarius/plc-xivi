@@ -203,10 +203,11 @@ final class OrderVoucherTest extends WebTestCase
     public function testAFreeArticleIsALineVoucherAtAHundredPercent(): void
     {
         $article = $this->savedId($this->saveRecord(ArticleModule::KEY, [
+            ArticleModule::KIND => ArticleModule::PLAIN,
             'title' => 'Travel mug',
             'price' => '24.00',
             'tax_rate' => self::STANDARD,
-        ]));
+        ], variant: ArticleModule::PLAIN));
 
         $voucher = $this->aVoucher([
             'code' => 'FREE-MUG',

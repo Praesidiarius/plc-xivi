@@ -180,7 +180,12 @@ final class OrderModuleTest extends WebTestCase
             ->count();
         self::assertSame(0, $before, 'nothing has drifted yet');
 
-        $this->saveRecord(ArticleModule::KEY, ['title' => 'Desk lamp', 'price' => '24.90'], recordId: $article);
+        $this->saveRecord(
+            ArticleModule::KEY,
+            [ArticleModule::KIND => ArticleModule::PLAIN, 'title' => 'Desk lamp', 'price' => '24.90'],
+            recordId: $article,
+            variant: ArticleModule::PLAIN,
+        );
 
         $after = $this->client->request('GET', $this->url('/m/order/' . $order))
             ->filter('[title*="differs"]')
@@ -468,13 +473,13 @@ final class OrderModuleTest extends WebTestCase
     /** An article, and a unit on it only when the test is about one (XIV-118). */
     private function anArticle(string $title, string $price, ?string $unit = null): int
     {
-        $values = ['title' => $title, 'price' => $price];
+        $values = [ArticleModule::KIND => ArticleModule::PLAIN, 'title' => $title, 'price' => $price];
 
         if ($unit !== null) {
             $values['unit'] = $unit;
         }
 
-        return $this->savedId($this->saveRecord(ArticleModule::KEY, $values));
+        return $this->savedId($this->saveRecord(ArticleModule::KEY, $values, variant: ArticleModule::PLAIN));
     }
 
     /**

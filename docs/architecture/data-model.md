@@ -1287,3 +1287,111 @@ comma-separated text field until this existed.
   a field property rather than a type's ([XIV-173], §5.26).
 
 ---
+
+### 5.32 An article sold in more than one variant ([XIV-133])
+
+A T-shirt in S, M and L used to be three articles, which loses the fact that
+they are one thing and makes an edit to the description three edits. So an
+article now comes in three kinds, and that list is the whole feature.
+
+- **The word first, because it is the trap.** §5.5 already calls something a
+  variant: the metadata concept deciding which fields a record has. A product
+  variant is a different idea, same product and several sellable things, and two
+  meanings of one word in one codebase is how a design conversation goes wrong
+  six months later. **The code says `sku` and never says variant; the labels a
+  customer reads say "Variant"**, because that is the word a Swiss SMB uses and
+  nobody selling T-shirts reads §5.5. The two ideas are separate. The
+  *mechanism* underneath is deliberately the same one, and saying they are
+  unrelated would be untrue: §5.5 is exactly "one module, several kinds of
+  record", which is what this needs, and inventing a second way to say it is
+  what §1 refuses. Sharing the machinery is why the word must not be shared too.
+- **`plain`, `base`, `sku`.** A plain article is what the module has always had,
+  unchanged in every field and in everything anything else does with it. A base
+  is the T-shirt: it holds the description, the unit and the VAT rate, and
+  **carries no price**, because the price belongs to the thing somebody can
+  buy. An SKU is the large one: it names its base, brings its own title and its
+  own price, and **has no description field at all**, which is what puts the
+  description in one place instead of three.
+- **What an SKU overrides is a decided, short list: its title and its price.**
+  The unit and the VAT rate it *takes* from its base, through XIV-18's ordinary
+  inheritance: copied at write, the SKU's own afterwards, drift marked on the
+  page. Not enforced beyond that, and deliberately: a copy somebody edits is
+  somebody's decision here for the same reason it is on an order line. The
+  description is not on the list at all, which is the difference between a
+  variant and a second article wearing a costume.
+- **A collection on the article was the other candidate and it lost on one
+  fact**: a collection row is not referenceable. It has no id anything may link
+  to (§5.1, §5.12's `source` is a plain number for exactly this reason), so an
+  order line could not say which variant was sold. Making a row referenceable is
+  an engine capability with a single consumer, which §1 refuses by name. Reading a row's price through inheritance would have been a second
+  one. The collection reads better on a page; it cannot do the one thing the
+  ticket exists for.
+- **So the blast radius is nothing.** An SKU is a record of the article module,
+  so an order line naming one is an order line doing exactly what it already
+  did: the id it stores is the variant's, the title and price it inherits are
+  the variant's, and the invoice seeded from it copies the same id (§5.12).
+  Totals, documents, the export, the import, the reverse-link card and the
+  record trend all needed no change, and none of them can tell the difference.
+  **`packages/core` is untouched**, which is the test this shape was chosen to
+  pass.
+- **One thing was wired that had never been wired: a *record* can inherit.**
+  `InheritedValues::fillIn()` has taken a `ShapeDefinition` since XIV-18 and was
+  only ever called for collection rows, because until now the only field
+  declaring `inherit` belonged to an order line. An SKU taking the unit and the
+  VAT rate from its base is the identical sentence about the identical
+  mechanism one shape up, so the application makes the identical call:
+  `RecordSubmission::fields()`, before the validation rather than inside the
+  save, since an inherited value has to be there when the rules are checked.
+  The drift marker followed for the same reason, and reads the same on a record
+  as it does on a row. No engine class changed; what changed is that a caller
+  in `src/` stopped asking half the question.
+- **The parent is not sellable, and that is the one thing that had to be
+  enforced.** An order for "T-shirt ×3" is an order nobody can fulfil, so every
+  picker that sells an article narrows to `plain` and `sku`, which is XIV-172's
+  list form of the reference's `variant` option, in the order module, the
+  invoice module and the voucher's article restriction. `ArticleModule::SELLABLE` is
+  where the list lives; §3 forbids the import, so the other three write the
+  strings out and `SellersNameTheArticleKindsTest` holds them together.
+  `sku_of` narrows the other way, to `base` only, which stops an SKU of a plain
+  article and makes chains impossible rather than merely discouraged.
+- **A plain article that turns out to sell in sizes becomes a base by changing
+  one dropdown.** Its price field disappears and its value stays, which is
+  §5.5's storage rule, and **every order that already named it reads exactly as
+  it did**, because a line holds its own copy (XIV-18). Nothing is retroactive,
+  which is the answer §5.21 would want: there is no read-through here to change
+  its mind later.
+- **Price history is per SKU**, because XIV-121's history is a record's and an
+  SKU is a record. That falls out rather than being decided: three sizes at
+  three prices are three series, which is what somebody asking "what did the
+  large one cost in March" means. A base has no price and therefore no series.
+- **A voucher's article restriction names one record, and with variants that
+  record is the variant.** "20% off the large one" is what the field can say;
+  "20% off T-shirts, whatever the size" is three vouchers. Reading a restriction
+  through a variant to its base would be a second rule about what an article is,
+  in the module with the least business having an opinion about catalogues.
+- **The cost, stated rather than buried.** Adding an article now asks which kind
+  first, the way adding a contact does, and that is one click a catalogue did
+  not have. It is the price of §5.5 being the mechanism, and it is not the cost
+  the ticket refused: an order line for a plain article is unchanged, and no
+  definition anywhere is rewritten.
+- **Existing tenants do not get this, and §7.2 is why.** Installing does not
+  retro-fit (§6.1) and `ModuleUpgrade` is additive: it can hand a tenant the
+  `kind` and `sku_of` *fields* and cannot set the module's variant field, so
+  taking them would produce a dropdown that decides nothing. A module gaining
+  variants after installation is a §7.2 conversion nobody has designed. The
+  related sharp edge: a tenant whose article module predates this and whose
+  order module does not gets a line picker narrowed to kinds their catalogue
+  has no column for, and `QueryCompiler` answers that with nothing, correctly
+  and unhelpfully. `tenant:reset` is the answer while there are no customers.
+- **Demo data is all plain articles**, on the voucher's own precedent (§5.17): a
+  base and its SKUs are a *relationship*, and the generator draws every field
+  independently, so it would make a toner cartridge a variant of an hour of
+  consulting. Worse, an SKU generated before the first base has nothing to point
+  at, and a reference reads its candidates once per run.
+- **Stock is out of scope and is not coming with this.** Variants are the usual
+  excuse for introducing inventory, and inventory is movements, reservations and
+  arithmetic of its own. An SKU is a name and a price. Also not here: an
+  attribute matrix generating size × colour, and barcodes beyond a field a
+  customer adds themselves (§5.4).
+
+---
