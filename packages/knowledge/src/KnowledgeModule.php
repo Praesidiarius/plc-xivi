@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Xivi\Knowledge;
 
 use Xivi\Core\Module\FieldBlueprint;
+use Xivi\Core\Module\GroupedList;
 use Xivi\Core\Module\ModuleBlueprint;
 use Xivi\Core\Module\ModuleProvider;
 
@@ -54,6 +55,16 @@ use Xivi\Core\Module\ModuleProvider;
  * - **A formatted body** is the `markdown` field type ([XIV-131], §5.21), which
  *   landed a day before this and named a knowledge-base entry in its own docblock
  *   as the thing it was for. This is the first module blueprint to declare one.
+ *
+ * **That held for eight days** (XIV-168). The first thing this module ever asked
+ * the engine for was a **grouped index**: one card per topic instead of a page
+ * of rows, because rows answer "which entry is this" and a knowledge base is
+ * browsed rather than looked up. The claim above survives in the form that was
+ * worth making, because what arrived is general. A module declares
+ * {@see \Xivi\Core\Module\GroupedList} and the engine does the rest, so this
+ * file gained one line and there is still no knowledge-base code anywhere. §5.22
+ * carries the correction, rather than leaving the original claim to quietly stop
+ * being true.
  *
  * ### What it deliberately is not
  *
@@ -267,6 +278,27 @@ final class KnowledgeModule implements ModuleProvider
             // A book somebody writes in. `journal-text` rather than `book`,
             // because the entries are written here rather than shelved here.
             icon: 'journal-text',
+            // **The index is a card per topic, not a page of rows** (XIV-168).
+            //
+            // A knowledge base read as twenty-five rows with a pager under them
+            // is a knowledge base nobody browses. Rows answer "which entry is
+            // this"; what somebody arriving actually wants is the shape of what
+            // has been written down, which topics exist and what is filed under
+            // each, and that is a page of cards.
+            //
+            // **One line, and no knowledge-base code behind it.** The whole
+            // capability is the engine's ({@see GroupedList}), which is the
+            // correction §5.22 needed: the finding there was that this module
+            // cost the engine nothing, and this is the first thing it asked for.
+            // The finding survives in the form that mattered, because what
+            // arrived is general. Articles by category and contacts by kind are
+            // one line each and no further work.
+            //
+            // It names `topic` because `topic` is the only field here that could
+            // be named: a title is a card per record and a body is a card per
+            // paragraph. The engine refuses both by taking only a field whose
+            // type enumerates its own values.
+            groupedList: new GroupedList(self::TOPIC),
             // **No presets** (§6.1), on the article module's reasoning and more
             // so: three fields is already the smallest honest version of this,
             // and the only field a smaller preset could leave out is the body,

@@ -73,6 +73,22 @@ always lands in `Unreleased` here.
 
 ## [Unreleased]
 
+- **The Knowledge index is now a card per topic instead of a page of rows**
+  ([XIV-168], §5.22). Each card holds its entries' titles as links to the entry,
+  with the day it last changed beside each one, and the search, the filter bar
+  and every button above them work exactly as before. Entries with no topic get
+  a card of their own at the end, because the topic was never required. A topic
+  nobody has written under is not drawn, and a card stops at ten entries, says
+  how many it is holding back and links to the full list for that topic.
+- **Edit and delete are no longer on the index for Knowledge** ([XIV-168]).
+  Both are on the entry's own page, which the title links to, so deleting an
+  entry is one click further than it was.
+- **Any module can ask for a grouped index now, and no other module has
+  changed** ([XIV-168], §5.3). A module names one of its own choice fields and
+  the engine does the rest, so the cards are built from that field's *current*
+  options: a topic a customer adds in the field editor gets a card without
+  anybody writing code. Every other module's list is the table it was, with its
+  sortable headers, its pager and its row actions.
 - **An installation learns who is actually talking to it over IPv6**
   ([XIV-61], §4.8). Docker's bridge is IPv4-only unless told otherwise, and a
   published port still answers IPv6 through the userland proxy, which opens its
@@ -116,7 +132,6 @@ always lands in `Unreleased` here.
   debugger attaches to; PCOV does line coverage only, so ask for
   `XDEBUG_MODE=coverage` if you want a branch report.
 
-[XIV-61]: https://xivi.youtrack.cloud/issue/XIV-61
 [XIV-170]: https://xivi.youtrack.cloud/issue/XIV-170
 
 - **A partial invoice takes its share of the order's discount, not all of it**
@@ -134,8 +149,9 @@ always lands in `Unreleased` here.
   Invoices already written are untouched until they are saved again, and a sent
   one is locked and never will be.
 
-[XIV-61]: https://xivi.youtrack.cloud/issue/XIV-61
 [XIV-147]: https://xivi.youtrack.cloud/issue/XIV-147
+
+[XIV-168]: https://xivi.youtrack.cloud/issue/XIV-168
 
 
 ## Releases

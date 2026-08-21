@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Xivi\Core\Field;
 
+use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Query\Operator;
 
 /**
@@ -42,6 +43,30 @@ use Xivi\Core\Query\Operator;
  * that has to keep this answer to the second question above: a list somebody's
  * records point into cannot quietly lose an entry, whether the list lives in the
  * field or beside it.
+ *
+ * ## Why the list itself is on the interface (XIV-168)
+ *
+ * This started life as a bare marker. It said *that* a field of this type has a
+ * closed set of values, and the one method that could hand the set over sat on
+ * {@see Type\ChoiceFieldType}, where only a caller willing to name the concrete
+ * class could reach it. That was enough while the only readers were the widget,
+ * the validator and the display, all of which are the type's own code.
+ *
+ * The grouped index (§5.3) is the first reader from outside. It asks a question
+ * that is about the *capability* rather than about a type: "what are the values
+ * this field enumerates, so that each one can be a card". There are two ways to
+ * answer it. Asking the registry for the type and testing the answer against
+ * `ChoiceFieldType` would work today, and is the thing this codebase refuses
+ * everywhere else, because it is `if type == 'choice'` with an extra step and
+ * the second type that enumerates something would have to be added to a list
+ * nobody would think to look for. Putting the method here costs one line in the
+ * one implementor, which already had it, and means the next enumerating type is
+ * groupable by declaring an interface it would have declared anyway.
+ *
+ * **The labels come with the values, and that is deliberate.** A caller drawing
+ * a heading needs the customer's word for the value, and a caller handed the
+ * values alone would have to go back to the type for each one, which is the
+ * shape that turns a page into a query per card.
  *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
@@ -78,4 +103,23 @@ interface Enumerates extends NeedsAnAnswer
      * has options for the question to be about.
      */
     public function findsHoldersBy(): Operator;
+
+    /**
+     * What this field is a choice between, in the order it should be offered and
+     * read.
+     *
+     * **The order is the customer's**, not the code's. Options are arranged in
+     * the field editor (§5.20) and whatever comes back here is the arrangement
+     * they made. Anything drawing one card, one radio or one column per value
+     * follows it rather than sorting.
+     *
+     * **The current answer, never the blueprint's.** A module ships a list and
+     * from the moment it is installed the customer's definition is the truth
+     * (§6.1). Options added since are in here, and options the module never
+     * shipped are too, which is what lets a topic somebody invented last week
+     * have a card without anybody writing code.
+     *
+     * @return array<string, string> stored value => the label to show for it
+     */
+    public function optionsOf(FieldDefinition $field): array;
 }

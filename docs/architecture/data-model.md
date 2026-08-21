@@ -95,6 +95,37 @@ builder.
   memo. Query counts are asserted flat with `assertSame` between two sizes, so
   growth fails rather than slows.
 
+**A module may declare that its index is cards, not rows** (XIV-168).
+`GroupedList` names one of its own fields, and the index draws one card per
+value of it with the records' titles inside. Only a field whose type
+`Enumerates` may be named: the cards are then known before the records are
+read, and the set is short and arranged by the customer. `optionsOf()` moved
+onto that interface for it, which is why grouping is a capability rather than a
+test against `ChoiceFieldType`. Decided once for every grouped module, not per
+module:
+
+- **one statement, whatever the number of cards.** `findGrouped()` is
+  `ROW_NUMBER()` and `COUNT(*)` over the same partition, so the first few of
+  each group and each group's real total come back together, under one
+  predicate. A query per card is unbounded query count on a page whose values
+  a customer extends; asserted flat between two sizes like everything else
+  here.
+- **a value nobody has used draws no card**, so a fresh tenant is not six empty
+  boxes and a filter cannot leave a heading claiming a match it has not got.
+- **records holding no value get a card, and it goes last**, after the options
+  the customer arranged. The field need not be required, so those records are
+  ordinary and a page without them would hide entries on their own index.
+- **a card stops at `ModuleController::LINKED_ON_RECORD`**, says how many it is
+  holding back, and links to this same index filtered to that value and asked
+  for as rows (`view=list`). Narrowing a grouped page gives one card with the
+  same ceiling, so without that parameter the link would point at itself.
+- **sorting and the row actions are what is lost.** Cards have no headers to
+  sort by, so records are ordered by the module's title fields unless the URL
+  says otherwise; edit and delete are on the record page, which the title
+  links to.
+- **`RecordAccess` is unchanged**: the same `WHERE` clause compiles into the
+  window function, so a card's count is what this reader may see.
+
 ### 5.4 The metadata editor
 
 **Definitions are cached once per tenant** (XIV-53). The cache empties
@@ -649,7 +680,10 @@ escaping decision.
 ### 5.22 An internal knowledge base, and how much of it was already here (XIV-132)
 
 A very simple wiki. **The engine work was none, and that is the finding**:
-`packages/knowledge` is a blueprint, a translation file and a bundle. History
+`packages/knowledge` is a blueprint, a translation file and a bundle.
+**Corrected eight days later** (XIV-168): the module asked for a grouped index
+and the engine grew one, general enough that this module still adds one line
+and no code. History
 and the system columns answer who and when; there is no `author` field on
 purpose, because a forgotten date field is a record confidently wrong about
 itself. §8.4 answers write-vs-read, `contains` answers search, §5.21 answers
@@ -666,7 +700,14 @@ the body.
 - **Staleness beats emptiness as the failure mode**, and the defence is the
   age on the screen, not a review date. The module list grew a **Changed**
   column beside Owner, on every module's list; both are system columns, and
-  neither sorts.
+  neither sorts. XIV-168 replaced this module's list with cards and **kept the
+  date**, at the end of each entry's line; Owner did not come along, because
+  nobody's name belongs on a card of what is written down.
+- **The index is a card per topic** (XIV-168), declared with one
+  `GroupedList` and drawn by §5.3's generic page. Untopiced entries have a card
+  of their own, last, because the field is not required and hiding them would
+  be worse than the table. No edit or delete on a card; the title links to the
+  record page, which has both.
 - **The search ceiling is stated and tested**: `ILIKE '%…%'`, with no
   stemming, ranking or index. Full text is a ticket (`tsvector` plus GIN), and
   the test asserting the plural fails to find the singular is its red line.

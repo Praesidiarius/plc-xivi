@@ -20,7 +20,7 @@ return static function (ContainerConfigurator $container): void {
         ->load('Xivi\\Core\\', __DIR__ . '/../src/')
             ->exclude([
                 __DIR__ . '/../src/Entity/',
-                __DIR__ . '/../src/Module/{ModuleBlueprint,CollectionBlueprint,FieldBlueprint}.php',
+                __DIR__ . '/../src/Module/{ModuleBlueprint,CollectionBlueprint,FieldBlueprint,GroupedList}.php',
                 // Declarations and answers, not services: a module writes the
                 // first in its blueprint and the resolver hands back the second
                 // (XIV-39).
@@ -33,7 +33,11 @@ return static function (ContainerConfigurator $container): void {
                 __DIR__ . '/../src/Phone/{PhoneReading,DiallablePhoneNumber}.php',
                 __DIR__ . '/../src/Metadata/{NumberingPlan,ConversionPlan}.php',
                 __DIR__ . '/../src/Numbering/{NumberFormat,NumbersFound}.php',
-                __DIR__ . '/../src/Record/{Record,Derivation}.php',
+                // A record, what a deriver made of one, and one card of a grouped
+                // index (XIV-168). The last is an answer the grouper hands back,
+                // not a service: the container would otherwise try to autowire a
+                // `string $value` into it.
+                __DIR__ . '/../src/Record/{Record,Derivation,RecordGroup}.php',
                 __DIR__ . '/../src/Validation/UniqueFieldValue.php',
                 // One value drawn as a chip, and the three answers a shared
                 // list's own screens are made of ([XIV-127]). Values, not

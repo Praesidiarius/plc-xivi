@@ -411,9 +411,9 @@
 								   when you cannot go and read them. #}
 								{% if group.isTruncated %}
 									<p class="small text-body-secondary mb-0 mt-3">
-										{{ 'module.linked_shown'|trans({'%shown%': group.shown, '%total%': group.total}) }}
+										{{ 'module.card_shown'|trans({'%shown%': group.shown, '%total%': group.total}) }}
 										{% if can('list', group.module) %}
-											<a href="{{ path('module_index', group.listing) }}">{{ 'module.linked_all'|trans }}</a>
+											<a href="{{ path('module_index', group.listing) }}">{{ 'module.card_all'|trans }}</a>
 										{% endif %}
 									</p>
 								{% endif %}

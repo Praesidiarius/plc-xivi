@@ -98,6 +98,19 @@ final readonly class ModuleBlueprint
          */
         public ?PaymentTerms $paymentTerms = null,
         /**
+         * That this module's index is one card per value of one of its fields
+         * rather than a page of rows (XIV-168). Null for a module whose records
+         * are a list, which is every one of them but the knowledge base.
+         *
+         * Declared here beside `$mailRecipient` and `$paymentTerms` for the
+         * reason both of those are: which field a module's records sort
+         * themselves into is a fact about this module's shape, and one the
+         * engine cannot work out. It could guess at the only choice field, and
+         * an order has a status field it would then group four hundred orders
+         * by, on a page nobody asked for.
+         */
+        public ?GroupedList $groupedList = null,
+        /**
          * Modules this one cannot work without (XIV-23).
          *
          * A *runtime* requirement, not the code dependency §3 forbids: these are
