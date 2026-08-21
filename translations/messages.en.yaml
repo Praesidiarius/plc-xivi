@@ -1432,6 +1432,26 @@ store:
     title: Store
     intro: Modules this installation can have. Installing one adds it to your own database; nothing here affects anybody else.
     empty: There is nothing on offer in this build yet.
+    # **Finding a module instead of reading every tile** (XIV-140). A plain box
+    # over the labels already on the page: §3.2 settled that this catalogue is
+    # curated and small, so there is no index to build and nothing to rank.
+    find: Find a module
+    find_placeholder: A name, or something it holds
+    find_submit: Search
+    find_clear: Show everything
+    no_matches: 'Nothing here matches "%query%".'
+    # **The two questions somebody arrives with** (XIV-140), which used to be one
+    # grid with a badge on part of it. "Modules you have" is read from the
+    # customer's own definitions, so it says their word for each module and keeps
+    # showing one that has since left the store (§6.2).
+    yours: Modules you have
+    yours_help: Installed in this database and yours to rename and rearrange. Open one to see how it was installed.
+    available: Modules you can add
+    available_help: Not installed here yet. Each one says what it needs before you start.
+    nothing_to_add: You have every module this installation offers.
+    # Two words on a tile, so the colon carries the sentence. The list beside it
+    # names every module this one needs, not only the missing ones.
+    requires: 'Needs:'
     details: Details
     installed: Installed
     not_installed: Not installed

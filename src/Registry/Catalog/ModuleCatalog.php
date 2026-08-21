@@ -128,13 +128,46 @@ final readonly class ModuleCatalog
     {
         $offered = [];
 
-        foreach ($this->entries() as $entry) {
-            $blueprint = $entry->blueprint;
-
+        foreach ($this->offeredEntries() as $key => $entry) {
             // The null check is `isInBuild()` said again in the one form the
             // type system understands; the rule itself is on the entry.
-            if ($blueprint !== null && $entry->isOfferedInStore()) {
-                $offered[$entry->key] = $blueprint;
+            if ($entry->blueprint !== null) {
+                $offered[$key] = $entry->blueprint;
+            }
+        }
+
+        return $offered;
+    }
+
+    /**
+     * The same modules, as whole entries rather than as blueprints alone
+     * (XIV-140).
+     *
+     * {@see self::offeredInStore()} throws away everything the control plane
+     * said, which is fine when the caller only wants to know what exists and
+     * costs the caller a second visit when it wants the price as well. The store
+     * wants both for every tile it draws, and the version of that which reads
+     * one blueprint at a time was quietly O(n) in control-plane queries: one
+     * `allByKey()` for the list, another inside every module's requirement
+     * check, and a `findOneByKey()` per module for its price. Six modules made
+     * that about twenty statements and nobody noticed; thirty makes it ninety,
+     * all of them re-reading the same handful of rows.
+     *
+     * So this is the shape the store actually asks for, and it is a return type
+     * rather than a mechanism: {@see self::entries()} already built these
+     * objects and already carries the price on each. Nothing here decides
+     * anything new, and {@see CatalogEntry::isOfferedInStore()} is still the one
+     * place the rule lives.
+     *
+     * @return array<string, CatalogEntry>
+     */
+    public function offeredEntries(): array
+    {
+        $offered = [];
+
+        foreach ($this->entries() as $entry) {
+            if ($entry->isOfferedInStore()) {
+                $offered[$entry->key] = $entry;
             }
         }
 

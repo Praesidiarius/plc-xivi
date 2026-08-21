@@ -233,6 +233,30 @@ always lands in `Unreleased` here.
 
 [XIV-175]: https://xivi.youtrack.cloud/issue/XIV-175
 
+- **The store is two shelves now, not one wall of tiles** ([XIV-140], §6.3.1).
+  *Modules you have* comes first, compact, in the customer's own words for each
+  one; *modules you can add* follows and no longer repeats what they already
+  have. A module the store has stopped offering stays on the first shelf,
+  because leaving the store never uninstalls anything.
+- **Tiles say what a module needs, and the offer is in alphabetical order**
+  ([XIV-140]). Every requirement is named, satisfied ones included, with the
+  missing ones marked; the order is the reader's alphabet in their own language
+  rather than the module keys, which on a German screen was no order at all.
+  Install and *Ask to buy* are on the tile, under the same two grants as on the
+  module's own page.
+- **A search box over the store** ([XIV-140], §3.2). A `q` parameter matched
+  against module names and the lists they create, so a narrowed store is a URL
+  you can reload or send. Nothing is indexed and nothing is ranked.
+- **No categories, and that is the decision** ([XIV-140], §6.3.1). A module
+  belongs to as many trades as sell it, so grouping by trade is [XIV-139]'s
+  packages rather than a second taxonomy on the module.
+- **The store page no longer reads the database once per module** ([XIV-140]).
+  It asked the control plane twice and the tenant once for every tile, which at
+  six modules was invisible. One read each now, whatever the catalogue holds.
+
+[XIV-139]: https://xivi.youtrack.cloud/issue/XIV-139
+[XIV-140]: https://xivi.youtrack.cloud/issue/XIV-140
+
 
 ## Releases
 

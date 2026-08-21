@@ -1137,6 +1137,17 @@ store:
     title: Boutique
     intro: Les modules que cette installation peut avoir. En installer un l’ajoute à votre propre base de données ; rien ici ne touche qui que ce soit d’autre.
     empty: Il n’y a encore rien à proposer dans ce build.
+    find: Trouver un module
+    find_placeholder: Un nom, ou ce qu’il contient
+    find_submit: Rechercher
+    find_clear: Tout afficher
+    no_matches: 'Rien ici ne correspond à « %query% ».'
+    yours: Vos modules
+    yours_help: Installés dans cette base et à vous, à renommer et à réorganiser. Ouvrez-en un pour voir comment il a été installé.
+    available: Modules à ajouter
+    available_help: Pas encore installés ici. Chacun dit ce qu’il lui faut avant que vous commenciez.
+    nothing_to_add: Vous avez déjà tous les modules que cette installation propose.
+    requires: 'Nécessite :'
     details: Détails
     installed: Installé
     not_installed: Non installé

@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace App\Store;
 
+use App\Registry\Catalog\CatalogEntry;
 use App\Registry\Catalog\ModuleCatalog;
 use App\Tenant\Entity\ModulePurchaseIntent;
 use App\Tenant\Entity\User;
@@ -59,6 +60,30 @@ use Xivi\Core\Module\ModuleRegistry;
  * asked instead ({@see PurchaseRequests}), which is [XIV-64]'s separation between
  * asking and happening, applied to a customer rather than to a stranger.
  *
+ * ## [XIV-140] split the list in two, and did not add a third source
+ *
+ * The screen used to ask for one list, `offers()`, and badge the installed ones
+ * inside it. It now asks two questions, because a customer arriving at the store
+ * has two and they have different answers: {@see self::owned()} is what they
+ * have and {@see self::available()} is what they could add. **The second source
+ * did not grow a third**: `owned()` reads the same `MetadataRepository` this
+ * class has always read, and `available()` reads the same catalogue.
+ *
+ * What did change is how often each is read. Both used to be asked once per
+ * module, which was invisible at six and is a query storm at thirty:
+ * `offeredInStore()` inside every requirement check, a `price()` per tile, and a
+ * metadata `find()` per tile including one for every module the customer has
+ * not got. The reads are now hoisted to one apiece and handed down
+ * ({@see self::offerFor()}, {@see self::installedKeys()}), which is the same
+ * page composed from the same two sources with the loop on the outside.
+ *
+ * **Nothing here knows what a category is**, and that is XIV-140's decision
+ * rather than an omission. A module belongs to as many trades as sell it, so a
+ * category on a module would have to be a list, maintained by hand, that a
+ * package already implies. Grouping by trade is [XIV-139]'s packages, and the
+ * grouping that ships here is the one the store already knew: theirs, or not
+ * theirs yet.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class ModuleStore
@@ -75,22 +100,99 @@ final readonly class ModuleStore
     }
 
     /**
-     * Every module this build offers, in the catalogue's order.
+     * What this customer could add: everything the store offers that they have
+     * not got, by label, narrowed to whatever they typed (XIV-140).
+     *
+     * **The installed ones are gone from this list rather than badged inside
+     * it**, which is the whole rearrangement of XIV-140 in one line. A module
+     * they already have answers a different question from a module they could
+     * buy, and mixing the two meant an established customer reading thirty tiles
+     * to find the eighteen that were still an offer. They are not hidden: they
+     * are in {@see self::owned()}, above this on the page, in their own words.
+     *
+     * **By label, not by key.** The catalogue orders by module key because two
+     * runs have to read the same (§6.2), and a key is a fact about the code. A
+     * customer reads labels, and those are translated, so the key order is not
+     * even alphabetical on the screen: in German the six modules of this build
+     * come out Artikel, Kontakte, Rechnungen, Wissen, Bestellungen, Gutscheine.
+     * At six that is a grid; at thirty it is a grid in no order at all, which is
+     * a grid you have to read all of.
+     *
+     * @param string|null $query what the reader typed in the box, or null. See
+     *                           {@see self::matches()} for why this is a
+     *                           `str_contains` over a handful of strings and not
+     *                           the record query layer
      *
      * @return list<StoreOffer>
      */
-    public function offers(): array
+    public function available(?string $query = null): array
     {
         // The customer's outstanding purchase requests, read once for the page
         // rather than once per tile (XIV-102). Almost always empty, and a query
         // per module for an empty answer is the sort of thing that is invisible
         // at four modules and embarrassing at forty.
         $requested = $this->purchases->byModule();
+        $entries = $this->catalog->offeredEntries();
+        $installed = $this->installedKeys();
 
-        return array_values(array_map(
-            fn (ModuleBlueprint $blueprint): StoreOffer => $this->offerFor($blueprint, $requested),
-            $this->catalog->offeredInStore(),
-        ));
+        $available = [];
+
+        foreach ($entries as $entry) {
+            $offer = $this->offerFor($entry, $entries, $installed, $requested);
+
+            if ($offer->installed) {
+                continue;
+            }
+
+            // The collections are in the haystack because they are the words a
+            // customer is likely to have in mind: somebody looking for where
+            // addresses live should find Contacts, and the module's own label
+            // never says the word. Requirements are deliberately not, because a
+            // search for Contacts would then return every module that needs one.
+            if (!$this->matches($query, $offer->label, ...$offer->collections)) {
+                continue;
+            }
+
+            $available[] = $offer;
+        }
+
+        usort($available, fn (StoreOffer $a, StoreOffer $b): int => $this->compareLabels($a->label, $b->label));
+
+        return $available;
+    }
+
+    /**
+     * What this customer already has, in their own words (XIV-140).
+     *
+     * **Read from their definitions, never from the catalogue**, which is the
+     * argument on {@see OwnedModule} and the reason the two halves of this
+     * screen do not share a type. The short version: a module can leave the
+     * store without leaving the customer, so a list built from what the store
+     * offers would drop a module they are using that day.
+     *
+     * @return list<OwnedModule>
+     */
+    public function owned(?string $query = null): array
+    {
+        $offered = $this->catalog->offeredEntries();
+        $owned = [];
+
+        foreach ($this->metadata->all() as $definition) {
+            if (!$this->matches($query, $definition->getLabel())) {
+                continue;
+            }
+
+            $owned[] = new OwnedModule(
+                key: $definition->getKey(),
+                label: $definition->getLabel(),
+                icon: $definition->getIcon(),
+                offered: isset($offered[$definition->getKey()]),
+            );
+        }
+
+        usort($owned, fn (OwnedModule $a, OwnedModule $b): int => $this->compareLabels($a->label, $b->label));
+
+        return $owned;
     }
 
     /**
@@ -102,9 +204,12 @@ final readonly class ModuleStore
      */
     public function offer(string $key): ?StoreOffer
     {
-        $blueprint = $this->catalog->offeredInStore()[$key] ?? null;
+        $entries = $this->catalog->offeredEntries();
+        $entry = $entries[$key] ?? null;
 
-        return $blueprint === null ? null : $this->offerFor($blueprint, $this->purchases->byModule());
+        return $entry === null
+            ? null
+            : $this->offerFor($entry, $entries, $this->installedKeys(), $this->purchases->byModule());
     }
 
     /**
@@ -191,19 +296,35 @@ final readonly class ModuleStore
     }
 
     /**
+     * @param CatalogEntry                        $entry     the module being drawn, price and all
+     * @param array<string, CatalogEntry>         $offered   everything the store offers, so that
+     *                                                       neither this nor {@see self::requirementsOf()}
+     *                                                       goes back to the control plane per tile (XIV-140)
+     * @param array<string, true>                 $installed the keys this customer has, from
+     *                                                       {@see self::installedKeys()}
      * @param array<string, ModulePurchaseIntent> $requested this customer's
      *                                                       outstanding purchase requests, keyed by module
      */
-    private function offerFor(ModuleBlueprint $blueprint, array $requested): StoreOffer
+    private function offerFor(CatalogEntry $entry, array $offered, array $installed, array $requested): StoreOffer
     {
+        // Guaranteed by `offeredEntries()`, which only ever returns entries the
+        // build carries, and said again here because the type system cannot read
+        // that guarantee off the array.
+        $blueprint = $entry->blueprint ?? throw new \LogicException(sprintf(
+            'The store was handed "%s", which this build does not carry.',
+            $entry->key,
+        ));
+
         return new StoreOffer(
             blueprint: $blueprint,
             label: $this->label($blueprint->label, $blueprint),
-            installed: $this->metadata->find($blueprint->key) !== null,
-            // Through the catalogue, which §6.5 made the single seam onto the
-            // `module` row precisely so that this line could not be a second one.
-            price: $this->catalog->price($blueprint->key),
-            requirements: $this->requirementsOf($blueprint),
+            installed: isset($installed[$blueprint->key]),
+            // Off the entry, which the catalogue already filled from the same
+            // `module` row §6.5 made the single seam onto. Reading it back with
+            // `ModuleCatalog::price()` would be that seam used one query per
+            // tile, which is the same answer bought thirty times.
+            price: $entry->price,
+            requirements: $this->requirementsOf($blueprint, $offered, $installed),
             presets: $this->presetsOf($blueprint),
             collections: array_map(
                 fn (CollectionBlueprint $collection): string => $this->label($collection->label, $blueprint),
@@ -211,6 +332,89 @@ final readonly class ModuleStore
             ),
             requested: $requested[$blueprint->key] ?? null,
         );
+    }
+
+    /**
+     * Which modules this customer has, as a set, read in one query (XIV-140).
+     *
+     * `MetadataRepository::find()` per module was one statement per module and,
+     * worse, one statement per module they have **not** got: the per-key cache
+     * keeps a miss so it is asked once, but once each is still thirty questions
+     * where `all()` is one. The same read fills {@see self::owned()}, so the page
+     * pays for it either way.
+     *
+     * @return array<string, true>
+     */
+    private function installedKeys(): array
+    {
+        $keys = [];
+
+        foreach ($this->metadata->all() as $definition) {
+            $keys[$definition->getKey()] = true;
+        }
+
+        return $keys;
+    }
+
+    /**
+     * Whether what somebody typed in the search box matches any of these
+     * strings (XIV-140).
+     *
+     * **A `str_contains` over a handful of labels, and that is a decision rather
+     * than a shortcut.** §3.2 settled that the store is designed for a curated
+     * set and may assume it: no unbounded catalogue, no search index it does not
+     * need. Thirty modules are already in memory by the time this runs, because
+     * the page is going to draw all of them, so the cheapest correct filter is
+     * the one that reads them.
+     *
+     * The record query layer was the other candidate and is the wrong tool by a
+     * wide margin. `Operator::Contains` builds SQL against a customer's records
+     * through their field definitions; a module in the store is neither a record
+     * nor a field nor even a row in the tenant's database, so using it would
+     * mean inventing a fake shape to query. That is the second implementation
+     * this ticket was told not to build.
+     *
+     * Case-folded on both sides and nothing else: no stemming, no fuzzy match,
+     * no ranking. Somebody typing "rechn" is looking for Rechnungen and a
+     * substring finds it; somebody typing something that matches nothing is
+     * told so, which is a better answer than a page guessing at what they meant.
+     */
+    private function matches(?string $query, string ...$text): bool
+    {
+        $needle = mb_strtolower(trim((string) $query));
+
+        if ($needle === '') {
+            return true;
+        }
+
+        foreach ($text as $haystack) {
+            if (str_contains(mb_strtolower($haystack), $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Two labels in the order the person reading them would put them (XIV-140).
+     *
+     * Through `Collator` rather than `strcmp`, for the same reason
+     * `CurrencyFieldType` formats through `NumberFormatter`: the languages this
+     * ships in are German, French and Italian, and a byte comparison files Ärzte
+     * after Zimmer and Ãle wherever its first byte lands. A list somebody cannot
+     * predict the order of is a list they have to read all of, which is the
+     * whole failure this ticket is about.
+     *
+     * `Locale::getDefault()` is the request's locale: Symfony's `LocaleListener`
+     * sets it from the request, which is why the field types already read it
+     * rather than being handed one.
+     */
+    private function compareLabels(string $a, string $b): int
+    {
+        $collator = new \Collator(\Locale::getDefault());
+
+        return $collator->compare($a, $b) ?: 0;
     }
 
     /**
@@ -244,13 +448,17 @@ final readonly class ModuleStore
      * with and works without, and the parts needing them are simply not offered
      * (see ModuleBlueprint). Showing them here would read as a requirement.
      *
+     * @param array<string, CatalogEntry> $offered   handed in rather than fetched, because
+     *                                               this used to ask the catalogue once per
+     *                                               module and the catalogue asks the database
+     *                                               (XIV-140)
+     * @param array<string, true>         $installed the keys this customer has
+     *
      * @return list<Requirement>
      */
-    private function requirementsOf(ModuleBlueprint $blueprint): array
+    private function requirementsOf(ModuleBlueprint $blueprint, array $offered, array $installed): array
     {
-        $offered = $this->catalog->offeredInStore();
-
-        return array_map(function (string $key) use ($offered): Requirement {
+        return array_map(function (string $key) use ($offered, $installed): Requirement {
             // A requirement this build does not ship at all can still be named:
             // its key is the only label there is, which is visibly a key and
             // therefore visibly wrong, rather than quietly blank.
@@ -259,7 +467,7 @@ final readonly class ModuleStore
             return new Requirement(
                 key: $key,
                 label: $required === null ? $key : $this->label($required->label, $required),
-                installed: $this->metadata->find($key) !== null,
+                installed: isset($installed[$key]),
                 offered: isset($offered[$key]),
             );
         }, $blueprint->requires);
