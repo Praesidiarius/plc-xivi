@@ -72,13 +72,21 @@ final readonly class LineTotals
          * document (XIV-104), and the line field such a row says itself in.
          *
          * Null for a module nothing can discount, which is every module that has
-         * not asked — an invoice today, and a customer's order module before they
-         * had vouchers. It is what {@see DerivesTotals} asks a
-         * {@see DocumentDiscounts} about, and it is also what tells the engine
-         * which of the rows it has been handed are **its own**: a row of this
-         * kind is worked out on every save from whatever granted the discount,
-         * never typed, and the metadata editor does not offer it as a kind
-         * somebody can add (§5.5, {@see \Xivi\Core\Metadata\AvailableVariants}).
+         * not asked — a customer's order module before they had vouchers. It is
+         * what {@see DerivesTotals} asks a {@see DocumentDiscounts} about, and it
+         * is also what tells the engine which of the rows it has been handed are
+         * **its own**: a row of this kind is worked out on every save from
+         * whatever granted the discount, never typed, and the metadata editor
+         * does not offer it as a kind somebody can add
+         * (§5.5, {@see \Xivi\Core\Metadata\AvailableVariants}).
+         *
+         * **An invoice names one too** ([XIV-147]), and it is worth saying why,
+         * because it is not a voucher: what grants the row there is the *order*
+         * this bill was made from, and what the row states is this bill's share
+         * of the discount that order already stored
+         * ({@see \Xivi\Core\Seed\SeededDiscounts}). The engine's half is
+         * identical either way — a row of this kind is the engine's, whoever
+         * granted it.
          *
          * `subtotalKind` above is the precedent and it is worth saying how far it
          * goes: a subtotal's *figure* is the engine's and the row is the
@@ -116,8 +124,11 @@ final readonly class LineTotals
          * column means no line was ever reduced, which is exactly what was true.
          *
          * A module that has one and no `discountKind` is a perfectly sensible
-         * shape and is what an invoice is: it can *carry* a reduction copied down
-         * from the order it bills (§5.12) without anything on it granting one.
+         * shape: it can *carry* a reduction without anything on it granting one.
+         * It is no longer what an invoice is — an invoice has both, because
+         * [XIV-147] made the reduction it carries a **share** of the order's
+         * rather than a copy of it, and a share is worked out on every save like
+         * any other derived figure.
          */
         public ?string $lineDiscount = null,
         /**

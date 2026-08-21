@@ -60,10 +60,15 @@ final readonly class DerivedValues
      *
      * @param array<string, mixed>                                                 $fields the record's own values
      * @param array<string, list<array{id: int|null, data: array<string, mixed>}>> $rows   keyed by collection
+     * @param int|null                                                             $id     which record this is, and null
+     *                                                                                     for one being created
+     *                                                                                     ([XIV-147]); see
+     *                                                                                     {@see Derivation::$id} for the
+     *                                                                                     one deriver that needs it
      */
-    public function of(ModuleDefinition $module, array $fields, array $rows): ?Derivation
+    public function of(ModuleDefinition $module, array $fields, array $rows, ?int $id = null): ?Derivation
     {
-        return $this->run($module, $fields, $rows, preview: false);
+        return $this->run($module, $fields, $rows, $id, preview: false);
     }
 
     /**
@@ -77,9 +82,9 @@ final readonly class DerivedValues
      * @param array<string, mixed>                                                 $fields
      * @param array<string, list<array{id: int|null, data: array<string, mixed>}>> $rows
      */
-    public function preview(ModuleDefinition $module, array $fields, array $rows): ?Derivation
+    public function preview(ModuleDefinition $module, array $fields, array $rows, ?int $id = null): ?Derivation
     {
-        return $this->run($module, $fields, $rows, preview: true);
+        return $this->run($module, $fields, $rows, $id, preview: true);
     }
 
     /**
@@ -117,9 +122,9 @@ final readonly class DerivedValues
      * @param array<string, mixed>                                                 $fields
      * @param array<string, list<array{id: int|null, data: array<string, mixed>}>> $rows
      */
-    private function run(ModuleDefinition $module, array $fields, array $rows, bool $preview): ?Derivation
+    private function run(ModuleDefinition $module, array $fields, array $rows, ?int $id, bool $preview): ?Derivation
     {
-        $derivation = new Derivation($fields, $rows);
+        $derivation = new Derivation($fields, $rows, $id);
         $derived = false;
 
         foreach ($this->derivers as $deriver) {

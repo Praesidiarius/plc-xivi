@@ -89,21 +89,29 @@ final class InvoiceModule implements ModuleProvider
     public const string SUBTOTAL_LINE = 'subtotal';
 
     /**
-     * What the order's voucher took off, copied down with the rest of the lines
-     * (XIV-104).
+     * What the order's voucher takes off this bill (XIV-104, [XIV-147]).
      *
-     * **An ordinary kind here, and that is the decision.** On an order a row of
-     * this kind is the engine's — worked out from the voucher the order names on
-     * every save, and neither editable nor deletable by hand. An invoice names no
-     * voucher and never will (applying one directly is a different question), so
-     * nothing generates one here and nothing owns it: it arrives as a copy, like
-     * every other line §5.12 brings across, and from that moment it is a line
-     * with a negative price and a label saying what it is — which is exactly what
-     * XIV-16 has called a discount since before vouchers existed.
+     * **The engine's row here as much as it is on the order**, and it was not
+     * always. [XIV-104] made it an ordinary kind on this module, arriving as a
+     * copy like every other line §5.12 brings across, on the reasoning that an
+     * invoice names no voucher and so nothing here could work one out. The
+     * reasoning was sound and the conclusion was wrong, because a *partial* bill
+     * needs a figure the order never held: a thousand-franc order with a
+     * hundred-franc voucher billed in halves owes fifty on each, and the copy put
+     * a hundred on the first and nothing on the second ([XIV-147]).
      *
-     * It has to exist even so. The seed copies the *kind* along with the figures,
-     * and a value this field had never heard of would fail the choice constraint
-     * and refuse to bill a discounted order at all.
+     * So the figure is worked out on this document after all — not from the
+     * voucher, which §5.12 forbids reading through, but from **the discount the
+     * order already stored** and how much of the order this bill is for. That is
+     * {@see \Xivi\Core\Seed\SeededDiscounts}, and it makes the row the engine's
+     * by the ordinary route: `discountKind` below tells the arithmetic which rows
+     * are its own, the form draws them disabled, and the kind is not offered as
+     * something to add.
+     *
+     * It has to exist as a kind even so, and for the original reason: the seed
+     * copies the *kind* along with the figures, and a value this field had never
+     * heard of would fail the choice constraint and refuse to bill a discounted
+     * order at all.
      */
     public const string DISCOUNT_LINE = 'discount';
 
@@ -305,11 +313,13 @@ final class InvoiceModule implements ModuleProvider
                                     self::DISCOUNT_LINE => 'line.discount',
                                 ],
                                 // The same list the order module draws from, and
-                                // for the same reason (§5.17, XIV-104): a
-                                // discount line arrives here by being *copied*
-                                // from an order (§5.12), never by being invented,
-                                // so a generated bill should not carry one out of
-                                // nowhere. The other four are listed once each,
+                                // for the same reason (§5.17, XIV-104,
+                                // [XIV-147]): a discount line is the engine's, so
+                                // it is worked out from the order being billed
+                                // and never invented, and a *generated* bill —
+                                // demo data, made from the definitions and from
+                                // no order at all — has nothing to work one out
+                                // from. The other four are listed once each,
                                 // which is the distribution this module has had
                                 // since it was written.
                                 'samples' => [
@@ -452,17 +462,16 @@ final class InvoiceModule implements ModuleProvider
                         //
                         // Derived, so it is shown and not typed into — the same
                         // flag the line total beside it has carried since XIV-16
-                        // and for the same reason. It is worth being exact about
-                        // what that buys here and what it does not: nothing on an
-                        // invoice recomputes this column, so a **forged** value
-                        // would survive on a draft in a way it cannot on the
-                        // order. That is not a hole this field opens, it is the
-                        // shape an invoice already has — a discount *line* copied
-                        // down from an order has an ordinary editable price on it
-                        // too — and it closes where invoices close, which is
-                        // `sent`: the lifecycle locks there because the customer
-                        // has the document, and a correction after that is a
-                        // credit note rather than an edit.
+                        // and for the same reason. **And restated on every save**
+                        // ([XIV-147]), which is what the flag is worth: when this
+                        // was written nothing on an invoice recomputed the column,
+                        // so a forged value survived on a draft in a way it never
+                        // could on the order. It cannot now. The bill's share of
+                        // the reduction is worked out from the order's own line
+                        // and from what the other bills already took, so what is
+                        // submitted here is overwritten exactly as a line total
+                        // is — the protection the order has had since [XIV-104],
+                        // arriving one document later than it should have.
                         new FieldBlueprint(
                             key: self::LINE_DISCOUNT,
                             width: 1,
@@ -554,13 +563,24 @@ final class InvoiceModule implements ModuleProvider
                 taxableNet: self::TAXABLE_NET,
                 taxAmount: self::TAX_AMOUNT,
                 subtotalKind: self::SUBTOTAL_LINE,
-                // **A column it can carry and nothing it can grant** (XIV-122).
-                // There is deliberately no `discountKind` beside this: an invoice
-                // names no voucher, so nothing on it is asked what comes off it,
-                // and a discount row copied down from an order is an ordinary
-                // priced line here. Naming the column is what lets the same
-                // arithmetic subtract a reduction the order worked out.
+                // **Both halves of a discount, and neither of them granted here**
+                // (XIV-122, [XIV-147]). An invoice names no voucher and never
+                // will; what it does is bill part of an order that named one, and
+                // both modes then have to be *shared* across the bills rather
+                // than copied onto each of them whole. Naming the kind and the
+                // column is what puts the two rows under the engine's own
+                // arithmetic, and what that arithmetic works them out from is the
+                // order's stored discount rather than the voucher (§5.12,
+                // {@see \Xivi\Core\Seed\SeededDiscounts}).
+                discountKind: self::DISCOUNT_LINE,
                 lineDiscount: self::LINE_DISCOUNT,
+                // And what a generated discount row says it is. Needed now that
+                // one is generated here: the description is **required** on an
+                // invoice line, so a row emitted without it is a row the next save
+                // refuses. What goes in it is the sentence the order used, which
+                // is the voucher's own code — the same word in every language, and
+                // the one the customer holding it recognises (§5.24).
+                description: self::DESCRIPTION,
                 vatMode: self::VAT_MODE,
             ),
             // **Made from an order.** The customer comes along so the invoice can
@@ -595,14 +615,22 @@ final class InvoiceModule implements ModuleProvider
                         self::UNIT_PRICE => 'unit_price',
                         self::TAX_RATE => 'tax_rate',
                         // **And what a voucher took off the line** (XIV-122),
-                        // which is the one addition to this list that is not a
-                        // figure somebody typed. It is copied for the same reason
-                        // the price is: an invoice quotes what was agreed, and a
-                        // line that was agreed at forty francs off was agreed at
-                        // forty francs off. Note what is still *not* copied — the
-                        // line total, which is derived from this and the price on
-                        // the way in, so an invoice for half the lines restates
-                        // its own figures rather than repeating the order's.
+                        // which is the one entry in this list that is not a
+                        // figure somebody typed. It is copied because an invoice
+                        // quotes what was agreed, and a line that was agreed at
+                        // forty francs off was agreed at forty francs off.
+                        //
+                        // **The copy is a starting point and not the answer**
+                        // ([XIV-147]). Forty off ten of something is not forty
+                        // off five of them, so the save restates this column as
+                        // this bill's *share* of that reduction — and what the
+                        // copy is still for is the one case the restatement
+                        // cannot answer, an order deleted out from under a draft,
+                        // where the engine says nothing and what was copied
+                        // stands. Note what is not copied at all: the line total,
+                        // derived from this and the price on the way in, so an
+                        // invoice for half the lines restates its own figures
+                        // rather than repeating the order's.
                         self::LINE_DISCOUNT => 'discount',
                     ],
                     source: self::ORDER_LINE,

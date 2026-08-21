@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Xivi\Core\Seed;
 
+use Xivi\Core\Entity\CollectionDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\ModuleRegistry;
@@ -119,8 +120,13 @@ final readonly class Seeder
 
             if ($collection !== null) {
                 $left = $this->outstanding($target, $seed, $source, (int) $record->id);
+                $generated = $this->generatedIn($collection, $seed->from);
 
                 foreach ($this->records->findChildren($collection, (int) $record->id) as $row) {
+                    if (self::isGenerated($row, $generated)) {
+                        continue;
+                    }
+
                     $seeded = $this->seedRow($seed->rows, $row, $left);
 
                     if ($seeded !== null) {
@@ -156,8 +162,13 @@ final readonly class Seeder
         }
 
         $left = [];
+        $generated = $this->generatedIn($collection, $seed->from);
 
         foreach ($this->records->findChildren($collection, $recordId) as $row) {
+            if (self::isGenerated($row, $generated)) {
+                continue;
+            }
+
             $quantity = Amount::of($row->get($rows->outstanding));
 
             if ($quantity !== null) {
@@ -263,5 +274,51 @@ final readonly class Seeder
         $values[$rows->outstanding] = (string) $remaining;
 
         return $values;
+    }
+
+    /**
+     * Which field on the source's rows says what kind they are, and which kind of
+     * them the source's own engine writes ([XIV-147]).
+     *
+     * Null when the source generates nothing, which is every module that has not
+     * declared a `discountKind` — most of them.
+     *
+     * @return array{field: string, kind: string}|null
+     */
+    private function generatedIn(CollectionDefinition $collection, string $moduleKey): ?array
+    {
+        $field = $collection->getVariantField();
+        $totals = $this->modules->has($moduleKey) ? $this->modules->get($moduleKey)->lineTotals : null;
+        $kind = $totals?->collection === $collection->getKey() ? $totals->discountKind : null;
+
+        return $field === null || $kind === null ? null : ['field' => $field, 'kind' => $kind];
+    }
+
+    /**
+     * Whether this is a row the source's engine wrote rather than one somebody
+     * typed — a discount line, today ([XIV-147]).
+     *
+     * **Such a row is neither copied nor drawn down**, and both halves matter.
+     *
+     * It is not copied because the figure on it is wrong for anything but a bill
+     * for the whole order: a discount line is the *order's* discount, and what a
+     * partial invoice owes is a share of it that nobody can know at the moment the
+     * form is filled in. The document made from this one works its own out on
+     * every save ({@see SeededDiscounts}), so a copy would be a figure that is
+     * replaced the first time anything is derived — and, until then, a wrong one
+     * on a page somebody is reading.
+     *
+     * It is not drawn down because drawing down counts **quantity**, and the
+     * quantity of a discount line is 1 by construction: one voucher, at what it is
+     * worth. Counting it is what made the first invoice take the whole discount
+     * and every later one take none, which is [XIV-147] itself; and it put
+     * "1.00 left" beside a voucher on the order's own page, which is a sentence
+     * with no meaning in it.
+     *
+     * @param array{field: string, kind: string}|null $generated
+     */
+    private static function isGenerated(Record $row, ?array $generated): bool
+    {
+        return $generated !== null && $row->get($generated['field']) === $generated['kind'];
     }
 }
