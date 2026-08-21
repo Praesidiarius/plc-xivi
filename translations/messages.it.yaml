@@ -373,10 +373,6 @@ module:
     trend_range: 'tra %low% e %high%'
     trend_truncated: I cambiamenti più vecchi di questi non vengono disegnati.
     card_all: Vedili tutti
-    # La scheda di un indice raggruppato per i record che non hanno risposto alla
-    # domanda del raggruppamento (XIV-168). Viene inserito il nome del campo,
-    # quindi "Senza Argomento" nella base di conoscenza.
-    unfiled: 'Senza %field%'
     action_by: 'da %who%'
     action_by_system: Sistema
     action:

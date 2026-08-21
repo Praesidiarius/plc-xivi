@@ -39,3 +39,13 @@ topic:
     # What we know about the thing itself.
     product: Product
     other: Other
+
+# What the index calls the card holding the entries nobody filed (XIV-177).
+#
+# The field's own name goes in, so this reads "No Topic" today and reads
+# correctly for a customer who renamed the field to something else. It moved out
+# of the application's catalogue with the card markup: the sentence is on this
+# module's page and nowhere else, and a string with one reader belongs beside
+# that reader.
+index:
+    unfiled: 'No %field%'

@@ -304,6 +304,15 @@ services:
     # leaking out through the one file deptrac cannot read.
     Xivi\Core\Record\RecordPageUrl: '@App\Record\RecordPageUrls'
 
+    # And where the list of many of them is, narrowed (XIV-178). The same seam a
+    # fourth time, for the same caller a module's dashboard widget was: a module
+    # drawing its own index body has to be able to point past its own ceiling at
+    # §5.3's list, and `module_index` is a route name a module template may not
+    # spell. The `view=list` parameter is written here and read in
+    # `ModuleController`, so core asks for "the plain list" and never learns the
+    # spelling.
+    Xivi\Core\Record\RecordListUrl: '@App\Record\RecordListUrls'
+
     Xivi\Core\Record\RecordWriter:
         arguments:
             $connection: '@doctrine.dbal.tenant_connection'

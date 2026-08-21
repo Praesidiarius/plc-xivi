@@ -14,7 +14,6 @@ declare(strict_types=1);
 namespace Xivi\Knowledge;
 
 use Xivi\Core\Module\FieldBlueprint;
-use Xivi\Core\Module\GroupedList;
 use Xivi\Core\Module\ModuleBlueprint;
 use Xivi\Core\Module\ModuleProvider;
 
@@ -56,15 +55,21 @@ use Xivi\Core\Module\ModuleProvider;
  *   landed a day before this and named a knowledge-base entry in its own docblock
  *   as the thing it was for. This is the first module blueprint to declare one.
  *
- * **That held for eight days** (XIV-168). The first thing this module ever asked
- * the engine for was a **grouped index**: one card per topic instead of a page
- * of rows, because rows answer "which entry is this" and a knowledge base is
- * browsed rather than looked up. The claim above survives in the form that was
- * worth making, because what arrived is general. A module declares
- * {@see \Xivi\Core\Module\GroupedList} and the engine does the rest, so this
- * file gained one line and there is still no knowledge-base code anywhere. §5.22
- * carries the correction, rather than leaving the original claim to quietly stop
- * being true.
+ * **That held for eight days, and then it held differently** (XIV-168, XIV-177,
+ * XIV-178). The first thing this module ever asked the engine for was a **card
+ * per topic instead of a page of rows**, because rows answer "which entry is
+ * this" and a knowledge base is browsed rather than looked up. What was built
+ * first was a general grouping capability in core with this module as its one
+ * declaration, and it was taken back the next day: §1 says the engine may not
+ * grow features no module needs, and one module is not a second use case.
+ *
+ * So the honest statement of the finding is now this. **The engine grew a seam
+ * and this module grew code.** `Xivi\Core\Record\IndexBodyProvider` is an
+ * interface that knows a template name and some data and nothing about cards;
+ * {@see \Xivi\Knowledge\Index\TopicCards} and the template beside it are this
+ * package's, and they are the first code this package has ever had. That is a
+ * smaller claim than "the engine work was none" and a truer one, and §5.22
+ * carries it rather than leaving the original to quietly stop being true.
  *
  * ### What it deliberately is not
  *
@@ -278,27 +283,26 @@ final class KnowledgeModule implements ModuleProvider
             // A book somebody writes in. `journal-text` rather than `book`,
             // because the entries are written here rather than shelved here.
             icon: 'journal-text',
-            // **The index is a card per topic, not a page of rows** (XIV-168).
+            // **The index is a card per topic, and nothing here declares it**
+            // (XIV-168, XIV-178).
             //
-            // A knowledge base read as twenty-five rows with a pager under them
-            // is a knowledge base nobody browses. Rows answer "which entry is
-            // this"; what somebody arriving actually wants is the shape of what
-            // has been written down, which topics exist and what is filed under
-            // each, and that is a page of cards.
+            // For one day this constructor carried a `groupedList:` argument
+            // naming `topic`, and the whole capability behind it was the
+            // engine's. XIV-177 took that back: one module wanted a card index,
+            // no second module did, and §1 says an abstraction is earned by a
+            // second concrete use case. So the layout is now this module's own
+            // code, {@see \Xivi\Knowledge\Index\TopicCards}, which implements a
+            // seam in core that knows a template name and some data, and there
+            // is nothing left to declare in a blueprint.
             //
-            // **One line, and no knowledge-base code behind it.** The whole
-            // capability is the engine's ({@see GroupedList}), which is the
-            // correction §5.22 needed: the finding there was that this module
-            // cost the engine nothing, and this is the first thing it asked for.
-            // The finding survives in the form that mattered, because what
-            // arrived is general. Articles by category and contacts by kind are
-            // one line each and no further work.
+            // The trade is worth naming, because it is the one this module was
+            // the test case for. What was lost is that articles by category and
+            // contacts by kind are no longer one line each. What was gained is
+            // that the engine does not carry a card index for a module that
+            // might never ask, and that the day a second module does ask, the
+            // template moves into the application and both name it, with no
+            // interface changing.
             //
-            // It names `topic` because `topic` is the only field here that could
-            // be named: a title is a card per record and a body is a card per
-            // paragraph. The engine refuses both by taking only a field whose
-            // type enumerates its own values.
-            groupedList: new GroupedList(self::TOPIC),
             // **No presets** (§6.1), on the article module's reasoning and more
             // so: three fields is already the smallest honest version of this,
             // and the only field a smaller preset could leave out is the body,

@@ -95,36 +95,57 @@ builder.
   memo. Query counts are asserted flat with `assertSame` between two sizes, so
   growth fails rather than slows.
 
-**A module may declare that its index is cards, not rows** (XIV-168).
-`GroupedList` names one of its own fields, and the index draws one card per
-value of it with the records' titles inside. Only a field whose type
-`Enumerates` may be named: the cards are then known before the records are
-read, and the set is short and arranged by the customer. `optionsOf()` moved
-onto that interface for it, which is why grouping is a capability rather than a
-test against `ChoiceFieldType`. Decided once for every grouped module, not per
-module:
+**A module may draw its own records on the index, and the engine never learns
+what it drew** (XIV-178). `IndexBodyProvider` is a tagged interface in core;
+answering it returns an `IndexBody`, which is **a template name, its data, the
+records it is about to draw and the total it counted**, and the index includes
+that template with `with_context = false` where it would otherwise include
+`module/index/_table.html.twig`. Nothing else about it is engine knowledge:
+there is no vocabulary of layout kinds, no declaration on `ModuleBlueprint`,
+and nothing in core that names cards, grouping or topics.
 
-- **one statement, whatever the number of cards.** `findGrouped()` is
-  `ROW_NUMBER()` and `COUNT(*)` over the same partition, so the first few of
-  each group and each group's real total come back together, under one
-  predicate. A query per card is unbounded query count on a page whose values
-  a customer extends; asserted flat between two sizes like everything else
-  here.
-- **a value nobody has used draws no card**, so a fresh tenant is not six empty
-  boxes and a filter cannot leave a heading claiming a match it has not got.
-- **records holding no value get a card, and it goes last**, after the options
-  the customer arranged. The field need not be required, so those records are
-  ordinary and a page without them would hide entries on their own index.
-- **a card stops at `ModuleController::LINKED_ON_RECORD`**, says how many it is
-  holding back, and links to this same index filtered to that value and asked
-  for as rows (`view=list`). Narrowing a grouped page gives one card with the
-  same ceiling, so without that parameter the link would point at itself.
-- **sorting and the row actions are what is lost.** Cards have no headers to
-  sort by, so records are ordered by the module's title fields unless the URL
-  says otherwise; edit and delete are on the record page, which the title
-  links to.
-- **`RecordAccess` is unchanged**: the same `WHERE` clause compiles into the
-  window function, so a card's count is what this reader may see.
+- **The line is the page against the body.** The heading, the seven buttons,
+  the filter form, both empty states, the count and the pager stay the
+  engine's, on every module. What a module may replace is the region between
+  the empty state and the pager. A module never gets the page, a controller or
+  a route.
+- **A body is an offer, resolved against the tenant's shape at render time**
+  (§6.1). A provider whose field the customer deleted or converted returns
+  null and the table comes back, which is §7.6's degradation for a stale
+  reference and §8.3.1's for an unknown widget key, arrived at a third time.
+- **Records and total travel with the body**, so priming (XIV-54) is one call
+  over the whole set however the body arranges it, and the count under the
+  index is the number the body actually counted. Two counts of one set can
+  only agree or disagree. A body therefore has no pager.
+- **`view=list` asks for the plain table** and is `ModuleController`'s
+  parameter, written only by a body pointing past its own ceiling, through
+  `RecordListUrl`. Whether it should exist is still open (XIV-168's own
+  flagged assumption).
+- **Implemented by module packages, never by `packages/control-plane`**: §4.4's
+  image has no administration surface, and the test that enforces that reads
+  PHP and configuration, not Twig.
+- **A module's template lives in the module package**, `@XiviKnowledge/…`, and
+  may name neither an application route nor a translation domain by omission.
+  `RecordPageUrl`, `RecordListUrl` and `RecordSearchUrl` answer the first;
+  `tests/Unit/ModuleTemplatesKeepTheBoundaryTest.php` enforces both, because
+  deptrac cannot read Twig.
+- **When a second module wants the same body, the template moves into the
+  application's `templates/module/index/` and both name it. No interface
+  changes.** §1's second half is a file move and a string here, which is what
+  makes leaving one module's markup in one module cheap rather than a bet.
+
+`RecordRepository::findGrouped()` stayed in core when the rest of XIV-168 went
+back to `packages/knowledge` (XIV-177), and on its own merits rather than by
+association: `ROW_NUMBER()` and `COUNT(*)` over one partition inside the
+compiled `WHERE` is a query shape, and it compiles `RecordAccess` into the
+window function. A module writing that statement would be a module writing its
+own permission filter. It answers both questions a card asks in **one
+statement whatever the number of groups**, which is what keeps a page whose
+values a customer extends off an unbounded query count; asserted flat between
+two sizes like everything else here.
+
+The knowledge index is the one body that exists, and §5.22 records the
+decisions it makes about its own page.
 
 ### 5.4 The metadata editor
 
@@ -681,13 +702,17 @@ escaping decision.
 
 A very simple wiki. **The engine work was none, and that is the finding**:
 `packages/knowledge` is a blueprint, a translation file and a bundle.
-**Corrected eight days later** (XIV-168): the module asked for a grouped index
-and the engine grew one, general enough that this module still adds one line
-and no code. History
-and the system columns answer who and when; there is no `author` field on
-purpose, because a forgotten date field is a record confidently wrong about
-itself. §8.4 answers write-vs-read, `contains` answers search, §5.21 answers
-the body.
+**Corrected eight days later** (XIV-168, then XIV-177): the module asked for a
+card per topic, the engine grew a general grouping capability with one
+declaration behind it, and that was taken back the next day because §1 earns an
+abstraction on a second use case and there was not one. What the engine keeps is
+§5.3's body seam, which knows a template name and some data; what this package
+gained is `src/Index/` and `templates/index/`, its first code and its first
+markup. The smaller claim is the true one: **a module can change how its own
+records are drawn without the engine learning what it drew.** History and the
+system columns answer who and when; there is no `author` field on purpose,
+because a forgotten date field is a record confidently wrong about itself. §8.4
+answers write-vs-read, `contains` answers search, §5.21 answers the body.
 
 - Topics are a plain seeded `choice`, §5.26's recorded first consumer, and
   still not pointed at a list, because a module's own field may not be.
@@ -703,11 +728,18 @@ the body.
   neither sorts. XIV-168 replaced this module's list with cards and **kept the
   date**, at the end of each entry's line; Owner did not come along, because
   nobody's name belongs on a card of what is written down.
-- **The index is a card per topic** (XIV-168), declared with one
-  `GroupedList` and drawn by §5.3's generic page. Untopiced entries have a card
-  of their own, last, because the field is not required and hiding them would
-  be worse than the table. No edit or delete on a card; the title links to the
-  record page, which has both.
+- **The index is a card per topic** (XIV-168), drawn by this module's own
+  `TopicCards` through §5.3's body seam. Its decisions, made once here and not
+  by the engine: a topic nobody has written under draws no card, so a fresh
+  tenant is not six empty boxes and a filter cannot leave a heading claiming a
+  match it has not got; untopiced entries get a card of their own and it goes
+  **last**, after the options the customer arranged, because the field is not
+  required and hiding them would be worse than the table; a value whose option
+  is gone draws a card labelled with the raw value; a card stops at ten, says
+  how many it is holding back and links to the list filtered to that topic and
+  asked for as rows. Sorting is what is lost, because cards have no headers, so
+  entries are ordered by the title fields unless the URL says otherwise. No
+  edit or delete on a card; the title links to the record page, which has both.
 - **The search ceiling is stated and tested**: `ILIKE '%…%'`, with no
   stemming, ranking or index. Full text is a ticket (`tsvector` plus GIN), and
   the test asserting the plural fails to find the singular is its red line.

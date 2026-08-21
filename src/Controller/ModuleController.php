@@ -20,6 +20,7 @@ use App\Tenant\Security\PermissionResolver;
 use App\Tenant\Settings\DisplayTimezone;
 use App\View\LinkedRecords;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Mime\MimeTypes;
@@ -55,11 +56,11 @@ use Xivi\Core\Query\Operator;
 use Xivi\Core\Query\RecordQuery;
 use Xivi\Core\Query\RecordQueryFactory;
 use Xivi\Core\Query\UnsupportedQuery;
+use Xivi\Core\Record\IndexBody;
+use Xivi\Core\Record\IndexBodyProvider;
 use Xivi\Core\Record\InheritedValues;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordAction;
-use Xivi\Core\Record\RecordGroup;
-use Xivi\Core\Record\RecordGrouper;
 use Xivi\Core\Record\RecordPrimer;
 use Xivi\Core\Record\RecordRepository;
 use Xivi\Core\Record\RecordWriter;
@@ -104,15 +105,46 @@ final class ModuleController extends AbstractController
      * because the test for that case has to build more records than this, and a
      * cap the test hard-codes is a cap that stops being tested the day it moves.
      *
-     * **The grouped index reuses it** (XIV-168), which is why the name is the
-     * one thing about it that is now slightly wrong. A card of the entries under
-     * a topic is the same object as a card of the orders under a contact: a
-     * glance, with the list a click away when the glance is not enough. A second
-     * constant would have been a second number to keep in step for no reason
-     * anybody could state, and picking a different one would have needed an
-     * argument that neither card can make against the other.
+     * XIV-168 had the grouped index reuse it, by passing it down into the
+     * engine's grouper, and XIV-178 stopped: a module owns its own body now
+     * ({@see IndexBodyProvider}) and a module may not name a class in `App\`
+     * (§3). So {@see \Xivi\Knowledge\Index\TopicCards::PER_CARD} is a second ten,
+     * arrived at by the same argument rather than by reference: a card of the
+     * entries under a topic is the same object as a card of the orders under a
+     * contact, and neither can make an argument against the other's number.
      */
     public const int LINKED_ON_RECORD = 10;
+
+    /**
+     * The URL parameter that asks this index for its rows rather than for
+     * whatever the module draws (XIV-168, moved here by XIV-178).
+     *
+     * **"Give me the plain list" is a property of the page**, which is why it
+     * lives on the page. §5.3's index draws the body a module offers
+     * ({@see IndexBodyProvider}) and the table when there is none; this is how
+     * somebody says *the table, please*, and it is the only thing in the
+     * application that overrides a module's own layout.
+     *
+     * The one thing that writes it is a link inside a body that has more than it
+     * is showing, built through {@see \Xivi\Core\Record\RecordListUrl}. A body
+     * with a ceiling has to point past that ceiling, and narrowing this page to
+     * the same value gives back the same body with the same ceiling on it, so
+     * the link would point at itself. Without the parameter the way out would
+     * have to be a route of its own or a toggle above the body, and §5.3 has one
+     * index route and a filter bar that is already how a list is narrowed.
+     *
+     * It carried its own constants on a `Xivi\Core\Record\RecordGroup` value
+     * object for a day, which put a word about *cards* in the engine; XIV-177
+     * took the card back and the parameter stayed, because it was never about
+     * cards.
+     *
+     * **Whether it should exist at all is still open**: XIV-168 flagged it as
+     * its one assumption and XIV-178 deliberately did not settle it.
+     */
+    public const string VIEW = 'view';
+
+    /** What {@see self::VIEW} has to say for the rows to come back. */
+    public const string AS_LIST = 'list';
 
     public function __construct(
         private readonly MetadataRepository $metadata,
@@ -158,11 +190,19 @@ final class ModuleController extends AbstractController
         // for the ticks in both modals. Through the generator, so this page
         // learns what is on offer without learning what any of it is.
         private readonly DocumentGenerator $generator,
-        // Whether this module's index is cards, and what goes on them (XIV-168).
-        // Asked of the engine rather than answered here, because "is this module
-        // grouped" is a question about a declaration a module made and this
-        // controller serves every module there is.
-        private readonly RecordGrouper $grouping,
+        /**
+         * Whoever might draw their own records in place of the table (XIV-178).
+         *
+         * The application collects and core declares the seam, exactly as with
+         * {@see \App\Dashboard\Dashboard} and `DashboardWidget`: this controller
+         * serves every module there is, so it asks rather than decides, and what
+         * it learns is a template name and some data. It deliberately learns
+         * nothing about what any of them draws.
+         *
+         * @var iterable<IndexBodyProvider>
+         */
+        #[AutowireIterator(IndexBodyProvider::TAG)]
+        private readonly iterable $indexBodies,
     ) {
     }
 
@@ -178,23 +218,14 @@ final class ModuleController extends AbstractController
         // the other (§7.5).
         $access = $this->accessFor($definition, ModuleAction::List);
 
-        // **Whether this module's records read better as cards than as rows**
-        // (XIV-168), which is the module's own declaration and not this page's
-        // guess. Null is the ordinary answer and means what it has always meant.
-        // Asked before the query runs, because it decides which read is made.
-        $grouped = $this->grouping->fieldFor($definition);
-
-        // And whether somebody has asked past a card's ceiling. The only link
-        // that writes this parameter is the one on a truncated card, and what it
-        // wants back is the page this has always been: rows, sorted, paged. A
-        // grouped page filtered to one value would otherwise be one card with
-        // the same ceiling on it, and "and 37 more" would point at itself.
-        if ($request->query->get(RecordGroup::VIEW) === RecordGroup::AS_LIST) {
-            $grouped = null;
-        }
+        // **Whether somebody asked for the rows rather than for whatever this
+        // module draws.** The only link that writes this parameter is the one
+        // inside a body that has more than it is showing, and what it wants back
+        // is the page this has always been: rows, sorted, paged. See self::VIEW.
+        $asRows = $request->query->get(self::VIEW) === self::AS_LIST;
 
         try {
-            [$records, $total, $groups] = $this->listing($definition, $query, $access, $grouped);
+            [$records, $total, $body] = $this->listing($definition, $query, $access, $asRows);
         } catch (UnsupportedQuery $e) {
             // The query is in the URL, so it can be hand-edited into something
             // the engine will not answer. That is a message and an unfiltered
@@ -202,7 +233,7 @@ final class ModuleController extends AbstractController
             $this->addFlash('warning', $e->translatable()->trans($this->translator));
 
             $query = new RecordQuery();
-            [$records, $total, $groups] = $this->listing($definition, $query, $access, $grouped);
+            [$records, $total, $body] = $this->listing($definition, $query, $access, $asRows);
         }
 
         // A page of records is in hand and every one of them is about to be
@@ -213,9 +244,11 @@ final class ModuleController extends AbstractController
         // it was built for is the record page below, where the rows have no
         // ceiling at all.
         //
-        // Handed every card's records at once when the page is grouped, which is
-        // the whole point of priming being told about a *set*: one call, not one
-        // per card, so a page of twelve topics costs what a page of one does.
+        // Handed a body's whole set at once rather than card by card, which is
+        // the point of priming being told about a *set*: one call, so a page of
+        // twelve topics costs what a page of one does. That is also why
+        // IndexBody carries its records: a body that kept them to itself would
+        // either lose this or make the page ask once per card.
         $this->primer->prime($definition, $records);
 
         return $this->render('module/index.html.twig', [
@@ -228,13 +261,15 @@ final class ModuleController extends AbstractController
                 $definition->getTitleFields(),
             )),
             'records' => $records,
-            // The cards, or null for a page of rows. The template branches on
-            // this and on nothing else, which is what keeps it free of any
-            // knowledge that a knowledge base exists.
-            'groups' => $groups,
-            // Nobody's name is drawn on a card, so the query that resolves them
-            // is not made for one. The owner column belongs to the table.
-            'owners' => $groups === null ? $this->ownerNames($records) : [],
+            // What the module handed back to draw its own records with, or null
+            // for the table (XIV-178). The template branches on this and on
+            // nothing else, and what it knows about the far side of the branch
+            // is a template name and an array.
+            'body' => $body,
+            // Nobody's name is drawn by a module's own body, because the owner
+            // column belongs to the table, so the query that resolves them is
+            // not made for one.
+            'owners' => $body === null ? $this->ownerNames($records) : [],
             'total' => $total,
             'query' => $query,
             'filterable' => $this->queries->filterablePaths($definition),
@@ -245,30 +280,38 @@ final class ModuleController extends AbstractController
 
     /**
      * What the index is looking at: the records, how many there are, and the
-     * cards they fall into when there are cards (XIV-168).
+     * body drawing them when a module offered one (XIV-178).
      *
      * One method because the index calls it twice, once for the query in the URL
      * and once for the empty query it falls back to when that one cannot be
      * answered. Two copies of this drifted apart the moment one of them learned
-     * about grouping.
+     * about a second way of reading.
      *
-     * **The grouped read costs one query rather than two**, and the reason is
-     * not thrift. `total` on a grouped page is the sum of the cards' own totals,
-     * every one of them counted by the same window function under the same
-     * predicate, so asking the database a second time could only ever agree or
-     * disagree, and disagreeing is the failure §5.3 spends a paragraph on. The
-     * ungrouped page still counts separately because its records are one page of
-     * many and cannot be added up.
+     * **A body reports its own total and the page does not count again.** §5.3
+     * spends a paragraph on two counts of one set being able to disagree, and a
+     * body may well be looking at a different set from a page of rows: the
+     * knowledge cards read every topic's first few and every topic's real total
+     * in one statement, and a `countBy()` beside it could only ever agree or
+     * disagree. A page of rows still counts separately, because its records are
+     * one page of many and cannot be added up.
      *
-     * @return array{list<Record>, int, ?list<RecordGroup>}
+     * **The first provider that answers wins, and the rest are not asked.** A
+     * body is a fact about the module rather than about the reader, so at most
+     * one of them is ever about this page; iterating rather than looking up by
+     * key is what keeps this controller from holding a map of modules to
+     * layouts, which is the thing §1 says the engine may not learn.
+     *
+     * @return array{list<Record>, int, ?IndexBody}
      */
     private function listing(
         ModuleDefinition $definition,
         RecordQuery $query,
         RecordAccess $access,
-        ?FieldDefinition $grouped,
+        bool $asRows,
     ): array {
-        if ($grouped === null) {
+        $body = $asRows ? null : $this->bodyFor($definition, $query, $access);
+
+        if ($body === null) {
             return [
                 $this->records->findBy($definition, $query, $access),
                 $this->records->countBy($definition, $query, $access),
@@ -276,23 +319,27 @@ final class ModuleController extends AbstractController
             ];
         }
 
-        $groups = $this->grouping->groupsFor(
-            $definition,
-            $grouped,
-            $query,
-            $access,
-            self::LINKED_ON_RECORD,
-        );
+        return [$body->records, $body->total, $body];
+    }
 
-        $records = [];
-        $total = 0;
+    /**
+     * The first module body that applies to this page, or null for the table.
+     *
+     * Null for every module but one, today and probably for a while, which is
+     * the ordinary answer rather than a failure: §5.3's table is what an index
+     * is unless somebody said otherwise about their own records.
+     */
+    private function bodyFor(ModuleDefinition $definition, RecordQuery $query, RecordAccess $access): ?IndexBody
+    {
+        foreach ($this->indexBodies as $provider) {
+            $body = $provider->bodyFor($definition, $query, $access);
 
-        foreach ($groups as $group) {
-            $records = [...$records, ...$group->records];
-            $total += $group->total;
+            if ($body !== null) {
+                return $body;
+            }
         }
 
-        return [$records, $total, $groups];
+        return null;
     }
 
     /**

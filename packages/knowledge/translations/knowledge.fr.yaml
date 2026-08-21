@@ -24,3 +24,12 @@ topic:
     # Ce que nous savons de la chose elle-même.
     product: Produit
     other: Autre
+
+# Comment l'index nomme la carte des entrées classées sous aucun sujet (XIV-177).
+#
+# Le nom du champ est inséré : « Sans Sujet » aujourd'hui, et le mot du client
+# s'il a renommé le champ. La phrase a suivi le balisage des cartes hors du
+# catalogue de l'application : elle est sur la page de ce module et nulle part
+# ailleurs.
+index:
+    unfiled: 'Sans %field%'

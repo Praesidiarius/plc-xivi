@@ -26,3 +26,12 @@ topic:
     # Che cosa sappiamo della cosa in sé.
     product: Prodotto
     other: Altro
+
+# Come l'indice chiama la scheda delle voci senza argomento (XIV-177).
+#
+# Viene inserito il nome del campo: oggi "Senza Argomento", e la parola del
+# cliente se ha rinominato il campo. La frase ha seguito il markup delle schede
+# fuori dal catalogo dell'applicazione: sta sulla pagina di questo modulo e da
+# nessun'altra parte.
+index:
+    unfiled: 'Senza %field%'

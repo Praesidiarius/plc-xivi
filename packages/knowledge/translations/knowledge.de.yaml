@@ -33,3 +33,12 @@ topic:
     # Was wir über die Sache selbst wissen.
     product: Produkt
     other: Sonstiges
+
+# Wie die Übersicht die Karte mit den Einträgen ohne Thema nennt (XIV-177).
+#
+# Der Feldname wird eingesetzt, es steht also heute „Ohne Thema“ und bei einer
+# Kundin, die das Feld umbenannt hat, ihr eigenes Wort. Der Satz ist mit dem
+# Karten-Markup aus dem Katalog der Anwendung hierher gezogen: er steht auf der
+# Seite dieses Moduls und sonst nirgends.
+index:
+    unfiled: 'Ohne %field%'

@@ -394,10 +394,6 @@ module:
     trend_range: 'zwischen %low% und %high%'
     trend_truncated: Ältere Änderungen als diese werden nicht gezeichnet.
     card_all: Alle anzeigen
-    # Die Karte einer gruppierten Übersicht für die Datensätze, die auf die
-    # Gruppierungsfrage keine Antwort haben (XIV-168). Der Feldname wird
-    # eingesetzt, in der Wissensdatenbank also "Ohne Thema".
-    unfiled: 'Ohne %field%'
     action_by: 'von %who%'
     action_by_system: System
     action:

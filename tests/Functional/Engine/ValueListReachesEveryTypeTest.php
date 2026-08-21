@@ -15,7 +15,6 @@ namespace App\Tests\Functional\Engine;
 
 use App\Tests\Support\UnaskableType;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
 use Xivi\Core\Field\PointsAtAList;
 use Xivi\Core\Field\Type\ChoiceFieldType;
@@ -144,17 +143,6 @@ final class ValueListReachesEveryTypeTest extends KernelTestCase
                 public function findsHoldersBy(): Operator
                 {
                     return Operator::Equals;
-                }
-
-                /**
-                 * What `Enumerates` has asked of its implementors since XIV-168.
-                 * Nothing in this test calls it: the violation being planted is
-                 * about where the *list key* is kept, and the scan under test
-                 * reads a declaration rather than any values.
-                 */
-                public function optionsOf(FieldDefinition $field): array
-                {
-                    return [];
                 }
             }),
             'a type pointing at a list through some other option must not be invisible to the scan',
