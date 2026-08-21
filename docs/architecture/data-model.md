@@ -1038,4 +1038,88 @@ are not like that.
 - Not built: virus scanning, thumbnails, previews, versioning a replaced file
   (the old bytes go, the history keeps the old name), de-duplication.
 
+### 5.31 A field that holds several options (XIV-169)
+
+The fourth square of §5.29's grid: one record, several records, one option,
+several options. The languages somebody speaks, the certifications a supplier
+holds, the channels a customer agreed to be contacted on, all of them a
+comma-separated text field until this existed.
+
+- **`HoldsSeveralValues` was written expecting this, and it held.** Declaring
+  the capability inherited the `unique` refusal (editor and installer), the
+  sorting refusal (compiler and list header), the containment filter and the
+  export separator, with none of those places learning a second type name. The
+  add form, the per-type controls and the shared-list scan came free the same
+  way, because each asks a capability. **Three places did have to change and
+  none of them was one of the six**: they are all one seam, below.
+- **The seam that was missing: which comparison finds a holder.** §5.4 refuses
+  removing an option records hold and enforces it with a count, and that count
+  was `data ->> 'key' = 'pallet'`, which for an array is the array's own text
+  and matches no option there has ever been. It would not have raised. It would
+  have counted zero, allowed the removal, and stranded every record holding the
+  option, silently, which is a rule switched off rather than a rule that passed.
+  So `Enumerates::findsHoldersBy()` is `PointsAtAModule::findsTargetBy()` one
+  capability over, the callers ask it, and `RecordRepository` compiles one
+  expression per answer: `data ->> 'key'` for a scalar,
+  `jsonb_array_elements_text(data -> 'key')` for a set. The **same** seam fixes
+  the count printed beside each option, the shared list's removal refusal, the
+  check that a populated field's values survive being pointed at a list, and the
+  merge, which was one `UPDATE … WHERE data ->> 'key' = …` and would have
+  reported rewriting nothing while leaving half of somebody's data saying the
+  old thing for ever, the exact outcome §5.26 says the merge exists to prevent.
+- **Canonical order is the field's option order, and this diverges from §5.29 on
+  purpose.** That section sorts ids ascending because ids mean nothing and
+  ordering names is a collation decision taken nowhere else. Options are the
+  other case: the field already carries the order the customer arranged, and it
+  is the order in the dropdown they picked from, so sorting keys would put
+  `urgent` after `low` and read as a bug. Stored de-duplicated and canonicalised
+  into that order, which keeps what §5.29's rule is actually for, that two
+  spellings of one set are one stored value so the history diff cannot report a
+  reordering as a change. **Display reads the field's current options rather
+  than the stored order**, so rearranging options rewrites no record at all.
+- **Chips, not one comma-separated line, and `value_badge()` became
+  `value_badges()`.** One function returning a list, with the single case a list
+  of one, because two spellings would be two for every template to keep in step.
+  A multi-valued field draws a chip per value whether or not anybody coloured
+  it, which is the opposite of §5.26's rule for a lone value and is decided by
+  the labels: an option may be called `Zurich, CH`, so a comma between two of
+  them is ambiguous on a page in a way it is not in a spreadsheet cell.
+  `display()` still joins with a comma, because a .docx, an export cell and a
+  record's own title cannot carry a chip. **The ceiling is the list column's,
+  three then a count**, stated in the template that has the room rather than in
+  the type: the record page draws all of them and is where the count sends
+  somebody.
+- **A plain `<select multiple>`, never the autocomplete endpoint.**
+  `multi_reference` needs a search endpoint because a module holds nine thousand
+  records; a choice list is closed, small and already in the page, so XIV-36's
+  client-side half narrows it and nothing is fetched. `expanded` is false at
+  every size: checkboxes are right for four channels and a page and a half for
+  four hundred regions.
+- **Both answers to §5.26's question**, the field's own options or a shared
+  list, through the same two option names, which is what makes `ValueListUsage`
+  find it. That section's promise about a multi-value field pointing at a
+  `value_list` is exercised at last, and the registry test now says so by name.
+- **`choice` → `multi_choice` is lossless at the seam §7.2 names**, because
+  `toStorage()` reads one option as a set of one; the dry run reports every row
+  surviving and the change reversible while every record holds one.
+  **Neither direction is offered on the conversion page**, and that is §5.4's
+  standing rule rather than this type's: nothing converts *into* a type that has
+  to be told what its values mean, which is why `reference` → `multi_reference`
+  is not offered either despite §5.29 reading as though it were. Worth a ticket
+  of its own; the honest fix is to carry an already-answered option across
+  rather than to widen the refusal.
+- **A collection row may hold one**, on XIV-113's answer rather than XIV-115's:
+  a file is refused on a collection because a download is addressed by module
+  and record id and a row has no address, which is a fact about files. A set of
+  keys is a JSON array in a JSON payload and a row has the same payload (§5.1).
+- **`ChoiceFieldType::toStorage()` learned to read a list**, which is the one
+  line of the single type that moved. Only the dry run's reversibility check can
+  hand it one, and it used to cast it with `(string)`, producing the word
+  `Array` and a PHP warning nobody saw underneath a report a customer read. One
+  option survives, several are kept in the separator's spelling so the `Choice`
+  constraint names them. No other caller can reach the branch.
+- Not here: an arranged order, which is a third type on §5.29's rule; "has any
+  of these", which is §7.3's missing `OR`; a hop through the field; and
+  promotion to the record header, which is XIV-173 and sits on top of this.
+
 ---

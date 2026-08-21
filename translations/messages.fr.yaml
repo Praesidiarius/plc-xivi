@@ -360,6 +360,8 @@ module:
     drifted: '%field% diffère de ce dont il a été copié.'
     outstanding: '%amount% restant'
     outstanding_help: Pas encore repris par quoi que ce soit créé depuis cet enregistrement.
+    more_values_short: '+%count%'
+    more_values: '%count% valeur(s) de plus sur cet enregistrement.'
     locked: 'Cet enregistrement est %state% et ne peut plus être modifié.'
     history_empty: >-
         Rien de consigné. Les enregistrements antérieurs à l’historique n’en ont pas, jusqu’à leur

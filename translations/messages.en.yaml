@@ -576,6 +576,11 @@ module:
     drifted: '%field% differs from what it was copied from.'
     outstanding: '%amount% left'
     outstanding_help: Not yet taken by anything made from this record.
+    # A list column caps a several-valued field at three chips ([XIV-169]); the
+    # short one is the chip after them and the long one is its tooltip. The
+    # record page draws all of them, so this appears in a table and nowhere else.
+    more_values_short: '+%count%'
+    more_values: '%count% more value(s) on this record.'
     locked: 'This record is %state% and can no longer be edited.'
     history_empty: >-
         Nothing recorded. Records that existed before history did have none until

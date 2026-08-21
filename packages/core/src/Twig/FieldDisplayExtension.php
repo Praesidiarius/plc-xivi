@@ -26,6 +26,7 @@ use Xivi\Core\Field\HoldsSeveralValues;
 use Xivi\Core\Field\LinksToRecord;
 use Xivi\Core\Field\RecordLink;
 use Xivi\Core\Field\ShowsABadge;
+use Xivi\Core\Field\ShowsSeveralBadges;
 use Xivi\Core\Field\StoredFile;
 use Xivi\Core\Field\ValueBadge;
 use Xivi\Core\Markdown\MarkdownRenderer;
@@ -57,7 +58,7 @@ final class FieldDisplayExtension extends AbstractExtension
             // this one may hand back something already safe and `display()`
             // never can.
             new TwigFunction('formatted', $this->formatted(...)),
-            new TwigFunction('value_badge', $this->valueBadge(...)),
+            new TwigFunction('value_badges', $this->valueBadges(...)),
             new TwigFunction('stored_file', $this->storedFile(...)),
             new TwigFunction('file_size', $this->fileSize(...)),
             new TwigFunction('display_stored', $this->displayStored(...)),
@@ -185,25 +186,41 @@ final class FieldDisplayExtension extends AbstractExtension
     }
 
     /**
-     * The colour and the picture a value carries, when it carries any
-     * (XIV-127).
+     * The chips a value draws, however many that is (XIV-127, then [XIV-169]).
      *
      * The third function on this class with exactly this shape, after
      * `record_link()` and `formatted()`, and the third one written this way for
      * the reason the first two give: **the template asks the field, not the type
      * key.** A page that wrote `field.type == 'choice'` would be a page to edit
-     * the next time something has a colour, and it would still be wrong today —
-     * a `choice` field keeping its own options has no colours, so the answer
-     * depends on the field rather than on its type.
+     * the next time something has a colour, and it would still be wrong today,
+     * because a `choice` field keeping its own options has no colours and the
+     * answer therefore depends on the field rather than on its type.
      *
-     * Null means "draw this the way you always did", which is what every field
-     * in every tenant returns until somebody points one at a shared list.
+     * **A list rather than one badge or null, and one function rather than two**
+     * ([XIV-169]). It answered with a single badge while every type that had one
+     * held a single value; a field holding several holds several, and the two
+     * ways of asking that question would be two spellings for every template on
+     * every page to keep in step. So the plural is the only door, the singular
+     * case is a list of one, and a template loops over what it is given without
+     * knowing which kind of field it is drawing.
+     *
+     * The empty list means "draw this the way you always did", which is what
+     * every field in every tenant answers until somebody points one at a shared
+     * list or gives a field several values.
+     *
+     * @return list<ValueBadge>
      */
-    public function valueBadge(FieldDefinition $field, mixed $value): ?ValueBadge
+    public function valueBadges(FieldDefinition $field, mixed $value): array
     {
         $type = $this->fieldTypes->get($field->getType());
 
-        return $type instanceof ShowsABadge ? $type->badgeOf($value, $field) : null;
+        if ($type instanceof ShowsSeveralBadges) {
+            return $type->badgesOf($value, $field);
+        }
+
+        $badge = $type instanceof ShowsABadge ? $type->badgeOf($value, $field) : null;
+
+        return $badge === null ? [] : [$badge];
     }
 
     /**

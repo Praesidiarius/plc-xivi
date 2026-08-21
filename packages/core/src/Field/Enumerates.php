@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 namespace Xivi\Core\Field;
 
+use Xivi\Core\Query\Operator;
+
 /**
  * A field type whose values are a list the customer keeps (XIV-144).
  *
@@ -45,4 +47,35 @@ namespace Xivi\Core\Field;
  */
 interface Enumerates extends NeedsAnAnswer
 {
+    /**
+     * The comparison that finds the records still holding one of these options
+     * ([XIV-169]).
+     *
+     * **The second question of the two above, asked of the type rather than
+     * assumed by the caller**, and it had to become a question the day a second
+     * type started enumerating. Removing an option is counted first and refused
+     * while records hold it, and until [XIV-169] that count could be written as
+     * `data ->> 'key' = 'pallet'` and be right, because the only type with
+     * options held exactly one of them.
+     *
+     * A field holding several holds a JSON array, and that expression hands back
+     * the array's own *text*: `["pallet", "crate"]`, which equals no option
+     * anybody has ever had. So the count would come back zero, the refusal would
+     * not fire, and the option would come off the list from under every record
+     * holding it. **Nothing would report that.** §5.4's whole rule is enforced
+     * by a number, and a number that is silently always zero is a rule switched
+     * off rather than a rule that passed.
+     *
+     * Exactly {@see PointsAtAModule::findsTargetBy()}'s shape, one capability
+     * over and for the same reason: a `switch` in the editor would be the switch
+     * on field type this design exists to prevent, and a *silent* one. The
+     * callers that count held values ask this and hand the answer to
+     * {@see \Xivi\Core\Record\RecordRepository}, which builds the comparison
+     * and knows nothing about which type asked for it.
+     *
+     * It is on this interface rather than on {@see FieldType} because it is only
+     * answerable by a type whose values are a set somebody keeps: nothing else
+     * has options for the question to be about.
+     */
+    public function findsHoldersBy(): Operator;
 }

@@ -18,6 +18,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Xivi\Core\Field\FieldTypeRegistry;
 use Xivi\Core\Field\PointsAtAList;
 use Xivi\Core\Field\Type\ChoiceFieldType;
+use Xivi\Core\Query\Operator;
 use Xivi\Core\ValueList\ValueListUsage;
 
 /**
@@ -99,15 +100,23 @@ final class ValueListReachesEveryTypeTest extends KernelTestCase
         self::assertInstanceOf(PointsAtAList::class, $registry->get('choice'));
         self::assertNotInstanceOf(PointsAtAList::class, $registry->get('reference'));
 
-        // **And the multi-value one does not either** (XIV-113), which is a
-        // decision rather than an omission and is therefore written down where
-        // it can go red. §5.26 promised that a multi-value field pointing at a
-        // `value_list` would use that option and that capability; the type
-        // XIV-113 built points at a *module*, so the promise is not exercised:
-        // its values are records, not entries somebody keeps on a list. A future
-        // type that does point at one inherits every refusal by declaring this,
-        // and the invariant above is what holds it to the option name.
+        // **And the multi-value reference does not either** (XIV-113), which is
+        // a decision rather than an omission and is therefore written down where
+        // it can go red. Its values are records, not entries somebody keeps on a
+        // list, so it points at a *module* and nothing here reaches it.
         self::assertNotInstanceOf(PointsAtAList::class, $registry->get('multi_reference'));
+
+        // **And the promise §5.26 made about a multi-value field is exercised at
+        // last** ([XIV-169]). That section settled, before either type existed,
+        // that a field holding several of a list's entries would point at the
+        // same `value_list` rows through the same option and the same
+        // capability, and would inherit every refusal because this scan finds
+        // fields by capability rather than by type name. `multi_choice` is that
+        // field, and it declares this rather than keeping a list of its own: the
+        // count beside an entry, the refusal that stops one being removed from
+        // under records holding it, and the merge all reach it without
+        // ValueListUsage learning a second name.
+        self::assertInstanceOf(PointsAtAList::class, $registry->get('multi_choice'));
     }
 
     /**
@@ -128,6 +137,12 @@ final class ValueListReachesEveryTypeTest extends KernelTestCase
                     // would never find a field of this type: it reads `list` and
                     // this one keeps its key in `vocabulary`.
                     return [[ChoiceFieldType::CHOICES, 'vocabulary']];
+                }
+
+                /** Beside the point of this violation, and one option is one value ([XIV-169]). */
+                public function findsHoldersBy(): Operator
+                {
+                    return Operator::Equals;
                 }
             }),
             'a type pointing at a list through some other option must not be invisible to the scan',
