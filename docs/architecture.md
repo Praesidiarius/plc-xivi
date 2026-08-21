@@ -28,10 +28,11 @@ the abstraction: a second concrete use case before a generalization.
 That rule gained its second half on 2026-08-20: **once a second module needs
 it, it is the engine's.** A capability two modules carry copies of is an
 abstraction already earned and not yet collected; only what is unique to one
-module belongs in one. The first real test of this half will be recurrence,
-because memberships and recurring invoices both want a thing done on a clock
-inside a tenant, and neither module may own the clock. §4.5 is where the
-clock's outside half already lives.
+module belongs in one. Its first test was recurrence, because memberships and
+recurring invoices both want a thing done on a clock inside a tenant and
+neither module may own the clock; **the clock is §6.7 and it landed before
+either consumer**, which is the rule working rather than being waived. §4.5 is
+its outside half.
 
 ---
 

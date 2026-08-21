@@ -119,6 +119,37 @@ final readonly class ScheduledJobs
                 'a customer\'s question to whoever runs this installation reaches nobody',
             ),
 
+            // **The engine's clock** (XIV-155, §6.7), and the first entry in this
+            // list whose absence is invisible from the outside. The three above
+            // are somebody waiting for a mail or a screen; this one is a customer
+            // for whom *nothing happens*, which looks exactly like a month in
+            // which nothing was due. A recurring invoice is not raised, a
+            // membership term does not renew, and every record is precisely as
+            // the customer left it, so the first report is not "the software is
+            // broken" but "we have not been billing this client since June", from
+            // their accountant, in October.
+            //
+            // **Hourly**, and the cadence is a decision rather than a default.
+            // What the clock promises is that work due at some instant runs at
+            // the first run after it, so the cadence *is* the lateness, and the
+            // customers on this instance are not in one timezone: a nightly run
+            // at a fixed UTC hour is a different distance from local midnight for
+            // every one of them, and the argument about which hour to pick is one
+            // nobody can win. An hour is short enough that the question never
+            // comes up, and cheap enough to say out loud: one connection per
+            // serving customer per hour, and one query per declared work kind
+            // inside it, over a table indexed for exactly that question.
+            //
+            // At :06 rather than on the hour, for the reason the two nightly jobs
+            // below are at odd minutes: nothing about it needs to be on the hour,
+            // and fifty installations of Xivi waking up together is a spike
+            // somebody's database notices.
+            new ScheduledJob(
+                'tenant:work:run',
+                '6 * * * *',
+                'nothing a customer set up to happen on a schedule happens: no recurring invoice is raised and no term renews, and the records look exactly as if nothing were due',
+            ),
+
             // The one nobody is waiting for and nobody would notice stopping,
             // which is why it is written down here rather than left to a
             // deployment to remember (XIV-125). A signup whose address never

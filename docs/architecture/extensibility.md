@@ -270,3 +270,84 @@ needs no deploy. So can a file turn a customer's Contact into a law firm's?
   forecloses it.
 
 ---
+
+### 6.7 The engine owns the clock (XIV-155)
+
+§1's second half names recurrence as its first test: recurring invoices
+(XIV-156) and memberships (XIV-157) both want *"do this, for this record, for
+this period, inside this tenant"*, so neither module may own the clock. It
+landed before either consumer, deliberately, because the point of the rule is
+to collect the abstraction before the first copy of it is written.
+
+**A module declares, the engine executes.** `RecurringWork` is a tagged
+service with five methods: a key, the module it belongs to, a `CatchUp`, a
+`due()` that answers what is outstanding, and a `run()` that does one
+occurrence. **No module ships a command, a cron entry or a loop.** `due()` is
+a question and must be safe to ask twice, about periods that already happened,
+in a tenant whose customer has renamed the field it reads; the engine filters
+and remembers, which is what stops each module keeping its own bookkeeping.
+
+**An occurrence is (work, subject, period)**, and those three are also the
+unique index. `subject` is the record it recurs for, a string the engine never
+interprets; `period` is an absolute instant, not a label. There is **no
+foreign key** to what `subject` names, on §5.10's and §5.19's argument:
+deleting a definition must not make last month's invoice due again.
+
+**Running twice is answered by a record, not by asking modules to be
+idempotent**, which is an instruction to every author for ever, checked by
+nobody.
+`due_work` carries one row per occurrence, claimed by one
+`INSERT … ON CONFLICT DO NOTHING RETURNING id`, XIV-103's lesson applied
+again. **The claim is written in the same transaction as the work**, which is
+the whole design: work that throws takes its own record with it, so *an
+attempt is not a run* and no lease timeout or reaper is needed. The stated
+cost: **at-most-once holds for effects in the tenant's database and nowhere
+else.** A `run()` that sends mail may send it twice; neither consumer has one,
+and when one arrives it wants §5.15's two-phase shape rather than a change
+here.
+
+**Catch-up is declared per work kind**, because the answers differ and both
+are right: a monthly invoice wants the months it missed
+(`EveryMissedPeriod`), a sweep wants to happen once (`OnlyTheLatest`). A
+passed-over occurrence is **written down**, per subject, not skipped: a module
+answers from its own records, so a silent skip would be re-offered on every run
+for ever.
+
+**Time.** The schedule is evaluated in **the tenant's own zone**: §8.4.4's
+chain with nobody reading, so the installation's setting (§8.6), then what its
+region implies, then UTC. Never a person's, because a boundary must not depend
+on who typed the command, and never the server's, because a Zurich business
+billing on the 1st at UTC midnight bills on the 31st. The instant is taken **once for
+the whole walk**, so a run over fifty databases cannot put the first customer
+on one side of a month boundary and the last on the other. A customer who
+changes their zone moves future boundaries; occurrences already recorded keep
+theirs and never re-run.
+
+**What it does not promise, said rather than implied.** Nothing runs between
+requests (§9.2), so work happens at the **first run of the clock after it fell
+due** and never at the instant it did; the cadence is the lateness. Hourly is
+the §4.5 entry, chosen because customers are not in one timezone and any fixed
+nightly hour is a different distance from local midnight for each of them. A
+module needing something to happen *at* a moment cannot have it here.
+
+**The walk is `tenant:work:run`**, in the control plane, §4.2's exit codes
+(0 / 1 / 3) and `tenant:migrate`'s rule that one customer's failure costs
+nobody else theirs. Two departures, both deliberate: **an empty registry exits
+0**, because this runs hourly and unattended and a failure mail every hour on
+an installation awaiting its first signup is §4.5's own failure arriving
+through the channel built to prevent it; and **a tenant not serving requests
+is skipped**, because `provisioning` may have no schema and `suspended` is
+somebody's decision that this customer's instance does nothing (§4.6).
+
+**Within one subject, a failed period stops that subject for the run** and
+resumes in order next time, so a failure cannot hand August July's place in a
+numbered series (§5.10). Other subjects, other jobs and other tenants are
+unaffected. Honest limit: a failure that closes the tenant's entity manager
+leaves that tenant's remaining occurrences failing too; they are reported and
+still outstanding, and the walk resets at the next customer.
+
+**Deliberately not built**: a catalogue screen of what is due, retry counts,
+dead-lettering, per-occurrence payloads, and any way to schedule a one-off.
+None of the two consumers asks for one, and §1 is the reason.
+
+---

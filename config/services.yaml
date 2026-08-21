@@ -320,6 +320,24 @@ services:
         arguments:
             $connection: '@doctrine.dbal.tenant_connection'
 
+    # The engine's clock (XIV-155, §6.7). Both halves need the *customer's*
+    # database and for the same reason every entry above them does, one step
+    # sharper: the record that a period has been done is what stops it being done
+    # twice, so on the control plane's connection it would be one shared memory
+    # for the whole instance: the first customer to be billed for August would
+    # make everybody else's August look already done.
+    #
+    # The runner's other argument is not here because it does not need to be:
+    # which declarations exist is a fact about the build, and it collects them
+    # from the container's tag itself (`AutowireIterator`).
+    Xivi\Core\Schedule\DueWorkLog:
+        arguments:
+            $connection: '@doctrine.dbal.tenant_connection'
+
+    Xivi\Core\Schedule\DueWorkRunner:
+        arguments:
+            $connection: '@doctrine.dbal.tenant_connection'
+
     # A voucher's redemption counter (XIV-103), and the first *module* service to
     # need this binding rather than a core one. The rule is the same one core
     # states about itself: a module has no opinion about whose database it is
@@ -546,6 +564,17 @@ when@test:
         # grew — Contact's `payment_terms`, its addresses collection — are
         # precisely the ones a test must not assert the current shape of.
         App\Tests\Support\Module\GrownModule: ~
+
+        # And a module's recurring work, for the same reason a third time
+        # (XIV-155). The engine's clock landed before either of the two consumers
+        # §1's rule required in order to justify it, so the only declaration in
+        # the build is this one. Public because every test of the clock has to
+        # reach in and say what is due this time, and tagged by autoconfiguration
+        # like any other `RecurringWork` would be.
+        App\Tests\Support\Schedule\RehearsedWork:
+            public: true
+            arguments:
+                $numbering: '@Xivi\Core\Numbering\NumberAllocator'
 
         # Private services with no caller are removed when the container is
         # compiled, and nothing in the application validates a record yet — the

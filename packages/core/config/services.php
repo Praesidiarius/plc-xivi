@@ -39,6 +39,12 @@ return static function (ContainerConfigurator $container): void {
                 // `string $value` into it.
                 __DIR__ . '/../src/Record/{Record,Derivation,RecordGroup}.php',
                 __DIR__ . '/../src/Validation/UniqueFieldValue.php',
+                // One thing the clock owes a tenant, and what a turn of it came
+                // to (XIV-155). Values the runner builds and hands back, not
+                // services: the container would otherwise try to autowire a
+                // `string $subject` into the first and register the second as
+                // something nobody can call anything on.
+                __DIR__ . '/../src/Schedule/{Occurrence,WorkReport}.php',
                 // One value drawn as a chip, and the three answers a shared
                 // list's own screens are made of ([XIV-127]). Values, not
                 // services: the container would otherwise try to autowire a
