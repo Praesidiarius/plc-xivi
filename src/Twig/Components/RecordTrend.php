@@ -218,8 +218,10 @@ final class RecordTrend extends AbstractController
      * time axis wants a date adapter — one more dependency, and `date-fns`
      * unbundled through AssetMapper is larger than Chart.js itself — so the x
      * values are plain milliseconds on a linear scale and the small Stimulus
-     * controller beside this file turns them back into dates for the ticks and
-     * the tooltip, using the browser's own `Intl`. No dependency, one file, and
+     * controller beside this file turns them back into dates, using the
+     * browser's own `Intl` and `Date`. It decides where the ticks go as well as
+     * what they say ([XIV-174]): a linear scale puts them on round numbers, and
+     * a round number of milliseconds is not a day. No dependency, one file, and
      * the formatting follows the reader's language rather than the server's.
      *
      * ### No colours here
@@ -266,6 +268,14 @@ final class RecordTrend extends AbstractController
                 'legend' => ['display' => false],
             ],
             'scales' => [
+                // **`maxTicksLimit` is a budget rather than a count** ([XIV-174]).
+                // Chart.js would spend it on round millisecond values, which are
+                // not days: four of those across a day and a half print the same
+                // date twice. So the controller places the ticks itself, on
+                // midnight, and reads this to decide how many days the card has
+                // room for. Four is what fits without rotating, which is what
+                // `maxRotation` insists on: a diagonal date is a date nobody
+                // reads.
                 'x' => ['type' => 'linear', 'ticks' => ['maxTicksLimit' => 4, 'maxRotation' => 0]],
                 // **Not from zero.** A price that has moved between 95 and 120 is
                 // a flat line at the top of the card if the axis starts at zero,

@@ -1,7 +1,18 @@
 <!DOCTYPE html>
 {# The document's language, so screen readers and browser translation
-   follow the same choice the person made (XIV-8). #}
-<html lang="{{ app.request.locale }}">
+   follow the same choice the person made (XIV-8).
+
+   **The underscore has to go** ([XIV-174]). `app.request.locale` is an ICU
+   locale and is written `de_CH`, because the language and the region are joined
+   by `App\Tenant\Settings\FormattingLocale` (XIV-50), so every reader whose
+   account or installation carries a region gets one of these. HTML's `lang`
+   takes a BCP 47 language tag, which spells the identical thing `de-CH`, and
+   the hyphen is not a matter of taste: it is what every consumer of the
+   document language parses. Most of them shrug at an unparseable value, which
+   is why this was invisible for as long as it was. `Intl` does not: it throws,
+   and it threw in the trend chart's controller, which is how the x axis came to
+   be labelled with epoch milliseconds. #}
+<html lang="{{ app.request.locale|replace({'_': '-'}) }}">
 	<head>
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">

@@ -138,6 +138,11 @@ desk behind this.
 - **Language and region are two settings** (XIV-50). `de` plus `CH` composes
   `de_CH`, and an English speaker at a Swiss company wants English words with
   Swiss figures. The chain: person, installation, bare language.
+- **The page's `lang` is a language *tag*, not that locale** (XIV-174). ICU
+  writes `de_CH`; HTML, `Intl` and everything else in a browser take `de-CH`,
+  and `Intl` throws on the underscore rather than ignoring it. So the composed
+  locale is hyphenated on its way into the document, and browser code asking
+  what language a page is in gets an answer it can use.
 - **Dates show locally and store as ISO.** Reaching for the storage constant
   to localize a display is the XIV-47 mistake.
 - Language is per user, resolved per request, never parked in the session. The
