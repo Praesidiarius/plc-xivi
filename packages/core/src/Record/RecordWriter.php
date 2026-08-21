@@ -353,7 +353,11 @@ final readonly class RecordWriter
      */
     private function derive(ModuleDefinition $module, Record $record, array $children): array
     {
-        $derivation = $this->derived->of($module, $record->data, $children);
+        // **With the record's own id**, which is null while it is being created
+        // ([XIV-147]). A deriver that reads the module's other records has to be
+        // able to leave this one out of them, and re-saving a stored record is
+        // the case that goes wrong without it.
+        $derivation = $this->derived->of($module, $record->data, $children, $record->id);
 
         if ($derivation === null) {
             return $children;

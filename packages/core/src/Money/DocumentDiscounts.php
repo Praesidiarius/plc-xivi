@@ -79,23 +79,35 @@ interface DocumentDiscounts
      * percentage off the whole document has to be a percentage of what is left
      * after the lines have been reduced.
      *
-     * @param array<string, mixed>   $fields  the record's own values, as the save has
-     *                                        them — the reference naming a voucher is
-     *                                        one of these
-     * @param Amount                 $lineSum what the priced lines came to before any
-     *                                        discount, which is what a percentage is a
-     *                                        percentage *of*. It carries whatever the
-     *                                        line-total column carries, so it is a net
-     *                                        on a net-priced document and a gross on a
-     *                                        shelf-priced one (XIV-116) — and a tenth
-     *                                        off is a tenth off either way
-     * @param list<DiscountableLine> $lines   the lines that can be reduced, in the
-     *                                        order the document has them and with what
-     *                                        each charges. Generated discount rows are
-     *                                        **not** among them: they are this seam's
-     *                                        own output from the last save, and a
-     *                                        source offered its own answer back would
-     *                                        discount a discount
+     * @param int|null               $document which record this is, and **null for one
+     *                                         that does not exist yet** ([XIV-147]). A
+     *                                         source that answers from the *other*
+     *                                         documents of this module needs it, and
+     *                                         nothing else does: an invoice's share of
+     *                                         its order's discount is what the order's
+     *                                         other invoices have not taken, and
+     *                                         re-saving a stored invoice would find its
+     *                                         own last answer among them. It is not one
+     *                                         of `$fields` because an id is the record's
+     *                                         identity rather than a value on it
+     *                                         ({@see \Xivi\Core\Record\Derivation::$id})
+     * @param array<string, mixed>   $fields   the record's own values, as the save has
+     *                                         them — the reference naming a voucher is
+     *                                         one of these
+     * @param Amount                 $lineSum  what the priced lines came to before any
+     *                                         discount, which is what a percentage is a
+     *                                         percentage *of*. It carries whatever the
+     *                                         line-total column carries, so it is a net
+     *                                         on a net-priced document and a gross on a
+     *                                         shelf-priced one (XIV-116) — and a tenth
+     *                                         off is a tenth off either way
+     * @param list<DiscountableLine> $lines    the lines that can be reduced, in the
+     *                                         order the document has them and with what
+     *                                         each charges. Generated discount rows are
+     *                                         **not** among them: they are this seam's
+     *                                         own output from the last save, and a
+     *                                         source offered its own answer back would
+     *                                         discount a discount
      */
-    public function on(ModuleDefinition $module, array $fields, Amount $lineSum, array $lines): ?Discount;
+    public function on(ModuleDefinition $module, ?int $document, array $fields, Amount $lineSum, array $lines): ?Discount;
 }

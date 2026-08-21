@@ -269,12 +269,14 @@ final readonly class DerivesTotals implements ValueDeriver, SafeToPreview
         // **And only where the module said where such a line would go.** A
         // discount is a *row of a stated kind* (`discountKind`), so a module that
         // has not named one has nowhere to put a discount and is not asked
-        // whether it has one — an invoice, today. Without this the answer to a
-        // question nobody could act on would be written out as rows with no kind
-        // on them, which is a shape §5.5 has no reading for.
+        // whether it has one. Without this the answer to a question nobody could
+        // act on would be written out as rows with no kind on them, which is a
+        // shape §5.5 has no reading for. The invoice module was the example here
+        // until [XIV-147]; it names one now, because a bill for part of a
+        // discounted order has a share of that discount to state.
         $discount = $totals->discountKind === null
             ? null
-            : $this->discountOn($module, $derivation->fields, $sold, $discountable);
+            : $this->discountOn($module, $derivation->id, $derivation->fields, $sold, $discountable);
 
         if ($discount !== null) {
             foreach (array_keys($carried) as $index) {
@@ -471,20 +473,30 @@ final readonly class DerivesTotals implements ValueDeriver, SafeToPreview
      * **The first source that claims the document owns it.** Two of them wanting
      * the same lines is an argument between modules and the engine is not where
      * it gets settled — the same sentence {@see ValueDeriver} already writes
-     * about two derivers wanting one field. Today there is still one
-     * implementation — [XIV-122]'s line voucher turned out to be a second *answer*
-     * from the same source rather than a second source, which is the better of the
-     * two outcomes: both modes are decided from one record in one save, and a
-     * second source answering separately about the header and the lines would have
-     * nothing anywhere reconciling them.
+     * about two derivers wanting one field. [XIV-122]'s line voucher turned out
+     * to be a second *answer* from the same source rather than a second source,
+     * which is the better of the two outcomes: both modes are decided from one
+     * record in one save, and a source answering separately about the header and
+     * the lines would have nothing anywhere reconciling them.
+     *
+     * **There are two implementations now** ([XIV-147]), and they cannot both
+     * claim a document, which is why the tie-break above has still never been
+     * reached. {@see \Xivi\Voucher\Discount\VoucherDiscounts} answers about a
+     * document that *names a voucher*, and {@see \Xivi\Core\Seed\SeededDiscounts}
+     * about one that was *made from another document* (§5.12) — an order is the
+     * first and never the second, an invoice is the second and never the first. A
+     * module that was both would be a document seeded from a discounted one and
+     * carrying a voucher of its own, and that is the argument the sentence above
+     * declines to settle: whichever source is asked first would win the whole
+     * document, rather than the two of them adding up behind everybody's back.
      *
      * @param array<string, mixed>   $fields
      * @param list<DiscountableLine> $lines
      */
-    private function discountOn(ModuleDefinition $module, array $fields, Amount $lineSum, array $lines): ?Discount
+    private function discountOn(ModuleDefinition $module, ?int $document, array $fields, Amount $lineSum, array $lines): ?Discount
     {
         foreach ($this->discounts as $source) {
-            $discount = $source->on($module, $fields, $lineSum, $lines);
+            $discount = $source->on($module, $document, $fields, $lineSum, $lines);
 
             if ($discount !== null) {
                 return $discount;

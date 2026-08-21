@@ -82,6 +82,24 @@ always lands in `Unreleased` here.
   The deployment's network enables IPv6 now, and AAAA records are safe to add
   once it does.
 
+- **A partial invoice takes its share of the order's discount, not all of it**
+  ([XIV-147], §5.12). Billing a discounted order in parts put the whole voucher
+  on the first invoice and none on any later one, and a voucher applied to a
+  single line was copied onto every bill whole, so two half invoices came to
+  twice what was granted. Each bill now carries the share that matches what it
+  bills, and the one that finishes the order takes the balance, so the bills add
+  up to the order's discount exactly even when the split does not divide.
+
+- **A discount line on an invoice is the engine's now**, like the one on the
+  order ([XIV-147], §5.24). It is worked out on every save from the order's own
+  discount, so the form draws it disabled, `Discount` is no longer offered as a
+  line somebody can add to a bill, and a figure typed over it is restated.
+  Invoices already written are untouched until they are saved again, and a sent
+  one is locked and never will be.
+
+[XIV-61]: https://xivi.youtrack.cloud/issue/XIV-61
+[XIV-147]: https://xivi.youtrack.cloud/issue/XIV-147
+
 
 ## Releases
 

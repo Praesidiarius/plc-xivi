@@ -47,6 +47,24 @@ final class Derivation
     public function __construct(
         public array $fields = [],
         public array $rows = [],
+        /**
+         * Which record this is, and **null for one that does not exist yet**
+         * ([XIV-147]).
+         *
+         * Not in `fields`, because `fields` is what the module's own definitions
+         * say a record holds and an id is not one of them: it is the row's
+         * identity rather than a value on it, which is why {@see Record} keeps
+         * the two apart in the first place.
+         *
+         * It is here for the one deriver that has to read **other** records of
+         * the same module and must not count this one twice. Working out an
+         * invoice's share of its order's discount means asking what the order's
+         * other invoices already took, and re-saving an invoice that is already
+         * stored would otherwise find its own earlier figures among them and
+         * subtract them from what is left to share. Everything else here derives
+         * a record from itself and has no use for this.
+         */
+        public ?int $id = null,
     ) {
     }
 

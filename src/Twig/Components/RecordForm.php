@@ -569,7 +569,17 @@ final class RecordForm extends AbstractController
 
         /** @var array<string, mixed> $fields */
         $fields = $submitted['fields'] ?? [];
-        $derivation = $this->derived->preview($definition, $fields, $this->submission->rows($definition, $submitted));
+        // The record's own id goes with the values, so that the preview and the
+        // save answer the same question ([XIV-147]): an invoice working out its
+        // share of an order's discount reads the order's *other* invoices, and a
+        // preview that counted this one among them would show a figure the save
+        // then contradicted.
+        $derivation = $this->derived->preview(
+            $definition,
+            $fields,
+            $this->submission->rows($definition, $submitted),
+            $this->recordId,
+        );
 
         if ($derivation === null) {
             return $initial;

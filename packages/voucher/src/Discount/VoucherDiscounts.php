@@ -117,7 +117,17 @@ final readonly class VoucherDiscounts implements DocumentDiscounts
     {
     }
 
-    public function on(ModuleDefinition $module, array $fields, Amount $lineSum, array $lines): ?Discount
+    /**
+     * `$document` is not read here, and the absence is worth a sentence rather
+     * than a shrug ([XIV-147]). A voucher's worth is decided entirely from the
+     * record in front of it — the code it names, the lines it holds — and never
+     * from the module's other records, which is exactly why redemption had to be
+     * a subscriber rather than something this method could do. The parameter is on
+     * the seam for {@see \Xivi\Core\Seed\SeededDiscounts}, which answers about a
+     * document made from another one and therefore has to leave itself out of the
+     * documents it counts.
+     */
+    public function on(ModuleDefinition $module, ?int $document, array $fields, Amount $lineSum, array $lines): ?Discount
     {
         $header = $this->vouchers->fieldOn($module);
         $rows = $this->linesOf($module);
