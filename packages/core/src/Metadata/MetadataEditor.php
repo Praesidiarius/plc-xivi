@@ -31,6 +31,7 @@ use Xivi\Core\Field\Type\ReferenceFieldType;
 use Xivi\Core\Module\AdditionKind;
 use Xivi\Core\Numbering\NumberFormat;
 use Xivi\Core\Period\ExclusiveWithin;
+use Xivi\Core\Query\Operator;
 use Xivi\Core\Record\OverlapExclusion;
 use Xivi\Core\Record\RecordRepository;
 use Xivi\Core\Record\UniqueIndex;
@@ -658,7 +659,20 @@ final readonly class MetadataEditor
                     throw MetadataChangeRefused::optionsAreTheModules($field->getKey());
                 }
 
-                $held = $this->records->valueCountsAmong($field->getShape(), $field, $removed);
+                // **The type says which comparison finds a holder**, and the
+                // editor deliberately does not know ([XIV-169]). For one option
+                // that is equality against `data ->> 'key'`; for a field holding
+                // several it is containment inside the array. Asked rather than
+                // assumed because the wrong one here does not fail loudly: it
+                // counts zero, the refusal below does not fire, and the option
+                // comes off the list from under every record holding it. See
+                // {@see Enumerates::findsHoldersBy()}.
+                $held = $this->records->valueCountsAmong(
+                    $field->getShape(),
+                    $field,
+                    $removed,
+                    $type->findsHoldersBy(),
+                );
 
                 if ($held !== []) {
                     throw MetadataChangeRefused::optionsAreHeld($field->getKey(), $held);
@@ -749,7 +763,7 @@ final readonly class MetadataEditor
      *
      * @throws MetadataChangeRefused
      */
-    private function assertValuesSurviveTheSource(FieldDefinition $field, FieldType $type, array $merged): void
+    private function assertValuesSurviveTheSource(FieldDefinition $field, PointsAtAList $type, array $merged): void
     {
         $from = ChoiceFieldType::listKeyOf($field);
         $to = $merged[ChoiceFieldType::LIST] ?? '';
@@ -774,6 +788,7 @@ final readonly class MetadataEditor
                 $field,
                 array_map(strval(...), array_keys(ChoiceFieldType::clean($merged[ChoiceFieldType::CHOICES] ?? []))),
                 self::DUPLICATES_NAMED,
+                $type->findsHoldersBy(),
             );
 
             if ($held !== []) {
@@ -793,6 +808,7 @@ final readonly class MetadataEditor
             $field,
             $this->lists->get($to)->values(),
             self::DUPLICATES_NAMED,
+            $type->findsHoldersBy(),
         );
 
         if ($held !== []) {
@@ -1183,10 +1199,17 @@ final readonly class MetadataEditor
      */
     public function valuesHeldBy(FieldDefinition $field): array
     {
+        $type = $this->fieldTypes->get($field->getType());
+
         return $this->records->valueCountsAmong(
             $field->getShape(),
             $field,
             array_map(strval(...), array_keys(ChoiceFieldType::choicesOf($field))),
+            // The same question the refusal asks, so the number printed beside an
+            // option and the number that decides whether it may go are the same
+            // number ([XIV-169]). A type that does not enumerate has no options
+            // for this page to count, and `choicesOf()` gives it none.
+            $type instanceof Enumerates ? $type->findsHoldersBy() : Operator::Equals,
         );
     }
 

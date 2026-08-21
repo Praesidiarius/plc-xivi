@@ -309,7 +309,7 @@ final readonly class ValueListEditor
         $uses = [];
 
         foreach ($this->usage->of($list) as $use) {
-            if ($this->records->valueCountsAmong($use->shape, $use->field, $remove) !== []) {
+            if ($this->records->valueCountsAmong($use->shape, $use->field, $remove, $this->usage->foundBy($use)) !== []) {
                 $uses[] = $use->label();
             }
         }
@@ -442,7 +442,21 @@ final readonly class ValueListEditor
 
         $this->entityManager->getConnection()->transactional(function () use ($list, $going, $staying, $from, $into, &$written): void {
             foreach ($this->usage->of($list) as $use) {
-                $written += $this->records->replaceValue($use->shape, $use->field, $from, $into);
+                // **The comparison comes from the field's own type** ([XIV-169]).
+                // A field holding several of this list's entries holds them in a
+                // JSON array, so a rewrite keyed on `data ->> 'key' = 'zurich'`
+                // would match nothing and leave every one of those records saying
+                // the old thing for ever, which is the exact outcome §5.26 says
+                // the merge exists to prevent. The plan counted them with the same
+                // question, so the number on the confirmation page and the number
+                // this returns are about the same rows.
+                $written += $this->records->replaceValue(
+                    $use->shape,
+                    $use->field,
+                    $from,
+                    $into,
+                    $this->usage->foundBy($use),
+                );
             }
 
             // The survivor comes up to the top if it was sitting under the entry

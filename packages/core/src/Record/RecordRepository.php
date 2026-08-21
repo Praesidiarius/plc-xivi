@@ -22,6 +22,7 @@ use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ShapeDefinition;
 use Xivi\Core\Field\FieldTypeRegistry;
 use Xivi\Core\Permission\RecordAccess;
+use Xivi\Core\Query\Operator;
 use Xivi\Core\Query\QueryCompiler;
 use Xivi\Core\Query\RecordQuery;
 
@@ -528,11 +529,21 @@ final readonly class RecordRepository
      * looking at.
      *
      * @param list<string> $values
+     * @param Operator     $held   which comparison finds a record holding one of
+     *                             these, asked of the field's own type
+     *                             ({@see \Xivi\Core\Field\Enumerates::findsHoldersBy()})
+     *                             and never guessed here. See
+     *                             {@see self::heldValues()} for what the two
+     *                             answers compile to
      *
      * @return array<string, int> value => how many live records hold it, worst first
      */
-    public function valueCountsAmong(ShapeDefinition $shape, FieldDefinition $field, array $values): array
-    {
+    public function valueCountsAmong(
+        ShapeDefinition $shape,
+        FieldDefinition $field,
+        array $values,
+        Operator $held = Operator::Equals,
+    ): array {
         if ($values === []) {
             return [];
         }
@@ -543,13 +554,11 @@ final readonly class RecordRepository
             // same named parameter written twice is two positional parameters by
             // the time Postgres sees it, and two expressions it will not group.
             sprintf(
-                'SELECT held_value, COUNT(*) AS held FROM (
-                     SELECT data->>:field AS held_value FROM %s WHERE deleted_at IS NULL
-                 ) AS values_held
+                'SELECT held_value, COUNT(*) AS held FROM (%s) AS values_held
                  WHERE held_value IN (:values)
                  GROUP BY held_value
                  ORDER BY COUNT(*) DESC, held_value ASC',
-                $this->table($shape),
+                self::heldValues($this->table($shape), $held),
             ),
             ['field' => $field->getKey(), 'values' => $values],
             ['values' => ArrayParameterType::STRING],
@@ -597,6 +606,14 @@ final readonly class RecordRepository
      * one.
      *
      * @param list<string> $values what the field's values will be allowed to be
+     * @param Operator     $held   which comparison finds a record holding one, on
+     *                             {@see self::valueCountsAmong()}'s terms. It
+     *                             matters more here than there: a field holding
+     *                             several values is one whose whole *array* would
+     *                             otherwise be read as a single value nothing on
+     *                             the list matches, so pointing a populated one at
+     *                             a list would be refused with a JSON array quoted
+     *                             back at the customer
      *
      * @return array<string, int> value => how many live records hold it, worst first
      */
@@ -605,6 +622,7 @@ final readonly class RecordRepository
         FieldDefinition $field,
         array $values,
         int $limit = 6,
+        Operator $held = Operator::Equals,
     ): array {
         $rows = $this->connection->fetchAllAssociative(
             // The same subquery-and-group-by-the-output-column shape as
@@ -612,14 +630,12 @@ final readonly class RecordRepository
             // written twice is two positional parameters by the time Postgres
             // sees it, and two expressions it will not group.
             sprintf(
-                "SELECT held_value, COUNT(*) AS held FROM (
-                     SELECT data->>:field AS held_value FROM %s WHERE deleted_at IS NULL
-                 ) AS values_held
+                "SELECT held_value, COUNT(*) AS held FROM (%s) AS values_held
                  WHERE held_value IS NOT NULL AND held_value <> ''%s
                  GROUP BY held_value
                  ORDER BY COUNT(*) DESC, held_value ASC
                  LIMIT %d",
-                $this->table($shape),
+                self::heldValues($this->table($shape), $held),
                 $values === [] ? '' : ' AND held_value NOT IN (:values)',
                 $limit,
             ),
@@ -665,6 +681,15 @@ final readonly class RecordRepository
      * clause. Cheaper, and — the part that matters — atomic without depending on
      * the caller's transaction to make it so.
      *
+     * @param Operator $held which comparison finds a record holding `$from`, on
+     *                       {@see self::valueCountsAmong()}'s terms. A merge that
+     *                       counted a field holding several values and then failed
+     *                       to rewrite it would be the worst of the three: the
+     *                       confirmation page would promise a number the statement
+     *                       does not deliver, and §5.26's own warning about half of
+     *                       somebody's data saying "Zurich" for ever would come
+     *                       true through the mechanism written to prevent it
+     *
      * @return int how many rows were rewritten
      */
     public function replaceValue(
@@ -672,7 +697,12 @@ final readonly class RecordRepository
         FieldDefinition $field,
         string $from,
         string $to,
+        Operator $held = Operator::Equals,
     ): int {
+        if ($held === Operator::Includes) {
+            return $this->replaceValueAmongSeveral($shape, $field, $from, $to);
+        }
+
         return (int) $this->connection->executeStatement(
             sprintf(
                 'UPDATE %s SET data = jsonb_set(data, ARRAY[:field], to_jsonb(:to::text))
@@ -681,6 +711,107 @@ final readonly class RecordRepository
             ),
             ['field' => $field->getKey(), 'to' => $to, 'from' => $from],
         );
+    }
+
+    /**
+     * The same merge, into a field holding a set of values ([XIV-169]).
+     *
+     * **A statement per row where the scalar case is one statement**, and the
+     * reason is the canonical order rather than the containment test. Rewriting
+     * `urgent` to `blocking` inside `["low", "urgent"]` has to de-duplicate,
+     * because the record may already hold both, and then put what is left back
+     * into the field's own option order, which is where `blocking` sits in the
+     * customer's arrangement and not where `urgent` sat. Neither of those is
+     * something SQL can be told: the order lives in the field definition, not in
+     * the column. So the type is asked, which is the same seam every other write
+     * in this class goes through ({@see self::encode()}), applied one row at a
+     * time.
+     *
+     * The rows are read first and rewritten afterwards rather than in one
+     * `UPDATE … RETURNING`, so the loop is over a fixed set and the count is the
+     * rows that were actually written. It runs inside the merge's own transaction
+     * ({@see \Xivi\Core\ValueList\ValueListEditor::merge()}), so a failure part
+     * way through takes the whole merge back with it, which is the guarantee the
+     * single statement gave for free and the only one worth keeping.
+     *
+     * `updated_at` is deliberately untouched, exactly as above: a merge is one
+     * administrative act about what two values mean, not news about any record.
+     */
+    private function replaceValueAmongSeveral(
+        ShapeDefinition $shape,
+        FieldDefinition $field,
+        string $from,
+        string $to,
+    ): int {
+        $type = $this->fieldTypes->get($field->getType());
+
+        $rows = $this->connection->fetchAllAssociative(
+            sprintf(
+                "SELECT id, data->:field AS held FROM %s
+                 WHERE deleted_at IS NULL AND jsonb_typeof(data->:field) = 'array'
+                   AND data->:field @> to_jsonb(:from::text)",
+                $this->table($shape),
+            ),
+            ['field' => $field->getKey(), 'from' => $from],
+        );
+
+        $statement = $this->connection->prepare(sprintf(
+            'UPDATE %s SET data = jsonb_set(data, ARRAY[:field], :value::jsonb) WHERE id = :id',
+            $this->table($shape),
+        ));
+
+        $written = 0;
+
+        foreach ($rows as $row) {
+            /** @var list<mixed> $values */
+            $values = json_decode((string) $row['held'], true, flags: \JSON_THROW_ON_ERROR);
+
+            $stored = $type->toStorage(
+                array_map(static fn (mixed $value): mixed => $value === $from ? $to : $value, $values),
+                $field,
+            );
+
+            $statement->bindValue('field', $field->getKey());
+            $statement->bindValue('value', json_encode($stored, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE));
+            $statement->bindValue('id', $row['id'], ParameterType::INTEGER);
+
+            $written += (int) $statement->executeStatement();
+        }
+
+        return $written;
+    }
+
+    /**
+     * The rows of one field's held values, one row per value ([XIV-169]).
+     *
+     * **The one place the two shapes of a stored value meet**, and the reason
+     * every count above could stop caring which it was handed. A scalar field
+     * holds one value per record, so the value *is* `data->>'key'`; a field
+     * holding several holds a JSON array, and the value that a count, a refusal
+     * or a merge is about is one element of it.
+     *
+     * Written as a set of rows rather than as a comparison because that is what
+     * makes the callers identical: `IN (:values)`, `NOT IN (:values)`, the
+     * grouping and the ordering are all written once and read the same, where a
+     * containment predicate would have needed each of those three methods
+     * rewritten in two spellings.
+     *
+     * The `jsonb_typeof` guard is not decoration. §5.4 keeps a removed field's
+     * values, so a field added later with the same key meets whatever the old one
+     * left, and `jsonb_array_elements_text` over a bare string is an error rather
+     * than no rows. A record holding something this field never wrote counts as
+     * holding nothing, which is the honest answer and the one the query layer
+     * already gives ({@see \Xivi\Core\Field\Type\MultiChoiceFieldType::comparableSql()}).
+     */
+    private static function heldValues(string $table, Operator $held): string
+    {
+        return $held === Operator::Includes
+            ? sprintf(
+                "SELECT jsonb_array_elements_text(data->:field) AS held_value FROM %s
+                 WHERE deleted_at IS NULL AND jsonb_typeof(data->:field) = 'array'",
+                $table,
+            )
+            : sprintf('SELECT data->>:field AS held_value FROM %s WHERE deleted_at IS NULL', $table);
     }
 
     /**

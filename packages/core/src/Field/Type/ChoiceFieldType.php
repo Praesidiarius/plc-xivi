@@ -21,6 +21,7 @@ use Xivi\Core\Entity\ValueList;
 use Xivi\Core\Field\Autocomplete;
 use Xivi\Core\Field\Autocompletes;
 use Xivi\Core\Field\Enumerates;
+use Xivi\Core\Field\HoldsSeveralValues;
 use Xivi\Core\Field\PointsAtAList;
 use Xivi\Core\Field\ShowsABadge;
 use Xivi\Core\Field\ValueBadge;
@@ -180,9 +181,48 @@ final class ChoiceFieldType implements Autocompletes, PointsAtAList, ShowsABadge
         return (string) $choices[mt_rand(0, \count($choices) - 1)];
     }
 
+    /**
+     * One option, as the string a record holds.
+     *
+     * **A list arriving here is the way back from a several-valued field**
+     * ([XIV-169]), and it is the only caller that can produce one: the form
+     * submits a string, an import cell is a string, and a module assembling a
+     * record writes one option. XIV-146's dry run is the exception, because it
+     * reads every stored value through the type moving in *and* reads it back
+     * again to say whether the change is reversible, so a `multi_choice` column
+     * reaches this method as an array.
+     *
+     * Answered rather than cast, which is the whole of the change. `(string)` on
+     * an array is the word `Array` and a PHP warning, so before this the report
+     * a customer read about reversibility was computed from a value nobody had
+     * written and a warning nobody saw. A set of **one** option is one option and
+     * survives, which is what makes converting a single-valued column both ways
+     * a lossless round trip; a set of **several** is kept whole in
+     * {@see HoldsSeveralValues::SEPARATOR}'s spelling, the one form this engine
+     * already uses for a list in a scalar cell (§5.6), so the `Choice` constraint
+     * above refuses it with every value the record held named rather than
+     * silently keeping one of them.
+     *
+     * Nothing about a `choice` field changes: no value any other caller can hand
+     * over reaches this branch, and the two spellings a customer can type are
+     * exactly the two they could type yesterday.
+     */
     public function toStorage(mixed $value, FieldDefinition $field): ?string
     {
-        return $value === null || $value === '' ? null : (string) $value;
+        if ($value === null || $value === '' || $value === []) {
+            return null;
+        }
+
+        if (\is_array($value)) {
+            $values = array_map(
+                static fn (mixed $item): string => \is_scalar($item) ? (string) $item : '',
+                array_values($value),
+            );
+
+            return \count($values) === 1 ? $values[0] : implode(HoldsSeveralValues::SEPARATOR, $values);
+        }
+
+        return \is_scalar($value) ? (string) $value : null;
     }
 
     public function fromStorage(mixed $value, FieldDefinition $field): ?string
@@ -271,6 +311,20 @@ final class ChoiceFieldType implements Autocompletes, PointsAtAList, ShowsABadge
     public function comparableSql(string $accessor): string
     {
         return $accessor;
+    }
+
+    /**
+     * Equality, because this field holds exactly one option ([XIV-169]).
+     *
+     * The answer this engine assumed everywhere until a second type started
+     * enumerating, written down now that it is one of two.
+     * {@see Enumerates::findsHoldersBy()} has the argument for asking rather than
+     * assuming; nothing about *this* type's answer changed, which is the whole
+     * of what a caller sees.
+     */
+    public function findsHoldersBy(): Operator
+    {
+        return Operator::Equals;
     }
 
     /**

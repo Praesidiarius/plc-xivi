@@ -15,11 +15,13 @@ namespace Xivi\Core\ValueList;
 
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Entity\ValueList;
+use Xivi\Core\Field\Enumerates;
 use Xivi\Core\Field\FieldType;
 use Xivi\Core\Field\FieldTypeRegistry;
 use Xivi\Core\Field\PointsAtAList;
 use Xivi\Core\Field\Type\ChoiceFieldType;
 use Xivi\Core\Metadata\MetadataRepository;
+use Xivi\Core\Query\Operator;
 use Xivi\Core\Record\RecordRepository;
 
 /**
@@ -121,7 +123,7 @@ final readonly class ValueListUsage
         $held = [];
 
         foreach ($this->of($list) as $use) {
-            foreach ($this->records->valueCountsAmong($use->shape, $use->field, $values) as $value => $count) {
+            foreach ($this->records->valueCountsAmong($use->shape, $use->field, $values, $this->foundBy($use)) as $value => $count) {
                 $held[$value] = ($held[$value] ?? 0) + $count;
             }
         }
@@ -147,12 +149,44 @@ final readonly class ValueListUsage
         $counts = [];
 
         foreach ($this->of($list) as $use) {
-            $held = $this->records->valueCountsAmong($use->shape, $use->field, [$from]);
+            $held = $this->records->valueCountsAmong($use->shape, $use->field, [$from], $this->foundBy($use));
 
             $counts[] = new MergeCount($use, $held[$from] ?? 0);
         }
 
         return new MergePlan($list, $from, $to, $counts);
+    }
+
+    /**
+     * Which comparison finds a record holding one of this field's values
+     * ([XIV-169]).
+     *
+     * **Asked of the field's own type, not decided here**, and this class is
+     * exactly the reader that must not decide it. Everything consequential about
+     * a shared list is built on the counts below: the number printed beside an
+     * entry, the refusal that names where the records are, and the plan a merge
+     * is confirmed from. A field holding several of a list's entries holds a JSON
+     * array, so counting it with equality against `data ->> 'key'` returns zero
+     * every time, and every one of those three would then be quietly wrong in the
+     * same direction: an entry that looks free, a removal that is allowed, and a
+     * merge that reports nothing to rewrite.
+     *
+     * {@see Enumerates::findsHoldersBy()} has the argument.
+     * A type reaching here always declares {@see PointsAtAList}, which extends
+     * that interface, so the fallback is unreachable and is there because
+     * {@see self::of()} guards on the capability rather than on the class.
+     *
+     * Public because {@see ValueListEditor} asks the same question of the same
+     * use: the entries it refuses to remove and the rows its merge rewrites are
+     * counted here and written there, and two readings of "which records hold
+     * this" is how a confirmation page comes to promise a number the statement
+     * underneath it does not deliver.
+     */
+    public function foundBy(ValueListUse $use): Operator
+    {
+        $type = $this->fieldTypes->get($use->field->getType());
+
+        return $type instanceof Enumerates ? $type->findsHoldersBy() : Operator::Equals;
     }
 
     /**

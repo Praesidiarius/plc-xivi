@@ -254,9 +254,35 @@
 											somebody points one at a shared list and colours an
 											entry, so this row looks exactly as it did.
 										#}
-										{% set badge = value_badge(field, record.get(field.key)) %}
+										{% set badges = value_badges(field, record.get(field.key)) %}
+										{#
+											**Three chips, then a count** ([XIV-169]). A field holding
+											several values can hold a dozen, and a dozen in one column
+											of a twenty-five row table is a cell deciding how tall
+											every other row is. Three is what fits beside the columns
+											this table already has, at the width a list is read at.
+
+											The number lives here rather than in the field type
+											because it is a statement about *this* table: the record
+											page has room for all of them and draws all of them, which
+											is where somebody goes when the count says there is more.
+											`ShowsSeveralBadges` says the same thing from the other
+											end and hands over every value.
+
+											The count is not a link, because the row already is one:
+											clicking anywhere on it opens the record the rest of the
+											values are on.
+										#}
+										{% set cellBadges = 3 %}
 										<td>
-											{%- if badge %}{{ include('_value_badge.html.twig', {badge: badge}) }}
+											{%- if badges is not empty %}
+												{%- for badge in badges|slice(0, cellBadges) %}{{ include('_value_badge.html.twig', {badge: badge}) }}{% endfor -%}
+												{%- if badges|length > cellBadges %}
+													<span class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle"
+													      title="{{ 'module.more_values'|trans({'%count%': badges|length - cellBadges}) }}">
+														{{- 'module.more_values_short'|trans({'%count%': badges|length - cellBadges}) -}}
+													</span>
+												{%- endif -%}
 											{%- else %}{{ link.linked(field, record.get(field.key), display(field, record.get(field.key))) }}{% endif -%}
 										</td>
 									{% endfor %}

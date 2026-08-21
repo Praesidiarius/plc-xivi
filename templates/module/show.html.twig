@@ -239,7 +239,12 @@
 										   `record_link()`'s rule; null — and therefore this page
 										   exactly as it was — for every field that is not pointed at
 										   a shared list. #}
-										{% set badge = value_badge(field, record.get(field.key)) %}
+										{# **Every one of them, uncapped** ([XIV-169]). This is the page
+										   the list column's "and 3 more" sends somebody to, so a
+										   ceiling here would be a ceiling with nowhere behind it. The
+										   chips wrap inside the definition list's own column, which is
+										   what a record page has and a table row has not. #}
+										{% set badges = value_badges(field, record.get(field.key)) %}
 										{# The file a value names, when it names one (XIV-115). Asked
 										   of the field on `record_link()`'s rule, and drawn here
 										   rather than by the form theme because this is the page
@@ -257,8 +262,8 @@
 										{% elseif file %}
 											<a href="{{ path('record_file', {module: module.key, id: record.id, field: field.key}) }}">{{ file.name }}</a>
 											<span class="text-body-secondary">{{ file_size(file.size) }}</span>
-										{% elseif badge %}
-											{{ include('_value_badge.html.twig', {badge: badge}) }}
+										{% elseif badges is not empty %}
+											{% for badge in badges %}{{ include('_value_badge.html.twig', {badge: badge}) }}{% endfor %}
 										{% else %}
 											{{ link.linked(field, record.get(field.key), shown) }}
 										{% endif %}
@@ -318,12 +323,12 @@
 														   is drawn here too. It is the same reason the merge counts
 														   collection rows: half of somebody's data saying "Zurich"
 														   for ever would be the worst possible outcome. #}
-														{% set badge = value_badge(field, row.get(field.key)) %}
+														{% set badges = value_badges(field, row.get(field.key)) %}
 														<td>
 															{% if shown is empty %}
 																<span class="text-body-secondary">—</span>
-															{% elseif badge %}
-																{{ include('_value_badge.html.twig', {badge: badge}) }}
+															{% elseif badges is not empty %}
+																{% for badge in badges %}{{ include('_value_badge.html.twig', {badge: badge}) }}{% endfor %}
 															{% else %}
 																{{ link.linked(field, row.get(field.key), shown) }}
 															{% endif %}

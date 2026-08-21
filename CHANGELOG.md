@@ -81,6 +81,25 @@ always lands in `Unreleased` here.
   every IPv6 visitor including the operator, failing closed and saying nothing.
   The deployment's network enables IPv6 now, and AAAA records are safe to add
   once it does.
+- **A field can hold several options, not just one** ([XIV-169], §5.31). New
+  `multi_choice` type beside `multi_reference`: the languages somebody speaks,
+  the channels a customer agreed to, the certifications a supplier holds, from
+  the field's own options or from a shared list. Stored as a JSON array in the
+  field's own option order, so rearranging the options rewrites no record;
+  filtered by "holds this one", not sortable, never unique; a chip per value on
+  the record page and the first three plus a count in a list column. `choice` is
+  untouched.
+- **A shared list now sees inside a field holding several of its entries**
+  ([XIV-169], §5.31). Removing an entry, counting how many records hold it and
+  merging two of them all asked `data ->> 'key' = …`, which for a set is the
+  array's own text and matches nothing. On a `multi_choice` field that would
+  have let an entry be removed from under the records holding it and made a
+  merge report rewriting nothing while leaving those records saying the old
+  thing. The comparison is asked of the field's type now. **Nothing to act on:**
+  the type is new in this release, so no installation can have such a field yet.
+
+[XIV-61]: https://xivi.youtrack.cloud/issue/XIV-61
+[XIV-169]: https://xivi.youtrack.cloud/issue/XIV-169
 
 
 ## Releases

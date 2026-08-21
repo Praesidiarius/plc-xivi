@@ -360,6 +360,8 @@ module:
     drifted: '%field% differisce da ciò da cui è stato copiato.'
     outstanding: '%amount% rimanenti'
     outstanding_help: Non ancora ripresi da qualcosa creato a partire da questo record.
+    more_values_short: '+%count%'
+    more_values: '%count% altro/i valore/i su questo record.'
     locked: 'Questo record è %state% e non si può più modificare.'
     history_empty: >-
         Nulla di annotato. I record che esistevano prima della cronologia non ne hanno, fino
