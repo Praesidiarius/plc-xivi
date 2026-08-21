@@ -89,6 +89,11 @@ final readonly class ModuleInstaller
         $this->assertRequirementsAreInstalled($blueprint);
         $this->assertTypesExist($blueprint);
         $this->assertTableNameFits($blueprint->table);
+        $this->assertTablesAreFree([
+            $blueprint->table,
+            $blueprint->table . ModuleDefinition::HISTORY_SUFFIX,
+            ...array_map(static fn (CollectionBlueprint $collection): string => $collection->table, $blueprint->collections),
+        ]);
 
         $fields = $this->fieldsFor($blueprint, $preset);
 
@@ -324,14 +329,6 @@ final readonly class ModuleInstaller
         $name = $recordTable . ModuleDefinition::HISTORY_SUFFIX;
         $schemaManager = $this->connection->createSchemaManager();
 
-        if ($schemaManager->tablesExist([$name])) {
-            throw new \RuntimeException(sprintf(
-                'Table "%s" already exists but nothing here has definitions for it. Refusing to adopt a '
-                . 'table this installer did not create.',
-                $name,
-            ));
-        }
-
         $table = new Table($name);
         // bigint from the start. This is the table that grows without bound, and
         // widening a primary key later is not a migration anyone enjoys.
@@ -477,7 +474,7 @@ final readonly class ModuleInstaller
      * sits — so honouring what the module's author said costs nothing, whereas
      * appending would invent an ordering nobody asked for.
      *
-     * No table is dropped and nothing is adopted: {@see createRecordTable()}
+     * No table is dropped and nothing is adopted: {@see assertTablesAreFree()}
      * refuses a name that already exists rather than taking over a table this
      * installer did not create.
      */
@@ -491,6 +488,7 @@ final readonly class ModuleInstaller
             $this->fieldTypes->get($field->type);
         }
 
+        $this->assertTablesAreFree([$collection->table]);
         $this->createRecordTable($collection->table, parentTable: $module->getTableName());
 
         $definition = new CollectionDefinition(
@@ -588,6 +586,43 @@ final readonly class ModuleInstaller
     }
 
     /**
+     * Refuses the tables an installation is about to create if any of them is
+     * already there.
+     *
+     * **Asked once for the whole set, and the reason is what it costs**
+     * (XIV-171). Postgres answers "does this one table exist" by listing every
+     * table in the database (`tablesExist()` is `listTableNames()` with an
+     * `array_intersect` over it), and the question used to be asked once per
+     * table: three scans for an order module, being its own table, its history
+     * and its lines. At 1.7 ms a scan against a suite that installs a module
+     * 2,020 times a run, that is a few seconds spent asking the same question
+     * three ways. One scan answers all of them.
+     *
+     * The message names every clash rather than the first, for the same reason:
+     * the answer is already in hand.
+     *
+     * Before any DDL rather than beside each `CREATE TABLE`, which also means a
+     * clash on a collection no longer leaves the module's own tables standing
+     * behind a failed install.
+     *
+     * @param list<string> $names
+     */
+    private function assertTablesAreFree(array $names): void
+    {
+        $taken = array_intersect($names, $this->connection->createSchemaManager()->listTableNames());
+
+        if ($taken === []) {
+            return;
+        }
+
+        throw new \RuntimeException(sprintf(
+            'Table "%s" already exists but nothing here has definitions for it. Refusing to adopt a '
+            . 'table this installer did not create.',
+            implode('", "', $taken),
+        ));
+    }
+
+    /**
      * One table shape for both kinds of shape. A collection differs by two
      * columns: it gains a parent, and it loses the owner — an address is not
      * owned by somebody other than the contact it belongs to, and giving it its
@@ -597,14 +632,6 @@ final readonly class ModuleInstaller
     private function createRecordTable(string $name, ?string $parentTable): void
     {
         $schemaManager = $this->connection->createSchemaManager();
-
-        if ($schemaManager->tablesExist([$name])) {
-            throw new \RuntimeException(sprintf(
-                'Table "%s" already exists but nothing here has definitions for it. Refusing to adopt a '
-                . 'table this installer did not create.',
-                $name,
-            ));
-        }
 
         $table = new Table($name);
         $table->addColumn('id', Types::INTEGER, ['autoincrement' => true]);

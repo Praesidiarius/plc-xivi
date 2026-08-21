@@ -537,6 +537,29 @@ when@test:
         App\Demo\FakerSampleValues: ~
         Xivi\Core\Demo\SampleValues: '@App\Demo\FakerSampleValues'
 
+        # **The form panel of a profile nobody opens** (XIV-171).
+        #
+        # Declaring `framework.profiler` at all, which `when@test` in
+        # web_profiler.yaml does only to say `collect: false`, makes
+        # FrameworkBundle load `form_debug.php`, and that wraps every form type in
+        # `ResolvedTypeDataCollectorProxy`. The proxy then extracts each form's
+        # configuration, default data, submitted data and view variables on every
+        # build, for the profiler's form panel. `collect: false` stops the
+        # profile being *stored*; it does not stop any of that being gathered.
+        #
+        # This suite renders a record form thousands of times a run and reads
+        # that panel never, so the collection is pure cost. This branch takes
+        # tests/Functional/Engine from 591 s to 529 s and this is nearly all of
+        # it: the other change on the branch saves at most 7 s by arithmetic,
+        # being 2,020 installs at two fewer schema listings of 1.7 ms each.
+        #
+        # The profiler itself stays on, because two tests count a page's
+        # statements through the `db` collector, and only the form factory is
+        # replaced with the one the framework uses when there is no profiler at
+        # all. Every other collector is untouched.
+        form.resolved_type_factory:
+            class: Symfony\Component\Form\ResolvedFormTypeFactory
+
         # Between DAMA (100) and TenantConnectionMiddleware (0): middlewares
         # connect from the lowest priority up, so this sees the tenant's resolved
         # database name and DAMA sees the key derived from it.

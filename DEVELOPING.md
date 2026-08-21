@@ -415,6 +415,16 @@ the point, since a truncate was already fast; a rollback also undoes field
 with everything else. Tenant databases are left behind between runs on
 purpose, and reclaimed the next time.
 
+**Your class asks for a tenant of its own by using a slug of its own.** Nothing
+is shared or pooled between classes, so there is no flag to set: pass
+`$this->sharedTenant('test_my_thing', ['my-thing.localhost'])` and that database
+is yours. Two classes share a tenant only by both naming the same slug, which
+the browser classes do deliberately and nothing else should.
+`ClassTenantIsolation{First,Second}Test` is what goes red if that ever stops
+being true, and `SharesATenant`'s docblock has the measurements behind the
+design, including the two ways of making it cheaper that were tried and refused
+(XIV-171, XIV-150).
+
 ## Layout
 
 ```
