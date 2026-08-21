@@ -82,6 +82,24 @@ always lands in `Unreleased` here.
   The deployment's network enables IPv6 now, and AAAA records are safe to add
   once it does.
 
+- **Coverage is measured with PCOV, and the longest step in CI takes half as
+  long** ([XIV-170]). The dev image carried one coverage driver, so every run
+  used it without anybody having compared it with anything. PCOV now sits beside
+  Xdebug and `bin/ci` names the driver it wants instead of inheriting one: the
+  full suite with coverage went from 687s to 328s, over the same 1955 tests, and
+  the figure the floor gates on did not move. A stack older than this has no
+  PCOV in its image and Compose will not rebuild one it already has, so
+  `bin/ci --coverage` refuses in its first seconds and prints the two commands.
+- **Run `composer coverage` and `composer coverage-html` by hand with
+  `XDEBUG_MODE=off`** ([XIV-170]). Without it the dev stack's Xdebug stays
+  active and goes on doing its own work underneath PCOV, which costs about half
+  as much again for nothing. Xdebug is untouched otherwise and is still what a
+  debugger attaches to; PCOV does line coverage only, so ask for
+  `XDEBUG_MODE=coverage` if you want a branch report.
+
+[XIV-61]: https://xivi.youtrack.cloud/issue/XIV-61
+[XIV-170]: https://xivi.youtrack.cloud/issue/XIV-170
+
 
 ## Releases
 

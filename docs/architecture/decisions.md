@@ -163,6 +163,21 @@ difference between the parallel and serial runs (measured 67 s against
 against ~48 s), and the `SharedSlugReuse*Test` pair fails the serial run
 deterministically if the guard regresses.
 
+**Coverage is measured with PCOV, and Xdebug is switched off while it is**
+(XIV-170). The dev image carried one coverage driver and the coverage run used
+it, which is inheritance rather than a choice. With both installed the same
+1955 tests take 328 s against 687 s, and the number the floor gates on does not
+move: 87.92% against 87.91%, the whole disagreement being two `match` default
+arms. Getting there meant separating two things that look like one.
+php-code-coverage takes PCOV for line coverage by itself and only falls back to
+Xdebug for branch and path granularity, so the driver was never the hard half;
+an Xdebug still in `develop` or `coverage` mode goes on doing its own work
+underneath whoever is collecting, and switching it off is what buys the time
+(28 s, 40 s and 44 s for the same directory at `off`, `develop` and
+`coverage`). What is given up is branch coverage, which PCOV cannot do and
+`bin/coverage-gate` never asked for. Xdebug stays in the image: it is the only
+thing a debugger can attach to, and the two coexist.
+
 **Languages are covered by field type, not by test count** (XIV-45). XIV-44 was
 a Critical bug that four hundred and eighty tests walked past, the browser layer
 included, because the whole suite spoke English, and in English a number's

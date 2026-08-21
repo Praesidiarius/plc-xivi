@@ -80,7 +80,40 @@ ENV FRANKENPHP_WORKER_CONFIG=watch
 # dev dependencies
 RUN <<-EOF
 	mv "$PHP_INI_DIR/php.ini-development" "$PHP_INI_DIR/php.ini"
-	install-php-extensions xdebug
+	# **Two coverage drivers, because they are good at different things**
+	# (XIV-170). Xdebug is what a debugger attaches to, and it stays: it is the
+	# reason `compose.override.yaml` sets XDEBUG_MODE=develop and the only way
+	# to step through a request. PCOV does nothing but count executed lines, and
+	# the suite measures itself in half the time for it. Until this
+	# line there was only Xdebug, so every coverage run took the debugger's
+	# route, not because anybody had compared the two but because there was
+	# nothing to compare it with. Measured on this suite: 687s with Xdebug
+	# against 328s with PCOV, same 1955 tests, same percentage.
+	#
+	# **Installing PCOV is only half of it, and the other half is silent.**
+	# Two separate things are going on and they are easy to run together:
+	#
+	#   * *Which driver collects.* php-code-coverage's Driver\Selector takes
+	#     PCOV whenever line granularity is asked for and only falls back to
+	#     Xdebug for branch and path coverage, which nothing here asks for. So
+	#     PCOV wins that on its own.
+	#   * *What Xdebug is doing meanwhile.* An Xdebug that is still switched on
+	#     goes on doing its own work underneath whoever is collecting, and the
+	#     run pays for both. On tests/Functional/Tenant the same coverage run is
+	#     28s at `off`, 40s at `develop` and 44s at `coverage`, and `develop` is
+	#     what the dev stack sets when nobody says otherwise.
+	#
+	# So `bin/ci` sets XDEBUG_MODE=off on the coverage run. Leaving it out is
+	# the failure that looks like success: the right driver, the right number,
+	# and most of the old cost still there. The ENV above already defaults it to
+	# off, and the dev stack is what overrides it.
+	#
+	# PCOV measures lines and nothing else: no branch or path coverage, no
+	# profiling, no step debugging. `bin/coverage-gate` reads line coverage out
+	# of a Clover report and the floor is a line percentage, so nothing that
+	# exists today wants what PCOV cannot do. Anything that does, a branch
+	# report or a profile, asks for Xdebug back by setting XDEBUG_MODE.
+	install-php-extensions xdebug pcov
 	# **What lets this container deploy** (XIV-61, §4.8). Deployer drives
 	# `docker compose` on the target over SSH, from an operator's machine rather
 	# than from a hosted runner, and this project has no PHP on the host: the

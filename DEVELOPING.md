@@ -377,12 +377,22 @@ gate and Codecov read; the browsable report is its own run, because rendering
 HTML for 89k lines is memory CI has no reader for (XIV-161):
 
 ```bash
-bin/compose exec -e XDEBUG_MODE=coverage php composer coverage-html
+bin/compose exec -e XDEBUG_MODE=off php composer coverage-html
 ```
 
-Then open `coverage/html/index.html` to see what is not covered. Xdebug costs
-this suite about seven percent, because it spends its time provisioning
-databases rather than executing PHP.
+Then open `coverage/html/index.html` to see what is not covered.
+
+`XDEBUG_MODE=off` is not a typo and is doing work (XIV-170). The dev image
+carries two coverage drivers: Xdebug for step debugging and PCOV for counting
+lines. PCOV is the one php-code-coverage picks, but an Xdebug that is still
+active goes on doing its own work underneath it and the run pays for both. On
+`tests/Functional/Tenant`, the same coverage run is 28s at `off`, 40s at
+`develop` (which is what the dev stack sets when you say nothing) and 44s at
+`coverage`. Across the whole suite, switching driver and switching Xdebug off
+together is 687 seconds against 328.
+
+PCOV does lines only, so ask for Xdebug back with `XDEBUG_MODE=coverage` if you
+ever want branch coverage, and expect to wait for it.
 
 Individual pieces, if you want them on their own:
 
