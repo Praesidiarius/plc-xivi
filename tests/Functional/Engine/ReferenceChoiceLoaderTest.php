@@ -500,7 +500,7 @@ final class ReferenceChoiceLoaderTest extends WebTestCase
             return new RecordChoiceLoader(
                 self::service(RecordCandidates::class),
                 ContactModule::KEY,
-                ContactModule::COMPANY,
+                [ContactModule::COMPANY],
             );
         });
     }

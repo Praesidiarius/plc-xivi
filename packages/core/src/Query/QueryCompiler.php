@@ -121,6 +121,10 @@ final readonly class QueryCompiler
             $conditions[] = $this->searchGroup($module, $query->search, $slot, $parameters, $types);
         }
 
+        if ($query->variants !== []) {
+            $conditions[] = $this->variantGroup($module, $query->variants, $slot, $parameters, $types);
+        }
+
         return new CompiledQuery(
             where: implode(' AND ', $conditions),
             parameters: $parameters,
@@ -214,6 +218,67 @@ final readonly class QueryCompiler
             $terms[] = $this->comparison(
                 $field,
                 new Filter($key, Operator::Contains, $search->text),
+                self::ALIAS,
+                $slot,
+                $parameters,
+                $types,
+            );
+        }
+
+        return $terms === [] ? 'FALSE' : '(' . implode(' OR ', $terms) . ')';
+    }
+
+    /**
+     * The record kinds this query is about, as a parenthesised OR over the
+     * module's variant field (XIV-172).
+     *
+     * **The second disjunction this compiler emits, and closed the same way the
+     * first is.** {@see Search} argued that the `OR` §5.3 refused was one
+     * *between conditions*, a tree with a UI to build one, and that a shape
+     * with nothing composable in it is a different thing. This is narrower than
+     * a search on every axis that mattered there: the column is not chosen by
+     * the caller at all but read off the definitions, the values are variant
+     * keys, and the group is ANDed with everything else like any other
+     * condition. A picker narrowed to two of a module's four kinds is what
+     * wanted it ({@see \Xivi\Core\Record\RecordCandidates}), and two
+     * `Filter`s could not say it, because two filters mean *and*.
+     *
+     * Every term goes through {@see self::comparison()}, so the field name is
+     * bound, each value is bound, and the variant field's own type still decides
+     * how its stored value is read.
+     *
+     * **A module with no variant field matches nothing rather than
+     * everything.** Asking which of a shape's kinds these are, when the shape
+     * has no kinds, is a question with no true answer, and the honest one is the
+     * empty list: the alternative is a picker that quietly offers every record
+     * the moment its narrowing stops meaning anything, which is the failure this
+     * was written to remove. A caller that means "all of them" says so by
+     * passing none, and never reaches here.
+     *
+     * @param list<string>                 $variants
+     * @param array<string, mixed>         $parameters
+     * @param array<string, ParameterType> $types
+     */
+    private function variantGroup(
+        ModuleDefinition $module,
+        array $variants,
+        int &$slot,
+        array &$parameters,
+        array &$types,
+    ): string {
+        $key = $module->getVariantField();
+        $field = $key === null ? null : $module->getField($key);
+
+        if ($field === null) {
+            return 'FALSE';
+        }
+
+        $terms = [];
+
+        foreach ($variants as $variant) {
+            $terms[] = $this->comparison(
+                $field,
+                new Filter($key, Operator::Equals, $variant),
                 self::ALIAS,
                 $slot,
                 $parameters,

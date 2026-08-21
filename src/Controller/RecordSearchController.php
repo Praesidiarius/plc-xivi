@@ -114,13 +114,13 @@ final class RecordSearchController extends AbstractController
             throw $this->createNotFoundException($e->getMessage(), $e);
         }
 
-        $variant = trim((string) $request->query->get('variant'));
+        $variants = self::variantsIn($request);
         $query = trim((string) $request->query->get('query'));
         $page = max(1, $request->query->getInt('page', 1));
 
         $found = $this->candidates->find(
             $module,
-            $variant === '' ? null : $variant,
+            $variants,
             $query,
             $page,
             RecordCandidates::PER_PAGE,
@@ -133,10 +133,46 @@ final class RecordSearchController extends AbstractController
             ),
             'next_page' => \count($found) < RecordCandidates::PER_PAGE ? null : $this->generateUrl('record_search', [
                 'module' => $module,
-                'variant' => $variant,
+                'variant' => $variants,
                 'query' => $query,
                 'page' => $page + 1,
             ]),
         ]);
+    }
+
+    /**
+     * Which kinds the picker asking this was narrowed to (XIV-172).
+     *
+     * **Both shapes, and neither of them is trusted.** `variant[]=a&variant[]=b`
+     * is what {@see \App\Record\RecordSearchUrls} generates; a bare
+     * `variant=a` is what somebody typing the URL writes, and what every link
+     * this endpoint ever handed out before this ticket looked like. Read through
+     * `all()` on the whole bag rather than `all('variant')`, because that one
+     * throws a 400 when the parameter is a scalar, which is an unhelpful answer
+     * to a URL that is merely old.
+     *
+     * Nothing here decides anything: these are keys handed to
+     * {@see RecordCandidates}, which compares them against the target module's
+     * own variant field, and a key that names no kind simply matches nothing.
+     * Widening is the failure to avoid, and a request cannot cause it: asking
+     * for no kinds is asking for the module, which is what a picker that narrows
+     * nothing does anyway, and the access predicate is applied either way.
+     *
+     * @return list<string>
+     */
+    private static function variantsIn(Request $request): array
+    {
+        $raw = $request->query->all()['variant'] ?? [];
+        $variants = [];
+
+        foreach (\is_array($raw) ? $raw : [$raw] as $one) {
+            $one = \is_string($one) ? trim($one) : '';
+
+            if ($one !== '') {
+                $variants[] = $one;
+            }
+        }
+
+        return $variants;
     }
 }

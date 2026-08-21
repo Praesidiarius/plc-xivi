@@ -153,6 +153,24 @@ always lands in `Unreleased` here.
 
 [XIV-168]: https://xivi.youtrack.cloud/issue/XIV-168
 
+- **An order's voucher pickers offer only the vouchers that can go where they
+  are** ([XIV-172], §5.25). A voucher applies either to the document or to one
+  line, and both pickers listed all four kinds, so putting one in the wrong
+  place was only ever discovered by the save refusing it. Each now lists its own
+  family, on the plain select and on the search box alike, and an id from the
+  other family is not a choice even when it is typed straight into the request.
+- **Act on this if you write orders through anything but the record form.** The
+  save still refuses a misplaced voucher, with the same sentence, and that is
+  now the *only* place the sentence appears: through the form the value is no
+  longer a valid choice, so it arrives as nothing and the order saves without
+  it, the way every unofferable link on that form has always behaved. Imports,
+  copies and anything else writing through the engine are refused as before.
+- A reference field's `variant` option may now name several kinds, as a list,
+  and the search endpoint takes them as a repeated `variant[]` parameter. Fields
+  naming one kind are unchanged, and so is every stored definition.
+
+[XIV-172]: https://xivi.youtrack.cloud/issue/XIV-172
+
 
 ## Releases
 

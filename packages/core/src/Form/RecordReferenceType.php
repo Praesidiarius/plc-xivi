@@ -32,9 +32,10 @@ use Xivi\Core\Record\RecordSearchUrl;
  * handed a definition, not a connection.
  *
  * The options come from the target module's own records, named by its title
- * fields (§5.4), narrowed to a variant when the reference asks for one, and
- * scoped to what this reader may see (XIV-13), so a person's employer offers
- * companies and not every contact in the system.
+ * fields (§5.4), narrowed to the kinds the reference asks for, and scoped to
+ * what this reader may see (XIV-13), so a person's employer offers companies and
+ * not every contact in the system, and an order's voucher picker offers the
+ * vouchers that apply to a document (XIV-172).
  *
  * **Reading the candidates is {@see CandidateLists}' job** (XIV-87), and the
  * split is about lifetime rather than tidiness: this type is asked for a list
@@ -137,8 +138,15 @@ final class RecordReferenceType extends AbstractType
         $resolver
             ->setRequired('target_module')
             ->setAllowedTypes('target_module', 'string')
-            ->setDefault('target_variant', null)
-            ->setAllowedTypes('target_variant', ['null', 'string'])
+            // **A set rather than one key** (XIV-172), and empty means every
+            // kind. A field pointing at a module with variants may admit two of
+            // them. An order's voucher picker admits the two kinds that apply
+            // to a document, and the picker on its lines the other two, so a
+            // narrowing that could only name one could not describe either.
+            // Resolved by the field type and passed down whole, like the target
+            // module.
+            ->setDefault('target_variants', [])
+            ->setAllowedTypes('target_variants', 'string[]')
             // What the field asked for, resolved by the field type and passed
             // down rather than read again here: the definition is the field
             // type's to interpret (§5), and this form type is handed the answer
@@ -168,7 +176,7 @@ final class RecordReferenceType extends AbstractType
                 // {@see self::readCandidates()} answers that case without a list.
                 'candidates' => fn (Options $options): array => $this->readCandidates(
                     (string) $options['target_module'],
-                    $options['target_variant'] === null ? null : (string) $options['target_variant'],
+                    self::variantsOf($options),
                     $options['autocomplete_mode'] instanceof Autocomplete ? $options['autocomplete_mode'] : Autocomplete::Auto,
                 ),
                 'choices' => static fn (Options $options): array => $options['candidates']['choices'],
@@ -180,7 +188,7 @@ final class RecordReferenceType extends AbstractType
                     ? new RecordChoiceLoader(
                         $this->candidates,
                         (string) $options['target_module'],
-                        $options['target_variant'] === null ? null : (string) $options['target_variant'],
+                        self::variantsOf($options),
                     )
                     : null,
                 // The two the ux-autocomplete extension reads off any ChoiceType
@@ -191,7 +199,7 @@ final class RecordReferenceType extends AbstractType
                 'autocomplete_url' => fn (Options $options): ?string => $options['candidates']['autocomplete']
                     ? $this->searchUrl->forModule(
                         (string) $options['target_module'],
-                        $options['target_variant'] === null ? null : (string) $options['target_variant'],
+                        self::variantsOf($options),
                     )
                     : null,
                 // One character, rather than the package's default of three. A
@@ -231,6 +239,28 @@ final class RecordReferenceType extends AbstractType
     }
 
     /**
+     * The kinds this picker admits, read out of the resolved options.
+     *
+     * One place, because three of the options above want it and they are the
+     * three that have to agree (XIV-172): the list the select draws, the loader
+     * that decides whether a submitted id was a choice, and the endpoint the
+     * search box types at. A picker whose dropdown and whose validation disagreed
+     * about which kinds are allowed would offer records it then refuses, which is
+     * the defect this narrowing exists to remove rather than a new spelling of
+     * it.
+     *
+     * @param Options<array<string, mixed>> $options
+     *
+     * @return list<string>
+     */
+    private static function variantsOf(Options $options): array
+    {
+        $variants = $options['target_variants'];
+
+        return \is_array($variants) ? array_values(array_map(strval(...), $variants)) : [];
+    }
+
+    /**
      * What this picker offers, and which of the two shapes it takes.
      *
      * **`always` reads nothing at all.** The widget's first page arrives from
@@ -245,15 +275,17 @@ final class RecordReferenceType extends AbstractType
      * was not making, and five hundred collection rows decide five hundred times
      * off one read.
      *
+     * @param list<string> $variants
+     *
      * @return array{choices: array<string, int>, total: int, autocomplete: bool}
      */
-    private function readCandidates(string $moduleKey, ?string $variant, Autocomplete $mode): array
+    private function readCandidates(string $moduleKey, array $variants, Autocomplete $mode): array
     {
         if ($mode === Autocomplete::Always) {
             return ['choices' => [], 'total' => 0, 'autocomplete' => true];
         }
 
-        $list = $this->lists->for($moduleKey, $variant);
+        $list = $this->lists->for($moduleKey, $variants);
 
         // The choices go with the select. Keeping them beside a search box would
         // put two hundred `<option>` elements per collection row back into the

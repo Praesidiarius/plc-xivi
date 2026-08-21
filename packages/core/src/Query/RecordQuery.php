@@ -25,6 +25,24 @@ namespace Xivi\Core\Query;
  * build one, and inventing that shape before anything asks for it is the
  * speculative generalisation §1 warns about. The list is the honest 90%.
  *
+ * **The variants are a narrowing rather than a filter** (XIV-172), which is the
+ * same distinction {@see Search} draws and for the same reason. A reference
+ * picker offers the kinds of record its field says it points at: a person's
+ * employer offers companies, an order's voucher offers the two kinds that apply
+ * to a document. Asking for two of a module's four kinds is a disjunction
+ * the filter list cannot express, because two filters mean *and*.
+ *
+ * It stays out of `filters` rather than arriving as an operator over a list,
+ * which §5.3 refused (`Operator::Includes` says so in its own docblock): what is
+ * here is a closed shape with nothing composable in it. One column, the module's
+ * own variant field, resolved by the compiler rather than named by the caller;
+ * values bound like every other value; ANDed with everything else. A caller
+ * cannot say *which* field this narrows, so this cannot become a way to write an
+ * OR over anything else.
+ *
+ * Empty means every variant, which is `FieldBlueprint::variants`' rule one level
+ * out (§5.5) and the answer for the modules that have no variant field at all.
+ *
  * Paging is LIMIT/OFFSET, which is correct and gets slower the deeper it goes.
  * Keyset paging is the upgrade when someone is on page 400; until then it costs
  * a sort key in the URL that nobody wants to look at.
@@ -38,10 +56,13 @@ final readonly class RecordQuery
     /**
      * @param list<Filter> $filters
      * @param list<Sort>   $sorts
-     * @param ?Search      $search  one string across several fields (XIV-36),
-     *                              ANDed with the filters like any other
-     *                              condition. Null is the ordinary case and the
-     *                              one every caller before the picker takes.
+     * @param ?Search      $search   one string across several fields (XIV-36),
+     *                               ANDed with the filters like any other
+     *                               condition. Null is the ordinary case and the
+     *                               one every caller before the picker takes.
+     * @param list<string> $variants which kinds of record this is about (§5.5),
+     *                               empty for all of them. See the class docblock
+     *                               for why it is not a filter
      */
     public function __construct(
         public array $filters = [],
@@ -49,6 +70,7 @@ final readonly class RecordQuery
         public int $page = 1,
         public int $perPage = self::DEFAULT_PER_PAGE,
         public ?Search $search = null,
+        public array $variants = [],
     ) {
     }
 
@@ -59,12 +81,12 @@ final readonly class RecordQuery
 
     public function withSorts(Sort ...$sorts): self
     {
-        return new self($this->filters, array_values($sorts), $this->page, $this->perPage, $this->search);
+        return new self($this->filters, array_values($sorts), $this->page, $this->perPage, $this->search, $this->variants);
     }
 
     public function withPage(int $page): self
     {
-        return new self($this->filters, $this->sorts, $page, $this->perPage, $this->search);
+        return new self($this->filters, $this->sorts, $page, $this->perPage, $this->search, $this->variants);
     }
 
     public function sortOn(string $field): ?Sort
