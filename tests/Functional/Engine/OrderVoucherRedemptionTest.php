@@ -287,8 +287,24 @@ final class OrderVoucherRedemptionTest extends WebTestCase
         self::assertSame(1, $this->redeemed($voucher), 'and the refused order took nothing');
     }
 
-    /** An expired one says so, rather than saying it is not valid. */
-    public function testAnExpiredVoucherIsRefused(): void
+    /**
+     * An expired one says so, rather than saying it is not valid.
+     *
+     * **Asked of the writer rather than of the record form, and that changed
+     * with XIV-175**, though the assertion is the one it always was. Since the
+     * picker narrowed to the vouchers that can be used today, an expired one
+     * cannot be submitted through the form at all: it is not among the choices,
+     * so the value never reaches the engine and this sentence is never reached
+     * from there. `VoucherValidityPickerTest` is where *that* is under test.
+     *
+     * What is under test here is the rule, which is not a property of any
+     * picker. An import, a copy of another document and anything else calling
+     * {@see RecordWriter} name vouchers on orders with no form in front of them,
+     * and the refusal is what makes the rule true for them rather than merely
+     * presented. It is also still the only thing standing between a stale form
+     * and a discount: the narrowing is a convenience in front of it.
+     */
+    public function testAnExpiredVoucherIsRefusedAtTheWriter(): void
     {
         $voucher = $this->aVoucher([
             'code' => 'LAST-YEAR',
@@ -297,12 +313,12 @@ final class OrderVoucherRedemptionTest extends WebTestCase
             'valid_until' => '2020-12-31',
         ]);
 
-        self::assertStringContainsString('has expired', $this->refusalOf($voucher));
-        self::assertSame(0, $this->redeemed($voucher));
+        self::assertStringContainsString('is past its last valid day', $this->refusalOfWriting($voucher));
+        self::assertSame(0, $this->redeemed($voucher), 'and a refused save takes no use');
     }
 
     /** And so does one whose promotion has not started. */
-    public function testAVoucherThatHasNotStartedIsRefused(): void
+    public function testAVoucherThatHasNotStartedIsRefusedAtTheWriter(): void
     {
         $voucher = $this->aVoucher([
             'code' => 'NEXT-YEAR',
@@ -311,7 +327,7 @@ final class OrderVoucherRedemptionTest extends WebTestCase
             'valid_from' => '2099-01-01',
         ]);
 
-        self::assertStringContainsString('is not valid yet', $this->refusalOf($voucher));
+        self::assertStringContainsString('is not valid yet', $this->refusalOfWriting($voucher));
     }
 
     /**
@@ -493,6 +509,38 @@ final class OrderVoucherRedemptionTest extends WebTestCase
      * validator would have put one — so this reads it off the page the person is
      * still looking at rather than out of an exception.
      */
+    private function refusalOfWriting(int $voucher): string
+    {
+        $contact = $this->aCompany();
+
+        return self::service(TenantSwitcher::class)->runFor($this->tenant, function () use ($contact, $voucher): string {
+            $module = self::service(MetadataRepository::class)->get(OrderModule::KEY);
+
+            try {
+                self::service(RecordWriter::class)->save($module, new Record(data: [
+                    'contact' => $contact,
+                    'ordered_on' => '2026-08-19',
+                    'status' => OrderModule::DRAFT,
+                    OrderModule::VOUCHER => $voucher,
+                ]), [OrderModule::LINES => [['id' => null, 'data' => [
+                    OrderModule::KIND => OrderModule::CUSTOM_LINE,
+                    'description' => 'Desk lamp',
+                    OrderModule::QUANTITY => '1',
+                    OrderModule::UNIT_PRICE => '100.00',
+                    OrderModule::TAX_RATE => self::STANDARD,
+                ]]]]);
+            } catch (RecordRefused $refused) {
+                // The English half rather than the translated one, like
+                // `OrderLineVoucherRedemptionTest`: `RecordRefused` carries both,
+                // and the plain sentence is the one that does not move when a
+                // catalogue is retranslated.
+                return $refused->getMessage();
+            }
+
+            self::fail('the write was expected to be refused');
+        });
+    }
+
     private function refusalOf(int $voucher): string
     {
         $response = $this->saveRecord(OrderModule::KEY, [

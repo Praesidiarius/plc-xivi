@@ -39,18 +39,24 @@ use Xivi\Core\Record\RecordCandidates;
  *
  * **What is loaded and what is not:**
  *
- * - {@see self::loadChoiceList()} returns only the records this form has been
- *   *told* about — in practice the one it starts with, so an edit form shows
- *   what is linked today. Everything else arrives from the endpoint as somebody
- *   types, which is why there is no page of two hundred to preload and no
- *   ceiling to apologise for (XIV-35).
+ * - {@see self::loadChoiceList()} returns the records this form has been *told*
+ *   about — in practice the one it starts with, so an edit form shows what is
+ *   linked today. Everything else arrives from the endpoint as somebody types,
+ *   which is why there is no page of two hundred to preload and no ceiling to
+ *   apologise for (XIV-35). **A loader filling a plain select adds that
+ *   select's page to it** (XIV-175), which is the one case where this class
+ *   draws options rather than only resolving them; see {@see
+ *   RecordReferenceType} for why a select ever has a loader.
  * - {@see self::loadChoicesForValues()} answers "may this id be picked", once,
  *   through {@see RecordCandidates::byId()} — the same access rule and the same
  *   narrowing to a set of kinds the endpoint applies (XIV-172). That is the
  *   load-bearing half: a value typed into the request by hand goes through it
  *   exactly as one clicked in the dropdown does, so the widget and the form
  *   cannot come to different conclusions about whose records these are, or about
- *   whether a voucher meant for one line may be put on the document.
+ *   whether a voucher meant for one line may be put on the document. The one
+ *   value it answers differently about is the one the form was *given*
+ *   ({@see self::resolve()}, XIV-175), because keeping what a record already
+ *   holds is not the same question as picking something new.
  *
  * **It is mutable, which a loader normally is not**, and the reason is the order
  * Symfony does things in. The choice list is resolved as an option, before any
@@ -95,16 +101,37 @@ final class RecordChoiceLoader implements ChoiceLoaderInterface
     private array $titles = [];
 
     /**
-     * @param list<string> $variants which kinds this picker may hold; empty for
-     *                               all of them. The same set the endpoint
-     *                               behind the widget was given, or the widget
-     *                               would suggest records this then refuses
-     *                               (XIV-172)
+     * The ids this form was handed as its record's own (XIV-175).
+     *
+     * Small, and it is the record's links rather than anything a request said:
+     * {@see RecordReferenceType::buildForm()} fills it on `PRE_SET_DATA` from
+     * the data the form is built with. What it is for is written on
+     * {@see self::offer()} and on {@see RecordCandidates::held()}.
+     *
+     * @var array<int, true>
+     */
+    private array $held = [];
+
+    /**
+     * @param list<string>    $variants which kinds this picker may hold; empty for
+     *                                  all of them. The same set the endpoint
+     *                                  behind the widget was given, or the widget
+     *                                  would suggest records this then refuses
+     *                                  (XIV-172)
+     * @param ?CandidateLists $listing  the page a plain select renders, when this
+     *                                  loader is filling one (XIV-175). Null for
+     *                                  the search box, which has no page: its
+     *                                  options arrive from the endpoint and
+     *                                  nothing but the record's own links belongs
+     *                                  in the page. See
+     *                                  {@see RecordReferenceType} for why a
+     *                                  select ever has a loader at all
      */
     public function __construct(
         private readonly RecordCandidates $candidates,
         private readonly string $moduleKey,
         private readonly array $variants,
+        private readonly ?CandidateLists $listing = null,
     ) {
     }
 
@@ -116,12 +143,22 @@ final class RecordChoiceLoader implements ChoiceLoaderInterface
      * cannot see shows an empty picker rather than an error, and saving without
      * touching it is refused by the choice list below rather than by a message
      * explaining whose record it is.
+     *
+     * **Through {@see RecordCandidates::held()} rather than `byId()`**
+     * (XIV-175), which is the whole of how a document keeps a voucher that
+     * expired after it was agreed. This method is called with what the record
+     * *has*, never with what a request said, so the two questions genuinely are
+     * different: `byId()` answers "may this be picked", and a value already
+     * stored has been picked. Narrowing it here would mean an order opened after
+     * the promotion ended lost its discount by being looked at, which is the
+     * opposite of what the engine decided (§5.9, XIV-110).
      */
     public function offer(int $id): void
     {
-        $candidate = $this->candidates->byId($this->moduleKey, $this->variants, $id);
+        $candidate = $this->candidates->held($this->moduleKey, $this->variants, $id);
 
         if ($candidate !== null) {
+            $this->held[$candidate->id] = true;
             $this->remember($candidate);
         }
     }
@@ -141,11 +178,44 @@ final class RecordChoiceLoader implements ChoiceLoaderInterface
     {
         $known = [];
 
-        foreach (DistinctLabels::among($this->titles) as $id => $label) {
+        // The select's page first, so the options stay in the order somebody is
+        // scanning, and whatever the record itself holds after it. Records in
+        // both are one entry: the page's title is written first and the offered
+        // one writes the same key again.
+        foreach (DistinctLabels::among($this->listed() + $this->titles) as $id => $label) {
             $known[$label] = $id;
         }
 
         return new ArrayChoiceList($known, $value);
+    }
+
+    /**
+     * The page a plain select renders, when this loader is filling one
+     * (XIV-175).
+     *
+     * Read through {@see CandidateLists}, which is the memo the form type
+     * already asked for its count, so drawing the options costs no query the
+     * form was not making and five hundred collection rows still read one page
+     * (XIV-87). Empty for a search box, which has no page at all.
+     *
+     * The labels come back already distinguished, since {@see
+     * RecordCandidates::find()} applies {@see DistinctLabels} to what it hands
+     * out. Running the rule again over the union is not a second spelling of it:
+     * two distinct labels stay as they are, and the one case that matters is a
+     * held record whose title collides with a listed one, which is exactly the
+     * pair that has to be told apart.
+     *
+     * @return array<int, string>
+     */
+    private function listed(): array
+    {
+        $titles = [];
+
+        foreach ($this->listing?->for($this->moduleKey, $this->variants)['choices'] ?? [] as $label => $id) {
+            $titles[$id] = $label;
+        }
+
+        return $titles;
     }
 
     /**
@@ -206,7 +276,7 @@ final class RecordChoiceLoader implements ChoiceLoaderInterface
                 continue;
             }
 
-            $candidate = $this->candidates->byId($this->moduleKey, $this->variants, (int) $submitted);
+            $candidate = $this->resolve((int) $submitted);
 
             if ($candidate !== null) {
                 // Remembered, so that redrawing the form after a refused save
@@ -247,6 +317,29 @@ final class RecordChoiceLoader implements ChoiceLoaderInterface
             static fn (mixed $choice): string => $value === null ? (string) $choice : (string) $value($choice),
             $choices,
         );
+    }
+
+    /**
+     * One submitted id, as either a choice or a value being kept (XIV-175).
+     *
+     * The difference is one question: was this form *given* this id as its
+     * record's own? An id it was given goes through
+     * {@see RecordCandidates::held()}, which applies everything except the
+     * module's own narrowing, so re-saving an order that carries a voucher which
+     * has since expired stores the same voucher it already stored. Everything
+     * else goes through {@see RecordCandidates::byId()} and meets the narrowing
+     * in full.
+     *
+     * **A crafted id cannot reach the first branch**, because
+     * {@see self::offer()} is what fills `$held` and the form type calls it on
+     * `PRE_SET_DATA` with the record's stored links. The most a submission can
+     * do by naming a held id is leave the record holding what it already held.
+     */
+    private function resolve(int $id): ?Candidate
+    {
+        return isset($this->held[$id])
+            ? $this->candidates->held($this->moduleKey, $this->variants, $id)
+            : $this->candidates->byId($this->moduleKey, $this->variants, $id);
     }
 
     /**

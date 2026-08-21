@@ -43,6 +43,25 @@ namespace Xivi\Core\Query;
  * Empty means every variant, which is `FieldBlueprint::variants`' rule one level
  * out (§5.5) and the answer for the modules that have no variant field at all.
  *
+ * **The exclusions are the third of these, and they are a negation rather than
+ * a disjunction** (XIV-175). A voucher picker offers what can be used today,
+ * and "currently valid" is
+ * `(from IS NULL OR from <= today) AND (until IS NULL OR until >= today)`,
+ * which {@see \Xivi\Voucher\Validity\VoucherValidity} says at length cannot be
+ * written as filters: it is a conjunction of two disjunctions and the filter
+ * list is an AND. Said the other way round it needs neither. Expired and
+ * not-yet-started are each one plain condition, and *not expired and not yet to
+ * start* is exactly what is wanted, so what travels here is the conditions a
+ * record must **not** match, ANDed with everything else like any other.
+ *
+ * That is deliberately not a step towards a boolean tree. Nothing composes: a
+ * caller cannot write `a OR b`, only refuse `a` and refuse `b`, and the list is
+ * built by a module's own rule rather than from a request (`RecordQueryFactory`
+ * never sets it, exactly as it never sets the variants). What it does buy is
+ * the NULL half for free, because "no end date" and "not past its end date" are
+ * the same answer here; see {@see QueryCompiler::exclusion()} for the one line
+ * that makes that true rather than assumed.
+ *
  * Paging is LIMIT/OFFSET, which is correct and gets slower the deeper it goes.
  * Keyset paging is the upgrade when someone is on page 400; until then it costs
  * a sort key in the URL that nobody wants to look at.
@@ -56,13 +75,17 @@ final readonly class RecordQuery
     /**
      * @param list<Filter> $filters
      * @param list<Sort>   $sorts
-     * @param ?Search      $search   one string across several fields (XIV-36),
-     *                               ANDed with the filters like any other
-     *                               condition. Null is the ordinary case and the
-     *                               one every caller before the picker takes.
-     * @param list<string> $variants which kinds of record this is about (§5.5),
-     *                               empty for all of them. See the class docblock
-     *                               for why it is not a filter
+     * @param ?Search      $search    one string across several fields (XIV-36),
+     *                                ANDed with the filters like any other
+     *                                condition. Null is the ordinary case and the
+     *                                one every caller before the picker takes.
+     * @param list<string> $variants  which kinds of record this is about (§5.5),
+     *                                empty for all of them. See the class docblock
+     *                                for why it is not a filter
+     * @param list<Filter> $excluding conditions a record must **not** match
+     *                                (XIV-175), ANDed with everything else. A
+     *                                record with nothing in the column is kept,
+     *                                because it does not match the condition
      */
     public function __construct(
         public array $filters = [],
@@ -71,6 +94,7 @@ final readonly class RecordQuery
         public int $perPage = self::DEFAULT_PER_PAGE,
         public ?Search $search = null,
         public array $variants = [],
+        public array $excluding = [],
     ) {
     }
 
@@ -81,12 +105,12 @@ final readonly class RecordQuery
 
     public function withSorts(Sort ...$sorts): self
     {
-        return new self($this->filters, array_values($sorts), $this->page, $this->perPage, $this->search, $this->variants);
+        return new self($this->filters, array_values($sorts), $this->page, $this->perPage, $this->search, $this->variants, $this->excluding);
     }
 
     public function withPage(int $page): self
     {
-        return new self($this->filters, $this->sorts, $page, $this->perPage, $this->search, $this->variants);
+        return new self($this->filters, $this->sorts, $page, $this->perPage, $this->search, $this->variants, $this->excluding);
     }
 
     public function sortOn(string $field): ?Sort

@@ -237,6 +237,17 @@ final class ReferenceFieldType implements Autocompletes, LinksToRecord, PointsAt
         // record is of two kinds at once. A demo tenant whose generated links
         // point at records the form would refuse is a tenant that fails its own
         // first save.
+        //
+        // **What a module says about its own candidates is deliberately not
+        // asked here** (XIV-175). That narrowing belongs to the picker
+        // ({@see \Xivi\Core\Record\NarrowsCandidates}), and this is not one:
+        // nobody is choosing, nothing is offered, and the generator is already
+        // unrestricted where the picker is scoped. The one module with such a
+        // rule today is vouchers, and a generated order names none of those
+        // anyway, by a field option in `OrderModule` and for a stronger reason
+        // than this one: sampling a voucher takes real uses off it while a demo
+        // tenant is being built. A module that later samples a reference into
+        // records with a rule of their own should say so where that one does.
         $records = ($this->records)()->findBy(
             $module,
             new RecordQuery([], [], 1, self::CANDIDATES, variants: self::targetVariants($field)),

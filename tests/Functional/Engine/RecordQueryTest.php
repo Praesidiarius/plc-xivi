@@ -291,6 +291,60 @@ final class RecordQueryTest extends KernelTestCase
         self::assertSame(4, $this->countMatching($query));
     }
 
+    /**
+     * A condition can be refused rather than required, and refusing one keeps
+     * the records that have nothing to compare (XIV-175).
+     *
+     * **The second half is the whole reason this exists.** `NOT (birthday <
+     * '1900-01-01')` is NULL for a record with no birthday, and a NULL predicate
+     * keeps a row out, so the plain negation would have dropped every record
+     * that has nothing in the column. The picker this was written for narrows
+     * vouchers by their dates, and nearly every voucher a shop creates has none,
+     * so getting this wrong empties the list instead of narrowing it.
+     */
+    public function testAnExcludedConditionKeepsTheRecordsWithNoValue(): void
+    {
+        $this->contact('Ada', 'Lovelace', [], '1815-12-10');
+        $this->contact('Grace', 'Hopper', [], '1906-12-09');
+        $this->contact('Katherine', 'Johnson');
+
+        $found = $this->matching(new RecordQuery(
+            sorts: [new Sort('first_name')],
+            excluding: [new Filter('birthday', Operator::LessThan, '1900-01-01')],
+        ));
+
+        self::assertSame(['Grace', 'Katherine'], $this->firstNames($found), 'the born-too-early one, and only it, is gone');
+    }
+
+    /** And the count is drawn on the same predicate as the page. */
+    public function testAnExcludedConditionNarrowsTheCountToo(): void
+    {
+        $this->contact('Ada', 'Lovelace', [], '1815-12-10');
+        $this->contact('Grace', 'Hopper', [], '1906-12-09');
+
+        self::assertSame(1, $this->countMatching(new RecordQuery(
+            excluding: [new Filter('birthday', Operator::LessThan, '1900-01-01')],
+        )));
+    }
+
+    /** Two of them are ANDed, like a filter, and with everything else. */
+    public function testExclusionsCombineWithFiltersAndWithEachOther(): void
+    {
+        $this->contact('Ada', 'Lovelace', [], '1815-12-10');
+        $this->contact('Grace', 'Hopper', [], '1906-12-09');
+        $this->contact('Barbara', 'Liskov', [], '1939-11-07');
+
+        $found = $this->matching(new RecordQuery(
+            filters: [new Filter('last_name', Operator::IsNotEmpty)],
+            excluding: [
+                new Filter('birthday', Operator::LessThan, '1900-01-01'),
+                new Filter('birthday', Operator::GreaterThan, '1920-01-01'),
+            ],
+        ));
+
+        self::assertSame(['Grace'], $this->firstNames($found), 'neither too early nor too late');
+    }
+
     public function testFiltersCombineWithAnd(): void
     {
         $this->contact('Ada', 'Lovelace', [['id' => null, 'data' => ['street' => 'A 1', 'city' => 'Zürich']]]);

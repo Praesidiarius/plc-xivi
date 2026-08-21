@@ -861,6 +861,37 @@ the money to belong to.
   does not validate; §5.4's validator reads the definitions instead). The
   refusal's sentence is now reached by an import, a copy, and anything else
   writing through the engine, which is where the guarantee always lived.
+- **And nor do they offer what the calendar rules out** (XIV-175), which is the
+  same complaint's other half. Expiry stays a read rather than a state (§5.19),
+  so the narrowing is a rule in code rather than an option in a blueprint:
+  `NarrowsCandidates` is a tagged seam a module implements for its own records,
+  shaped like `DocumentDiscounts` and asked only by `RecordCandidates`. A field
+  option could not have said it twice over, because every picker into vouchers
+  wants it and because installed definitions are the customer's and are not
+  retro-fitted (§6.1), so a blueprint would reach new installations only.
+- **"Currently valid" needs no `OR` after all.** It is a conjunction of two
+  disjunctions, which §7 question 3 says the query layer cannot express, and
+  *not expired and not yet to start* is the same set written as two plain
+  conditions negated. `RecordQuery::$excluding` carries them, ANDed like any
+  other condition, compiled as `(…) IS NOT TRUE` so that a voucher with no dates
+  is kept rather than dropped by SQL's three-valued logic. Nothing composes:
+  a caller can refuse conditions, never write a disjunction over them, and the
+  list is built by a module rather than from a request.
+- **What the narrowing narrows is what may be *newly chosen*.** A document
+  keeps the voucher it was agreed with after that voucher expires, which is
+  XIV-110's refusal of a transition guard arriving at the picker: a use is
+  taken once, so re-saving must not release one. `RecordCandidates::held()` is
+  the seam, reachable only for ids a form was handed on `PRE_SET_DATA`, and it
+  is why a *select* whose module narrows now renders through the choice loader
+  as well: a `choices` array is resolved before the form has data, so it cannot
+  be told about the record the list left out.
+- **Exhausted and wrong-article are decided out, not skipped.** A remaining use
+  is a count read at a moment, resolved inside the statement that takes it
+  (§5.19), so a list can hide an exhausted voucher but cannot honestly promise
+  the ones it shows; the refusal at the write is where that race is settled.
+  Whether an article restriction holds is a fact about the *line*, which the
+  candidate query is not handed and which the next edit to the row can change.
+  Both keep their sentences at the write.
 - Accepted and asserted: the Discount column exists in voucherless
   installations, and the field editor removes it. Not in: stacking (the field
   is a single reference, so the question cannot be asked yet), best-line
