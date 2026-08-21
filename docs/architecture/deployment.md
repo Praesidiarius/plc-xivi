@@ -502,6 +502,25 @@ environment inheritance, so `frankenphp/conf.d/10-app.ini` names the file. It
 covers SMTP and the §4.5 monitoring pings, which go to an HTTPS endpoint and are
 documented to fail silently.
 
+**The compose network needs `enable_ipv6`, or the application does not learn who
+is talking to it.** Docker's bridge is IPv4-only by default, and a published port
+still answers IPv6 because the userland proxy takes it: that proxy opens a second
+connection from the host, so the container sees the bridge gateway instead of the
+client. Measured on the target, the same request arrived as the real address over
+IPv4 and as `172.18.0.1` over IPv6. The log being wrong is the mild half.
+`ControlPlaneAllowList` decides from `Request::getClientIp()`, which with no
+trusted proxies is the socket peer, so §8.9's allow list would have compared every
+IPv6 visitor against the gateway and refused them. It fails closed rather than
+open, and the symptom is an operator locked out of their own control plane with
+nothing saying why. **So AAAA records come after this, not before**: Let's Encrypt
+prefers IPv6, and a name resolving to an address the instance answers badly on is
+worse than one that does not resolve.
+
+Changing that setting **recreates the network**, which `docker compose up` will
+not do while containers are attached to it. It needs a deliberate `down` and
+`up`, so it is a short outage rather than a rolling change, and it is the one
+edit to these files a deploy cannot apply on its own.
+
 **Secrets are installed once, deliberately, and never by a deploy.**
 `dep secrets:install <alias>` writes `/opt/xivi/.env.deploy` at mode 600 from a
 gitignored local file. A deploy that shipped them every time would put them in

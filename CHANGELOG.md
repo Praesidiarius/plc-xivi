@@ -73,6 +73,15 @@ always lands in `Unreleased` here.
 
 ## [Unreleased]
 
+- **An installation learns who is actually talking to it over IPv6**
+  ([XIV-61], §4.8). Docker's bridge is IPv4-only unless told otherwise, and a
+  published port still answers IPv6 through the userland proxy, which opens its
+  own connection and hides the client behind the bridge gateway. The control
+  plane's IP allow list decides from the socket peer, so it would have refused
+  every IPv6 visitor including the operator, failing closed and saying nothing.
+  The deployment's network enables IPv6 now, and AAAA records are safe to add
+  once it does.
+
 
 ## Releases
 

@@ -202,3 +202,28 @@ services:
     # same compose network, and a Postgres reachable from the internet is how a
     # single-box deployment becomes somebody else's.
     ports: !reset []
+
+# **IPv6 on the network, so the application sees who is actually talking to it**
+# (XIV-61, §4.8).
+#
+# Docker's bridge is IPv4-only unless told otherwise, and a published port still
+# accepts IPv6 because the userland proxy picks it up. That proxy is a process on
+# the host opening a second connection to the container, so the container sees
+# *its* address, not the client's. Measured on the target: the same request over
+# IPv4 arrived as the real client address and over IPv6 as `172.18.0.1`, the
+# bridge gateway.
+#
+# The log being wrong is the mild half. `App\Deployment\ControlPlaneAllowList`
+# decides from `Request::getClientIp()`, which with no trusted proxies is the
+# socket peer, so an allow list would have compared every IPv6 visitor against
+# the gateway. It fails closed rather than open, which is the good news, but the
+# failure is "the operator cannot reach their own control plane over IPv6, and
+# the reason is invisible".
+#
+# With IPv6 on the network Docker forwards through ip6tables instead, which is a
+# DNAT and keeps the source address. **Only add AAAA records once this is on**,
+# because Let's Encrypt prefers IPv6 and a name that resolves to an address the
+# instance answers badly on is worse than one that does not resolve at all.
+networks:
+  default:
+    enable_ipv6: true
