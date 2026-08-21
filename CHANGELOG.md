@@ -185,6 +185,27 @@ always lands in `Unreleased` here.
   labels also survive the field picker redrawing the card, which they did not.
 
 [XIV-174]: https://xivi.youtrack.cloud/issue/XIV-174
+- **A field can put its values at the top of the record page** ([XIV-173],
+  §5.26). Tick "at the top" on the arrange page and a `choice` or `multi_choice`
+  field's values are drawn as chips beside the module name, the state and the
+  overdue badge, in the list entry's own colour and icon. Make one list called
+  Tags, point fields at it from Contacts and Orders, and each module decides for
+  itself whether they show up there. Three chips are drawn and the rest are
+  counted; the field is still on the form and still in the record below, so
+  nothing moves out of the section it was put in. A record with nothing in a
+  promoted field shows nothing at all.
+- **The option is on the field, not on the list** ([XIV-173], §5.26). A list is
+  shared across modules on purpose, so an option on the list would decide for
+  every module at once. The box is offered only for a field whose values are a
+  set you keep; on anything else the engine refuses it and the arrange page
+  draws a dash. Changing such a field to a type with no value set clears the
+  flag rather than refusing the change.
+- **Run `bin/console tenant:migrate` after merging** ([XIV-173]). One additive
+  column, `field_definition.is_promoted`, defaulting to false, so every existing
+  field stays where it is and no record page changes until somebody ticks the
+  box.
+
+[XIV-173]: https://xivi.youtrack.cloud/issue/XIV-173
 
 
 ## Releases

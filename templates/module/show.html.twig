@@ -39,6 +39,61 @@
 								{{- 'module.overdue'|trans -}}
 							</span>
 						{% endif %}
+						{#
+							The values a customer said belong up here ([XIV-173]).
+
+							Beside the state and the overdue badge rather than in a strip of
+							their own, because they are the same kind of statement: the state
+							is what the record *is* right now, late is what the calendar has
+							made of it, and a tag is what the business calls it. Three answers
+							to one question read as one line; three regions of the page read
+							as a form.
+
+							The order is the module's own field order and the chips come from
+							`value_badges()` through the same `_value_badge.html.twig` the
+							read view and the list column draw. `promoted_values()` has both,
+							and has the reason a lone value with no colour on it still becomes
+							a chip up here when it would not below.
+
+							**Nothing at all when there is nothing**: no container, no
+							separator, no empty pill. A record with no tags is the header that
+							was here before this existed, to the character, which is what
+							keeps the title from moving between one record and the next.
+
+							**Three, then a count.** That is the number the list column took
+							for itself ([XIV-169]) and it is right here for the same reason
+							rather than by copying: this is one line shared with a label, two
+							badges and a row of buttons, and a record with thirty tags would
+							push the title off a laptop screen. The number is written here
+							rather than shared with the table's, because each is a statement
+							about the room *that* page has. If this strip is ever given more
+							of it, the table's cell must not widen with it.
+
+							The count is not a link, and unlike the table's it does not need
+							to be: the field is still drawn in full in the read view a few
+							centimetres below. That is the other half of the decision to leave
+							a promoted field where it is rather than move it out of the
+							section somebody deliberately put it in (XIV-119).
+						#}
+						{% set promoted = promoted_values(module, record) %}
+						{% if promoted is not empty %}
+							{% set headerBadges = 3 %}
+							{# The wrapper is a name for the group rather than a layout of its
+							   own: it carries no styling, and it is what lets a test ask
+							   whether the header has promoted values at all, which is the
+							   assertion the empty case above turns on. #}
+							<span class="record-promoted">
+								{%- for badge in promoted|slice(0, headerBadges) %}
+									{{ include('_value_badge.html.twig', {badge: badge}) }}
+								{%- endfor -%}
+								{%- if promoted|length > headerBadges %}
+									<span class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle ms-1"
+									      title="{{ 'module.more_values'|trans({'%count%': promoted|length - headerBadges}) }}">
+										{{- 'module.more_values_short'|trans({'%count%': promoted|length - headerBadges}) -}}
+									</span>
+								{%- endif -%}
+							</span>
+						{% endif %}
 					</p>
 				</div>
 			</div>

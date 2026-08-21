@@ -120,6 +120,7 @@ final readonly class MetadataEditor
         bool $listed = false,
         bool $title = false,
         array $options = [],
+        bool $promoted = false,
     ): FieldDefinition {
         $key = trim($key);
 
@@ -153,6 +154,11 @@ final readonly class MetadataEditor
             // Not the module's: this one is the customer's, and that is what
             // makes it removable later.
             system: false,
+            // Off unless asked for, on `listed`'s reason one step further up the
+            // page ([XIV-173]): the record header is the most-read strip of the
+            // application, and a field that put itself there on the way in would
+            // be rearranging it for everybody who has the module.
+            promoted: $promoted,
         );
         self::assertNumbersSomething($options);
         // Through the same merge as an edit, so a setting somebody left blank is
@@ -170,6 +176,7 @@ final readonly class MetadataEditor
         $this->assertListExists($this->fieldTypes->get($type), $key, $merged);
         $this->assertScopeIsUsable($shape, $field, $merged);
         $this->assertUniqueIsAnswerable($this->fieldTypes->get($type), $key, $unique);
+        $this->assertPromotionIsPossible($shape, $this->fieldTypes->get($type), $key, $promoted);
         $this->assertFileFitsThisShape($this->fieldTypes->get($type), $shape, $key);
         $this->assertRecordsSurvive($shape, $field, $required, $unique);
 
@@ -227,6 +234,7 @@ final readonly class MetadataEditor
         array $options = [],
         ?int $width = null,
         ?string $section = null,
+        bool $promoted = false,
     ): void {
         self::assertNumbersSomething($options);
         $this->assertSectionExists($field->getShape(), $field->getKey(), $section);
@@ -255,6 +263,12 @@ final readonly class MetadataEditor
         // half-done state XIV-27 spent an ordering argument avoiding.
         $this->assertScopeIsUsable($field->getShape(), $field, $merged);
         $this->assertUniqueIsAnswerable($type, $field->getKey(), $unique);
+        // And whether this field's values are the kind a header can draw as
+        // chips ([XIV-173]). Asked of the type the field has *now*, which is the
+        // only type it can have when this method runs: changing one goes through
+        // {@see self::changeType()}, which clears the flag when the type being
+        // moved to cannot honour it.
+        $this->assertPromotionIsPossible($field->getShape(), $type, $field->getKey(), $promoted);
 
         $this->assertRecordsSurvive(
             $field->getShape(),
@@ -280,6 +294,12 @@ final readonly class MetadataEditor
         // terms above: null is "none" rather than "unchanged", and the key was
         // checked against this shape's own sections before anything was written.
         $field->setSection($section);
+        // And whether its values are drawn at the top of the record page as well
+        // ([XIV-173]), on the same terms again: false is "not in the header"
+        // rather than "unchanged", so a page drawing no control for it hands
+        // back what the field already had, exactly as it does for the width and
+        // the section.
+        $field->setPromoted($promoted);
         $field->setOptions($merged);
 
         $this->asOneChange(function () use ($field): void {
@@ -360,6 +380,19 @@ final readonly class MetadataEditor
         $shape = $field->getShape();
         $field->setType($type);
         $field->setOptions($merged);
+        // A field promoted to the record header stops being promoted when its
+        // new type has no set of values to draw as chips ([XIV-173]). Cleared
+        // rather than refused, on the options' own reasoning three paragraphs
+        // up: a type change is not an edit, and "you must untick a box on
+        // another page before you may do this" would be a refusal about
+        // presentation standing in the way of a change about data. Cleared
+        // rather than left, because leaving it would put whatever the new type
+        // displays, a paragraph or a date, in a pill beside the lifecycle state,
+        // which is the state the refusal in `updateField()` exists to prevent
+        // anybody reaching deliberately.
+        if (!$target instanceof Enumerates) {
+            $field->setPromoted(false);
+        }
 
         $this->assertNeedsAreAnswered($target, $field->getKey(), $merged);
         $this->assertTargetExists($target, $field->getKey(), $merged);
@@ -1302,6 +1335,43 @@ final readonly class MetadataEditor
     {
         if ($unique && $type instanceof HoldsSeveralValues) {
             throw MetadataChangeRefused::uniqueHoldsSeveralValues($key, $type->key());
+        }
+    }
+
+    /**
+     * Whether this field's values are the kind the record header can draw
+     * ([XIV-173]).
+     *
+     * Two refusals, and both are about what the header *is* rather than about
+     * taste. It is a strip of chips beside the module label and the lifecycle
+     * state, so it wants values out of a closed set the customer keeps
+     * ({@see Enumerates}), and a paragraph of markdown in a pill is not a
+     * smaller version of a tag, it is a broken page. And it belongs to a record, so a
+     * collection's fields are out: those describe a *row*, and a record with
+     * twelve order lines has twelve answers to "which article", none of which is
+     * the record's.
+     *
+     * Keyed on the capability rather than on the two type names that satisfy it
+     * today, which is the same rule `unique` and files are refused by: the next
+     * enumerating type inherits the answer instead of discovering it.
+     *
+     * Only ever a refusal when the flag is being *asked for*. A field that is
+     * already promoted and is being saved with something else changed cannot
+     * reach either branch with false, so relaxing is free, exactly as it is for
+     * `required` and `unique`.
+     */
+    private function assertPromotionIsPossible(ShapeDefinition $shape, FieldType $type, string $key, bool $promoted): void
+    {
+        if (!$promoted) {
+            return;
+        }
+
+        if (!$shape instanceof ModuleDefinition) {
+            throw MetadataChangeRefused::promotionIsForModules($shape->getLabel());
+        }
+
+        if (!$type instanceof Enumerates) {
+            throw MetadataChangeRefused::promotionNeedsAValueSet($key, $type->key());
         }
     }
 

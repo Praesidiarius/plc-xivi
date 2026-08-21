@@ -409,7 +409,7 @@ field:
         edit: 'Modifier un champ (%count%)'
         edit_help: 'Choisissez-en un dans la liste. Son formulaire porte les réglages de son type, et aucun autre.'
         arrange: 'Disposer le formulaire'
-        arrange_help: 'Ordre, largeurs, intertitres et champs affichés dans la liste.'
+        arrange_help: 'Ordre, largeurs, intertitres, champs affichés dans la liste et champs affichés en haut d’un enregistrement.'
         arrange_help_rows: 'Ordre, largeurs et champs affichés dans la liste.'
         unfinished: '%count% à configurer'
     types:
@@ -441,7 +441,7 @@ field:
         arranged_elsewhere: 'La place de ce champ, sa largeur, l’intertitre sous lequel il figure et son affichage dans la liste se décident avec les autres champs :'
     arrange:
         title: 'Disposer «%shape%»'
-        intro: 'La place de chaque champ dans le formulaire, sa largeur, l’intertitre sous lequel il figure et son affichage dans la liste.'
+        intro: 'La place de chaque champ dans le formulaire, sa largeur, l’intertitre sous lequel il figure, son affichage dans la liste et l’affichage de ses valeurs en haut de l’enregistrement.'
         note: >-
             Faites glisser un champ par sa poignée pour le déplacer, ou utilisez les flèches à
             côté : elles le déplacent d’une place et fonctionnent au clavier. Rien n’est
@@ -482,6 +482,8 @@ field:
     rule_unique_note: 'L’unicité est garantie par la base de données et pas seulement vérifiée pendant qu’un formulaire est ouvert : deux enregistrements ne peuvent pas porter la même valeur, un champ vide n’est pas le doublon d’un autre champ vide, et un enregistrement supprimé ne fait pas obstacle. Un champ dont des enregistrements partagent déjà une valeur ne peut pas devenir unique avant que ces enregistrements soient corrigés ; on vous dira quelles valeurs ils partagent.'
     rule_filterable: filtrable
     rule_listed: sur la liste
+    rule_promoted: en haut
+    rule_promoted_note: 'Les valeurs qui font reconnaître un enregistrement peuvent aussi s’afficher en haut de sa page, à côté du nom du module et de l’état, sous forme de pastilles colorées. Seul un champ dont les valeurs viennent d’une liste que vous tenez peut y aller. Trois sont montrées et le reste est compté ; le champ lui-même reste sur le formulaire et plus bas dans l’enregistrement.'
     rule_title: lui sert de titre
     remove_title: Retirer «%field%» ?
     remove_body: >-

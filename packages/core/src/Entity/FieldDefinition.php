@@ -150,6 +150,50 @@ class FieldDefinition
          */
         #[ORM\Column(name: 'section_key', length: 63, nullable: true)]
         private ?string $section = null,
+        /**
+         * Whether this field's values are also drawn at the top of the record
+         * page, beside the module label and the lifecycle state ([XIV-173]).
+         *
+         * Some values are what a record *is* rather than something it merely
+         * has: the tags on a contact, the region an order belongs to. Reading
+         * them should not mean finding the right row in a form of twenty-five,
+         * so a field may say that its values belong up there as well.
+         *
+         * **On the field rather than on the list it points at, and that is the
+         * decision this column exists to record.** It was asked for as an option
+         * on the shared list, which is the wrong home for one reason that
+         * settles it: a list is shared across modules on purpose (§5.26), so an
+         * option on the list would decide for Contacts and Orders at once, and
+         * the first customer wanting tags at the top of a contact but not of an
+         * order would have to fork a shared list to say so. A list is about
+         * values a business keeps: what they are called, what colour they are,
+         * what they merge into. *Where they are drawn* is a property of the
+         * field that uses them, which is where every other display decision here
+         * already lives: {@see self::$listed}, {@see self::$filterable},
+         * {@see self::$width}, {@see self::$position} and the section above.
+         *
+         * Rejected with it: the same option on the list as an overridable
+         * default, which would be two places holding one answer and free to
+         * disagree, which is the argument the section makes one docblock up.
+         *
+         * **Presentation, and nothing else**, on exactly the section's terms.
+         * The value is stored under the same key, validated by the same rules,
+         * filtered by the same query and named by the same document marker
+         * whatever this says. It is also an *addition* rather than a move: a
+         * promoted field is still drawn in the read view below and is still
+         * edited on the form, because promoting it out of the section somebody
+         * deliberately put it in (XIV-119) would be a rearrangement nobody
+         * asked for.
+         *
+         * Not every type may be promoted. The header draws chips, and a chip is
+         * honest only for a value out of a closed set the customer keeps, so
+         * {@see \Xivi\Core\Metadata\MetadataEditor} refuses this on a type that
+         * does not {@see \Xivi\Core\Field\Enumerates} and the editor does not
+         * draw the box. Keyed on the capability rather than on a type's name, so
+         * the next enumerating type inherits the answer.
+         */
+        #[ORM\Column(name: 'is_promoted')]
+        private bool $promoted = false,
     ) {
         $shape->addField($this);
     }
@@ -340,6 +384,25 @@ class FieldDefinition
         $section = $section === null ? null : trim($section);
 
         $this->section = $section === '' ? null : $section;
+    }
+
+    /** Whether the values are also drawn at the top of the record page; see the constructor. */
+    public function isPromoted(): bool
+    {
+        return $this->promoted;
+    }
+
+    /**
+     * Deliberately unvalidated here, on {@see self::setSection()}'s terms.
+     *
+     * Whether this field's *type* may be promoted is a question about the type
+     * registry, and a definition row is data rather than something that looks
+     * things up. {@see \Xivi\Core\Metadata\MetadataEditor} refuses it on the
+     * write path, where the console and an import meet the same rule.
+     */
+    public function setPromoted(bool $promoted): void
+    {
+        $this->promoted = $promoted;
     }
 
     public function isSystem(): bool

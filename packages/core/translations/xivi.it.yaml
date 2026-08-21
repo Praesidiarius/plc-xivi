@@ -138,6 +138,8 @@ metadata:
     unknown_section: 'Non c’è una sezione chiamata “%section%” su questo modulo, quindi “%key%” non ci si può mettere. Creala prima nella pagina delle sezioni.'
     section_needs_a_name: 'Una sezione è un’intestazione sul modulo di inserimento, quindi le serve un nome: è l’unica cosa che dice.'
     sections_are_for_modules: '“%shape%” è un elenco di righe dentro un record, non un modulo di inserimento a sé, quindi non ha sezioni in cui mettere campi.'
+    promotion_needs_a_value_set: 'I valori di un campo “%type%” non sono un insieme tenuto dal cliente, quindi non c’è nulla da disegnare come pastiglia in alto nel record. Lascia “%key%” fuori dall’intestazione, oppure puntalo a un elenco.'
+    promotion_is_for_modules: '“%shape%” è un elenco di righe dentro un record, quindi i suoi campi appartengono a una riga e non al record, e non c’è un solo valore di uno di essi da disegnare in alto nella pagina.'
     entries_are_held: '%count% record esistenti portano una voce che stai togliendo da “%list%”: %values%. Stanno in %where%. Quei record resterebbero con un valore che la lista non ha più, e non si potrebbero più salvare finché qualcuno non li sistema. Cambia prima quei record, oppure tieni la voce.'
     entry_has_children: '%count% voci stanno sotto “%label%”, quindi non si può togliere. Spostale altrove o rendile prima voci di primo livello.'
     list_is_in_use: '“%list%” non si può eliminare: %count% campi ne prendono i valori, ovvero %fields%. Punta prima quei campi altrove, e la lista potrà andare.'

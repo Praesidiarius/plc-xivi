@@ -887,8 +887,8 @@ nothing that tidies `Zürich`, `Zurich` and `zurich` back into one.
   mode, because a customer picks against a white page and the dark theme still
   has to read it. `text-bg-*` is not that. Icons are a bounded twelve, since
   the name lands in a class attribute. Chips draw through
-  `value_badge(field, value)`, which asks the field rather than switching on
-  type.
+  `value_badges(field, value)`, which asks the field rather than switching on
+  type ([XIV-169] made it plural; see §5.31).
 - **Hierarchy is one level**, and a parent must itself be a root, so cycles
   are impossible by construction. **It changes the picker and nothing else.**
   Filters stay exact, because the count, the refusal and the merge all count
@@ -912,6 +912,35 @@ nothing that tidies `Zürich`, `Zurich` and `zurich` back into one.
   XIV-113 built points at a *module* rather than a list (§5.29), so the promise
   stands unexercised; the test now says so about that type by name, which is
   what keeps "not declared" a decision rather than an omission.
+- **Values a customer reads first go at the top of the record page, and the
+  option is on the *field*** ([XIV-173]). Asked for as an option on the list and
+  settled the other way: a list is shared across modules by design, so an option
+  on it would decide for Contacts and Orders at once, and the first customer
+  wanting tags prominent on a contact but not on an order would have to fork a
+  shared list to say so. Every other display decision here is already a field
+  property (`listed`, `filterable`, `width`, `position`, and §5.4's section
+  from XIV-119), and §5.26 stays about *what values are* rather than where they
+  are drawn.
+  Rejected: on the list, and on the list as an overridable default (two places
+  for one answer).
+  - `field_definition.is_promoted`, one additive column defaulting to false, so
+    no page changes until somebody ticks it. Drawn on the **arrange** page,
+    which is where the other cross-field decisions live, and refused on a type
+    that does not `Enumerates` and on a collection's fields: the header draws
+    chips, and a paragraph in a pill is not a smaller tag, while a row's field
+    describes a row rather than the record. A type change to something with no
+    value set **clears** the flag rather than refusing the change.
+  - **Three chips, then a count**, the number the list column took in §5.31 and
+    right here for the same reason: one line shared with the module label, the
+    lifecycle state, the overdue badge and a row of buttons. Counted across the
+    whole strip, because the room belongs to the header rather than to any one
+    field. Each page states its own number; they agree and are not shared.
+  - **An addition, not a move.** The field stays on the form and in the read
+    view, so a promoted field is drawn twice: moving it would rearrange a
+    section somebody chose (§5.4, XIV-119), and the count in the header needs
+    the full set below it. Empty draws no container at all, so the header cannot move.
+    Order is `position`, which already decides the form. The list view gets
+    nothing: `listed` and §5.31's own cap already answer that question there.
 - Not here: retirement, module-seeded lists (a blueprint writes definitions,
   and a list is not one), a module's own field pointed at a list, deeper
   nesting, and colour beyond the record list and page.
@@ -1222,7 +1251,8 @@ comma-separated text field until this existed.
   option survives, several are kept in the separator's spelling so the `Choice`
   constraint names them. No other caller can reach the branch.
 - Not here: an arranged order, which is a third type on §5.29's rule; "has any
-  of these", which is §7.3's missing `OR`; a hop through the field; and
-  promotion to the record header, which is XIV-173 and sits on top of this.
+  of these", which is §7.3's missing `OR`; and a hop through the field.
+  Promotion to the record header did sit on top of this and has since landed as
+  a field property rather than a type's ([XIV-173], §5.26).
 
 ---

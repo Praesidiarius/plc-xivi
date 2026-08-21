@@ -171,6 +171,8 @@ metadata:
     unknown_section: 'Auf diesem Modul gibt es keinen Abschnitt namens „%section%“, deshalb kann „%key%“ nicht hinein. Lege ihn zuerst auf der Abschnittsseite an.'
     section_needs_a_name: Ein Abschnitt ist eine Überschrift im Formular und braucht deshalb einen Namen — mehr sagt er nicht.
     sections_are_for_modules: '„%shape%“ ist eine Zeilenliste innerhalb eines Datensatzes und kein eigenes Formular, hat also keine Abschnitte, in die Felder passen.'
+    promotion_needs_a_value_set: 'Die Werte eines Feldes vom Typ „%type%“ sind keine Menge, die der Kunde pflegt, es gibt also nichts, was ganz oben im Datensatz als Chip zu zeichnen wäre. Lass „%key%“ aus der Kopfzeile heraus oder richte es auf eine Liste.'
+    promotion_is_for_modules: '„%shape%“ ist eine Zeilenliste innerhalb eines Datensatzes, seine Felder gehören also zu einer Zeile und nicht zum Datensatz, und es gibt keinen einen Wert davon, den man ganz oben auf der Seite zeichnen könnte.'
     entries_are_held: '%count% vorhandene Datensätze tragen einen Eintrag, den du aus „%list%“ entfernst: %values%. Sie liegen in %where%. Diese Datensätze stünden mit einem Wert da, den es in der Liste nicht mehr gibt, und ließen sich erst wieder speichern, wenn jemand sie in Ordnung bringt. Ändere diese Datensätze zuerst, oder behalte den Eintrag.'
     entry_has_children: '%count% Einträge stehen unter „%label%“, es lässt sich deshalb nicht entfernen. Verschiebe sie zuerst oder mache sie zu Einträgen der obersten Ebene.'
     list_is_in_use: '„%list%“ lässt sich nicht löschen: %count% Felder beziehen ihre Werte daraus — %fields%. Zeige diese Felder zuerst woanders hin, dann kann die Liste weg.'

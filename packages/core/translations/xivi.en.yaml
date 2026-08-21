@@ -194,6 +194,8 @@ metadata:
     unknown_section: 'There is no section named "%section%" on this module, so "%key%" cannot be put in it. Make it on the sections page first.'
     section_needs_a_name: 'A section is a heading on the form, so it needs a name: it is the only thing it says.'
     sections_are_for_modules: '"%shape%" is a list of rows inside a record rather than a form of its own, so it has no sections to put fields in.'
+    promotion_needs_a_value_set: 'A "%type%" field''s values are not a set the customer keeps, so there is nothing to draw as a chip at the top of the record. Leave "%key%" out of the header, or point it at a list.'
+    promotion_is_for_modules: '"%shape%" is a list of rows inside a record, so its fields belong to a row rather than to the record, and there is no one value of one of them to draw at the top of the page.'
     # The shared lists a customer keeps (XIV-127). The first four are §5.4's rule
     # reaching further than a field's own options: an entry a record holds is not
     # removable, and where the records are is part of the sentence because they

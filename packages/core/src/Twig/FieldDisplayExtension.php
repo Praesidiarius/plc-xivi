@@ -30,6 +30,7 @@ use Xivi\Core\Field\ShowsSeveralBadges;
 use Xivi\Core\Field\StoredFile;
 use Xivi\Core\Field\ValueBadge;
 use Xivi\Core\Markdown\MarkdownRenderer;
+use Xivi\Core\Record\Record;
 
 /**
  * `display(field, value)` in a template.
@@ -59,6 +60,7 @@ final class FieldDisplayExtension extends AbstractExtension
             // never can.
             new TwigFunction('formatted', $this->formatted(...)),
             new TwigFunction('value_badges', $this->valueBadges(...)),
+            new TwigFunction('promoted_values', $this->promotedValues(...)),
             new TwigFunction('stored_file', $this->storedFile(...)),
             new TwigFunction('file_size', $this->fileSize(...)),
             new TwigFunction('display_stored', $this->displayStored(...)),
@@ -221,6 +223,83 @@ final class FieldDisplayExtension extends AbstractExtension
         $badge = $type instanceof ShowsABadge ? $type->badgeOf($value, $field) : null;
 
         return $badge === null ? [] : [$badge];
+    }
+
+    /**
+     * The chips that belong at the top of a record page, in one flat list
+     * ([XIV-173]).
+     *
+     * A field may say that its values are what the record *is* rather than
+     * something it merely has, the tags on a contact or the region on an order,
+     * and the record page then draws them beside the module label, the lifecycle
+     * state and the overdue badge, instead of leaving them to be found in a form
+     * of twenty-five rows. Which fields say so is
+     * {@see FieldDefinition::isPromoted()}, and the argument for the flag living
+     * on the field rather than on the shared list it points at is written there.
+     *
+     * **One flat list rather than a list per field**, and the reason is what the
+     * caller has to do with it. The room being shared out is the header, not any
+     * one field's share of it, so the cap that keeps thirty tags from pushing
+     * the title off the screen has to be taken across the whole strip; handing
+     * back a list per field would leave the template capping each one separately
+     * and a page with two promoted fields twice as tall as the argument allows.
+     * The field's own name is not carried along with it either, on the same
+     * ground the header already stands on: the lifecycle state is drawn as a
+     * bare badge with no "State:" in front of it, and a promoted value is the
+     * same kind of thing. Which field a value came from is answered by the read
+     * view below, which is one of the reasons a promoted field stays there.
+     *
+     * **In the shape's own field order**, so several promoted fields have a
+     * defined sequence and it is the one the customer already arranged (§5.4).
+     * Nothing new decides it; `position` decides it, exactly as it decides the
+     * form and the read view.
+     *
+     * **Variant-aware**, through `getFieldsFor()`: a field that only applies to
+     * a company is not drawn at the top of a person, for the same reason it is
+     * not drawn in the form.
+     *
+     * **The fallback is what makes a `choice` field with its own options work.**
+     * `value_badges()` answers with nothing for a lone value carrying no colour,
+     * because §5.26 decided that a badge around a bare word in a *read view* is
+     * furniture. The header is the other case, and {@see ShowsSeveralBadges}
+     * already wrote the argument for it: everything up there is a chip, so a
+     * lone value drawn as bare text beside two badges reads as something that
+     * failed to render. So a promoted value with no badge of its own becomes a
+     * tone-less {@see ValueBadge}, which `_value_badge.html.twig` has drawn since
+     * XIV-127. The same rendering path, not a second one.
+     *
+     * Empty is empty: a record holding nothing in its promoted fields comes back
+     * as an empty list, which is the template's cue to draw no container at all
+     * rather than an empty one, so the header does not move.
+     *
+     * @return list<ValueBadge>
+     */
+    public function promotedValues(ShapeDefinition $shape, Record $record): array
+    {
+        $promoted = [];
+
+        foreach ($shape->getFieldsFor($shape->variantOf($record->data)) as $field) {
+            if (!$field->isPromoted()) {
+                continue;
+            }
+
+            $value = $record->get($field->getKey());
+            $badges = $this->valueBadges($field, $value);
+
+            if ($badges !== []) {
+                $promoted = [...$promoted, ...$badges];
+
+                continue;
+            }
+
+            $shown = trim($this->display($field, $value));
+
+            if ($shown !== '') {
+                $promoted[] = new ValueBadge($shown);
+            }
+        }
+
+        return $promoted;
     }
 
     /**

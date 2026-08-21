@@ -409,7 +409,7 @@ field:
         edit: 'Modifica un campo (%count%)'
         edit_help: 'Scegline uno dall’elenco. Il suo modulo porta le impostazioni del suo tipo e nessun’altra.'
         arrange: 'Disponi il modulo'
-        arrange_help: 'Ordine, larghezze, intestazioni e quali campi mostra l’elenco.'
+        arrange_help: 'Ordine, larghezze, intestazioni, quali campi mostra l’elenco e quali stanno in alto in un record.'
         arrange_help_rows: 'Ordine, larghezze e quali campi mostra l’elenco.'
         unfinished: '%count% da configurare'
     types:
@@ -441,7 +441,7 @@ field:
         arranged_elsewhere: 'Dove sta questo campo, quanto è largo, sotto quale intestazione si trova e se l’elenco lo mostra si decidono insieme agli altri campi:'
     arrange:
         title: 'Disponi “%shape%”'
-        intro: 'Dove sta ogni campo nel modulo, quanto è largo, sotto quale intestazione si trova e se l’elenco lo mostra.'
+        intro: 'Dove sta ogni campo nel modulo, quanto è largo, sotto quale intestazione si trova, se l’elenco lo mostra e se la pagina del record disegna i suoi valori in alto.'
         note: >-
             Trascina un campo per la maniglia per spostarlo, oppure usa le frecce accanto: lo
             spostano di un posto e funzionano da tastiera. Nulla viene salvato finché non premi
@@ -482,6 +482,8 @@ field:
     rule_unique_note: 'L’univocità è garantita dalla banca dati e non solo controllata mentre un modulo di inserimento è aperto: due record non possono portare lo stesso valore, un campo vuoto non è il duplicato di un altro campo vuoto, e un record eliminato non è d’intralcio. Un campo i cui record condividono già un valore non può diventare univoco prima che quei record vengano sistemati; ti verrà detto quali valori condividono.'
     rule_filterable: filtrabile
     rule_listed: in elenco
+    rule_promoted: in alto
+    rule_promoted_note: 'I valori con cui si riconosce un record possono comparire anche in alto nella sua pagina, accanto al nome del modulo e allo stato, come pastiglie colorate. Ci può andare solo un campo i cui valori vengono da un elenco che tieni tu. Ne vengono mostrati tre e il resto viene contato; il campo stesso resta nel modulo e più in basso nel record.'
     rule_title: gli fa da titolo
     remove_title: Togliere “%field%”?
     remove_body: >-

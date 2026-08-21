@@ -139,6 +139,8 @@ metadata:
     unknown_section: 'Il n’y a pas de section nommée «%section%» sur ce module ; «%key%» ne peut donc pas y être placé. Créez-la d’abord sur la page des sections.'
     section_needs_a_name: 'Une section est un titre sur le formulaire ; il lui faut donc un nom : c’est la seule chose qu’elle dit.'
     sections_are_for_modules: '«%shape%» est une liste de lignes à l’intérieur d’un enregistrement, pas un formulaire à part ; elle n’a donc pas de sections où placer des champs.'
+    promotion_needs_a_value_set: 'Les valeurs d’un champ «%type%» ne forment pas un ensemble que le client tient, il n’y a donc rien à dessiner en pastille en haut de l’enregistrement. Laissez «%key%» hors de l’en-tête, ou pointez-le vers une liste.'
+    promotion_is_for_modules: '«%shape%» est une liste de lignes à l’intérieur d’un enregistrement : ses champs appartiennent à une ligne et non à l’enregistrement, et il n’y a pas une valeur de l’un d’eux à dessiner en haut de la page.'
     entries_are_held: '%count% enregistrements existants portent une entrée que vous retirez de «%list%» : %values%. Ils sont dans %where%. Ces enregistrements garderaient une valeur que la liste n’a plus, et ne pourraient plus être enregistrés avant d’être corrigés. Modifiez d’abord ces enregistrements, ou gardez l’entrée.'
     entry_has_children: '%count% entrées sont classées sous «%label%» ; elle ne peut donc pas être retirée. Déplacez-les ailleurs ou remontez-les d’abord au premier niveau.'
     list_is_in_use: '«%list%» ne peut pas être supprimée : %count% champs y prennent leurs valeurs, à savoir %fields%. Faites d’abord pointer ces champs ailleurs, et la liste pourra partir.'
