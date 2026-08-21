@@ -645,7 +645,7 @@ field:
         edit: 'Edit a field (%count%)'
         edit_help: 'Pick one from the list. Its form carries the settings its kind has, and no others.'
         arrange: 'Arrange the form'
-        arrange_help: 'Order, widths, headings, and which fields the list shows.'
+        arrange_help: 'Order, widths, headings, which fields the list shows, and which are drawn at the top of a record.'
         arrange_help_rows: 'Order, widths, and which fields the list shows.'
         unfinished: '%count% need setting up'
     types:
@@ -677,7 +677,7 @@ field:
         arranged_elsewhere: 'Where this field sits, how wide it is, which heading it is under and whether the list shows it are decided with the other fields:'
     arrange:
         title: 'Arrange "%shape%"'
-        intro: 'Where each field sits on the form, how wide it is, which heading it is under, and whether the list shows it.'
+        intro: 'Where each field sits on the form, how wide it is, which heading it is under, whether the list shows it, and whether the record page draws its values at the top.'
         note: >-
             Drag a field by its grip to move it, or press the arrows beside the grip, which move it
             one place at a time and work from the keyboard. Nothing is saved until you press Save.
@@ -735,6 +735,8 @@ field:
     rule_unique_note: 'Unique is enforced by the database rather than only checked while a form is open: no two records may hold the same value, an empty field is not a duplicate of another empty one, and a deleted record does not stand in the way. A field whose records already share a value cannot be made unique until those records are fixed — you will be told which values they share.'
     rule_filterable: filterable
     rule_listed: on list
+    rule_promoted: at the top
+    rule_promoted_note: 'Values a record is known by can also be drawn at the top of its page, beside the module name and the state, as coloured chips. Only a field whose values come from a set you keep can go there. Three are shown and the rest are counted; the field itself stays on the form and in the record below.'
     rule_title: titles it
     remove_title: Remove “%field%”?
     remove_body: >-

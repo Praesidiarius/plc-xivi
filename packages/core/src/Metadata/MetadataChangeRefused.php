@@ -744,6 +744,63 @@ final class MetadataChangeRefused extends \RuntimeException
     }
 
     /**
+     * A field promoted to the record header whose values are not a closed set
+     * ([XIV-173]).
+     *
+     * The header draws its values as chips, beside the module label, the
+     * lifecycle state and the overdue badge, and a chip is an honest shape for
+     * exactly one kind of value: a short label out of a set the customer keeps.
+     * A text field's value is whatever somebody typed, a markdown field's is
+     * three paragraphs, and a date in a pill beside the state is a fact nobody
+     * was reading the top of the page for. None of those would fail. They would
+     * all *draw*, which is why this is refused rather than left to be discovered
+     * on the one record whose note is long enough to push the title off.
+     *
+     * Keyed on {@see \Xivi\Core\Field\Enumerates} rather than on the two type
+     * names that satisfy it today, so a type that enumerates something tomorrow
+     * is promotable by declaring the interface it would have declared anyway.
+     * The editor does not draw the checkbox either, on §8.3.1's rule about a
+     * control that looks like it works; this is what makes the rule true for the
+     * importer and the console.
+     */
+    public static function promotionNeedsAValueSet(string $key, string $type): self
+    {
+        return self::of(
+            sprintf(
+                'A "%s" field\'s values are not a set the customer keeps, so there is nothing to draw as a '
+                . 'chip at the top of the record. Leave "%s" out of the header, or point it at a list.',
+                $type,
+                $key,
+            ),
+            'metadata.promotion_needs_a_value_set',
+            ['%key%' => $key, '%type%' => $type],
+        );
+    }
+
+    /**
+     * A collection's field promoted to the record header ([XIV-173]).
+     *
+     * {@see self::sectionsAreForModules()}'s refusal, one page along and for the
+     * same reason: a collection is a list of rows inside a record, so its fields
+     * belong to a *row* rather than to the record, and there is no one value of
+     * one of them for a header to draw. An order with twelve lines has twelve
+     * answers to "what is this line's article", and a header showing one of them
+     * would be showing the first row's for no reason anybody could state.
+     */
+    public static function promotionIsForModules(string $shape): self
+    {
+        return self::of(
+            sprintf(
+                '"%s" is a list of rows inside a record, so its fields belong to a row rather than to the '
+                . 'record, and there is no one value of one of them to draw at the top of the page.',
+                $shape,
+            ),
+            'metadata.promotion_is_for_modules',
+            ['%shape%' => $shape],
+        );
+    }
+
+    /**
      * A period told to be exclusive within something that is not a field of its
      * own shape (XIV-136).
      *

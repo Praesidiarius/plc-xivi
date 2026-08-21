@@ -640,6 +640,12 @@ final class FieldController extends AbstractController
                     // (XIV-119): this page draws no control for it, and a page
                     // that does not draw a setting must not decide it.
                     section: $target->getSection(),
+                    // And whether its values are drawn at the top of the record
+                    // page ([XIV-173]), on exactly the same terms: the third
+                    // door owns that setting, this page draws no control for it,
+                    // and a page that does not draw a setting must not decide
+                    // it.
+                    promoted: $target->isPromoted(),
                     // The one thing this page changes. Everything else is the
                     // field as it already is, and everything the page has never
                     // heard of is left alone by the merge (XIV-26) — this form
@@ -944,6 +950,12 @@ final class FieldController extends AbstractController
                     // (XIV-119): this page draws no control for it, and a page
                     // that does not draw a setting must not decide it.
                     section: $target->getSection(),
+                    // And whether its values are drawn at the top of the record
+                    // page ([XIV-173]), on exactly the same terms: the third
+                    // door owns that setting, this page draws no control for it,
+                    // and a page that does not draw a setting must not decide
+                    // it.
+                    promoted: $target->isPromoted(),
                     // The one thing this page changes, and everything else about
                     // the field is handed back as it already is — including every
                     // option this form has never heard of, which the merge leaves
@@ -1216,6 +1228,12 @@ final class FieldController extends AbstractController
                     options: $this->optionsFrom($request, $target->getType()),
                     width: $target->getWidth(),
                     section: $target->getSection(),
+                    // And whether its values are drawn at the top of the record
+                    // page ([XIV-173]), on exactly the same terms: the third
+                    // door owns that setting, this page draws no control for it,
+                    // and a page that does not draw a setting must not decide
+                    // it.
+                    promoted: $target->isPromoted(),
                 );
 
                 $this->addFlash('success', $this->translator->trans('flash.field_saved', ['%field%' => $target->getLabel()]));
@@ -1228,16 +1246,18 @@ final class FieldController extends AbstractController
     }
 
     /**
-     * The third door: the four things that are about the form rather than about
-     * a field ([XIV-163]).
+     * The third door: the five things that are about the form rather than about
+     * a field ([XIV-163], then [XIV-173]).
      *
-     * Order, width, which heading a field sits under and whether the list shows
-     * it. Every one of them is decided by looking at the *other* fields: a
-     * position means nothing except relative to the rest, two half-width fields
-     * share a row, a section is a run of them, and a list column is worth having
-     * only against the columns already there. The old table put these beside the
-     * per-type settings and they were the part of it that worked, because they
-     * are the part that genuinely wants every field visible at once.
+     * Order, width, which heading a field sits under, whether the list shows it
+     * and whether the record page draws its values at the top. Every one of them
+     * is decided by looking at the *other* fields: a position means nothing
+     * except relative to the rest, two half-width fields share a row, a section
+     * is a run of them, a list column is worth having only against the columns
+     * already there, and a value promoted to the header is competing for that
+     * line with whatever else somebody promoted. The old table put these beside
+     * the per-type settings and they were the part of it that worked, because
+     * they are the part that genuinely wants every field visible at once.
      *
      * Section management is reached from here rather than from the index
      * (XIV-119), which is the same argument one step down: a section is made on
@@ -1264,6 +1284,14 @@ final class FieldController extends AbstractController
             // under; this says where the headings *are*, which is the thing a
             // drag has to be able to land between.
             'groups' => self::arrangementGroups($target),
+            // Which types may have their values drawn at the top of the record
+            // page ([XIV-173]). A list of type keys rather than a service
+            // question, on `settableByType()`'s rule: Twig has no `instanceof`
+            // and should not grow one so that a page can interrogate the
+            // container. The engine refuses the flag on anything else, so a box
+            // drawn for a `text` field would be §8.3.1's control that looks like
+            // it works.
+            'promotable' => $this->promotableTypes(),
         ]);
     }
 
@@ -1300,6 +1328,8 @@ final class FieldController extends AbstractController
             $sections = $request->request->all('section');
             /** @var array<string, mixed> $listed */
             $listed = $request->request->all('listed');
+            /** @var array<string, mixed> $promoted */
+            $promoted = $request->request->all('promoted');
             $refused = false;
 
             foreach ($target->getFields() as $field) {
@@ -1335,6 +1365,17 @@ final class FieldController extends AbstractController
                         // fields of a collection have never had a section to
                         // lose.
                         section: self::sectionOf((string) ($sections[$id] ?? '')),
+                        // Whether this field's values are drawn at the top of
+                        // the record page ([XIV-173]). Read exactly like
+                        // `listed` above and safe for exactly that reason: this
+                        // form draws the box for every field of the shape that
+                        // may have one, so an id missing from the array is
+                        // somebody having unticked it.
+                        //
+                        // A field whose type may not be promoted has no box, so
+                        // it arrives false and stays false, which is what it
+                        // already was: the engine refused it any other way in.
+                        promoted: \array_key_exists($id, $promoted),
                     );
                 } catch (MetadataChangeRefused $e) {
                     $this->addFlash('warning', $e->translatable()->trans($this->translator));
@@ -2179,6 +2220,39 @@ final class FieldController extends AbstractController
                 if ($type instanceof $capability) {
                     $offered[$option][] = (string) $key;
                 }
+            }
+        }
+
+        return $offered;
+    }
+
+    /**
+     * Which field types may have their values drawn at the top of the record
+     * page ([XIV-173]).
+     *
+     * {@see settableByType()}'s shape without its list, because this is not a
+     * per-type *option*: nothing is stored under a key in the field's options
+     * JSON and there is no control to draw per type. It is one flag on the
+     * field, offered only where the header can do something honest with it: a
+     * chip is the right picture for a short label out of a set the customer
+     * keeps and the wrong one for a paragraph of markdown or a date, so the
+     * capability asked is {@see Enumerates}.
+     *
+     * Keyed on that interface rather than on the two type names that satisfy it
+     * today, which is the whole reason `PER_TYPE` exists one screen up: a type
+     * that enumerates something tomorrow becomes promotable by declaring the
+     * interface it would have declared anyway, with no branch through this
+     * class.
+     *
+     * @return list<string>
+     */
+    private function promotableTypes(): array
+    {
+        $offered = [];
+
+        foreach ($this->fieldTypes->all() as $key => $type) {
+            if ($type instanceof Enumerates) {
+                $offered[] = (string) $key;
             }
         }
 

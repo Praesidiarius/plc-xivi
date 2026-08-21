@@ -430,7 +430,7 @@ field:
         edit: 'Feld bearbeiten (%count%)'
         edit_help: 'Eines aus der Liste wählen. Sein Formular trägt die Einstellungen seiner Art und keine anderen.'
         arrange: 'Formular anordnen'
-        arrange_help: 'Reihenfolge, Breiten, Überschriften und welche Felder die Liste zeigt.'
+        arrange_help: 'Reihenfolge, Breiten, Überschriften, welche Felder die Liste zeigt und welche ganz oben im Datensatz stehen.'
         arrange_help_rows: 'Reihenfolge, Breiten und welche Felder die Liste zeigt.'
         unfinished: '%count% sind noch unfertig'
     types:
@@ -462,7 +462,7 @@ field:
         arranged_elsewhere: 'Wo dieses Feld sitzt, wie breit es ist, unter welcher Überschrift es steht und ob die Liste es zeigt, wird zusammen mit den anderen Feldern entschieden:'
     arrange:
         title: '„%shape%“ anordnen'
-        intro: 'Wo jedes Feld im Formular sitzt, wie breit es ist, unter welcher Überschrift es steht und ob die Liste es zeigt.'
+        intro: 'Wo jedes Feld im Formular sitzt, wie breit es ist, unter welcher Überschrift es steht, ob die Liste es zeigt und ob die Datensatzseite seine Werte ganz oben zeichnet.'
         note: >-
             Zieh ein Feld am Griff, um es zu verschieben, oder nimm die Pfeile daneben: sie
             verschieben es um einen Platz und funktionieren mit der Tastatur. Gespeichert wird
@@ -509,6 +509,8 @@ field:
     rule_unique_note: 'Eindeutig wird von der Datenbank durchgesetzt und nicht nur beim Speichern geprüft: kein zweiter Datensatz darf denselben Wert tragen, ein leeres Feld ist kein Duplikat eines anderen leeren, und ein gelöschter Datensatz steht nicht im Weg. Ein Feld, dessen Datensätze sich schon einen Wert teilen, lässt sich erst eindeutig machen, wenn diese Datensätze in Ordnung sind — welche Werte das sind, erfährst du dann.'
     rule_filterable: filterbar
     rule_listed: in der Liste
+    rule_promoted: ganz oben
+    rule_promoted_note: 'Werte, an denen ein Datensatz erkannt wird, lassen sich zusätzlich ganz oben auf seiner Seite anzeigen, neben dem Modulnamen und dem Status, als farbige Chips. Dorthin darf nur ein Feld, dessen Werte aus einer Liste kommen, die du pflegst. Drei werden gezeigt, der Rest wird gezählt; das Feld selbst bleibt im Formular und weiter unten im Datensatz.'
     rule_title: benennt ihn
     remove_title: „%field%“ entfernen?
     remove_body: >-

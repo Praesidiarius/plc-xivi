@@ -3,17 +3,18 @@
 {% block title %}{{ 'field.arrange.title'|trans({'%shape%': shape.label}) }}{% endblock %}
 
 {#
-	The third door: the four things that are about the form rather than about a
-	field ([XIV-163]).
+	The third door: the five things that are about the form rather than about a
+	field ([XIV-163], then [XIV-173]).
 
-	Order, width, which heading a field sits under and whether the list shows it.
-	Every one of them is decided by looking at the *other* fields: a position
-	means nothing except relative to the rest, two half-width fields share a row,
-	a section is a run of them, and a column is worth having only against the
-	columns already there. That is why this page still looks like the table the
-	old editor was: it is the part of that table which genuinely wanted every
-	field visible at once, with everything that did not want that taken out of
-	it.
+	Order, width, which heading a field sits under, whether the list shows it and
+	whether the record page draws its values at the top. Every one of them is
+	decided by looking at the *other* fields: a position means nothing except
+	relative to the rest, two half-width fields share a row, a section is a run of
+	them, a column is worth having only against the columns already there, and a
+	value promoted to the header shares that one line with everything else
+	somebody promoted. That is why this page still looks like the table the old
+	editor was: it is the part of that table which genuinely wanted every field
+	visible at once, with everything that did not want that taken out of it.
 
 	One form for the whole shape, and one save. The alternative, a save per row,
 	would be asking somebody to decide the order of a form one field at a time,
@@ -85,7 +86,16 @@
 				a label for a distinction that does not exist here.
 			#}
 			{% set headed = shape.key == module.key and sections|length > 0 %}
-			{% set columns = shape.key == module.key ? 6 : 5 %}
+			{#
+				The "at the top" column is drawn on a module and not on a
+				collection ([XIV-173]), on the same rule the section select follows
+				two lines down: a collection's fields describe a *row*, and a
+				record with twelve order lines has twelve answers to "which
+				article", none of which is the record's. The engine refuses it
+				there as well, which is what makes the rule true for the importer
+				and the console.
+			#}
+			{% set columns = shape.key == module.key ? 7 : 5 %}
 
 			{#
 				The two sentences the announcement is made out of, translated here
@@ -113,6 +123,9 @@
 										<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.sections.column'|trans }}</th>
 									{% endif %}
 									<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.rule_listed'|trans }}</th>
+									{% if shape.key == module.key %}
+										<th scope="col" class="text-body-secondary small text-uppercase">{{ 'field.rule_promoted'|trans }}</th>
+									{% endif %}
 								</tr>
 							</thead>
 							{#
@@ -243,6 +256,34 @@
 												<input type="checkbox" name="listed[{{ field.id }}]" value="1"
 												       {{ field.listed ? 'checked' : '' }} aria-label="{{ 'field.rule_listed'|trans }}">
 											</td>
+											{#
+												Whether the record page draws this field's values at the
+												top, beside the module label and the lifecycle state
+												([XIV-173]). Read on the save exactly like the column
+												beside it, and safe for the same reason: a box is drawn
+												for every field of this shape that may have one, so an
+												id missing from what arrives is somebody having unticked
+												it.
+
+												Only for a type whose values are a set the customer
+												keeps. The header draws chips, and a paragraph of
+												markdown in a pill beside the state is not a smaller
+												version of a tag, so the engine refuses the flag there
+												and this draws no box, on §8.3.1's rule about a control
+												that looks like it works. A dash rather than an empty
+												cell, because a blank in a column of checkboxes reads as
+												one that failed to render.
+											#}
+											{% if shape.key == module.key %}
+												<td>
+													{% if field.type in promotable %}
+														<input type="checkbox" name="promoted[{{ field.id }}]" value="1"
+														       {{ field.promoted ? 'checked' : '' }} aria-label="{{ 'field.rule_promoted'|trans }}">
+													{% else %}
+														<span class="text-body-secondary" title="{{ 'field.rule_promoted_note'|trans }}">—</span>
+													{% endif %}
+												</td>
+											{% endif %}
 										</tr>
 									{% endfor %}
 								{% endfor %}
