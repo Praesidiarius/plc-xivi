@@ -58,6 +58,8 @@ use Xivi\Core\Query\UnsupportedQuery;
 use Xivi\Core\Record\InheritedValues;
 use Xivi\Core\Record\Record;
 use Xivi\Core\Record\RecordAction;
+use Xivi\Core\Record\RecordGroup;
+use Xivi\Core\Record\RecordGrouper;
 use Xivi\Core\Record\RecordPrimer;
 use Xivi\Core\Record\RecordRepository;
 use Xivi\Core\Record\RecordWriter;
@@ -101,6 +103,14 @@ final class ModuleController extends AbstractController
      * read all 207 of them, and the card now says so and links there. Public
      * because the test for that case has to build more records than this, and a
      * cap the test hard-codes is a cap that stops being tested the day it moves.
+     *
+     * **The grouped index reuses it** (XIV-168), which is why the name is the
+     * one thing about it that is now slightly wrong. A card of the entries under
+     * a topic is the same object as a card of the orders under a contact: a
+     * glance, with the list a click away when the glance is not enough. A second
+     * constant would have been a second number to keep in step for no reason
+     * anybody could state, and picking a different one would have needed an
+     * argument that neither card can make against the other.
      */
     public const int LINKED_ON_RECORD = 10;
 
@@ -148,6 +158,11 @@ final class ModuleController extends AbstractController
         // for the ticks in both modals. Through the generator, so this page
         // learns what is on offer without learning what any of it is.
         private readonly DocumentGenerator $generator,
+        // Whether this module's index is cards, and what goes on them (XIV-168).
+        // Asked of the engine rather than answered here, because "is this module
+        // grouped" is a question about a declaration a module made and this
+        // controller serves every module there is.
+        private readonly RecordGrouper $grouping,
     ) {
     }
 
@@ -163,9 +178,23 @@ final class ModuleController extends AbstractController
         // the other (§7.5).
         $access = $this->accessFor($definition, ModuleAction::List);
 
+        // **Whether this module's records read better as cards than as rows**
+        // (XIV-168), which is the module's own declaration and not this page's
+        // guess. Null is the ordinary answer and means what it has always meant.
+        // Asked before the query runs, because it decides which read is made.
+        $grouped = $this->grouping->fieldFor($definition);
+
+        // And whether somebody has asked past a card's ceiling. The only link
+        // that writes this parameter is the one on a truncated card, and what it
+        // wants back is the page this has always been: rows, sorted, paged. A
+        // grouped page filtered to one value would otherwise be one card with
+        // the same ceiling on it, and "and 37 more" would point at itself.
+        if ($request->query->get(RecordGroup::VIEW) === RecordGroup::AS_LIST) {
+            $grouped = null;
+        }
+
         try {
-            $records = $this->records->findBy($definition, $query, $access);
-            $total = $this->records->countBy($definition, $query, $access);
+            [$records, $total, $groups] = $this->listing($definition, $query, $access, $grouped);
         } catch (UnsupportedQuery $e) {
             // The query is in the URL, so it can be hand-edited into something
             // the engine will not answer. That is a message and an unfiltered
@@ -173,8 +202,7 @@ final class ModuleController extends AbstractController
             $this->addFlash('warning', $e->translatable()->trans($this->translator));
 
             $query = new RecordQuery();
-            $records = $this->records->findBy($definition, $query, $access);
-            $total = $this->records->countBy($definition, $query, $access);
+            [$records, $total, $groups] = $this->listing($definition, $query, $access, $grouped);
         }
 
         // A page of records is in hand and every one of them is about to be
@@ -184,6 +212,10 @@ final class ModuleController extends AbstractController
         // milliseconds — and done because at this point it is one line. The case
         // it was built for is the record page below, where the rows have no
         // ceiling at all.
+        //
+        // Handed every card's records at once when the page is grouped, which is
+        // the whole point of priming being told about a *set*: one call, not one
+        // per card, so a page of twelve topics costs what a page of one does.
         $this->primer->prime($definition, $records);
 
         return $this->render('module/index.html.twig', [
@@ -196,13 +228,71 @@ final class ModuleController extends AbstractController
                 $definition->getTitleFields(),
             )),
             'records' => $records,
-            'owners' => $this->ownerNames($records),
+            // The cards, or null for a page of rows. The template branches on
+            // this and on nothing else, which is what keeps it free of any
+            // knowledge that a knowledge base exists.
+            'groups' => $groups,
+            // Nobody's name is drawn on a card, so the query that resolves them
+            // is not made for one. The owner column belongs to the table.
+            'owners' => $groups === null ? $this->ownerNames($records) : [],
             'total' => $total,
             'query' => $query,
             'filterable' => $this->queries->filterablePaths($definition),
             'operators' => Operator::cases(),
             'pages' => (int) ceil($total / max(1, $query->perPage)),
         ]);
+    }
+
+    /**
+     * What the index is looking at: the records, how many there are, and the
+     * cards they fall into when there are cards (XIV-168).
+     *
+     * One method because the index calls it twice, once for the query in the URL
+     * and once for the empty query it falls back to when that one cannot be
+     * answered. Two copies of this drifted apart the moment one of them learned
+     * about grouping.
+     *
+     * **The grouped read costs one query rather than two**, and the reason is
+     * not thrift. `total` on a grouped page is the sum of the cards' own totals,
+     * every one of them counted by the same window function under the same
+     * predicate, so asking the database a second time could only ever agree or
+     * disagree, and disagreeing is the failure §5.3 spends a paragraph on. The
+     * ungrouped page still counts separately because its records are one page of
+     * many and cannot be added up.
+     *
+     * @return array{list<Record>, int, ?list<RecordGroup>}
+     */
+    private function listing(
+        ModuleDefinition $definition,
+        RecordQuery $query,
+        RecordAccess $access,
+        ?FieldDefinition $grouped,
+    ): array {
+        if ($grouped === null) {
+            return [
+                $this->records->findBy($definition, $query, $access),
+                $this->records->countBy($definition, $query, $access),
+                null,
+            ];
+        }
+
+        $groups = $this->grouping->groupsFor(
+            $definition,
+            $grouped,
+            $query,
+            $access,
+            self::LINKED_ON_RECORD,
+        );
+
+        $records = [];
+        $total = 0;
+
+        foreach ($groups as $group) {
+            $records = [...$records, ...$group->records];
+            $total += $group->total;
+        }
+
+        return [$records, $total, $groups];
     }
 
     /**

@@ -158,6 +158,102 @@
 					</div>
 				</div>
 			{% endif %}
+		{% elseif groups is not null %}
+			{#
+				**One card per value of the field this module is grouped by**
+				(XIV-168), and the branch is on `groups` rather than on which module
+				this is. A knowledge base is the first module to declare a grouping
+				and nothing here knows that: a module says so in its blueprint, the
+				engine builds the cards, and this draws whatever it is handed.
+
+				What sits above is untouched. The search and filter bar, Export,
+				Import, Templates, Email templates, Fields and New are all still
+				there and all still work, because the cards are the *result* of the
+				same query the table ran rather than a second way of asking.
+
+				**The page is as long as the number of values in use.** Each card
+				stops at its ceiling, and a card is only drawn when something is in
+				it, so a fresh tenant sees no boxes and a busy one sees a card per
+				topic somebody has actually filed something under. There is
+				deliberately no pager: paging over cards would cut a topic in half
+				across two pages, and the way past one card's ceiling is that card's
+				own link.
+			#}
+			<div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+				{% for group in groups %}
+					<div class="col">
+						<div class="card h-100">
+							<div class="card-header d-flex align-items-baseline justify-content-between gap-2">
+								{#
+									The customer's own word for the value. `label` is null in the
+									two cases nothing named them: the records that answered with
+									nothing, which get the field's own name in a sentence, and a
+									value left over from an option that has gone, which is shown
+									raw because the raw value is the only honest thing left to
+									call it.
+								#}
+								<span class="fw-semibold">
+									{%- if group.label is not null -%}
+										{{ group.label }}
+									{%- elseif group.isUnfiled -%}
+										{{ 'module.unfiled'|trans({'%field%': group.field.label}) }}
+									{%- else -%}
+										{{ group.value }}
+									{%- endif -%}
+								</span>
+								{# What this reader may see under it, never what exists (§8.4). #}
+								<span class="badge text-bg-secondary">{{ group.total }}</span>
+							</div>
+							<ul class="list-group list-group-flush">
+								{% for record in group.records %}
+									<li class="list-group-item d-flex align-items-baseline justify-content-between gap-2">
+										{# The title, and nothing else that can be pressed. Edit and
+										   delete are on the record page, which is one click away and
+										   already carries both; a card of entries is for reading. #}
+										<a class="text-reset" href="{{ path('module_show', {module: module.key, id: record.id}) }}">
+											{{ record_title(module, record.data, record.id) }}
+										</a>
+										{#
+											**The age comes along** (XIV-132, §5.22). The Changed
+											column was added because staleness rather than emptiness
+											is what a knowledge base fails at, and an entry from 2023
+											describing a process that changed in 2024 is the failure
+											that costs something. Dropping the column and keeping
+											nothing in its place would have quietly given that up, so
+											the date sits at the end of each line: the day alone,
+											because a card is scanned, with the machine-readable
+											moment on the `datetime` attribute.
+										#}
+										{% if record.updatedAt %}
+											<time class="text-body-secondary small text-nowrap" datetime="{{ record.updatedAt|date('c') }}">
+												{{- record.updatedAt|date('Y-m-d') -}}
+											</time>
+										{% endif %}
+									</li>
+								{% endfor %}
+							</ul>
+							{#
+								**A card that is showing less than it counted says so, and links
+								to the rest.** Silently stopping at ten would make a card of the
+								first ten look like a topic with ten entries in it, which is the
+								thing XIV-35 refuses. The link is this same index narrowed to
+								this value and asked for as rows, so the ceiling is behind a
+								page that has a pager and column headers.
+							#}
+							{% if group.isTruncated %}
+								<div class="card-footer small text-body-secondary">
+									{{ 'module.card_shown'|trans({'%shown%': group.shown, '%total%': group.total}) }}
+									<a href="{{ path('module_index', group.listing) }}">{{ 'module.card_all'|trans }}</a>
+								</div>
+							{% endif %}
+						</div>
+					</div>
+				{% endfor %}
+			</div>
+
+			<p class="text-body-secondary small mt-3 mb-0">
+				{{ (query.isFiltered ? 'module.record_count_matching' : 'module.record_count')|trans({'%count%': total}) }}
+			</p>
 		{% else %}
 			<div class="card">
 				<div class="table-responsive">

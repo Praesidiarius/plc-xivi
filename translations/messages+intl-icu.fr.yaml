@@ -25,7 +25,7 @@ module:
     history_changes: '{count, plural, one {# changement} other {# changements}}'
     record_count: '{count, plural, one {# enregistrement.} other {# enregistrements.}}'
     record_count_matching: '{count, plural, one {# enregistrement correspondant.} other {# enregistrements correspondants.}}'
-    linked_shown: 'Affichage de {shown, number} sur {total, number}.'
+    card_shown: 'Affichage de {shown, number} sur {total, number}.'
 
 mail:
     attachment_size: '({size, number, ::.0} Mo)'

@@ -213,19 +213,27 @@ final class KnowledgeModuleTest extends WebTestCase
     }
 
     /**
-     * And the list column is not there at all, because a paragraph in a table
-     * squeezes every other column into nothing (§5.21).
+     * And the body is not on the index at all, because the index exists to
+     * *find* an entry rather than to read one (§5.21).
+     *
+     * It was a column that was not drawn until XIV-168 and it is a card that is
+     * not drawn now, which is the same claim about a page that changed shape
+     * underneath it. The topic is still on the index and is now the thing the
+     * page is arranged by, so the positive half of this reads off the card
+     * heading where it used to read off a column header.
      */
-    public function testTheBodyIsNotAColumnOnTheList(): void
+    public function testTheBodyIsNotOnTheIndex(): void
     {
         $this->write('Wenn Meier nicht liefern kann', KnowledgeModule::SUPPLIER);
 
-        $headings = $this->client->request('GET', $this->url('/m/knowledge'))
-            ->filter('main thead th')
-            ->each(static fn ($th): string => trim($th->text()));
+        $page = $this->client->request('GET', $this->url('/m/knowledge'))->filter('main');
 
-        self::assertContains('Topic', $headings);
-        self::assertNotContains('Entry', $headings);
+        self::assertContains(
+            'Supplier',
+            $page->filter('.card-header > span:first-child')->each(static fn ($name): string => trim($name->text())),
+            'the topic is what the page is arranged by',
+        );
+        self::assertStringNotContainsString('Keller AG', $page->text(), 'and the body is nowhere on it');
     }
 
     // -- the search, and its ceiling ----------------------------------------
@@ -282,23 +290,28 @@ final class KnowledgeModuleTest extends WebTestCase
     }
 
     /**
-     * **And the age is on the list too**, which is where it has to be.
+     * **And the age is on the index too**, which is where it has to be.
      *
      * A stale entry that looks current is this module's failure mode, and by the
      * time somebody has opened the page they have already decided this is the
-     * answer they came for. So the "Changed" column sits beside the owner
-     * column — both system columns, neither of them a field anybody declared
-     * (XIV-132).
+     * answer they came for. It arrived as a "Changed" column beside the owner
+     * column (XIV-132), both of them system columns rather than fields anybody
+     * declared.
+     *
+     * **XIV-168 took the columns away and kept the date**, deliberately: the
+     * index is cards now, and a card of bare titles would have dropped the one
+     * thing that column was for. So the day each entry last changed sits at the
+     * end of its line on the card. This test moved with it rather than being
+     * deleted, because what it defends is the property and not the column.
      */
-    public function testTheAgeOfAnEntryIsVisibleOnTheList(): void
+    public function testTheAgeOfAnEntryIsVisibleOnTheIndex(): void
     {
         $this->write('Mahnlauf, Schritt für Schritt', KnowledgeModule::PROCESS);
 
-        $crawler = $this->client->request('GET', $this->url('/m/knowledge'));
-        $headings = $crawler->filter('main thead th')->each(static fn ($th): string => trim($th->text()));
+        $entry = $this->client->request('GET', $this->url('/m/knowledge'))->filter('main .list-group-item');
 
-        self::assertContains('Changed', $headings);
-        self::assertSame(date('Y-m-d'), trim($crawler->filter('main tbody tr time')->first()->text()));
+        self::assertCount(1, $entry);
+        self::assertSame(date('Y-m-d'), trim($entry->filter('time')->first()->text()));
     }
 
     // -- who may write ------------------------------------------------------
@@ -392,8 +405,13 @@ final class KnowledgeModuleTest extends WebTestCase
 
     /**
      * The titles of the entries a `contains` filter on the body returns, read
-     * off the list exactly as somebody typing into the filter bar would see
+     * off the index exactly as somebody typing into the filter bar would see
      * them.
+     *
+     * Off the cards since XIV-168, and across all of them: a filter reshapes the
+     * cards rather than sitting above them, so what a search finds may be spread
+     * over several topics and reading only the first card would be reading only
+     * part of the answer.
      *
      * @return list<string>
      */
@@ -407,8 +425,8 @@ final class KnowledgeModuleTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
 
-        return $crawler->filter('main tbody tr td:first-child')
-            ->each(static fn ($cell): string => trim($cell->text()));
+        return $crawler->filter('main .list-group-item a')
+            ->each(static fn ($link): string => trim($link->text()));
     }
 
     /** @return array<string, mixed> */

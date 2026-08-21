@@ -124,6 +124,106 @@ final readonly class RecordRepository
         );
     }
 
+    /**
+     * The first few records under each value of one field, and how many there
+     * are under each, in one statement (XIV-168).
+     *
+     * This is what a grouped index (§5.3) reads, and the whole reason it is a
+     * method here rather than a loop in a controller is the count of statements.
+     * A card per value with a query per card is unbounded query count on a page
+     * whose values a customer may add to, and §5.3's discipline is that query
+     * counts are asserted flat between two sizes so growth fails rather than
+     * slows. **One statement, whatever the number of groups**, and it answers
+     * both questions a card asks.
+     *
+     * Two window functions over the same partition do it. `ROW_NUMBER()` numbers
+     * each group's records in the page's own ordering, and the outer `WHERE`
+     * keeps the first few of each; `COUNT(*)` over that partition is the group's
+     * real total, which survives the same filter because it is computed before
+     * the rank is applied. Sorting and filtering therefore reshape both numbers
+     * together, which is exactly what a filter bar over cards has to do.
+     *
+     * **The query's page is deliberately ignored.** `LIMIT` and `OFFSET` are how
+     * a list of rows is bounded and they are the wrong tool here: a page of
+     * twenty-five taken before grouping gives cards holding whatever happened to
+     * be on that page. What bounds this page is the per-group ceiling the caller
+     * passes, applied inside each partition.
+     *
+     * Postgres only, in a repository that has been Postgres only since the
+     * payload became JSONB. Window functions are SQL:2003 and every database
+     * this could plausibly move to has them.
+     *
+     * @param FieldDefinition $field    the field to partition on, which must be
+     *                                  one of `$module`'s own. The key is quoted
+     *                                  as a JSON literal, never bound, because a
+     *                                  parameter inside `PARTITION BY` would be a
+     *                                  constant and would partition by nothing
+     * @param int             $perGroup how many records each group keeps
+     *
+     * @return array<string, array{records: list<Record>, total: int}> keyed by
+     *                                                                 the stored
+     *                                                                 value, with
+     *                                                                 the empty
+     *                                                                 string
+     *                                                                 holding the
+     *                                                                 records that
+     *                                                                 have no
+     *                                                                 value at all
+     */
+    public function findGrouped(
+        ModuleDefinition $module,
+        FieldDefinition $field,
+        RecordQuery $query,
+        RecordAccess $access,
+        int $perGroup,
+    ): array {
+        $compiled = $this->queries->compile($module, $query, $access);
+
+        // NULL and the empty string are the same answer to "which topic is this
+        // under", and they are collapsed here rather than in PHP so that the
+        // count on the card and the `IsEmpty` filter the card links to agree:
+        // that operator compiles to the same "null or blank" test.
+        $group = sprintf(
+            "COALESCE(%s.data->>%s, '')",
+            QueryCompiler::ALIAS,
+            $this->connection->quote($field->getKey()),
+        );
+
+        $rows = $this->connection->fetchAllAssociative(
+            sprintf(
+                'SELECT * FROM ('
+                . 'SELECT %1$s.*, %2$s AS xivi_group,'
+                . ' ROW_NUMBER() OVER (PARTITION BY %2$s ORDER BY %4$s) AS xivi_rank,'
+                . ' COUNT(*) OVER (PARTITION BY %2$s) AS xivi_total'
+                . ' FROM %3$s %1$s WHERE %5$s'
+                . ') grouped WHERE xivi_rank <= :per_group ORDER BY xivi_group, xivi_rank',
+                QueryCompiler::ALIAS,
+                $group,
+                $this->table($module),
+                $compiled->orderBy,
+                $compiled->where,
+            ),
+            [...$compiled->parameters, 'per_group' => max(1, $perGroup)],
+            [...$compiled->types, 'per_group' => ParameterType::INTEGER],
+        );
+
+        $grouped = [];
+
+        foreach ($rows as $row) {
+            $value = (string) ($row['xivi_group'] ?? '');
+
+            // The total is written on every row of the group and is the same on
+            // each, so the last one to be read wins and any of them would have
+            // done. Set unconditionally rather than only on the first row,
+            // because a group with one row and a group with ten should not go
+            // through different code to say the same thing.
+            $grouped[$value]['total'] = (int) ($row['xivi_total'] ?? 0);
+            $grouped[$value]['records'][] = $this->hydrate($module, $row);
+        }
+
+        return $grouped;
+    }
+
     public function find(ShapeDefinition $shape, int $id, bool $includeDeleted = false): ?Record
     {
         $sql = sprintf('SELECT * FROM %s WHERE id = :id', $this->table($shape));

@@ -391,7 +391,11 @@ module:
     trend_summary: '%field% im Zeitverlauf: aktuell %value%, zwischen %low% und %high%.'
     trend_range: 'zwischen %low% und %high%'
     trend_truncated: Ältere Änderungen als diese werden nicht gezeichnet.
-    linked_all: Alle anzeigen
+    card_all: Alle anzeigen
+    # Die Karte einer gruppierten Übersicht für die Datensätze, die auf die
+    # Gruppierungsfrage keine Antwort haben (XIV-168). Der Feldname wird
+    # eingesetzt, in der Wissensdatenbank also "Ohne Thema".
+    unfiled: 'Ohne %field%'
     action_by: 'von %who%'
     action_by_system: System
     action:

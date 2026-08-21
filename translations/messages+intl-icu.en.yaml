@@ -38,7 +38,13 @@ module:
     record_count_matching: '{count, plural, one {# record matching.} other {# records matching.}}'
     # No plural: neither number decides the grammar, and both are formatted
     # because a customer with 1,207 orders should read like one.
-    linked_shown: 'Showing {shown, number} of {total, number}.'
+    #
+    # Was `linked_shown` until XIV-168, when a second kind of card started
+    # saying it: the entries under a topic stop at the same ceiling as the
+    # orders under a contact, and the sentence is the same sentence. Renamed
+    # rather than copied, because two keys with identical text in four languages
+    # are two things to keep in step and one of them eventually is not.
+    card_shown: 'Showing {shown, number} of {total, number}.'
 
 mail:
     # Sizes rather than counts, and here for the same reason the totals are

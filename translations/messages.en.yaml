@@ -595,7 +595,12 @@ module:
     trend_summary: '%field% over time: now %value%, between %low% and %high%.'
     trend_range: 'between %low% and %high%'
     trend_truncated: Older changes than these are not drawn.
-    linked_all: See them all
+    card_all: See them all
+    # The card on a grouped index for the records that answered the grouping
+    # question with nothing (XIV-168). The field's own name goes in, so a
+    # knowledge base reads "No Topic" and any other grouped module reads its own
+    # word without a second string being written.
+    unfiled: 'No %field%'
     action_by: 'by %who%'
     action_by_system: System
     action:
