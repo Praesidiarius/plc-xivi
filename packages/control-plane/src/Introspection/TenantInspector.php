@@ -23,6 +23,8 @@ use App\Tenancy\TenantSwitcher;
 use Xivi\Core\Entity\CollectionDefinition;
 use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Entity\ModuleDefinition;
+use Xivi\Core\Field\ModuleOwnedOptions;
+use Xivi\Core\Metadata\MetadataEditor;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Module\CollectionBlueprint;
 use Xivi\Core\Module\FieldBlueprint;
@@ -72,6 +74,12 @@ final readonly class TenantInspector
         private TenantMigrator $migrator,
         private MetadataRepository $metadata,
         private ModuleCatalog $catalog,
+        // What a field's options are actually worth ([XIV-176]), and the count
+        // of records standing outside a narrowing. Both through the engine's own
+        // services, on this class's standing rule: a second way of asking what a
+        // tenant holds is a second thing to keep in step with the engine.
+        private ModuleOwnedOptions $options,
+        private MetadataEditor $editor,
     ) {
     }
 
@@ -351,10 +359,26 @@ final readonly class TenantInspector
      * is — §5.4's per-type settings. Summarising it would mean this class knowing
      * every field type, which is the one thing the engine is built not to require.
      *
+     * **`options` is what the engine reads, not what the row holds** ([XIV-176]).
+     * Some of those keys belong to the module and are taken from the blueprint
+     * every time they are read, so printing the row was printing a narrowing that
+     * had not been true since the module shipped it, which is the sentence that
+     * started that ticket. `stored_options` appears beside it exactly when the
+     * two differ, so the difference is visible and every other field stays one
+     * line.
+     *
+     * `records_outside_narrowing` appears on the same terms, and only where
+     * there is a narrowing to be outside of: how many live records hold a link
+     * this picker no longer offers. The number is named and nothing acts on it;
+     * see {@see MetadataEditor::recordsPointingOutside()}.
+     *
      * @return array<string, mixed>
      */
     private function describeField(FieldDefinition $field): array
     {
+        $effective = $this->options->of($field);
+        $outside = $this->editor->recordsPointingOutside($field);
+
         return [
             'key' => $field->getKey(),
             'label' => $field->getLabel(),
@@ -375,7 +399,9 @@ final readonly class TenantInspector
             // it; a number means somebody chose (XIV-43).
             'width' => $field->getWidth(),
             'variants' => $field->getVariants(),
-            'options' => $field->getOptions(),
+            'options' => $effective,
+            ...$effective === $field->getOptions() ? [] : ['stored_options' => $field->getOptions()],
+            ...$outside === 0 ? [] : ['records_outside_narrowing' => $outside],
         ];
     }
 }

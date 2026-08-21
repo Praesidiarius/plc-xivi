@@ -34,8 +34,11 @@ Three sources, and the discipline is knowing which one a given need belongs to:
 the customer's own definitions are the truth, and nothing retro-fits a
 blueprint change into them. §7.2.1 is the one sanctioned exception, and it is
 an explicit, additive, per-item *offer* the customer takes or dismisses;
-nothing can take away what was installed. Customers are designed to diverge,
-so "we do not retro-fit" is the model, not a limitation.
+nothing can take away what was installed. What the model protects is the
+customer's **decisions**: the handful of field options nobody can set and only
+the installer ever wrote are the module's, read live from the blueprint and
+never written into the row (§7.2.2). Customers are designed to diverge, so "we
+do not retro-fit" is the model, not a limitation.
 
 Templates reference presets rather than duplicating them. They need one thing
 from the engine before the control plane needs a table: the editor must be

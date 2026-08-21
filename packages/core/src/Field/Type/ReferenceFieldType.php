@@ -19,6 +19,7 @@ use Xivi\Core\Entity\FieldDefinition;
 use Xivi\Core\Field\Autocomplete;
 use Xivi\Core\Field\Autocompletes;
 use Xivi\Core\Field\LinksToRecord;
+use Xivi\Core\Field\ModuleOwnedOptions;
 use Xivi\Core\Field\PointsAtAModule;
 use Xivi\Core\Field\PrimesFromRecords;
 use Xivi\Core\Field\RecordLink;
@@ -73,7 +74,7 @@ use Xivi\Core\Record\ReferenceTargets;
  * narrowing on every field a tenant already has, because installed definitions
  * are the customer's and are not retro-fitted (§6.1), and a picker quietly
  * widened to a whole module is exactly the failure being fixed. So the key stays and
- * {@see self::targetVariants()} is the single place that reads either shape.
+ * {@see self::variantsIn()} is the single place that reads either shape.
  *
  * A list is what the narrowing *is*, so it is also what the rest of the path
  * takes: `RecordCandidates`, `CandidateLists`, `RecordChoiceLoader` and the
@@ -166,6 +167,12 @@ final class ReferenceFieldType implements Autocompletes, LinksToRecord, PointsAt
         private readonly \Closure $records,
         private readonly RecordAccessProvider $access,
         private readonly ReferenceTargets $targets,
+        /**
+         * What this field's options are worth now rather than what was written
+         * into the row ([XIV-176]). Only the variants come through it here; see
+         * {@see ModuleOwnedOptions} for why `module` deliberately does not.
+         */
+        private readonly ModuleOwnedOptions $options,
     ) {
     }
 
@@ -250,7 +257,7 @@ final class ReferenceFieldType implements Autocompletes, LinksToRecord, PointsAt
         // records with a rule of their own should say so where that one does.
         $records = ($this->records)()->findBy(
             $module,
-            new RecordQuery([], [], 1, self::CANDIDATES, variants: self::targetVariants($field)),
+            new RecordQuery([], [], 1, self::CANDIDATES, variants: $this->targetVariants($field)),
             RecordAccess::unrestricted(),
         );
 
@@ -280,7 +287,7 @@ final class ReferenceFieldType implements Autocompletes, LinksToRecord, PointsAt
     {
         return [
             'target_module' => self::targetModule($field),
-            'target_variants' => self::targetVariants($field),
+            'target_variants' => $this->targetVariants($field),
             'required' => $field->isRequired(),
             // Read from the definition here and resolved against the candidate
             // count by the form type (XIV-36), because "how many are there" is a
@@ -357,9 +364,28 @@ final class ReferenceFieldType implements Autocompletes, LinksToRecord, PointsAt
         return Operator::Equals;
     }
 
+    /**
+     * Where this field points, off the stored definition.
+     *
+     * **Static, and deliberately not resolved against the blueprint** the way
+     * the variants below are ([XIV-176]). The target is the customer's to set
+     * (XIV-144): the editor draws a control for it, `MetadataEditor` writes it,
+     * and moving a populated one is refused with a count. So it is a decision
+     * somebody made, and §6.1 protects it.
+     */
     public static function targetModule(FieldDefinition $field): string
     {
-        $module = $field->getOption(self::MODULE);
+        return self::moduleIn($field->getOptions());
+    }
+
+    /**
+     * The same question asked of an options array; see {@see self::variantsIn()}.
+     *
+     * @param array<string, mixed> $options
+     */
+    public static function moduleIn(array $options): string
+    {
+        $module = $options[self::MODULE] ?? null;
 
         return \is_string($module) ? $module : '';
     }
@@ -367,6 +393,26 @@ final class ReferenceFieldType implements Autocompletes, LinksToRecord, PointsAt
     /**
      * The kinds of record this field points at, empty for all of them.
      *
+     * **Read from the module's blueprint rather than from the row**
+     * ([XIV-176]), which is what makes XIV-172's narrowing reach a tenant that
+     * installed the order module before it existed. Nobody chose this option and
+     * no screen can change it, so what it is worth is what the module says now;
+     * {@see ModuleOwnedOptions} carries that argument, and the guard that keeps
+     * a narrowing a tenant cannot express from emptying the picker instead of
+     * widening it.
+     *
+     * Hence an instance method where this was static. The two callers are both
+     * in this class, the demo generator's candidates and {@see self::formOptions()},
+     * and both go through the resolver now.
+     *
+     * @return list<string>
+     */
+    public function targetVariants(FieldDefinition $field): array
+    {
+        return self::variantsIn($this->options->of($field));
+    }
+
+    /**
      * **The one place that reads either shape of the option** (XIV-172). It has
      * held a single key since references learned about variants at all, and a
      * customer's installed definitions still do: `contact.employer` carries the
@@ -380,11 +426,17 @@ final class ReferenceFieldType implements Autocompletes, LinksToRecord, PointsAt
      * empty picker today and this is not the place to change that; §7.6 has the
      * open question.
      *
+     * An options array rather than a definition, because
+     * {@see ModuleOwnedOptions} has to ask the same question of options it has
+     * just resolved, and there is no definition holding those.
+     *
+     * @param array<string, mixed> $options
+     *
      * @return list<string>
      */
-    public static function targetVariants(FieldDefinition $field): array
+    public static function variantsIn(array $options): array
     {
-        $variant = $field->getOption(self::VARIANT);
+        $variant = $options[self::VARIANT] ?? null;
         $wanted = \is_array($variant) ? $variant : [$variant];
         $variants = [];
 

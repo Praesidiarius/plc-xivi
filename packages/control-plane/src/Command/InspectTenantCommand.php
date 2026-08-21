@@ -201,7 +201,25 @@ final readonly class InspectTenantCommand
         // choices, a reference's target module — and they are the reason to run
         // this at all. Encoded rather than summarised, because summarising means
         // knowing every field type, which is what the engine is built to avoid.
-        $options = $field['options'] === [] ? '' : json_encode($field['options'], \JSON_UNESCAPED_SLASHES);
+        //
+        // **What the engine reads, not what the row holds** ([XIV-176]). Where
+        // the two differ the stored JSON is printed under it, because "the
+        // narrowing is live, the row still says what it said in March" is the
+        // one fact somebody running this on an existing tenant needs and cannot
+        // get anywhere else.
+        $options = $field['options'] === [] ? '' : (string) json_encode($field['options'], \JSON_UNESCAPED_SLASHES);
+        $stored = $field['stored_options'] ?? null;
+
+        if (\is_array($stored)) {
+            $options .= sprintf("\n<comment>stored:</comment> %s", json_encode($stored, \JSON_UNESCAPED_SLASHES));
+        }
+
+        if (isset($field['records_outside_narrowing'])) {
+            $options .= sprintf(
+                "\n<comment>%d record(s) point outside it</comment>",
+                (int) $field['records_outside_narrowing'],
+            );
+        }
 
         return [
             (string) $field['key'],

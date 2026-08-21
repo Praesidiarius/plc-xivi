@@ -217,10 +217,10 @@ final readonly class RecordCandidates
     /**
      * One candidate by id, admitting what a record already holds (XIV-175).
      *
-     * The same answer as {@see self::byId()} in every way but one: the module's
-     * own narrowing is not applied. Everything that makes an id *not this
-     * reader's to have* still is: no such module, no such record, deleted, not
-     * yours, the wrong kind. None of those has ever been true of a value
+     * The same answer as {@see self::byId()} in every way but two: neither the
+     * module's own narrowing nor the field's kinds are applied. Everything that
+     * makes an id *not this reader's to have* still is: no such module, no such
+     * record, deleted, not yours. None of those has ever been true of a value
      * legitimately stored on a record somebody is looking at.
      *
      * **What this exists for is the voucher that expires after the order was
@@ -232,6 +232,26 @@ final readonly class RecordCandidates
      * own rule is the opposite (§5.9, XIV-110): a use is taken when the document
      * first names the voucher, and re-saving re-checks nothing.
      *
+     * **The kinds joined it in [XIV-176], and the argument transfers word for
+     * word**: the voucher whose family was renamed after the order was agreed is
+     * the voucher that expired after the order was agreed. A narrowing now
+     * reaches a tenant that installed the module before it existed
+     * ({@see \Xivi\Core\Field\ModuleOwnedOptions}), so a document written under
+     * the old shape can be holding a kind the picker no longer offers, and
+     * dropping it on the next save is the same silent correction, on a document
+     * somebody already agreed to.
+     *
+     * **What the write then does was expected to be a cost and is not one.**
+     * `RedeemsVouchers` acts on the difference between what a document carried
+     * before and what it carries now, because a use is taken once and re-saving
+     * re-checks nothing (§5.9, XIV-110), the same rule the paragraph above
+     * rests on. A document that already names the voucher names it before and
+     * after, so nothing is taken and nothing is refused, and the discount stays
+     * where the shop agreed it. What still refuses, and must, is a document
+     * *taking* that voucher afresh: an import, a copy, or a value put back after
+     * being cleared meet XIV-122's sentence naming the field, because a picker
+     * is a convenience in front of a guarantee rather than a replacement for it.
+     *
      * So this is not a hole in the narrowing, it is the narrowing's subject
      * stated exactly. Only a value the form was *given* reaches here, through
      * {@see \Xivi\Core\Form\RecordChoiceLoader::offer()}, which the form type
@@ -239,11 +259,14 @@ final readonly class RecordCandidates
      * crafted id is not one of those, and re-submitting the id a record already
      * holds changes nothing about the record.
      *
-     * @param list<string> $variants which kinds may be picked; empty for all
+     * **No kinds parameter, because it would be a parameter nothing reads.**
+     * Both callers used to hand theirs over and both meant the same thing by
+     * it; leaving it in the signature would leave the next reader believing it
+     * decides something.
      */
-    public function held(string $moduleKey, array $variants, int $id): ?Candidate
+    public function held(string $moduleKey, int $id): ?Candidate
     {
-        return $this->candidate($moduleKey, $variants, $id, narrowed: false);
+        return $this->candidate($moduleKey, [], $id, narrowed: false);
     }
 
     /**

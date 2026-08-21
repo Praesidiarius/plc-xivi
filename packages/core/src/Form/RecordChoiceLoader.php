@@ -151,11 +151,14 @@ final class RecordChoiceLoader implements ChoiceLoaderInterface
      * different: `byId()` answers "may this be picked", and a value already
      * stored has been picked. Narrowing it here would mean an order opened after
      * the promotion ended lost its discount by being looked at, which is the
-     * opposite of what the engine decided (§5.9, XIV-110).
+     * opposite of what the engine decided (§5.9, XIV-110). Since [XIV-176] the
+     * field's own kinds are held back for the same reason, which is why this
+     * hands over no variants: a narrowing that reached the tenant after the
+     * document was agreed would otherwise take the voucher off it.
      */
     public function offer(int $id): void
     {
-        $candidate = $this->candidates->held($this->moduleKey, $this->variants, $id);
+        $candidate = $this->candidates->held($this->moduleKey, $id);
 
         if ($candidate !== null) {
             $this->held[$candidate->id] = true;
@@ -325,10 +328,11 @@ final class RecordChoiceLoader implements ChoiceLoaderInterface
      * The difference is one question: was this form *given* this id as its
      * record's own? An id it was given goes through
      * {@see RecordCandidates::held()}, which applies everything except the
-     * module's own narrowing, so re-saving an order that carries a voucher which
-     * has since expired stores the same voucher it already stored. Everything
-     * else goes through {@see RecordCandidates::byId()} and meets the narrowing
-     * in full.
+     * module's own narrowing and the field's kinds, so re-saving an order that
+     * carries a voucher which has since expired, or one whose family the
+     * picker stopped offering ([XIV-176]), stores the same voucher it already
+     * stored. Everything else goes through {@see RecordCandidates::byId()} and
+     * meets both narrowings in full.
      *
      * **A crafted id cannot reach the first branch**, because
      * {@see self::offer()} is what fills `$held` and the form type calls it on
@@ -338,7 +342,7 @@ final class RecordChoiceLoader implements ChoiceLoaderInterface
     private function resolve(int $id): ?Candidate
     {
         return isset($this->held[$id])
-            ? $this->candidates->held($this->moduleKey, $this->variants, $id)
+            ? $this->candidates->held($this->moduleKey, $id)
             : $this->candidates->byId($this->moduleKey, $this->variants, $id);
     }
 

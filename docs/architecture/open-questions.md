@@ -32,7 +32,8 @@ keeps its slot and gains a one-line answer rather than being removed.
      too** (XIV-113, §5.29), and for a sharper reason: the expression is the
      array's own text, so the index would build and silently mean "no two
      records hold the same whole set".
-   - **Additive upgrades** are §7.2.1, built.
+   - **Additive upgrades** are §7.2.1, built. **A module's own field
+     options** are §7.2.2, read live and never written.
    - **A field changing type** is built, below.
    - **Purging a removed field's values** stays open, deliberately beside type
      change and never inside it. One is data loss somebody asked for, the
@@ -159,3 +160,63 @@ definitions are the truth. This is the explicit way to say yes afterwards.
   editor's existing refusal-with-count, and `unique` usually survives, checked
   rather than reasoned about. A derived field arrives empty; the deriver fills
   it on the next save, and nothing here invents a plausible value (XIV-73).
+- **What a key the shape *has* is worth is §7.2.2's question, not this one.** A
+  module-owned option is read live from the blueprint and never offered, which
+  is neither an addition nor an offer and would blur the sentence above.
+
+### 7.2.2 A module's own field options, read live (XIV-176)
+
+Not an addition and not an offer, which is why it is here rather than inside
+§7.2.1. That section is about a key the shape has not got; this is about a key
+it has, whose value was never the customer's.
+
+- **The options in a field's row are two things in one bag.** Label, width,
+  position, listed, filterable, required and section are decisions somebody
+  made in the editor. `variant`, `samples`, `inherit` and `scale` are the
+  module's: no control draws them, no editor path writes them, and the
+  installer is the only thing that ever put them there.
+- **§6.1 protects the customer's decisions, not their row.** So the second
+  group is read live from the blueprint and **nothing is written**: no screen,
+  no console command, no consent, no per-tenant state. The precedent is already
+  shipped: `FieldDefinition::$width` is null for a field nobody had an opinion
+  about, and null keeps following what the type wants.
+- **Declared, in `ModuleOwnedOptions`.** One list keyed by option name, because
+  option keys are shared across types and no two types disagree about who owns
+  one. `FieldController::PER_TYPE` is the inverse declaration, and a unit test
+  holds the two to being disjoint and to covering every key any shipped
+  blueprint sets. A method on the type is the escape hatch if a type ever does
+  disagree.
+- **Read live: `variant` only.** Not `scale`, which decides how a value already
+  in storage is read back, which is §5.21's complaint and which XIV-146 settled:
+  only the customer may make a conversion happen. Not `samples`, which reaches
+  demo generation and nothing else. Not `inherit`, because `InheritedValue::of()`
+  is asked of the definition directly in three places, so resolving the key
+  without rewiring them would have `tenant:inspect` report a value the engine
+  does not use. Declaring and live-reading are separate questions, and only
+  `variant`'s live read is earned.
+- **A narrowing is honoured only where the tenant's shapes can express it**:
+  target module installed, `variant_field` set, every named variant among that
+  field's own choices. Otherwise the option is dropped and the field behaves as
+  an unnarrowed reference. Not padding, because `QueryCompiler::variantGroup()`
+  compiles to `FALSE` for a shape with no variant field, so an unguarded live
+  read empties every picker in the tenant instead of widening it.
+- **No consent, and the argument for asking does not survive contact with what
+  would be asked.** §7.2.1 asks because each of its writes changes the shape of
+  records somebody already has. This writes nothing, and the thing being
+  consented to is invisible in the editor. A decline would leave a picker
+  offering values the save refuses, which is the defect XIV-172 fixed.
+- **A value a record already holds is kept.** `RecordCandidates::held()` applies
+  neither the module's own rule nor the field's kinds, so a document keeps the
+  voucher it was agreed with after the family was renamed, exactly as XIV-175
+  kept the one that expired. Nothing refuses a save that changes nothing, since
+  a use is taken once and re-saving re-checks nothing (§5.9); a document
+  *taking* such a voucher afresh still meets XIV-122's refusal naming the field.
+- **The number is takeable and nothing acts on it.**
+  `MetadataEditor::recordsPointingOutside()` counts the live records whose link
+  points outside the effective narrowing, joining to the target shape, and
+  `tenant:inspect` prints it beside the effective options. Same discipline as
+  the two counts next to it: count, name, never fix.
+- **Out of scope, filed as XIV-179:** shape-level `variant_field` and
+  field-level `variants` are columns rather than options, so nothing here
+  reaches them. XIV-133's article narrowing stays new-installations-only until
+  they do.
