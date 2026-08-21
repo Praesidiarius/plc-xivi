@@ -113,8 +113,34 @@ always lands in `Unreleased` here.
   merge report rewriting nothing while leaving those records saying the old
   thing. The comparison is asked of the field's type now. **Nothing to act on:**
   the type is new in this release, so no installation can have such a field yet.
+- **The engine has a clock, and modules declare work on it rather than owning
+  one** ([XIV-155], §6.7). A module says what recurs and what to do for one
+  period; the engine asks every tenant what is outstanding, does it, and
+  remembers that it did. No module ships a cron entry, a command or a loop. The
+  same period cannot be done twice, however often the clock turns: the record of
+  an occurrence is written in the same transaction as the work, so two runs
+  meeting produce one result and an attempt that failed is not a run. Catch-up
+  after an outage is declared per work kind, every missed period or only the
+  latest, and the schedule is read in the customer's own timezone rather than the
+  server's. Nothing uses it yet: recurring invoices ([XIV-156]) and memberships
+  ([XIV-157]) are the two consumers it was built for.
+- **There is a sixth scheduled job: `tenant:work:run`, hourly** ([XIV-155],
+  §4.5). A deploy writes `/etc/cron.d/xivi` from the job list in the image, so a
+  deployed installation picks it up with no action. **Act on this only if your
+  crontab was installed by hand**: re-run `bin/console deploy:crontab` and
+  install what it prints, or nothing a customer sets up on a schedule ever
+  happens. It walks every customer that is serving requests, skipping the
+  suspended and the half-provisioned, and exits with §4.2's codes: 0 walked, 1
+  could not run, 3 some customers had work fail and the rest are fine.
+- **Act on this: a tenant migration adds a table** ([XIV-155]).
+  `bin/console tenant:migrate` after this lands, as after any release that adds
+  one. `due_work` is engine bookkeeping, one row per occurrence the clock has
+  done, and nothing reads it but the engine.
 
 [XIV-61]: https://xivi.youtrack.cloud/issue/XIV-61
+[XIV-155]: https://xivi.youtrack.cloud/issue/XIV-155
+[XIV-156]: https://xivi.youtrack.cloud/issue/XIV-156
+[XIV-157]: https://xivi.youtrack.cloud/issue/XIV-157
 [XIV-169]: https://xivi.youtrack.cloud/issue/XIV-169
 
 - **Coverage is measured with PCOV, and the longest step in CI takes half as

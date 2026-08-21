@@ -380,6 +380,12 @@ disk, a dead container and an unplugged server all produce identically.
   silently. The gap is visible rather than closed; `deploy:crontab` exits 3 on
   "some watched". Nothing here schedules anything: the repository prints the
   crontab, and an operator installs it.
+- **The engine's own clock is one of these jobs** (XIV-155, §6.7).
+  `tenant:work:run` walks the customers and does whatever the modules declared
+  as recurring; it is an entry in this list like the other five, hourly rather
+  than nightly because customers are not in one timezone, and it is the first
+  whose absence is invisible from outside, because a customer for whom
+  nothing happens looks exactly like a month in which nothing was due.
 
 ### 4.6 A lapsed customer reads, exports, and pays nothing (2026-08-20)
 
