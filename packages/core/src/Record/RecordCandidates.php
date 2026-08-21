@@ -13,12 +13,14 @@ declare(strict_types=1);
 
 namespace Xivi\Core\Record;
 
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Xivi\Core\Entity\ModuleDefinition;
 use Xivi\Core\Metadata\MetadataRepository;
 use Xivi\Core\Metadata\ModuleNotInstalled;
 use Xivi\Core\Permission\ModuleAction;
 use Xivi\Core\Permission\RecordAccess;
 use Xivi\Core\Permission\RecordAccessProvider;
+use Xivi\Core\Query\Filter;
 use Xivi\Core\Query\RecordQuery;
 use Xivi\Core\Query\Search;
 use Xivi\Core\Query\Sort;
@@ -57,6 +59,20 @@ use Xivi\Core\Query\Sort;
  * `FieldBlueprint::variants`' own rule (§5.5) rather than a second convention,
  * and it is what every reference that says nothing about variants passes.
  *
+ * **And the module gets a say of its own** (XIV-175). Some of what cannot be
+ * chosen is not a property of the *field* at all: an expired voucher cannot be
+ * used by anybody, on any picker, and no blueprint could have said so, because
+ * the rule is a date read against today rather than a key. {@see
+ * NarrowsCandidates} is where a module states it, and this class is its only
+ * caller, so a rule stated once reaches the select, the count that chooses the
+ * widget, the endpoint and the check on a submitted id together.
+ *
+ * **What it narrows is what may be *newly chosen*.** {@see self::held()} is the
+ * other side of that sentence and the reason it is worded so carefully: a
+ * document keeps the voucher it was agreed with after the promotion ends, so
+ * the value a record already holds stays choosable on its own form even when
+ * the same id would not be offered to a new one.
+ *
  * Sorted by the shape's first title field, which is what somebody is scanning,
  * and is the same order the select used before any of this existed.
  *
@@ -81,6 +97,17 @@ final readonly class RecordCandidates
         // ask, so it is asked through their memo rather than beside it (XIV-54).
         // See byId(), where it earns its place on a form of five hundred rows.
         private ReferenceTargets $targets,
+        /**
+         * The modules that have a rule of their own about what may be offered
+         * (XIV-175). Nearly always empty of anything relevant: one voucher
+         * module against every other module in the instance, which is why
+         * {@see self::narrowingFor()} is a loop over a handful rather than a
+         * lookup that has to be built.
+         *
+         * @var iterable<NarrowsCandidates>
+         */
+        #[AutowireIterator(NarrowsCandidates::TAG)]
+        private iterable $narrowings = [],
     ) {
     }
 
@@ -175,9 +202,70 @@ final readonly class RecordCandidates
      * predicate to a record already in memory costs no query and keeps the
      * refusal in one place.
      *
+     * **The module's own rule is checked here too** (XIV-175), for the reason
+     * the paragraph above gives about kinds: narrowing only the list would
+     * leave "an expired voucher is not a choice" true of the form and false of
+     * the wire.
+     *
      * @param list<string> $variants which kinds may be picked; empty for all
      */
     public function byId(string $moduleKey, array $variants, int $id): ?Candidate
+    {
+        return $this->candidate($moduleKey, $variants, $id, narrowed: true);
+    }
+
+    /**
+     * One candidate by id, admitting what a record already holds (XIV-175).
+     *
+     * The same answer as {@see self::byId()} in every way but one: the module's
+     * own narrowing is not applied. Everything that makes an id *not this
+     * reader's to have* still is: no such module, no such record, deleted, not
+     * yours, the wrong kind. None of those has ever been true of a value
+     * legitimately stored on a record somebody is looking at.
+     *
+     * **What this exists for is the voucher that expires after the order was
+     * agreed.** A picker narrowed by the calendar stops offering it, which is
+     * right for a document being written now and wrong for the one that already
+     * names it: the form would fail to make it a choice, it would arrive as
+     * nothing, and the save would give the use back and take the discount off a
+     * document the shop has already agreed to, with nobody told. The engine's
+     * own rule is the opposite (§5.9, XIV-110): a use is taken when the document
+     * first names the voucher, and re-saving re-checks nothing.
+     *
+     * So this is not a hole in the narrowing, it is the narrowing's subject
+     * stated exactly. Only a value the form was *given* reaches here, through
+     * {@see \Xivi\Core\Form\RecordChoiceLoader::offer()}, which the form type
+     * calls on `PRE_SET_DATA` with the record's stored links and nothing else. A
+     * crafted id is not one of those, and re-submitting the id a record already
+     * holds changes nothing about the record.
+     *
+     * @param list<string> $variants which kinds may be picked; empty for all
+     */
+    public function held(string $moduleKey, array $variants, int $id): ?Candidate
+    {
+        return $this->candidate($moduleKey, $variants, $id, narrowed: false);
+    }
+
+    /**
+     * Whether this module narrows its own candidates (XIV-175).
+     *
+     * Asked by {@see \Xivi\Core\Form\RecordReferenceType}, which needs it before
+     * it has drawn anything: a picker whose module can hide a record that is
+     * legitimately stored needs a choice list that can be told about that record
+     * after the list has been built, and only one of the two widgets has one.
+     */
+    public function narrows(string $moduleKey): bool
+    {
+        return $this->narrowingFor($moduleKey) !== null;
+    }
+
+    /**
+     * @param list<string> $variants
+     * @param bool         $narrowed whether the module's own rule applies, which
+     *                               is the difference between what may be chosen
+     *                               and what may be kept
+     */
+    private function candidate(string $moduleKey, array $variants, int $id, bool $narrowed): ?Candidate
     {
         $module = $this->moduleOf($moduleKey);
 
@@ -205,6 +293,12 @@ final readonly class RecordCandidates
             return null;
         }
 
+        $narrowing = $narrowed ? $this->narrowingFor($moduleKey) : null;
+
+        if ($narrowing !== null && !$narrowing->offers($module, $record)) {
+            return null;
+        }
+
         return new Candidate((int) $record->id, RecordTitle::of($module, $record));
     }
 
@@ -219,11 +313,18 @@ final readonly class RecordCandidates
      * once. {@see RecordQuery::$variants} is where that argument is written
      * down, along with why it is not an operator over a list.
      *
+     * **And the module's own rule travels beside them** (XIV-175), as the
+     * conditions a candidate must not match. It is a third narrowing rather
+     * than a fourth filter for a related reason: what a module wants to say is
+     * a negation, and `RecordQuery::$excluding` is where the argument for that
+     * shape is written down.
+     *
      * @param list<string> $variants
      */
     private function queryFor(ModuleDefinition $module, array $variants, string $search, int $page, int $perPage): RecordQuery
     {
         return new RecordQuery(
+            excluding: $this->unofferableIn($module),
             sorts: self::sortByTitle($module),
             page: max(1, $page),
             perPage: $perPage,
@@ -237,6 +338,37 @@ final readonly class RecordCandidates
             )),
             variants: $variants,
         );
+    }
+
+    /**
+     * What this module says may not be offered, as query conditions (XIV-175).
+     *
+     * @return list<Filter>
+     */
+    private function unofferableIn(ModuleDefinition $module): array
+    {
+        return $this->narrowingFor($module->getKey())?->unofferable($module) ?? [];
+    }
+
+    /**
+     * The rule a module has about its own candidates, if it has one.
+     *
+     * **First match wins and there is deliberately no merging.** Two rules for
+     * one module would be two places to look when a picker offers something it
+     * should not, and this is a seam a module implements for itself: the module
+     * that owns the records owns the sentence about which of them may be
+     * chosen. A second implementation naming the same module is a mistake to
+     * notice, and it is noticed by the picker behaving as the first one says.
+     */
+    private function narrowingFor(string $moduleKey): ?NarrowsCandidates
+    {
+        foreach ($this->narrowings as $narrowing) {
+            if ($narrowing->moduleKey() === $moduleKey) {
+                return $narrowing;
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -66,6 +66,31 @@ use Xivi\Voucher\VoucherModule;
  * `until >= today` alone would quietly drop every voucher with no end date, which
  * is most of them.
  *
+ * **And a list that wants the valid ones asks for both of those, negated**
+ * (XIV-175). The third method was still missing when the picker needed exactly
+ * it, and the answer turned out to be that it was never needed: *not expired and
+ * not yet to start* is the same set as *currently valid*, and both halves of
+ * that are conditions this class already knows how to write.
+ * {@see \Xivi\Core\Query\RecordQuery::$excluding} takes conditions a record must
+ * not match, so the two go there and the query layer never has to learn `OR`.
+ * The NULL cases come out right for free, which is the part worth checking
+ * rather than assuming: a voucher with no end date does not match "ends before
+ * today", so nothing excludes it.
+ *
+ * ### Which day, and why nobody passes one
+ *
+ * Every caller here leaves `$today` alone, and that is what keeps the list and
+ * the refusal in step (XIV-175). The picker and
+ * {@see \Xivi\Voucher\Redemption\RedeemsVouchers} ask this same class, on the
+ * same process, with the same default, so "today" cannot be one day in the list
+ * and another in the save. Reading the *reader's* zone (§8.4.4) instead would
+ * have to be done in both places or in neither: done in one, a picker in Zürich
+ * and a refusal in UTC disagree for an hour a day, which is the failure to
+ * avoid rather than a subtlety to model. A voucher's dates are days a shop
+ * typed, not instants, and the argument for reading them in somebody's own zone
+ * has not been made yet; when it is, it is one change here and both callers move
+ * together.
+ *
  * @author Praesidiarius <praesidiarius@proton.me>
  */
 final readonly class VoucherValidity
@@ -129,6 +154,29 @@ final readonly class VoucherValidity
         return [new Filter(
             VoucherModule::VALID_UNTIL,
             Operator::LessThan,
+            self::dayOf($today)->format(DateFieldType::FORMAT),
+        )];
+    }
+
+    /**
+     * The other half of the rule, as query conditions (XIV-175).
+     *
+     * The mirror of {@see self::expiredFilters()} in every respect, including
+     * why it is a list, and it exists for the same reason
+     * {@see self::hasNotStarted()} does: a feature that only knew about the far
+     * end would offer a Christmas voucher printed in October for two months.
+     *
+     * `IsEmpty` needs no counterpart here either. A row with nothing in the
+     * column cannot be greater than a date, so a voucher that was always good is
+     * excluded by the comparison itself.
+     *
+     * @return list<Filter>
+     */
+    public function notStartedFilters(?\DateTimeImmutable $today = null): array
+    {
+        return [new Filter(
+            VoucherModule::VALID_FROM,
+            Operator::GreaterThan,
             self::dayOf($today)->format(DateFieldType::FORMAT),
         )];
     }

@@ -206,6 +206,32 @@ always lands in `Unreleased` here.
   box.
 
 [XIV-173]: https://xivi.youtrack.cloud/issue/XIV-173
+- **And only the vouchers that can be used today** ([XIV-175], §5.25). The
+  pickers still offered one that expired last month, or that starts next year,
+  and the save was again the first thing to say so. Both are out of both
+  pickers now, on the select and on the search box, and an expired id is not a
+  choice when it is typed straight into the request either.
+- **An order keeps the voucher it was agreed with after that voucher expires**
+  ([XIV-175], §5.25). What the calendar narrows is what may be newly chosen: a
+  document that already names a voucher goes on naming it, and re-saving it
+  takes no use, gives none back and is refused nothing, exactly as before. A
+  picker that dropped the stored value would have taken the discount off a
+  document the shop had already agreed to.
+- **Vouchers that are used up are still offered, deliberately** ([XIV-175]).
+  Whether a use is left is a count read at a moment rather than a property of
+  the voucher, and it is decided inside the statement that takes the use so
+  that two checkouts cannot both be told yes. A list that hid an exhausted
+  voucher would be promising the ones it showed, which it cannot; the save says
+  so instead, with the sentence it always had. A line voucher restricted to an
+  article is likewise still offered, because whether that holds is a fact about
+  the line rather than about the voucher.
+- **Act on this if you write orders through anything but the record form.** As
+  with [XIV-172], the refusals at the write are untouched and are now the only
+  place the `expired` and `not yet valid` sentences appear: through the form the
+  value is no longer a valid choice, so it arrives as nothing and the order
+  saves without it. Imports and copies are refused as before.
+
+[XIV-175]: https://xivi.youtrack.cloud/issue/XIV-175
 
 
 ## Releases

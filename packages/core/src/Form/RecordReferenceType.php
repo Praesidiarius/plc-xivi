@@ -62,6 +62,16 @@ use Xivi\Core\Record\RecordSearchUrl;
  *   why there is no notice on it — the widget reaches every record the reader
  *   may see, and says "no more results" when it has.
  *
+ * **Both shapes go through a choice loader where the target module narrows its
+ * own candidates** (XIV-175), which is the one place the two widgets stopped
+ * being "options in the page" against "options from an endpoint". A narrowing
+ * that is a rule rather than a kind, and the only one today is the calendar,
+ * can leave out a record the form is *holding*: an order carrying a voucher
+ * that expired last week. A select filled from a plain array has no way to be
+ * told about one after the array was built, and a loader has. It draws the same
+ * page from the same memo and adds that record; see the `choice_loader` option
+ * for the whole argument.
+ *
  * So under `auto` a truncated picker cannot happen: past twenty candidates the
  * ceiling is replaced rather than raised. **And it is where the pickers were
  * heaviest that this weighs least**: XIV-87 removed the queries behind a long
@@ -98,10 +108,14 @@ final class RecordReferenceType extends AbstractType
     /**
      * Hands the record being edited to the choice list, when there is one.
      *
-     * **Only under autocomplete**, because only then is the list otherwise
-     * empty. A select already rendered every candidate it will accept, and
-     * telling it about one of them again would be a second code path doing
-     * nothing.
+     * **Whenever there is a loader**, which used to mean only under autocomplete
+     * and now also means a picker whose module narrows its own candidates
+     * (XIV-175). The reasoning it replaces is worth keeping visible, because it
+     * was right about the case it described: a select rendered every candidate
+     * it would accept, so telling it about one of them again did nothing. What
+     * changed is that a narrowed list can leave out a record the form is
+     * holding, an order carrying a voucher that has since expired, and then the
+     * select is exactly as empty of it as a search box is.
      *
      * On `PRE_SET_DATA` rather than from `$builder->getData()`, because the two
      * are not the same moment: a form built empty and filled afterwards — which
@@ -180,15 +194,41 @@ final class RecordReferenceType extends AbstractType
                     $options['autocomplete_mode'] instanceof Autocomplete ? $options['autocomplete_mode'] : Autocomplete::Auto,
                 ),
                 'choices' => static fn (Options $options): array => $options['candidates']['choices'],
-                // **Null unless somebody is going to type**, because ChoiceType
-                // reaches for a loader before it reaches for `choices` and a
-                // loader on the select path would quietly replace the list this
-                // form has always rendered.
+                // **A loader when somebody is going to type, and when the module
+                // narrows its own candidates** (XIV-36, XIV-175).
+                //
+                // The first is what it was written for: ChoiceType validates a
+                // submission against the options it rendered, and a search box
+                // renders none.
+                //
+                // The second is the narrower case and the reason this option is
+                // no longer a straight read of one flag. A module may say that
+                // some of its records cannot be chosen *today*
+                // ({@see \Xivi\Core\Record\NarrowsCandidates}), and a value
+                // stored before that became true has to keep working: an order
+                // carrying a voucher that expired last week must not lose it by
+                // being opened. That means the picker has to be able to show a
+                // record the list left out, and a plain `choices` array cannot,
+                // because it is resolved before the form has any data at all.
+                // A loader can, because Symfony asks it for the list when the
+                // view is built, which is after `PRE_SET_DATA`.
+                //
+                // The old comment here said a loader on the select path would
+                // "quietly replace the list this form has always rendered", and
+                // that is why {@see RecordChoiceLoader} is handed
+                // {@see CandidateLists}: the list it renders *is* that list, read
+                // out of the same memo, in the same order, from the same query.
+                // What the loader adds is one record the narrowing hid and the
+                // form is holding.
                 'choice_loader' => fn (Options $options): ?RecordChoiceLoader => $options['candidates']['autocomplete']
+                    || $this->candidates->narrows((string) $options['target_module'])
                     ? new RecordChoiceLoader(
                         $this->candidates,
                         (string) $options['target_module'],
                         self::variantsOf($options),
+                        // The select draws its page through the loader; the
+                        // search box has no page to draw.
+                        $options['candidates']['autocomplete'] ? null : $this->lists,
                     )
                     : null,
                 // The two the ux-autocomplete extension reads off any ChoiceType

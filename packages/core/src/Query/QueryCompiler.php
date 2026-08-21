@@ -125,6 +125,10 @@ final readonly class QueryCompiler
             $conditions[] = $this->variantGroup($module, $query->variants, $slot, $parameters, $types);
         }
 
+        foreach ($query->excluding as $filter) {
+            $conditions[] = $this->exclusion($module, $filter, $slot, $parameters, $types);
+        }
+
         return new CompiledQuery(
             where: implode(' AND ', $conditions),
             parameters: $parameters,
@@ -287,6 +291,44 @@ final readonly class QueryCompiler
         }
 
         return $terms === [] ? 'FALSE' : '(' . implode(' OR ', $terms) . ')';
+    }
+
+    /**
+     * One condition, refused rather than required (XIV-175).
+     *
+     * The same predicate every filter compiles to, wrapped in the negation
+     * Postgres has for exactly this. **`IS NOT TRUE` rather than `NOT`**, and
+     * the difference is the whole reason this method is three lines rather than
+     * one: SQL comparisons against NULL are neither true nor false, so
+     * `NOT (until < today)` is NULL for a row with no end date, and a NULL
+     * predicate keeps a row out. Every voucher a customer created without
+     * filling the date in, which is nearly all of them, would vanish from the
+     * picker this narrowing was written to fix. `IS NOT TRUE` is true when the
+     * comparison is false *and* when it is unknown, which is the reading meant
+     * here: a record with nothing in the column has not matched the condition,
+     * so it is not excluded by it.
+     *
+     * It is the same correction {@see self::comparison()} makes twice already,
+     * with `IS DISTINCT FROM` for `NotEquals` and `COALESCE` for `Excludes`.
+     * Making it once here means a module's rule can be written as the plain
+     * conditions it is, and the three-valued logic is answered in one place
+     * rather than in every module that has one.
+     *
+     * Through {@see self::predicate()} like any other, so an exclusion may reach
+     * through a collection or a reference on the same terms, and every value and
+     * every field name is still bound.
+     *
+     * @param array<string, mixed>         $parameters
+     * @param array<string, ParameterType> $types
+     */
+    private function exclusion(
+        ModuleDefinition $module,
+        Filter $filter,
+        int &$slot,
+        array &$parameters,
+        array &$types,
+    ): string {
+        return sprintf('(%s) IS NOT TRUE', $this->predicate($module, $filter, $slot, $parameters, $types));
     }
 
     /**

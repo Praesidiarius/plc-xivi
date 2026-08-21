@@ -161,6 +161,48 @@ final class VoucherValidityTest extends TestCase
         self::assertSame('2026-09-01', $filters[0]->value);
     }
 
+    /**
+     * And the mirror of it, which is what a list of usable vouchers wants
+     * beside the first (XIV-175).
+     *
+     * Same shape, same one-condition argument, the other end of the calendar. A
+     * picker that had only the expiry half would offer a Christmas voucher
+     * printed in October for two months, and the save would be the first thing
+     * to say so.
+     */
+    public function testTheNotStartedRuleIsAlsoAvailableAsAQueryCondition(): void
+    {
+        $filters = $this->validity->notStartedFilters(self::day('2026-09-01'));
+
+        self::assertCount(1, $filters);
+        self::assertSame(VoucherModule::VALID_FROM, $filters[0]->field);
+        self::assertSame(Operator::GreaterThan, $filters[0]->operator);
+        self::assertSame('2026-09-01', $filters[0]->value);
+    }
+
+    /**
+     * The two conditions are the same boundaries the record-in-hand reading
+     * draws.
+     *
+     * The one property that makes a narrowed picker and the refusal at the write
+     * agree: a voucher good *until today* is good today, and one starting today
+     * has started, in both readings. `LessThan` and `GreaterThan` are strict for
+     * that reason, and this asserts it against {@see VoucherValidity::isValidOn}
+     * rather than restating the operators, because what must not drift is the
+     * pair of answers rather than the pair of spellings.
+     */
+    public function testTheConditionsDrawTheSameBoundariesAsTheRecordReading(): void
+    {
+        $today = self::day('2026-09-01');
+
+        self::assertTrue(
+            $this->validity->isValidOn(self::between('2026-09-01', '2026-09-01'), $today),
+            'its first and last day are both today',
+        );
+        self::assertSame('2026-09-01', $this->validity->expiredFilters($today)[0]->value);
+        self::assertSame('2026-09-01', $this->validity->notStartedFilters($today)[0]->value);
+    }
+
     private static function between(string $from, string $until): Record
     {
         return new Record([
